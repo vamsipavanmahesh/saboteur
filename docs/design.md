@@ -78,7 +78,11 @@ Coarse (run first per subject):
 
 If either survives, report it and skip fine mutants for the subject: a method
 whose whole body can be deleted unnoticed has no meaningful test, and the fine
-mutants would only add noise.
+mutants would only add noise. Only `survived` triggers the skip; timeout or
+error on a coarse mutant does not.
+
+Equivalent coarse mutants are not generated: no `body -> nil` for a body that
+is empty, is a literal `nil`, or whose last statement is arid (logging-only).
 
 Fine:
 - Comparison: `>=`<->`>`, `<=`<->`<`, `==`<->`!=`, `<`<->`>`, `<=`<->`>=`.
@@ -102,6 +106,16 @@ Parent:
    (`require` the configured boot file), adapter `setup` loads test files,
    `after_boot`.
 2. For each mutation: `before_fork`, `fork`.
+
+Fork hygiene (parent):
+- Coverage is not running in the parent during mutation (it lives only in
+  the map-building child).
+- Before each fork the parent holds no open DB/Redis sockets: Rails
+  integration disconnects pools after boot; `before_fork` is the hook for
+  anything else. The child opens fresh connections in `after_fork`.
+- Threads do not survive fork, and a mutex held by another thread stays
+  locked in the child. The parent must be effectively single-threaded at fork
+  time; saboteur warns when `Thread.list.size > 1` before the first fork.
 
 Child:
 1. `Process.setpgid(0, 0)` so the child and anything it spawns share a group.
@@ -154,6 +168,16 @@ eval("module Outer; class Person; #{mutated_def}; end; end",
   reported as line N of the file. Columns on the first line shift; nothing
   depends on them.
 - Verified in the same experiment: the wrapper resolves `LIMIT` correctly.
+- Magic comments do not carry into `eval` (measured: a method from a
+  `# frozen_string_literal: true` file returned an unfrozen string after
+  re-eval). The evaluated string starts with the file's magic comments on one
+  line and is evaluated at `def_start_line - 1`; measured to restore both
+  frozen literals and `source_location`.
+- Resolve the owner constant (`Object.const_get(path)`) before evaluating the
+  wrapper. Under Zeitwerk this triggers the autoload first; otherwise `class Foo`
+  in the wrapper would define a fresh shadow class.
+- Refinements (`using`) are lexical and are lost. Subjects in files that call
+  `using` are skipped in v1 ("refinements").
 
 Decision needed: adopt the wrapper, or keep `owner.class_eval` and accept the
 skip rate. Phase 1 will measure the skip rate both ways on the fixtures.
@@ -178,7 +202,9 @@ Known gaps (documented, not fixed in v1):
 ### 6.3 Timeouts and process groups
 
 - Per mutant: `max(3 x baseline_runtime(subject), 5 s)`; factor configurable.
-- Parent waits on the result pipe with that deadline. On timeout:
+- Parent waits on the result pipe with that deadline. On timeout, and also
+  after every normal child exit (to reap leftover grandchildren such as
+  servers holding a port):
   `Process.kill("TERM", -pgid)`, wait 1 s, `Process.kill("KILL", -pgid)`, reap.
   This also kills grandchildren (spawned servers, subprocesses).
 - Parent also reaps on its own exit (at_exit + trap INT/TERM) so Ctrl-C leaves
@@ -196,19 +222,32 @@ Known gaps (documented, not fixed in v1):
 | error     | child exited/crashed before writing `started`, or adapter itself raised |
 | skipped   | not run: baseline failure, no covering tests, or coarse survivor |
 
-`error` is never counted as killed. Skips carry a reason. A child that
-crashes (segfault, `exit!`) after `started` but before writing a result counts
-as killed, since a test run that ends the process is detected behaviour: OPEN,
-see 11.
+`error` is never counted as killed. Skips carry a reason. A child that dies
+after `started` without writing a result is `error`: from outside, a crash in
+the harness looks the same as one caused by the mutation. The child rescues
+`SystemExit` from test code and reports it as a normal failed run, so
+`exit` inside a test still counts as killed.
 
-Mutation score = killed / (killed + survived + timeout). Timeouts count as
-detected (Stryker convention), shown separately.
+A run where the adapter executed a different set of examples than requested
+(count or ids differ) is `error`, never survived. This guards against a broken
+filter turning every mutant into a false survivor.
+
+Mutation score = (killed + timeout) / (killed + survived + timeout). Timeouts
+count as detected (Stryker convention) and are shown separately. Errors and
+skips are outside the score and always shown, so a harness problem cannot
+raise the score silently.
 
 ## 7. Test selection: coverage map
 
+- The map is built in a forked child, never in the parent. The parent boots
+  and loads tests but never runs a test, so every mutant child forks from a
+  process with no test side effects (DB rows, class state, mocks). The
+  map-building child sends the map back over a pipe.
 - Coverage is started in `lines` mode before boot. After boot and test
   loading, `Coverage.result(stop: false, clear: true)` drops load-time counts.
-- The parent runs the full suite once, test by test, calling
+  If `Coverage` is already running (SimpleCov), saboteur refuses to start and
+  says to disable it for the run.
+- The map-building child runs the full suite once, test by test, calling
   `Coverage.result(stop: false, clear: true)` after each test; every line with
   a count > 0 maps to that test id.
 - A subject's tests = union over the body lines of its `def` (excluding the
@@ -220,8 +259,8 @@ detected (Stryker convention), shown separately.
   recorded as "suite-level" and their subjects run the full test file list of
   the group. Measured impact pending (Phase 2).
 - Cache: `.saboteur/coverage-<sha256>.json` keyed by the hash of every
-  included source file, every test file, the lockfile and the saboteur
-  version. Any change rebuilds. (Per-file incremental update is a later
+  included source file, every test file, the lockfile, the resolved config
+  (boot files, integration) and the saboteur version. Any change rebuilds. (Per-file incremental update is a later
   optimisation.)
 - No covering tests -> subject skipped ("no coverage"), reported, not a survivor.
 
@@ -296,11 +335,11 @@ and runs it like any other mutant. No LLM source ships in v1.
 
 ## 12. Open questions
 
-1. 6.1: lexical-nesting wrapper vs spec'd `owner.class_eval`.
-2. 6.4: child dies after `started` without a result. Proposed: killed (the
-   mutation made the test process die). Alternative: error.
-3. Coarse survivor -> skip fine mutants: also apply when the coarse mutant
-   times out? Proposed: no, timeout means detected.
+1. 6.1: lexical-nesting wrapper (with magic comments, owner pre-resolution)
+   vs spec'd `owner.class_eval`. Recommended: wrapper.
+
+Resolved after review (see 14): post-start death is `error`; a coarse timeout
+or error does not skip fine mutants.
 
 ## 13. Trade-offs summary
 
@@ -311,3 +350,31 @@ and runs it like any other mutant. No LLM source ships in v1.
 | coverage per test | runs few tests per mutant | one slow instrumented suite run per cache key; before(:all) attribution |
 | coarse first | fast signal, fewer noisy survivors | a coarse survivor hides fine-grained detail until fixed |
 | method-level subjects only | simple, re-evaluable unit | misses class-body/DSL logic (validations, scopes) |
+
+## 14. Second opinion (Grok CLI, 2026-10-06)
+
+The design was reviewed by the Grok CLI. Accepted and folded in above:
+- Build the coverage map in a forked child; never run tests in the parent (6, 7).
+- Require executed examples == requested ids, else `error` (6.4).
+- Magic comments are dropped by eval (verified by experiment); refinements are lost (6.1).
+- Score formula contradicted "timeouts count as detected"; fixed (6.4).
+- Post-start death -> `error`; `SystemExit` in tests -> killed via normal result (6.4).
+- No equivalent coarse mutants; coarse timeout/error does not skip fine mutants (5).
+- Fork hygiene: sockets, threads, Coverage/SimpleCov; reap the group on every exit (6, 6.3).
+- Resolve owner constant before re-eval (Zeitwerk shadow classes) (6.1).
+- Cache key includes resolved config (7).
+
+Rejected, with reason:
+- Cut `--since`, Stryker JSON, the hook set, and the mutation-source
+  interface from v1: all four are explicit product requirements. They are
+  scheduled after the core is proven (Phase 3), which addresses the "build on
+  an untrusted core" concern.
+- Lock jobs to 1: already the plan until Phase 5.
+- Drop statement removal and literal mutations: part of the v1 operator set;
+  Phase 2 measures their share of mutants and runtime before any cut.
+- Prism offset mismatch between bundled 0.19 and the gem: saboteur only
+  loads the prism gem (>= 1.0) and computes all offsets with it.
+
+Noted as risks, not designed for yet: `before(:suite)` re-running in children
+and `before(:all)` attribution (measure in Phase 1/2); `extend self`,
+`private_class_method`, captured `Method` objects (list in limitations).
