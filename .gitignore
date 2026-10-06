@@ -1,0 +1,8 @@
+/.bundle/
+/pkg/
+/tmp/
+/vendor/
+*.gem
+.rspec_status
+Gemfile.lock
+.saboteur/

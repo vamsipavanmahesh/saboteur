@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require_relative "lib/saboteur/version"
+
+Gem::Specification.new do |spec|
+  spec.name = "saboteur"
+  spec.version = Saboteur::VERSION
+  spec.authors = ["Glomo"] # TODO: maintainers
+  spec.email = ["opensource@glomo.one"]
+
+  spec.summary = "Mutation testing for Ruby, driven by per-test coverage."
+  spec.description = <<~DESC
+    saboteur makes small deliberate changes to your methods, runs only the tests
+    that cover each change, and reports the changes no test notices.
+  DESC
+  spec.homepage = "https://github.com/vamsipavanmahesh/saboteur"
+  spec.license = "MIT"
+  spec.required_ruby_version = ">= 3.3"
+
+  spec.metadata = {
+    "homepage_uri" => spec.homepage,
+    "source_code_uri" => spec.homepage,
+    "changelog_uri" => "#{spec.homepage}/blob/main/CHANGELOG.md",
+    "bug_tracker_uri" => "#{spec.homepage}/issues",
+    "rubygems_mfa_required" => "true"
+  }
+
+  spec.files = Dir["lib/**/*.rb", "exe/*", "LICENSE", "README.md", "CHANGELOG.md"]
+  spec.bindir = "exe"
+  spec.executables = ["saboteur"]
+  spec.require_paths = ["lib"]
+
+  # Ruby 3.3 bundles prism 0.19, whose API predates 1.0. Require the 1.x gem.
+  spec.add_dependency "prism", ">= 1.0", "< 2"
+end

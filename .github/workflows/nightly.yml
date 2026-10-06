@@ -1,0 +1,15 @@
+name: Nightly Rails target
+
+on:
+  schedule:
+    - cron: "30 21 * * *" # 03:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rails-target:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Pinned large Rails app run lands in Phase 4."
