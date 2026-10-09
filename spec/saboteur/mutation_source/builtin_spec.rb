@@ -23,9 +23,26 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(coarse).to eq(%w[body_nil body_raise])
     end
 
-    it "does not replace a body that is already nil, or whose last statement is arid" do
+    it "does not replace a body that is already nil, or that is only arid statements" do
       expect(texts("    nil", "body_nil")).to be_empty
-      expect(texts("    a = 1\n    puts a", "body_nil")).to be_empty
+      expect(texts("    puts a\n    logger.info(b)", "body_nil")).to be_empty
+    end
+
+    it "replaces a body that does real work before an arid last line" do
+      expect(texts("    a = b + 1\n    puts a", "body_nil")).to eq(["nil"])
+    end
+
+    it "does not raise inside a body whose rescue catches it (the stop would hide every fine mutant)" do
+      ["rescue", "rescue => e", "rescue StandardError", "rescue Exception => e"].each do |clause|
+        clause = clause.tr("\\", "")
+        subject = subjects_in("class K\n  def m\n    work\n  #{clause}\n    1\n  end\nend\n").first
+        expect(mutated_texts(subject).map(&:first)).not_to include("body_raise"), clause
+      end
+    end
+
+    it "still raises inside a body whose rescue catches only specific errors" do
+      subject = subjects_in("class K\n  def m\n    work\n  rescue ArgumentError\n    1\n  end\nend\n").first
+      expect(mutated_texts(subject).map(&:first)).to include("body_raise")
     end
 
     it "keeps rescue clauses when replacing the body" do

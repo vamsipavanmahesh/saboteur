@@ -91,7 +91,7 @@ module Saboteur
         opts.on("--timeout-factor N", Float, "Multiple of baseline runtime (default 3)") { |v| set(:timeout_factor, v) }
         opts.on("--jobs N", Integer, "Concurrent workers (default 1)") { |v| set(:jobs, v) }
         opts.on("--config PATH", "Config file (default .saboteur.yml)") { |v| set(:config, v) }
-        opts.on("--integration NAME", "rspec or minitest") { |v| set(:integration, v) }
+        opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
         opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
         opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
         opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }

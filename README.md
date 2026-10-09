@@ -7,8 +7,8 @@ the tests that execute each change, and reports the changes no test notices
 (survivors). Each survivor points at a missing test or at code that does not
 matter.
 
-Status: pre-release, not yet published. Works on plain gems and RSpec or
-Minitest suites; Rails support is in progress.
+Status: pre-release, not yet published. Works on RSpec suites of plain gems;
+Rails support is in progress. RSpec only, by design for v1.
 
 ## What makes it different
 
@@ -46,7 +46,6 @@ Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 `.saboteur.yml` in the project root; CLI flags override it.
 
 ```yaml
-integration: rspec          # or minitest
 include: [lib/**/*.rb]
 exclude: [lib/my_gem/version.rb]
 require: []                 # boot files, e.g. ./config/environment
@@ -83,7 +82,8 @@ Public API, stable across minor versions:
 - `Saboteur::MutationSource::Base#mutations_for(subject)` returning
   `Saboteur::MutationSource::Mutation` objects made of `Edit`s (file, byte
   range, replacement). Register with `sources: [builtin, path.rb:ClassName]`.
-- `Saboteur::Integration::Base` for other test frameworks.
+- `Saboteur::Integration::Base` for other test frameworks (RSpec is the
+  only one that ships).
 - `Saboteur.hook(:before_boot | :after_boot | :before_fork | :after_fork |
   :around_mutant)` in files listed under `hooks:`.
 

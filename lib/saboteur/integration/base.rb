@@ -62,4 +62,3 @@ module Saboteur
 end
 
 require_relative "rspec"
-require_relative "minitest"

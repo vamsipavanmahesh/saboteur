@@ -24,9 +24,9 @@ RSpec.describe Saboteur::Config do
   end
 
   it "reads .saboteur.yml and lets CLI overrides win" do
-    write(".saboteur.yml", "timeout_factor: 4\njobs: 1\nintegration: minitest\n")
+    write(".saboteur.yml", "timeout_factor: 4\njobs: 1\nreeval: nesting\n")
     config = described_class.load(root: @root, overrides: { timeout_factor: 2.5, since: nil })
-    expect([config["timeout_factor"], config["integration"], config["since"]]).to eq([2.5, "minitest", nil])
+    expect([config["timeout_factor"], config["reeval"], config["since"]]).to eq([2.5, "nesting", nil])
   end
 
   it "resolves include and exclude globs to real paths of .rb files" do

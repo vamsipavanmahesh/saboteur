@@ -3,7 +3,7 @@
 
 require "open3"
 
-RSpec.describe "saboteur run: diff mode, ignore list, exit codes, minitest", :e2e do
+RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
   let(:dir) { copy_fixture("people") }
 
   def git(*args)
@@ -85,24 +85,6 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes, minitest", :e2
       saboteur(dir, "--json", "flag.json")
       expect(File).to exist(File.join(dir, "flag.json"))
       expect(File).not_to exist(File.join(dir, "custom.json"))
-    end
-  end
-
-  describe "minitest" do
-    let(:dir) { copy_fixture("people_minitest") }
-
-    it "finds the same boundary survivor and never runs the suite from at_exit" do
-      run = saboteur(dir)
-      expect(run.status).to eq(1)
-      survivor = mutants(run).find { |m| m["status"] == "Survived" && m["replacement"] == ">" }
-      expect(survivor["location"]["start"]["line"]).to eq(14)
-      expect(run.out + run.err).not_to match(/\d+ runs, \d+ assertions/)
-    end
-
-    it "names minitest tests as Class#method" do
-      run = saboteur(dir)
-      killed = mutants(run).find { |m| m["status"] == "Killed" && m["killedBy"] }
-      expect(test_names(run, killed["killedBy"]).first).to match(/\APersonTest#test_/)
     end
   end
 end

@@ -28,6 +28,7 @@ module Saboteur
                   Prism::ClassVariableOrWriteNode, Prism::GlobalVariableOrWriteNode,
                   Prism::ConstantOrWriteNode, Prism::ConstantPathOrWriteNode,
                   Prism::CallOrWriteNode, Prism::IndexOrWriteNode].freeze
+      CATCH_ALL = %w[StandardError ::StandardError Exception ::Exception].freeze
       SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
 
       def initialize(arid: DEFAULT_ARID)
@@ -60,11 +61,28 @@ module Saboteur
         statements = body.is_a?(Prism::BeginNode) ? body.statements : body
         return if statements.nil? || statements.body.empty?
 
-        last = statements.body.last
-        unless (statements.body.size == 1 && last.is_a?(Prism::NilNode)) || arid?(last)
-          add("body_nil", statements, "nil", coarse: true)
+        add("body_nil", statements, "nil", coarse: true) unless nothing_to_remove?(statements)
+        add("body_raise", statements, "raise", coarse: true) unless statements.slice.strip == "raise" ||
+                                                                    rescues_everything?(body)
+      end
+
+      # A lone nil, or nothing but logging: replacing it with nil changes nothing.
+      def nothing_to_remove?(statements)
+        list = statements.body
+        (list.size == 1 && list.first.is_a?(Prism::NilNode)) || list.all? { |statement| arid?(statement) }
+      end
+
+      # A raise that the method's own rescue catches is absorbed by design. It
+      # would survive, and a surviving coarse mutant stops every fine mutant
+      # of the method, so it is not generated.
+      def rescues_everything?(body)
+        clause = body.is_a?(Prism::BeginNode) ? body.rescue_clause : nil
+        while clause
+          return true if clause.exceptions.empty? || clause.exceptions.any? { |e| CATCH_ALL.include?(e.slice) }
+
+          clause = clause.respond_to?(:subsequent) ? clause.subsequent : clause.consequent
         end
-        add("body_raise", statements, "raise", coarse: true) unless statements.slice.strip == "raise"
+        false
       end
 
       # --- fine -----------------------------------------------------------

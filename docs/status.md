@@ -35,7 +35,7 @@ go through the watchdog, one at a time (see "Safety rules").
 | 0 | name check, scaffold, licensing, CI skeleton | done (name: saboteur; `tamper` taken on rubygems) |
 | 1 | core engine on fixtures, 4 required tests | done |
 | 2 | two pinned public gems, survivor classification | done: docs/validation/phase-2-gems.md (numbers predate line-level selection; re-measure) |
-| 3 | --since, Stryker JSON, ignore list, exit codes, config, minitest | done except dogfood CI job and docs |
+| 3 | --since, Stryker JSON, ignore list, exit codes, config (minitest dropped by scope decision) | done |
 | 4 | Rails integration on a large public app (Mastodon pinned) | not started; repo pinned at 07b4fd20 |
 | 5 | parallel workers, own DB each | only on explicit go from the maintainer |
 
@@ -62,6 +62,14 @@ go through the watchdog, one at a time (see "Safety rules").
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
 
 ## Decisions log
+
+- 2026-10-09 Maintainer: drop Minitest support to reduce scope; RSpec only.
+  Adapter, fixture, dev dependency and the `test_files` config key removed;
+  `Integration::Base` stays public.
+- 2026-10-09 Claude-Grok review loop started (docs/review/). Round 1 fixes
+  done: no body_raise where the method's rescue catches it (it stopped all
+  fine mutants); body_nil kept when only the last line is arid; coverage
+  cache key includes spec support files, .rspec and boot files.
 
 - 2026-10-09 Mutant children name themselves in the process title
   ("saboteur: Klass#meth operator"); script/watchdog writes the killed tree
@@ -149,7 +157,7 @@ Findings:
    - `execution/` Reevaluator, Runner, Supervisor, ProcessTree, Protocol
    - `selection/` CoverageMap, Recorder (own file), GitDiff
    - `reporting/` Result, Report, Diff, Terminal, Stryker
-   - `integration/` RSpec, Minitest (public adapter API, keep names)
+   - `integration/` RSpec (public adapter API, keep names)
    - `frameworks/rails.rb` (a profile, not a test adapter)
    - top level: Config, CLI, Hooks, IgnoreList, Engine
 5. Public API surface is undeclared. Stable: `Saboteur::MutationSource::Base`

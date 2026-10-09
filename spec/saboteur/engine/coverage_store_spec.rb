@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "fileutils"
 require "tmpdir"
 
 RSpec.describe Saboteur::Engine::CoverageStore do
@@ -50,6 +51,26 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(second).to have_received(:build)
     expect(cache_files.size).to eq(2)
   end
+
+  # Support files, spec_helper and boot files decide which test runs which
+  # line just as much as example files do.
+  ["spec/support/helpers.rb", "spec/spec_helper.rb", ".rspec", "config/boot.rb"]
+    .each do |input|
+      it "rebuilds when #{input} changes" do
+        path = File.join(@root, input)
+        FileUtils.mkdir_p(File.dirname(path))
+        File.write(path, "1\n")
+        settings = input == "config/boot.rb" ? { require: ["./config/boot"] } : {}
+        first = store(**settings)
+        allow(first).to receive(:build).and_return(map)
+        first.fetch([file])
+        File.write(path, "2\n")
+        second = store(**settings)
+        allow(second).to receive(:build).and_return(map)
+        second.fetch([file])
+        expect(second).to have_received(:build)
+      end
+    end
 
   it "ignores the cache when caching is off" do
     store.tap { |s| allow(s).to receive(:build).and_return(map) }.fetch([file])

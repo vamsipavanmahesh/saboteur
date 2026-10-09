@@ -30,7 +30,6 @@ module Saboteur
       "cache_dir" => ".saboteur",
       "json_report" => ".saboteur/report.json",
       "rspec_args" => [],
-      "test_files" => nil,
       "subjects" => [],
       "since" => nil,
       "cache" => true

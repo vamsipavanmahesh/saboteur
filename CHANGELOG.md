@@ -17,7 +17,8 @@ All notable changes are documented here. The format follows
 - Neutral check before mutating each method.
 - Supervised children: whole-tree tracking and kill, deadline, memory and
   process caps, CPU-limit backstop, recursion guard.
-- RSpec and Minitest adapters; optional Rails profile (in progress).
+- RSpec adapter; optional Rails profile (in progress). Minitest is out of
+  scope for v1.
 - Terminal report with unified diffs, Stryker JSON report, ignore list with
   mandatory reasons.
 - Mutation-source extension point and lifecycle hooks.

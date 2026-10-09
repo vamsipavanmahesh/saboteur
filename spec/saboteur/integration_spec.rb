@@ -2,9 +2,10 @@
 # frozen_string_literal: true
 
 RSpec.describe Saboteur::Integration do
-  it "registers rspec and minitest adapters" do
+  it "registers the rspec adapter, and only it (Minitest is out of scope)" do
     expect(described_class.fetch(:rspec)).to eq(Saboteur::Integration::RSpec)
-    expect(described_class.fetch("minitest")).to eq(Saboteur::Integration::Minitest)
+    expect(described_class::REGISTRY.keys).to eq(["rspec"])
+    expect { described_class.fetch(:minitest) }.to raise_error(Saboteur::Error, /unknown integration/)
   end
 
   it "raises a saboteur error for an unknown adapter" do

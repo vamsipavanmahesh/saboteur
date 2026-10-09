@@ -20,9 +20,6 @@ module Saboteur
       def before_boot
         env = ENV.fetch("RAILS_ENV", nil) || ENV.fetch("RACK_ENV", nil)
         raise Error, "rails integration refuses to run unless RAILS_ENV=test (got #{env.inspect})" unless env == "test"
-
-        # Minitest's parallel executor would fork its own workers inside children.
-        ENV["PARALLEL_WORKERS"] = "1"
       end
 
       def after_boot
