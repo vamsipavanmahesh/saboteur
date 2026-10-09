@@ -6,8 +6,8 @@ require_relative "lib/saboteur/version"
 Gem::Specification.new do |spec|
   spec.name = "saboteur"
   spec.version = Saboteur::VERSION
-  spec.authors = ["Glomo"] # TODO: maintainers
-  spec.email = ["opensource@glomo.one"]
+  spec.authors = ["Vamsi Pavan Mahesh Gunturu"]
+  spec.email = ["gvpmahesh@gmail.com"]
 
   spec.summary = "Mutation testing for Ruby, driven by per-test coverage."
   spec.description = <<~DESC
