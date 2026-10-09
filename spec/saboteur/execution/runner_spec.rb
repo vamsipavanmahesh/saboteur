@@ -29,6 +29,9 @@ RSpec.describe Saboteur::Execution::Runner do
         result = ->(**kw) { Saboteur::Integration::RunResult.new(runtime: 0.01, **kw) }
         case mode
         when "pass" then result.call(passed: true, failed_ids: [], executed_ids: ids)
+        when "title"
+          File.write(File.join(dir, "title"), `ps -o command= -p #{Process.pid}`.strip)
+          result.call(passed: true, failed_ids: [], executed_ids: ids)
         when "fail" then result.call(passed: false, failed_ids: [ids.first], executed_ids: [ids.first])
         when "partial" then result.call(passed: true, failed_ids: [], executed_ids: ids.first(1))
         when "foreign" then result.call(passed: false, failed_ids: ["other"], executed_ids: ["other"])
@@ -45,7 +48,7 @@ RSpec.describe Saboteur::Execution::Runner do
   let(:tmpdir) { Dir.mktmpdir("saboteur-runner-") }
   let(:hooks) { Saboteur::Hooks.new }
   let(:runner) { described_class.new(integration:, reevaluator:, hooks:, log_dir: tmpdir) }
-  let(:subject_stub) { Object.new }
+  let(:subject_stub) { Struct.new(:id).new("Stub#run") }
 
   after { FileUtils.rm_rf(tmpdir) }
 
@@ -58,6 +61,20 @@ RSpec.describe Saboteur::Execution::Runner do
     true
   rescue Errno::ESRCH
     false
+  end
+
+  it "names the mutant in the child's process title, so ps shows what is running" do
+    subject_with_id = Struct.new(:id).new("Shop::Cart#total")
+    edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: "Shop::Cart#total", operator: "comparison",
+                                                      edits: [edit])
+    runner.run(subject: subject_with_id, text: "title", test_ids: ["t1"], timeout: 5, mutation: mutation)
+    expect(File.read(File.join(tmpdir, "title"))).to eq("saboteur: Shop::Cart#total comparison")
+  end
+
+  it "names a neutral check in the child's process title" do
+    runner.run(subject: Struct.new(:id).new("Shop::Cart#total"), text: "title", test_ids: ["t1"], timeout: 5)
+    expect(File.read(File.join(tmpdir, "title"))).to eq("saboteur: Shop::Cart#total neutral check")
   end
 
   it "reports survived when every requested test ran and passed" do

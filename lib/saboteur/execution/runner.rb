@@ -53,6 +53,7 @@ module Saboteur
       # --- child ----------------------------------------------------------
 
       def child(writer, job)
+        Process.setproctitle(title(job))
         redirect_output(job.log_path)
         @hooks.run(:after_fork)
         @reevaluator.call(job.subject, job.text)
@@ -66,6 +67,11 @@ module Saboteur
       rescue Exception => e # rubocop:disable Lint/RescueException
         Protocol.emit(writer, "error", message: "#{e.class}: #{e.message}", backtrace: e.backtrace&.first(5))
         exit!(1)
+      end
+
+      # What `ps` shows for this child: which method, and which mutant.
+      def title(job)
+        "saboteur: #{job.subject.id} #{job.mutation ? job.mutation.operator : 'neutral check'}"
       end
 
       def run_tests(test_ids)

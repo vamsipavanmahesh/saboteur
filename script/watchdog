@@ -9,7 +9,8 @@
 #   script/watchdog LOG_PREFIX [--procs N] [--rss-gb N] [--minutes N] -- COMMAND...
 #
 # Writes LOG_PREFIX.out, LOG_PREFIX.err and a one-line LOG_PREFIX.watchdog
-# with the verdict and the peaks it saw. Exits with the command's status, or
+# with the verdict and the peaks it saw; when it trips, LOG_PREFIX.tree lists
+# the processes it killed. Exits with the command's status, or
 # 124 when it tripped.
 
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
@@ -44,6 +45,9 @@ loop do
   elapsed = monotonic.call - started
   if live.size > max_procs || rss > max_rss_kb || elapsed > max_seconds
     verdict = "TRIPPED procs=#{live.size} rss=#{rss / 1024}MB elapsed=#{elapsed.round}s"
+    # Record what was running (mutant children name themselves) before killing it.
+    listing = IO.popen(["ps", "-o", "pid=,ppid=,rss=,command=", "-p", live.map(&:pid).join(",")], &:read)
+    File.write("#{log}.tree", listing)
     tree.kill_all
     Process.wait(pid)
     break

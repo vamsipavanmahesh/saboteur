@@ -51,10 +51,24 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect([result.payload, result.stopped_by, result.exit_status.exitstatus]).to eq(["hello", nil, 0])
   end
 
+  it "records nesting depth in the child" do
+    nested = supervisor.run(timeout: 5) do |writer|
+      writer.write(described_class.new.run(timeout: 5) { |inner| inner.write(ENV.fetch(described_class::CHILD_ENV)) }
+                                   .payload)
+    end
+    outer_depth = ENV.fetch(described_class::CHILD_ENV, "0").to_i
+    expect(nested.payload).to eq((outer_depth + 2).to_s)
+  end
+
+  it "refuses to fork past the maximum depth, even if every other guard is gone" do
+    stub_const("ENV", ENV.to_h.merge(described_class::CHILD_ENV => described_class::MAX_DEPTH.to_s))
+    expect { supervisor.run(timeout: 5) { nil } }.to raise_error(Saboteur::Error, /nested .* deep/)
+  end
+
   it "marks the child so a nested saboteur run can refuse to start" do
     before = ENV.fetch(described_class::CHILD_ENV, nil) # set when this suite itself runs under saboteur
     result = supervisor.run(timeout: 5) { |writer| writer.write(ENV.fetch(described_class::CHILD_ENV, "unset")) }
-    expect(result.payload).to eq("1")
+    expect(result.payload).to eq((before.to_i + 1).to_s)
     expect(ENV.fetch(described_class::CHILD_ENV, nil)).to eq(before)
   end
 

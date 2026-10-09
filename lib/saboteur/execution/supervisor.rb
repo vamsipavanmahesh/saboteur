@@ -23,7 +23,12 @@ module Saboteur
     #   5. On Linux, the supervisor is a child subreaper, so escaped orphans are
     #      re-parented to it instead of init and stay in its tree.
     class Supervisor
+      # Set in every child to its nesting depth (1 for a child of a top-level
+      # run). Engine refuses to start when it is set; the supervisor itself
+      # refuses to fork past MAX_DEPTH, so even a run with that guard removed
+      # (a mutant of the guard, say) cannot recurse without bound.
       CHILD_ENV = "SABOTEUR_CHILD"
+      MAX_DEPTH = 4
 
       Limits = Data.define(:max_memory_mb, :max_processes) do
         def self.default
@@ -76,13 +81,17 @@ module Saboteur
       # when the block returns. Returns a Result. cpu_seconds bounds every
       # descendant's CPU time (default: twice the deadline, at least 10 s).
       def run(timeout:, cpu_seconds: nil, &block)
+        depth = ENV.fetch(CHILD_ENV, "0").to_i
+        raise Error, "refusing to fork: saboteur children nested #{depth} deep (limit #{MAX_DEPTH})" if
+          depth >= MAX_DEPTH
+
         cpu_seconds ||= [(timeout * 2).ceil, 10].max
         reader, writer = IO.pipe
         $stdout.flush
         $stderr.flush
         started = monotonic
         supervisor = Process.pid
-        pid = fork { child(reader, writer, supervisor, cpu_seconds, &block) }
+        pid = fork { child(reader, writer, supervisor, cpu_seconds, depth + 1, &block) }
         writer.close
         contain(pid, reader, started, timeout)
       ensure
@@ -93,9 +102,9 @@ module Saboteur
 
       # --- child ----------------------------------------------------------
 
-      def child(reader, writer, supervisor, cpu_seconds)
+      def child(reader, writer, supervisor, cpu_seconds, depth)
         reader.close
-        ENV[CHILD_ENV] = "1"
+        ENV[CHILD_ENV] = depth.to_s
         Process.setpgid(0, 0)
         limit_cpu(cpu_seconds)
         trap("TERM") { exit!(143) }

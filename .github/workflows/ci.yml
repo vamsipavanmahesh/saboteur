@@ -54,3 +54,27 @@ jobs:
           ruby-version: "3.3"
       - name: Run against the pinned commit and compare counts
         run: script/integration-target "${{ matrix.target }}" "$RUNNER_TEMP/targets" --reeval "${{ matrix.reeval }}" --check
+
+  # saboteur on its own changed methods. Survivors fail the check unless they
+  # are on .saboteur-ignore.yml with a reason.
+  dogfood:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Mutate methods changed in this pull request
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bundle exec exe/saboteur run --since "origin/$BASE_REF"
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: saboteur-report
+          path: .saboteur/report.json

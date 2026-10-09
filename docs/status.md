@@ -42,7 +42,6 @@ go through the watchdog, one at a time (see "Safety rules").
 ## Next up (ordered)
 
 - [ ] Architecture steps E and F (typed config schema, public API docs)
-- [ ] Dogfood CI job (`saboteur run --since origin/main`) in .github/workflows/ci.yml
 - [ ] Triage dogfood survivors (165 at commit 47b8bc8; many real gaps in diff.rb property coverage) and add the missing specs
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
 - [ ] Phase 4: Mastodon under the watchdog, jobs 1
@@ -63,6 +62,16 @@ go through the watchdog, one at a time (see "Safety rules").
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
 
 ## Decisions log
+
+- 2026-10-09 Mutant children name themselves in the process title
+  ("saboteur: Klass#meth operator"); script/watchdog writes the killed tree
+  on trip. That pinned the second trip to one mutant: removing the
+  recursion guard in Engine#call made the guard's own spec start a real
+  run. Fixes: guard specs must fail safely (stub the heavy path to raise);
+  the supervisor counts nesting depth in SABOTEUR_CHILD and refuses to fork
+  past depth 4, a bound that does not depend on the guard.
+- 2026-10-09 Dogfood CI job added (PRs, --since origin/<base>); action pins
+  verified against GitHub tags.
 
 - 2026-10-09 The restructure left dogfood's excludes pointing at moved files,
   so dogfood mutated the containment code; the watchdog tripped at 32
