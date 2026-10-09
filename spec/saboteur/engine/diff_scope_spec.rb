@@ -31,6 +31,11 @@ RSpec.describe Saboteur::Engine::DiffScope do
       .to eq(%w[body_nil body_raise])
   end
 
+  it "keeps the coarse mutants even when only the def line changed" do
+    kept = scope([2]).restrict(subject_under_test, candidates)
+    expect(kept.map { |mutation, _| mutation.operator }).to eq(%w[body_nil body_raise])
+  end
+
   it "keeps nothing fine when no line of the method changed" do
     expect(kept_lines([99])).to be_empty
   end

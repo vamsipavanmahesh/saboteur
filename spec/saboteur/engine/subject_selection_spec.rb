@@ -48,6 +48,24 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(select([file], since: "HEAD").map(&:id)).to eq(["Shop::Cart#total"])
   end
 
+  it "keeps --since working when some selected files have no change" do
+    changed = write("cart.rb", source)
+    untouched = write("other.rb", "class Other\n  def x = 1\nend\n")
+    git = lambda { |*args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    }
+    git.call("init", "-q")
+    git.call("add", ".")
+    git.call("commit", "-q", "-m", "base")
+    File.write(changed, source.sub("def total = 1", "def total = 2"))
+    expect(select([changed, untouched], since: "HEAD").map(&:id)).to eq(["Shop::Cart#total"])
+  end
+
+  it "reports only the first parse error of a file" do
+    select([write("broken.rb", "class X\n  def (\n  def )\nend\n")])
+    expect(diagnostics.warnings.size).to eq(1)
+  end
+
   it "warns about files that do not parse and skips them" do
     expect(select([write("broken.rb", "class X\n  def (\nend\n")])).to be_empty
     expect(diagnostics.warnings.first).to start_with("broken.rb does not parse")

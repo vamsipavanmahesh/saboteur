@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "json"
 require "stringio"
 require "tmpdir"
 
@@ -125,6 +126,18 @@ RSpec.describe Saboteur::Engine::Scheduler, "result cache" do
     runs = first.count { |result| !result.reason } + 1
     run_with(cache)
     expect(runner).to have_received(:run).exactly(runs).times
+  end
+
+  it "runs only the mutants whose verdicts cannot be reused" do
+    store = cache
+    first = run_with(store)
+    first_runs = first.size + 1
+    # Forget one verdict: only it (and the neutral check) may run again.
+    entries = JSON.parse(File.read(File.join(@root, "results.json")))
+    entries["entries"].delete(entries["entries"].keys.first)
+    File.write(File.join(@root, "results.json"), JSON.generate(entries))
+    run_with(cache)
+    expect(runner).to have_received(:run).exactly(first_runs + 2).times
   end
 
   it "runs everything without a cache" do

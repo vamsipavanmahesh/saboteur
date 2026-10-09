@@ -54,6 +54,19 @@ RSpec.describe Saboteur::Engine::Scheduler, "load check" do
     expect(reasons(results).first).to start_with("shadowed definition (runtime method at ")
   end
 
+  it "accepts a private method" do
+    results = schedule("class LoadCheckTarget\n  private\n\n  def m(a)\n    a + 1\n  end\nend\n", "LoadCheckTarget#m")
+    expect(reasons(results)).not_to include(a_string_matching(/not loaded|shadowed/))
+  end
+
+  it "skips a method redefined in another file, even on the same line number" do
+    source = "class LoadCheckTarget\n  def m(a)\n    a + 1\n  end\nend\n"
+    other = File.join(Dir.mktmpdir, "elsewhere.rb")
+    File.write(other, source.sub("a + 1", "a + 2"))
+    results = schedule(source, "LoadCheckTarget#m", extra: "load #{other.inspect}")
+    expect(reasons(results).first).to match(%r{\Ashadowed definition \(runtime method at .*/elsewhere\.rb:2\)\z})
+  end
+
   it "looks past a prepended module to the class's own method" do
     results = schedule("class LoadCheckTarget\n  def m(a)\n    a + 1\n  end\nend\n", "LoadCheckTarget#m",
                        extra: "LoadCheckTarget.prepend(Module.new { def m(a) = super })")

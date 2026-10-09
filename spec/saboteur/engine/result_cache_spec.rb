@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "json"
 require "tmpdir"
 
 RSpec.describe Saboteur::Engine::ResultCache do
@@ -68,6 +69,13 @@ RSpec.describe Saboteur::Engine::ResultCache do
     store.save
     later = described_class.new(path: path, root: @root, inputs: "config-1", suite_digest: "support-2")
     expect(later.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  it "ignores a results file in another format" do
+    stored
+    data = JSON.parse(File.read(path))
+    File.write(path, JSON.generate(data.merge("format" => 99)))
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
   end
 
   it "never stores errors or skips: they always run again" do

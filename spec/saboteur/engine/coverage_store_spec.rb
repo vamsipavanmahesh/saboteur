@@ -73,6 +73,36 @@ RSpec.describe Saboteur::Engine::CoverageStore do
       end
     end
 
+  it "rebuilds when the lockfile changes" do
+    lock = File.join(@root, "Gemfile.lock").tap { |p| File.write(p, "a\n") }
+    store.tap { |s| allow(s).to receive(:build).and_return(map) }.fetch([file])
+    File.write(lock, "b\n")
+    again = store
+    allow(again).to receive(:build).and_return(map)
+    again.fetch([file])
+    expect(again).to have_received(:build)
+  end
+
+  it "builds the map in a supervised child and says so" do
+    err = StringIO.new
+    built = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: built.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    store = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
+                                hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                diagnostics: Saboteur::Engine::Diagnostics.new(err))
+    expect(store.fetch([file]).tests).to eq(["t1"])
+    expect(err.string).to include("building coverage map")
+    expect(supervisor).to have_received(:run).with(timeout: 3600.0)
+  end
+
+  it "refuses to build when Coverage was not set up by the executable" do
+    allow(Coverage).to receive(:state).and_return(:idle)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /SimpleCov/)
+  end
+
   it "ignores the cache when caching is off" do
     store.tap { |s| allow(s).to receive(:build).and_return(map) }.fetch([file])
     uncached = store(cache: false)
