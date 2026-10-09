@@ -44,9 +44,9 @@ RSpec.describe "containment of a test suite that starts saboteur", :e2e do
 
     report = JSON.parse(File.read(File.join(dir, ".saboteur", "report.json")))
     statuses = report.fetch("files").fetch("lib/gate.rb").fetch("mutants").map { |m| [m["replacement"], m["status"]] }
-    # `>=` -> `<=` and `1` -> `0` open the gate for zero jobs, so the spec
-    # calls Saboteur::CLI#call inside the mutant child.
-    expect(statuses).to include(["<=", "Killed"], %w[0 Killed])
+    # `jobs >= 1` -> `true` and `1` -> `0` open the gate for zero jobs, so
+    # the spec calls Saboteur::CLI#call inside the mutant child.
+    expect(statuses).to include(%w[true Killed], %w[0 Killed])
     expect(statuses.map(&:last)).not_to include("Timeout", "RuntimeError")
   end
 end

@@ -71,6 +71,13 @@ survivors classified and a census of defs inside blocks.
 
 ## Decisions log
 
+- 2026-10-09 M2 adopted after measurement (docs/validation/phase-2-gems.md):
+  sufficient ROR/COR sets and predicate true/false coarse mutants. tty-color
+  gained 4 real gaps and no noise; dry-inflector survivors unchanged.
+  Mutant licence decision for the benchmark: maintainer said not to pause;
+  will read mutant's public licence terms (docs only) before installing and
+  record the basis here.
+
 - 2026-10-09 Maintainer decisions: M1 default reeval = nesting (done);
   M2 adopt the research operator changes with a before/after measurement;
   M3 keep all `||=` mutants; M4 resource-limit stops get their own status,

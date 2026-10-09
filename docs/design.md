@@ -89,9 +89,16 @@ rescue is for). A surviving coarse mutant stops the fine mutants, except in
 a method with `rescue` or `else`, which can return a value of its own.
 
 Fine:
-- Comparison: `>=`<->`>`, `<=`<->`<`, `==`<->`!=`, `<`<->`>`, `<=`<->`>=`.
-- Boolean: `&&`<->`||` (and `and`/`or`), drop `!`/`not`, condition -> `true`,
-  condition -> `false` (for `if`/`unless`/`while`/`until`/ternary predicates).
+- Comparison (sufficient set, Kaminski et al. 2011): `<` -> `<=`, `!=`,
+  `false`; `<=` -> `<`, `==`, `true`; `>` -> `>=`, `!=`, `false`;
+  `>=` -> `>`, `==`, `true`; `==` -> `false`, `true`; `!=` -> `true`,
+  `false` (not `<=`/`>=`: they raise on non-Comparable objects).
+- Boolean (sufficient set, Just et al. 2012): `a && b` -> `a`, `b`,
+  `false`; `a || b` -> `a`, `b`, `true` (same for `and`/`or`); drop
+  `!`/`not`; condition -> `true`, condition -> `false` (for
+  `if`/`unless`/`while`/`until`/ternary predicates).
+- Predicate methods (`def x?`): coarse `body -> true` and `body -> false`
+  replace `body -> nil` (nil and false are both falsy; true was missing).
 - Arithmetic: `+`<->`-`, `*`<->`/`, integer/float literal n -> n+1, n-1, 0
   (skip the replacement equal to n).
 - Statement removal: each statement of a sequence of two or more, one at a

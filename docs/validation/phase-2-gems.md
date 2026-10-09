@@ -27,6 +27,34 @@ Windows and `disabled?` guards were each reported by both statement removal
 and `condition_false`). The classification below is from the first run;
 the remaining survivors are the same mutants.
 
+## Operator change M2 (sufficient ROR/COR sets, predicate coarse), before/after
+
+Same commits, nesting, cold cache, under script/watchdog. Before = 20f80aa,
+after = the M2 commit.
+
+| target | | mutants | killed | survived | score | assertion kills | crash kills | wall |
+|---|---|---|---|---|---|---|---|---|
+| dry-inflector | before | 261 | 243 | 18 | 93.1 % | 160 | 83 | 21.93 s |
+| dry-inflector | after | 267 | 249 | 18 | 93.3 % | 168 | 81 | 20.70 s |
+| tty-color | before | 128 | 116 | 11 | 91.3 % | 88 | 28 | 2.45 s |
+| tty-color | after | 136 | 118 | 16 | 88.1 % | 90 | 28 | 2.48 s |
+
+Survivor sets, compared mutant by mutant (by location and mutated text):
+
+- dry-inflector: identical survivors. No new noise.
+- tty-color: 1 survivor gone, 6 new. All 6 are real gaps, read against the
+  specs: `colors >= 8` -> `== 8` (more than 8 colours never tested);
+  `!(no_color.nil? || no_color.empty?)` -> `!(no_color.nil?)` (empty NO_COLOR
+  never tested); `` `tput colors`.to_i > 2 `` -> `!= 2` (fewer than 2 never
+  tested); `windows?` -> `true` (Windows detection never checked);
+  `tty?` -> `true` and -> `false` (replace the old `body_nil` survivor: the
+  same gap, stated in both directions).
+
+Decision: keep M2. The mutant count went up slightly (Ruby code here has
+more connectors than comparisons, and each connector now yields 3 mutants
+instead of 1), not down as in the Java studies; the new survivors were all
+real gaps.
+
 ## Incremental mode (--incremental), dry-inflector, nesting
 
 | run | wall | verdicts reused | statuses | peak processes |

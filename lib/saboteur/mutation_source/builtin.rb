@@ -16,12 +16,28 @@ module Saboteur
         '\.instrument\b'
       ].freeze
 
+      # A comparison replacement: swap the operator, or put a literal in
+      # place of the whole comparison.
+      Swap = Data.define(:operator)
+      Literal = Data.define(:text)
+
+      # Sufficient relational replacements (Kaminski, Ammann, Offutt 2011):
+      # the others are subsumed by these. For == and != Ruby gets true/false:
+      # <= and >= raise on objects that are not Comparable, which only gives
+      # cheap crash kills.
       COMPARISON = {
-        :>= => %w[> <=], :> => %w[>= <], :<= => %w[< >=], :< => %w[<= >],
-        :== => %w[!=], :!= => %w[==]
+        :< => [Swap["<="], Swap["!="], Literal["false"]], :<= => [Swap["<"], Swap["=="], Literal["true"]],
+        :> => [Swap[">="], Swap["!="], Literal["false"]], :>= => [Swap[">"], Swap["=="], Literal["true"]],
+        :== => [Literal["false"], Literal["true"]], :!= => [Literal["true"], Literal["false"]]
       }.freeze
       ARITHMETIC = { :+ => "-", :- => "+", :* => "/", :/ => "*" }.freeze
-      BOOLEAN = { "&&" => "||", "||" => "&&", "and" => "or", "or" => "and" }.freeze
+      # Sufficient connector replacements (Just et al. 2012): each operand
+      # alone, then the constant the connector cannot produce from it.
+      ABSORBING = { "&&" => "false", "and" => "false", "||" => "true", "or" => "true" }.freeze
+      # Operands that need parentheses when they stand alone in place of the
+      # whole expression.
+      COMPOUND = [Prism::AndNode, Prism::OrNode, Prism::IfNode, Prism::UnlessNode,
+                  Prism::RescueModifierNode].freeze
       NON_NUMERIC = [Prism::StringNode, Prism::InterpolatedStringNode, Prism::XStringNode,
                      Prism::ArrayNode, Prism::HashNode, Prism::SymbolNode].freeze
       OR_WRITE = [Prism::LocalVariableOrWriteNode, Prism::InstanceVariableOrWriteNode,
@@ -61,7 +77,12 @@ module Saboteur
         statements = body.is_a?(Prism::BeginNode) ? body.statements : body
         return if statements.nil? || statements.body.empty?
 
-        add("body_nil", statements, "nil", coarse: true) unless nothing_to_remove?(statements)
+        unless nothing_to_remove?(statements)
+          # A predicate's nil is just false; true is the value its tests must reject.
+          (@subject.name.end_with?("?") ? %w[true false] : %w[nil]).each do |value|
+            add("body_#{value}", statements, value, coarse: true)
+          end
+        end
         add("body_raise", statements, "raise", coarse: true) unless statements.slice.strip == "raise" ||
                                                                     rescues_everything?(body)
       end
@@ -129,7 +150,12 @@ module Saboteur
 
       def mutate_call(node)
         if binary?(node)
-          COMPARISON.fetch(node.name, []).each { |op| add("comparison", node.message_loc, op) }
+          COMPARISON.fetch(node.name, []).each do |replacement|
+            case replacement
+            when Swap then add("comparison", node.message_loc, replacement.operator)
+            when Literal then add("comparison", node, replacement.text)
+            end
+          end
           arithmetic = ARITHMETIC[node.name]
           add("arithmetic", node.message_loc, arithmetic) if arithmetic && numeric_operands?(node)
         end
@@ -151,8 +177,15 @@ module Saboteur
       end
 
       def mutate_boolean(node)
-        replacement = BOOLEAN[node.operator_loc.slice]
-        add("boolean_logic", node.operator_loc, replacement) if replacement
+        constant = ABSORBING[node.operator_loc.slice]
+        return unless constant
+
+        [node.left, node.right].each { |operand| add("boolean_logic", node, standalone(operand)) }
+        add("boolean_logic", node, constant)
+      end
+
+      def standalone(operand)
+        COMPOUND.any? { |type| operand.is_a?(type) } ? "(#{operand.slice})" : operand.slice
       end
 
       # Replacing a loop condition with the value that never ends it would

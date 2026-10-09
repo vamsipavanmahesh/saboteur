@@ -51,6 +51,13 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(text).to eq("def m\n    nil\n  rescue StandardError\n    1\n  end")
     end
 
+    it "replaces a predicate method's body with true and with false, instead of nil" do
+      subject = subjects_in("class K\n  def ok?\n    @a > 1\n  end\nend\n").first
+      coarse = described_class.new.mutations_for(subject).select(&:coarse)
+      expect(coarse.map(&:operator)).to eq(%w[body_true body_false body_raise])
+      expect(coarse.map { |m| subject.apply(m.edits) }.first).to eq("def ok?\n    true\n  end")
+    end
+
     it "handles endless defs" do
       subject = subjects_in("class K\n  def m = 1 + 2\nend\n").first
       expect(mutated_texts(subject).first).to eq(["body_nil", "def m = nil"])
@@ -62,20 +69,38 @@ RSpec.describe Saboteur::MutationSource::Builtin do
   end
 
   describe "comparison" do
-    it "swaps each comparison operator" do
-      expect(texts("    a >= b", "comparison")).to eq(["a > b", "a <= b"])
-      expect(texts("    a > b", "comparison")).to eq(["a >= b", "a < b"])
-      expect(texts("    a <= b", "comparison")).to eq(["a < b", "a >= b"])
-      expect(texts("    a < b", "comparison")).to eq(["a <= b", "a > b"])
-      expect(texts("    a == b", "comparison")).to eq(["a != b"])
-      expect(texts("    a != b", "comparison")).to eq(["a == b"])
+    # The sufficient relational set (Kaminski et al. 2011): the other
+    # replacements are subsumed. For == and != Ruby gets true/false, not
+    # <=/>=, which raise NoMethodError on objects that are not Comparable.
+    it "uses the sufficient replacements for each comparison" do
+      expect(texts("    a < b", "comparison")).to eq(["a <= b", "a != b", "false"])
+      expect(texts("    a <= b", "comparison")).to eq(["a < b", "a == b", "true"])
+      expect(texts("    a > b", "comparison")).to eq(["a >= b", "a != b", "false"])
+      expect(texts("    a >= b", "comparison")).to eq(["a > b", "a == b", "true"])
+      expect(texts("    a == b", "comparison")).to eq(%w[false true])
+      expect(texts("    a != b", "comparison")).to eq(%w[true false])
+    end
+
+    it "no longer emits the subsumed direction swap (< to >)" do
+      expect(texts("    a < b", "comparison")).not_to include("a > b")
     end
   end
 
   describe "boolean logic" do
-    it "swaps && with || and and with or" do
-      expect(texts("    a && b", "boolean_logic")).to eq(["a || b"])
-      expect(texts("    a or b", "boolean_logic")).to eq(["a and b"])
+    # The sufficient connector set (Just et al. 2012): each operand alone,
+    # plus the constant the connector cannot produce. The swap is subsumed.
+    it "replaces && and || with each operand and with the absorbing constant" do
+      expect(texts("    x = a && b", "boolean_logic")).to eq(["x = a", "x = b", "x = false"])
+      expect(texts("    x = opts[:k] || default", "boolean_logic"))
+        .to eq(["x = opts[:k]", "x = default", "x = true"])
+      expect(texts("    a or b", "boolean_logic")).to eq(%w[a b true])
+    end
+
+    it "keeps an operand that is itself a condition in parentheses" do
+      expect(texts("    x = a && (b || c)", "boolean_logic")).to include("x = (b || c)")
+      expect(texts("    x = a && b ? 1 : 2", "boolean_logic")).to all(satisfy { |t|
+        Prism.parse("def m\n#{t}\nend").success?
+      })
     end
 
     it "removes negation" do
