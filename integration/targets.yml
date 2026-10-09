@@ -1,0 +1,22 @@
+# Public projects saboteur is validated against, pinned by commit.
+# Run one with: script/integration-target NAME [WORKDIR] [--reeval S] [--check]
+# expect: mutants per status at the pinned commit, per re-evaluation strategy.
+# Update the snapshot deliberately when an operator change moves the counts.
+dry-inflector:
+  repo: https://github.com/dry-rb/dry-inflector.git
+  commit: b6a2819f0cf1bc0c24e024bbdf73f4f67003cbc9
+  license: MIT
+  config: integration/configs/dry-inflector.yml
+  schedule: pr
+  expect:
+    class_eval: { killed: 238, survived: 17, timeout: 0, error: 0, skipped: 10 }
+    nesting: { killed: 247, survived: 18, timeout: 0, error: 0, skipped: 0 }
+tty-color:
+  repo: https://github.com/piotrmurach/tty-color.git
+  commit: e2410967c13e0d3e2297456db22495cb246b22f5
+  license: MIT
+  config: integration/configs/tty-color.yml
+  schedule: pr
+  expect:
+    class_eval: { killed: 25, survived: 1, timeout: 0, error: 0, skipped: 110 }
+    nesting: { killed: 122, survived: 13, timeout: 0, error: 0, skipped: 1 }

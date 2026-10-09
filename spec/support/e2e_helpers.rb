@@ -37,6 +37,12 @@ module E2EHelpers
   def mutants(run)
     run.json.fetch("files").values.flat_map { |file| file.fetch("mutants") }
   end
+
+  # Full test names for the short ids a mutant's killedBy/coveredBy holds.
+  def test_names(run, ids)
+    names = run.json.fetch("testFiles").values.flat_map { |file| file.fetch("tests") }.to_h { |t| [t["id"], t["name"]] }
+    ids.map { |id| names.fetch(id) }
+  end
 end
 
 RSpec.configure do |config|

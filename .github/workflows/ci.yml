@@ -39,6 +39,18 @@ jobs:
           missing=$(grep -L "SPDX-License-Identifier: MIT" $(git ls-files '*.rb' '*.gemspec' 'exe/*' Gemfile Rakefile) || true)
           if [ -n "$missing" ]; then echo "Missing SPDX header:"; echo "$missing"; exit 1; fi
 
-  # Placeholders, filled in later phases:
-  #   integration-gems: two pinned public gems, every PR (Phase 2)
-  #   dogfood: saboteur run --since origin/main on this repo (Phase 3)
+  integration-gems:
+    name: ${{ matrix.target }} (${{ matrix.reeval }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [dry-inflector, tty-color]
+        reeval: [class_eval, nesting]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+      - name: Run against the pinned commit and compare counts
+        run: script/integration-target "${{ matrix.target }}" "$RUNNER_TEMP/targets" --reeval "${{ matrix.reeval }}" --check

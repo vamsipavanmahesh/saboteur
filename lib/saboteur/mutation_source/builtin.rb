@@ -46,7 +46,7 @@ module Saboteur
         @subject = subject
         @found = []
         coarse(body)
-        visit(body, top: true)
+        visit(body)
         @found
       ensure
         @subject = nil
@@ -69,12 +69,12 @@ module Saboteur
 
       # --- fine -----------------------------------------------------------
 
-      def visit(node, top: false)
+      def visit(node)
         return if node.nil?
         return if SCOPE_NODES.any? { |klass| node.is_a?(klass) }
 
         if node.is_a?(Prism::StatementsNode)
-          visit_statements(node, top: top)
+          visit_statements(node)
           return
         end
 
@@ -82,13 +82,17 @@ module Saboteur
         node.compact_child_nodes.each { |child| visit(child) }
       end
 
-      def visit_statements(node, top:)
+      # Statement removal applies only to sequences of two or more statements.
+      # A single statement is either the whole method body (body_nil covers
+      # it) or an expression slot: a ternary branch, an interpolation, the
+      # body of a modifier if. Replacing those with nil is not removing a
+      # statement and duplicates the condition and coarse operators.
+      def visit_statements(node)
         statements = node.body
         statements.each do |statement|
           next if arid?(statement)
 
-          # A one-statement method body is already covered by body_nil.
-          add("statement_removal", statement, "nil") unless (top && statements.size == 1) || removal_noop?(statement)
+          add("statement_removal", statement, "nil") if statements.size > 1 && !removal_noop?(statement)
           visit(statement)
         end
       end

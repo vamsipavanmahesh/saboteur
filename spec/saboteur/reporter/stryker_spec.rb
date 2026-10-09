@@ -34,8 +34,18 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(killed["location"]).to eq("start" => { "line" => 2, "column" => 20 },
                                      "end" => { "line" => 2, "column" => 22 })
     expect(killed.values_at("mutatorName", "replacement", "killedBy", "coveredBy", "duration"))
-      .to eq(["comparison", ">", ["t1"], %w[t1 t2], 250])
+      .to eq(["comparison", ">", ["0"], %w[0 1], 250])
     expect(killed["id"]).to match(/\A\h{16}\z/)
+  end
+
+  it "lists each test once under testFiles, grouped by spec file" do
+    report = report_of(result_for(:killed, killed_by: ["./spec/a_spec.rb[1:1]"],
+                                           covered_by: ["./spec/a_spec.rb[1:1]", "./spec/b_spec.rb[2]"]))
+    json = JSON.parse(JSON.generate(described_class.build(report)))
+    expect(json["testFiles"]).to eq(
+      "spec/a_spec.rb" => { "tests" => [{ "id" => "0", "name" => "./spec/a_spec.rb[1:1]" }] },
+      "spec/b_spec.rb" => { "tests" => [{ "id" => "1", "name" => "./spec/b_spec.rb[2]" }] }
+    )
   end
 
   it "keeps ignored survivors as Survived with the reason, and first lines of errors" do

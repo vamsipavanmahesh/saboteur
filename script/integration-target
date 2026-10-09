@@ -1,0 +1,79 @@
+#!/usr/bin/env ruby
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+# Clones a pinned public project from integration/targets.yml and runs
+# saboteur against it with that project's own Gemfile plus saboteur.
+#
+#   script/integration-target NAME [WORKDIR] [--reeval STRATEGY] [--check] [-- extra saboteur args]
+#
+# --check compares the number of mutants per status with the snapshot in
+# integration/targets.yml and fails on any difference.
+#
+# The target's checkout is only written to by its own test suite and by
+# saboteur's .saboteur/ cache. The combined Gemfile, its lockfile and the
+# JSON report live in WORKDIR, outside the checkout.
+
+require "English"
+require "fileutils"
+require "json"
+require "shellwords"
+require "tmpdir"
+require "yaml"
+
+ROOT = File.expand_path("..", __dir__)
+STATUS = { "Killed" => "killed", "Survived" => "survived", "Timeout" => "timeout",
+           "RuntimeError" => "error", "NoCoverage" => "skipped", "Ignored" => "skipped" }.freeze
+
+args = ARGV.dup
+extra = (index = args.index("--")) ? args.slice!(index..)[1..] : []
+check = !args.delete("--check").nil?
+strategy = (index = args.index("--reeval")) ? args.slice!(index, 2).last : "class_eval"
+name, workdir = args
+targets = YAML.safe_load_file(File.join(ROOT, "integration", "targets.yml"))
+target = targets.fetch(name) { abort "unknown target #{name.inspect}; known: #{targets.keys.join(', ')}" }
+
+workdir = File.expand_path(workdir || Dir.mktmpdir("saboteur-target-"))
+checkout = File.join(workdir, name)
+bundle_dir = File.join(workdir, "#{name}-bundle")
+
+def sh(*cmd, **)
+  warn "+ #{cmd.shelljoin}"
+  system(*cmd, **) or abort "command failed: #{cmd.shelljoin}"
+end
+
+unless File.directory?(File.join(checkout, ".git"))
+  FileUtils.mkdir_p(checkout)
+  sh("git", "init", "-q", chdir: checkout)
+  sh("git", "fetch", "-q", "--depth", "1", target.fetch("repo"), target.fetch("commit"), chdir: checkout)
+end
+sh("git", "checkout", "-q", "--detach", target.fetch("commit"), chdir: checkout)
+
+FileUtils.mkdir_p(bundle_dir)
+gemfile = File.join(bundle_dir, "Gemfile")
+File.write(gemfile, <<~RUBY)
+  eval_gemfile #{File.join(checkout, 'Gemfile').inspect}
+  gem "saboteur", path: #{ROOT.inspect}
+RUBY
+
+env = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_WITHOUT" => target.fetch("bundle_without", "") }
+sh(env, "bundle", "install", "--quiet")
+config = File.join(ROOT, target.fetch("config"))
+report = File.join(workdir, "#{name}-#{strategy}.json")
+system(env, "bundle", "exec", "saboteur", "run", "--config", config, "--reeval", strategy, "--json", report,
+       *extra, chdir: checkout)
+code = $CHILD_STATUS.exitstatus
+abort "saboteur failed with exit code #{code}" unless [0, 1].include?(code)
+exit 0 unless check
+
+# Survivors are expected in someone else's project. What must not change
+# silently is how many mutants land in each status at the pinned commit.
+mutants = JSON.parse(File.read(report)).fetch("files").values.flat_map { |file| file.fetch("mutants") }
+actual = Hash.new(0).merge(mutants.map { |m| STATUS.fetch(m.fetch("status")) }.tally)
+expected = target.fetch("expect").fetch(strategy)
+diff = expected.reject { |key, value| actual[key] == value }
+if diff.any?
+  abort "#{name} (#{strategy}): counts changed: " +
+        diff.map { |key, value| "#{key} expected #{value}, got #{actual[key]}" }.join("; ")
+end
+puts "#{name} (#{strategy}): counts match #{expected}"

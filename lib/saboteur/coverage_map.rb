@@ -14,7 +14,7 @@ module Saboteur
   # Lines executed outside any test (before(:all), before(:suite)) are mapped
   # to every test in the file of the next test that starts.
   class CoverageMap
-    FORMAT = 1
+    FORMAT = 2
 
     attr_reader :lines, :tests, :build_seconds
 
@@ -34,17 +34,25 @@ module Saboteur
       ids.sort_by { |id| order.fetch(id, Float::INFINITY) }
     end
 
+    # Lines refer to tests by their index in tests, which keeps the cache
+    # small for suites with long test ids.
     def to_json(*)
-      JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds,
-                    lines: lines.transform_values { |by_line| by_line.transform_keys(&:to_s) })
+      index = test_order
+      encoded = lines.transform_values do |by_line|
+        by_line.to_h { |line, ids| [line.to_s, ids.map { |id| index.fetch(id) }] }
+      end
+      JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encoded)
     end
 
     def self.from_json(json)
       data = JSON.parse(json)
       raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
 
-      lines = data["lines"].transform_values { |by_line| by_line.transform_keys(&:to_i) }
-      new(lines: lines, tests: data["tests"], build_seconds: data["build_seconds"])
+      tests = data["tests"]
+      lines = data["lines"].transform_values do |by_line|
+        by_line.to_h { |line, indexes| [line.to_i, indexes.map { |i| tests.fetch(i) }] }
+      end
+      new(lines: lines, tests: tests, build_seconds: data["build_seconds"])
     end
 
     # Cache key over every input that can change which test runs which line.

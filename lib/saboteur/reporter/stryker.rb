@@ -18,28 +18,46 @@ module Saboteur
 
       def call(report)
         FileUtils.mkdir_p(File.dirname(@path))
-        File.write(@path, JSON.pretty_generate(self.class.build(report)))
+        File.write(@path, JSON.generate(self.class.build(report)))
       end
 
+      # Tests are listed once under testFiles with short ids; mutants refer to
+      # them by id in killedBy/coveredBy instead of repeating full test names.
       def self.build(report)
+        test_ids = test_index(report.results)
         files = report.results.group_by { |result| result.subject.file }.to_h do |file, results|
-          [relative(file, report.root), file_entry(results)]
+          [relative(file, report.root), file_entry(results, test_ids)]
         end
         {
           schemaVersion: SCHEMA_VERSION,
           thresholds: THRESHOLDS,
           projectRoot: report.root,
           files: files,
+          testFiles: test_files(test_ids),
           framework: { name: "saboteur", version: VERSION }
         }
       end
 
-      def self.file_entry(results)
-        source = results.first.subject.file_source.dup.force_encoding(Encoding::UTF_8)
-        { language: "ruby", source: source.scrub, mutants: results.map { |result| mutant(result, source) } }
+      def self.test_index(results)
+        names = results.flat_map { |result| result.covered_by + result.killed_by }.uniq
+        names.each_with_index.to_h { |name, index| [name, index.to_s] }
       end
 
-      def self.mutant(result, source)
+      # RSpec ids look like "./spec/a_spec.rb[1:2]"; anything else is grouped
+      # under an empty path.
+      def self.test_files(test_ids)
+        test_ids.group_by { |name, _| name[%r{\A\.?/?(.+?\.rb)\[}, 1].to_s }.transform_values do |pairs|
+          { tests: pairs.map { |name, id| { id: id, name: name } } }
+        end
+      end
+
+      def self.file_entry(results, test_ids)
+        source = results.first.subject.file_source.dup.force_encoding(Encoding::UTF_8)
+        { language: "ruby", source: source.scrub,
+          mutants: results.map { |result| mutant(result, source, test_ids) } }
+      end
+
+      def self.mutant(result, source, test_ids)
         entry = {
           id: result.digest,
           mutatorName: result.mutation.operator,
@@ -48,12 +66,16 @@ module Saboteur
           status: status(result),
           static: false
         }
-        reason = status_reason(result)
-        entry[:statusReason] = reason if reason
-        entry[:killedBy] = result.killed_by if result.killed_by.any?
-        entry[:coveredBy] = result.covered_by if result.covered_by.any?
-        entry[:duration] = (result.runtime * 1000).round if result.runtime
-        entry
+        entry.merge(optional_fields(result, test_ids))
+      end
+
+      def self.optional_fields(result, test_ids)
+        {
+          statusReason: status_reason(result),
+          killedBy: result.killed_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
+          coveredBy: result.covered_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
+          duration: result.runtime && (result.runtime * 1000).round
+        }.compact
       end
 
       def self.status(result)

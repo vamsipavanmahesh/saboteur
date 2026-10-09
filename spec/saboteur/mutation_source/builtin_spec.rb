@@ -104,6 +104,17 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    a + b", "statement_removal")).to be_empty
     end
 
+    it "does not treat expression slots as statements" do
+      expect(texts("    x = a ? b : 1\n    y = \"\#{a ? 1 : 2}\"\n    return 1 if a", "statement_removal"))
+        .to eq(["nil\n    y = \"\#{a ? 1 : 2}\"\n    return 1 if a",
+                "x = a ? b : 1\n    nil\n    return 1 if a",
+                "x = a ? b : 1\n    y = \"\#{a ? 1 : 2}\"\n    nil"])
+    end
+
+    it "removes statements inside multi-statement nested bodies" do
+      expect(texts("    if a\n      b\n      c\n    end\n    d", "statement_removal").size).to eq(4)
+    end
+
     it "never mutates arid statements" do
       found = mutations("    logger.info(a + 1)\n    a > b").reject { |op, _| op.start_with?("body_") }
       expect(found.map(&:last)).to all(include("logger.info(a + 1)"))

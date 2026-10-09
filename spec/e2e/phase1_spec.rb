@@ -28,7 +28,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       RUBY
       second = saboteur(dir)
       expect(adult_comparison(second, ">")["status"]).to eq("Killed")
-      expect(adult_comparison(second, ">")["killedBy"]).to eq(["./spec/boundary_spec.rb[1:1]"])
+      expect(test_names(second, adult_comparison(second, ">")["killedBy"])).to eq(["./spec/boundary_spec.rb[1:1]"])
     end
 
     it "skips subjects whose neutral check fails instead of reporting killed (class_eval constant scope)" do
@@ -95,7 +95,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       # the neutral check would fail and the mutant would be skipped.
       expect(status_of("secret")).to eq("Killed")
       killed_by = mutants(run).find { |m| m["mutatorName"] == "hazard_secret" }["killedBy"]
-      expect(killed_by).to eq(["./spec/hazards_spec.rb[1:5]"])
+      expect(test_names(run, killed_by)).to eq(["./spec/hazards_spec.rb[1:5]"])
     end
 
     it "exits 0 with no survivors, even with errors and timeouts" do
