@@ -41,6 +41,8 @@ go through the watchdog, one at a time (see "Safety rules").
 
 ## Next up (ordered)
 
+- [ ] Benchmark vs mutant (bench/compare/BRIEF.md): Phase 0 candidates first, then STOP for the pick
+
 - [ ] Architecture steps E and F (typed config schema, public API docs)
 - [ ] Triage dogfood survivors (215 live at b9c4068 incl. new engine parts). Done: Diff, terminal reporter, scheduler (0 live; equivalents in .saboteur-ignore.yml). Next: builtin.rb (27), recorder.rb (17), cli.rb (14), subject.rb, git_diff.rb, ...
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
@@ -48,6 +50,10 @@ go through the watchdog, one at a time (see "Safety rules").
 - [ ] Survey items that need no spec change: survivor ranking, HTML report, pseudo-tested label
 
 ## Open questions for the maintainer (do not decide alone)
+
+- Benchmark (bench/compare/BRIEF.md): running mutant at all needs its
+  licence to allow this use (MUTANT_USAGE opensource vs commercial). Also:
+  does the benchmark app replace Mastodon as the Phase 4 target?
 
 1. Publishing: name `saboteur` free on rubygems and as glomopay/saboteur on
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
