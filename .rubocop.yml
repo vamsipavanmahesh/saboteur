@@ -5,6 +5,8 @@ AllCops:
   Exclude:
     - "vendor/**/*"
     - "tmp/**/*"
+    # Target code for end-to-end runs; written to exercise saboteur, not to lint clean.
+    - "spec/fixtures/projects/**/*"
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
@@ -16,3 +18,21 @@ Metrics/BlockLength:
   Exclude:
     - "spec/**/*"
     - "*.gemspec"
+
+# saboteur walks ASTs and supervises processes; short-method limits would
+# split linear logic into fragments. Keep limits, at sizes that fit that work.
+Metrics/AbcSize:
+  Max: 30
+Metrics/MethodLength:
+  Max: 25
+Metrics/CyclomaticComplexity:
+  Max: 12
+Metrics/PerceivedComplexity:
+  Max: 12
+Metrics/ClassLength:
+  Max: 300
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+Layout/LineLength:
+  Max: 120

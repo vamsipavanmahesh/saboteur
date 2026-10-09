@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "json"
+require "tmpdir"
+
+RSpec.describe Saboteur::Reporter::Stryker do
+  let(:report) do
+    survivor = result_for(:survived, replacement: "==", runtime: 0.01)
+    survivor.ignored = "equivalent"
+    report_of(result_for(:killed, runtime: 0.25, killed_by: ["t1"], covered_by: %w[t1 t2]),
+              survivor,
+              result_for(:timeout, replacement: "<"), result_for(:error, replacement: "<=", reason: "boom\nmore"),
+              result_for(:skipped, replacement: "!=", reason: "no coverage"),
+              result_for(:skipped, replacement: "!=", reason: "baseline failure"))
+  end
+  let(:json) { JSON.parse(JSON.generate(described_class.build(report))) }
+  let(:mutants) { json.dig("files", "person.rb", "mutants") }
+
+  it "writes schema version 2 with one entry per file, holding the full source" do
+    expect(json["schemaVersion"]).to eq("2")
+    expect(json["files"].keys).to eq(["person.rb"])
+    expect(json.dig("files", "person.rb", "source")).to eq(ReportHelpers::PERSON)
+    expect(json.dig("files", "person.rb", "language")).to eq("ruby")
+  end
+
+  it "maps every saboteur status to a distinct schema status" do
+    expect(mutants.map { |m| m["status"] })
+      .to eq(%w[Killed Survived Timeout RuntimeError NoCoverage Ignored])
+  end
+
+  it "records 1-based positions, the replacement, tests and duration" do
+    killed = mutants.first
+    expect(killed["location"]).to eq("start" => { "line" => 2, "column" => 20 },
+                                     "end" => { "line" => 2, "column" => 22 })
+    expect(killed.values_at("mutatorName", "replacement", "killedBy", "coveredBy", "duration"))
+      .to eq(["comparison", ">", ["t1"], %w[t1 t2], 250])
+    expect(killed["id"]).to match(/\A\h{16}\z/)
+  end
+
+  it "keeps ignored survivors as Survived with the reason, and first lines of errors" do
+    expect(mutants[1]["statusReason"]).to eq("ignored: equivalent")
+    expect(mutants[3]["statusReason"]).to eq("boom")
+  end
+
+  it "writes the file" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "out", "report.json")
+      described_class.new(path).call(report)
+      expect(JSON.parse(File.read(path))["schemaVersion"]).to eq("2")
+    end
+  end
+end

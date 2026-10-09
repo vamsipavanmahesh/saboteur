@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "yaml"
+require_relative "mutation_source/builtin"
+
+module Saboteur
+  # Settings from .saboteur.yml, overridden by CLI flags.
+  class Config
+    FILE = ".saboteur.yml"
+
+    DEFAULTS = {
+      "integration" => "rspec",
+      "require" => [],
+      "include" => ["lib/**/*.rb"],
+      "exclude" => [],
+      "arid" => MutationSource::Builtin::DEFAULT_ARID,
+      "timeout_factor" => 3.0,
+      "timeout_min" => 5.0,
+      "baseline_timeout" => 300.0,
+      "jobs" => 1,
+      "ignore_file" => ".saboteur-ignore.yml",
+      "sources" => ["builtin"],
+      "hooks" => [],
+      "rails" => false,
+      "reeval" => "class_eval",
+      "cache_dir" => ".saboteur",
+      "json_report" => ".saboteur/report.json",
+      "rspec_args" => [],
+      "test_files" => nil,
+      "subjects" => [],
+      "since" => nil,
+      "cache" => true
+    }.freeze
+
+    INTEGER_KEYS = %w[jobs].freeze
+    FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout].freeze
+    LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects].freeze
+
+    attr_reader :root
+
+    def self.load(root: Dir.pwd, path: nil, overrides: {})
+      path ||= File.join(root, FILE)
+      from_file = File.file?(path) ? parse(path) : {}
+      new(from_file.merge(stringify(overrides)), root: root)
+    end
+
+    def self.parse(path)
+      data = YAML.safe_load_file(path) || {}
+      raise Error, "#{path}: expected a mapping at the top level" unless data.is_a?(Hash)
+
+      data
+    rescue Psych::SyntaxError => e
+      raise Error, "#{path}: #{e.message}"
+    end
+
+    def self.stringify(hash)
+      hash.to_h { |key, value| [key.to_s, value] }.compact
+    end
+
+    def initialize(values = {}, root: Dir.pwd)
+      @root = File.expand_path(root)
+      unknown = values.keys - DEFAULTS.keys
+      raise Error, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
+
+      @values = DEFAULTS.merge(values)
+      coerce!
+      validate!
+    end
+
+    def [](key)
+      @values.fetch(key.to_s)
+    end
+
+    def fetch(key, default = nil)
+      @values.fetch(key.to_s, default)
+    end
+
+    def to_h
+      @values.dup
+    end
+
+    # Ruby files to mutate, as absolute real paths.
+    def included_files
+      matched = self["include"].flat_map { |pattern| Dir.glob(pattern, base: root) }
+      excluded = self["exclude"].flat_map { |pattern| Dir.glob(pattern, base: root) }
+      (matched - excluded).select { |file| file.end_with?(".rb") }
+                          .map { |file| File.realpath(File.join(root, file)) }.uniq.sort
+    end
+
+    def path(key)
+      value = self[key]
+      value && File.expand_path(value, root)
+    end
+
+    private
+
+    def coerce!
+      INTEGER_KEYS.each { |key| @values[key] = Integer(@values[key]) }
+      FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) }
+      LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
+    rescue ArgumentError, TypeError => e
+      raise Error, "invalid config value: #{e.message}"
+    end
+
+    def validate!
+      raise Error, "jobs must be >= 1" if self["jobs"] < 1
+      raise Error, "timeout_factor must be > 0" unless self["timeout_factor"].positive?
+      raise Error, "timeout_min must be > 0" unless self["timeout_min"].positive?
+      raise Error, "reeval must be one of: #{Reevaluator::STRATEGIES.join(', ')}" unless
+        Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
+
+      self["arid"].each { |pattern| Regexp.new(pattern) }
+    rescue RegexpError => e
+      raise Error, "invalid arid pattern: #{e.message}"
+    end
+  end
+end

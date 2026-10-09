@@ -1,0 +1,5 @@
+include:
+  - lib/**/*.rb
+sources:
+  - sources/hazard_source.rb:HazardSource
+timeout_min: 1

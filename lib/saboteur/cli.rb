@@ -8,6 +8,13 @@ module Saboteur
   class CLI
     USAGE = "Usage: saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] [--jobs N]"
 
+    EXIT_OK = 0
+    EXIT_SURVIVORS = 1
+    EXIT_USAGE = 2
+    EXIT_TOOL = 3
+
+    class UsageError < Error; end
+
     attr_reader :options
 
     def initialize(argv, out: $stdout, err: $stderr)
@@ -20,11 +27,17 @@ module Saboteur
     def call
       case @argv.shift
       when "run" then run
-      when "version", "--version" then @out.puts(VERSION) || 0
+      when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       else usage_error
       end
     rescue OptionParser::ParseError => e
       usage_error(e.message)
+    end
+
+    def config
+      @config ||= Config.load(root: Dir.pwd, path: options[:config], overrides: overrides)
+    rescue Error => e
+      raise UsageError, e.message
     end
 
     private
@@ -32,22 +45,58 @@ module Saboteur
     def usage_error(message = nil)
       @err.puts(message) if message
       @err.puts(USAGE)
-      2
+      EXIT_USAGE
     end
 
     def run
       parser.parse!(@argv)
-      @err.puts("saboteur #{VERSION}: run is not implemented yet")
-      2
+      raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
+      raise UsageError, "jobs > 1 is not supported yet" if config["jobs"] > 1
+
+      report = Engine.new(config, err: @err).call
+      @err.puts
+      Reporter::Terminal.new(@out).call(report)
+      write_json(report)
+      exit_code(report)
+    rescue UsageError => e
+      @err.puts("saboteur: #{e.message}")
+      EXIT_USAGE
+    rescue Error => e
+      @err.puts("saboteur: #{e.message}")
+      EXIT_TOOL
+    end
+
+    def write_json(report)
+      path = config.path("json_report")
+      return unless path
+
+      Reporter::Stryker.new(path).call(report)
+      @out.puts "\nJSON report: #{path}"
+    end
+
+    def exit_code(report)
+      executed = report.executed
+      return EXIT_TOOL if executed.any? && executed.all? { |result| result.status == :error }
+
+      report.unignored_survivors.any? ? EXIT_SURVIVORS : EXIT_OK
+    end
+
+    def overrides
+      options.except(:config)
     end
 
     def parser
       OptionParser.new do |opts|
         opts.banner = USAGE
         opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
-        opts.on("--subject EXPR", "Klass#meth or Klass.meth; repeatable") { |v| add_subject(v) }
+        opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
         opts.on("--timeout-factor N", Float, "Multiple of baseline runtime (default 3)") { |v| set(:timeout_factor, v) }
         opts.on("--jobs N", Integer, "Concurrent workers (default 1)") { |v| set(:jobs, v) }
+        opts.on("--config PATH", "Config file (default .saboteur.yml)") { |v| set(:config, v) }
+        opts.on("--integration NAME", "rspec or minitest") { |v| set(:integration, v) }
+        opts.on("--reeval STRATEGY", Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
+        opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
+        opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
       end
     end
 

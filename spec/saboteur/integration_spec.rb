@@ -15,5 +15,7 @@ RSpec.describe Saboteur::Integration do
     adapter = described_class::Base.new({})
     %i[setup all_tests].each { |m| expect { adapter.public_send(m) }.to raise_error(NotImplementedError) }
     expect { adapter.run([]) }.to raise_error(NotImplementedError)
+    expect { adapter.run_all(nil) }.to raise_error(NotImplementedError)
+    expect(adapter.test_files).to eq([])
   end
 end

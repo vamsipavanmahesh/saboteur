@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+RSpec.describe Saboteur::Reevaluator do
+  fixture = File.expand_path("../fixtures/ruby/reeval_targets.rb", __dir__)
+
+  let(:subjects) { Saboteur::SubjectFinder.new.call(fixture).subjects.to_h { |s| [s.id, s] } }
+  let(:person) { ReevalTargets::Person }
+
+  before do
+    # Reload so every example starts from the original definitions.
+    Object.send(:remove_const, :ReevalTargets) if defined?(ReevalTargets)
+    load fixture
+  end
+
+  def reeval(id, strategy, from: nil, to: nil)
+    subject = subjects.fetch(id)
+    text = from ? subject.source.sub(from, to) : subject.source
+    described_class.new(strategy).call(subject, text)
+  end
+
+  described_class::STRATEGIES.each do |strategy|
+    context "with #{strategy}" do
+      it "keeps a private method private" do
+        reeval("ReevalTargets::Person#secret", strategy, from: ":secret", to: ":mutated")
+        expect(person.private_method_defined?(:secret)).to be(true)
+        expect(person.new(1).call_secret).to eq(:mutated)
+      end
+
+      it "keeps a protected method protected" do
+        reeval("ReevalTargets::Person#guarded", strategy, from: ":guarded", to: ":mutated")
+        expect(person.protected_method_defined?(:guarded)).to be(true)
+        expect(person.new(1).compare(person.new(2))).to eq(:mutated)
+      end
+
+      it "leaves a public method public" do
+        reeval("ReevalTargets::Person#greeting", strategy)
+        expect(person.public_method_defined?(:greeting)).to be(true)
+      end
+
+      it "redefines def self.x on the class" do
+        reeval("ReevalTargets::Person.make", strategy, from: "new(age)", to: ":mutated")
+        expect(person.make(1)).to eq(:mutated)
+      end
+
+      it "redefines methods from class << self, keeping private ones private" do
+        reeval("ReevalTargets::Person.factory", strategy, from: ":factory", to: ":mutated")
+        reeval("ReevalTargets::Person.hidden_factory", strategy, from: ":hidden", to: ":mutated")
+        expect(person.factory).to eq(:mutated)
+        expect(person.singleton_class.private_method_defined?(:hidden_factory)).to be(true)
+        expect(person.send(:hidden_factory)).to eq(:mutated)
+      end
+
+      it "re-applies module_function to both copies" do
+        reeval("ReevalTargets::Util#twice", strategy, from: "value * 2", to: "value * 3")
+        expect(ReevalTargets::Util.twice(2)).to eq(6)
+        expect(ReevalTargets::Util.private_method_defined?(:twice)).to be(true)
+      end
+
+      it "keeps the original file and line for backtraces" do
+        reeval("ReevalTargets::Person#greeting", strategy)
+        expect(person.instance_method(:greeting).source_location).to eq([fixture, 16])
+      end
+
+      it "keeps frozen string literals from the magic comment" do
+        reeval("ReevalTargets::Person#greeting", strategy)
+        expect(person.new(1).greeting).to be_frozen
+      end
+    end
+  end
+
+  describe "constant lookup (design 6.1)" do
+    it "loses constants from enclosing modules with class_eval" do
+      reeval("ReevalTargets::Person#adult?", "class_eval")
+      expect { person.new(20).adult? }.to raise_error(NameError, /LIMIT/)
+    end
+
+    it "keeps them with the nesting strategy" do
+      reeval("ReevalTargets::Person#adult?", "nesting")
+      expect(person.new(20).adult?).to be(true)
+    end
+  end
+
+  it "rejects unknown strategies" do
+    expect { described_class.new("instance_eval") }.to raise_error(Saboteur::Error, /unknown reeval/)
+  end
+
+  it "raises a saboteur error when the owner is not defined" do
+    subject = subjects_in("module Nowhere\n  class Missing\n    def x; end\n  end\nend\n").first
+    expect { described_class.new.call(subject, subject.source) }.to raise_error(Saboteur::Error, /cannot resolve/)
+  end
+end
