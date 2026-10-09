@@ -31,12 +31,13 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       expect(test_names(second, adult_comparison(second, ">")["killedBy"])).to eq(["./spec/boundary_spec.rb[1:1]"])
     end
 
-    it "skips subjects whose neutral check fails instead of reporting killed (class_eval constant scope)" do
+    it "reports errors, not kills, when the killing test fails with the method unchanged (class_eval scope)" do
       run = saboteur(dir, "--reeval", "class_eval")
       constant_mutants = mutants(run).select { |m| m["location"]["start"]["line"].between?(16, 18) }
-      expect(constant_mutants.map { |m| m["status"] }.uniq).to eq(["Ignored"])
-      expect(constant_mutants.map { |m| m["statusReason"] }.uniq).to eq(["baseline failure"])
-      expect(run.out).to include("People::Person#adult_by_constant?: neutral check killed")
+      expect(constant_mutants.map { |m| m["status"] }.uniq).to eq(["RuntimeError"])
+      expect(constant_mutants.map { |m| m["statusReason"] }.uniq.first)
+        .to end_with("also fails with the method unchanged")
+      expect(run.out).to match(/People::Person#adult_by_constant\?: \d+ verdict\(s\) failed with the method unchanged/)
     end
 
     it "runs those subjects with the nesting strategy" do

@@ -21,3 +21,41 @@ nothing is excluded.
 The app starts SimpleCov from its test environment. Saboteur now turns
 SimpleCov.start into a no-op for the run (Boot.silence_simplecov), because it
 needs Ruby's Coverage itself.
+
+## First scoped run: --subject Item (19 subjects, 98 mutants), jobs 1
+
+| design | wall | map build | mutants+checks | killed | survived | error | skipped |
+|--------|------|-----------|----------------|--------|----------|-------|---------|
+| neutral check before mutants | 754 s | 260 s | ~494 s | 85 | 11 | 0 | 2 |
+| verdict check, no calibration | 251 s | cached | 251 s | 84 | 11 | 1 | 2 |
+| verdict check + timeout calibration | 263 s | cached | 263 s | 85 | 11 | 0 | 2 |
+
+Verdicts of the last row equal the first, mutant by mutant. Peak RSS 1.2-1.4
+GB, at most 4 processes, no leftovers. The map build (260 s) is 1.7x the
+plain suite (155 s), paid once per cache key.
+
+Why the neutral check went: Item#set_default_distribution_quantity and
+Item#default_distribution_quantity are callbacks every Item factory runs;
+each has ~850 covering tests (121 s). Their neutral checks alone cost more
+than all of Item's mutants. The error in the middle row was a false timeout
+(the recorded durations were too tight for a fresh child); the check caught
+it, and calibration (a real unchanged run on a timeout) now sets it right.
+
+Kills: 68 by a failed assertion, 17 by a crash (RuntimeError 12 from
+body_raise, NoMethodError 3, CSV::MalformedCSVError 1,
+ActiveRecord::RecordNotDestroyed 1).
+
+Survivors (11), first read (to be classified with the full run):
+- Item#default_quantity: `distribution_quantity || 50` -> `|| 51`, `|| 49`,
+  `|| 0`, and dropping `|| 50`: no test pins the default of 50.
+- Item#has_inventory?: both `&.` -> `.` mutants survive: no test calls it
+  with no inventory, or with an item missing from the inventory.
+- Item#is_in_kit?: `if kits` -> `if false` survives: the kits argument path
+  gives the same answer as the query path in every test.
+- Item.reactivate: dropping `Array.wrap(item_ids)` survives (likely
+  equivalent: `where(id:)` accepts a scalar or an array).
+- Item#can_deactivate_or_delete? and #set_default_distribution_quantity:
+  `||=` -> `=` survives (M3 keeps these; the first looks equivalent when
+  callers never pass an inventory in tests).
+- Item#sync_request_units!: `if limit.present?` -> `if true` survives: no
+  test passes a blank limit.

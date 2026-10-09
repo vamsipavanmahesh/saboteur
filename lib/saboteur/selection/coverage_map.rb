@@ -36,6 +36,12 @@ module Saboteur
       # Tests that executed any of the lines, fastest first (suite order breaks
       # ties), no duplicates. With fail-fast, a mutant is killed by its
       # cheapest killing test.
+      # The time the tests took while the map was built, or nil when one of
+      # them has no recorded duration.
+      def recorded_runtime(test_ids)
+        test_ids.sum { |id| durations.fetch(id) { return nil } }
+      end
+
       def tests_for_lines(file, line_numbers)
         by_line = lines[CoverageMap.canonical(file)]
         return [] unless by_line

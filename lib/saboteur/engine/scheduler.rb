@@ -7,14 +7,16 @@ module Saboteur
     # unit of work parallel workers will share out.
     #
     # Order of business: skip what cannot be run (refinements, not loaded,
-    # shadowed, no covering test); the neutral check (unchanged method, its
-    # tests must pass, its runtime sets the timeout); coarse mutants; fine
-    # mutants only if no coarse mutant survived. Each mutant runs only the
-    # tests that executed its edit, likeliest killers first.
+    # shadowed, no covering test); coarse mutants; fine mutants only if no
+    # coarse mutant survived; then check every kill and timeout against the
+    # unchanged method (VerdictCheck). Each mutant runs only the tests that
+    # executed its edit, likeliest killers first, with a timeout from those
+    # tests' recorded durations.
     class Scheduler
-      # A subject that passed its neutral check, with what its mutants need.
-      # killers counts the tests that killed earlier mutants of this subject.
-      Plan = Data.define(:subject, :tests, :timeout, :killers)
+      # A subject to run, with what its mutants need. killers counts the
+      # tests that killed earlier mutants of this subject; slowdown is how
+      # much slower than recorded its tests ran in a child (see calibrate).
+      Plan = Struct.new(:subject, :tests, :killers, :slowdown, keyword_init: true)
 
       # Tests that killed more earlier mutants first; otherwise keep the order.
       def self.prioritize(tests, killers)
@@ -39,35 +41,43 @@ module Saboteur
         tests = @map.tests_for(subject)
         return skip_all(candidates, subject, "no coverage") if tests.empty?
 
-        plan = Plan.new(subject:, tests:, timeout: nil, killers: Hash.new(0))
+        plan = Plan.new(subject:, tests:, killers: Hash.new(0), slowdown: 1.0)
         reused = all_reused(plan, candidates)
         return reused if reused
 
-        timeout, reason = neutral_check(subject, tests)
-        return skip_all(candidates, subject, reason, covered_by: tests) unless timeout
-
-        plan = plan.with(timeout: timeout)
-        run_candidates(plan, candidates) do |mutation, text|
+        results = run_candidates(plan, candidates) do |mutation, text|
           reuse(plan, mutation, text) || execute(plan, mutation, text)
         end
+        checked(subject, results)
+      end
+
+      # The per-mutant timeout: timeout_factor times what the tests took
+      # while the map was built (times the subject's measured slowdown), and
+      # never less than timeout_min.
+      def timeout_for(tests, slowdown = 1.0)
+        recorded = @map.recorded_runtime(tests)
+        return @config["baseline_timeout"] unless recorded
+
+        deadline(recorded * slowdown)
       end
 
       private
 
-      # Runs the subject's tests against the re-evaluated, unchanged method.
-      # Returns [per-mutant timeout, nil] when they pass, else [nil, skip
-      # reason]: a slow suite and a broken re-evaluation need different fixes.
-      def neutral_check(subject, tests)
-        baseline = @runner.run(subject: subject, text: subject.source, test_ids: tests,
-                               timeout: @config["baseline_timeout"])
-        note_leftovers(subject, "neutral check", baseline)
-        if baseline.status == :survived
-          return [[@config["timeout_factor"] * baseline.runtime, @config["timeout_min"]].max, nil]
+      # Verdicts that did not hold up are warned about once per subject;
+      # only checked verdicts are stored for --incremental.
+      def checked(subject, results)
+        run_unchanged = lambda do |tests, timeout|
+          @runner.run(subject: subject, text: subject.source, test_ids: tests, timeout: timeout)
+                 .tap { |outcome| note_leftovers(subject, "verdict check", outcome) }
         end
-
-        detail = baseline.message.to_s.lines.first&.strip || "failed: #{baseline.failed_ids.first(3).join(', ')}"
-        @diagnostics.warn("#{subject.id}: neutral check #{baseline.status}, #{detail}")
-        [nil, baseline.status == :timeout ? "baseline timeout" : "baseline failure"]
+        check = VerdictCheck.new(run_unchanged: run_unchanged, baseline_timeout: @config["baseline_timeout"])
+        final = check.call(results)
+        final.reject(&:reused?).each { |result| @cache&.record(result) }
+        overturned = final.zip(results).count { |after, before| !after.equal?(before) }
+        if overturned.positive?
+          @diagnostics.warn("#{subject.id}: #{overturned} verdict(s) failed with the method unchanged")
+        end
+        final
       end
 
       # When every verdict can be reused, nothing forks: not even the neutral
@@ -113,13 +123,13 @@ module Saboteur
         tests = tests_for(plan, mutation)
         return skip_all([[mutation, text]], plan.subject, "no coverage").first if tests.empty?
 
-        outcome = @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: plan.timeout,
-                              mutation: mutation)
+        timeout = timeout_for(tests, plan.slowdown)
+        outcome = @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: timeout, mutation: mutation)
+        outcome = calibrate(plan, mutation, text, tests, timeout) if outcome.status == :timeout
         result = MutantResult.new(subject: plan.subject, mutation: mutation, status: outcome.status,
                                   mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
                                   killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause)
         outcome.failed_ids.each { |id| plan.killers[id] += 1 }
-        @cache&.record(result)
         note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
         @diagnostics.progress(result)
         result
@@ -127,11 +137,42 @@ module Saboteur
 
       # The tests that ran the edited code (a coarse edit spans the whole
       # body, so it gets every test of the method), prior killers first, then
-      # the neutral check's fastest-first order.
+      # fastest-first.
       def tests_for(plan, mutation)
         line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
         tests = plan.tests & @map.tests_for_lines(plan.subject.file, line_numbers)
         self.class.prioritize(tests, plan.killers)
+      end
+
+      def deadline(runtime)
+        [@config["timeout_factor"] * runtime, @config["timeout_min"]].max
+      end
+
+      # Recorded durations come from one warm process; a fresh child can be
+      # slower (lazy loading, first queries). So a timeout is checked at
+      # once: the unchanged method runs the same tests with
+      # baseline_timeout. If the deadline from that real runtime is longer,
+      # the mutant runs again with it, and later mutants of the subject get
+      # the measured slowdown. A timeout that remains is the mutant's own.
+      def calibrate(plan, mutation, text, tests, timeout)
+        unchanged = @runner.run(subject: plan.subject, text: plan.subject.source, test_ids: tests,
+                                timeout: @config["baseline_timeout"])
+        note_leftovers(plan.subject, "timeout check", unchanged)
+        return unchanged_failed(unchanged) unless unchanged.status == :survived
+
+        recorded = @map.recorded_runtime(tests)
+        plan.slowdown = [plan.slowdown, unchanged.runtime / recorded].max if recorded&.positive?
+        longer = deadline(unchanged.runtime)
+        return Execution::Runner::Outcome.new(status: :timeout, runtime: timeout) if longer <= timeout
+
+        @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: longer, mutation: mutation)
+      end
+
+      def unchanged_failed(unchanged)
+        how = unchanged.status == :timeout ? "time out" : "fail"
+        hint = unchanged.status == :timeout ? " (raise baseline_timeout)" : ""
+        Execution::Runner::Outcome.new(status: :error, runtime: unchanged.runtime,
+                                       message: "tests also #{how} with the method unchanged#{hint}")
       end
 
       # The method saboteur would redefine must be the one Ruby is running.

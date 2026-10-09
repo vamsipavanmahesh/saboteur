@@ -27,7 +27,7 @@ module Saboteur
         RSpec::Mocks::MockExpectationError
       ].freeze
 
-      # Everything one child needs. mutation is nil for the neutral check.
+      # Everything one child needs. mutation is nil for the verdict check.
       Job = Data.define(:subject, :text, :test_ids, :timeout, :mutation, :log_path)
 
       LOG_TAIL_BYTES = 2000

@@ -19,7 +19,8 @@ RSpec.describe Saboteur::Engine::Scheduler, "flow" do
   let(:calls) { [] }
   let(:answers) { {} }
 
-  # The neutral check's outcome; an example sets @neutral to change it.
+  # The outcome of every run of the unchanged method; an example sets
+  # @neutral to change it.
   def neutral
     @neutral || outcome(:survived, runtime: 2.0)
   end
@@ -85,41 +86,26 @@ RSpec.describe Saboteur::Engine::Scheduler, "flow" do
     expect(calls).to be_empty
   end
 
-  it "sets each mutant's deadline to factor x neutral-check time, with a floor" do
-    scheduler(config: { "timeout_factor" => 4 }).call(subject_under_test, candidates)
-    expect(mutant_calls.map { |call| call[:timeout] }.uniq).to eq([8.0])
-  end
-
-  it "uses the minimum deadline when the neutral check is fast" do
-    @neutral = outcome(:survived, runtime: 0.1)
-    scheduler(config: { "timeout_min" => 7 }).call(subject_under_test, candidates)
-    expect(mutant_calls.map { |call| call[:timeout] }.uniq).to eq([7.0])
-  end
-
-  it "runs the neutral check with the unchanged method and the method's tests first" do
+  it "runs the mutants first, then the unchanged method with only the tests that killed" do
     scheduler.call(subject_under_test, candidates)
-    first = calls.first
-    expect([first[:text], first[:test_ids],
-            first[:mutation]]).to eq([subject_under_test.source, %w[t_all t_three t_four], nil])
+    expect(calls.first[:mutation]).not_to be_nil
+    expect(calls.last.values_at(:text, :mutation)).to eq([subject_under_test.source, nil])
+    expect(calls.count { |call| call[:mutation].nil? }).to eq(1)
+    expect(calls.last[:test_ids]).to eq(mutant_calls.flat_map { |call| call[:test_ids].first(1) }.uniq)
   end
 
-  it "warns with the failing tests when the neutral check fails without a message" do
-    @neutral = outcome(:killed, failed_ids: %w[a b c d])
-    scheduler.call(subject_under_test, candidates)
-    expect(diagnostics.warnings).to eq(["FlowTarget#m: neutral check killed, failed: a, b, c"])
-  end
-
-  it "warns with the first line of the message when there is one" do
-    @neutral = outcome(:error, message: "boom\nmore")
-    scheduler.call(subject_under_test, candidates)
-    expect(diagnostics.warnings).to eq(["FlowTarget#m: neutral check error, boom"])
+  it "warns once per subject about verdicts that failed with the method unchanged" do
+    @neutral = outcome(:killed, failed_ids: %w[t_all t_three t_four])
+    results = scheduler.call(subject_under_test, candidates)
+    expect(results.map(&:status).uniq).to eq([:error])
+    expect(diagnostics.warnings).to eq(["FlowTarget#m: #{results.size} verdict(s) failed with the method unchanged"])
   end
 
   it "warns about processes a child left running" do
     @neutral = outcome(:survived, runtime: 1.0, leftover_pids: [11, 12])
     answers["body_nil"] = outcome(:killed, failed_ids: ["t_all"], leftover_pids: [13])
     scheduler.call(subject_under_test, candidates)
-    expect(diagnostics.warnings).to include("FlowTarget#m neutral check: killed 2 process(es) it left running")
+    expect(diagnostics.warnings).to include("FlowTarget#m verdict check: killed 2 process(es) it left running")
     expect(diagnostics.warnings.grep(/body_nil \h{16}: killed 1 process/).size).to eq(1)
   end
 

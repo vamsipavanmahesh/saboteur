@@ -33,6 +33,12 @@ module Saboteur
       @ignored = nil
     end
 
+    # The same mutant, marked as an error: its verdict did not hold up.
+    def as_error(reason)
+      MutantResult.new(subject: subject, mutation: mutation, status: :error, mutated_source: mutated_source,
+                       reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by)
+    end
+
     def digest
       @digest ||= mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
     end

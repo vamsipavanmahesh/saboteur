@@ -230,7 +230,7 @@ call `setpgid`/`setsid`. A saboteur run started by a test inside a mutant
 child did exactly that, and the escaped orphans (some allocating ~300 MB/s)
 froze a 36 GB development machine twice (root cause in commit 47b8bc8).
 
-`Execution::Supervisor` enforces the invariant for mutants, neutral checks
+`Execution::Supervisor` enforces the invariant for mutants, verdict checks
 and the coverage-map child alike:
 
 - Tracks the whole descendant tree (`Execution::ProcessTree`) by parent link
@@ -240,8 +240,8 @@ and the coverage-map child alike:
 - After every child, whatever its outcome: SIGSTOP every member until no new
   member appears (a stopped process cannot fork), then SIGKILL them all.
   Survivors of a normal exit are reported as leftovers (a warning).
-- While the child runs: a deadline (per mutant `max(3 x neutral-check
-  runtime, 5 s)`), a cap on memory growth across the tree (default 2 GB) and
+- While the child runs: a deadline (per mutant `max(timeout_factor x the
+  recorded durations of its tests, timeout_min)`, defaults 3 and 5 s), a cap on memory growth across the tree (default 2 GB) and
   a cap on process count (default 64). The coverage-map child gets
   `coverage_timeout` and 4x the memory cap.
 - Kernel backstops for what tracking can miss (a double fork faster than a
@@ -300,7 +300,7 @@ harness problem or a runaway mutant cannot raise the score silently.
   attributed to a test. Each test's duration is recorded too.
 - Lines hit outside any test (`before(:all)`, `before(:suite)`, lazy loads)
   are attributed to every test in the file of the next test that starts.
-- A subject's tests (used by its neutral check and its coarse mutants) =
+- A subject's tests (used by its coarse mutants) =
   union over the body lines of its `def` (excluding the `def` line for
   multi-line methods, since that line runs at load time; one-line and endless
   defs use the def line).
@@ -318,12 +318,12 @@ harness problem or a runaway mutant cannot raise the score silently.
   survived, timeout) is reused while the method source, the mutant, the set
   of covering tests, their files' contents, the lockfile, the verdict-
   relevant config and the saboteur version are unchanged. When every verdict
-  of a method is reusable, nothing forks, not even the neutral check. Hole:
+  of a method is reusable, nothing forks. Hole:
   changes in callees are invisible (as in PIT), hence opt-in.
 - Order: tests that killed earlier mutants of the same subject first, then
   fastest first (suite order breaks ties). With fail-fast, a mutant is killed
-  by its cheapest killing test. Mutants always run a subsequence of the order
-  the neutral check validated.
+  by its cheapest killing test. The verdict check (section 8) re-runs the
+  exact sequence each kill ran.
 - Cache: `.saboteur/coverage-<sha256>.json` keyed by the hash of every
   included source file, every test file, the lockfile, the resolved config
   (boot files, integration) and the saboteur version. Any change rebuilds.
@@ -334,15 +334,40 @@ Trade-off: test-by-test coverage collection costs one full suite run with
 coverage on (typically 1.2-2x slower than normal; to be measured), paid once
 per cache key.
 
-## 8. Neutral check
+## 8. Verdict check (replaces the neutral check, 2026-10-10)
 
-Before mutating a subject: fork, re-evaluate the UNCHANGED method text the
-same way mutants are evaluated, restore visibility, run the selected tests.
-- Fails -> subject `skipped: baseline failure`, no mutants run.
-- Passes -> its wall time is the subject's baseline for the timeout.
+A false kill happens when a test fails for a reason other than the mutant:
+the re-evaluation itself breaks something (6.1), or the test depends on
+state left by an earlier test in the same child. A false timeout happens
+when the tests are slower in a child than they were while the map was built.
+Survivors cannot be false in this way (a broken re-evaluation makes tests
+fail, not pass; a re-evaluation that does nothing is caught by the load
+check, section 6.1).
 
-This validates the re-eval path itself (6.1) and catches order-dependent or
-flaky tests before they produce false "killed" results.
+So after a subject's mutants run, `Engine::VerdictCheck` re-evaluates the
+UNCHANGED method the same way and re-runs only the evidence:
+- each kill: the exact tests the mutant ran, in order, up to and including
+  the killer (once per distinct sequence; killer-first ordering makes most of
+  them one test). If that fails, the kill becomes `error` ("killing test X
+  also fails with the method unchanged").
+- each timeout, and each kill with no failing test named (exit, suite-level
+  failure): the mutant's tests, with the mutant's deadline for a timeout. If
+  that fails, `error`.
+One warning per subject counts the overturned verdicts. Only checked
+verdicts are stored for `--incremental`.
+
+Why not a full neutral check before the mutants (the first design): it ran
+every covering test of every subject. On human-essentials, two model
+callbacks that every factory runs have ~850 covering tests each; the neutral
+checks of `Item` took 286 s against 211 s for all 98 of its mutants. The
+verdict check runs a handful of tests per subject and is stricter (it checks
+the order each kill actually ran in, which reordering by prior killers had
+already broken in the old design).
+
+Timeouts no longer come from a neutral run: they come from the per-test
+durations recorded while the map was built (with coverage on, so slower than
+normal), times `timeout_factor`, at least `timeout_min`. A timeout that is
+only the tests being slow is caught by the verdict check.
 
 ## 9. Integrations
 
@@ -378,7 +403,7 @@ reeval: class_eval                 # or nesting (see 6.1)
 max_memory_mb: 2048                # growth cap per mutant process tree
 max_processes: 64                  # process cap per mutant tree
 coverage_timeout: 3600             # seconds for the coverage-map build
-baseline_timeout: 300              # seconds for each neutral check
+baseline_timeout: 300              # seconds for each verdict-check run
 ```
 
 CLI: `saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] [--jobs N]`.

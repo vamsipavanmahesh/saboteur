@@ -36,7 +36,7 @@ go through the watchdog, one at a time (see "Safety rules").
 | 1 | core engine on fixtures, 4 required tests | done |
 | 2 | two pinned public gems, survivor classification | done: docs/validation/phase-2-gems.md (numbers predate line-level selection; re-measure) |
 | 3 | --since, Stryker JSON, ignore list, exit codes, config (minitest dropped by scope decision) | done |
-| 4 | Rails integration on a large public app (Mastodon pinned) | not started; repo pinned at 07b4fd20 |
+| 4 | Rails integration on a large public app | in progress on rubyforgood/human-essentials d6f8290 (Mastodon dropped: human-essentials chosen in bench Phase 0); docs/validation/phase-4-rails.md |
 | 5 | parallel workers, own DB each | built (--jobs N); gems measured; Rails per-worker DBs built, being validated on human-essentials |
 
 ## Next up (ordered)
@@ -48,7 +48,8 @@ go through the watchdog, one at a time (see "Safety rules").
 - [ ] Architecture steps E and F (typed config schema, public API docs)
 - [ ] Triage dogfood survivors (215 live at b9c4068 incl. new engine parts). Done: Diff, terminal reporter, scheduler, operators (0 live; equivalents in .saboteur-ignore.yml). Next: recorder.rb (17), cli.rb (14), subject.rb, git_diff.rb, ...
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
-- [ ] Phase 4: Mastodon under the watchdog, jobs 1
+- [ ] Phase 4: human-essentials full scope (664 subjects, 4,202 mutants) under the watchdog at
+      --jobs N with per-worker DBs; classify 30+ survivors; census of defs inside blocks
 - [ ] Survey items that need no spec change: survivor ranking, HTML report, pseudo-tested label
 
 ## Open questions for the maintainer (do not decide alone)
@@ -78,6 +79,28 @@ killer file; for apps, Mastodon at the pin under the watchdog with 30+
 survivors classified and a census of defs inside blocks.
 
 ## Decisions log
+
+- 2026-10-10 Neutral check replaced by a verdict check (design.md section 8).
+  Reason, measured on human-essentials `--subject Item`: two callbacks that
+  every factory runs have ~850 covering tests each, and the per-subject
+  neutral checks cost 286 s against 211 s for all 98 mutants. Now: kills are
+  confirmed after the fact by re-running each kill's exact test sequence up
+  to the killer with the method unchanged (stricter than before: it checks
+  the order each kill really ran in); timeouts come from recorded per-test
+  durations and are calibrated on the spot against a real unchanged run.
+  Result: identical verdicts on all 98 Item mutants, dry-inflector and
+  tty-color snapshots; Item 494 s -> 263 s. A first version without
+  calibration produced one false timeout (caught as an error, not reported
+  as a timeout), which is why calibration exists.
+  Grok review not obtained: its headless mode (-p) stopped after its first
+  turn three times (plan mode, --no-subagents, --max-turns 80 all tried).
+  Own adversarial pass recorded in the commit message.
+- 2026-10-10 Coverage-map child output goes to .saboteur/coverage-build.log,
+  and a child that dies before reporting says how (exit status or signal).
+  The first human-essentials run died that way once, 5 s in, cause unknown
+  (it did not happen again); before this change the reason was lost.
+- 2026-10-10 --subject warns about a pattern that matches nothing (patterns
+  are names, not globs).
 
 - 2026-10-10 Review round 5 fixes: workers in their own process group, a
   liveness check every second (a dead worker whose stray child holds its

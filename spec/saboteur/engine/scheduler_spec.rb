@@ -14,33 +14,128 @@ RSpec.describe Saboteur::Engine::Scheduler do
   end
 end
 
-RSpec.describe Saboteur::Engine::Scheduler, "neutral check" do
+# A kill is only real if the killing test passes when the method is
+# re-evaluated unchanged; a timeout only if the unchanged method finishes in
+# time. So the scheduler re-runs the evidence, not the whole suite: a method
+# that every factory calls can have hundreds of tests and a handful of killers.
+RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
   let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
   let(:subject_under_test) { subjects_in("class SchedulerTarget\n  def m(a)\n    a + 1\n  end\nend\n").first }
+  let(:durations) { { "t1" => 0.1, "t2" => 0.1 } }
   let(:map) do
-    Saboteur::Selection::CoverageMap.new(lines: { subject_under_test.file => { 3 => ["t1"] } }, tests: ["t1"])
+    Saboteur::Selection::CoverageMap.new(lines: { subject_under_test.file => { 3 => %w[t1 t2] } },
+                                         tests: %w[t1 t2], durations: durations)
   end
   let(:candidates) { Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new], diagnostics) }
+  let(:runner) { instance_double(Saboteur::Execution::Runner) }
 
-  def schedule_with(neutral)
-    runner = instance_double(Saboteur::Execution::Runner)
-    allow(runner).to receive(:run).and_return(neutral)
-    scheduler = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
-                                    reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics)
-    allow(scheduler).to receive(:load_problem).and_return(nil)
+  # mutant: the outcome of every mutant run, given its mutation.
+  # unchanged: the outcome of a run of the unchanged method, given its tests.
+  def schedule(mutant:, unchanged: ->(_tests) { outcome(:survived) })
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, **|
+      mutation ? mutant.call(mutation) : unchanged.call(test_ids)
+    end
     scheduler.call(subject_under_test, candidates.for(subject_under_test))
   end
 
-  def outcome(status, message = nil)
-    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: 1.0, message: message)
+  def scheduler
+    described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                        reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics).tap do |s|
+      allow(s).to receive(:load_problem).and_return(nil)
+    end
   end
 
-  it "skips every mutant as a baseline failure when the unchanged method fails its tests" do
-    expect(schedule_with(outcome(:killed)).map(&:reason).uniq).to eq(["baseline failure"])
+  def outcome(status, failed_ids: [], runtime: 1.0)
+    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: runtime, failed_ids: failed_ids)
   end
 
-  it "says baseline timeout, not failure, when the unchanged method's tests are too slow" do
-    expect(schedule_with(outcome(:timeout, "exceeded 300 s")).map(&:reason).uniq).to eq(["baseline timeout"])
+  def unchanged_runs
+    calls = []
+    expect(runner).to have_received(:run).at_least(:once) do |test_ids:, mutation: nil, **|
+      calls << test_ids unless mutation
+    end
+    calls
+  end
+
+  it "runs no mutant-free check before the mutants" do
+    schedule(mutant: ->(_) { outcome(:survived) })
+    expect(unchanged_runs).to be_empty
+  end
+
+  it "re-runs each kill's own tests up to the killer, once per distinct sequence" do
+    results = schedule(mutant: ->(_) { outcome(:killed, failed_ids: ["t2"]) })
+    expect(results.map(&:status).uniq).to eq([:killed])
+    # The first mutant ran t1 then t2; later ones put the killer t2 first.
+    expect(unchanged_runs).to contain_exactly(%w[t1 t2], ["t2"])
+  end
+
+  it "turns a kill into an error when the killing test also fails with the method unchanged" do
+    results = schedule(mutant: ->(_) { outcome(:killed, failed_ids: ["t1"]) },
+                       unchanged: ->(_) { outcome(:killed, failed_ids: ["t1"]) })
+    expect(results.map(&:status).uniq).to eq([:error])
+    expect(results.first.reason).to eq("killing test t1 also fails with the method unchanged")
+  end
+
+  # t2 fails only when t1 ran before it in the same process.
+  it "turns a kill into an error when the killer fails only after the tests that ran before it" do
+    order_dependent = ->(tests) { tests == %w[t1 t2] ? outcome(:killed, failed_ids: ["t2"]) : outcome(:survived) }
+    results = schedule(mutant: ->(_) { outcome(:killed, failed_ids: ["t2"]) }, unchanged: order_dependent)
+    by_sequence = results.group_by { |result| result.covered_by.first(result.covered_by.index("t2") + 1) }
+    expect(by_sequence.transform_values { |group| group.map(&:status).uniq })
+      .to eq({ %w[t1 t2] => [:error], ["t2"] => [:killed] })
+  end
+
+  # Recorded durations come from one warm process; a fresh child can be
+  # slower. A timeout is checked on the spot against the real runtime of the
+  # unchanged method.
+  describe "a timed-out mutant" do
+    it "keeps the timeout when the unchanged method runs well inside the deadline" do
+      results = schedule(mutant: ->(_) { outcome(:timeout) })
+      expect(results.map(&:status).uniq).to eq([:timeout])
+    end
+
+    it "runs again with a deadline from the unchanged method's real runtime" do
+      allow(runner).to receive(:run) do |test_ids:, timeout:, mutation: nil, **|
+        if mutation then timeout < 30 ? outcome(:timeout) : outcome(:killed, failed_ids: [test_ids.first])
+        else outcome(:survived, runtime: 10.0)
+        end
+      end
+      results = scheduler.call(subject_under_test, candidates.for(subject_under_test))
+      expect(results.map(&:status).uniq).to eq([:killed])
+      expect(runner).to have_received(:run).with(hash_including(timeout: 30.0)).at_least(:once)
+    end
+
+    it "gives later mutants of the subject the measured slowdown" do
+      measured = 0
+      allow(runner).to receive(:run) do |test_ids:, timeout:, mutation: nil, **|
+        next outcome(timeout < 30 ? :timeout : :survived) if mutation
+
+        measured += 1 if test_ids.size == 2 && timeout == 300
+        outcome(:survived, runtime: 10.0)
+      end
+      scheduler.call(subject_under_test, candidates.for(subject_under_test))
+      expect(measured).to eq(1)
+    end
+
+    it "is an error when the unchanged method times out too" do
+      results = schedule(mutant: ->(_) { outcome(:timeout) }, unchanged: ->(_) { outcome(:timeout) })
+      expect(results.map(&:status).uniq).to eq([:error])
+      expect(results.first.reason).to eq("tests also time out with the method unchanged (raise baseline_timeout)")
+    end
+  end
+
+  context "with slow tests" do
+    let(:durations) { { "t1" => 3.0, "t2" => 4.0 } }
+
+    it "gives each mutant a timeout of timeout_factor times its tests' recorded durations" do
+      schedule(mutant: ->(_) { outcome(:survived) })
+      expect(runner).to have_received(:run).with(hash_including(timeout: 21.0)).at_least(:once)
+    end
+  end
+
+  it "never gives a mutant less than timeout_min" do
+    schedule(mutant: ->(_) { outcome(:survived) })
+    expect(runner).to have_received(:run).with(hash_including(timeout: 5.0)).at_least(:once)
   end
 end
 

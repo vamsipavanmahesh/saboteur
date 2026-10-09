@@ -98,6 +98,24 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(supervisor).to have_received(:run).with(timeout: 3600.0)
   end
 
+  # A child that dies before reporting (a crash in a native extension, an
+  # exit! in the suite) must leave enough to find out why.
+  [[{ signaled?: true, termsig: 11 }, "was killed by signal SEGV"],
+   [{ signaled?: false, exitstatus: 2 }, "exited with status 2"]].each do |status, how|
+    it "says how the coverage child ended when it #{how} without a result" do
+      died = Saboteur::Execution::Supervisor::Result.new(
+        payload: "", exit_status: instance_double(Process::Status, **status), stopped_by: nil,
+        detail: nil, runtime: 1.0, leftover_pids: []
+      )
+      allow(supervisor).to receive(:run).and_return(died)
+      allow(Coverage).to receive(:state).and_return(:suspended)
+      expect { store.fetch([file]) }.to raise_error(
+        Saboteur::Error, "coverage map build failed: the suite #{how} before reporting; " \
+                         "its output is in .saboteur/coverage-build.log"
+      )
+    end
+  end
+
   it "refuses to build when Coverage was not set up by the executable" do
     allow(Coverage).to receive(:state).and_return(:idle)
     expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /SimpleCov/)

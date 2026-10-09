@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "coverage"
+require "fileutils"
 require "json"
 
 module Saboteur
@@ -12,6 +13,7 @@ module Saboteur
     class CoverageStore
       CACHE_INPUTS = %w[integration require rspec_args rails].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
+      LOG = "coverage-build.log"
 
       def initialize(config:, integration:, hooks:, supervisor:, diagnostics:)
         @config = config
@@ -53,16 +55,31 @@ module Saboteur
         @diagnostics.inform("building coverage map (runs the whole suite once)")
         result = @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, files) }
         raise Error, "coverage map build stopped: #{result.detail}" if result.stopped_by
+        raise Error, "coverage map build failed: #{died(result.exit_status)}" if result.payload.empty?
 
-        data = JSON.parse(result.payload.empty? ? '{"error":"coverage child died"}' : result.payload)
+        data = JSON.parse(result.payload)
         raise Error, "coverage map build failed: #{data['error']}" if data["error"]
 
         Selection::CoverageMap.from_json(result.payload)
       end
 
-      # Runs in the supervised child.
+      def died(status)
+        how = if status&.signaled? then "was killed by signal #{Signal.signame(status.termsig)}"
+              else "exited with status #{status&.exitstatus}"
+              end
+        "the suite #{how} before reporting; its output is in #{log_path.delete_prefix("#{@root}/")}"
+      end
+
+      def log_path
+        File.join(@config.path("cache_dir"), LOG)
+      end
+
+      # Runs in the supervised child. The suite's output goes to a log, so a
+      # child that dies without reporting can still be diagnosed.
       def record(writer, files)
-        $stdout.reopen(File::NULL, "w")
+        FileUtils.mkdir_p(File.dirname(log_path))
+        $stdout.reopen(log_path, "w")
+        $stdout.sync = true
         $stderr.reopen($stdout)
         @hooks.run(:after_fork)
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
