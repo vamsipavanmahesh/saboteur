@@ -297,6 +297,10 @@ raise the score silently.
   last line (a statement's first line always records a coverage event when it
   runs). An edit outside every statement uses the subject's tests. A mutant
   whose edit no test executed is "no coverage", not a survivor.
+- Diff mode (`--since`): subjects are the methods with a changed line; each
+  keeps its coarse mutants, but fine mutants only on changed lines. The
+  terminal shows one survivor per line (coarse first, then earliest edit);
+  the JSON report keeps all.
 - Order: tests that killed earlier mutants of the same subject first, then
   fastest first (suite order breaks ties). With fail-fast, a mutant is killed
   by its cheapest killing test. Mutants always run a subsequence of the order

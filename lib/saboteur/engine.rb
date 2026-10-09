@@ -21,17 +21,25 @@ module Saboteur
       ignore_list = IgnoreList.load(config.path("ignore_file"))
       integration = Boot.new(config, hooks).load_target
       files = config.included_files
-      config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
-      subjects = SubjectSelection.new(config, @diagnostics).select(files)
-      results = subjects.empty? ? [] : mutate(subjects, files, integration)
+      subjects, scope = select_subjects(files)
+      results = subjects.empty? ? [] : mutate(subjects, files, integration, scope)
       @diagnostics.warnings.concat(ignore_list.apply(results))
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
-                 invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings)
+                 invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
+                 review: !scope.nil?)
     end
 
     private
 
-    def mutate(subjects, files, integration)
+    # The subjects to mutate and, in diff mode, the scope of changed lines.
+    def select_subjects(files)
+      config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
+      selection = SubjectSelection.new(config, @diagnostics)
+      subjects = selection.select(files)
+      [subjects, selection.changed_lines && DiffScope.new(selection.changed_lines)]
+    end
+
+    def mutate(subjects, files, integration, scope)
       map = CoverageStore.new(config: config, integration: integration, hooks: hooks,
                               supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics).fetch(files)
       @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
@@ -42,7 +50,10 @@ module Saboteur
       scheduler = Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator,
                                 diagnostics: @diagnostics)
       candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
-      subjects.flat_map { |subject| scheduler.call(subject, candidates.for(subject)) }
+      subjects.flat_map do |subject|
+        list = candidates.for(subject)
+        scheduler.call(subject, scope ? scope.restrict(subject, list) : list)
+      end
     end
 
     def supervisor(memory_factor: 1)
@@ -68,4 +79,5 @@ require_relative "engine/boot"
 require_relative "engine/subject_selection"
 require_relative "engine/coverage_store"
 require_relative "engine/candidates"
+require_relative "engine/diff_scope"
 require_relative "engine/scheduler"

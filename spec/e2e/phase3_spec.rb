@@ -30,6 +30,15 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.out).to include("1 subjects")
     end
 
+    it "mutates only the changed lines of a changed method, plus its coarse mutants" do
+      path = File.join(dir, "lib", "stage.rb")
+      File.write(path, File.read(path).sub("label.upcase", "label.downcase"))
+      run = saboteur(dir, "--since", "HEAD")
+      fine = mutants(run).reject { |m| m["mutatorName"].start_with?("body_") }
+      expect(fine.map { |m| m["location"]["start"]["line"] }.uniq).to eq([10])
+      expect(mutants(run).map { |m| m["mutatorName"] }).to include("body_nil", "body_raise")
+    end
+
     it "mutates nothing and exits 0 when nothing changed" do
       run = saboteur(dir, "--since", "HEAD")
       expect(run.status).to eq(0)

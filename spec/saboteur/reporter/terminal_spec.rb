@@ -45,6 +45,15 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "crash kills by operator: comparison 2 of 3")
   end
 
+  it "shows one survivor per line in review mode, and says how many more the JSON holds" do
+    survivors = [result_for(:survived, replacement: ">"), result_for(:survived, replacement: "<=")]
+    report = Saboteur::Report.new(results: survivors, subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), review: true)
+    text = render(report)
+    expect(text.scan("Person#adult? comparison").size).to eq(1)
+    expect(text).to include("1 more survivor on this line in the JSON report")
+  end
+
   it "prints n/a for the score when nothing ran" do
     expect(render(report_of)).to include("score n/a")
   end

@@ -6,10 +6,14 @@ module Saboteur
     # The subjects to mutate: every def in the included files, narrowed by
     # --subject patterns and by --since (methods with a changed line).
     class SubjectSelection
+      # Lines changed since the --since ref, by file; nil without --since.
+      attr_reader :changed_lines
+
       def initialize(config, diagnostics)
         @config = config
         @diagnostics = diagnostics
         @root = File.realpath(config.root)
+        @changed_lines = nil
       end
 
       def select(files)
@@ -42,10 +46,10 @@ module Saboteur
       end
 
       def by_change(subjects, ref)
-        changed = Selection::GitDiff.changed_lines(ref, root: @root)
-                                    .transform_keys { |file| Selection::CoverageMap.canonical(file) }
+        @changed_lines = Selection::GitDiff.changed_lines(ref, root: @root)
+                                           .transform_keys { |file| Selection::CoverageMap.canonical(file) }
         subjects.select do |subject|
-          changed[subject.file]&.any? { |line| subject.contains_line?(line) }
+          @changed_lines[subject.file]&.any? { |line| subject.contains_line?(line) }
         end
       end
     end

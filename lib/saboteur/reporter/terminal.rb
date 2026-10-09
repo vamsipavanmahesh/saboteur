@@ -95,12 +95,29 @@ module Saboteur
         return if report.survivors.empty?
 
         @out.puts "\nSurvivors:"
-        report.survivors.each do |result|
+        shown(report).each do |result, hidden|
           location = "#{relative(result.subject.file, report.root)}:#{result.subject.start_line}"
           @out.puts "\n#{result.subject.id} #{result.mutation.operator} #{result.digest} #{location}"
           @out.puts "ignored: #{result.ignored}" if result.ignored
           @out.puts result.diff(root: report.root)
+          @out.puts "#{hidden} more survivor#{'s' if hidden > 1} on this line in the JSON report" if hidden.positive?
         end
+      end
+
+      # [[result, how many more on the same line]]. In review mode survivors
+      # on one line usually share a fate, so one is shown: coarse first, then
+      # the earliest edit.
+      def shown(report)
+        return report.survivors.map { |result| [result, 0] } unless report.review?
+
+        report.survivors.group_by { |result| [result.subject.file, first_line(result)] }.map do |_, same_line|
+          best = same_line.min_by { |result| [result.mutation.coarse ? 0 : 1, result.mutation.edits.first.start_byte] }
+          [best, same_line.size - 1]
+        end
+      end
+
+      def first_line(result)
+        result.subject.file_source.byteslice(0, result.mutation.edits.first.start_byte).count("\n") + 1
       end
 
       def relative(file, root)

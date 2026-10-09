@@ -65,13 +65,19 @@ module Saboteur
   class Report
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :root
 
-    def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [])
+    # REVIEW: diff mode; the terminal then shows one survivor per line.
+    def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [], review: false)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
       @root = root
       @invalid_mutations = invalid_mutations
       @warnings = warnings
+      @review = review
+    end
+
+    def review?
+      @review
     end
 
     def counts

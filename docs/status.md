@@ -42,10 +42,11 @@ go through the watchdog, one at a time (see "Safety rules").
 ## Next up (ordered)
 
 - [ ] Architecture steps E and F (typed config schema, public API docs)
-- [ ] Triage dogfood survivors (165 at commit 47b8bc8; many real gaps in diff.rb property coverage) and add the missing specs
+- [ ] Triage dogfood survivors (148 at 4667cd7; Diff done in 0c777c1 with 12 equivalents recorded) and add the missing specs
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
 - [ ] Phase 4: Mastodon under the watchdog, jobs 1
-- [ ] Survey items that need no spec change: review mode for --since, opt-in result cache, survivor ranking, HTML report, pseudo-tested label
+- [ ] Opt-in result cache (review gap 5; needed for the "state of the art" evidence bar)
+- [ ] Survey items that need no spec change: survivor ranking, HTML report, pseudo-tested label
 
 ## Open questions for the maintainer (do not decide alone)
 
@@ -62,6 +63,12 @@ go through the watchdog, one at a time (see "Safety rules").
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
 
 ## Decisions log
+
+- 2026-10-09 Review round 1+2 items A1-A10 done: coarse rules (rescue,
+  arid), cache key inputs, baseline timeout reason, alias re-pointing with
+  source-location guard, libproc hardening, quoted git paths, assertion vs
+  crash kills, review-shaped --since (fine mutants on changed lines only,
+  one survivor per line in the terminal).
 
 - 2026-10-09 Maintainer: drop Minitest support to reduce scope; RSpec only.
   Adapter, fixture, dev dependency and the `test_files` config key removed;
