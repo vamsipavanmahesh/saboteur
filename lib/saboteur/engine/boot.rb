@@ -16,6 +16,30 @@ module Saboteur
                      "(#{Execution::Supervisor::CHILD_ENV} is set). A test is running saboteur itself; stub it."
       end
 
+      # Prepended to SimpleCov's singleton: saboteur needs Ruby's Coverage for
+      # its own map, and Coverage can only be set up once per process.
+      module SimpleCovOff
+        def start(*, **)
+          nil
+        end
+      end
+
+      # Loads the app's SimpleCov (if it has one) before the app does, so the
+      # app's own SimpleCov.start becomes a no-op instead of a boot failure.
+      def self.silence_simplecov
+        unless defined?(::SimpleCov)
+          begin
+            require "simplecov"
+          rescue LoadError
+            return
+          end
+        end
+        return if ::SimpleCov.singleton_class.include?(SimpleCovOff)
+
+        ::SimpleCov.singleton_class.prepend(SimpleCovOff)
+        warn "saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)"
+      end
+
       # The Rails profile when rails: true, else nil (set by load_target).
       attr_reader :rails
 
@@ -26,6 +50,7 @@ module Saboteur
       end
 
       def load_target
+        self.class.silence_simplecov
         load_hooks
         @rails = rails = Frameworks::Rails.new(@config, @hooks) if @config["rails"]
         rails&.before_boot

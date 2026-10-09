@@ -14,6 +14,23 @@ RSpec.describe Saboteur::Engine::Boot do
     end
   end
 
+  describe ".silence_simplecov" do
+    # saboteur needs Ruby's Coverage itself; an app that starts SimpleCov
+    # unconditionally (as human-essentials does from config/environments)
+    # would otherwise fail to boot under saboteur.
+    it "turns SimpleCov.start into a no-op with a warning, when the app has SimpleCov" do
+      fake = Module.new { def self.start(*) = :started }
+      stub_const("SimpleCov", fake)
+      expect { described_class.silence_simplecov }.to output(/SimpleCov\.start ignored/).to_stderr
+      expect(SimpleCov.start("rails")).to be_nil
+    end
+
+    it "does nothing when the app has no SimpleCov" do
+      hide_const("SimpleCov")
+      expect { described_class.silence_simplecov }.not_to output.to_stderr
+    end
+  end
+
   # If the guard were missing, this spec must fail without starting a run:
   # everything after the guard raises a sentinel instead of doing work.
   it "is the first thing a run does" do
