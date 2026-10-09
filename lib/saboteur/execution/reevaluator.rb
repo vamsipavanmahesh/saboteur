@@ -29,10 +29,12 @@ module Saboteur
         target = subject.singleton ? owner.singleton_class : owner
         visibility = visibility_of(target, subject.name)
         module_function = module_function?(owner, subject)
+        aliases = aliases_of(target, subject.name)
 
         @strategy == "nesting" ? eval_nested(subject, text) : eval_in_owner(owner, subject, text)
 
         restore(owner, target, subject.name, visibility, module_function)
+        repoint(target, subject.name, aliases)
       end
 
       # Resolves the subject's owner the way Ruby would resolve the nesting in
@@ -103,6 +105,25 @@ module Saboteur
         return [code, subject.start_line] unless subject.frozen_literals
 
         [FROZEN_HEADER + code, subject.start_line - 1]
+      end
+
+      # Methods defined with alias/alias_method copy the old body. Callers
+      # that use the alias would never see the mutant, which would then
+      # survive for no reason. Returns { alias => visibility }.
+      def aliases_of(target, name)
+        names = target.instance_methods(false) + target.private_instance_methods(false)
+        names.each_with_object({}) do |other, found|
+          next if other == name || target.instance_method(other).original_name != name
+
+          found[other] = visibility_of(target, other)
+        end
+      end
+
+      def repoint(target, name, aliases)
+        aliases.each do |other, visibility|
+          target.send(:alias_method, other, name)
+          target.send(visibility, other)
+        end
       end
 
       def restore(owner, target, name, visibility, module_function)

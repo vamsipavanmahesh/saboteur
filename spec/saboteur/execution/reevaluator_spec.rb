@@ -57,6 +57,15 @@ RSpec.describe Saboteur::Execution::Reevaluator do
         expect(ReevalTargets::Util.private_method_defined?(:twice)).to be(true)
       end
 
+      it "re-points aliases at the mutated method, keeping their visibility" do
+        reeval("ReevalTargets::Priced#total", strategy, from: "10", to: "11")
+        reeval("ReevalTargets::Priced#secret_total", strategy, from: "1", to: "2")
+        priced = ReevalTargets::Priced.new
+        expect([priced.total, priced.sum, priced.amount]).to eq([11, 11, 11])
+        expect(priced.send(:hidden_sum)).to eq(2)
+        expect(ReevalTargets::Priced.private_method_defined?(:hidden_sum)).to be(true)
+      end
+
       it "keeps the original file and line for backtraces" do
         reeval("ReevalTargets::Person#greeting", strategy)
         expect(person.instance_method(:greeting).source_location).to eq([fixture, 16])

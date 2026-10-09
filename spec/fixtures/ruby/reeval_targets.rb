@@ -61,4 +61,19 @@ module ReevalTargets
       value * 2
     end
   end
+
+  class Priced
+    def total
+      10
+    end
+    alias sum total
+    alias amount total
+
+    private
+
+    def secret_total
+      1
+    end
+    alias hidden_sum secret_total
+  end
 end
