@@ -79,6 +79,14 @@ survivors classified and a census of defs inside blocks.
 
 ## Decisions log
 
+- 2026-10-09 Parallel workers (Phase 5, gems): --jobs N forks N workers from
+  the booted parent; each runs whole subjects through the Scheduler and
+  returns plain data. dry-inflector: 24.99 s -> 7.24 s at 14 jobs (3.45x),
+  identical verdicts on 267 mutants, peak 30 processes / 1.1 GB, no
+  leftovers. Limit: one large subject runs on one worker (Amdahl); next
+  step is splitting large subjects. Rails needs one database per worker
+  (TEST_ENV_NUMBER is set per worker; reconnect is Phase 4 work).
+
 - 2026-10-09 Phase 5 (parallel workers): the benchmark brief requires runs
   at concurrency N for both tools and the maintainer said not to pause, so
   parallel workers will be built after benchmark Phase 0 (logged decision;

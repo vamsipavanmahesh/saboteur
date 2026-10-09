@@ -55,6 +55,17 @@ more connectors than comparisons, and each connector now yields 3 mutants
 instead of 1), not down as in the Java studies; the new survivors were all
 real gaps.
 
+## Parallel workers (--jobs), dry-inflector, nesting, cold cache
+
+| jobs | wall | verdicts | peak processes | peak RSS | leftovers |
+|---|---|---|---|---|---|
+| 1 | 24.99 s | 249 killed, 18 survived | 3 | 191 MB | 0 |
+| 14 | 7.24 s | identical, mutant by mutant | 30 | 1,125 MB | 0 |
+
+Speed-up 3.45x on 14 cores. Wall time includes boot and the serial coverage
+map build. The largest subject (Defaults.singular) runs on a single worker,
+which caps the speed-up; splitting large subjects across workers is next.
+
 ## Incremental mode (--incremental), dry-inflector, nesting
 
 | run | wall | verdicts reused | statuses | peak processes |

@@ -52,6 +52,19 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     end
   end
 
+  describe "--jobs" do
+    it "gives the same verdicts with parallel workers as with one" do
+      verdicts = lambda do |run|
+        mutants(run).map { |m| [m["id"], m["status"]] }.sort
+      end
+      serial = saboteur(dir, "--jobs", "1")
+      parallel = saboteur(dir, "--jobs", "3")
+      expect(parallel.err).not_to include("not supported")
+      expect(verdicts.call(parallel)).to eq(verdicts.call(serial))
+      expect(parallel.status).to eq(serial.status)
+    end
+  end
+
   describe "--incremental" do
     it "reuses every verdict when nothing changed, and re-runs what an edited spec file covers" do
       first = saboteur(dir, "--incremental", "--subject", "People::Person#adult?")

@@ -49,7 +49,6 @@ module Saboteur
     def run
       parser.parse!(@argv)
       raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
-      raise UsageError, "jobs > 1 is not supported yet" if config["jobs"] > 1
 
       report = Engine.new(config, err: @err).call
       @err.puts

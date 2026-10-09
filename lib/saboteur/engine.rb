@@ -56,11 +56,8 @@ module Saboteur
       cache = result_cache
       scheduler = Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator,
                                 diagnostics: @diagnostics, cache: cache)
-      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
-      results = subjects.flat_map do |subject|
-        list = candidates.for(subject)
-        scheduler.call(subject, scope ? scope.restrict(subject, list) : list)
-      end
+      results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+                                 cache: cache).run(subjects, candidate_lists(subjects, scope))
       cache&.save
       results
     end
@@ -71,6 +68,15 @@ module Saboteur
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] })
       ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
                       suite_digest: SuiteFiles.new(config).digest)
+    end
+
+    # Each subject's candidates, narrowed to changed lines in diff mode.
+    def candidate_lists(subjects, scope)
+      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
+      subjects.map do |subject|
+        list = candidates.for(subject)
+        scope ? scope.restrict(subject, list) : list
+      end
     end
 
     def supervisor(memory_factor: 1)
@@ -100,3 +106,4 @@ require_relative "engine/candidates"
 require_relative "engine/diff_scope"
 require_relative "engine/result_cache"
 require_relative "engine/scheduler"
+require_relative "engine/distribution"
