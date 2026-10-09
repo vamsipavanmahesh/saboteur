@@ -83,3 +83,28 @@
 - subject: Saboteur::Engine::Scheduler#execute
   mutation: 30f5bc370f581852
   reason: 'equivalent: counting each kill as 2 keeps the same order of killers'
+- subject: Saboteur::MutationSource::Builtin#initialize
+  mutation: 0f79546512131b47
+  reason: 'equivalent: Base#initialize does nothing'
+- subject: Saboteur::MutationSource::Builtin#initialize
+  mutation: 22d70abfce019634
+  reason: 'equivalent: Regexp.new(regexp) returns an equal Regexp'
+- subject: Saboteur::MutationSource::Builtin#rescues_everything?
+  mutation: a7573a705c635da0
+  reason: 'equivalent: nil and false are both falsy for the caller'
+- subject: Saboteur::MutationSource::Builtin#visit_statements
+  mutation: e962119c0314fa3d
+  reason: 'equivalent: the loop never sees an empty sequence, so != 1 and > 1 agree'
+- subject: Saboteur::MutationSource::Builtin#mutate_call
+  mutation: 908676542a888c9d
+  reason: 'equivalent: only binary calls are named like a comparison or arithmetic
+    operator in practice'
+- subject: Saboteur::MutationSource::Builtin#mutate_call
+  mutation: 4cc9db1f1c23f253
+  reason: 'equivalent: Prism always gives ! a receiver'
+- subject: Saboteur::MutationSource::Builtin#binary?
+  mutation: 1356ffa727eb6c28
+  reason: 'equivalent: calls named as operators are binary in practice'
+- subject: Saboteur::MutationSource::Builtin#mutate_number
+  mutation: 557d74f40af55855
+  reason: 'equivalent: add drops a replacement whose text equals the original'

@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
   spec.executables = ["saboteur"]
   spec.require_paths = ["lib"]
 
-  # Ruby 3.3 bundles prism 0.19, whose API predates 1.0. Require the 1.x gem.
-  spec.add_dependency "prism", ">= 1.0", "< 2"
+  # Ruby 3.3 bundles prism 0.19, whose API predates 1.0. Require a 1.x gem
+  # with the node names saboteur uses (IfNode#subsequent, UnlessNode#else_clause).
+  spec.add_dependency "prism", ">= 1.2", "< 2"
 end

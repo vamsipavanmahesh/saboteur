@@ -34,10 +34,6 @@ module Saboteur
       # Sufficient connector replacements (Just et al. 2012): each operand
       # alone, then the constant the connector cannot produce from it.
       ABSORBING = { "&&" => "false", "and" => "false", "||" => "true", "or" => "true" }.freeze
-      # Operands that need parentheses when they stand alone in place of the
-      # whole expression.
-      COMPOUND = [Prism::AndNode, Prism::OrNode, Prism::IfNode, Prism::UnlessNode,
-                  Prism::RescueModifierNode].freeze
       NON_NUMERIC = [Prism::StringNode, Prism::InterpolatedStringNode, Prism::XStringNode,
                      Prism::ArrayNode, Prism::HashNode, Prism::SymbolNode].freeze
       OR_WRITE = [Prism::LocalVariableOrWriteNode, Prism::InstanceVariableOrWriteNode,
@@ -58,8 +54,6 @@ module Saboteur
 
       def mutations_for(subject)
         body = subject.node.body
-        return [] if body.nil?
-
         @subject = subject
         @found = []
         coarse(body)
@@ -75,7 +69,7 @@ module Saboteur
 
       def coarse(body)
         statements = body.is_a?(Prism::BeginNode) ? body.statements : body
-        return if statements.nil? || statements.body.empty?
+        return if statements.nil?
 
         unless nothing_to_remove?(statements)
           # A predicate's nil is just false; true is the value its tests must reject.
@@ -83,14 +77,12 @@ module Saboteur
             add("body_#{value}", statements, value, coarse: true)
           end
         end
-        add("body_raise", statements, "raise", coarse: true) unless statements.slice.strip == "raise" ||
-                                                                    rescues_everything?(body)
+        add("body_raise", statements, "raise", coarse: true) unless rescues_everything?(body)
       end
 
-      # A lone nil, or nothing but logging: replacing it with nil changes nothing.
+      # Nothing but logging: replacing it changes nothing a test can see.
       def nothing_to_remove?(statements)
-        list = statements.body
-        (list.size == 1 && list.first.is_a?(Prism::NilNode)) || list.all? { |statement| arid?(statement) }
+        statements.body.all? { |statement| arid?(statement) }
       end
 
       # A raise that the method's own rescue catches is absorbed by design. It
@@ -101,7 +93,7 @@ module Saboteur
         while clause
           return true if clause.exceptions.empty? || clause.exceptions.any? { |e| CATCH_ALL.include?(e.slice) }
 
-          clause = clause.respond_to?(:subsequent) ? clause.subsequent : clause.consequent
+          clause = clause.subsequent
         end
         false
       end
@@ -176,33 +168,22 @@ module Saboteur
         add("negation_removal", node, node.receiver.slice)
       end
 
+      # An operand of && / and binds at least as tightly as the expression it
+      # replaces, so it needs no parentheses (the re-parse check backs this).
       def mutate_boolean(node)
-        constant = ABSORBING[node.operator_loc.slice]
-        return unless constant
-
-        [node.left, node.right].each { |operand| add("boolean_logic", node, standalone(operand)) }
-        add("boolean_logic", node, constant)
-      end
-
-      def standalone(operand)
-        COMPOUND.any? { |type| operand.is_a?(type) } ? "(#{operand.slice})" : operand.slice
+        [node.left, node.right].each { |operand| add("boolean_logic", node, operand.slice) }
+        add("boolean_logic", node, ABSORBING.fetch(node.operator_loc.slice))
       end
 
       # Replacing a loop condition with the value that never ends it would
       # only produce timeouts, so that one is skipped.
       def mutate_condition(predicate, hang_on:)
-        return if predicate.nil?
-
-        %w[true false].each do |literal|
-          next if literal == hang_on || predicate.slice == literal
-
-          add("condition_#{literal}", predicate, literal)
-        end
+        (%w[true false] - [hang_on]).each { |literal| add("condition_#{literal}", predicate, literal) }
       end
 
       def mutate_number(node)
         value = node.value
-        candidates = [value + 1, value - 1, value.zero? ? nil : 0].compact
+        candidates = [value + 1, value - 1, 0]
         candidates.map! { |n| node.is_a?(Prism::FloatNode) ? n.to_f : n }
         candidates.uniq.each do |n|
           next if n == value
@@ -228,8 +209,7 @@ module Saboteur
       end
 
       def else_branch?(node, name)
-        branch = node.respond_to?(name) ? node.public_send(name) : node.consequent
-        !branch.nil?
+        !node.public_send(name).nil?
       end
 
       def arid?(node)
@@ -237,10 +217,9 @@ module Saboteur
         @arid.any? { |pattern| pattern.match?(source) }
       end
 
+      # node_or_location: a Prism node or location (both have offsets and slice).
       def add(operator, node_or_location, replacement, coarse: false)
-        return if node_or_location.nil?
-
-        location = node_or_location.respond_to?(:location) ? node_or_location.location : node_or_location
+        location = node_or_location
         return if location.slice == replacement
 
         edit = Edit.new(file: @subject.file, start_byte: location.start_offset,

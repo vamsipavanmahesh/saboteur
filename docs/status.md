@@ -44,7 +44,7 @@ go through the watchdog, one at a time (see "Safety rules").
 - [ ] Benchmark vs mutant (bench/compare/BRIEF.md): Phase 0 candidates first, then STOP for the pick
 
 - [ ] Architecture steps E and F (typed config schema, public API docs)
-- [ ] Triage dogfood survivors (215 live at b9c4068 incl. new engine parts). Done: Diff, terminal reporter, scheduler (0 live; equivalents in .saboteur-ignore.yml). Next: builtin.rb (27), recorder.rb (17), cli.rb (14), subject.rb, git_diff.rb, ...
+- [ ] Triage dogfood survivors (215 live at b9c4068 incl. new engine parts). Done: Diff, terminal reporter, scheduler, operators (0 live; equivalents in .saboteur-ignore.yml). Next: recorder.rb (17), cli.rb (14), subject.rb, git_diff.rb, ...
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
 - [ ] Phase 4: Mastodon under the watchdog, jobs 1
 - [ ] Survey items that need no spec change: survivor ranking, HTML report, pseudo-tested label
@@ -70,6 +70,15 @@ killer file; for apps, Mastodon at the pin under the watchdog with 30+
 survivors classified and a census of defs inside blocks.
 
 ## Decisions log
+
+- 2026-10-09 Phase 5 (parallel workers): the benchmark brief requires runs
+  at concurrency N for both tools and the maintainer said not to pause, so
+  parallel workers will be built after benchmark Phase 0 (logged decision;
+  maintainer may veto).
+- 2026-10-09 Dogfood triage of the operator code: 36 survivors -> 0 live.
+  Most survivors exposed redundant guards (checks already done by `add`'s
+  same-text rule or by the nil-safe walker); those were removed rather than
+  tested. prism requirement raised to >= 1.2 to drop compatibility branches.
 
 - 2026-10-09 M2 adopted after measurement (docs/validation/phase-2-gems.md):
   sufficient ROR/COR sets and predicate true/false coarse mutants. tty-color

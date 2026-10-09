@@ -96,7 +96,7 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    a or b", "boolean_logic")).to eq(%w[a b true])
     end
 
-    it "keeps an operand that is itself a condition in parentheses" do
+    it "keeps an operand's own parentheses and always produces valid Ruby" do
       expect(texts("    x = a && (b || c)", "boolean_logic")).to include("x = (b || c)")
       expect(texts("    x = a && b ? 1 : 2", "boolean_logic")).to all(satisfy { |t|
         Prism.parse("def m\n#{t}\nend").success?
@@ -186,6 +186,28 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    @x ||= a", "or_assign")).to eq(["@x = a"])
       expect(texts("    h[a] ||= b", "or_assign")).to eq(["h[a] = b"])
     end
+  end
+
+  it "never produces a mutation identical to the original, for many shapes" do
+    bodies = ["    return if true\n    x = 0\n    y = 0.0\n    z = nil\n    a&.b\n    c.d", "    raise", "    nil",
+              "    while true\n      a\n    end\n    b"]
+    bodies.each do |body|
+      subject = subjects_in("class K\n  def m?(a)\n#{body}\n  end\nend\n").first
+      texts = mutated_texts(subject).map(&:last)
+      expect(texts).not_to include(subject.source), body
+    end
+  end
+
+  it "accepts arid patterns given as Regexp objects" do
+    source = described_class.new(arid: [/\Atrack\b/])
+    subject = subjects_in("class K\n  def m(a)\n    track(a + 1)\n    a\n  end\nend\n").first
+    fine = mutated_texts(subject, source:).reject { |op, _| op.start_with?("body_") }
+    expect(fine.map(&:last)).to all(include("track(a + 1)"))
+  end
+
+  it "handles a body that is only a rescue clause" do
+    subject = subjects_in("class K\n  def m\n  rescue StandardError\n    1\n  end\nend\n").first
+    expect { described_class.new.mutations_for(subject) }.not_to raise_error
   end
 
   it "produces text that parses for every mutation of a varied method" do
