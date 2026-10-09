@@ -43,7 +43,7 @@ module Saboteur
         passed = execute(listener)
         RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
                       executed_ids: listener.executed, runtime: listener.runtime,
-                      failure_classes: listener.failure_classes)
+                      failure_classes: listener.failure_classes, failure_messages: listener.failure_messages)
       end
 
       def run_all(recorder)
@@ -99,7 +99,9 @@ module Saboteur
       class Listener
         EVENTS = %i[example_started example_finished example_failed].freeze
 
-        attr_reader :executed, :failed, :failure_classes
+        MESSAGE_LIMIT = 200
+
+        attr_reader :executed, :failed, :failure_classes, :failure_messages
         attr_accessor :runtime
 
         def initialize(recorder = nil)
@@ -107,6 +109,7 @@ module Saboteur
           @executed = []
           @failed = []
           @failure_classes = {}
+          @failure_messages = {}
           @runtime = 0.0
         end
 
@@ -122,7 +125,15 @@ module Saboteur
 
         def example_failed(notification)
           @failed << notification.example.id
-          @failure_classes[notification.example.id] = notification.example.execution_result.exception&.class&.name
+          exception = notification.example.execution_result.exception
+          @failure_classes[notification.example.id] = exception&.class&.name
+          @failure_messages[notification.example.id] = first_line(exception&.message)
+        end
+
+        private
+
+        def first_line(message)
+          message.to_s.lines.map(&:strip).find { |line| !line.empty? }.to_s[0, MESSAGE_LIMIT]
         end
       end
     end

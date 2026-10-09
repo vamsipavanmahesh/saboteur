@@ -51,6 +51,31 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect(results[1]).to include("error" => a_string_matching(/worker \d+ died/))
   end
 
+  # A dead worker must leave a reason, or 4,000 mutants show as "E" with
+  # nothing to go on (first human-essentials run at --jobs 6).
+  it "says what a worker raised when it crashed" do
+    results = described_class.new(jobs: 2).map(%w[ok crash]) do |item|
+      raise NoMemoryError, "boom" if item == "crash"
+
+      { "ok" => true }
+    end
+    expect(results[1]["error"]).to match(/\Aworker \d+ crashed: NoMemoryError: boom \(.*worker_pool_spec\.rb:\d+/)
+  end
+
+  it "says which signal killed a worker" do
+    results = described_class.new(jobs: 2).map(%w[ok die ok]) do |item|
+      Process.kill("KILL", Process.pid) if item == "die"
+      { "ok" => true }
+    end
+    expect(results[1]["error"]).to match(/\Aworker \d+ died \(signal KILL\)/)
+  end
+
+  it "stops with the reason when workers keep dying before their first item" do
+    failing = described_class.new(jobs: 2, on_start: ->(_) { raise "no database" })
+    expect { failing.map([1, 2, 3, 4, 5]) { |n| { "n" => n } } }
+      .to raise_error(Saboteur::Error, /\Aworkers keep failing to start: worker \d+ crashed: RuntimeError: no database/)
+  end
+
   # Each example is bounded by a timeout: a regression must fail, not hang.
   it "notices a dead worker even when its child still holds the result pipe" do
     results = nil

@@ -29,6 +29,8 @@ module Saboteur
       # (a mutant of the guard, say) cannot recurse without bound.
       CHILD_ENV = "SABOTEUR_CHILD"
       MAX_DEPTH = 4
+      # The hard CPU limit, as a multiple of the budget (see limit_cpu).
+      HARD_CPU_FACTOR = 20
 
       Limits = Data.define(:max_memory_mb, :max_processes) do
         def self.default
@@ -130,10 +132,28 @@ module Saboteur
 
       # SIGXCPU at the soft limit, SIGKILL at the hard one. Limits can only be
       # lowered, so a nested supervisor stays within the one it inherited.
+      #
+      # macOS over-counts CPU time for a process with many waking threads
+      # and sends SIGXCPU early (a Rails test child has ~20 threads). So
+      # SIGXCPU is checked against the CPU time really used: below the
+      # budget it is ignored and the soft limit moves out; at the budget the
+      # process dies by SIGXCPU. The hard limit (SIGKILL, cannot be caught)
+      # sits far out (HARD_CPU_FACTOR), for a process that ignores SIGXCPU.
       def limit_cpu(seconds)
         _, hard = Process.getrlimit(Process::RLIMIT_CPU)
-        hard_cap = hard == Process::RLIM_INFINITY ? seconds + 5 : [seconds + 5, hard].min
+        hard_cap = [seconds * HARD_CPU_FACTOR, hard].min
         Process.setrlimit(Process::RLIMIT_CPU, [seconds, hard_cap].min, hard_cap)
+        trap("XCPU") { cpu_alarm(seconds) }
+      end
+
+      def cpu_alarm(budget)
+        if Process.clock_gettime(Process::CLOCK_PROCESS_CPUTIME_ID) >= budget
+          trap("XCPU", "DEFAULT")
+          Process.kill("XCPU", Process.pid)
+        else
+          soft, hard = Process.getrlimit(Process::RLIMIT_CPU)
+          Process.setrlimit(Process::RLIMIT_CPU, [soft * 2, hard].min, hard)
+        end
       end
 
       # macOS has no PDEATHSIG: poll, and exit if the supervisor is gone.

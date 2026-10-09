@@ -46,10 +46,12 @@ module Saboteur
         position ? result.covered_by.first(position + 1) : [killer]
       end
 
-      # Runs each distinct kill sequence once. Returns those that fail.
+      # Runs each distinct kill sequence once. Returns those that fail, each
+      # with why (the failure message, when there is one).
       def failing_sequences(kills)
-        kills.map { |result| sequence(result) }.uniq.reject do |tests|
-          @run_unchanged.call(tests, @baseline_timeout).status == :survived
+        kills.map { |result| sequence(result) }.uniq.each_with_object({}) do |tests, failing|
+          outcome = @run_unchanged.call(tests, @baseline_timeout)
+          failing[tests] = outcome.message unless outcome.status == :survived
         end
       end
 
@@ -61,8 +63,10 @@ module Saboteur
       end
 
       def checked(result, failing_runs, failing)
-        if named_kill?(result) && failing_runs.include?(sequence(result))
-          result.as_error("killing test #{result.killed_by.first} also fails with the method unchanged")
+        if named_kill?(result) && failing_runs.key?(sequence(result))
+          why = failing_runs[sequence(result)]
+          result.as_error("killing test #{result.killed_by.first} also fails with the method unchanged" \
+                          "#{": #{why}" if why}")
         elsif failing.include?(result)
           result.as_error("tests also fail with the method unchanged")
         else

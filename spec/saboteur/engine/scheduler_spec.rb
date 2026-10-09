@@ -45,8 +45,8 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
     end
   end
 
-  def outcome(status, failed_ids: [], runtime: 1.0)
-    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: runtime, failed_ids: failed_ids)
+  def outcome(status, failed_ids: [], runtime: 1.0, message: nil)
+    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: runtime, failed_ids: failed_ids, message: message)
   end
 
   def unchanged_runs
@@ -74,6 +74,12 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
                        unchanged: ->(_) { outcome(:killed, failed_ids: ["t1"]) })
     expect(results.map(&:status).uniq).to eq([:error])
     expect(results.first.reason).to eq("killing test t1 also fails with the method unchanged")
+  end
+
+  it "says why the killing test failed with the method unchanged" do
+    results = schedule(mutant: ->(_) { outcome(:killed, failed_ids: ["t1"]) },
+                       unchanged: ->(_) { outcome(:killed, failed_ids: ["t1"], message: "relation does not exist") })
+    expect(results.first.reason).to eq("killing test t1 also fails with the method unchanged: relation does not exist")
   end
 
   # t2 fails only when t1 ran before it in the same process.

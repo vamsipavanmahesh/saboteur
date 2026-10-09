@@ -45,6 +45,11 @@ go through the watchdog, one at a time (see "Safety rules").
       rubyforgood/human-essentials at d6f8290 (MIT, Postgres, needs Ruby 3.4). Saboteur-only
       measurements until mutant licence question is resolved.
 
+- [ ] Runner leaks a Dir.mktmpdir per run under $TMPDIR (child logs); remove it at
+      exit, keeping error logs only when asked
+- [ ] Fiddle: declare it (stops being a default gem in Ruby 3.5)
+- [ ] SimpleCov: hook Object.const_added instead of requiring simplecov (requiring it
+      loads the app's .simplecov first: noisy "coverage already setup" warning)
 - [ ] Architecture steps E and F (typed config schema, public API docs)
 - [ ] Triage dogfood survivors (215 live at b9c4068 incl. new engine parts). Done: Diff, terminal reporter, scheduler, operators (0 live; equivalents in .saboteur-ignore.yml). Next: recorder.rb (17), cli.rb (14), subject.rb, git_diff.rb, ...
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
@@ -79,6 +84,29 @@ killer file; for apps, Mastodon at the pin under the watchdog with 30+
 survivors classified and a census of defs inside blocks.
 
 ## Decisions log
+
+- 2026-10-10 Parallel Rails runs fixed (human-essentials, --jobs 3, Item:
+  verdicts identical to --jobs 1, 142 s vs 263 s). Five defects, each
+  found from evidence, not guessed:
+  1. Workers died silently: a crashed worker now sends its exception as
+     its last line, the item's error says why (or which signal), and the
+     pool stops after 3 workers die before their first item.
+  2. Rails 8 has no PoolConfig#connection_class: owner_of reads the
+     connection descriptor (7.2+) or the class (7.1).
+  3. libpq's GSSAPI probe segfaults forked processes on macOS (crash report:
+     krb5 -> xpc_connection_resume): rails mode sets PGGSSENCMODE=disable
+     unless set (databases are local only).
+  4. Copying the test database left ActiveRecord::Base on the "postgres"
+     maintenance database in every worker; copies now go through
+     saboteur's own MaintenanceRecord class. Re-pointing now covers every
+     role and shard (connects_to reading: pools stayed on the shared DB).
+  5. macOS over-counts RLIMIT_CPU for processes with many waking threads
+     (reproduced: SIGXCPU at 5.4 s of a 20 s limit with 20 threads waking
+     every 10 ms). The child now checks SIGXCPU against its real CPU time,
+     ignores early ones, and the hard limit is 20x the budget.
+  Kills now carry the killing test's failure message; an overturned kill
+  says why the test failed with the method unchanged (that is how defect 4
+  was found: PG::UndefinedTable).
 
 - 2026-10-10 Neutral check replaced by a verdict check (design.md section 8).
   Reason, measured on human-essentials `--subject Item`: two callbacks that

@@ -19,15 +19,21 @@ module Saboteur
     #
     # Workers are numbered from 0; TEST_ENV_NUMBER follows the parallel test
     # convention Rails apps use for one database per worker ("", "2", "3").
-    # A worker that dies has its item reported as an error and is replaced.
+    # A worker that dies has its item reported as an error, with the reason
+    # (what it raised, or the signal), and is replaced. When workers keep
+    # dying before finishing a single item, the pool stops with that reason.
     class WorkerPool
-      Worker = Struct.new(:number, :pid, :commands, :results, :current)
+      # done: items finished; status: the Process::Status once reaped;
+      # last_words: what the worker reported before dying, if anything.
+      Worker = Struct.new(:number, :pid, :commands, :results, :current, :done, :status, :last_words)
+      START_FAILURES = 3
 
       # on_start: called in each worker with its number before its first
       # item (per-worker database connections, for example).
       def initialize(jobs:, on_start: nil)
         @jobs = jobs
         @on_start = on_start
+        @start_failures = 0
       end
 
       def map(items, weights: nil, &work)
@@ -61,18 +67,22 @@ module Saboteur
         ready = IO.select(workers.map(&:results), nil, nil, 1)&.first || []
         ready.each do |io|
           worker = workers.find { |candidate| candidate.results == io }
-          next unless worker
-
-          line = io.gets
-          next replace(worker, workers, queue, results, items, &work) unless line
-
-          results[worker.current] = parse(line)
-          assign(worker, queue)
-          retire(worker, workers) unless worker.current
+          receive(worker, workers, queue, results, items, &work) if worker
         end
         workers.reject { |worker| alive?(worker) }.each do |worker|
           replace(worker, workers, queue, results, items, &work)
         end
+      end
+
+      # Reads one line from a worker whose pipe is ready, then gives it its
+      # next item, retires it when none is left, or replaces it if it died.
+      def receive(worker, workers, queue, results, items, &)
+        line = worker.results.gets
+        take(worker, line, results) if line
+        return replace(worker, workers, queue, results, items, &) if line.nil? || worker.last_words
+
+        assign(worker, queue)
+        retire(worker, workers) unless worker.current
       end
 
       def parse(line)
@@ -82,14 +92,37 @@ module Saboteur
       end
 
       def alive?(worker)
-        Process.waitpid(worker.pid, Process::WNOHANG).nil?
-      rescue Errno::ECHILD
-        false
+        !reaped?(worker)
+      end
+
+      # Stores a line from the worker: its item's result, or why it crashed.
+      def take(worker, line, results)
+        data = parse(line)
+        return worker.last_words = data["fatal"] if data.key?("fatal")
+        return unless worker.current
+
+        results[worker.current] = data
+        worker.done += 1
+        worker.current = nil
+      end
+
+      # Reads what a dead worker left in its pipe: a last result, or why it
+      # crashed.
+      def drain(worker, results)
+        pending = worker.results.read_nonblock(1 << 20, exception: false)
+        return unless pending.is_a?(String)
+
+        pending.each_line { |line| take(worker, line, results) if line.end_with?("\n") }
+      rescue IOError
+        nil
       end
 
       def replace(worker, workers, queue, results, items, &)
-        results[worker.current] = { "error" => "worker #{worker.number} died running this item" } if worker.current
+        drain(worker, results)
         retire(worker, workers)
+        reason = worker.last_words || "worker #{worker.number} died#{how(worker.status)}"
+        results[worker.current] = { "error" => "#{reason}, running this item" } if worker.current
+        give_up(reason) if worker.done.zero?
         return if queue.empty?
 
         fresh = start(worker.number, items, workers, &)
@@ -108,6 +141,21 @@ module Saboteur
       rescue Errno::EPIPE, IOError
         queue.unshift(worker.current) # the worker died before taking it
         worker.current = nil
+      end
+
+      def how(status)
+        return "" unless status
+        return " (signal #{Signal.signame(status.termsig)})" if status.signaled?
+
+        " (exit #{status.exitstatus})"
+      end
+
+      # A worker that never finishes an item is a broken setup (on_start, a
+      # bug in the work itself), not bad luck: stop instead of failing every
+      # item one by one.
+      def give_up(reason)
+        @start_failures += 1
+        raise Error, "workers keep failing to start: #{reason}" if @start_failures >= START_FAILURES
       end
 
       def retire(worker, workers)
@@ -131,10 +179,11 @@ module Saboteur
         results_write.close
         own_group(pid)
         Supervisor.live[pid] = ProcessTree.new(pid)
-        Worker.new(number, pid, commands_write, results_read, nil)
+        Worker.new(number, pid, commands_write, results_read, nil, 0)
       end
 
-      # Runs in the worker until the parent closes its command pipe.
+      # Runs in the worker until the parent closes its command pipe. If it
+      # crashes, its last line says why.
       def serve(number, items, commands, results, &)
         Process.setpgid(0, 0)
         Supervisor.reset_in_worker!
@@ -147,8 +196,16 @@ module Saboteur
           results.flush
         end
         exit!(0)
-      rescue Exception # rubocop:disable Lint/RescueException
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        last_words(results, "worker #{number} crashed: #{e.class}: #{e.message} (#{e.backtrace&.first})")
         exit!(1)
+      end
+
+      def last_words(results, message)
+        results.puts(JSON.generate("fatal" => message))
+        results.flush
+      rescue StandardError
+        nil
       end
 
       def run_one(item, &work)
@@ -163,9 +220,9 @@ module Saboteur
         worker.commands.close unless worker.commands.closed?
         tree = Supervisor.live.delete(worker.pid)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 5
-        sleep 0.01 until reaped?(worker.pid) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+        sleep 0.01 until reaped?(worker) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
         tree&.kill_all
-        reaped?(worker.pid) || Process.wait(worker.pid)
+        worker.status ||= Process.wait2(worker.pid).last unless reaped?(worker)
         worker.results.close unless worker.results.closed?
       rescue Errno::ECHILD
         nil
@@ -177,8 +234,13 @@ module Saboteur
         nil
       end
 
-      def reaped?(pid)
-        !Process.waitpid(pid, Process::WNOHANG).nil?
+      # Reaps the worker if it has exited, keeping its status.
+      def reaped?(worker)
+        return true if worker.status
+
+        pid, status = Process.waitpid2(worker.pid, Process::WNOHANG)
+        worker.status = status if pid
+        !pid.nil?
       rescue Errno::ECHILD
         true
       end

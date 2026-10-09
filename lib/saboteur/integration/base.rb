@@ -8,8 +8,10 @@ module Saboteur
     # filter (nothing ran, every mutant "survives") from a real pass.
     # failure_classes: the exception class name each failed test died with,
     # so a kill by a failed assertion can be told from a kill by a crash.
-    RunResult = Data.define(:passed, :failed_ids, :executed_ids, :runtime, :failure_classes) do
-      def initialize(passed:, failed_ids:, executed_ids:, runtime:, failure_classes: {})
+    # failure_messages: the first line of each failure, so a verdict that
+    # does not hold up can say why the test failed.
+    RunResult = Data.define(:passed, :failed_ids, :executed_ids, :runtime, :failure_classes, :failure_messages) do
+      def initialize(passed:, failed_ids:, executed_ids:, runtime:, failure_classes: {}, failure_messages: {})
         super
       end
     end

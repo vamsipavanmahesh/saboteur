@@ -59,3 +59,17 @@ Survivors (11), first read (to be classified with the full run):
   callers never pass an inventory in tests).
 - Item#sync_request_units!: `if limit.present?` -> `if true` survives: no
   test passes a blank limit.
+
+## Parallel workers: --subject Item, --jobs 3
+
+| run | wall | killed | survived | error | note |
+|-----|------|--------|----------|-------|------|
+| first try | 6.7 s | 0 | 0 | 96 | workers died silently; then: no PoolConfig#connection_class (Rails 8) |
+| + owner_of | 7.7 s | 0 | 0 | 96 | children SIGSEGV: libpq GSSAPI probe after fork (macOS) |
+| + PGGSSENCMODE=disable | 105 s | 20 | 1 | 75 | PG::UndefinedTable: workers on the maintenance DB |
+| + MaintenanceRecord, all roles | 142 s | 85 | 7 | 4 | SIGXCPU at ~4-5 s CPU of a 17-25 s limit |
+| + checked SIGXCPU | 142 s | 85 | 11 | 0 | identical to --jobs 1, mutant by mutant |
+
+Peak RSS 3.3 GB (watchdog sum over the tree), at most 11 processes, no
+leftovers. Speed-up 1.85x on 3 jobs: one subject (the ~850-test callback,
+whose `||=` survivor runs every test, ~121 s) bounds the wall time.

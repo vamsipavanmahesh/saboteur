@@ -85,7 +85,7 @@ module Saboteur
       def run_tests(test_ids)
         result = @integration.run(test_ids)
         { passed: result.passed, failed: result.failed_ids, executed: result.executed_ids, runtime: result.runtime,
-          failure_classes: result.failure_classes }
+          failure_classes: result.failure_classes, failure_messages: result.failure_messages }
       rescue SystemExit => e
         # A test called `exit`. The tests noticed something; count it as a failure.
         { passed: false, failed: [], executed: [], runtime: 0.0, exited: e.status }
@@ -141,6 +141,7 @@ module Saboteur
           return mismatch(runtime, "failed tests not requested: #{unexpected.first(3).join(', ')}") if unexpected.any?
 
           return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed,
+                             message: result.fetch("failure_messages", {})[failed.first],
                              kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
         end
         return Outcome.new(status: :killed, runtime: runtime, message: "suite-level failure") unless result["passed"]

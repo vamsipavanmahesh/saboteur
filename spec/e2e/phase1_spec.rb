@@ -36,7 +36,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       constant_mutants = mutants(run).select { |m| m["location"]["start"]["line"].between?(16, 18) }
       expect(constant_mutants.map { |m| m["status"] }.uniq).to eq(["RuntimeError"])
       expect(constant_mutants.map { |m| m["statusReason"] }.uniq.first)
-        .to end_with("also fails with the method unchanged")
+        .to match(/also fails with the method unchanged: uninitialized constant/)
       expect(run.out).to match(/People::Person#adult_by_constant\?: \d+ verdict\(s\) failed with the method unchanged/)
     end
 

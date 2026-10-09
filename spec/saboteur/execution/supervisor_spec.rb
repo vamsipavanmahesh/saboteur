@@ -150,6 +150,23 @@ RSpec.describe Saboteur::Execution::Supervisor do
     end
   end
 
+  # macOS over-counts CPU time for a process with many waking threads and
+  # sends SIGXCPU early (measured: at 5.4 s of a 20 s limit with 20 threads
+  # waking every 10 ms). A Rails test child has ~20 threads.
+  it "ignores a SIGXCPU that comes before the child used its CPU budget" do
+    result = supervisor.run(timeout: 5, cpu_seconds: 3) do |writer|
+      Process.kill("XCPU", Process.pid)
+      sleep 0.2
+      writer.write("ok")
+    end
+    expect([result.payload, result.exit_status.exitstatus]).to eq(["ok", 0])
+  end
+
+  it "stops a child that really used its CPU budget with SIGXCPU" do
+    result = supervisor.run(timeout: 10, cpu_seconds: 1) { loop { nil } }
+    expect(Signal.signame(result.exit_status.termsig)).to eq("XCPU")
+  end
+
   it "bounds an orphan it never saw with the inherited CPU limit" do
     # The intermediate process exits at once, so the spinner is re-parented
     # to init before the first poll and is not in the tracked tree.

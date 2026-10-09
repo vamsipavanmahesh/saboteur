@@ -22,6 +22,11 @@ module Saboteur
       def before_boot
         env = ENV.fetch("RAILS_ENV", nil) || ENV.fetch("RACK_ENV", nil)
         raise Error, "rails integration refuses to run unless RAILS_ENV=test (got #{env.inspect})" unless env == "test"
+
+        # libpq probes for Kerberos (GSS encryption) on every new connection;
+        # on macOS that goes through XPC, which crashes a forked process. The
+        # databases are local only (check_databases), so it buys nothing.
+        ENV["PGGSSENCMODE"] ||= "disable"
       end
 
       def after_boot
@@ -60,16 +65,26 @@ module Saboteur
       end
 
       # Worker: point every connection pool (primary, and any cache, queue or
-      # connects_to databases) at this worker's copy of its database.
+      # connects_to databases, for every role and shard) at this worker's
+      # copy of its database.
       def start_worker(number)
         return unless defined?(::ActiveRecord::Base) && number.positive?
 
-        ::ActiveRecord::Base.connection_handler.connection_pool_list(:all).each do |pool|
+        handler = ::ActiveRecord::Base.connection_handler
+        handler.connection_pool_list(:all).to_a.each do |pool|
+          config = pool.pool_config
           db = pool.db_config
-          owner = pool.pool_config.connection_class
-          owner.establish_connection(db.configuration_hash.merge(database: self.class.worker_database(db.database,
-                                                                                                      number)))
+          handler.establish_connection(db.configuration_hash.merge(database: self.class.worker_database(db.database,
+                                                                                                        number)),
+                                       owner_name: self.class.owner_of(config), role: config.role,
+                                       shard: config.shard)
         end
+      end
+
+      def self.owner_of(pool_config)
+        return pool_config.connection_class if pool_config.respond_to?(:connection_class)
+
+        Object.const_get(pool_config.connection_descriptor.name)
       end
 
       def self.local_host?(host)
@@ -101,11 +116,7 @@ module Saboteur
         case db.adapter
         when /postg/
           disconnect
-          ::ActiveRecord::Base.establish_connection(db.configuration_hash.merge(database: "postgres"))
-          connection = ::ActiveRecord::Base.connection
-          connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
-          connection.execute("CREATE DATABASE #{connection.quote_table_name(name)} " \
-                             "TEMPLATE #{connection.quote_table_name(db.database)}")
+          copy_postgres(db, name)
         when /sqlite/
           # A database in WAL mode keeps recent writes in -wal/-shm files.
           ["", "-wal", "-shm"].each do |suffix|
@@ -114,6 +125,28 @@ module Saboteur
         else
           raise Error, "--jobs > 1 with Rails needs Postgres or SQLite (got #{db.adapter})"
         end
+      end
+
+      # Through a connection class of saboteur's own, so the app's
+      # connections never point at the maintenance database.
+      def copy_postgres(db, name)
+        admin = maintenance_record
+        admin.establish_connection(db.configuration_hash.merge(database: "postgres"))
+        admin.connection_pool.with_connection do |connection|
+          connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
+          connection.execute("CREATE DATABASE #{connection.quote_table_name(name)} " \
+                             "TEMPLATE #{connection.quote_table_name(db.database)}")
+        end
+      ensure
+        admin&.remove_connection
+      end
+
+      # ActiveRecord names a connection's owner by class name, so the class
+      # needs a constant.
+      def maintenance_record
+        return self.class::MaintenanceRecord if self.class.const_defined?(:MaintenanceRecord, false)
+
+        self.class.const_set(:MaintenanceRecord, Class.new(::ActiveRecord::Base) { self.abstract_class = true })
       end
 
       def disconnect

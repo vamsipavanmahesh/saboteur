@@ -9,7 +9,8 @@ RUNNER_SPEC_RESULTS = {
   "title" => ->(ids) { { passed: true, failed_ids: [], executed_ids: ids } },
   "fail" => lambda { |ids|
     { passed: false, failed_ids: [ids.first], executed_ids: [ids.first],
-      failure_classes: { ids.first => "RSpec::Expectations::ExpectationNotMetError" } }
+      failure_classes: { ids.first => "RSpec::Expectations::ExpectationNotMetError" },
+      failure_messages: { ids.first => "expected: 2 got: 3" } }
   },
   "crash" => lambda { |ids|
     { passed: false, failed_ids: [ids.first], executed_ids: [ids.first],
@@ -94,6 +95,10 @@ RSpec.describe Saboteur::Execution::Runner do
   it "reports killed with the failing test ids" do
     outcome = run_mode("fail")
     expect([outcome.status, outcome.failed_ids]).to eq([:killed, ["t1"]])
+  end
+
+  it "keeps the killing test's failure message" do
+    expect(run_mode("fail").message).to eq("expected: 2 got: 3")
   end
 
   it "records why the killing test failed: an assertion or a crash" do
