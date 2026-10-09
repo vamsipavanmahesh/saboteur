@@ -59,6 +59,36 @@ RSpec.describe Saboteur::Execution::ProcessTable do
     end
   end
 
+  describe "Darwin.all_pids", if: described_class::Darwin.available? do
+    # A stand-in for proc_listallpids: fills the buffer like the kernel does.
+    def fake_list(pids, calls)
+      lambda do |buffer, size|
+        calls << (size / 4)
+        fitting = pids.first(size / 4)
+        buffer[0, fitting.size * 4] = fitting.pack("l*")
+        [pids.size, size / 4].min
+      end
+    end
+
+    it "retries with a bigger buffer when the kernel fills it" do
+      calls = []
+      pids = (1..50).to_a
+      expect(described_class::Darwin.all_pids(fake_list(pids, calls), 16)).to eq(pids)
+      expect(calls).to eq([16, 32, 64])
+    end
+
+    it "raises instead of guessing when the kernel reports an error" do
+      expect { described_class::Darwin.all_pids(->(_buffer, _size) { -1 }, 16) }
+        .to raise_error(SystemCallError)
+    end
+  end
+
+  it "falls back to ps when the fast backend fails, so containment never goes blind" do
+    allow(described_class.backend).to receive(:snapshot).and_raise(SystemCallError.new("boom", 5))
+    expect(described_class.snapshot.fetch(Process.pid).pid).to eq(Process.pid) unless described_class.backend ==
+                                                                                      described_class::Ps
+  end
+
   it "picks the fastest backend this platform supports" do
     expected = if RUBY_PLATFORM.include?("darwin") then described_class::Darwin
                elsif File.exist?("/proc/self/stat") then described_class::Linux

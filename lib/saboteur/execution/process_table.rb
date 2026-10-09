@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "fiddle"
+
 module Saboteur
   module Execution
     # A snapshot of every process on the machine: { pid => Entry }.
@@ -25,8 +27,13 @@ module Saboteur
         @backend ||= backends.first
       end
 
+      # Containment must never go blind: if the fast backend fails, ask ps.
       def self.snapshot
         backend.snapshot
+      rescue SystemCallError, Fiddle::DLError
+        raise if backend == Ps
+
+        Ps.snapshot
       end
 
       # macOS: libproc, through Fiddle.
@@ -65,10 +72,16 @@ module Saboteur
           Entry.new(pid: pid, ppid: 0, pgid: 0, rss_kb: 0, zombie: true, started: nil)
         end
 
-        def all_pids(list_all)
-          buffer = Fiddle::Pointer.malloc(4 * LISTALL_LIMIT, Fiddle::RUBY_FREE)
-          count = list_all.call(buffer, 4 * LISTALL_LIMIT)
-          buffer[0, 4 * count].unpack("l*").reject(&:zero?)
+        # A full buffer may mean more pids than fit: grow it and ask again.
+        def all_pids(list_all, capacity = LISTALL_LIMIT)
+          loop do
+            buffer = Fiddle::Pointer.malloc(4 * capacity, Fiddle::RUBY_FREE)
+            count = list_all.call(buffer, 4 * capacity)
+            raise SystemCallError.new("proc_listallpids", Fiddle.last_error) if count.negative?
+            return buffer[0, 4 * count].unpack("l*").reject(&:zero?) if count < capacity
+
+            capacity *= 2
+          end
         end
 
         def entry_for(pid, info, bsd, task)
