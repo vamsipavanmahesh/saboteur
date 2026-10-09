@@ -36,6 +36,14 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(select([file], subjects: ["Sho"])).to be_empty
   end
 
+  # Patterns are names, not globs: "Item*" matches nothing, and a silent
+  # empty run looks like a clean one.
+  it "warns about a --subject pattern that matches no subject" do
+    select([write("cart.rb", source)], subjects: ["Shop::Cart", "Cart*"])
+    expect(diagnostics.warnings).to eq(["--subject Cart* matches no subject (patterns are names like " \
+                                        "Klass, Klass#meth or Klass.meth, not globs)"])
+  end
+
   it "keeps only methods with a line changed since the ref" do
     file = write("cart.rb", source)
     git = lambda { |*args|

@@ -42,6 +42,12 @@ module Saboteur
       end
 
       def by_pattern(subjects, patterns)
+        patterns.each do |pattern|
+          next if subjects.any? { |subject| self.class.match?(subject.id, pattern) }
+
+          @diagnostics.warn("--subject #{pattern} matches no subject (patterns are names like " \
+                            "Klass, Klass#meth or Klass.meth, not globs)")
+        end
         subjects.select { |subject| patterns.any? { |pattern| self.class.match?(subject.id, pattern) } }
       end
 
