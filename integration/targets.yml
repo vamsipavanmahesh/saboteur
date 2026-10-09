@@ -20,3 +20,11 @@ tty-color:
   expect:
     class_eval: { killed: 29, survived: 4, timeout: 0, error: 0, skipped: 103 }
     nesting: { killed: 118, survived: 16, timeout: 0, error: 0, skipped: 2 }
+human-essentials:
+  repo: https://github.com/rubyforgood/human-essentials.git
+  commit: d6f829046ee9696499f6781fc8f9e434d270a2be
+  license: MIT
+  config: integration/configs/human-essentials.yml
+  schedule: nightly
+  ruby: 3.4.3
+  needs: Postgres (DATABASE_URL for the test database), RAILS_ENV=test
