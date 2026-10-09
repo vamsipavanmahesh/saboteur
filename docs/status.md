@@ -42,10 +42,8 @@ go through the watchdog, one at a time (see "Safety rules").
 ## Next up (ordered)
 
 - [ ] Architecture steps E and F (typed config schema, public API docs)
-- [ ] Re-measure pinned gems after line-level selection + ordering; update snapshot counts in integration/targets.yml and phase-2 doc
 - [ ] Dogfood CI job (`saboteur run --since origin/main`) in .github/workflows/ci.yml
 - [ ] Triage dogfood survivors (165 at commit 47b8bc8; many real gaps in diff.rb property coverage) and add the missing specs
-- [ ] Diff: property spec against system `diff` as oracle
 - [ ] Docs: README usage, design.md refresh (6.1 evidence, 6.3 containment rewrite, 7 line-level selection), recipes (Sidekiq, WebMock, VCR), CHANGELOG
 - [ ] Phase 4: Mastodon under the watchdog, jobs 1
 - [ ] Survey items that need no spec change: review mode for --since, opt-in result cache, survivor ranking, HTML report, pseudo-tested label
@@ -65,6 +63,10 @@ go through the watchdog, one at a time (see "Safety rules").
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
 
 ## Decisions log
+
+- 2026-10-09 Process table read from the kernel (libproc on macOS via Fiddle,
+  /proc on Linux, ps fallback): supervised child overhead 58.8 ms -> 7.9 ms.
+  Pinned gems back to pre-containment speed; snapshots updated.
 
 - 2026-10-09 Restructured into layers (see Architecture review). Not named
   `Saboteur::Coverage` on purpose: it would shadow Ruby's `Coverage` inside

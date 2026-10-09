@@ -8,7 +8,26 @@ cold coverage cache. Targets and commits are pinned in `integration/targets.yml`
 | dry-inflector | b6a2819f | 1138 | 40 | 265 |
 | tty-color | e2410967 | 60 | 17 | 136 |
 
-## Results per re-evaluation strategy
+## Re-measured after line-level selection (2026-10-09, commit after 4a24fed)
+
+Same machine and commits. Changes since the first run: tests selected per
+mutant by line, prior killers then fastest first, no removal of an
+if/unless without else, kernel process table for containment.
+
+| target | reeval | mutants | killed | survived | timeout | error | skipped | wall | mean per executed mutant |
+|---|---|---|---|---|---|---|---|---|---|
+| dry-inflector | class_eval | 261 | 235 | 17 | 0 | 0 | 9 | 21.75 s | 0.056 s |
+| dry-inflector | nesting | 261 | 243 | 18 | 0 | 0 | 0 | 19.79 s | 0.046 s |
+| tty-color | class_eval | 128 | 25 | 1 | 0 | 0 | 102 | 0.68 s | 0.013 s |
+| tty-color | nesting | 128 | 116 | 11 | 0 | 0 | 1 | 2.40 s | 0.016 s |
+
+Every run under script/watchdog: peak 4 processes, peak 176 MB total RSS, no
+leftover processes. tty-color lost two survivors that were duplicates (the
+Windows and `disabled?` guards were each reported by both statement removal
+and `condition_false`). The classification below is from the first run;
+the remaining survivors are the same mutants.
+
+## First run: results per re-evaluation strategy
 
 | target | reeval | killed | survived | timeout | error | skipped | wall | mean per executed mutant | map build |
 |---|---|---|---|---|---|---|---|---|---|
