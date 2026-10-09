@@ -33,7 +33,13 @@ bundle exec saboteur run                          # whole project
 bundle exec saboteur run --since origin/main      # methods changed on this branch
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
+bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
 ```
+
+`--incremental` reuses an earlier verdict only while the method, the mutant,
+its covering tests and their files, the lockfile and the config are all
+unchanged. It cannot see a change in a method this one calls, so run without
+it now and then (and in CI on the main branch).
 
 Output: counts per status, the score, timing, and a unified diff for every
 survivor. The JSON report goes to `.saboteur/report.json`.

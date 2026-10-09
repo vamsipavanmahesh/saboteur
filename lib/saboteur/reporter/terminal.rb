@@ -45,6 +45,9 @@ module Saboteur
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
           report.invalid_mutations.positive?
         report.skip_reasons.each { |reason, count| @out.puts "skipped: #{reason}: #{count}" }
+        reused = report.results.count(&:reused?)
+        @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
+          reused.positive?
         kill_causes(report)
       end
 

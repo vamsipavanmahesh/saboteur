@@ -95,6 +95,7 @@ module Saboteur
         opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
         opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
         opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
+        opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
       end
     end
 

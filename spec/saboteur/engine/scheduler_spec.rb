@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "tmpdir"
 
 RSpec.describe Saboteur::Engine::Scheduler do
   describe ".prioritize" do
@@ -67,5 +68,57 @@ RSpec.describe Saboteur::Engine::Scheduler, "coarse stop" do
     reasons = results_for("class K\n  def m(a)\n    b = a + 1\n    b * 2\n  rescue ArgumentError\n    0\n  end\nend\n")
               .map(&:reason)
     expect(reasons).not_to include("coarse mutant survived")
+  end
+end
+
+RSpec.describe Saboteur::Engine::Scheduler, "result cache" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
+  let(:subject_under_test) { subjects_in("class K\n  def m(a)\n    b = a + 1\n    b * 2\n  end\nend\n").first }
+  let(:map) do
+    lines = (2..5).to_h { |line| [line, ["t1"]] }
+    Saboteur::Selection::CoverageMap.new(lines: { subject_under_test.file => lines }, tests: ["t1"])
+  end
+  let(:runner) { instance_double(Saboteur::Execution::Runner) }
+
+  def cache
+    Saboteur::Engine::ResultCache.new(path: File.join(@root, "results.json"), root: @root, inputs: "x")
+  end
+
+  def run_with(store)
+    scheduler = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                    reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                    cache: store)
+    allow(scheduler).to receive(:load_problem).and_return(nil)
+    candidates = Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new], diagnostics)
+    scheduler.call(subject_under_test, candidates.for(subject_under_test)).tap { store&.save }
+  end
+
+  before do
+    allow(runner).to receive(:run) do |**args|
+      status = args[:mutation].nil? || !args[:mutation].coarse ? :survived : :killed
+      Saboteur::Execution::Runner::Outcome.new(status: status, runtime: 0.1,
+                                               failed_ids: status == :killed ? ["t1"] : [])
+    end
+  end
+
+  it "forks nothing, not even the neutral check, when every verdict is reusable" do
+    first = run_with(cache)
+    second = run_with(cache)
+    expect(runner).to have_received(:run).exactly(first.size + 1).times
+    expect(second.map(&:status)).to eq(first.map(&:status))
+    expect(second).to all(be_reused)
+  end
+
+  it "runs everything without a cache" do
+    run_with(nil)
+    run_with(nil)
+    expect(runner).to have_received(:run).at_least(4).times
   end
 end

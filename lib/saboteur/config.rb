@@ -32,7 +32,8 @@ module Saboteur
       "rspec_args" => [],
       "subjects" => [],
       "since" => nil,
-      "cache" => true
+      "cache" => true,
+      "incremental" => false
     }.freeze
 
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes].freeze

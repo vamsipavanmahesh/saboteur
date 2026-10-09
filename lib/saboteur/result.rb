@@ -14,7 +14,7 @@ module Saboteur
     attr_accessor :ignored
 
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
-                   covered_by: [], kill_cause: nil)
+                   covered_by: [], kill_cause: nil, reused: false)
       raise ArgumentError, "unknown status #{status.inspect}" unless STATUSES.include?(status)
 
       @subject = subject
@@ -26,6 +26,7 @@ module Saboteur
       @covered_by = covered_by
       @mutated_source = mutated_source
       @kill_cause = kill_cause
+      @reused = reused
       @ignored = nil
     end
 
@@ -41,6 +42,11 @@ module Saboteur
     # the like. Such kills say the code broke, not that a test verified it.
     def crash_kill?
       status == :killed && !kill_cause.nil? && kill_cause != "assertion"
+    end
+
+    # Taken from an earlier run (--incremental) instead of run again.
+    def reused?
+      @reused
     end
 
     def unignored_survivor?

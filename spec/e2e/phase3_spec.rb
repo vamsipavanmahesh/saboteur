@@ -52,6 +52,21 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     end
   end
 
+  describe "--incremental" do
+    it "reuses every verdict when nothing changed, and re-runs what an edited spec file covers" do
+      first = saboteur(dir, "--incremental", "--subject", "People::Person#adult?")
+      total = mutants(first).size
+      second = saboteur(dir, "--incremental", "--subject", "People::Person#adult?")
+      expect(second.out).to include("reused #{total} of #{total} verdicts")
+      expect(mutants(second).map { |m| m["status"] }).to eq(mutants(first).map { |m| m["status"] })
+
+      spec_file = File.join(dir, "spec", "person_spec.rb")
+      File.write(spec_file, "#{File.read(spec_file)}\n# edited\n")
+      third = saboteur(dir, "--incremental", "--subject", "People::Person#adult?")
+      expect(third.out).not_to include("reused #{total} of #{total}")
+    end
+  end
+
   describe "ignore list" do
     def survivor_digests(run)
       mutants(run).select { |m| m["status"] == "Survived" }.map { |m| m["id"] }

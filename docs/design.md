@@ -301,6 +301,12 @@ raise the score silently.
   keeps its coarse mutants, but fine mutants only on changed lines. The
   terminal shows one survivor per line (coarse first, then earliest edit);
   the JSON report keeps all.
+- Incremental mode (`--incremental`, opt-in): a stored verdict (killed,
+  survived, timeout) is reused while the method source, the mutant, the set
+  of covering tests, their files' contents, the lockfile, the verdict-
+  relevant config and the saboteur version are unchanged. When every verdict
+  of a method is reusable, nothing forks, not even the neutral check. Hole:
+  changes in callees are invisible (as in PIT), hence opt-in.
 - Order: tests that killed earlier mutants of the same subject first, then
   fastest first (suite order breaks ties). With fail-fast, a mutant is killed
   by its cheapest killing test. Mutants always run a subsequence of the order

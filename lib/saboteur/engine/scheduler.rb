@@ -21,12 +21,13 @@ module Saboteur
         tests.sort_by.with_index { |id, index| [-killers.fetch(id, 0), index] }
       end
 
-      def initialize(config:, runner:, map:, reevaluator:, diagnostics:)
+      def initialize(config:, runner:, map:, reevaluator:, diagnostics:, cache: nil)
         @config = config
         @runner = runner
         @map = map
         @reevaluator = reevaluator
         @diagnostics = diagnostics
+        @cache = cache
       end
 
       def call(subject, candidates)
@@ -38,10 +39,17 @@ module Saboteur
         tests = @map.tests_for(subject)
         return skip_all(candidates, subject, "no coverage") if tests.empty?
 
+        plan = Plan.new(subject:, tests:, timeout: nil, killers: Hash.new(0))
+        reused = all_reused(plan, candidates)
+        return reused if reused
+
         timeout, reason = neutral_check(subject, tests)
         return skip_all(candidates, subject, reason, covered_by: tests) unless timeout
 
-        run_candidates(Plan.new(subject:, tests:, timeout:, killers: Hash.new(0)), candidates)
+        plan = plan.with(timeout: timeout)
+        run_candidates(plan, candidates) do |mutation, text|
+          reuse(plan, mutation, text) || execute(plan, mutation, text)
+        end
       end
 
       private
@@ -62,9 +70,19 @@ module Saboteur
         [nil, baseline.status == :timeout ? "baseline timeout" : "baseline failure"]
       end
 
-      def run_candidates(plan, candidates)
+      # When every verdict can be reused, nothing forks: not even the neutral
+      # check. Returns the results, or nil at the first one that must run.
+      def all_reused(plan, candidates)
+        return nil unless @cache
+
+        catch(:must_run) do
+          run_candidates(plan, candidates) { |mutation, text| reuse(plan, mutation, text) || throw(:must_run) }
+        end
+      end
+
+      def run_candidates(plan, candidates, &run_one)
         coarse, fine = candidates.partition { |mutation, _| mutation.coarse }
-        results = coarse.map { |mutation, text| execute(plan, mutation, text) }
+        results = coarse.map { |mutation, text| run_one.call(mutation, text) }
         # A surviving coarse mutant means nothing checks the body, so the fine
         # mutants would only add noise. Not so when a rescue or else can
         # return a value of its own: fine mutants that make the body raise
@@ -73,7 +91,22 @@ module Saboteur
           return results + skip_all(fine, plan.subject, "coarse mutant survived", covered_by: plan.tests)
         end
 
-        results + fine.map { |mutation, text| execute(plan, mutation, text) }
+        results + fine.map { |mutation, text| run_one.call(mutation, text) }
+      end
+
+      # A stored verdict that still holds, as a result; nil when it must run.
+      def reuse(plan, mutation, text)
+        return nil unless @cache
+
+        tests = tests_for(plan, mutation)
+        return skip_all([[mutation, text]], plan.subject, "no coverage").first if tests.empty?
+
+        hit = @cache.lookup(plan.subject, mutation, tests)
+        return nil unless hit
+
+        MutantResult.new(subject: plan.subject, mutation: mutation, status: hit[:status], mutated_source: text,
+                         reason: hit[:reason], runtime: hit[:runtime], killed_by: hit[:killed_by],
+                         covered_by: tests, kill_cause: hit[:kill_cause], reused: true)
       end
 
       def execute(plan, mutation, text)
@@ -86,6 +119,7 @@ module Saboteur
                                   mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
                                   killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause)
         outcome.failed_ids.each { |id| plan.killers[id] += 1 }
+        @cache&.record(result)
         note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
         @diagnostics.progress(result)
         result

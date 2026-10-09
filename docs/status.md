@@ -45,7 +45,6 @@ go through the watchdog, one at a time (see "Safety rules").
 - [ ] Triage dogfood survivors (148 at 4667cd7; Diff done in 0c777c1 with 12 equivalents recorded) and add the missing specs
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
 - [ ] Phase 4: Mastodon under the watchdog, jobs 1
-- [ ] Opt-in result cache (review gap 5; needed for the "state of the art" evidence bar)
 - [ ] Survey items that need no spec change: survivor ranking, HTML report, pseudo-tested label
 
 ## Open questions for the maintainer (do not decide alone)
@@ -63,6 +62,11 @@ go through the watchdog, one at a time (see "Safety rules").
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
 
 ## Decisions log
+
+- 2026-10-09 Opt-in result cache (--incremental), review gap 5: verdicts
+  reused while method, mutant, covering tests and their files, lockfile,
+  verdict config and version are unchanged; fully reusable methods fork
+  nothing. Callee changes are a documented hole.
 
 - 2026-10-09 Review round 1+2 items A1-A10 done: coarse rules (rescue,
   arid), cache key inputs, baseline timeout reason, alias re-pointing with

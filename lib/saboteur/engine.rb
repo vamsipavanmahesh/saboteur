@@ -1,11 +1,17 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "json"
+
 module Saboteur
   # One run, as a pipeline: boot the target, select subjects, fetch the
   # coverage map, then schedule each subject's mutants. The parts live in
   # engine/; this class only wires them together.
   class Engine
+    # Everything besides sources and tests that can change a verdict.
+    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources arid timeout_factor timeout_min
+                        max_memory_mb max_processes].freeze
+
     attr_reader :config, :hooks
 
     def initialize(config, err: $stderr)
@@ -47,13 +53,23 @@ module Saboteur
       reevaluator = Execution::Reevaluator.new(config["reeval"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
                                      supervisor: supervisor)
+      cache = result_cache
       scheduler = Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator,
-                                diagnostics: @diagnostics)
+                                diagnostics: @diagnostics, cache: cache)
       candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
-      subjects.flat_map do |subject|
+      results = subjects.flat_map do |subject|
         list = candidates.for(subject)
         scheduler.call(subject, scope ? scope.restrict(subject, list) : list)
       end
+      cache&.save
+      results
+    end
+
+    def result_cache
+      return nil unless config["incremental"]
+
+      inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] })
+      ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs)
     end
 
     def supervisor(memory_factor: 1)
@@ -80,4 +96,5 @@ require_relative "engine/subject_selection"
 require_relative "engine/coverage_store"
 require_relative "engine/candidates"
 require_relative "engine/diff_scope"
+require_relative "engine/result_cache"
 require_relative "engine/scheduler"

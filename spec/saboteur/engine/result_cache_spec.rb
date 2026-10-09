@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "tmpdir"
+
+RSpec.describe Saboteur::Engine::ResultCache do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      FileUtils.mkdir_p(File.join(@root, "spec"))
+      File.write(File.join(@root, "spec", "person_spec.rb"), "# tests\n")
+      File.write(File.join(@root, "Gemfile.lock"), "lock 1\n")
+      example.run
+    end
+  end
+
+  let(:path) { File.join(@root, ".saboteur", "results.json") }
+  let(:tests) { ["./spec/person_spec.rb[1:1]"] }
+
+  def cache
+    described_class.new(path: path, root: @root, inputs: "config-1")
+  end
+
+  def killed(result_tests = tests)
+    result_for(:killed, killed_by: result_tests.first(1), covered_by: result_tests, kill_cause: "assertion",
+                        runtime: 0.2)
+  end
+
+  def stored
+    cache.tap { |store| store.record(killed) }.save
+  end
+
+  it "returns a stored verdict while nothing it depends on changed" do
+    stored
+    reused = cache.lookup(person_subject, comparison_mutation, tests)
+    expect(reused.values_at(:status, :killed_by, :kill_cause)).to eq([:killed, tests.first(1), "assertion"])
+  end
+
+  it "forgets it when a covering test file changes" do
+    stored
+    File.write(File.join(@root, "spec", "person_spec.rb"), "# tests, edited\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  it "forgets it when the set of covering tests changes" do
+    stored
+    expect(cache.lookup(person_subject, comparison_mutation, tests + ["./spec/person_spec.rb[1:2]"])).to be_nil
+  end
+
+  it "forgets it when the lockfile or the run's inputs change" do
+    stored
+    File.write(File.join(@root, "Gemfile.lock"), "lock 2\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    File.write(File.join(@root, "Gemfile.lock"), "lock 1\n")
+    other_inputs = described_class.new(path: path, root: @root, inputs: "config-2")
+    expect(other_inputs.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  it "forgets it when the method's source changes" do
+    stored
+    edited = subjects_in(ReportHelpers::PERSON.sub("@age >= 18", "@age >= 18 && true"), name: "person.rb").first
+    expect(cache.lookup(edited, comparison_mutation, tests)).to be_nil
+  end
+
+  it "never stores errors or skips: they always run again" do
+    store = cache
+    store.record(result_for(:error, covered_by: tests))
+    store.record(result_for(:skipped, reason: "no coverage"))
+    store.save
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+end
