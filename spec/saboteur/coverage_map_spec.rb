@@ -15,6 +15,11 @@ RSpec.describe Saboteur::CoverageMap do
     expect(map.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
   end
 
+  it "selects tests by line for a single edit" do
+    expect(map.tests_for_lines(file, [4])).to eq(%w[t1 t3])
+    expect(map.tests_for_lines(file, [99])).to eq([])
+  end
+
   it "ignores the def line of a multi-line method (it runs at load time)" do
     expect(map.tests_for(subject_under_test)).not_to include("load")
   end

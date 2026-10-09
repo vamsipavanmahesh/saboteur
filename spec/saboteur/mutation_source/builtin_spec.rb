@@ -107,12 +107,19 @@ RSpec.describe Saboteur::MutationSource::Builtin do
     it "does not treat expression slots as statements" do
       expect(texts("    x = a ? b : 1\n    y = \"\#{a ? 1 : 2}\"\n    return 1 if a", "statement_removal"))
         .to eq(["nil\n    y = \"\#{a ? 1 : 2}\"\n    return 1 if a",
-                "x = a ? b : 1\n    nil\n    return 1 if a",
-                "x = a ? b : 1\n    y = \"\#{a ? 1 : 2}\"\n    nil"])
+                "x = a ? b : 1\n    nil\n    return 1 if a"])
+    end
+
+    it "does not remove an if/unless without else (the condition mutants are the same change)" do
+      body = "    return 1 if a\n    b unless a\n    if a\n      b\n    else\n      c\n    end\n    d"
+      removed = texts(body, "statement_removal")
+      expect(removed.size).to eq(2) # the if/else and `d`
+      expect(removed).to all(include("return 1 if a", "b unless a"))
     end
 
     it "removes statements inside multi-statement nested bodies" do
-      expect(texts("    if a\n      b\n      c\n    end\n    d", "statement_removal").size).to eq(4)
+      # b, c and d; the else-less if itself is covered by condition_false.
+      expect(texts("    if a\n      b\n      c\n    end\n    d", "statement_removal").size).to eq(3)
     end
 
     it "never mutates arid statements" do

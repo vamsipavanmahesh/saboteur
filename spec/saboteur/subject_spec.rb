@@ -45,6 +45,44 @@ RSpec.describe Saboteur::Subject do
     expect(subjects_in("class A\n  def m; 1; end\nend\n").first.coverage_lines).to eq([2])
   end
 
+  describe "#lines_for" do
+    let(:branchy) do
+      subjects_in(<<~RUBY).first
+        class A
+          def m(x)
+            if x > 1
+              total = x +
+                      2
+            else
+              x - 1
+            end
+          end
+        end
+      RUBY
+    end
+
+    def edit_at(text, occurrence = 0)
+      source = branchy.file_source
+      at = -1
+      (occurrence + 1).times { at = source.index(text, at + 1) }
+      Saboteur::MutationSource::Edit.new(file: branchy.file, start_byte: at, end_byte: at + text.bytesize,
+                                         replacement: "x")
+    end
+
+    it "maps an edit to its innermost statement's first line through the edit's last line" do
+      expect(branchy.lines_for(edit_at("2"))).to eq([4, 5])
+      expect(branchy.lines_for(edit_at("x - 1"))).to eq([7])
+    end
+
+    it "maps an edit in a condition to the statement that holds it" do
+      expect(branchy.lines_for(edit_at(">"))).to eq([3])
+    end
+
+    it "maps an edit outside every statement to the whole method" do
+      expect(branchy.lines_for(edit_at("(x)"))).to eq(branchy.coverage_lines)
+    end
+  end
+
   it "returns the text around the def on its first and last lines" do
     expect(subject_under_test.surrounding_text).to eq(["  ", ""])
   end

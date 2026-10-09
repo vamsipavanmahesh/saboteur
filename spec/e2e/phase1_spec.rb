@@ -52,6 +52,13 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       expect(Dir.glob(File.join(dir, ".saboteur", "coverage-*.json")).size).to eq(1)
     end
 
+    it "reports mutants in a branch no test executes as no coverage, not as survivors" do
+      run = saboteur(dir, "--subject", "Stage")
+      child_branch = mutants(run).select { |m| m["location"]["start"]["line"].between?(9, 10) }
+      expect(child_branch).not_to be_empty
+      expect(child_branch.map { |m| m["status"] }.uniq).to eq(["NoCoverage"])
+    end
+
     it "runs only the selected subject" do
       run = saboteur(dir, "--subject", "People::Person#describe")
       expect(mutants(run).map { |m| m["location"]["start"]["line"] }.uniq).to eq([21])

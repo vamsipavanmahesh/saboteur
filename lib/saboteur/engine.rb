@@ -10,7 +10,7 @@ module Saboteur
   # the neutral check, coarse mutants and fine mutants.
   class Engine
     # A subject that passed its neutral check, with what its mutants need.
-    Plan = Data.define(:subject, :runner, :tests, :timeout)
+    Plan = Data.define(:subject, :runner, :tests, :timeout, :map)
 
     attr_reader :config, :hooks
 
@@ -127,7 +127,7 @@ module Saboteur
       timeout = neutral_check(subject, runner, tests)
       return skip_all(candidates, subject, "baseline failure", covered_by: tests) unless timeout
 
-      run_candidates(Plan.new(subject:, runner:, tests:, timeout:), candidates)
+      run_candidates(Plan.new(subject:, runner:, tests:, timeout:, map:), candidates)
     end
 
     # Runs the subject's tests against the re-evaluated, unchanged method.
@@ -154,14 +154,27 @@ module Saboteur
     end
 
     def execute(plan, mutation, text)
-      outcome = plan.runner.run(subject: plan.subject, text: text, test_ids: plan.tests, timeout: plan.timeout,
+      tests = tests_for_mutation(plan, mutation)
+      return skip_all([[mutation, text]], plan.subject, "no coverage").first if tests.empty?
+
+      outcome = plan.runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: plan.timeout,
                                 mutation: mutation)
       result = MutantResult.new(subject: plan.subject, mutation: mutation, status: outcome.status,
                                 mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
-                                killed_by: outcome.failed_ids, covered_by: plan.tests)
+                                killed_by: outcome.failed_ids, covered_by: tests)
       note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
       progress(result)
       result
+    end
+
+    # Coarse mutants replace the whole body: every test of the method. Fine
+    # mutants: only the tests that executed the edited statement, kept in
+    # the order the neutral check ran them.
+    def tests_for_mutation(plan, mutation)
+      return plan.tests if mutation.coarse
+
+      line_numbers = mutation.edits.flat_map { |edit| plan.subject.lines_for(edit) }.uniq
+      plan.tests & plan.map.tests_for_lines(plan.subject.file, line_numbers)
     end
 
     def note_leftovers(subject, what, outcome)

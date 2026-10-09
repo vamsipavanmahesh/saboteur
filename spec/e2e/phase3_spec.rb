@@ -49,14 +49,14 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes, minitest", :e2
     end
 
     it "exits 0 once every survivor is ignored with a reason, and reports them as ignored" do
-      digests = survivor_digests(saboteur(dir))
+      digests = survivor_digests(saboteur(dir, "--subject", "People::Person#adult?"))
       expect(digests).not_to be_empty
       entries = digests.map do |digest|
         { "subject" => "People::Person#adult?", "mutation" => digest, "reason" => "boundary covered elsewhere" }
       end
       File.write(File.join(dir, ".saboteur-ignore.yml"), entries.to_yaml)
 
-      run = saboteur(dir)
+      run = saboteur(dir, "--subject", "People::Person#adult?")
       expect(run.status).to eq(0)
       expect(run.out).to include("(#{digests.size} ignored)", "ignored: boundary covered elsewhere")
       expect(mutants(run).select { |m| m["status"] == "Survived" }.map { |m| m["statusReason"] }.uniq)

@@ -26,10 +26,15 @@ module Saboteur
     end
 
     def tests_for(subject)
-      by_line = lines[File.expand_path(subject.file)]
+      tests_for_lines(subject.file, subject.coverage_lines)
+    end
+
+    # Tests that executed any of the lines, in suite order, no duplicates.
+    def tests_for_lines(file, line_numbers)
+      by_line = lines[CoverageMap.canonical(file)]
       return [] unless by_line
 
-      ids = subject.coverage_lines.flat_map { |line| by_line.fetch(line, []) }.uniq
+      ids = line_numbers.flat_map { |line| by_line.fetch(line, []) }.uniq
       order = test_order
       ids.sort_by { |id| order.fetch(id, Float::INFINITY) }
     end

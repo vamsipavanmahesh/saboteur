@@ -92,7 +92,7 @@ module Saboteur
         statements.each do |statement|
           next if arid?(statement)
 
-          add("statement_removal", statement, "nil") if statements.size > 1 && !removal_noop?(statement)
+          add("statement_removal", statement, "nil") if statements.size > 1 && removable?(statement)
           visit(statement)
         end
       end
@@ -164,8 +164,21 @@ module Saboteur
 
       # --- helpers --------------------------------------------------------
 
-      def removal_noop?(statement)
-        statement.is_a?(Prism::NilNode)
+      # Removing nil changes nothing. Removing an if/unless without an else
+      # is the same mutant as forcing its condition (condition_false /
+      # condition_true), so it would only report the same gap twice.
+      def removable?(statement)
+        case statement
+        when Prism::NilNode then false
+        when Prism::IfNode then else_branch?(statement, :subsequent)
+        when Prism::UnlessNode then else_branch?(statement, :else_clause)
+        else true
+        end
+      end
+
+      def else_branch?(node, name)
+        branch = node.respond_to?(name) ? node.public_send(name) : node.consequent
+        !branch.nil?
       end
 
       def arid?(node)

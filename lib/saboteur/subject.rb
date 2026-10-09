@@ -69,6 +69,21 @@ module Saboteur
       ((start_line + 1)..end_line).to_a
     end
 
+    # Lines whose execution means the edited code ran: from the first line of
+    # the innermost statement containing the edit to the edit's last line.
+    # A statement's first line always records a coverage event when it runs,
+    # so a test that never ran the edited code cannot have hit these lines.
+    # An edit outside every statement (signature, around the def, whole
+    # body) maps to the whole method.
+    def lines_for(edit)
+      statement = innermost_statement(node.body, edit.start_byte, edit.end_byte)
+      return coverage_lines unless statement
+
+      first = statement.location.start_line
+      last = line_at([edit.end_byte - 1, edit.start_byte].max)
+      (first..[last, first].max).to_a
+    end
+
     def contains_line?(line)
       line.between?(start_line, end_line)
     end
@@ -93,6 +108,30 @@ module Saboteur
     end
 
     private
+
+    def innermost_statement(node, start_byte, end_byte, found = nil)
+      return found if node.nil?
+
+      if node.is_a?(Prism::StatementsNode)
+        statement = node.body.find do |child|
+          child.location.start_offset <= start_byte && end_byte <= child.location.end_offset
+        end
+        return found unless statement
+
+        found = statement
+        node = statement
+      end
+      node.compact_child_nodes.each do |child|
+        next unless child.location.start_offset <= start_byte && end_byte <= child.location.end_offset
+
+        return innermost_statement(child, start_byte, end_byte, found)
+      end
+      found
+    end
+
+    def line_at(byte_offset)
+      file_source.byteslice(0, byte_offset).count("\n") + 1
+    end
 
     def validate_edit!(edit, previous_start)
       unless File.expand_path(edit.file) == File.expand_path(file)
