@@ -128,14 +128,21 @@ module Saboteur
 
       private
 
+      # Coverage is suspended while the delta is processed, so the recorder's
+      # own work (and anything it calls) is never attributed to a test.
       def each_hit_line
-        Coverage.result(stop: false, clear: true).each do |path, data|
+        snapshot = Coverage.result(stop: false, clear: true)
+        suspended = Coverage.running?
+        Coverage.suspend if suspended
+        snapshot.each do |path, data|
           file = @canonical[path]
           next unless @files.include?(file)
 
           counts = data.is_a?(Hash) ? data[:lines] : data
           counts&.each_with_index { |count, index| yield file, index + 1 if count&.positive? }
         end
+      ensure
+        Coverage.resume if suspended
       end
     end
   end

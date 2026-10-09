@@ -81,6 +81,17 @@ RSpec.describe Saboteur::CoverageMap do
       expect(built.lines[file]).to eq(3 => %w[t2 t1], 4 => %w[t1])
     end
 
+    it "suspends coverage while it processes a delta, so its own work is never attributed to a test" do
+      allow(Coverage).to receive(:running?).and_return(true)
+      allow(Coverage).to receive(:suspend)
+      allow(Coverage).to receive(:resume)
+      results.push({}, { file => { lines: [nil, nil, 1] } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(Coverage).to have_received(:suspend).twice
+      expect(Coverage).to have_received(:resume).twice
+    end
+
     it "ignores files that are not being mutated" do
       results.push({}, { "/other.rb" => { lines: [1] } })
       recorder.test_started("t1", "/spec/a_spec.rb")

@@ -13,12 +13,10 @@ exclude:
   - lib/saboteur/hooks.rb
   - lib/saboteur/engine.rb
   - lib/saboteur/integration/**/*.rb
-# End-to-end specs run saboteur in subprocesses, so they never cover lib/
-# code in this process; leaving them out of the coverage run saves ~10 s.
+# Unit specs only. End-to-end specs run saboteur in subprocesses, so they
+# never cover lib/ code in this process; spec/fixtures holds target projects.
 rspec_args:
-  - --exclude-pattern
-  - "spec/e2e/**/*_spec.rb"
-  - spec
+  - spec/saboteur
 # Every class here is nested in `module Saboteur` and refers to siblings
 # (Error, Subject, ...) unqualified; see docs/design.md 6.1.
 reeval: nesting
