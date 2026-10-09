@@ -49,16 +49,7 @@ go through the watchdog, one at a time (see "Safety rules").
 
 ## Open questions for the maintainer (do not decide alone)
 
-1. Re-evaluation default: spec says `class_eval`; measured skip rate from
-   lost lexical constants is 3.8 % (dry-inflector) and 80.1 % (tty-color)
-   vs 0 % with `nesting`. Recommendation: make `nesting` the default.
-2. Resource-limit stops (memory / process cap) are reported as `timeout`
-   with reason "resource limit". Separate status, or keep?
-3. Operator set changes proposed by the survey (docs/research/survey.md):
-   minimal comparison replacement sets, `&&`/`||` operand replacement,
-   `body -> true/false` for predicate methods, skipping `||=` memoization.
-   Each changes the operator list fixed in the brief.
-4. Publishing: name `saboteur` free on rubygems and as glomopay/saboteur on
+1. Publishing: name `saboteur` free on rubygems and as glomopay/saboteur on
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
 
 ## Claude-Grok review loop (docs/review/)
@@ -73,6 +64,11 @@ killer file; for apps, Mastodon at the pin under the watchdog with 30+
 survivors classified and a census of defs inside blocks.
 
 ## Decisions log
+
+- 2026-10-09 Maintainer decisions: M1 default reeval = nesting (done);
+  M2 adopt the research operator changes with a before/after measurement;
+  M3 keep all `||=` mutants; M4 resource-limit stops get their own status,
+  out of the score.
 
 - 2026-10-09 Opt-in result cache (--incremental), review gap 5: verdicts
   reused while method, mutant, covering tests and their files, lockfile,

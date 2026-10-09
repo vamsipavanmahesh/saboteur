@@ -20,7 +20,7 @@ RSpec.describe Saboteur::Config do
   it "uses defaults without a config file" do
     config = described_class.load(root: @root)
     expect(config.to_h.values_at("integration", "timeout_factor", "timeout_min", "jobs", "reeval"))
-      .to eq(["rspec", 3.0, 5.0, 1, "class_eval"])
+      .to eq(["rspec", 3.0, 5.0, 1, "nesting"])
   end
 
   it "reads .saboteur.yml and lets CLI overrides win" do

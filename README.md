@@ -55,7 +55,7 @@ Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 include: [lib/**/*.rb]
 exclude: [lib/my_gem/version.rb]
 require: []                 # boot files, e.g. ./config/environment
-reeval: class_eval          # or nesting; see docs/design.md 6.1
+reeval: nesting             # or class_eval; see docs/design.md 6.1
 timeout_factor: 3           # per-mutant deadline = factor x neutral-check time
 timeout_min: 5
 max_memory_mb: 2048         # memory growth cap per mutant process tree

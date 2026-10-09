@@ -28,7 +28,7 @@ STATUS = { "Killed" => "killed", "Survived" => "survived", "Timeout" => "timeout
 args = ARGV.dup
 extra = (index = args.index("--")) ? args.slice!(index..)[1..] : []
 check = !args.delete("--check").nil?
-strategy = (index = args.index("--reeval")) ? args.slice!(index, 2).last : "class_eval"
+strategy = (index = args.index("--reeval")) ? args.slice!(index, 2).last : "nesting"
 name, workdir = args
 targets = YAML.safe_load_file(File.join(ROOT, "integration", "targets.yml"))
 target = targets.fetch(name) { abort "unknown target #{name.inspect}; known: #{targets.keys.join(', ')}" }

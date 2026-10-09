@@ -136,7 +136,7 @@ Child (forked by `Execution::Supervisor`, see 6.3):
 
 Mutated source is never written to disk in the target project.
 
-### 6.1 Re-evaluation — OPEN
+### 6.1 Re-evaluation
 
 Spec'd approach: `owner.class_eval(src, original_file, original_line)`.
 
@@ -188,8 +188,8 @@ eval("module Outer; class Person; #{mutated_def}; end; end",
 - Refinements (`using`) are lexical and are lost. Subjects in files that call
   `using` are skipped in v1 ("refinements").
 
-Both are implemented (`reeval: class_eval | nesting`); `class_eval` stays the
-default until the maintainer decides. Measured skip rate from the lost
+Both are implemented (`reeval: nesting | class_eval`). Default: `nesting`
+(maintainer decision M1, 2026-10-09). Measured skip rate from the lost
 lexical scope (neutral check fails): 3.8 % of mutants on dry-inflector and
 80.1 % on tty-color with `class_eval`, 0 % with `nesting`
 (docs/validation/phase-2-gems.md). Recommendation: `nesting`.

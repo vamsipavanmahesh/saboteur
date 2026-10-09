@@ -32,7 +32,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
     end
 
     it "skips subjects whose neutral check fails instead of reporting killed (class_eval constant scope)" do
-      run = saboteur(dir)
+      run = saboteur(dir, "--reeval", "class_eval")
       constant_mutants = mutants(run).select { |m| m["location"]["start"]["line"].between?(16, 18) }
       expect(constant_mutants.map { |m| m["status"] }.uniq).to eq(["Ignored"])
       expect(constant_mutants.map { |m| m["statusReason"] }.uniq).to eq(["baseline failure"])

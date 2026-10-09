@@ -26,7 +26,7 @@ module Saboteur
       "sources" => ["builtin"],
       "hooks" => [],
       "rails" => false,
-      "reeval" => "class_eval",
+      "reeval" => "nesting",
       "cache_dir" => ".saboteur",
       "json_report" => ".saboteur/report.json",
       "rspec_args" => [],

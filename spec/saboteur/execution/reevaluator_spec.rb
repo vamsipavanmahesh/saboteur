@@ -95,6 +95,12 @@ RSpec.describe Saboteur::Execution::Reevaluator do
     end
   end
 
+  it "uses the nesting strategy by default (maintainer decision M1)" do
+    subject = Saboteur::SubjectFinder.new.call(fixture).subjects.find { |s| s.id == "ReevalTargets::Person#adult?" }
+    described_class.new.call(subject, subject.source)
+    expect(ReevalTargets::Person.new(20).adult?).to be(true)
+  end
+
   it "rejects unknown strategies" do
     expect { described_class.new("instance_eval") }.to raise_error(Saboteur::Error, /unknown reeval/)
   end

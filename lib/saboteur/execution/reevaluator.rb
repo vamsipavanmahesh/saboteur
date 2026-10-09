@@ -18,7 +18,7 @@ module Saboteur
       STRATEGIES = %w[class_eval nesting].freeze
       FROZEN_HEADER = "# frozen_string_literal: true\n"
 
-      def initialize(strategy = "class_eval")
+      def initialize(strategy = "nesting")
         raise Error, "unknown reeval strategy: #{strategy}" unless STRATEGIES.include?(strategy.to_s)
 
         @strategy = strategy.to_s

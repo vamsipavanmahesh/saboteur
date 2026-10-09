@@ -14,6 +14,3 @@ exclude:
 # never cover lib/ code in this process; spec/fixtures holds target projects.
 rspec_args:
   - spec/saboteur
-# Every class here is nested in `module Saboteur` and refers to siblings
-# (Error, Subject, ...) unqualified; see docs/design.md 6.1.
-reeval: nesting
