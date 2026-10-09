@@ -32,9 +32,12 @@ module Saboteur
         world.example_groups.map { |group| File.expand_path(group.metadata[:file_path]) }.uniq
       end
 
+      # Runs the tests in the order given: groups by their earliest example,
+      # examples by position.
       def run(ids)
         wanted = Set.new(ids)
         narrow_to(wanted)
+        order_by(ids)
         configuration.fail_fast = 1
         listener = Listener.new
         passed = execute(listener)
@@ -55,6 +58,20 @@ module Saboteur
 
       def configuration
         ::RSpec.configuration
+      end
+
+      def order_by(ids)
+        rank = ids.each_with_index.to_h
+        example_rank = ->(example) { rank.fetch(example.id, Float::INFINITY) }
+        configuration.register_ordering(:global) do |items|
+          items.sort_by do |item|
+            if item.is_a?(Class)
+              item.descendant_filtered_examples.map(&example_rank).min || Float::INFINITY
+            else
+              example_rank.call(item)
+            end
+          end
+        end
       end
 
       def narrow_to(wanted)

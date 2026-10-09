@@ -192,3 +192,10 @@ RSpec.describe Saboteur::Engine do
     expect { described_class.new(config).call }.to raise_error(Saboteur::Error, /refusing to start/)
   end
 end
+
+RSpec.describe Saboteur::Engine, ".prioritize" do
+  it "puts tests that killed earlier mutants first and keeps the given order otherwise" do
+    expect(described_class.prioritize(%w[fast mid slow other], { "slow" => 2, "mid" => 1 }))
+      .to eq(%w[slow mid fast other])
+  end
+end

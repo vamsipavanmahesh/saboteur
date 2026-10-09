@@ -12,31 +12,36 @@ module Saboteur
   # Built once per cache key in a forked child that runs the whole suite and
   # takes a per-test delta with Coverage.result(stop: false, clear: true).
   # Lines executed outside any test (before(:all), before(:suite)) are mapped
-  # to every test in the file of the next test that starts.
+  # to every test in the file of the next test that starts. Each test's
+  # duration is recorded so selected tests can run fastest first.
   class CoverageMap
-    FORMAT = 2
+    FORMAT = 3
 
-    attr_reader :lines, :tests, :build_seconds
+    attr_reader :lines, :tests, :build_seconds, :durations
 
     # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
-    def initialize(lines:, tests:, build_seconds: nil)
+    # durations: { "id1" => seconds }
+    def initialize(lines:, tests:, build_seconds: nil, durations: {})
       @lines = lines
       @tests = tests
       @build_seconds = build_seconds
+      @durations = durations
     end
 
     def tests_for(subject)
       tests_for_lines(subject.file, subject.coverage_lines)
     end
 
-    # Tests that executed any of the lines, in suite order, no duplicates.
+    # Tests that executed any of the lines, fastest first (suite order breaks
+    # ties), no duplicates. With fail-fast, a mutant is killed by its
+    # cheapest killing test.
     def tests_for_lines(file, line_numbers)
       by_line = lines[CoverageMap.canonical(file)]
       return [] unless by_line
 
       ids = line_numbers.flat_map { |line| by_line.fetch(line, []) }.uniq
       order = test_order
-      ids.sort_by { |id| order.fetch(id, Float::INFINITY) }
+      ids.sort_by { |id| [durations.fetch(id, Float::INFINITY), order.fetch(id, Float::INFINITY)] }
     end
 
     # Lines refer to tests by their index in tests, which keeps the cache
@@ -46,7 +51,8 @@ module Saboteur
       encoded = lines.transform_values do |by_line|
         by_line.to_h { |line, ids| [line.to_s, ids.map { |id| index.fetch(id) }] }
       end
-      JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encoded)
+      JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encoded,
+                    durations: tests.map { |id| durations[id]&.round(6) })
     end
 
     def self.from_json(json)
@@ -57,7 +63,8 @@ module Saboteur
       lines = data["lines"].transform_values do |by_line|
         by_line.to_h { |line, indexes| [line.to_i, indexes.map { |i| tests.fetch(i) }] }
       end
-      new(lines: lines, tests: tests, build_seconds: data["build_seconds"])
+      durations = tests.zip(data["durations"]).to_h.compact
+      new(lines: lines, tests: tests, build_seconds: data["build_seconds"], durations: durations)
     end
 
     # Cache key over every input that can change which test runs which line.
@@ -105,6 +112,7 @@ module Saboteur
         @tests = []
         @tests_by_file = Hash.new { |hash, file| hash[file] = [] }
         @outside = Hash.new { |hash, file| hash[file] = Set.new }
+        @durations = {}
       end
 
       def start
@@ -116,9 +124,11 @@ module Saboteur
         @tests << id
         @tests_by_file[test_file] << id
         each_hit_line { |file, line| @outside[test_file] << [file, line] }
+        @started_at = monotonic
       end
 
       def test_finished(id)
+        @durations[id] = monotonic - @started_at if @started_at
         each_hit_line { |file, line| @lines[file][line] << id }
       end
 
@@ -128,10 +138,14 @@ module Saboteur
           hits.each { |file, line| @lines[file][line] |= ids }
         end
         lines = @lines.transform_values { |by_line| by_line.transform_values(&:uniq) }
-        CoverageMap.new(lines: lines, tests: @tests, build_seconds: build_seconds)
+        CoverageMap.new(lines: lines, tests: @tests, build_seconds: build_seconds, durations: @durations)
       end
 
       private
+
+      def monotonic
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      end
 
       # Coverage is suspended while the delta is processed, so the recorder's
       # own work (and anything it calls) is never attributed to a test.

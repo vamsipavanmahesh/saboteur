@@ -59,6 +59,13 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       expect(child_branch.map { |m| m["status"] }.uniq).to eq(["NoCoverage"])
     end
 
+    it "runs the fastest covering test first, so it is the one that kills" do
+      run = saboteur(dir, "--subject", "Stage")
+      killed = mutants(run).select { |m| m["status"] == "Killed" }
+      expect(killed).not_to be_empty
+      expect(killed.map { |m| test_names(run, m["killedBy"]) }.uniq).to eq([["./spec/stage_spec.rb[1:1]"]])
+    end
+
     it "runs only the selected subject" do
       run = saboteur(dir, "--subject", "People::Person#describe")
       expect(mutants(run).map { |m| m["location"]["start"]["line"] }.uniq).to eq([21])

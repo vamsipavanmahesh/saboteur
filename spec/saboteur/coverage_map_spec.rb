@@ -15,6 +15,12 @@ RSpec.describe Saboteur::CoverageMap do
     expect(map.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
   end
 
+  it "orders selected tests fastest first, then by suite order" do
+    timed = described_class.new(lines: map.lines, tests: map.tests, durations: { "t1" => 0.5, "t2" => 0.01 })
+    expect(timed.tests_for(subject_under_test)).to eq(%w[t2 t1 t3])
+    expect(described_class.from_json(timed.to_json).durations).to eq("t1" => 0.5, "t2" => 0.01)
+  end
+
   it "selects tests by line for a single edit" do
     expect(map.tests_for_lines(file, [4])).to eq(%w[t1 t3])
     expect(map.tests_for_lines(file, [99])).to eq([])

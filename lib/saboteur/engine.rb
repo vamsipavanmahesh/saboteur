@@ -10,9 +10,15 @@ module Saboteur
   # the neutral check, coarse mutants and fine mutants.
   class Engine
     # A subject that passed its neutral check, with what its mutants need.
-    Plan = Data.define(:subject, :runner, :tests, :timeout, :map)
+    # killers counts the tests that killed earlier mutants of this subject.
+    Plan = Data.define(:subject, :runner, :tests, :timeout, :map, :killers)
 
     attr_reader :config, :hooks
+
+    # Tests that killed more earlier mutants first; otherwise keep the order.
+    def self.prioritize(tests, killers)
+      tests.sort_by.with_index { |id, index| [-killers.fetch(id, 0), index] }
+    end
 
     def initialize(config, err: $stderr)
       @config = config
@@ -127,7 +133,7 @@ module Saboteur
       timeout = neutral_check(subject, runner, tests)
       return skip_all(candidates, subject, "baseline failure", covered_by: tests) unless timeout
 
-      run_candidates(Plan.new(subject:, runner:, tests:, timeout:, map:), candidates)
+      run_candidates(Plan.new(subject:, runner:, tests:, timeout:, map:, killers: Hash.new(0)), candidates)
     end
 
     # Runs the subject's tests against the re-evaluated, unchanged method.
@@ -162,19 +168,23 @@ module Saboteur
       result = MutantResult.new(subject: plan.subject, mutation: mutation, status: outcome.status,
                                 mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
                                 killed_by: outcome.failed_ids, covered_by: tests)
+      outcome.failed_ids.each { |id| plan.killers[id] += 1 }
       note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
       progress(result)
       result
     end
 
     # Coarse mutants replace the whole body: every test of the method. Fine
-    # mutants: only the tests that executed the edited statement, kept in
-    # the order the neutral check ran them.
+    # mutants: only the tests that executed the edited statement. Either way,
+    # tests that killed earlier mutants of this method go first (they are the
+    # likeliest killers), then the neutral check's fastest-first order.
     def tests_for_mutation(plan, mutation)
-      return plan.tests if mutation.coarse
-
-      line_numbers = mutation.edits.flat_map { |edit| plan.subject.lines_for(edit) }.uniq
-      plan.tests & plan.map.tests_for_lines(plan.subject.file, line_numbers)
+      tests = plan.tests
+      unless mutation.coarse
+        line_numbers = mutation.edits.flat_map { |edit| plan.subject.lines_for(edit) }.uniq
+        tests &= plan.map.tests_for_lines(plan.subject.file, line_numbers)
+      end
+      self.class.prioritize(tests, plan.killers)
     end
 
     def note_leftovers(subject, what, outcome)
