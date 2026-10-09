@@ -57,7 +57,17 @@ RSpec.describe Saboteur::Selection::GitDiff do
       git.call("commit", "-q", "-m", "base")
       names.each { |name| File.write(File.join(dir, name), "2\n") }
       changed = described_class.changed_lines("HEAD", root: dir)
-      expect(changed.keys.map { |path| File.basename(path) }.sort).to eq(names.sort)
+      expect(changed.keys.map { |path| path.delete_prefix("#{File.realpath(dir)}/") }.sort)
+        .to eq(names.sort)
+      expect(changed["#{File.realpath(dir)}/nope.rb"]).to be_nil
+    end
+  end
+
+  describe ".unquote" do
+    it "decodes git's C quoting: octal bytes and named escapes" do
+      expect(described_class.unquote('"b/h\\303\\251llo.rb"')).to eq("b/h\u00e9llo.rb")
+      expect(described_class.unquote('"b/a\\tb\\"c.rb"')).to eq("b/a\tb\"c.rb")
+      expect(described_class.unquote("b/plain.rb")).to eq("b/plain.rb")
     end
   end
 

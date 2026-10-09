@@ -108,3 +108,25 @@
 - subject: Saboteur::MutationSource::Builtin#mutate_number
   mutation: 557d74f40af55855
   reason: 'equivalent: add drops a replacement whose text equals the original'
+- subject: Saboteur::Selection::Recorder#test_finished
+  mutation: 9ac4abd82021b00e
+  reason: 'equivalent: test_started always runs first, so @started_at is set'
+- subject: Saboteur::Selection::CoverageMap#to_json
+  mutation: '0458d7ba8548398b'
+  reason: 'equivalent: durations only order tests; a digit of rounding changes no
+    order in practice'
+- subject: Saboteur::Selection::CoverageMap#to_json
+  mutation: 888ad02d4ded3205
+  reason: 'equivalent: durations only order tests; a digit of rounding changes no
+    order in practice'
+- subject: Saboteur::Selection::CoverageMap#test_order
+  mutation: 0bc08834912bc67d
+  reason: 'equivalent: memoization only; tests never change after construction'
+- subject: Saboteur::Selection::GitDiff#unquote
+  mutation: 65fbe2a08ec0b22f
+  reason: 'equivalent: git quotes a whole path, so a path that starts with a quote
+    also ends with one'
+- subject: Saboteur::Selection::GitDiff#unquote
+  mutation: bd07c16b6d849639
+  reason: 'equivalent: git quotes a whole path, so a path that starts with a quote
+    also ends with one'

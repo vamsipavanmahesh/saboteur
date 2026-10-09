@@ -35,7 +35,9 @@ RSpec.describe Saboteur::Selection::CoverageMap do
   end
 
   it "round-trips through JSON with integer line keys" do
-    restored = described_class.from_json(map.to_json)
+    timed = described_class.new(lines: map.lines, tests: map.tests, build_seconds: 1.5)
+    restored = described_class.from_json(timed.to_json)
+    expect(restored.build_seconds).to eq(1.5)
     expect(restored.lines).to eq(map.lines)
     expect(restored.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
   end
@@ -56,6 +58,15 @@ RSpec.describe Saboteur::Selection::CoverageMap do
   end
 
   describe ".cache_key" do
+    it "treats a missing file as an input of its own" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "gone.rb")
+        missing = described_class.cache_key(files: [path], extra: "x")
+        File.write(path, "")
+        expect(described_class.cache_key(files: [path], extra: "x")).not_to eq(missing)
+      end
+    end
+
     it "changes when a file's content or the extra inputs change" do
       Dir.mktmpdir do |dir|
         path = File.join(dir, "a.rb")
@@ -76,6 +87,24 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     before do
       queue = results
       allow(Coverage).to receive(:result).with(stop: false, clear: true) { queue.shift || {} }
+      # Never touch the real Coverage: when saboteur measures its own suite,
+      # suspending it here would hide these very examples from the map.
+      allow(Coverage).to receive(:running?).and_return(false)
+    end
+
+    it "records a real, non-negative duration with the real clock" do
+      results.push({}, {})
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.durations["t1"]).to be_a(Float).and(be >= 0)
+    end
+
+    it "records how long each test took" do
+      results.push({}, {})
+      allow(recorder).to receive(:monotonic).and_return(10.0, 10.25)
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.durations).to eq("t1" => 0.25)
     end
 
     it "attributes each test's delta to that test, and outside-test lines to the next test's file" do

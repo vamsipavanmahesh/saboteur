@@ -41,7 +41,9 @@ go through the watchdog, one at a time (see "Safety rules").
 
 ## Next up (ordered)
 
-- [ ] Benchmark vs mutant (bench/compare/BRIEF.md): Phase 0 candidates first, then STOP for the pick
+- [ ] Benchmark (bench/compare/BRIEF.md): Phase 0 done (bench/compare/phase0-candidates.md); pick:
+      rubyforgood/human-essentials at d6f8290 (MIT, Postgres, needs Ruby 3.4). Saboteur-only
+      measurements until mutant licence question is resolved.
 
 - [ ] Architecture steps E and F (typed config schema, public API docs)
 - [ ] Triage dogfood survivors (215 live at b9c4068 incl. new engine parts). Done: Diff, terminal reporter, scheduler, operators (0 live; equivalents in .saboteur-ignore.yml). Next: recorder.rb (17), cli.rb (14), subject.rb, git_diff.rb, ...
@@ -51,9 +53,15 @@ go through the watchdog, one at a time (see "Safety rules").
 
 ## Open questions for the maintainer (do not decide alone)
 
-- Benchmark (bench/compare/BRIEF.md): running mutant at all needs its
-  licence to allow this use (MUTANT_USAGE opensource vs commercial). Also:
-  does the benchmark app replace Mastodon as the Phase 4 target?
+- Benchmark vs mutant is BLOCKED by mutant's licence (verified in its
+  LICENSE, section 3.1): (h) no public dissemination of performance
+  information or benchmarks; (j) no use of the software to develop a
+  competing product; (a) no attempt to discover its underlying ideas or
+  algorithms. Decision: mutant is not installed or run. Options for the
+  maintainer: written permission from Schirp DSO LTD (info@schirp-dso.com)
+  waiving 3.1(h) and (j); or benchmark saboteur alone on the brief's metrics
+  (in progress, so the mutant column can be added if permission comes); or
+  legal review. Not legal advice.
 
 1. Publishing: name `saboteur` free on rubygems and as glomopay/saboteur on
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.

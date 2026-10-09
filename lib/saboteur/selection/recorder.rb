@@ -61,8 +61,8 @@ module Saboteur
           file = @canonical[path]
           next unless @files.include?(file)
 
-          counts = data.is_a?(Hash) ? data[:lines] : data
-          counts&.each_with_index { |count, index| yield file, index + 1 if count&.positive? }
+          # Lines mode (set up by the executable); nil marks a line with no code.
+          data[:lines].each_with_index { |count, index| yield file, index + 1 if count&.positive? }
         end
       ensure
         Coverage.resume if suspended
