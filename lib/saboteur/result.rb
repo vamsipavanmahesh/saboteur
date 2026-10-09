@@ -9,11 +9,12 @@ module Saboteur
   # Outcome of one mutation. reason carries the skip reason, the error
   # message or the timeout limit. ignored is the ignore-list reason, if any.
   class MutantResult
-    attr_reader :subject, :mutation, :status, :reason, :runtime, :killed_by, :covered_by, :mutated_source
+    attr_reader :subject, :mutation, :status, :reason, :runtime, :killed_by, :covered_by, :mutated_source,
+                :kill_cause
     attr_accessor :ignored
 
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
-                   covered_by: [])
+                   covered_by: [], kill_cause: nil)
       raise ArgumentError, "unknown status #{status.inspect}" unless STATUSES.include?(status)
 
       @subject = subject
@@ -24,6 +25,7 @@ module Saboteur
       @killed_by = killed_by
       @covered_by = covered_by
       @mutated_source = mutated_source
+      @kill_cause = kill_cause
       @ignored = nil
     end
 
@@ -33,6 +35,12 @@ module Saboteur
 
     def survived?
       status == :survived
+    end
+
+    # Killed because a test's error, not its check, fired: NoMethodError and
+    # the like. Such kills say the code broke, not that a test verified it.
+    def crash_kill?
+      status == :killed && !kill_cause.nil? && kill_cause != "assertion"
     end
 
     def unignored_survivor?

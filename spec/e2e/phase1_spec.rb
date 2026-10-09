@@ -66,6 +66,13 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       expect(killed.map { |m| test_names(run, m["killedBy"]) }.uniq).to eq([["./spec/stage_spec.rb[1:1]"]])
     end
 
+    it "tells assertion kills from crash kills through real RSpec" do
+      run = saboteur(dir, "--subject", "People::Person#adult?")
+      by_operator = mutants(run).to_h { |m| [m["mutatorName"], m["statusReason"]] }
+      expect(by_operator.values_at("body_nil", "body_raise")).to eq(["assertion", "crash: RuntimeError"])
+      expect(run.out).to include("kills:", "by a crash (RuntimeError 1)")
+    end
+
     it "runs only the selected subject" do
       run = saboteur(dir, "--subject", "People::Person#describe")
       expect(mutants(run).map { |m| m["location"]["start"]["line"] }.uniq).to eq([21])

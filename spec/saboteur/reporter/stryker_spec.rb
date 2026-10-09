@@ -48,6 +48,13 @@ RSpec.describe Saboteur::Reporter::Stryker do
     )
   end
 
+  it "says what killed a killed mutant: an assertion or a crash" do
+    report = report_of(result_for(:killed, kill_cause: "assertion"), result_for(:killed, kill_cause: "TypeError"))
+    reasons = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
+                  .map { |m| m["statusReason"] }
+    expect(reasons).to eq(["assertion", "crash: TypeError"])
+  end
+
   it "keeps ignored survivors as Survived with the reason, and first lines of errors" do
     expect(mutants[1]["statusReason"]).to eq("ignored: equivalent")
     expect(mutants[3]["statusReason"]).to eq("boom")

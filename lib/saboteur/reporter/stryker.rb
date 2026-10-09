@@ -90,6 +90,7 @@ module Saboteur
 
       def self.status_reason(result)
         return "ignored: #{result.ignored}" if result.ignored
+        return result.crash_kill? ? "crash: #{result.kill_cause}" : result.kill_cause if result.kill_cause
 
         result.reason.to_s.lines.first&.strip
       end

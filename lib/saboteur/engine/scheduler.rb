@@ -84,7 +84,7 @@ module Saboteur
                               mutation: mutation)
         result = MutantResult.new(subject: plan.subject, mutation: mutation, status: outcome.status,
                                   mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
-                                  killed_by: outcome.failed_ids, covered_by: tests)
+                                  killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause)
         outcome.failed_ids.each { |id| plan.killers[id] += 1 }
         note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
         @diagnostics.progress(result)

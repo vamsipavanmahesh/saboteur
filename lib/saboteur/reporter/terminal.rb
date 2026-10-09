@@ -45,6 +45,34 @@ module Saboteur
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
           report.invalid_mutations.positive?
         report.skip_reasons.each { |reason, count| @out.puts "skipped: #{reason}: #{count}" }
+        kill_causes(report)
+      end
+
+      # How many kills came from a failed check and how many from a crash, and
+      # which operators mostly kill by crashing (their score says less).
+      def kill_causes(report)
+        killed = report.results.select { |result| result.status == :killed && result.kill_cause }
+        return if killed.empty?
+
+        crashes = killed.select(&:crash_kill?)
+        @out.puts "kills: #{killed.size - crashes.size} by a failed assertion, #{crashes.size} by a crash" \
+                  "#{crash_classes(crashes)}"
+        @out.puts "crash kills by operator: #{crashes_by_operator(killed)}" if crashes.any?
+      end
+
+      def crash_classes(crashes)
+        return "" if crashes.empty?
+
+        counts = crashes.map(&:kill_cause).tally.sort_by { |_, count| -count }
+        " (#{counts.map { |name, count| "#{name} #{count}" }.join(', ')})"
+      end
+
+      def crashes_by_operator(killed)
+        parts = killed.group_by { |result| result.mutation.operator }.filter_map do |operator, results|
+          count = results.count(&:crash_kill?)
+          "#{operator} #{count} of #{results.size}" if count.positive?
+        end
+        parts.join(", ")
       end
 
       def warnings(report)

@@ -13,11 +13,19 @@ module Saboteur
     # whole process tree: deadline, memory and process caps, and killing every
     # descendant afterwards, including ones that left the process group.
     class Runner
-      Outcome = Data.define(:status, :runtime, :failed_ids, :message, :leftover_pids) do
-        def initialize(status:, runtime:, failed_ids: [], message: nil, leftover_pids: [])
+      # kill_cause: "assertion" when the killing test failed an expectation,
+      # else the class of the error it died with (a crash, not a check).
+      Outcome = Data.define(:status, :runtime, :failed_ids, :message, :leftover_pids, :kill_cause) do
+        def initialize(status:, runtime:, failed_ids: [], message: nil, leftover_pids: [], kill_cause: nil)
           super
         end
       end
+
+      ASSERTION_FAILURES = %w[
+        RSpec::Expectations::ExpectationNotMetError
+        RSpec::Expectations::MultipleExpectationsNotMetError
+        RSpec::Mocks::MockExpectationError
+      ].freeze
 
       # Everything one child needs. mutation is nil for the neutral check.
       Job = Data.define(:subject, :text, :test_ids, :timeout, :mutation, :log_path)
@@ -76,7 +84,8 @@ module Saboteur
 
       def run_tests(test_ids)
         result = @integration.run(test_ids)
-        { passed: result.passed, failed: result.failed_ids, executed: result.executed_ids, runtime: result.runtime }
+        { passed: result.passed, failed: result.failed_ids, executed: result.executed_ids, runtime: result.runtime,
+          failure_classes: result.failure_classes }
       rescue SystemExit => e
         # A test called `exit`. The tests noticed something; count it as a failure.
         { passed: false, failed: [], executed: [], runtime: 0.0, exited: e.status }
@@ -131,7 +140,8 @@ module Saboteur
           unexpected = failed - test_ids
           return mismatch(runtime, "failed tests not requested: #{unexpected.first(3).join(', ')}") if unexpected.any?
 
-          return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed)
+          return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed,
+                             kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
         end
         return Outcome.new(status: :killed, runtime: runtime, message: "suite-level failure") unless result["passed"]
 
@@ -140,6 +150,12 @@ module Saboteur
         end
 
         Outcome.new(status: :survived, runtime: runtime)
+      end
+
+      def kill_cause(failure_class)
+        return nil if failure_class.nil?
+
+        ASSERTION_FAILURES.include?(failure_class) ? "assertion" : failure_class
       end
 
       def mismatch(runtime, message)

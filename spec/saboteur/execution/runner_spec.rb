@@ -3,6 +3,22 @@
 
 require "tmpdir"
 
+# What the fake suite reports, per mode, for the modes that return.
+RUNNER_SPEC_RESULTS = {
+  "pass" => ->(ids) { { passed: true, failed_ids: [], executed_ids: ids } },
+  "title" => ->(ids) { { passed: true, failed_ids: [], executed_ids: ids } },
+  "fail" => lambda { |ids|
+    { passed: false, failed_ids: [ids.first], executed_ids: [ids.first],
+      failure_classes: { ids.first => "RSpec::Expectations::ExpectationNotMetError" } }
+  },
+  "crash" => lambda { |ids|
+    { passed: false, failed_ids: [ids.first], executed_ids: [ids.first],
+      failure_classes: { ids.first => "NoMethodError" } }
+  },
+  "partial" => ->(ids) { { passed: true, failed_ids: [], executed_ids: ids.first(1) } },
+  "foreign" => ->(_ids) { { passed: false, failed_ids: ["other"], executed_ids: ["other"] } }
+}.freeze
+
 RSpec.describe Saboteur::Execution::Runner do
   # The "method text" doubles as an instruction for the fake integration, so
   # each example can make the child pass, fail, hang or crash.
@@ -26,20 +42,14 @@ RSpec.describe Saboteur::Execution::Runner do
     Class.new do
       define_method(:run) do |ids|
         mode = reeval.mode
-        result = ->(**kw) { Saboteur::Integration::RunResult.new(runtime: 0.01, **kw) }
+        File.write(File.join(dir, "title"), `ps -o command= -p #{Process.pid}`.strip) if mode == "title"
         case mode
-        when "pass" then result.call(passed: true, failed_ids: [], executed_ids: ids)
-        when "title"
-          File.write(File.join(dir, "title"), `ps -o command= -p #{Process.pid}`.strip)
-          result.call(passed: true, failed_ids: [], executed_ids: ids)
-        when "fail" then result.call(passed: false, failed_ids: [ids.first], executed_ids: [ids.first])
-        when "partial" then result.call(passed: true, failed_ids: [], executed_ids: ids.first(1))
-        when "foreign" then result.call(passed: false, failed_ids: ["other"], executed_ids: ["other"])
         when "exit" then exit(1)
         when "die" then Process.kill("KILL", Process.pid)
         when "hang"
           File.write(File.join(dir, "grandchild.pid"), Process.spawn("sleep", "300").to_s)
           loop { sleep 0.01 }
+        else Saboteur::Integration::RunResult.new(runtime: 0.01, **RUNNER_SPEC_RESULTS.fetch(mode).call(ids))
         end
       end
     end.new
@@ -84,6 +94,11 @@ RSpec.describe Saboteur::Execution::Runner do
   it "reports killed with the failing test ids" do
     outcome = run_mode("fail")
     expect([outcome.status, outcome.failed_ids]).to eq([:killed, ["t1"]])
+  end
+
+  it "records why the killing test failed: an assertion or a crash" do
+    expect(run_mode("fail").kill_cause).to eq("assertion")
+    expect(run_mode("crash").kill_cause).to eq("NoMethodError")
   end
 
   it "counts a test calling exit as killed" do

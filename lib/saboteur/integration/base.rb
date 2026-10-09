@@ -6,7 +6,13 @@ module Saboteur
     TestCase = Data.define(:id, :file)
     # executed_ids: tests that actually ran, so the runner can tell a broken
     # filter (nothing ran, every mutant "survives") from a real pass.
-    RunResult = Data.define(:passed, :failed_ids, :executed_ids, :runtime)
+    # failure_classes: the exception class name each failed test died with,
+    # so a kill by a failed assertion can be told from a kill by a crash.
+    RunResult = Data.define(:passed, :failed_ids, :executed_ids, :runtime, :failure_classes) do
+      def initialize(passed:, failed_ids:, executed_ids:, runtime:, failure_classes: {})
+        super
+      end
+    end
 
     REGISTRY = {} # rubocop:disable Style/MutableConstant
 

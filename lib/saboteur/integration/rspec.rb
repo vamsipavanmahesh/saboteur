@@ -42,7 +42,8 @@ module Saboteur
         listener = Listener.new
         passed = execute(listener)
         RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
-                      executed_ids: listener.executed, runtime: listener.runtime)
+                      executed_ids: listener.executed, runtime: listener.runtime,
+                      failure_classes: listener.failure_classes)
       end
 
       def run_all(recorder)
@@ -98,13 +99,14 @@ module Saboteur
       class Listener
         EVENTS = %i[example_started example_finished example_failed].freeze
 
-        attr_reader :executed, :failed
+        attr_reader :executed, :failed, :failure_classes
         attr_accessor :runtime
 
         def initialize(recorder = nil)
           @recorder = recorder
           @executed = []
           @failed = []
+          @failure_classes = {}
           @runtime = 0.0
         end
 
@@ -120,6 +122,7 @@ module Saboteur
 
         def example_failed(notification)
           @failed << notification.example.id
+          @failure_classes[notification.example.id] = notification.example.execution_result.exception&.class&.name
         end
       end
     end

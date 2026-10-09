@@ -37,6 +37,14 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "ignored: equivalent: ages are integers")
   end
 
+  it "splits kills into assertion kills and crash kills, by operator" do
+    text = render(report_of(result_for(:killed, kill_cause: "assertion"),
+                            result_for(:killed, replacement: "<", kill_cause: "NoMethodError"),
+                            result_for(:killed, replacement: "<=", kill_cause: "NoMethodError")))
+    expect(text).to include("kills: 1 by a failed assertion, 2 by a crash (NoMethodError 2)",
+                            "crash kills by operator: comparison 2 of 3")
+  end
+
   it "prints n/a for the score when nothing ran" do
     expect(render(report_of)).to include("score n/a")
   end
