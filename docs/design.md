@@ -83,7 +83,10 @@ mutants would only add noise. Only `survived` triggers the skip; timeout or
 error on a coarse mutant does not.
 
 Equivalent coarse mutants are not generated: no `body -> nil` for a body that
-is empty, is a literal `nil`, or whose last statement is arid (logging-only).
+is empty, a lone `nil`, or only arid statements (logging); no `body -> raise`
+when the method's own rescue catches `StandardError` (the raise is what the
+rescue is for). A surviving coarse mutant stops the fine mutants, except in
+a method with `rescue` or `else`, which can return a value of its own.
 
 Fine:
 - Comparison: `>=`<->`>`, `<=`<->`<`, `==`<->`!=`, `<`<->`>`, `<=`<->`>=`.

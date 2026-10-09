@@ -54,13 +54,14 @@ RSpec.describe Saboteur::Engine::CoverageStore do
 
   # Support files, spec_helper and boot files decide which test runs which
   # line just as much as example files do.
-  ["spec/support/helpers.rb", "spec/spec_helper.rb", ".rspec", "config/boot.rb"]
+  ["spec/support/helpers.rb", "spec/spec_helper.rb", ".rspec", "config/boot.rb", "config/saboteur_hooks.rb"]
     .each do |input|
       it "rebuilds when #{input} changes" do
         path = File.join(@root, input)
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, "1\n")
-        settings = input == "config/boot.rb" ? { require: ["./config/boot"] } : {}
+        settings = { "config/boot.rb" => { require: ["./config/boot"] },
+                     "config/saboteur_hooks.rb" => { hooks: ["config/saboteur_hooks.rb"] } }.fetch(input, {})
         first = store(**settings)
         allow(first).to receive(:build).and_return(map)
         first.fetch([file])

@@ -76,4 +76,17 @@ module ReevalTargets
     end
     alias hidden_sum secret_total
   end
+
+  # An alias taken before the method was redefined keeps the older body on
+  # purpose; it is not an alias of the current definition.
+  class Redefined
+    def total
+      10
+    end
+    alias original_total total
+
+    def total # rubocop:disable Lint/DuplicateMethods
+      20
+    end
+  end
 end

@@ -65,7 +65,11 @@ module Saboteur
       def run_candidates(plan, candidates)
         coarse, fine = candidates.partition { |mutation, _| mutation.coarse }
         results = coarse.map { |mutation, text| execute(plan, mutation, text) }
-        if results.any?(&:survived?)
+        # A surviving coarse mutant means nothing checks the body, so the fine
+        # mutants would only add noise. Not so when a rescue or else can
+        # return a value of its own: fine mutants that make the body raise
+        # can still be caught.
+        if results.any?(&:survived?) && !plan.subject.recovers?
           return results + skip_all(fine, plan.subject, "coarse mutant survived", covered_by: plan.tests)
         end
 

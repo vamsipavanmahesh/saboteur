@@ -84,6 +84,13 @@ module Saboteur
       (first..[last, first].max).to_a
     end
 
+    # True when the body has a rescue or else clause: a value can come back
+    # from there even when the main statements are gone.
+    def recovers?
+      body = node.body
+      body.is_a?(Prism::BeginNode) && !(body.rescue_clause.nil? && body.else_clause.nil?)
+    end
+
     def contains_line?(line)
       line.between?(start_line, end_line)
     end

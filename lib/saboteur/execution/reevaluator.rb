@@ -109,11 +109,17 @@ module Saboteur
 
       # Methods defined with alias/alias_method copy the old body. Callers
       # that use the alias would never see the mutant, which would then
-      # survive for no reason. Returns { alias => visibility }.
+      # survive for no reason. Only aliases of the current definition count
+      # (same source location): an alias taken before the method was
+      # redefined keeps the older body on purpose. Returns { alias => visibility }.
       def aliases_of(target, name)
+        current = target.instance_method(name).source_location
         names = target.instance_methods(false) + target.private_instance_methods(false)
         names.each_with_object({}) do |other, found|
-          next if other == name || target.instance_method(other).original_name != name
+          next if other == name
+
+          method = target.instance_method(other)
+          next unless method.original_name == name && method.source_location == current
 
           found[other] = visibility_of(target, other)
         end

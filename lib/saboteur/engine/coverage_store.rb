@@ -47,8 +47,10 @@ module Saboteur
         Dir.glob(TEST_FILES, base: @root).map { |file| File.join(@root, file) }
       end
 
+      # Boot files and hook files run before any test and can change what
+      # each test executes.
       def boot_files
-        @config["require"].map do |file|
+        (@config["require"] + @config["hooks"]).map do |file|
           path = File.expand_path(file, @root)
           File.file?(path) ? path : "#{path}.rb"
         end

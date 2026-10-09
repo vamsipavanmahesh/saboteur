@@ -16,7 +16,8 @@ module Saboteur
       def changed_lines(ref, root:)
         base = git(root, "merge-base", ref, "HEAD").strip
         top = git(root, "rev-parse", "--show-toplevel").strip
-        parse(git(root, "diff", "--unified=0", "--no-color", "--no-ext-diff", base, "--"), top)
+        parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff", base,
+                  "--"), top)
       end
 
       def parse(diff, top)

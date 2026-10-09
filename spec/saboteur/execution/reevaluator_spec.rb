@@ -66,6 +66,11 @@ RSpec.describe Saboteur::Execution::Reevaluator do
         expect(ReevalTargets::Priced.private_method_defined?(:hidden_sum)).to be(true)
       end
 
+      it "leaves alone an alias of an older definition of the same name" do
+        reeval("ReevalTargets::Redefined#total", strategy, from: "20", to: "21")
+        expect([ReevalTargets::Redefined.new.total, ReevalTargets::Redefined.new.original_total]).to eq([21, 10])
+      end
+
       it "keeps the original file and line for backtraces" do
         reeval("ReevalTargets::Person#greeting", strategy)
         expect(person.instance_method(:greeting).source_location).to eq([fixture, 16])
