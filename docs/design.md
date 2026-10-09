@@ -300,7 +300,8 @@ raise the score silently.
   whose edit no test executed is "no coverage", not a survivor.
 - Diff mode (`--since`): subjects are the methods with a changed line; each
   keeps its coarse mutants, but fine mutants only on changed lines. The
-  terminal shows one survivor per line (coarse first, then earliest edit);
+  terminal shows one survivor per line (live before ignored, then coarse,
+  then the earliest edit);
   the JSON report keeps all.
 - Incremental mode (`--incremental`, opt-in): a stored verdict (killed,
   survived, timeout) is reused while the method source, the mutant, the set

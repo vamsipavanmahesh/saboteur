@@ -46,24 +46,32 @@ module Saboteur
         OPTION_FILES.map { |file| File.join(@root, file) }.select { |file| File.file?(file) }
       end
 
-      # `--require name` resolves through RSpec's load path (spec/, lib/).
+      # `--require name` resolves through RSpec's load path: spec/, lib/ and
+      # any -I directory.
       def required_by_options
-        option_files.flat_map { |file| required_names(Shellwords.split(File.read(file))) }
-                    .concat(required_names(@config["rspec_args"]))
-                    .filter_map { |name| resolve(name) }
+        tokens = option_files.flat_map { |file| Shellwords.split(File.read(file)) } + @config["rspec_args"]
+        load_path = LOAD_PATH + option_values(tokens, "-I", "--include")
+        option_values(tokens, *REQUIRE_FLAGS).filter_map { |name| resolve(name, load_path) }
       end
 
-      def required_names(tokens)
+      # Values of the given flags, written "-r x", "-rx", "--require x" or
+      # "--require=x".
+      def option_values(tokens, *flags)
         tokens.each_with_index.filter_map do |token, index|
-          flag, value = token.split("=", 2)
-          next unless REQUIRE_FLAGS.include?(flag)
+          flag = flags.find { |name| token == name || token.start_with?("#{name}=") || glued?(token, name) }
+          next unless flag
+          next tokens[index + 1] if token == flag
 
-          value || tokens[index + 1]
+          token.delete_prefix(flag).delete_prefix("=")
         end
       end
 
-      def resolve(name)
-        LOAD_PATH.lazy.filter_map { |dir| existing(File.expand_path(name, File.join(@root, dir))) }.first
+      def glued?(token, flag)
+        flag.length == 2 && token.start_with?(flag) && token.length > 2
+      end
+
+      def resolve(name, load_path)
+        load_path.lazy.filter_map { |dir| existing(File.expand_path(name, File.join(@root, dir))) }.first
       end
 
       def existing(path)

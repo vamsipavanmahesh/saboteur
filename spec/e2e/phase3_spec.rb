@@ -65,6 +65,16 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       third = saboteur(dir, "--incremental", "--subject", "People::Person#adult?")
       expect(third.out).not_to include("reused #{total} of #{total}")
     end
+
+    it "re-runs every verdict when a shared spec support file changes" do
+      support = File.join(dir, "spec", "support", "helpers.rb")
+      FileUtils.mkdir_p(File.dirname(support))
+      File.write(support, "# helpers\n")
+      saboteur(dir, "--incremental", "--subject", "People::Person#adult?")
+      File.write(support, "# helpers, edited\n")
+      after_edit = saboteur(dir, "--incremental", "--subject", "People::Person#adult?")
+      expect(after_edit.out).not_to include("reused")
+    end
   end
 
   describe "ignore list" do

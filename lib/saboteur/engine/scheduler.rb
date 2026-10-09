@@ -125,15 +125,12 @@ module Saboteur
         result
       end
 
-      # Coarse mutants replace the whole body: every test of the method. Fine
-      # mutants: only the tests that executed the edited statement. Either
-      # way, prior killers first, then the neutral check's fastest-first order.
+      # The tests that ran the edited code (a coarse edit spans the whole
+      # body, so it gets every test of the method), prior killers first, then
+      # the neutral check's fastest-first order.
       def tests_for(plan, mutation)
-        tests = plan.tests
-        unless mutation.coarse
-          line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
-          tests &= @map.tests_for_lines(plan.subject.file, line_numbers)
-        end
+        line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
+        tests = plan.tests & @map.tests_for_lines(plan.subject.file, line_numbers)
         self.class.prioritize(tests, plan.killers)
       end
 

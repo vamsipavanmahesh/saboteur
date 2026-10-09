@@ -116,6 +116,17 @@ RSpec.describe Saboteur::Engine::Scheduler, "result cache" do
     expect(second).to all(be_reused)
   end
 
+  it "still forks nothing when a fine mutant has no covering test (it is skipped, not run)" do
+    lines = { 3 => ["t1"] } # line 4 ran no test
+    sparse = Saboteur::Selection::CoverageMap.new(lines: { subject_under_test.file => lines }, tests: ["t1"])
+    allow(self).to receive(:map).and_return(sparse)
+    first = run_with(cache)
+    expect(first.map(&:reason)).to include("no coverage")
+    runs = first.count { |result| !result.reason } + 1
+    run_with(cache)
+    expect(runner).to have_received(:run).exactly(runs).times
+  end
+
   it "runs everything without a cache" do
     run_with(nil)
     run_with(nil)

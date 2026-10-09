@@ -42,7 +42,7 @@ go through the watchdog, one at a time (see "Safety rules").
 ## Next up (ordered)
 
 - [ ] Architecture steps E and F (typed config schema, public API docs)
-- [ ] Triage dogfood survivors (148 at 4667cd7; Diff done in 0c777c1 with 12 equivalents recorded) and add the missing specs
+- [ ] Triage dogfood survivors (215 live at b9c4068 incl. new engine parts). Done: Diff, terminal reporter, scheduler (0 live; equivalents in .saboteur-ignore.yml). Next: builtin.rb (27), recorder.rb (17), cli.rb (14), subject.rb, git_diff.rb, ...
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
 - [ ] Phase 4: Mastodon under the watchdog, jobs 1
 - [ ] Survey items that need no spec change: survivor ranking, HTML report, pseudo-tested label
@@ -60,6 +60,17 @@ go through the watchdog, one at a time (see "Safety rules").
    Each changes the operator list fixed in the brief.
 4. Publishing: name `saboteur` free on rubygems and as glomopay/saboteur on
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
+
+## Claude-Grok review loop (docs/review/)
+
+Round 4 (2026-10-09): Grok "AGREED" on A1-A10 and the result cache; no new
+defects of substance; its remaining edge cases fixed in the same session.
+Scores (Grok): Ruby mutation testing 7/10 with the M2 operator change, else
+6/10; signal-to-noise 7/10 with M2+M3, else 6/10; resource efficiency 6/10.
+Its bar for "state of the art": M1 nesting default, M2 before/after table on
+the pinned gems, crash-kill share per operator, cache demo incl. an edited
+killer file; for apps, Mastodon at the pin under the watchdog with 30+
+survivors classified and a census of defs inside blocks.
 
 ## Decisions log
 

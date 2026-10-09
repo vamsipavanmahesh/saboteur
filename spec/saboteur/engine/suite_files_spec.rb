@@ -41,6 +41,15 @@ RSpec.describe Saboteur::Engine::SuiteFiles do
     expect(listed).to include(boot, hooks, rspec, setup, extra)
   end
 
+  it "reads glued -rNAME options and -I load path directories" do
+    write(".rspec", "-rglued_setup -I support_dir --require=equals_setup\n")
+    glued = write("lib/glued_setup.rb")
+    equals = write("lib/equals_setup.rb")
+    custom = write("support_dir/other_setup.rb")
+    listed = files(rspec_args: ["--require", "other_setup"])
+    expect(listed).to include(glued, equals, custom)
+  end
+
   it "digests the files' contents" do
     write("spec/spec_helper.rb", "1\n")
     first = described_class.new(Saboteur::Config.new({}, root: @root)).digest

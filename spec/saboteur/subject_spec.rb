@@ -97,6 +97,11 @@ RSpec.describe Saboteur::Subject do
     it "is false for a method with no rescue anywhere" do
       expect(recovers?("    work\n    1")).to be(false)
     end
+
+    it "is false for an ensure-only body and for a rescue inside a nested def" do
+      expect(recovers?("    work\n  ensure\n    done")).to be(false)
+      expect(recovers?("    def inner\n      x\n    rescue\n      1\n    end\n    work")).to be(false)
+    end
   end
 
   describe "#line_of" do

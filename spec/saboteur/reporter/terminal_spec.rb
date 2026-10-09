@@ -145,6 +145,15 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     expect(render(review(fine, coarse))).to include("Person#adult? body_nil")
   end
 
+  it "shows a live fine survivor over an ignored coarse one on the same line" do
+    coarse = mutant(:survived, at: "@age >= 18", replacement: "nil", operator: "body_nil", coarse: true)
+    coarse.ignored = "accepted"
+    fine = mutant(:survived, at: ">=", replacement: ">", operator: "comparison")
+    text = render(review(coarse, fine))
+    expect(text).to include("Person#adult? comparison")
+    expect(text).not_to include("Person#adult? body_nil")
+  end
+
   it "prints no errors section and no ignored note when there is nothing to say" do
     text = render(report_of(result_for(:survived)))
     expect(text).not_to include("Errors", "ignored:")

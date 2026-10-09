@@ -68,3 +68,18 @@
   mutation: 73b795bf8d86fda1
   reason: 'equivalent: the sort key keeps the same order (ignored after live, coarse
     before fine)'
+- subject: Saboteur::Engine::Scheduler.prioritize
+  mutation: 1c63f9e764f00ada
+  reason: 'equivalent: the default only shifts every never-killer by the same amount,
+    so the order is the same'
+- subject: Saboteur::Engine::Scheduler#call
+  mutation: ffdd70017e77a3e4
+  reason: 'equivalent: prioritize reads killers with fetch, which ignores the hash
+    default'
+- subject: Saboteur::Engine::Scheduler#all_reused
+  mutation: 39e373554ad98f5f
+  reason: 'equivalent: without a cache every reuse returns nil, so the pass ends at
+    the first mutant; only speed differs'
+- subject: Saboteur::Engine::Scheduler#execute
+  mutation: 30f5bc370f581852
+  reason: 'equivalent: counting each kill as 2 keeps the same order of killers'

@@ -1,0 +1,17 @@
+I'll review the round 3 fixes in `b9c4068` and the later commits, read-only, and check whether each finding is actually closed.The diffs cover the five findings. Next I’ll read the implementations and specs for holes those tests never hit.The working tree’s display code doesn’t match `b9c4068`. I’ll compare the tree to that commit before judging the fixes.**AGREED** on A1–A10 and the result cache. The tree at `eca8dd9` only renames the byte-to-line helper; the five fixes are unchanged.
+
+**A1. Fixed.** [code] `Subject#recovers?` walks a modifier `RescueModifierNode` and a nested `BeginNode` rescue or else, and stops at a nested `def`, class, or module. The scheduler still skips fine mutants only when that is false. The spec covers a method-level rescue, `work rescue 1`, a nested `begin`/`rescue`, and a plain body. It never locks the stop (a rescue inside a nested `def` stays false) or an `ensure`-only body. A rescue inside a block, lambda, or `class << self` counts, so those fine mutants still run.
+
+**A3 and the `--incremental` support-file hole. Fixed.** [code] `SuiteFiles` lists non-example `spec/**/*.rb`, `require` and hook files, `.rspec` and `.rspec-local`, and `--require` / `-r` targets resolved under `spec/`, `lib/`, and the project root. The coverage key hashes those paths. The verdict fingerprint mixes in `SuiteFiles#digest`. Specs miss the edges: glued `-rNAME`, a custom `-I` directory, and `require` / `require_relative` inside the listed files (a Rails `spec_helper` that loads `config/environment` is still invisible, the same class of hole as a callee). `result_cache_spec` injects a fake digest, so removing the `Engine` argument (default `""`) stays green. Nothing changes `lib/test_setup.rb` and expects a missed verdict.
+
+**A5. Fixed.** [doc] `design.md` now matches `aliases_of`: same source location, the alias keeps its own visibility, an older alias is left alone. The `original_name == name` conjunct is only in the code.
+
+**A10. Fixed.** [code] Review mode sorts live before ignored, then coarse, then start byte. The spec uses two fine mutants and only checks that the live diff is present, so an ignored coarse mutant placed ahead of a live fine one would still pass. Grouping is still the edit’s first line.
+
+**New defects.** None of substance. [doc] The comment on `shown` and `design.md` still say “coarse first” and omit live-before-ignored.
+
+**Still open:** M1 default `nesting`, M2 the operator set, M3 `||=` memoization, M4 resource-limit status, M5 `--strict`. A11 triage (`status.md` still says 148 at `4667cd7`; `eca8dd9` cleared the terminal reporter only). D3’s block-def census. Mastodon, pinned at `07b4fd20`, not started. D1 and D2 stand.
+
+**Scores, unchanged.** [inference] Ruby mutation testing 7/10 with M2, otherwise 6/10. Signal-to-noise 7/10 with M2 and M3, otherwise 6/10. Resource efficiency 6/10. [doc] The repeat-run hole is closed (dry-inflector 0.80 s, 261 of 261, no mutant child). Cold runs and `jobs` 1 are the same.
+
+**State of the art, gems:** `nesting` as the default; an M2 before/after table on both pinned gems; the A8 crash-kill share per operator; a cache demo that also edits the killer’s file (the gem table records only the unchanged half). **Apps:** that bar, plus Mastodon at the pin, `jobs` 1, under the watchdog: subjects, status counts, wall time, peak RSS and processes, leftovers, at least 30 survivors classified, and the block-def census.

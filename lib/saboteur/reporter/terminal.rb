@@ -108,8 +108,8 @@ module Saboteur
       end
 
       # [[result, how many more on the same line]]. In review mode survivors
-      # on one line usually share a fate, so one is shown: coarse first, then
-      # the earliest edit.
+      # on one line usually share a fate, so one is shown: live before
+      # ignored, then coarse before fine, then the earliest edit.
       def shown(report)
         return report.survivors.map { |result| [result, 0] } unless report.review?
 
