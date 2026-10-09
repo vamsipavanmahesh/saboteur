@@ -37,7 +37,7 @@ go through the watchdog, one at a time (see "Safety rules").
 | 2 | two pinned public gems, survivor classification | done: docs/validation/phase-2-gems.md (numbers predate line-level selection; re-measure) |
 | 3 | --since, Stryker JSON, ignore list, exit codes, config (minitest dropped by scope decision) | done |
 | 4 | Rails integration on a large public app (Mastodon pinned) | not started; repo pinned at 07b4fd20 |
-| 5 | parallel workers, own DB each | only on explicit go from the maintainer |
+| 5 | parallel workers, own DB each | built (--jobs N); gems measured; Rails per-worker DBs built, being validated on human-essentials |
 
 ## Next up (ordered)
 
@@ -78,6 +78,17 @@ killer file; for apps, Mastodon at the pin under the watchdog with 30+
 survivors classified and a census of defs inside blocks.
 
 ## Decisions log
+
+- 2026-10-10 Review round 5 fixes: workers in their own process group, a
+  liveness check every second (a dead worker whose stray child holds its
+  pipe no longer hangs the parent), supervised children close the worker's
+  pipes, workers forget the parent's live trees, broken pipes requeue the
+  item, unreadable results become errors; Rails re-points every pool and
+  names copies app_test_saboteurN (never a parallel_tests name); SQLite
+  copies include -wal/-shm. Disagreed with Grok on putting jobs in the
+  verdict fingerprint: verdicts are independent of jobs by design (verified
+  identical on all 267 dry-inflector mutants), and keying on jobs would
+  make the cache useless across modes.
 
 - 2026-10-09 Parallel workers (Phase 5, gems): --jobs N forks N workers from
   the booted parent; each runs whole subjects through the Scheduler and

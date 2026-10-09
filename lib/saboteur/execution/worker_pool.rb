@@ -55,18 +55,36 @@ module Saboteur
         workers&.each { |worker| stop(worker) }
       end
 
+      # Waits up to a second for results, then checks for workers that died
+      # without closing their pipe (a stray grandchild may still hold it).
       def collect(workers, queue, results, items, &work)
-        IO.select(workers.map(&:results)).first.each do |io|
+        ready = IO.select(workers.map(&:results), nil, nil, 1)&.first || []
+        ready.each do |io|
           worker = workers.find { |candidate| candidate.results == io }
+          next unless worker
+
           line = io.gets
-          if line
-            results[worker.current] = JSON.parse(line)
-            assign(worker, queue)
-            retire(worker, workers) unless worker.current
-          else
-            replace(worker, workers, queue, results, items, &work)
-          end
+          next replace(worker, workers, queue, results, items, &work) unless line
+
+          results[worker.current] = parse(line)
+          assign(worker, queue)
+          retire(worker, workers) unless worker.current
         end
+        workers.reject { |worker| alive?(worker) }.each do |worker|
+          replace(worker, workers, queue, results, items, &work)
+        end
+      end
+
+      def parse(line)
+        JSON.parse(line)
+      rescue JSON::ParserError => e
+        { "error" => "unreadable result from worker: #{e.message}" }
+      end
+
+      def alive?(worker)
+        Process.waitpid(worker.pid, Process::WNOHANG).nil?
+      rescue Errno::ECHILD
+        false
       end
 
       def replace(worker, workers, queue, results, items, &)
@@ -87,6 +105,9 @@ module Saboteur
 
         worker.commands.puts(worker.current)
         worker.commands.flush
+      rescue Errno::EPIPE, IOError
+        queue.unshift(worker.current) # the worker died before taking it
+        worker.current = nil
       end
 
       def retire(worker, workers)
@@ -108,12 +129,16 @@ module Saboteur
         end
         commands_read.close
         results_write.close
+        own_group(pid)
         Supervisor.live[pid] = ProcessTree.new(pid)
         Worker.new(number, pid, commands_write, results_read, nil)
       end
 
       # Runs in the worker until the parent closes its command pipe.
       def serve(number, items, commands, results, &)
+        Process.setpgid(0, 0)
+        Supervisor.reset_in_worker!
+        Supervisor.close_in_child.push(commands, results)
         ENV["SABOTEUR_WORKER"] = number.to_s
         ENV["TEST_ENV_NUMBER"] = number.zero? ? "" : (number + 1).to_s
         @on_start&.call(number)
@@ -143,6 +168,12 @@ module Saboteur
         reaped?(worker.pid) || Process.wait(worker.pid)
         worker.results.close unless worker.results.closed?
       rescue Errno::ECHILD
+        nil
+      end
+
+      def own_group(pid)
+        Process.setpgid(pid, pid)
+      rescue Errno::EACCES, Errno::ESRCH, Errno::EPERM
         nil
       end
 

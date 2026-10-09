@@ -3,13 +3,15 @@
 
 RSpec.describe Saboteur::Frameworks::Rails do
   describe ".worker_database" do
-    it "keeps the first worker on the test database and numbers the rest like parallel tests" do
+    # Names of their own, so a developer's parallel_tests databases
+    # (app_test2, ...) are never dropped or overwritten.
+    it "keeps the first worker on the test database and gives the rest saboteur copies" do
       expect((0..2).map { |n| described_class.worker_database("app_test", n) })
-        .to eq(%w[app_test app_test2 app_test3])
+        .to eq(%w[app_test app_test_saboteur2 app_test_saboteur3])
     end
 
-    it "numbers SQLite files before their extension" do
-      expect(described_class.worker_database("db/test.sqlite3", 1)).to eq("db/test2.sqlite3")
+    it "names SQLite copies before their extension" do
+      expect(described_class.worker_database("db/test.sqlite3", 1)).to eq("db/test_saboteur2.sqlite3")
     end
   end
 

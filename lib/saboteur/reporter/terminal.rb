@@ -40,7 +40,7 @@ module Saboteur
       def details(report)
         score = report.score
         @out.puts "score #{score ? format('%.1f %%', score * 100) : 'n/a'} " \
-                  "(killed+timeout)/(killed+survived+timeout); errors and skips excluded"
+                  "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded"
         mean = report.mean_runtime
         @out.puts "mean time per executed mutant #{format('%.3f', mean)} s" if mean
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if

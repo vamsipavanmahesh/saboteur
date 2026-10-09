@@ -94,7 +94,10 @@ Fine:
   `>=` -> `>`, `==`, `true`; `==` -> `false`, `true`; `!=` -> `true`,
   `false` (not `<=`/`>=`: they raise on non-Comparable objects).
 - Boolean (sufficient set, Just et al. 2012): `a && b` -> `a`, `b`,
-  `false`; `a || b` -> `a`, `b`, `true` (same for `and`/`or`); drop
+  `false`; `a || b` -> `a`, `b`, `true` (same for `and`/`or`). Just's fourth
+  mutant (`a == b` / `a != b`) is left out: with Ruby truthiness the operands
+  are rarely booleans, so equality between them is not the logical relation
+  the proof assumes; drop
   `!`/`not`; condition -> `true`, condition -> `false` (for
   `if`/`unless`/`while`/`until`/ternary predicates).
 - Predicate methods (`def x?`): coarse `body -> true` and `body -> false`
@@ -277,9 +280,9 @@ A run where the adapter executed a different set of examples than requested
 filter turning every mutant into a false survivor.
 
 Mutation score = (killed + timeout) / (killed + survived + timeout). Timeouts
-count as detected (Stryker convention) and are shown separately. Errors and
-skips are outside the score and always shown, so a harness problem cannot
-raise the score silently.
+count as detected (Stryker convention) and are shown separately. Errors,
+resource-limit stops and skips are outside the score and always shown, so a
+harness problem or a runaway mutant cannot raise the score silently.
 
 ## 7. Test selection: coverage map
 
@@ -384,7 +387,8 @@ Output:
 - Terminal: counts per status, score, wall time, then a unified diff per survivor.
 - JSON: Stryker mutation-testing-report-schema (schemaVersion "2"). Status
   mapping: killed->Killed, survived->Survived, timeout->Timeout,
-  error->RuntimeError, skipped->Ignored (reason in `statusReason`), no coverage
+  error->RuntimeError, resource_limit->RuntimeError (statusReason "resource limit: ..."),
+  skipped->Ignored (reason in `statusReason`), no coverage
   ->NoCoverage.
 - Ignore list: YAML entries `{subject, mutation (digest), reason}`; `reason`
   is required and the file fails to load without it. Stale entries (no

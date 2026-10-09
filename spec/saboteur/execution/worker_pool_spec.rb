@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "timeout"
+
 RSpec.describe Saboteur::Execution::WorkerPool do
   def monotonic
     Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -47,6 +49,40 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     end
     expect(results.values_at(0, 2)).to eq([{ "ok" => true }, { "ok" => true }])
     expect(results[1]).to include("error" => a_string_matching(/worker \d+ died/))
+  end
+
+  # Each example is bounded by a timeout: a regression must fail, not hang.
+  it "notices a dead worker even when its child still holds the result pipe" do
+    results = nil
+    Timeout.timeout(20) do
+      results = described_class.new(jobs: 2).map(%w[orphan ok]) do |item|
+        if item == "orphan"
+          fork { sleep 30 } # keeps the worker's pipes open, as a stray child would
+          Process.kill("KILL", Process.pid)
+        end
+        { "ok" => item }
+      end
+    end
+    expect(results[0]).to include("error" => a_string_matching(/died/))
+    expect(results[1]).to eq("ok" => "ok")
+  rescue Timeout::Error
+    raise "parent hung waiting on a dead worker"
+  end
+
+  it "does not let a worker inherit the parent's list of live trees" do
+    Saboteur::Execution::Supervisor.live[999_999] = :sibling
+    seen = described_class.new(jobs: 2).map([1, 2]) do |_|
+      { "inherited" => Saboteur::Execution::Supervisor.live.key?(999_999) }
+    end
+    expect(seen.map { |r| r["inherited"] }).to eq([false, false])
+  ensure
+    Saboteur::Execution::Supervisor.live.delete(999_999)
+  end
+
+  it "turns an unreadable result into an error for that item" do
+    results = described_class.new(jobs: 2).map([1, 2]) { |n| n == 1 ? { "bad" => Float::NAN } : { "n" => n } }
+    expect(results[0]).to include("error")
+    expect(results[1]).to eq("n" => 2)
   end
 
   it "leaves no worker processes behind" do

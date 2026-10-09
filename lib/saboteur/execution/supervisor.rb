@@ -46,8 +46,20 @@ module Saboteur
       REAP_DEADLINE = 5.0
 
       @live = {}
+      @close_in_child = []
       class << self
-        attr_reader :live
+        # close_in_child: IOs a supervised child must close first (a worker's
+        # pipes, so a stray grandchild cannot keep them open).
+        attr_reader :live, :close_in_child
+
+        # In a freshly forked worker: forget the parent's trees (they are
+        # siblings, not ours) and handle INT/TERM for this process.
+        def reset_in_worker!
+          @live = {}
+          @close_in_child = []
+          @installed = false
+          install_parent_handlers
+        end
 
         # Kills every tree still under supervision. Used on parent exit and on
         # INT/TERM, so Ctrl-C never leaves mutants running.
@@ -104,6 +116,7 @@ module Saboteur
 
       def child(reader, writer, supervisor, cpu_seconds, depth)
         reader.close
+        self.class.close_in_child.each { |io| io.close unless io.closed? }
         ENV[CHILD_ENV] = depth.to_s
         Process.setpgid(0, 0)
         limit_cpu(cpu_seconds)

@@ -39,12 +39,13 @@ module Saboteur
       end
 
       # The database a worker uses: the first keeps the test database, the
-      # others get numbered copies, as Rails parallel tests name them.
+      # others get copies named for saboteur, never a name parallel_tests or
+      # a developer might already use.
       def self.worker_database(database, number)
         return database if number.zero?
 
         extension = File.extname(database)
-        "#{database.delete_suffix(extension)}#{number + 1}#{extension}"
+        "#{database.delete_suffix(extension)}_saboteur#{number + 1}#{extension}"
       end
 
       # Parent, before workers start: one copy of each test database per
@@ -58,13 +59,17 @@ module Saboteur
         disconnect
       end
 
-      # Worker: connect to this worker's copy.
+      # Worker: point every connection pool (primary, and any cache, queue or
+      # connects_to databases) at this worker's copy of its database.
       def start_worker(number)
         return unless defined?(::ActiveRecord::Base) && number.positive?
 
-        db = test_configs.first
-        settings = db.configuration_hash.merge(database: self.class.worker_database(db.database, number))
-        ::ActiveRecord::Base.establish_connection(settings)
+        ::ActiveRecord::Base.connection_handler.connection_pool_list(:all).each do |pool|
+          db = pool.db_config
+          owner = pool.pool_config.connection_class
+          owner.establish_connection(db.configuration_hash.merge(database: self.class.worker_database(db.database,
+                                                                                                      number)))
+        end
       end
 
       def self.local_host?(host)
@@ -102,7 +107,10 @@ module Saboteur
           connection.execute("CREATE DATABASE #{connection.quote_table_name(name)} " \
                              "TEMPLATE #{connection.quote_table_name(db.database)}")
         when /sqlite/
-          FileUtils.cp(db.database, name)
+          # A database in WAL mode keeps recent writes in -wal/-shm files.
+          ["", "-wal", "-shm"].each do |suffix|
+            FileUtils.cp("#{db.database}#{suffix}", "#{name}#{suffix}") if File.exist?("#{db.database}#{suffix}")
+          end
         else
           raise Error, "--jobs > 1 with Rails needs Postgres or SQLite (got #{db.adapter})"
         end
