@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "tmpdir"
+
 DiffHunk = Struct.new(:old_start, :old_count, :new_start, :new_count, :lines)
 
 # Property checks on many random inputs: the diff, applied as a patch using
@@ -80,6 +82,58 @@ RSpec.describe Saboteur::Reporter::Diff, "properties" do
       expect(apply(old_lines, hunks)).to eq(new_lines), diff
       removed = hunks.sum { |hunk| hunk.lines.count { |l| l.start_with?("-") } }
       expect(removed).to eq(old_lines.size - lcs_length(old_lines, new_lines)), diff
+    end
+  end
+
+  # Long texts of distinct lines with a few scattered edits: diffs with
+  # several hunks, where old and new line numbers drift apart.
+  def sparse_edit(random)
+    old_lines = Array.new(random.rand(20..60)) { |n| "line #{n}\n" }
+    new_lines = old_lines.dup
+    random.rand(1..4).times do
+      at = random.rand(0..new_lines.size)
+      case random.rand(3)
+      when 0 then new_lines.insert(at, "added #{random.rand(1000)}\n")
+      when 1 then new_lines.delete_at(at) unless new_lines.empty?
+      else new_lines[[at, new_lines.size - 1].min] = "changed #{random.rand(1000)}\n"
+      end
+    end
+    [old_lines, new_lines]
+  end
+
+  it "rebuilds the new text through every hunk of multi-hunk diffs" do
+    random = Random.new(9_102_026)
+    multi = 0
+    200.times do
+      old_lines, new_lines = sparse_edit(random)
+      next if old_lines == new_lines
+
+      diff = described_class.unified(old_lines.join, new_lines.join, path: "f.rb", first_line: first_line)
+      hunks = parse(diff)
+      multi += 1 if hunks.size > 1
+      expect(apply(old_lines, hunks)).to eq(new_lines), diff
+    end
+    expect(multi).to be > 50
+  end
+
+  it "groups changes into the same hunks as the system diff -U3" do
+    skip "no system diff" unless system("diff", "-v", out: File::NULL,
+                                                      err: File::NULL) || system("which diff > /dev/null")
+
+    random = Random.new(10_092_026)
+    Dir.mktmpdir do |dir|
+      old_path = File.join(dir, "old")
+      new_path = File.join(dir, "new")
+      150.times do
+        old_lines, new_lines = sparse_edit(random)
+        next if old_lines == new_lines
+
+        File.write(old_path, old_lines.join)
+        File.write(new_path, new_lines.join)
+        theirs = IO.popen(["diff", "-U3", old_path, new_path], &:read).lines.grep(/\A@@/)
+        ours = described_class.unified(old_lines.join, new_lines.join, path: "f", first_line: 1).lines.grep(/\A@@/)
+        expect(ours).to eq(theirs), "old:\n#{old_lines.join}\nnew:\n#{new_lines.join}"
+      end
     end
   end
 

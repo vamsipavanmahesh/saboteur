@@ -1,0 +1,47 @@
+# Survivors accepted with a reason. Each digest is printed next to its survivor.
+- subject: Saboteur::Reporter::Diff#operations
+  mutation: ada60709111b1e56
+  reason: 'equivalent: at the bound a[i] or b[j] is nil, so the equality fails either
+    way'
+- subject: Saboteur::Reporter::Diff#operations
+  mutation: c4b7fbdde5c05b17
+  reason: 'equivalent: at the bound a[i] or b[j] is nil, so the equality fails either
+    way'
+- subject: Saboteur::Reporter::Diff#operations
+  mutation: 41cd39a78233765a
+  reason: 'equivalent: when a[i] != b[j], table[i][j] is the max of its neighbours,
+    so comparing with it or with table[i][j + 1] picks the same branch'
+- subject: Saboteur::Reporter::Diff#lcs_table
+  mutation: 4fd308f9615f7631
+  reason: 'equivalent: extra rows/columns are never read, and a uniform base value
+    shifts every LCS entry equally'
+- subject: Saboteur::Reporter::Diff#lcs_table
+  mutation: ffa2ca5ba8f60668
+  reason: 'equivalent: extra rows/columns are never read, and a uniform base value
+    shifts every LCS entry equally'
+- subject: Saboteur::Reporter::Diff#lcs_table
+  mutation: 52ddbd3e76910161
+  reason: 'equivalent: extra rows/columns are never read, and a uniform base value
+    shifts every LCS entry equally'
+- subject: Saboteur::Reporter::Diff#lcs_table
+  mutation: 63886f1a7efa1eeb
+  reason: 'equivalent: extra rows/columns are never read, and a uniform base value
+    shifts every LCS entry equally'
+- subject: Saboteur::Reporter::Diff#lcs_table
+  mutation: '091be99cfaabd312'
+  reason: 'equivalent: scaling every match weight preserves every comparison in the
+    LCS table'
+- subject: Saboteur::Reporter::Diff#hunks
+  mutation: 6942889ab35d8e7e
+  reason: 'equivalent: with no changes there are no ranges, so the method returns
+    [] anyway'
+- subject: Saboteur::Reporter::Diff#hunks
+  mutation: db9eb05715b7f0af
+  reason: 'equivalent: the slice ops[from..to] clips an end past the last op'
+- subject: Saboteur::Reporter::Diff#hunks
+  mutation: cdd1aad6b8682369
+  reason: 'equivalent: the slice ops[from..to] clips an end past the last op'
+- subject: Saboteur::Reporter::Diff#hunks
+  mutation: ef78c9e34814b478
+  reason: 'equivalent: ranges arrive sorted, so the new end is never below the previous
+    range end'
