@@ -74,3 +74,50 @@ RSpec.describe Saboteur::CLI do
     end
   end
 end
+
+RSpec.describe Saboteur::CLI, "details" do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+
+  def cli(*argv)
+    described_class.new(argv, out:, err:)
+  end
+
+  it "prints only the usage line for an unknown command" do
+    cli("explode").call
+    expect(err.string).to eq("#{described_class::USAGE}\n")
+  end
+
+  it "refuses stray arguments with exit 2" do
+    allow(Saboteur::Engine).to receive(:new)
+    expect(cli("run", "extra").call).to eq(2)
+    expect(err.string).to include("unexpected arguments: extra")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  it "parses --config, --integration and --incremental" do
+    command = cli("run", "--config", "x.yml", "--integration", "rspec", "--incremental")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    allow(Saboteur::Config).to receive(:load).and_call_original
+    command.call
+    expect(command.options).to include(config: "x.yml", integration: "rspec", incremental: true)
+    expect(Saboteur::Config).to have_received(:load).with(hash_including(path: "x.yml"))
+  end
+
+  it "prints the summary and writes the JSON report it names" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "r.json")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      cli("run", "--json", path).call
+      expect(out.string).to include("saboteur #{Saboteur::VERSION}:", "JSON report: #{path}")
+      expect(File).to exist(path)
+    end
+  end
+
+  it "exits 0 when every mutant was skipped (nothing ran, nothing errored)" do
+    allow(Saboteur::Engine).to receive(:new)
+      .and_return(instance_double(Saboteur::Engine, call: report_of(result_for(:skipped, reason: "no coverage"))))
+    expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+  end
+end

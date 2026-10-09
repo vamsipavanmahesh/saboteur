@@ -57,6 +57,17 @@ RSpec.describe Saboteur::Engine::Candidates do
     expect(diagnostics.warnings.first).to include("outside")
   end
 
+  describe ".build_sources (external)" do
+    it "loads a namespaced source class from a file" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "deep.rb"),
+                   "module DeepSources\n  class One < Saboteur::MutationSource::Base\n  end\nend\n")
+        config = Saboteur::Config.new({ "sources" => ["deep.rb:DeepSources::One"] }, root: dir)
+        expect(described_class.build_sources(config).first).to be_a(DeepSources::One)
+      end
+    end
+  end
+
   describe ".build_sources" do
     it "builds the builtin source and rejects an entry without a class name" do
       config = Saboteur::Config.new({ "sources" => ["builtin"] })
