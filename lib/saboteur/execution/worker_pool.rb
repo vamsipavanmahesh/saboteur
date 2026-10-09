@@ -23,8 +23,11 @@ module Saboteur
     class WorkerPool
       Worker = Struct.new(:number, :pid, :commands, :results, :current)
 
-      def initialize(jobs:)
+      # on_start: called in each worker with its number before its first
+      # item (per-worker database connections, for example).
+      def initialize(jobs:, on_start: nil)
         @jobs = jobs
+        @on_start = on_start
       end
 
       def map(items, weights: nil, &work)
@@ -113,6 +116,7 @@ module Saboteur
       def serve(number, items, commands, results, &)
         ENV["SABOTEUR_WORKER"] = number.to_s
         ENV["TEST_ENV_NUMBER"] = number.zero? ? "" : (number + 1).to_s
+        @on_start&.call(number)
         while (line = commands.gets)
           results.puts(JSON.generate(run_one(items[Integer(line)], &)))
           results.flush

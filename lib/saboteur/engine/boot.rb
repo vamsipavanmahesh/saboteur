@@ -16,6 +16,9 @@ module Saboteur
                      "(#{Execution::Supervisor::CHILD_ENV} is set). A test is running saboteur itself; stub it."
       end
 
+      # The Rails profile when rails: true, else nil (set by load_target).
+      attr_reader :rails
+
       def initialize(config, hooks)
         @config = config
         @hooks = hooks
@@ -24,7 +27,7 @@ module Saboteur
 
       def load_target
         load_hooks
-        rails = Frameworks::Rails.new(@config, @hooks) if @config["rails"]
+        @rails = rails = Frameworks::Rails.new(@config, @hooks) if @config["rails"]
         rails&.before_boot
         @hooks.run(:before_boot)
         @config["require"].each { |file| require File.expand_path(file, @root) }

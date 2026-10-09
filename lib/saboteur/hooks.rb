@@ -9,8 +9,10 @@ module Saboteur
   #   before_fork  - parent, once per mutant, just before fork
   #   after_fork   - child, right after fork (reconnect DBs, reseed RNG)
   #   around_mutant - child, wraps applying the mutant and running its tests
+  #   worker_start - each parallel worker (--jobs N), with its number, before
+  #                  its first subject
   class Hooks
-    NAMES = %i[before_boot after_boot before_fork after_fork].freeze
+    NAMES = %i[before_boot after_boot before_fork after_fork worker_start].freeze
     AROUND = :around_mutant
 
     def initialize

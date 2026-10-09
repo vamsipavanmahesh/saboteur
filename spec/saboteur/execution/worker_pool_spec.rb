@@ -54,6 +54,15 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect { Process.wait(-1, Process::WNOHANG) }.to raise_error(Errno::ECHILD)
   end
 
+  it "calls on_start in each worker, with its number, before its first item" do
+    started = described_class.new(jobs: 2, on_start: ->(number) { ENV["STARTED_AS"] = number.to_s })
+                             .map([0.1, 0.1]) do |seconds|
+      sleep seconds
+      { "started_as" => ENV.fetch("STARTED_AS"), "worker" => ENV.fetch("SABOTEUR_WORKER") }
+    end
+    expect(started.map { |r| r["started_as"] }).to eq(started.map { |r| r["worker"] })
+  end
+
   it "runs inline, without forking, for one job" do
     pids = described_class.new(jobs: 1).map([1, 2]) { |_| { "pid" => Process.pid } }
     expect(pids.map { |r| r["pid"] }.uniq).to eq([Process.pid])
