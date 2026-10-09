@@ -91,6 +91,14 @@ module Saboteur
                           .map { |file| File.realpath(File.join(root, file)) }.uniq.sort
     end
 
+    # Patterns that match no file. A pattern goes stale when files move;
+    # an exclude that silently stops excluding is a hazard, so say so.
+    def unmatched_patterns
+      %w[include exclude].flat_map do |key|
+        self[key].select { |pattern| Dir.glob(pattern, base: root).empty? }.map { |pattern| "#{key}: #{pattern}" }
+      end
+    end
+
     def path(key)
       value = self[key]
       value && File.expand_path(value, root)

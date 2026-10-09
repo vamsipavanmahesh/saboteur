@@ -38,6 +38,13 @@ RSpec.describe Saboteur::Config do
     expect(config.included_files).to eq(%w[a.rb b.rb].map { |f| File.join(@root, "lib", f) })
   end
 
+  it "names include and exclude patterns that match no file, so a stale path is never silent" do
+    write("lib/a.rb", "")
+    config = described_class.new({ "include" => ["lib/**/*.rb", "app/**/*.rb"],
+                                   "exclude" => ["lib/a.rb", "lib/moved.rb"] }, root: @root)
+    expect(config.unmatched_patterns).to eq(["include: app/**/*.rb", "exclude: lib/moved.rb"])
+  end
+
   it "rejects unknown keys, bad values and bad arid patterns" do
     expect { described_class.new({ "timeout" => 1 }) }.to raise_error(Saboteur::Error, /unknown config key/)
     expect { described_class.new({ "jobs" => "many" }) }.to raise_error(Saboteur::Error, /invalid config value/)

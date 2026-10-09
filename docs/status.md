@@ -44,7 +44,7 @@ go through the watchdog, one at a time (see "Safety rules").
 - [ ] Architecture steps E and F (typed config schema, public API docs)
 - [ ] Dogfood CI job (`saboteur run --since origin/main`) in .github/workflows/ci.yml
 - [ ] Triage dogfood survivors (165 at commit 47b8bc8; many real gaps in diff.rb property coverage) and add the missing specs
-- [ ] Docs: README usage, design.md refresh (6.1 evidence, 6.3 containment rewrite, 7 line-level selection), recipes (Sidekiq, WebMock, VCR), CHANGELOG
+- [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
 - [ ] Phase 4: Mastodon under the watchdog, jobs 1
 - [ ] Survey items that need no spec change: review mode for --since, opt-in result cache, survivor ranking, HTML report, pseudo-tested label
 
@@ -63,6 +63,11 @@ go through the watchdog, one at a time (see "Safety rules").
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
 
 ## Decisions log
+
+- 2026-10-09 The restructure left dogfood's excludes pointing at moved files,
+  so dogfood mutated the containment code; the watchdog tripped at 32
+  processes / 3.1 GB and cleaned up. Fix: excludes updated, and a warning
+  for any include/exclude pattern that matches no file.
 
 - 2026-10-09 Process table read from the kernel (libproc on macOS via Fiddle,
   /proc on Linux, ps fallback): supervised child overhead 58.8 ms -> 7.9 ms.

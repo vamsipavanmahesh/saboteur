@@ -21,6 +21,7 @@ module Saboteur
       ignore_list = IgnoreList.load(config.path("ignore_file"))
       integration = Boot.new(config, hooks).load_target
       files = config.included_files
+      config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
       subjects = SubjectSelection.new(config, @diagnostics).select(files)
       results = subjects.empty? ? [] : mutate(subjects, files, integration)
       @diagnostics.warnings.concat(ignore_list.apply(results))
