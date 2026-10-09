@@ -25,9 +25,11 @@ RSpec.describe Saboteur::CLI do
                                   reeval: "nesting", cache: false)
   end
 
-  it "exits 2 for config errors" do
+  it "exits 2 for config errors, without starting a run" do
+    allow(Saboteur::Engine).to receive(:new)
     expect(cli("run", "--jobs", "0").call).to eq(2)
     expect(err.string).to include("jobs must be >= 1")
+    expect(Saboteur::Engine).not_to have_received(:new)
   end
 
   it "exits 3 for tool errors" do

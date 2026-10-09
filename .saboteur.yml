@@ -1,0 +1,24 @@
+# saboteur on its own code (CI runs it in diff mode: --since origin/main).
+include:
+  - lib/**/*.rb
+exclude:
+  - lib/saboteur/version.rb
+  # These run inside every mutant child (fork supervision, hooks, the test
+  # adapters, the orchestration around them). Mutating them breaks the
+  # harness that reports the result, which shows up as errors, not as
+  # information about the tests.
+  - lib/saboteur/runner.rb
+  - lib/saboteur/supervisor.rb
+  - lib/saboteur/process_tree.rb
+  - lib/saboteur/hooks.rb
+  - lib/saboteur/engine.rb
+  - lib/saboteur/integration/**/*.rb
+# End-to-end specs run saboteur in subprocesses, so they never cover lib/
+# code in this process; leaving them out of the coverage run saves ~10 s.
+rspec_args:
+  - --exclude-pattern
+  - "spec/e2e/**/*_spec.rb"
+  - spec
+# Every class here is nested in `module Saboteur` and refers to siblings
+# (Error, Subject, ...) unqualified; see docs/design.md 6.1.
+reeval: nesting

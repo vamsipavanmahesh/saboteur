@@ -18,6 +18,9 @@ module Saboteur
       "timeout_factor" => 3.0,
       "timeout_min" => 5.0,
       "baseline_timeout" => 300.0,
+      "coverage_timeout" => 3600.0,
+      "max_memory_mb" => 2048,
+      "max_processes" => 64,
       "jobs" => 1,
       "ignore_file" => ".saboteur-ignore.yml",
       "sources" => ["builtin"],
@@ -33,8 +36,8 @@ module Saboteur
       "cache" => true
     }.freeze
 
-    INTEGER_KEYS = %w[jobs].freeze
-    FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout].freeze
+    INTEGER_KEYS = %w[jobs max_memory_mb max_processes].freeze
+    FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
     LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects].freeze
 
     attr_reader :root
@@ -105,6 +108,8 @@ module Saboteur
 
     def validate!
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
+      raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
+      raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
       raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
       raise ConfigError, "reeval must be one of: #{Reevaluator::STRATEGIES.join(', ')}" unless

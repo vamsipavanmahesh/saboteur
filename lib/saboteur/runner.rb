@@ -5,15 +5,15 @@ require "json"
 require "tmpdir"
 
 module Saboteur
-  # Runs one subject variant (unchanged or mutated) in a forked child.
+  # Runs one subject variant (unchanged or mutated) in a supervised child.
   #
-  # The child puts itself in its own process group, re-evaluates the method,
-  # reports "started", runs the selected tests and reports the result over a
-  # pipe. The parent enforces the deadline and always kills the whole group
-  # afterwards, so grandchildren (servers, subprocesses) do not outlive it.
+  # The child re-evaluates the method, reports "started", runs the selected
+  # tests and reports the result over a pipe. Supervisor owns the child's
+  # whole process tree: deadline, memory and process caps, and killing every
+  # descendant afterwards, including ones that left the process group.
   class Runner
-    Outcome = Data.define(:status, :runtime, :failed_ids, :message) do
-      def initialize(status:, runtime:, failed_ids: [], message: nil)
+    Outcome = Data.define(:status, :runtime, :failed_ids, :message, :leftovers) do
+      def initialize(status:, runtime:, failed_ids: [], message: nil, leftovers: [])
         super
       end
     end
@@ -21,49 +21,37 @@ module Saboteur
     # Everything one child needs. mutation is nil for the neutral check.
     Job = Data.define(:subject, :text, :test_ids, :timeout, :mutation, :log_path)
 
-    TERM_GRACE = 1.0
     LOG_TAIL_BYTES = 2000
 
-    def initialize(integration:, reevaluator:, hooks: Hooks.new, log_dir: nil)
+    def initialize(integration:, reevaluator:, hooks: Hooks.new, log_dir: nil, supervisor: Supervisor.new)
       @integration = integration
       @reevaluator = reevaluator
       @hooks = hooks
       @log_dir = log_dir || Dir.mktmpdir("saboteur-")
-      @live = Set.new
-      install_cleanup
+      @supervisor = supervisor
     end
 
     # text: method source to evaluate in the child (the unchanged source for
     # the neutral check). mutation: passed to around_mutant hooks (nil for
     # the neutral check). Returns an Outcome with status
-    # :killed, :survived, :timeout or :error.
+    # :killed, :survived, :timeout or :error. Exceeding the memory or process
+    # cap is reported as :timeout with a "resource limit" message.
     def run(subject:, text:, test_ids:, timeout:, mutation: nil)
       @hooks.run(:before_fork, mutation)
       @sequence = @sequence.to_i + 1
       job = Job.new(subject:, text:, test_ids:, timeout:, mutation:,
                     log_path: File.join(@log_dir, "child-#{Process.pid}-#{@sequence}.log"))
-      reader, writer = IO.pipe
-      $stdout.flush
-      $stderr.flush
-      started_at = monotonic
-      pid = fork { child(reader, writer, job) }
-      writer.close
-      track(pid)
-      outcome = supervise(pid, reader, started_at, job)
+      result = @supervisor.run(timeout: timeout) { |writer| child(writer, job) }
+      outcome = outcome_for(result, job)
       File.delete(job.log_path) if outcome.status != :error && File.exist?(job.log_path)
       outcome
-    ensure
-      reader&.close unless reader&.closed?
     end
 
     private
 
     # --- child ----------------------------------------------------------
 
-    def child(reader, writer, job)
-      reader.close
-      Process.setpgid(0, 0)
-      trap("TERM") { exit!(143) }
+    def child(writer, job)
       redirect_output(job.log_path)
       @hooks.run(:after_fork)
       @reevaluator.call(job.subject, job.text)
@@ -74,7 +62,6 @@ module Saboteur
       else
         emit(writer, event: "result", **result)
       end
-      exit!(0)
     rescue Exception => e # rubocop:disable Lint/RescueException
       emit(writer, event: "error", message: "#{e.class}: #{e.message}", backtrace: e.backtrace&.first(5))
       exit!(1)
@@ -104,31 +91,21 @@ module Saboteur
 
     # --- parent ---------------------------------------------------------
 
-    def supervise(pid, reader, started_at, job)
-      events = read_events(reader, started_at + job.timeout)
-      timed_out = events.equal?(:timeout)
-      status = kill_group(pid, gracefully: timed_out)
-      runtime = monotonic - started_at
-      return Outcome.new(status: :timeout, runtime: runtime, message: "exceeded #{job.timeout.round(2)} s") if timed_out
-
-      classify(events, status, runtime, job)
+    def outcome_for(result, job)
+      outcome = case result.stop
+                when :timeout
+                  Outcome.new(status: :timeout, runtime: result.runtime,
+                              message: "exceeded #{job.timeout.round(2)} s")
+                when :memory, :processes
+                  Outcome.new(status: :timeout, runtime: result.runtime, message: "resource limit: #{result.detail}")
+                else
+                  classify(parse_events(result.payload), result.exit_status, result.runtime, job)
+                end
+      outcome.with(leftovers: result.leftovers)
     end
 
-    # Returns the list of events, or :timeout if the deadline passed first.
-    def read_events(reader, deadline)
-      buffer = +""
-      loop do
-        remaining = deadline - monotonic
-        return :timeout if remaining <= 0
-        next unless reader.wait_readable(remaining)
-
-        chunk = reader.read_nonblock(65_536, exception: false)
-        break if chunk.nil?
-        next if chunk == :wait_readable
-
-        buffer << chunk
-      end
-      buffer.each_line.filter_map do |line|
+    def parse_events(payload)
+      payload.each_line.filter_map do |line|
         JSON.parse(line)
       rescue JSON::ParserError
         nil
@@ -177,37 +154,6 @@ module Saboteur
       Outcome.new(status: :error, runtime: runtime, message: message)
     end
 
-    # Kills the child's process group and reaps the child. With gracefully,
-    # sends TERM first and waits up to TERM_GRACE seconds.
-    def kill_group(pid, gracefully:)
-      status = nil
-      if gracefully
-        signal_group(pid, "TERM")
-        deadline = monotonic + TERM_GRACE
-        until (status = reap(pid, Process::WNOHANG)) || monotonic > deadline
-          sleep 0.01
-        end
-      end
-      status ||= reap(pid, Process::WNOHANG)
-      signal_group(pid, "KILL")
-      status ||= reap(pid, 0)
-      @live.delete(pid)
-      status
-    end
-
-    def signal_group(pid, signal)
-      Process.kill(signal, -pid)
-    rescue Errno::ESRCH, Errno::EPERM
-      nil
-    end
-
-    def reap(pid, flags)
-      _, status = Process.waitpid2(pid, flags)
-      status
-    rescue Errno::ECHILD
-      :reaped
-    end
-
     def describe(status)
       return "exited" unless status.is_a?(Process::Status)
       return "killed by signal #{status.termsig}" if status.signaled?
@@ -225,33 +171,6 @@ module Saboteur
         file.seek([size - LOG_TAIL_BYTES, 0].max)
         file.read.scrub.strip
       end
-    end
-
-    def track(pid)
-      @live << pid
-      # The child may not have called setpgid yet; do it from the parent too
-      # so a kill right after fork still reaches the group.
-      Process.setpgid(pid, pid)
-    rescue Errno::EACCES, Errno::ESRCH, Errno::EPERM
-      nil
-    end
-
-    def install_cleanup
-      live = @live
-      parent = Process.pid
-      at_exit do
-        next unless Process.pid == parent
-
-        live.each do |pid|
-          Process.kill("KILL", -pid)
-        rescue Errno::ESRCH, Errno::EPERM
-          nil
-        end
-      end
-    end
-
-    def monotonic
-      Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
   end
 end

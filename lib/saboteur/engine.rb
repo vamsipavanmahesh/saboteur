@@ -24,6 +24,7 @@ module Saboteur
     end
 
     def call
+      refuse_recursion!
       started = monotonic
       ignore_list = IgnoreList.load(config.path("ignore_file"))
       load_hooks
@@ -43,6 +44,20 @@ module Saboteur
     end
 
     private
+
+    # A test suite that (perhaps only under a mutant) starts a saboteur run
+    # would otherwise run saboteur inside a saboteur child, recursively.
+    def refuse_recursion!
+      return unless ENV[Supervisor::CHILD_ENV]
+
+      raise Error, "refusing to start: this process is a saboteur child (#{Supervisor::CHILD_ENV} is set). " \
+                   "A test is running saboteur itself; stub it."
+    end
+
+    def supervisor(memory_factor: 1)
+      Supervisor.new(limits: Supervisor::Limits.new(max_memory_mb: config["max_memory_mb"] * memory_factor,
+                                                    max_processes: config["max_processes"]))
+    end
 
     # --- boot -------------------------------------------------------------
 
@@ -94,7 +109,7 @@ module Saboteur
       map = coverage_map(files)
       @err.puts "saboteur: #{subjects.size} subjects, #{map.tests.size} tests in coverage map"
       warn_about_threads
-      runner = Runner.new(integration: @integration, reevaluator: reevaluator, hooks: hooks)
+      runner = Runner.new(integration: @integration, reevaluator: reevaluator, hooks: hooks, supervisor: supervisor)
       sources = build_sources
       subjects.flat_map { |subject| process(subject, map, runner, sources) }
     end
@@ -120,6 +135,7 @@ module Saboteur
     def neutral_check(subject, runner, tests)
       baseline = runner.run(subject: subject, text: subject.source, test_ids: tests,
                             timeout: config["baseline_timeout"])
+      note_leftovers(subject, "neutral check", baseline)
       return [config["timeout_factor"] * baseline.runtime, config["timeout_min"]].max if baseline.status == :survived
 
       detail = baseline.message.to_s.lines.first&.strip || "failed: #{baseline.failed_ids.first(3).join(', ')}"
@@ -143,8 +159,15 @@ module Saboteur
       result = MutantResult.new(subject: plan.subject, mutation: mutation, status: outcome.status,
                                 mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
                                 killed_by: outcome.failed_ids, covered_by: plan.tests)
+      note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
       progress(result)
       result
+    end
+
+    def note_leftovers(subject, what, outcome)
+      return if outcome.leftovers.empty?
+
+      @warnings << "#{subject.id} #{what}: killed #{outcome.leftovers.size} process(es) it left running"
     end
 
     def skip_all(candidates, subject, reason, covered_by: [])
@@ -238,23 +261,18 @@ module Saboteur
       end
 
       @err.puts "saboteur: building coverage map (runs the whole suite once)"
-      reader, writer = IO.pipe
-      pid = fork { coverage_child(reader, writer, files) }
-      writer.close
-      payload = reader.read
-      Process.wait(pid)
-      signal_group(pid)
-      data = JSON.parse(payload.empty? ? '{"error":"coverage child died"}' : payload)
+      result = supervisor(memory_factor: 4).run(timeout: config["coverage_timeout"]) do |writer|
+        coverage_child(writer, files)
+      end
+      raise Error, "coverage map build stopped: #{result.detail}" if result.stop
+
+      data = JSON.parse(result.payload.empty? ? '{"error":"coverage child died"}' : result.payload)
       raise Error, "coverage map build failed: #{data['error']}" if data["error"]
 
-      CoverageMap.from_json(payload)
-    ensure
-      reader&.close
+      CoverageMap.from_json(result.payload)
     end
 
-    def coverage_child(reader, writer, files)
-      reader.close
-      Process.setpgid(0, 0)
+    def coverage_child(writer, files)
       $stdout.reopen(File::NULL, "w")
       $stderr.reopen($stdout)
       hooks.run(:after_fork)
@@ -264,16 +282,9 @@ module Saboteur
       @integration.run_all(recorder)
       writer.write(recorder.result(build_seconds: monotonic - started).to_json)
       writer.close
-      exit!(0)
     rescue Exception => e # rubocop:disable Lint/RescueException
       writer.write(JSON.generate(error: "#{e.class}: #{e.message}"))
       exit!(1)
-    end
-
-    def signal_group(pid)
-      Process.kill("KILL", -pid)
-    rescue Errno::ESRCH, Errno::EPERM
-      nil
     end
 
     # --- helpers ----------------------------------------------------------
