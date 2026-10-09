@@ -1,0 +1,137 @@
+# Project status, decisions and checklist
+
+Single source of truth for long-running work on saboteur. Update it in the
+same commit as the work it describes. Newest entries at the top of each log.
+
+Last updated: 2026-10-09 (IST).
+
+## How to resume
+
+```sh
+cd saboteur
+git log --oneline | head -20          # what landed
+bundle exec rspec && bundle exec rubocop
+```
+
+Then read "Next up" below. Heavy runs (dogfood, pinned targets, Rails app)
+go through the watchdog, one at a time (see "Safety rules").
+
+## Phases (from the original brief)
+
+| phase | scope | status |
+|---|---|---|
+| 0 | name check, scaffold, licensing, CI skeleton | done (name: saboteur; `tamper` taken on rubygems) |
+| 1 | core engine on fixtures, 4 required tests | done |
+| 2 | two pinned public gems, survivor classification | done: docs/validation/phase-2-gems.md (numbers predate line-level selection; re-measure) |
+| 3 | --since, Stryker JSON, ignore list, exit codes, config, minitest | done except dogfood CI job and docs |
+| 4 | Rails integration on a large public app (Mastodon pinned) | not started; repo pinned at 07b4fd20 |
+| 5 | parallel workers, own DB each | only on explicit go from the maintainer |
+
+## Next up (ordered)
+
+- [ ] Architecture restructure (see "Architecture review" below), tests green at each step
+- [ ] Re-measure pinned gems after line-level selection + ordering; update snapshot counts in integration/targets.yml and phase-2 doc
+- [ ] Dogfood CI job (`saboteur run --since origin/main`) in .github/workflows/ci.yml
+- [ ] Triage dogfood survivors (165 at commit 47b8bc8; many real gaps in diff.rb property coverage) and add the missing specs
+- [ ] Diff: property spec against system `diff` as oracle
+- [ ] Docs: README usage, design.md refresh (6.1 evidence, 6.3 containment rewrite, 7 line-level selection), recipes (Sidekiq, WebMock, VCR), CHANGELOG
+- [ ] Phase 4: Mastodon under the watchdog, jobs 1
+- [ ] Survey items that need no spec change: review mode for --since, opt-in result cache, survivor ranking, HTML report, pseudo-tested label
+
+## Open questions for the maintainer (do not decide alone)
+
+1. Re-evaluation default: spec says `class_eval`; measured skip rate from
+   lost lexical constants is 3.8 % (dry-inflector) and 80.1 % (tty-color)
+   vs 0 % with `nesting`. Recommendation: make `nesting` the default.
+2. Resource-limit stops (memory / process cap) are reported as `timeout`
+   with reason "resource limit". Separate status, or keep?
+3. Operator set changes proposed by the survey (docs/research/survey.md):
+   minimal comparison replacement sets, `&&`/`||` operand replacement,
+   `body -> true/false` for predicate methods, skipping `||=` memoization.
+   Each changes the operator list fixed in the brief.
+4. Publishing: name `saboteur` free on rubygems and as glomopay/saboteur on
+   GitHub as of 2026-10-09; the maintainer publishes, not the agent.
+
+## Decisions log
+
+- 2026-10-09 Tests per mutant are selected by line (innermost statement's
+  first line through the edit's last line); unreached mutants are "no
+  coverage", not survivors. Selected tests run prior killers first, then
+  fastest first. (commits 9ce97fe, 7a08ca7; survey recs 1 and 2)
+- 2026-10-09 Statement removal skips if/unless without else (same change as
+  the condition mutants). (9ce97fe)
+- 2026-10-09 Coverage recorder suspends Coverage while it processes deltas;
+  fixture specs excluded from the suite. (bb5891a)
+- 2026-10-09 Process containment: Supervisor tracks the whole descendant
+  tree, stop-then-kill after every child, memory/process caps, RLIMIT_CPU
+  backstop, parent-death check, INT/TERM cleanup, Linux subreaper;
+  recursion guard via SABOTEUR_CHILD. Root cause and evidence in the commit
+  message of 47b8bc8. Reviewed independently with Grok CLI, same root cause.
+- 2026-10-09 macOS facts measured: RLIMIT_AS/DATA/RSS cannot be lowered
+  below a Ruby process's reservation and are not enforced; RLIMIT_CPU is
+  enforced (SIGXCPU); `ps -e` environment display is unreliable, so no
+  environment-marker tracking.
+- 2026-10-09 Statement removal only for sequences of 2+ statements; Stryker
+  report lists tests once under testFiles; compact JSON. (1c85260)
+- 2026-10-09 Pinned targets: dry-inflector b6a2819f, tty-color e2410967
+  (MIT). rainbow rejected: its Gemfile pulls mutant-rspec (clean-room rule).
+- 2026-10-09 Both re-evaluation strategies implemented; `class_eval` stays the
+  default until question 1 is answered.
+- 2026-10-09 Stryker JSON validated against the official
+  mutation-testing-report-schema (json_schemer): all reports valid.
+
+## Safety rules for heavy runs (learned the hard way)
+
+- Never run saboteur on a project whose tests can start saboteur without the
+  recursion guard; never disable it outside a bounded spec.
+- One heavy job at a time; nothing alongside native gem compiles.
+- Wrap dogfood / target / Rails runs in `script/watchdog` (process count,
+  total RSS, wall time; kills the whole tree), e.g.
+  `script/watchdog /tmp/x --procs 30 --rss-gb 6 --minutes 20 -- bundle exec exe/saboteur run`.
+- Specs that fork or allocate must be self-bounding and clean up pids.
+
+## Architecture review (principal-engineer pass, 2026-10-09)
+
+Codebase: ~2.8k lines in lib/, flat `lib/saboteur/*.rb` plus four subdirs.
+
+Findings:
+
+1. `Engine` (346 lines) owns six jobs: boot lifecycle, subject selection,
+   coverage cache/build, candidate generation and validation, per-subject
+   scheduling (neutral check, coarse-first, test selection, prioritization),
+   and result assembly. Phase 5 needs the scheduling unit on its own (it is
+   what workers parallelize). Split into collaborators; Engine becomes a
+   short pipeline.
+2. Domain types live in the wrong files: `Edit`/`Mutation` are the public
+   contract for external mutation sources but sit in
+   `mutation_source/base.rb`; statuses live in `result.rb` while the
+   resource-limit-as-timeout mapping lives in `runner.rb`.
+3. The child protocol (JSON lines over a pipe) is implicit inside Runner.
+   Phase 5 and any future worker model need it named and versioned.
+4. Flat layout hides layers. Group by layer with matching namespaces
+   (Ruby/Zeitwerk convention: directory == namespace):
+   - `analysis/` Subject, SubjectFinder
+   - `mutation/` Edit, Mutation; sources stay under the public
+     `Saboteur::MutationSource` name (extension API, keep stable)
+   - `execution/` Reevaluator, Runner, Supervisor, ProcessTree, Protocol
+   - `selection/` CoverageMap, Recorder (own file), GitDiff
+   - `reporting/` Result, Report, Diff, Terminal, Stryker
+   - `integration/` RSpec, Minitest (public adapter API, keep names)
+   - `frameworks/rails.rb` (a profile, not a test adapter)
+   - top level: Config, CLI, Hooks, IgnoreList, Engine
+5. Public API surface is undeclared. Stable: `Saboteur::MutationSource::Base`
+   + `Edit` + `Mutation`, `Saboteur::Integration::Base`, `Saboteur.hook`,
+   config keys, CLI flags, report formats. Everything else `@api private`.
+6. Config is an untyped hash; keys documented only in design.md. Move to a
+   typed schema that also generates the config reference doc.
+
+Plan (each step lands with the suite green):
+- [ ] A. Extract `Edit`/`Mutation` to their own file; `Recorder` to its own file
+- [ ] B. Split Engine: `Session` (boot), `SubjectSelection`, `CoverageStore`,
+      `CandidateGenerator`, `Scheduler`
+- [ ] C. Move files into layered namespaces; keep public names via the
+      extension API only
+- [ ] D. Name the child protocol (`Execution::Protocol`)
+- [ ] E. Typed config schema + generated docs/config.md
+- [ ] F. Mark `@api private` / public in YARD comments; document the public
+      API in README

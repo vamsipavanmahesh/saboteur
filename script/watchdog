@@ -1,0 +1,59 @@
+#!/usr/bin/env ruby
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+# Runs a command and kills its whole process tree if it exceeds a process
+# count, a total resident memory or a wall-clock limit. Use it around any
+# heavy saboteur run (dogfood, pinned targets, a Rails app):
+#
+#   script/watchdog LOG_PREFIX [--procs N] [--rss-gb N] [--minutes N] -- COMMAND...
+#
+# Writes LOG_PREFIX.out, LOG_PREFIX.err and a one-line LOG_PREFIX.watchdog
+# with the verdict and the peaks it saw. Exits with the command's status, or
+# 124 when it tripped.
+
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
+require "saboteur/process_tree"
+
+args = ARGV.dup
+separator = args.index("--") or abort "usage: script/watchdog LOG_PREFIX [options] -- COMMAND..."
+command = args.slice!(separator..)[1..]
+log = args.shift or abort "missing LOG_PREFIX"
+option = ->(name, default) { (index = args.index(name)) ? Float(args[index + 1]) : default }
+max_procs = option.call("--procs", 30).to_i
+max_rss_kb = (option.call("--rss-gb", 6) * 1024 * 1024).to_i
+max_seconds = option.call("--minutes", 20) * 60
+
+monotonic = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
+pid = Process.spawn(*command, pgroup: true, out: "#{log}.out", err: "#{log}.err")
+tree = Saboteur::ProcessTree.new(pid)
+started = monotonic.call
+peak_procs = 0
+peak_rss = 0
+verdict = "finished"
+status = nil
+loop do
+  if (done = Process.waitpid2(pid, Process::WNOHANG))
+    status = done[1]
+    break
+  end
+  live = tree.refresh
+  rss = live.sum(&:rss_kb)
+  peak_procs = [peak_procs, live.size].max
+  peak_rss = [peak_rss, rss].max
+  elapsed = monotonic.call - started
+  if live.size > max_procs || rss > max_rss_kb || elapsed > max_seconds
+    verdict = "TRIPPED procs=#{live.size} rss=#{rss / 1024}MB elapsed=#{elapsed.round}s"
+    tree.kill_all
+    Process.wait(pid)
+    break
+  end
+  sleep 0.5
+end
+leftovers = tree.refresh
+tree.kill_all
+summary = "#{verdict}; exit=#{status&.exitstatus.inspect}; peak_procs=#{peak_procs}; " \
+          "peak_rss=#{peak_rss / 1024}MB; wall=#{(monotonic.call - started).round(1)}s; leftovers=#{leftovers.size}"
+File.write("#{log}.watchdog", "#{summary}\n")
+puts summary
+exit(verdict == "finished" ? status&.exitstatus.to_i : 124)
