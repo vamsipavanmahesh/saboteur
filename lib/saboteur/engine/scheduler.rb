@@ -38,8 +38,8 @@ module Saboteur
         tests = @map.tests_for(subject)
         return skip_all(candidates, subject, "no coverage") if tests.empty?
 
-        timeout = neutral_check(subject, tests)
-        return skip_all(candidates, subject, "baseline failure", covered_by: tests) unless timeout
+        timeout, reason = neutral_check(subject, tests)
+        return skip_all(candidates, subject, reason, covered_by: tests) unless timeout
 
         run_candidates(Plan.new(subject:, tests:, timeout:, killers: Hash.new(0)), candidates)
       end
@@ -47,18 +47,19 @@ module Saboteur
       private
 
       # Runs the subject's tests against the re-evaluated, unchanged method.
-      # Returns the per-mutant timeout, or nil when the tests do not pass.
+      # Returns [per-mutant timeout, nil] when they pass, else [nil, skip
+      # reason]: a slow suite and a broken re-evaluation need different fixes.
       def neutral_check(subject, tests)
         baseline = @runner.run(subject: subject, text: subject.source, test_ids: tests,
                                timeout: @config["baseline_timeout"])
         note_leftovers(subject, "neutral check", baseline)
         if baseline.status == :survived
-          return [@config["timeout_factor"] * baseline.runtime, @config["timeout_min"]].max
+          return [[@config["timeout_factor"] * baseline.runtime, @config["timeout_min"]].max, nil]
         end
 
         detail = baseline.message.to_s.lines.first&.strip || "failed: #{baseline.failed_ids.first(3).join(', ')}"
         @diagnostics.warn("#{subject.id}: neutral check #{baseline.status}, #{detail}")
-        nil
+        [nil, baseline.status == :timeout ? "baseline timeout" : "baseline failure"]
       end
 
       def run_candidates(plan, candidates)

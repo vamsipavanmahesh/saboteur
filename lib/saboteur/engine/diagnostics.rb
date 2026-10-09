@@ -32,10 +32,6 @@ module Saboteur
         @err.print(MARKS.fetch(result.status, "?"))
         @err.flush
       end
-
-      def finish_progress
-        @err.puts
-      end
     end
   end
 end

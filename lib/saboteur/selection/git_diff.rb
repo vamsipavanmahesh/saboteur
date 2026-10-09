@@ -24,7 +24,7 @@ module Saboteur
         file = nil
         diff.each_line do |line|
           if line.start_with?("+++ ")
-            path = line.chomp.delete_prefix("+++ ")
+            path = unquote(line.chomp.delete_prefix("+++ ").delete_suffix("\t"))
             file = path == NO_FILE ? nil : File.join(top, path.delete_prefix("b/"))
           elsif file && (match = HUNK.match(line))
             start = match[1].to_i
@@ -36,6 +36,20 @@ module Saboteur
         end
         changes.default_proc = nil
         changes
+      end
+
+      ESCAPES = { "n" => "\n", "t" => "\t", '"' => '"', "\\" => "\\", "a" => "\a", "b" => "\b",
+                  "f" => "\f", "r" => "\r", "v" => "\v" }.freeze
+
+      # git C-quotes a path with special bytes: "b/h\303\251llo.rb". It also
+      # ends a path that holds a space with a tab, which the caller strips.
+      def unquote(path)
+        return path unless path.start_with?('"') && path.end_with?('"')
+
+        path[1...-1].gsub(/\\([0-7]{3}|.)/) do
+          code = Regexp.last_match(1)
+          code.length == 3 ? code.to_i(8).chr : ESCAPES.fetch(code, code)
+        end.b.force_encoding(Encoding::UTF_8)
       end
 
       def git(root, *args)

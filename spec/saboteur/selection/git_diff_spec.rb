@@ -45,6 +45,22 @@ RSpec.describe Saboteur::Selection::GitDiff do
     end
   end
 
+  it "finds changed files whose names git would quote: spaces, non-ASCII, quotes" do
+    Dir.mktmpdir do |dir|
+      git = lambda { |*args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: dir)
+      }
+      names = ["my file.rb", "h\u00e9llo.rb", "say \"hi\".rb"]
+      git.call("init", "-q")
+      names.each { |name| File.write(File.join(dir, name), "1\n") }
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "base")
+      names.each { |name| File.write(File.join(dir, name), "2\n") }
+      changed = described_class.changed_lines("HEAD", root: dir)
+      expect(changed.keys.map { |path| File.basename(path) }.sort).to eq(names.sort)
+    end
+  end
+
   it "raises a saboteur error for an unknown ref" do
     Dir.mktmpdir do |dir|
       Open3.capture3("git", "init", "-q", chdir: dir)
