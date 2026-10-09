@@ -55,6 +55,49 @@ more connectors than comparisons, and each connector now yields 3 mutants
 instead of 1), not down as in the Java studies; the new survivors were all
 real gaps.
 
+## Crash kills per operator (after M2, nesting)
+
+A kill by a crash (NoMethodError, TypeError, ...) shows a test reached the
+code, not that it checked the result. `body_raise` kills are crashes by
+construction. Without `body_raise`, crash kills are 41 of 209 (20 %) on
+dry-inflector and 11 of 101 (11 %) on tty-color.
+
+dry-inflector (249 kills):
+
+| operator | kills | by assertion | by crash | crash share |
+|---|---|---|---|---|
+| statement_removal | 110 | 88 | 22 | 20 % |
+| body_raise | 40 | 0 | 40 | 100 % |
+| body_nil | 39 | 33 | 6 | 15 % |
+| literal_number | 32 | 22 | 10 | 31 % |
+| condition_true | 9 | 6 | 3 | 33 % |
+| condition_false | 9 | 9 | 0 | 0 % |
+| boolean_logic | 8 | 8 | 0 | 0 % |
+| body_true | 1 | 1 | 0 | 0 % |
+| body_false | 1 | 1 | 0 | 0 % |
+
+tty-color (118 kills):
+
+| operator | kills | by assertion | by crash | crash share |
+|---|---|---|---|---|
+| literal_number | 29 | 29 | 0 | 0 % |
+| statement_removal | 18 | 12 | 6 | 33 % |
+| body_raise | 17 | 0 | 17 | 100 % |
+| condition_true | 12 | 11 | 1 | 8 % |
+| body_nil | 10 | 8 | 2 | 20 % |
+| condition_false | 10 | 10 | 0 | 0 % |
+| body_false | 6 | 6 | 0 | 0 % |
+| body_true | 5 | 5 | 0 | 0 % |
+| boolean_logic | 5 | 4 | 1 | 20 % |
+| comparison | 3 | 3 | 0 | 0 % |
+| negation_removal | 2 | 2 | 0 | 0 % |
+| or_assign | 1 | 0 | 1 | 100 % |
+
+Reading: statement removal and number literals kill by crashing most
+often (a removed assignment leaves a nil; a changed index walks off an
+array). Comparison, condition and connector mutants are killed by
+assertions, which is what makes them the stronger signal.
+
 ## Parallel workers (--jobs), dry-inflector, nesting, cold cache
 
 | jobs | wall | verdicts | peak processes | peak RSS | leftovers |
