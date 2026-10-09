@@ -26,6 +26,11 @@ RSpec.describe Saboteur::Report do
     expect(report.mean_runtime).to be_within(1e-9).of((0.2 + 0.4 + 0.3 + 5.0 + 0.1) / 5)
   end
 
+  it "leaves reused verdicts out of the mean runtime: they did not run" do
+    report = report_of(result_for(:killed, runtime: 0.2), result_for(:killed, runtime: 9.0, reused: true))
+    expect(report.mean_runtime).to eq(0.2)
+  end
+
   it "groups skip reasons" do
     expect(report.skip_reasons).to eq("no coverage" => 1)
   end

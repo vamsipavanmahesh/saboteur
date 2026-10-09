@@ -115,7 +115,7 @@ module Saboteur
     end
 
     def mean_runtime
-      timed = executed.filter_map(&:runtime)
+      timed = executed.reject(&:reused?).filter_map(&:runtime)
       timed.empty? ? nil : timed.sum / timed.size
     end
   end

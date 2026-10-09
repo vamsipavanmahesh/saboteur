@@ -27,6 +27,15 @@ Windows and `disabled?` guards were each reported by both statement removal
 and `condition_false`). The classification below is from the first run;
 the remaining survivors are the same mutants.
 
+## Incremental mode (--incremental), dry-inflector, nesting
+
+| run | wall | verdicts reused | statuses | peak processes |
+|---|---|---|---|---|
+| first (empty cache) | 24.26 s | 0 of 261 | 243 killed, 18 survived | 3 |
+| second (nothing changed) | 0.80 s | 261 of 261 | identical | 2 (no mutant child) |
+
+Measured 2026-10-09 under script/watchdog, no leftovers either run.
+
 ## First run: results per re-evaluation strategy
 
 | target | reeval | killed | survived | timeout | error | skipped | wall | mean per executed mutant | map build |
