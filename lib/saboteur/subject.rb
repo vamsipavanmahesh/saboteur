@@ -84,11 +84,10 @@ module Saboteur
       (first..[last, first].max).to_a
     end
 
-    # True when the body has a rescue or else clause: a value can come back
-    # from there even when the main statements are gone.
+    # True when anything in the body can turn an error into a value: a
+    # rescue or else clause, a modifier rescue, a nested begin/rescue.
     def recovers?
-      body = node.body
-      body.is_a?(Prism::BeginNode) && !(body.rescue_clause.nil? && body.else_clause.nil?)
+      rescuing?(node.body)
     end
 
     def contains_line?(line)
@@ -115,6 +114,19 @@ module Saboteur
     end
 
     private
+
+    def rescuing?(child)
+      case child
+      when nil, Prism::DefNode, Prism::ClassNode, Prism::ModuleNode then false
+      when Prism::RescueModifierNode then true
+      when Prism::BeginNode then !(child.rescue_clause.nil? && child.else_clause.nil?) || descend?(child)
+      else descend?(child)
+      end
+    end
+
+    def descend?(child)
+      child.compact_child_nodes.any? { |grandchild| rescuing?(grandchild) }
+    end
 
     def innermost_statement(node, start_byte, end_byte, found = nil)
       return found if node.nil?

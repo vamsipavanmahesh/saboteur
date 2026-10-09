@@ -114,7 +114,9 @@ module Saboteur
         return report.survivors.map { |result| [result, 0] } unless report.review?
 
         report.survivors.group_by { |result| [result.subject.file, first_line(result)] }.map do |_, same_line|
-          best = same_line.min_by { |result| [result.mutation.coarse ? 0 : 1, result.mutation.edits.first.start_byte] }
+          best = same_line.min_by do |result|
+            [result.ignored ? 1 : 0, result.mutation.coarse ? 0 : 1, result.mutation.edits.first.start_byte]
+          end
           [best, same_line.size - 1]
         end
       end

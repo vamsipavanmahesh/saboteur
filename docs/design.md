@@ -205,9 +205,10 @@ class for `def self.x`) and re-apply `private`/`protected` after. Also handles
 Known gaps (documented, not fixed in v1):
 - `module_function`: the module-level copy is a separate method; mutating the
   instance method does not change `Mod.x`. Detect and re-apply `module_function`.
-- `alias`/`alias_method` copies keep the old body. Callers through the alias
-  see the original; such mutants may survive spuriously. Report the alias in
-  the survivor output.
+- `alias`/`alias_method`: aliases of the current definition (same source
+  location) are pointed at the re-evaluated method, keeping their own
+  visibility. An alias taken before the method was redefined keeps its
+  older body on purpose and is left alone.
 - Methods replaced at runtime (prepended modules, `Module#prepend` wrappers)
   still work: we redefine on the original owner and the prepend chain calls it.
 

@@ -69,7 +69,8 @@ module Saboteur
       return nil unless config["incremental"]
 
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] })
-      ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs)
+      ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
+                      suite_digest: SuiteFiles.new(config).digest)
     end
 
     def supervisor(memory_factor: 1)
@@ -93,6 +94,7 @@ end
 require_relative "engine/diagnostics"
 require_relative "engine/boot"
 require_relative "engine/subject_selection"
+require_relative "engine/suite_files"
 require_relative "engine/coverage_store"
 require_relative "engine/candidates"
 require_relative "engine/diff_scope"

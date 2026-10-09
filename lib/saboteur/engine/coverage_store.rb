@@ -11,8 +11,7 @@ module Saboteur
     # supervised child and saved.
     class CoverageStore
       CACHE_INPUTS = %w[integration require rspec_args rails].freeze
-      TEST_FILES = "spec/**/*.rb"
-      PROJECT_FILES = %w[Gemfile.lock gems.locked .rspec .rspec-local].freeze
+      LOCKFILES = %w[Gemfile.lock gems.locked].freeze
 
       def initialize(config:, integration:, hooks:, supervisor:, diagnostics:)
         @config = config
@@ -37,27 +36,12 @@ module Saboteur
 
       def cache_key(files)
         inputs = JSON.generate(CACHE_INPUTS.to_h { |key| [key, @config[key]] })
-        inputs_files = files + @integration.test_files + test_support_files + boot_files + project_files
-        Selection::CoverageMap.cache_key(files: inputs_files.uniq, extra: inputs)
+        all = files + @integration.test_files + SuiteFiles.new(@config).files + lockfiles
+        Selection::CoverageMap.cache_key(files: all.uniq, extra: inputs)
       end
 
-      # Helpers and support code shape which test runs which line as much as
-      # the example files do, so every Ruby file under the test roots counts.
-      def test_support_files
-        Dir.glob(TEST_FILES, base: @root).map { |file| File.join(@root, file) }
-      end
-
-      # Boot files and hook files run before any test and can change what
-      # each test executes.
-      def boot_files
-        (@config["require"] + @config["hooks"]).map do |file|
-          path = File.expand_path(file, @root)
-          File.file?(path) ? path : "#{path}.rb"
-        end
-      end
-
-      def project_files
-        PROJECT_FILES.map { |file| File.join(@root, file) }.select { |file| File.file?(file) }
+      def lockfiles
+        LOCKFILES.map { |file| File.join(@root, file) }.select { |file| File.file?(file) }
       end
 
       def build(files)

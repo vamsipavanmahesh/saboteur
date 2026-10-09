@@ -54,6 +54,15 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).to include("1 more survivor on this line in the JSON report")
   end
 
+  it "never lets an ignored survivor hide a live one on the same line in review mode" do
+    ignored = result_for(:survived, replacement: ">")
+    ignored.ignored = "equivalent"
+    live = result_for(:survived, replacement: "<=")
+    report = Saboteur::Report.new(results: [ignored, live], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), review: true)
+    expect(render(report)).to include("+  def adult?; @age <= 18; end")
+  end
+
   it "prints n/a for the score when nothing ran" do
     expect(render(report_of)).to include("score n/a")
   end

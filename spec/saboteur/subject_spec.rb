@@ -83,6 +83,22 @@ RSpec.describe Saboteur::Subject do
     end
   end
 
+  describe "#recovers?" do
+    def recovers?(body)
+      subjects_in("class A\n  def m\n#{body}\n  end\nend\n").first.recovers?
+    end
+
+    it "is true for a method-level rescue or else, a modifier rescue, or a nested begin/rescue" do
+      expect(recovers?("    work\n  rescue\n    1")).to be(true)
+      expect(recovers?("    work rescue 1")).to be(true)
+      expect(recovers?("    x = begin\n      work\n    rescue\n      1\n    end\n    x")).to be(true)
+    end
+
+    it "is false for a method with no rescue anywhere" do
+      expect(recovers?("    work\n    1")).to be(false)
+    end
+  end
+
   it "returns the text around the def on its first and last lines" do
     expect(subject_under_test.surrounding_text).to eq(["  ", ""])
   end

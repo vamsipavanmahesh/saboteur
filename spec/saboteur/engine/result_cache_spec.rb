@@ -62,6 +62,14 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expect(cache.lookup(edited, comparison_mutation, tests)).to be_nil
   end
 
+  it "forgets it when the suite's shared files change (support, helpers)" do
+    store = described_class.new(path: path, root: @root, inputs: "config-1", suite_digest: "support-1")
+    store.record(killed)
+    store.save
+    later = described_class.new(path: path, root: @root, inputs: "config-1", suite_digest: "support-2")
+    expect(later.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
   it "never stores errors or skips: they always run again" do
     store = cache
     store.record(result_for(:error, covered_by: tests))

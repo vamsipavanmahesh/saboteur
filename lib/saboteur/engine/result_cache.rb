@@ -23,10 +23,13 @@ module Saboteur
       STORED = %i[killed survived timeout].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
 
-      def initialize(path:, root:, inputs:)
+      # suite_digest: SuiteFiles#digest, so an edit to a spec helper or
+      # support file invalidates every verdict.
+      def initialize(path:, root:, inputs:, suite_digest: "")
         @path = path
         @root = root
         @inputs = inputs
+        @suite_digest = suite_digest
         @entries = load
         @file_digests = {}
       end
@@ -71,7 +74,7 @@ module Saboteur
 
       def fingerprint(subject, tests)
         digest = Digest::SHA256.new
-        digest << VERSION << "\0" << @inputs << "\0" << subject.source << "\0"
+        digest << VERSION << "\0" << @inputs << "\0" << @suite_digest << "\0" << subject.source << "\0"
         tests.sort.each { |test| digest << test << "\0" << file_digest(test_file(test)) << "\0" }
         LOCKFILES.each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
         digest.hexdigest
