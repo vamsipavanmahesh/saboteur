@@ -83,13 +83,14 @@ module Saboteur
         when :killed then "Killed"
         when :survived then "Survived"
         when :timeout then "Timeout"
-        when :error then "RuntimeError"
+        when :error, :resource_limit then "RuntimeError"
         when :skipped then result.reason == "no coverage" ? "NoCoverage" : "Ignored"
         end
       end
 
       def self.status_reason(result)
         return "ignored: #{result.ignored}" if result.ignored
+        return "resource limit: #{result.reason}" if result.status == :resource_limit
         return result.crash_kill? ? "crash: #{result.kill_cause}" : result.kill_cause if result.kill_cause
 
         result.reason.to_s.lines.first&.strip

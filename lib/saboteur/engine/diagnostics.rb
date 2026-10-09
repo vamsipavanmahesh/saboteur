@@ -6,7 +6,7 @@ module Saboteur
     # What a run has to say besides results: warnings for the report, the
     # count of mutations dropped for not parsing, and progress marks.
     class Diagnostics
-      MARKS = { killed: ".", survived: "S", timeout: "T", error: "E" }.freeze
+      MARKS = { killed: ".", survived: "S", timeout: "T", resource_limit: "L", error: "E" }.freeze
 
       attr_reader :warnings, :invalid_mutations
 

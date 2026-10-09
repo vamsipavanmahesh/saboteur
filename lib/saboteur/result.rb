@@ -4,7 +4,10 @@
 require_relative "reporter/diff"
 
 module Saboteur
-  STATUSES = %i[killed survived timeout error skipped].freeze
+  # resource_limit: the mutant's process tree hit the memory or process cap.
+  # Like error it is outside the score: a mutant that eats all memory was
+  # stopped by saboteur, not detected by a test.
+  STATUSES = %i[killed survived timeout resource_limit error skipped].freeze
 
   # Outcome of one mutation. reason carries the skip reason, the error
   # message or the timeout limit. ignored is the ignore-list reason, if any.

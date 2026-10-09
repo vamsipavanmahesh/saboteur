@@ -43,8 +43,8 @@ module Saboteur
       # text: method source to evaluate in the child (the unchanged source for
       # the neutral check). mutation: passed to around_mutant hooks (nil for
       # the neutral check). Returns an Outcome with status
-      # :killed, :survived, :timeout or :error. Exceeding the memory or process
-      # cap is reported as :timeout with a "resource limit" message.
+      # :killed, :survived, :timeout, :resource_limit (memory or process cap) or
+      # :error.
       def run(subject:, text:, test_ids:, timeout:, mutation: nil)
         @hooks.run(:before_fork, mutation)
         @sequence = @sequence.to_i + 1
@@ -106,7 +106,7 @@ module Saboteur
                     Outcome.new(status: :timeout, runtime: result.runtime,
                                 message: "exceeded #{job.timeout.round(2)} s")
                   when :memory, :processes
-                    Outcome.new(status: :timeout, runtime: result.runtime, message: "resource limit: #{result.detail}")
+                    Outcome.new(status: :resource_limit, runtime: result.runtime, message: result.detail)
                   else
                     classify(Protocol.parse(result.payload), result.exit_status, result.runtime, job)
                   end

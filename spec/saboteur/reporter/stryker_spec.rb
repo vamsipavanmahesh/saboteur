@@ -55,6 +55,13 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(reasons).to eq(["assertion", "crash: TypeError"])
   end
 
+  it "maps a resource-limit stop to RuntimeError with its reason" do
+    report = report_of(result_for(:resource_limit, reason: "process tree grew by 3000 MB (limit 2048 MB)"))
+    mutant = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants").first
+    expect(mutant.values_at("status", "statusReason"))
+      .to eq(["RuntimeError", "resource limit: process tree grew by 3000 MB (limit 2048 MB)"])
+  end
+
   it "keeps ignored survivors as Survived with the reason, and first lines of errors" do
     expect(mutants[1]["statusReason"]).to eq("ignored: equivalent")
     expect(mutants[3]["statusReason"]).to eq("boom")

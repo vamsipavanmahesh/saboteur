@@ -254,7 +254,8 @@ process's reservation and are not enforced, so memory is capped by polling;
 |-----------|-----------------------------------------------------------------|
 | killed    | `started` received and at least one selected test failed         |
 | survived  | `started` received and all selected tests passed                 |
-| timeout   | deadline passed, or the tree hit the memory or process cap ("resource limit: ..."); tree killed |
+| timeout   | deadline passed; tree killed |
+| resource_limit | the tree hit the memory or process cap; tree killed; outside the score |
 | error     | child exited/crashed before writing `started`, or adapter itself raised |
 | skipped   | not run: baseline failure, no covering tests, or coarse survivor |
 

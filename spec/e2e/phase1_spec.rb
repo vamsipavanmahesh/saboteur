@@ -121,7 +121,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
 
     it "exits 0 with no survivors, even with errors and timeouts" do
       expect(run.status).to eq(0)
-      expect(run.out).to include("killed 1  survived 0  timeout 1  error 3  skipped 0")
+      expect(run.out).to include("killed 1  survived 0  timeout 1  resource limit 0  error 3  skipped 0")
     end
   end
 end

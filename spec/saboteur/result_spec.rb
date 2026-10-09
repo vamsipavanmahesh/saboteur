@@ -11,7 +11,7 @@ RSpec.describe Saboteur::Report do
   end
 
   it "counts every status separately" do
-    expect(report.counts).to eq(killed: 2, survived: 1, timeout: 1, error: 1, skipped: 1)
+    expect(report.counts).to eq(killed: 2, survived: 1, timeout: 1, resource_limit: 0, error: 1, skipped: 1)
   end
 
   it "scores (killed + timeout) / (killed + survived + timeout), leaving errors and skips out" do
@@ -29,6 +29,11 @@ RSpec.describe Saboteur::Report do
   it "leaves reused verdicts out of the mean runtime: they did not run" do
     report = report_of(result_for(:killed, runtime: 0.2), result_for(:killed, runtime: 9.0, reused: true))
     expect(report.mean_runtime).to eq(0.2)
+  end
+
+  it "keeps resource-limit stops out of the score, like errors" do
+    report = report_of(result_for(:killed), result_for(:resource_limit, replacement: "<"))
+    expect([report.counts[:resource_limit], report.score]).to eq([1, 1.0])
   end
 
   it "groups skip reasons" do

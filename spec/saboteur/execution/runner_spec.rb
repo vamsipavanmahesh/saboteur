@@ -101,6 +101,17 @@ RSpec.describe Saboteur::Execution::Runner do
     expect(run_mode("crash").kill_cause).to eq("NoMethodError")
   end
 
+  it "reports a stop at the memory or process cap as resource_limit, not timeout" do
+    supervisor = instance_double(Saboteur::Execution::Supervisor)
+    stop = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :memory,
+                                                       detail: "process tree grew by 3000 MB (limit 2048 MB)",
+                                                       runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(stop)
+    capped = described_class.new(integration:, reevaluator:, hooks:, log_dir: tmpdir, supervisor:)
+    outcome = capped.run(subject: subject_stub, text: "pass", test_ids: ["t1"], timeout: 5)
+    expect([outcome.status, outcome.message]).to eq([:resource_limit, "process tree grew by 3000 MB (limit 2048 MB)"])
+  end
+
   it "counts a test calling exit as killed" do
     expect(run_mode("exit").status).to eq(:killed)
   end

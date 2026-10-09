@@ -33,7 +33,8 @@ module Saboteur
         survived = "survived #{c[:survived]}"
         ignored = report.survivors.size - report.unignored_survivors.size
         survived += " (#{ignored} ignored)" if ignored.positive?
-        "killed #{c[:killed]}  #{survived}  timeout #{c[:timeout]}  error #{c[:error]}  skipped #{c[:skipped]}"
+        "killed #{c[:killed]}  #{survived}  timeout #{c[:timeout]}  resource limit #{c[:resource_limit]}  " \
+          "error #{c[:error]}  skipped #{c[:skipped]}"
       end
 
       def details(report)

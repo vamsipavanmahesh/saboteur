@@ -15,7 +15,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
     text = render(report_of(result_for(:killed, runtime: 0.5), result_for(:survived, runtime: 0.5)))
     expect(text).to include(
       "1 subjects, 2 mutants, wall 1.25 s",
-      "killed 1  survived 1  timeout 0  error 0  skipped 0",
+      "killed 1  survived 1  timeout 0  resource limit 0  error 0  skipped 0",
       "score 50.0 %",
       "mean time per executed mutant 0.500 s",
       "Person#adult? comparison",
@@ -61,6 +61,11 @@ RSpec.describe Saboteur::Reporter::Terminal do
     report = Saboteur::Report.new(results: [ignored, live], subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file), review: true)
     expect(render(report)).to include("+  def adult?; @age <= 18; end")
+  end
+
+  it "shows resource-limit stops as their own status" do
+    text = render(report_of(result_for(:resource_limit, reason: "process tree reached 70 processes (limit 64)")))
+    expect(text).to include("resource limit 1")
   end
 
   it "prints n/a for the score when nothing ran" do
