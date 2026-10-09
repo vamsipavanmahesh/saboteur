@@ -1,6 +1,7 @@
 # saboteur design
 
-Status: draft for v1. Sections marked OPEN need a decision before Phase 1 code.
+Status: v1 as built (2026-10-09). Sections marked OPEN wait for a maintainer
+decision; docs/status.md tracks them.
 
 ## 1. Goal
 
@@ -90,8 +91,11 @@ Fine:
   condition -> `false` (for `if`/`unless`/`while`/`until`/ternary predicates).
 - Arithmetic: `+`<->`-`, `*`<->`/`, integer/float literal n -> n+1, n-1, 0
   (skip the replacement equal to n).
-- Statement removal: each statement of the body, one at a time (not the last
-  statement when the body has one statement; coarse covers that).
+- Statement removal: each statement of a sequence of two or more, one at a
+  time. Not for single-statement slots (the whole body is covered by
+  `body_nil`; ternary branches, interpolation and modifier bodies are
+  expressions), and not for an if/unless without else (the condition
+  mutants make the same change).
 - Nil handling: `x&.y` -> `x.y`, `a ||= b` -> `a = b`.
 
 Arid lines: a statement whose source matches a configured pattern is never
@@ -117,11 +121,13 @@ Fork hygiene (parent):
   locked in the child. The parent must be effectively single-threaded at fork
   time; saboteur warns when `Thread.list.size > 1` before the first fork.
 
-Child:
-1. `Process.setpgid(0, 0)` so the child and anything it spawns share a group.
+Child (forked by `Execution::Supervisor`, see 6.3):
+1. Mark itself (`SABOTEUR_CHILD=1`), own process group, CPU limit, parent
+   watch.
 2. `after_fork` (DB reconnect etc.).
 3. Re-evaluate the mutated method (see 6.1), restore visibility (6.2).
-4. Write `started` to the result pipe.
+4. Write `started` to the result pipe (`Execution::Protocol`, versioned
+   JSON lines).
 5. `around_mutant { adapter.run(test_ids) }`.
 6. Write result to the pipe, `exit!` (skip at_exit handlers of the target).
 
@@ -179,8 +185,11 @@ eval("module Outer; class Person; #{mutated_def}; end; end",
 - Refinements (`using`) are lexical and are lost. Subjects in files that call
   `using` are skipped in v1 ("refinements").
 
-Decision needed: adopt the wrapper, or keep `owner.class_eval` and accept the
-skip rate. Phase 1 will measure the skip rate both ways on the fixtures.
+Both are implemented (`reeval: class_eval | nesting`); `class_eval` stays the
+default until the maintainer decides. Measured skip rate from the lost
+lexical scope (neutral check fails): 3.8 % of mutants on dry-inflector and
+80.1 % on tty-color with `class_eval`, 0 % with `nesting`
+(docs/validation/phase-2-gems.md). Recommendation: `nesting`.
 
 ### 6.2 Visibility
 
@@ -199,18 +208,41 @@ Known gaps (documented, not fixed in v1):
 - Methods replaced at runtime (prepended modules, `Module#prepend` wrappers)
   still work: we redefine on the original owner and the prepend chain calls it.
 
-### 6.3 Timeouts and process groups
+### 6.3 Containment: timeouts, resource caps, process trees
 
-- Per mutant: `max(3 x baseline_runtime(subject), 5 s)`; factor configurable.
-- Parent waits on the result pipe with that deadline. On timeout, and also
-  after every normal child exit (to reap leftover grandchildren such as
-  servers holding a port):
-  `Process.kill("TERM", -pgid)`, wait 1 s, `Process.kill("KILL", -pgid)`, reap.
-  This also kills grandchildren (spawned servers, subprocesses).
-- Parent also reaps on its own exit (at_exit + trap INT/TERM) so Ctrl-C leaves
-  no orphans.
-- Caveat: a child that calls `setsid`/`setpgid` itself escapes the group. Rare
-  in test code; documented.
+Invariant: no process started on behalf of a child outlives that child's
+supervision. A process group alone does not give this: any descendant can
+call `setpgid`/`setsid`. A saboteur run started by a test inside a mutant
+child did exactly that, and the escaped orphans (some allocating ~300 MB/s)
+froze a 36 GB development machine twice (root cause in commit 47b8bc8).
+
+`Execution::Supervisor` enforces the invariant for mutants, neutral checks
+and the coverage-map child alike:
+
+- Tracks the whole descendant tree (`Execution::ProcessTree`) by parent link
+  and by the child's process group, rebuilt from the process table on every
+  poll, remembering every pid ever seen (pid + start time, so a recycled pid
+  is never signalled).
+- After every child, whatever its outcome: SIGSTOP every member until no new
+  member appears (a stopped process cannot fork), then SIGKILL them all.
+  Survivors of a normal exit are reported as leftovers (a warning).
+- While the child runs: a deadline (per mutant `max(3 x neutral-check
+  runtime, 5 s)`), a cap on memory growth across the tree (default 2 GB) and
+  a cap on process count (default 64). The coverage-map child gets
+  `coverage_timeout` and 4x the memory cap.
+- Kernel backstops for what tracking can miss (a double fork faster than a
+  poll): `RLIMIT_CPU` set in the child, inherited by every descendant even
+  after it escapes; a parent-death check in the child (macOS has no
+  PDEATHSIG); on Linux the supervisor is a child subreaper, so orphans stay
+  in its tree.
+- The parent kills every live tree on INT, TERM and exit.
+- Recursion guard: `Engine` refuses to start in a process marked
+  `SABOTEUR_CHILD`, so a test that runs saboteur fails (and the mutant is
+  killed) instead of starting a nested run.
+
+Measured on macOS 14: `RLIMIT_AS`/`DATA`/`RSS` cannot be lowered below a Ruby
+process's reservation and are not enforced, so memory is capped by polling;
+`RLIMIT_CPU` is enforced.
 
 ### 6.4 Statuses
 
@@ -218,7 +250,7 @@ Known gaps (documented, not fixed in v1):
 |-----------|-----------------------------------------------------------------|
 | killed    | `started` received and at least one selected test failed         |
 | survived  | `started` received and all selected tests passed                 |
-| timeout   | deadline passed; group killed                                    |
+| timeout   | deadline passed, or the tree hit the memory or process cap ("resource limit: ..."); tree killed |
 | error     | child exited/crashed before writing `started`, or adapter itself raised |
 | skipped   | not run: baseline failure, no covering tests, or coarse survivor |
 
@@ -243,26 +275,34 @@ raise the score silently.
   and loads tests but never runs a test, so every mutant child forks from a
   process with no test side effects (DB rows, class state, mocks). The
   map-building child sends the map back over a pipe.
-- Coverage is started in `lines` mode before boot. After boot and test
-  loading, `Coverage.result(stop: false, clear: true)` drops load-time counts.
-  If `Coverage` is already running (SimpleCov), saboteur refuses to start and
-  says to disable it for the run.
-- The map-building child runs the full suite once, test by test, calling
-  `Coverage.result(stop: false, clear: true)` after each test; every line with
-  a count > 0 maps to that test id.
-- A subject's tests = union over the body lines of its `def` (excluding the
-  `def` line for multi-line methods, since that line runs at load time; single
-  line and endless defs use the def line, which only executes when called after
-  the clear).
-- Tests that run code in `before(:all)` / `before(:suite)` attribute that code
-  to whichever test ran first. Mitigation: lines hit outside any test are
-  recorded as "suite-level" and their subjects run the full test file list of
-  the group. Measured impact pending (Phase 2).
+- Coverage is set up (suspended) in `lines` mode by the executable, before
+  anything of the target loads. If `Coverage` is already set up (SimpleCov),
+  saboteur refuses to build the map and says to disable it for the run.
+- The map-building child resumes Coverage and runs the full suite once, test
+  by test, calling `Coverage.result(stop: false, clear: true)` around each
+  test; every line with a count > 0 maps to that test id. Coverage is
+  suspended while the recorder processes each delta, so its own work is never
+  attributed to a test. Each test's duration is recorded too.
+- Lines hit outside any test (`before(:all)`, `before(:suite)`, lazy loads)
+  are attributed to every test in the file of the next test that starts.
+- A subject's tests (used by its neutral check and its coarse mutants) =
+  union over the body lines of its `def` (excluding the `def` line for
+  multi-line methods, since that line runs at load time; one-line and endless
+  defs use the def line).
+- A fine mutant's tests = the tests that executed its edit: the lines from
+  the first line of the innermost statement holding the edit to the edit's
+  last line (a statement's first line always records a coverage event when it
+  runs). An edit outside every statement uses the subject's tests. A mutant
+  whose edit no test executed is "no coverage", not a survivor.
+- Order: tests that killed earlier mutants of the same subject first, then
+  fastest first (suite order breaks ties). With fail-fast, a mutant is killed
+  by its cheapest killing test. Mutants always run a subsequence of the order
+  the neutral check validated.
 - Cache: `.saboteur/coverage-<sha256>.json` keyed by the hash of every
   included source file, every test file, the lockfile, the resolved config
-  (boot files, integration) and the saboteur version. Any change rebuilds. (Per-file incremental update is a later
-  optimisation.)
-- No covering tests -> subject skipped ("no coverage"), reported, not a survivor.
+  (boot files, integration) and the saboteur version. Any change rebuilds.
+  (Per-file incremental update is a later optimisation.)
+- No covering tests for a subject -> all its mutants "no coverage".
 
 Trade-off: test-by-test coverage collection costs one full suite run with
 coverage on (typically 1.2-2x slower than normal; to be measured), paid once
@@ -306,7 +346,12 @@ timeout_factor: 3
 timeout_min: 5
 jobs: 1
 ignore_file: .saboteur-ignore.yml
-sources: [builtin]                 # external mutation sources by class name
+sources: [builtin]                 # or path.rb:ClassName for external sources
+reeval: class_eval                 # or nesting (see 6.1)
+max_memory_mb: 2048                # growth cap per mutant process tree
+max_processes: 64                  # process cap per mutant tree
+coverage_timeout: 3600             # seconds for the coverage-map build
+baseline_timeout: 300              # seconds for each neutral check
 ```
 
 CLI: `saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] [--jobs N]`.
@@ -340,6 +385,28 @@ and runs it like any other mutant. No LLM source ships in v1.
 
 Resolved after review (see 14): post-start death is `error`; a coarse timeout
 or error does not skip fine mutants.
+
+## 12a. Code layout
+
+```
+lib/saboteur.rb                 requires; Saboteur.hook
+lib/saboteur/cli.rb, config.rb, hooks.rb, ignore_list.rb, result.rb
+lib/saboteur/subject.rb, subject_finder.rb      what can be mutated
+lib/saboteur/mutation_source/   PUBLIC: Base, Edit, Mutation; Builtin operators
+lib/saboteur/integration/       PUBLIC: Base; RSpec, Minitest adapters
+lib/saboteur/engine.rb          the pipeline
+lib/saboteur/engine/            Boot, SubjectSelection, CoverageStore,
+                                Candidates, Scheduler, Diagnostics
+lib/saboteur/execution/         Supervisor, ProcessTree, Protocol, Runner,
+                                Reevaluator (everything that forks or evals)
+lib/saboteur/selection/         CoverageMap, Recorder, GitDiff
+lib/saboteur/frameworks/        Rails profile
+lib/saboteur/reporter/          Terminal, Stryker, Diff
+```
+
+Public API (stable across minor versions): `Saboteur::MutationSource::Base`,
+`Edit`, `Mutation`; `Saboteur::Integration::Base`; `Saboteur.hook`; config
+keys; CLI flags; the Stryker JSON report. Everything else may change.
 
 ## 13. Trade-offs summary
 

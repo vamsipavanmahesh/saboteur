@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "process_table"
+
 module Saboteur
   module Execution
     # Every process descended from one forked child, tracked for as long as the
@@ -14,22 +16,6 @@ module Saboteur
     #
     # Identity is pid plus start time, so a recycled pid is never signalled.
     class ProcessTree
-      Entry = Data.define(:pid, :ppid, :pgid, :rss_kb, :state, :started)
-
-      COLUMNS = "pid=,ppid=,pgid=,rss=,stat=,lstart="
-
-      # One snapshot of the process table: { pid => Entry }.
-      def self.table
-        out = IO.popen(["ps", "-A", "-o", COLUMNS], err: File::NULL, &:read)
-        out.each_line.with_object({}) do |line, rows|
-          pid, ppid, pgid, rss, state, *started = line.split
-          next unless started.any?
-
-          rows[pid.to_i] = Entry.new(pid: pid.to_i, ppid: ppid.to_i, pgid: pgid.to_i, rss_kb: rss.to_i,
-                                     state: state, started: started.join(" "))
-        end
-      end
-
       attr_reader :root
 
       def initialize(root)
@@ -40,18 +26,18 @@ module Saboteur
       # The live members: not zombies, same start time as when first seen.
       # Also starts tracking any new descendant (by parent link or by the
       # root's process group), so call it often while the tree runs.
-      def live_members(table = self.class.table)
+      def live_members(table = ProcessTable.snapshot)
         grow(table)
         @known.filter_map do |pid, started|
           entry = table[pid]
-          entry if entry && entry.started == started && !entry.state.start_with?("Z")
+          entry if entry && entry.started == started && !entry.zombie
         end
       end
 
       # Count and resident memory of the live members. rss_baseline_kb is the
       # supervisor's own RSS: forked children share its pages, so only growth
       # beyond it is counted per process.
-      def usage(rss_baseline_kb, table = self.class.table)
+      def usage(rss_baseline_kb, table = ProcessTable.snapshot)
         live = live_members(table)
         growth = live.sum { |entry| [entry.rss_kb - rss_baseline_kb, 0].max }
         [live.size, growth]

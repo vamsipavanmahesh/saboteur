@@ -180,7 +180,7 @@ module Saboteur
       def baseline_rss_kb
         now = monotonic
         if @baseline_at.nil? || now - @baseline_at > 10
-          @baseline_rss_kb = IO.popen(["ps", "-o", "rss=", "-p", Process.pid.to_s], &:read).to_i
+          @baseline_rss_kb = ProcessTable.snapshot.fetch(Process.pid).rss_kb
           @baseline_at = now
         end
         @baseline_rss_kb
