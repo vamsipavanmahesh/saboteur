@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 require "json"
-require "tmpdir"
 
 module Saboteur
   module Execution
@@ -32,11 +31,13 @@ module Saboteur
 
       LOG_TAIL_BYTES = 2000
 
-      def initialize(integration:, reevaluator:, hooks: Hooks.new, log_dir: nil, supervisor: Supervisor.new)
+      # log_dir: where children write their output; a child's log is kept
+      # only when it ends in an error.
+      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new)
         @integration = integration
         @reevaluator = reevaluator
         @hooks = hooks
-        @log_dir = log_dir || Dir.mktmpdir("saboteur-")
+        @log_dir = log_dir
         @supervisor = supervisor
       end
 

@@ -24,16 +24,23 @@ module Saboteur
         end
       end
 
-      # Loads the app's SimpleCov (if it has one) before the app does, so the
-      # app's own SimpleCov.start becomes a no-op instead of a boot failure.
-      def self.silence_simplecov
-        unless defined?(::SimpleCov)
-          begin
-            require "simplecov"
-          rescue LoadError
-            return
-          end
+      # Watches for the app's SimpleCov and turns its start into a no-op the
+      # moment the constant is defined, before any line of the app's
+      # SimpleCov setup runs. saboteur does not load SimpleCov itself:
+      # loading it runs the app's .simplecov at once.
+      module SimpleCovWatch
+        def const_added(name)
+          super
+          Boot.silence_simplecov if name == :SimpleCov && equal?(Object)
         end
+      end
+
+      def self.watch_for_simplecov
+        Object.singleton_class.prepend(SimpleCovWatch) unless Object.singleton_class.include?(SimpleCovWatch)
+        silence_simplecov if defined?(::SimpleCov)
+      end
+
+      def self.silence_simplecov
         return if ::SimpleCov.singleton_class.include?(SimpleCovOff)
 
         ::SimpleCov.singleton_class.prepend(SimpleCovOff)
@@ -50,7 +57,7 @@ module Saboteur
       end
 
       def load_target
-        self.class.silence_simplecov
+        self.class.watch_for_simplecov
         load_hooks
         @rails = rails = Frameworks::Rails.new(@config, @hooks) if @config["rails"]
         rails&.before_boot

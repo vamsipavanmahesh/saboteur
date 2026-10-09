@@ -14,20 +14,39 @@ RSpec.describe Saboteur::Engine::Boot do
     end
   end
 
-  describe ".silence_simplecov" do
+  describe ".watch_for_simplecov" do
     # saboteur needs Ruby's Coverage itself; an app that starts SimpleCov
     # unconditionally (as human-essentials does from config/environments)
-    # would otherwise fail to boot under saboteur.
-    it "turns SimpleCov.start into a no-op with a warning, when the app has SimpleCov" do
-      fake = Module.new { def self.start(*) = :started }
-      stub_const("SimpleCov", fake)
-      expect { described_class.silence_simplecov }.to output(/SimpleCov\.start ignored/).to_stderr
-      expect(SimpleCov.start("rails")).to be_nil
+    # would otherwise fail to boot under saboteur. saboteur does not load
+    # SimpleCov itself: loading it runs the app's .simplecov at once.
+    def fake_simplecov
+      Module.new do
+        def self.start(*) = :started
+      end
     end
 
-    it "does nothing when the app has no SimpleCov" do
+    it "turns SimpleCov.start into a no-op as soon as the app defines SimpleCov" do
       hide_const("SimpleCov")
-      expect { described_class.silence_simplecov }.not_to output.to_stderr
+      described_class.watch_for_simplecov
+      expect { Object.const_set(:SimpleCov, fake_simplecov) }.to output(/SimpleCov\.start ignored/).to_stderr
+      expect(SimpleCov.start("rails")).to be_nil
+    ensure
+      Object.send(:remove_const, :SimpleCov) if Object.const_defined?(:SimpleCov, false)
+    end
+
+    # The watcher stays installed once an example installs it, so defining
+    # the constant may already be enough; either way it ends up silenced.
+    it "turns off a SimpleCov that is already loaded" do
+      expect do
+        stub_const("SimpleCov", fake_simplecov)
+        described_class.watch_for_simplecov
+      end.to output(/SimpleCov\.start ignored/).to_stderr
+      expect(SimpleCov.start).to be_nil
+    end
+
+    it "says nothing while the app has no SimpleCov" do
+      hide_const("SimpleCov")
+      expect { described_class.watch_for_simplecov }.not_to output.to_stderr
     end
   end
 

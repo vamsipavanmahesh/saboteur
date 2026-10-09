@@ -73,3 +73,20 @@ Survivors (11), first read (to be classified with the full run):
 Peak RSS 3.3 GB (watchdog sum over the tree), at most 11 processes, no
 leftovers. Speed-up 1.85x on 3 jobs: one subject (the ~850-test callback,
 whose `||=` survivor runs every test, ~121 s) bounds the wall time.
+
+## Full scope: app/models + app/services, --jobs 6 (2026-10-10)
+
+664 subjects, 4,080 mutants (after dropping duplicates and edits that do not
+parse), wall 3,602 s, peak 20 processes, peak RSS 6.7 GB (watchdog sum over
+the tree), no leftovers.
+
+| killed | survived | timeout | resource limit | error | skipped |
+|--------|----------|---------|----------------|-------|---------|
+| 3,510  | 452      | 1       | 0              | 0     | 117 (67 no coverage, 50 coarse mutant survived) |
+
+Score 88.6 %. Mean 3.3 s per executed mutant. Kills: 2,388 by a failed
+assertion, 1,122 by a crash (RuntimeError 467, mostly body_raise; NoMethodError
+358; NameError 167; ActiveRecord::RecordInvalid 41; ...).
+
+Zero errors over 4,080 mutants on a real Rails app is the main result: every
+verdict passed the verdict check. Survivor classification (30+) is next.

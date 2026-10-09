@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "fileutils"
 require "json"
 
 module Saboteur
@@ -52,18 +53,22 @@ module Saboteur
                               supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics).fetch(files)
       @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
       warn_about_threads
-      reevaluator = Execution::Reevaluator.new(config["reeval"])
-      runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
-                                     supervisor: supervisor)
       cache = result_cache
-      scheduler = Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator,
-                                diagnostics: @diagnostics, cache: cache)
+      scheduler = scheduler_for(map, integration, cache)
       @rails&.prepare_workers(config["jobs"])
       results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
                                  cache: cache, on_start: method(:start_worker)).run(subjects, candidate_lists(subjects,
                                                                                                               scope))
       cache&.save
       results
+    end
+
+    def scheduler_for(map, integration, cache)
+      reevaluator = Execution::Reevaluator.new(config["reeval"])
+      runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
+                                     supervisor: supervisor, log_dir: fresh_log_dir)
+      Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
+                    cache: cache)
     end
 
     def result_cache
@@ -93,6 +98,14 @@ module Saboteur
       limits = Execution::Supervisor::Limits.new(max_memory_mb: config["max_memory_mb"] * memory_factor,
                                                  max_processes: config["max_processes"])
       Execution::Supervisor.new(limits: limits)
+    end
+
+    # The last run's child logs (only those of errors are kept).
+    def fresh_log_dir
+      File.join(config.path("cache_dir"), "logs").tap do |dir|
+        FileUtils.rm_rf(dir)
+        FileUtils.mkdir_p(dir)
+      end
     end
 
     def warn_about_threads

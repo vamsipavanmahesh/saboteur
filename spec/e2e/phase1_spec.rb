@@ -46,6 +46,16 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       expect(constant_mutants.map { |m| m["status"] }).not_to include("Ignored")
     end
 
+    # A temporary directory per run piled up (1,711 of them, up to 94 MB
+    # each); the last run's child logs now live in .saboteur/logs.
+    it "keeps child logs in .saboteur/logs, not in a new temporary directory" do
+      Dir.mktmpdir do |tmp|
+        saboteur(dir, "--subject", "Stage", env: { "TMPDIR" => tmp })
+        expect(Dir.children(tmp).grep(/saboteur-/)).to be_empty
+      end
+      expect(File.directory?(File.join(dir, ".saboteur", "logs"))).to be(true)
+    end
+
     it "reuses the cached coverage map on the second run" do
       saboteur(dir)
       second = saboteur(dir)

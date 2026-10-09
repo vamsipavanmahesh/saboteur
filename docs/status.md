@@ -45,16 +45,13 @@ go through the watchdog, one at a time (see "Safety rules").
       rubyforgood/human-essentials at d6f8290 (MIT, Postgres, needs Ruby 3.4). Saboteur-only
       measurements until mutant licence question is resolved.
 
-- [ ] Runner leaks a Dir.mktmpdir per run under $TMPDIR (child logs); remove it at
-      exit, keeping error logs only when asked
 - [ ] Fiddle: declare it (stops being a default gem in Ruby 3.5)
-- [ ] SimpleCov: hook Object.const_added instead of requiring simplecov (requiring it
-      loads the app's .simplecov first: noisy "coverage already setup" warning)
 - [ ] Architecture steps E and F (typed config schema, public API docs)
 - [ ] Triage dogfood survivors (215 live at b9c4068 incl. new engine parts). Done: Diff, terminal reporter, scheduler, operators (0 live; equivalents in .saboteur-ignore.yml). Next: recorder.rb (17), cli.rb (14), subject.rb, git_diff.rb, ...
 - [ ] Docs: recipes (Sidekiq, WebMock, VCR); README, design.md and CHANGELOG refreshed 2026-10-09
-- [ ] Phase 4: human-essentials full scope (664 subjects, 4,202 mutants) under the watchdog at
-      --jobs N with per-worker DBs; classify 30+ survivors; census of defs inside blocks
+- [x] Phase 4: human-essentials full scope at --jobs 6: 4,080 mutants, 3,510 killed, 452
+      survived, 1 timeout, 0 errors, 3,602 s (docs/validation/phase-4-rails.md)
+- [ ] Phase 4: classify 30+ of the 452 survivors; census of defs inside blocks
 - [ ] Survey items that need no spec change: survivor ranking, HTML report, pseudo-tested label
 
 ## Open questions for the maintainer (do not decide alone)
@@ -84,6 +81,11 @@ killer file; for apps, Mastodon at the pin under the watchdog with 30+
 survivors classified and a census of defs inside blocks.
 
 ## Decisions log
+
+- 2026-10-10 Child logs live in .saboteur/logs (cleared each run) instead of
+  a new $TMPDIR/saboteur-* per run (1,711 had piled up). SimpleCov is turned
+  off through Object.const_added the moment the app defines it, instead of
+  saboteur requiring simplecov (which ran the app's .simplecov first).
 
 - 2026-10-10 Parallel Rails runs fixed (human-essentials, --jobs 3, Item:
   verdicts identical to --jobs 1, 142 s vs 263 s). Five defects, each
