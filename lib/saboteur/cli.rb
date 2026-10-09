@@ -13,7 +13,7 @@ module Saboteur
     EXIT_USAGE = 2
     EXIT_TOOL = 3
 
-    class UsageError < Error; end
+    class UsageError < ConfigError; end
 
     attr_reader :options
 
@@ -36,8 +36,6 @@ module Saboteur
 
     def config
       @config ||= Config.load(root: Dir.pwd, path: options[:config], overrides: overrides)
-    rescue Error => e
-      raise UsageError, e.message
     end
 
     private
@@ -58,7 +56,7 @@ module Saboteur
       Reporter::Terminal.new(@out).call(report)
       write_json(report)
       exit_code(report)
-    rescue UsageError => e
+    rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
       EXIT_USAGE
     rescue Error => e

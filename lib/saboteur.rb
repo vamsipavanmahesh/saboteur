@@ -6,6 +6,9 @@ require_relative "saboteur/version"
 module Saboteur
   class Error < StandardError; end
 
+  # Invalid configuration or input files (exit code 2).
+  class ConfigError < Error; end
+
   class << self
     # Set while hook files from config load, so they can call Saboteur.hook.
     attr_accessor :current_hooks

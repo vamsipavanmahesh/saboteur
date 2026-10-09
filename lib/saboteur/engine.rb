@@ -25,6 +25,7 @@ module Saboteur
 
     def call
       started = monotonic
+      ignore_list = IgnoreList.load(config.path("ignore_file"))
       load_hooks
       rails = Rails.new(config, hooks) if config["rails"]
       rails&.before_boot
@@ -36,7 +37,7 @@ module Saboteur
       files = config.included_files
       subjects = select_subjects(find_subjects(files))
       results = subjects.empty? ? [] : mutate(subjects, files)
-      @warnings.concat(IgnoreList.load(config.path("ignore_file")).apply(results))
+      @warnings.concat(ignore_list.apply(results))
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @invalid, warnings: @warnings)
     end

@@ -20,19 +20,19 @@ module Saboteur
       return new([]) unless path && File.file?(path)
 
       data = YAML.safe_load_file(path) || []
-      raise Error, "#{path}: expected a list of entries" unless data.is_a?(Array)
+      raise ConfigError, "#{path}: expected a list of entries" unless data.is_a?(Array)
 
       new(data.each_with_index.map { |raw, index| parse_entry(raw, path, index) })
     rescue Psych::SyntaxError => e
-      raise Error, "#{path}: #{e.message}"
+      raise ConfigError, "#{path}: #{e.message}"
     end
 
     def self.parse_entry(raw, path, index)
-      raise Error, "#{path}: entry #{index + 1} is not a mapping" unless raw.is_a?(Hash)
+      raise ConfigError, "#{path}: entry #{index + 1} is not a mapping" unless raw.is_a?(Hash)
 
       values = %w[subject mutation reason].to_h { |key| [key, raw[key].to_s.strip] }
       missing = values.select { |_, value| value.empty? }.keys
-      raise Error, "#{path}: entry #{index + 1} is missing #{missing.join(', ')}" if missing.any?
+      raise ConfigError, "#{path}: entry #{index + 1} is missing #{missing.join(', ')}" if missing.any?
 
       Entry.new(subject: values["subject"], mutation: values["mutation"], reason: values["reason"])
     end

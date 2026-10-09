@@ -1,0 +1,3 @@
+integration: minitest
+include:
+  - lib/**/*.rb

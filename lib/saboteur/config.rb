@@ -47,11 +47,11 @@ module Saboteur
 
     def self.parse(path)
       data = YAML.safe_load_file(path) || {}
-      raise Error, "#{path}: expected a mapping at the top level" unless data.is_a?(Hash)
+      raise ConfigError, "#{path}: expected a mapping at the top level" unless data.is_a?(Hash)
 
       data
     rescue Psych::SyntaxError => e
-      raise Error, "#{path}: #{e.message}"
+      raise ConfigError, "#{path}: #{e.message}"
     end
 
     def self.stringify(hash)
@@ -61,7 +61,7 @@ module Saboteur
     def initialize(values = {}, root: Dir.pwd)
       @root = File.expand_path(root)
       unknown = values.keys - DEFAULTS.keys
-      raise Error, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
+      raise ConfigError, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
 
       @values = DEFAULTS.merge(values)
       coerce!
@@ -100,19 +100,19 @@ module Saboteur
       FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) }
       LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
     rescue ArgumentError, TypeError => e
-      raise Error, "invalid config value: #{e.message}"
+      raise ConfigError, "invalid config value: #{e.message}"
     end
 
     def validate!
-      raise Error, "jobs must be >= 1" if self["jobs"] < 1
-      raise Error, "timeout_factor must be > 0" unless self["timeout_factor"].positive?
-      raise Error, "timeout_min must be > 0" unless self["timeout_min"].positive?
-      raise Error, "reeval must be one of: #{Reevaluator::STRATEGIES.join(', ')}" unless
+      raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
+      raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?
+      raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
+      raise ConfigError, "reeval must be one of: #{Reevaluator::STRATEGIES.join(', ')}" unless
         Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
     rescue RegexpError => e
-      raise Error, "invalid arid pattern: #{e.message}"
+      raise ConfigError, "invalid arid pattern: #{e.message}"
     end
   end
 end
