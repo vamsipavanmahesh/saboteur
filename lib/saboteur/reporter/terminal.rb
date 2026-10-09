@@ -113,7 +113,8 @@ module Saboteur
       def shown(report)
         return report.survivors.map { |result| [result, 0] } unless report.review?
 
-        report.survivors.group_by { |result| [result.subject.file, first_line(result)] }.map do |_, same_line|
+        lines = report.survivors.group_by { |result| [result.subject.file, edit_line(result)] }
+        lines.values.map do |same_line|
           best = same_line.min_by do |result|
             [result.ignored ? 1 : 0, result.mutation.coarse ? 0 : 1, result.mutation.edits.first.start_byte]
           end
@@ -121,8 +122,8 @@ module Saboteur
         end
       end
 
-      def first_line(result)
-        result.subject.file_source.byteslice(0, result.mutation.edits.first.start_byte).count("\n") + 1
+      def edit_line(result)
+        result.subject.line_of(result.mutation.edits.first.start_byte)
       end
 
       def relative(file, root)

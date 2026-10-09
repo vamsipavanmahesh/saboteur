@@ -99,6 +99,16 @@ RSpec.describe Saboteur::Subject do
     end
   end
 
+  describe "#line_of" do
+    it "gives the 1-based file line of a byte offset" do
+      source = subject_under_test.file_source
+      expect(subject_under_test.line_of(0)).to eq(1)
+      expect(subject_under_test.line_of(source.index("def"))).to eq(2)
+      expect(subject_under_test.line_of(source.index(">="))).to eq(3)
+      expect(subject_under_test.line_of(source.index("\n"))).to eq(1)
+    end
+  end
+
   it "returns the text around the def on its first and last lines" do
     expect(subject_under_test.surrounding_text).to eq(["  ", ""])
   end

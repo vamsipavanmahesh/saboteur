@@ -45,3 +45,26 @@
   mutation: ef78c9e34814b478
   reason: 'equivalent: ranges arrive sorted, so the new end is never below the previous
     range end'
+- subject: Saboteur::Reporter::Terminal#kill_causes
+  mutation: 14689cacf3add21b
+  reason: 'equivalent: only killed results carry a kill_cause, so status == :killed
+    || kill_cause selects the same results'
+- subject: Saboteur::Reporter::Terminal#shown
+  mutation: 908a7d9f7906bc19
+  reason: 'equivalent: the hidden count is only printed when positive, and -1 is not'
+- subject: Saboteur::Reporter::Terminal#shown
+  mutation: ac98a6c895a3e3b8
+  reason: 'equivalent: the sort key keeps the same order (ignored after live, coarse
+    before fine)'
+- subject: Saboteur::Reporter::Terminal#shown
+  mutation: 87077462eb4bee86
+  reason: 'equivalent: the sort key keeps the same order (ignored after live, coarse
+    before fine)'
+- subject: Saboteur::Reporter::Terminal#shown
+  mutation: c1a541ae7499c128
+  reason: 'equivalent: the sort key keeps the same order (ignored after live, coarse
+    before fine)'
+- subject: Saboteur::Reporter::Terminal#shown
+  mutation: 73b795bf8d86fda1
+  reason: 'equivalent: the sort key keeps the same order (ignored after live, coarse
+    before fine)'

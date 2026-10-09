@@ -23,13 +23,9 @@ module Saboteur
       private
 
       def edited_lines(subject, edit)
-        first = line_at(subject, edit.start_byte)
-        last = line_at(subject, [edit.end_byte - 1, edit.start_byte].max)
+        first = subject.line_of(edit.start_byte)
+        last = subject.line_of([edit.end_byte - 1, edit.start_byte].max)
         (first..last)
-      end
-
-      def line_at(subject, byte_offset)
-        subject.file_source.byteslice(0, byte_offset).count("\n") + 1
       end
     end
   end

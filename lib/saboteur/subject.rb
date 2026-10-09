@@ -80,7 +80,7 @@ module Saboteur
       return coverage_lines unless statement
 
       first = statement.location.start_line
-      last = line_at([edit.end_byte - 1, edit.start_byte].max)
+      last = line_of([edit.end_byte - 1, edit.start_byte].max)
       (first..[last, first].max).to_a
     end
 
@@ -88,6 +88,11 @@ module Saboteur
     # rescue or else clause, a modifier rescue, a nested begin/rescue.
     def recovers?
       rescuing?(node.body)
+    end
+
+    # The 1-based line of the file that holds this byte offset.
+    def line_of(byte_offset)
+      file_source.byteslice(0, byte_offset).count("\n") + 1
     end
 
     def contains_line?(line)
@@ -146,10 +151,6 @@ module Saboteur
         return innermost_statement(child, start_byte, end_byte, found)
       end
       found
-    end
-
-    def line_at(byte_offset)
-      file_source.byteslice(0, byte_offset).count("\n") + 1
     end
 
     def validate_edit!(edit, previous_start)
