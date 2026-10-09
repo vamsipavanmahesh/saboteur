@@ -16,6 +16,18 @@ bundle exec rspec && bundle exec rubocop
 Then read "Next up" below. Heavy runs (dogfood, pinned targets, Rails app)
 go through the watchdog, one at a time (see "Safety rules").
 
+## Working rules (from the maintainer)
+
+- Naming in the Uncle Bob sense: names reveal intent; classes are nouns,
+  methods are verbs; no noise words (Manager, Data, Info), no abbreviations;
+  a query does not hide a command, and when it must, its comment says so.
+- TDD: a failing spec first for every new behaviour, then the code. For a
+  bug, first a spec that reproduces it (and check it fails without the fix).
+- Comments in simple English: short sentences, common words, one idea each.
+  Say why, not what.
+- Think as a principal engineer: layering, boundaries, the public API, and
+  what the next phase needs.
+
 ## Phases (from the original brief)
 
 | phase | scope | status |
@@ -29,7 +41,7 @@ go through the watchdog, one at a time (see "Safety rules").
 
 ## Next up (ordered)
 
-- [ ] Architecture restructure (see "Architecture review" below), tests green at each step
+- [ ] Architecture steps E and F (typed config schema, public API docs)
 - [ ] Re-measure pinned gems after line-level selection + ordering; update snapshot counts in integration/targets.yml and phase-2 doc
 - [ ] Dogfood CI job (`saboteur run --since origin/main`) in .github/workflows/ci.yml
 - [ ] Triage dogfood survivors (165 at commit 47b8bc8; many real gaps in diff.rb property coverage) and add the missing specs
@@ -53,6 +65,11 @@ go through the watchdog, one at a time (see "Safety rules").
    GitHub as of 2026-10-09; the maintainer publishes, not the agent.
 
 ## Decisions log
+
+- 2026-10-09 Restructured into layers (see Architecture review). Not named
+  `Saboteur::Coverage` on purpose: it would shadow Ruby's `Coverage` inside
+  the namespace. `Saboteur::Rails` became `Frameworks::Rails` for the same
+  reason.
 
 - 2026-10-09 Tests per mutant are selected by line (innermost statement's
   first line through the edit's last line); unreached mutants are "no
@@ -126,12 +143,17 @@ Findings:
    typed schema that also generates the config reference doc.
 
 Plan (each step lands with the suite green):
-- [ ] A. Extract `Edit`/`Mutation` to their own file; `Recorder` to its own file
-- [ ] B. Split Engine: `Session` (boot), `SubjectSelection`, `CoverageStore`,
-      `CandidateGenerator`, `Scheduler`
-- [ ] C. Move files into layered namespaces; keep public names via the
-      extension API only
-- [ ] D. Name the child protocol (`Execution::Protocol`)
+- [x] A. Extract `Edit`/`Mutation` to their own files; `Recorder` to its own file
+- [x] B. Split Engine: `Boot`, `SubjectSelection`, `CoverageStore`,
+      `Candidates`, `Scheduler`, `Diagnostics` (lib/saboteur/engine/)
+- [x] C. Layered namespaces: `Execution::` (Supervisor, ProcessTree, Runner,
+      Reevaluator, Protocol), `Selection::` (CoverageMap, Recorder, GitDiff),
+      `Frameworks::Rails`, `Reporter::Diff`. Public names unchanged:
+      `MutationSource::*`, `Integration::*`, `Saboteur.hook`.
+- [x] D. Name the child protocol (`Execution::Protocol`, versioned)
+- [x] Naming pass: coverage_lines_for, live_members, stopped_by,
+      leftover_pids, load_target, select, build_sources, inform,
+      count_invalid_mutation
 - [ ] E. Typed config schema + generated docs/config.md
 - [ ] F. Mark `@api private` / public in YARD comments; document the public
       API in README

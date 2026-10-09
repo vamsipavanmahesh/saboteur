@@ -3,7 +3,7 @@
 
 require "tmpdir"
 
-RSpec.describe Saboteur::CoverageMap do
+RSpec.describe Saboteur::Selection::CoverageMap do
   let(:subject_under_test) { subjects_in("class A\n  def m\n    1\n    2\n  end\nend\n").first }
   let(:file) { subject_under_test.file }
   let(:map) do
@@ -70,7 +70,7 @@ RSpec.describe Saboteur::CoverageMap do
   end
 
   describe "Recorder" do
-    let(:recorder) { described_class::Recorder.new([file]) }
+    let(:recorder) { Saboteur::Selection::Recorder.new([file]) }
     let(:results) { [] }
 
     before do

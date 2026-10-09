@@ -75,7 +75,7 @@ module Saboteur
     # so a test that never ran the edited code cannot have hit these lines.
     # An edit outside every statement (signature, around the def, whole
     # body) maps to the whole method.
-    def lines_for(edit)
+    def coverage_lines_for(edit)
       statement = innermost_statement(node.body, edit.start_byte, edit.end_byte)
       return coverage_lines unless statement
 

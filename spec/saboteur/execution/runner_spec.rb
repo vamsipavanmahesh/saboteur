@@ -3,7 +3,7 @@
 
 require "tmpdir"
 
-RSpec.describe Saboteur::Runner do
+RSpec.describe Saboteur::Execution::Runner do
   # The "method text" doubles as an instruction for the fake integration, so
   # each example can make the child pass, fail, hang or crash.
   let(:reevaluator) do

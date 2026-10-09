@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require_relative "diff"
+require_relative "reporter/diff"
 
 module Saboteur
   STATUSES = %i[killed survived timeout error skipped].freeze
@@ -42,8 +42,8 @@ module Saboteur
     def diff(root: nil)
       path = root ? relative(subject.file, root) : subject.file
       before, after = subject.surrounding_text
-      Diff.unified(before + subject.source + after, before + mutated_source + after,
-                   path: path, first_line: subject.start_line)
+      Reporter::Diff.unified(before + subject.source + after, before + mutated_source + after,
+                             path: path, first_line: subject.start_line)
     end
 
     private

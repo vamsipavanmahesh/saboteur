@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-RSpec.describe Saboteur::Reevaluator do
-  fixture = File.expand_path("../fixtures/ruby/reeval_targets.rb", __dir__)
+RSpec.describe Saboteur::Execution::Reevaluator do
+  fixture = File.expand_path("../../fixtures/ruby/reeval_targets.rb", __dir__)
 
   let(:subjects) { Saboteur::SubjectFinder.new.call(fixture).subjects.to_h { |s| [s.id, s] } }
   let(:person) { ReevalTargets::Person }

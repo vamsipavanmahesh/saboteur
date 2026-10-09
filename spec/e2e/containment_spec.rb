@@ -17,12 +17,12 @@ RSpec.describe "containment of a test suite that starts saboteur", :e2e do
     pid = Process.spawn({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
                         RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE, "run",
                         chdir: dir, pgroup: true, out: File.join(dir, "out.txt"), err: File.join(dir, "err.txt"))
-    tree = Saboteur::ProcessTree.new(pid)
+    tree = Saboteur::Execution::ProcessTree.new(pid)
     peak = 0
     tripped = nil
     deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + watchdog_seconds
     until Process.waitpid(pid, Process::WNOHANG)
-      peak = [peak, tree.refresh.size].max
+      peak = [peak, tree.live_members.size].max
       if peak > watchdog_max_processes || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
         tripped = "watchdog: #{peak} processes"
         tree.kill_all
@@ -31,16 +31,16 @@ RSpec.describe "containment of a test suite that starts saboteur", :e2e do
       end
       sleep 0.1
     end
-    leftovers = tree.refresh
+    leftover_pids = tree.live_members
     tree.kill_all
-    [peak, tripped, leftovers]
+    [peak, tripped, leftover_pids]
   end
 
   it "refuses the nested run, counts the mutant as killed and leaves nothing behind" do
-    peak, tripped, leftovers = run_watched
+    peak, tripped, leftover_pids = run_watched
     expect(tripped).to be_nil
     expect(peak).to be <= 4
-    expect(leftovers).to be_empty
+    expect(leftover_pids).to be_empty
 
     report = JSON.parse(File.read(File.join(dir, ".saboteur", "report.json")))
     statuses = report.fetch("files").fetch("lib/gate.rb").fetch("mutants").map { |m| [m["replacement"], m["status"]] }

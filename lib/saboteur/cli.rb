@@ -92,7 +92,7 @@ module Saboteur
         opts.on("--jobs N", Integer, "Concurrent workers (default 1)") { |v| set(:jobs, v) }
         opts.on("--config PATH", "Config file (default .saboteur.yml)") { |v| set(:config, v) }
         opts.on("--integration NAME", "rspec or minitest") { |v| set(:integration, v) }
-        opts.on("--reeval STRATEGY", Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
+        opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
         opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
         opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
       end

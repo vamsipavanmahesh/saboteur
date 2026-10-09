@@ -112,8 +112,8 @@ module Saboteur
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
       raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
-      raise ConfigError, "reeval must be one of: #{Reevaluator::STRATEGIES.join(', ')}" unless
-        Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
+      raise ConfigError, "reeval must be one of: #{Execution::Reevaluator::STRATEGIES.join(', ')}" unless
+        Execution::Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
     rescue RegexpError => e

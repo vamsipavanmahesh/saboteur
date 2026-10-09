@@ -13,7 +13,7 @@
 # 124 when it tripped.
 
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
-require "saboteur/process_tree"
+require "saboteur/execution/process_tree"
 
 args = ARGV.dup
 separator = args.index("--") or abort "usage: script/watchdog LOG_PREFIX [options] -- COMMAND..."
@@ -26,7 +26,7 @@ max_seconds = option.call("--minutes", 20) * 60
 
 monotonic = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
 pid = Process.spawn(*command, pgroup: true, out: "#{log}.out", err: "#{log}.err")
-tree = Saboteur::ProcessTree.new(pid)
+tree = Saboteur::Execution::ProcessTree.new(pid)
 started = monotonic.call
 peak_procs = 0
 peak_rss = 0
@@ -37,7 +37,7 @@ loop do
     status = done[1]
     break
   end
-  live = tree.refresh
+  live = tree.live_members
   rss = live.sum(&:rss_kb)
   peak_procs = [peak_procs, live.size].max
   peak_rss = [peak_rss, rss].max
@@ -50,10 +50,11 @@ loop do
   end
   sleep 0.5
 end
-leftovers = tree.refresh
+leftover_pids = tree.live_members
 tree.kill_all
+wall = (monotonic.call - started).round(1)
 summary = "#{verdict}; exit=#{status&.exitstatus.inspect}; peak_procs=#{peak_procs}; " \
-          "peak_rss=#{peak_rss / 1024}MB; wall=#{(monotonic.call - started).round(1)}s; leftovers=#{leftovers.size}"
+          "peak_rss=#{peak_rss / 1024}MB; wall=#{wall}s; leftovers=#{leftover_pids.size}"
 File.write("#{log}.watchdog", "#{summary}\n")
 puts summary
 exit(verdict == "finished" ? status&.exitstatus.to_i : 124)

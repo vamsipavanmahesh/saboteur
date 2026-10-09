@@ -4,7 +4,7 @@
 require "open3"
 require "tmpdir"
 
-RSpec.describe Saboteur::GitDiff do
+RSpec.describe Saboteur::Selection::GitDiff do
   it "parses added, changed and deleted lines from a zero-context diff" do
     diff = <<~DIFF
       diff --git a/lib/a.rb b/lib/a.rb

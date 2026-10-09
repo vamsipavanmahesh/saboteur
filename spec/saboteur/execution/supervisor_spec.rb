@@ -6,7 +6,7 @@ require "tmpdir"
 
 # Every example here is self-limiting: children sleep or allocate a bounded
 # amount, so a regression fails the example instead of exhausting the machine.
-RSpec.describe Saboteur::Supervisor do
+RSpec.describe Saboteur::Execution::Supervisor do
   let!(:dir) { Dir.mktmpdir("saboteur-supervisor-") }
   let(:limits) { described_class::Limits.default }
   let(:supervisor) { described_class.new(limits:) }
@@ -48,7 +48,7 @@ RSpec.describe Saboteur::Supervisor do
 
   it "returns what the child wrote and how it exited" do
     result = supervisor.run(timeout: 5) { |writer| writer.write("hello") }
-    expect([result.payload, result.stop, result.exit_status.exitstatus]).to eq(["hello", nil, 0])
+    expect([result.payload, result.stopped_by, result.exit_status.exitstatus]).to eq(["hello", nil, 0])
   end
 
   it "marks the child so a nested saboteur run can refuse to start" do
@@ -67,7 +67,7 @@ RSpec.describe Saboteur::Supervisor do
       end
       sleep 30
     end
-    expect(result.stop).to eq(:timeout)
+    expect(result.stopped_by).to eq(:timeout)
     expect(dead_within?(read_pid("escaped"), 3)).to be(true)
   end
 
@@ -78,7 +78,7 @@ RSpec.describe Saboteur::Supervisor do
         sleep 30
       end
     end
-    expect(result.stop).to eq(:timeout)
+    expect(result.stopped_by).to eq(:timeout)
     expect(dead_within?(read_pid("inner"), 3)).to be(true)
   end
 
@@ -89,8 +89,8 @@ RSpec.describe Saboteur::Supervisor do
       sleep 0.7 # let the supervisor see it in the tree
     end
     leftover = read_pid("daemon")
-    expect(result.stop).to be_nil
-    expect(result.leftovers).to include(leftover)
+    expect(result.stopped_by).to be_nil
+    expect(result.leftover_pids).to include(leftover)
     expect(dead_within?(leftover, 3)).to be(true)
   end
 
@@ -107,7 +107,7 @@ RSpec.describe Saboteur::Supervisor do
         end
         sleep 30
       end
-      expect(result.stop).to eq(:memory)
+      expect(result.stopped_by).to eq(:memory)
       expect(result.detail).to match(/grew by \d+ MB \(limit 150 MB\)/)
       expect(result.runtime).to be < 10
     end
@@ -125,14 +125,14 @@ RSpec.describe Saboteur::Supervisor do
         File.write(pid_file("forks"), pids.join(","))
         sleep 30
       end
-      expect(result.stop).to eq(:processes)
+      expect(result.stopped_by).to eq(:processes)
       forks = begin
         File.read(pid_file("forks")).split(",").map(&:to_i)
       rescue StandardError
         []
       end
       expect(forks.select { |pid| alive?(pid) }).to be_empty
-      expect(result.leftovers.size).to be >= 10
+      expect(result.leftover_pids.size).to be >= 10
     end
   end
 
@@ -156,7 +156,7 @@ RSpec.describe Saboteur::Supervisor do
     let(:script) do
       <<~RUBY
         require "saboteur"
-        Saboteur::Supervisor.new.run(timeout: 60) do
+        Saboteur::Execution::Supervisor.new.run(timeout: 60) do
           File.write(#{pid_file('child').inspect}, Process.pid.to_s)
           sleep 60
         end
@@ -164,7 +164,7 @@ RSpec.describe Saboteur::Supervisor do
     end
 
     def start_supervisor
-      Process.spawn(RbConfig.ruby, "-I", File.expand_path("../../lib", __dir__), "-e", script)
+      Process.spawn(RbConfig.ruby, "-I", File.expand_path("../../../lib", __dir__), "-e", script)
     end
 
     it "kills its children on INT" do
@@ -182,20 +182,5 @@ RSpec.describe Saboteur::Supervisor do
       Process.wait(parent)
       expect(dead_within?(child, 4)).to be(true)
     end
-  end
-end
-
-RSpec.describe Saboteur::Engine do
-  it "refuses to start inside a saboteur child" do
-    config = Saboteur::Config.new({}, root: Dir.pwd)
-    stub_const("ENV", ENV.to_h.merge(Saboteur::Supervisor::CHILD_ENV => "1"))
-    expect { described_class.new(config).call }.to raise_error(Saboteur::Error, /refusing to start/)
-  end
-end
-
-RSpec.describe Saboteur::Engine, ".prioritize" do
-  it "puts tests that killed earlier mutants first and keeps the given order otherwise" do
-    expect(described_class.prioritize(%w[fast mid slow other], { "slow" => 2, "mid" => 1 }))
-      .to eq(%w[slow mid fast other])
   end
 end

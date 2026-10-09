@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-RSpec.describe Saboteur::Diff do
+RSpec.describe Saboteur::Reporter::Diff do
   it "renders a one-line change with real file line numbers" do
     diff = described_class.unified("  def a? = x >= 1\n", "  def a? = x > 1\n", path: "lib/a.rb", first_line: 14)
     expect(diff).to eq(<<~DIFF)

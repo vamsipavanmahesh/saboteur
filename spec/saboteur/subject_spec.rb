@@ -45,7 +45,7 @@ RSpec.describe Saboteur::Subject do
     expect(subjects_in("class A\n  def m; 1; end\nend\n").first.coverage_lines).to eq([2])
   end
 
-  describe "#lines_for" do
+  describe "#coverage_lines_for" do
     let(:branchy) do
       subjects_in(<<~RUBY).first
         class A
@@ -70,16 +70,16 @@ RSpec.describe Saboteur::Subject do
     end
 
     it "maps an edit to its innermost statement's first line through the edit's last line" do
-      expect(branchy.lines_for(edit_at("2"))).to eq([4, 5])
-      expect(branchy.lines_for(edit_at("x - 1"))).to eq([7])
+      expect(branchy.coverage_lines_for(edit_at("2"))).to eq([4, 5])
+      expect(branchy.coverage_lines_for(edit_at("x - 1"))).to eq([7])
     end
 
     it "maps an edit in a condition to the statement that holds it" do
-      expect(branchy.lines_for(edit_at(">"))).to eq([3])
+      expect(branchy.coverage_lines_for(edit_at(">"))).to eq([3])
     end
 
     it "maps an edit outside every statement to the whole method" do
-      expect(branchy.lines_for(edit_at("(x)"))).to eq(branchy.coverage_lines)
+      expect(branchy.coverage_lines_for(edit_at("(x)"))).to eq(branchy.coverage_lines)
     end
   end
 
