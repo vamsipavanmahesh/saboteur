@@ -1,0 +1,122 @@
+{
+ "lobsters": [
+  {
+   "examples": 899,
+   "failures": 0,
+   "pending": 0,
+   "rspec_seconds": 15.3,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=545MB; wall=26.0s; leftovers=0"
+  },
+  {
+   "examples": 899,
+   "failures": 0,
+   "pending": 0,
+   "rspec_seconds": 14.7,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=548MB; wall=18.8s; leftovers=0"
+  },
+  {
+   "examples": 899,
+   "failures": 0,
+   "pending": 0,
+   "rspec_seconds": 14.8,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=548MB; wall=18.8s; leftovers=0"
+  }
+ ],
+ "hashie": [
+  {
+   "examples": 719,
+   "failures": 0,
+   "pending": 0,
+   "rspec_seconds": 0.1,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=1; peak_rss=38MB; wall=2.1s; leftovers=0"
+  },
+  {
+   "examples": 719,
+   "failures": 0,
+   "pending": 0,
+   "rspec_seconds": 0.1,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=1; peak_rss=12MB; wall=1.0s; leftovers=0"
+  },
+  {
+   "examples": 719,
+   "failures": 0,
+   "pending": 0,
+   "rspec_seconds": 0.1,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=1; peak_rss=15MB; wall=1.0s; leftovers=0"
+  }
+ ],
+ "addressable": [
+  {
+   "examples": 1433,
+   "failures": 0,
+   "pending": 5,
+   "rspec_seconds": 0.5,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=1; peak_rss=81MB; wall=2.6s; leftovers=0"
+  },
+  {
+   "examples": 1433,
+   "failures": 0,
+   "pending": 5,
+   "rspec_seconds": 0.5,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=102MB; wall=2.1s; leftovers=0"
+  },
+  {
+   "examples": 1433,
+   "failures": 0,
+   "pending": 5,
+   "rspec_seconds": 0.5,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=108MB; wall=2.1s; leftovers=0"
+  }
+ ],
+ "rack": [
+  {
+   "summary": "1244 runs, 6073 assertions, 0 failures, 0 errors, 2 skips",
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=952MB; wall=4.6s; leftovers=0"
+  },
+  {
+   "summary": "1244 runs, 6073 assertions, 0 failures, 0 errors, 2 skips",
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=1230MB; wall=4.1s; leftovers=0"
+  },
+  {
+   "summary": "1244 runs, 6073 assertions, 0 failures, 0 errors, 2 skips",
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=1104MB; wall=4.1s; leftovers=0"
+  }
+ ],
+ "human-essentials": [
+  {
+   "examples": 2415,
+   "failures": 0,
+   "pending": 1,
+   "rspec_seconds": 131.6,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=2; peak_rss=775MB; wall=136.6s; leftovers=0"
+  },
+  {
+   "examples": 2415,
+   "failures": 0,
+   "pending": 1,
+   "rspec_seconds": 132.4,
+   "failed_ids": [],
+   "watchdog": "finished; exit=0; peak_procs=4; peak_rss=742MB; wall=137.1s; leftovers=0"
+  },
+  {
+   "examples": 2415,
+   "failures": 1,
+   "pending": 1,
+   "rspec_seconds": 133.6,
+   "failed_ids": [
+    "./spec/services/reports/diaper_report_service_spec.rb[1:1:2]"
+   ],
+   "watchdog": "finished; exit=1; peak_procs=2; peak_rss=746MB; wall=138.1s; leftovers=0"
+  }
+ ]
+}
