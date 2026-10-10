@@ -1,0 +1,89 @@
+# Publishes the gem when CI passes on main and lib/saboteur/version.rb holds
+# a version that is not on RubyGems yet. Otherwise it does nothing.
+#
+# Releasing: bump the version, add its CHANGELOG section, push to main.
+#
+# Uses RubyGems trusted publishing (OIDC), so no API key is stored. One-time
+# setup: add this repo as a trusted publisher on rubygems.org (workflow
+# release.yml, environment release), then set the repository variable
+# PUBLISH_GEMS to true. Until then the job is skipped.
+name: Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: >-
+      vars.PUBLISH_GEMS == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write # tag and GitHub release
+      id-token: write # trusted publishing
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Version and whether it is new
+        id: version
+        run: |
+          version=$(ruby -r ./lib/saboteur/version -e 'print Saboteur::VERSION')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://rubygems.org/api/v2/rubygems/saboteur/versions/$version.json")
+          if [ "$code" = 200 ]; then
+            echo "saboteur $version is already on RubyGems; nothing to publish."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Release notes from the CHANGELOG
+        if: steps.version.outputs.new == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ruby -e '
+            text = File.read("CHANGELOG.md")
+            section = text[/^## \[#{Regexp.escape(ENV["VERSION"])}\][^\n]*\n(.*?)(?=^## \[|\z)/m, 1]
+            abort "CHANGELOG.md has no section for #{ENV["VERSION"]}" if section.nil? || section.strip.empty?
+            File.write("release-notes.md", section.strip + "\n")
+          '
+
+      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+        if: steps.version.outputs.new == 'true'
+
+      - name: Build and push the gem
+        if: steps.version.outputs.new == 'true'
+        run: |
+          gem build saboteur.gemspec
+          gem push "saboteur-${{ steps.version.outputs.version }}.gem"
+
+      - name: Tag and GitHub release
+        if: steps.version.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            git tag "$tag" "${{ github.event.workflow_run.head_sha }}"
+            git push origin "$tag"
+          fi
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --title "saboteur $VERSION" --notes-file release-notes.md
+          fi
