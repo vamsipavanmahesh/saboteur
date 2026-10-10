@@ -102,6 +102,25 @@ See [docs/design.md](docs/design.md). Validation results are in
 [docs/validation](docs/validation), research in [docs/research](docs/research),
 and the project checklist in [docs/status.md](docs/status.md).
 
+## Benchmark
+
+A small, non-exhaustive comparison with [mutineer](https://github.com/davidteren/mutineer)
+1.6.0 on four RSpec projects (two libraries, two Rails apps). Each configuration
+ran once on sampled files, so treat the numbers as indicative.
+
+| Metric | saboteur | mutineer |
+|---|---|---|
+| Fake kills (lobsters) | 0 of 20 checked | 8 of 8 checked |
+| Rails app with 6 workers | yes, same verdicts as 1 worker | 1 worker only |
+| Runs on the Postgres app | yes | no |
+| Time per mutant, hashie | 0.008 s | 0.092 s |
+| Peak memory, hashie | 595 MB | 471 MB |
+| Choice of operators, CI features | fixed set, fewer | 20 operators, baseline, HTML, GitHub Action |
+
+Full results, method and limitations:
+[benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
+Scripts and raw data: [bench/vs-mutineer](bench/vs-mutineer).
+
 ## Requirements
 
 Ruby 3.3 or newer on Linux or macOS (it needs `fork`).
