@@ -11,7 +11,7 @@ module Saboteur
   class Engine
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources arid timeout_factor timeout_min
-                        max_memory_mb max_processes].freeze
+                        max_memory_mb max_processes seed].freeze
 
     attr_reader :config, :hooks
 
@@ -35,7 +35,7 @@ module Saboteur
       @diagnostics.warnings.concat(ignore_list.apply(results))
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
-                 review: !scope.nil?)
+                 review: !scope.nil?, seed: config["seed"])
     end
 
     private
@@ -66,7 +66,7 @@ module Saboteur
     def scheduler_for(map, integration, cache)
       reevaluator = Execution::Reevaluator.new(config["reeval"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
-                                     supervisor: supervisor, log_dir: fresh_log_dir)
+                                     supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"])
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
                     cache: cache)
     end

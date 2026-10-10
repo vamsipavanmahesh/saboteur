@@ -6,6 +6,14 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `--seed N` (and `seed:` in `.saboteur.yml`, default 1): every test run seeds
+  Ruby's random numbers with it, so runs repeat; the report prints the seed.
+
+### Fixed
+- Linux: killed orphans adopted by the supervisor are reaped reliably, so no
+  zombies are left behind (first run on Linux CI).
+
 ## [0.1.0] - 2026-10-10
 
 First release that does mutation testing. MIT licensed.

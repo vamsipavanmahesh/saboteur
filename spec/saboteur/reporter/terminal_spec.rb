@@ -14,7 +14,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "prints counts, score, timing and a diff per survivor" do
     text = render(report_of(result_for(:killed, runtime: 0.5), result_for(:survived, runtime: 0.5)))
     expect(text).to include(
-      "1 subjects, 2 mutants, wall 1.25 s",
+      "1 subjects, 2 mutants, wall 1.25 s, seed 1 (repeat with --seed 1)",
       "killed 1  survived 1  timeout 0  resource limit 0  error 0  skipped 0",
       "score 50.0 %",
       "mean time per executed mutant 0.500 s",

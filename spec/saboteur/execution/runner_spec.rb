@@ -47,6 +47,9 @@ RSpec.describe Saboteur::Execution::Runner do
         case mode
         when "exit" then exit(1)
         when "die" then Process.kill("KILL", Process.pid)
+        when "rand"
+          File.write(File.join(dir, "rand"), rand(1_000_000_000).to_s)
+          Saboteur::Integration::RunResult.new(runtime: 0.01, **RUNNER_SPEC_RESULTS.fetch("pass").call(ids))
         when "hang"
           File.write(File.join(dir, "grandchild.pid"), Process.spawn("sleep", "300").to_s)
           loop { sleep 0.01 }
@@ -58,7 +61,8 @@ RSpec.describe Saboteur::Execution::Runner do
 
   let(:tmpdir) { Dir.mktmpdir("saboteur-runner-") }
   let(:hooks) { Saboteur::Hooks.new }
-  let(:runner) { described_class.new(integration:, reevaluator:, hooks:, log_dir: tmpdir) }
+  let(:seed) { 1 }
+  let(:runner) { described_class.new(integration:, reevaluator:, hooks:, log_dir: tmpdir, seed:) }
   let(:subject_stub) { Struct.new(:id).new("Stub#run") }
 
   after { FileUtils.rm_rf(tmpdir) }
@@ -175,9 +179,31 @@ RSpec.describe Saboteur::Execution::Runner do
     expect(alive?(grandchild)).to be(false)
   end
 
+  # Every child starts its tests from the same random state, so a test that
+  # uses rand sees the same values in each mutant's run and in the verdict
+  # check, and a run can be repeated with the same seed.
+  context "with a seed" do
+    def drawn
+      run_mode("rand")
+      File.read(File.join(tmpdir, "rand"))
+    end
+
+    it "gives every child the same random numbers" do
+      rand # the parent's random state moves on between runs
+      expect(drawn).to eq(drawn)
+    end
+
+    it "gives different numbers for a different seed" do
+      first = drawn
+      other = described_class.new(integration:, reevaluator:, hooks:, log_dir: tmpdir, seed: 2)
+      other.run(subject: subject_stub, text: "rand", test_ids: %w[t1], timeout: 5)
+      expect(File.read(File.join(tmpdir, "rand"))).not_to eq(first)
+    end
+  end
+
   it "leaves no child processes behind" do
-    %w[pass fail die hang].each { |mode| run_mode(mode, timeout: 0.3) }
-    expect { Process.wait(-1, Process::WNOHANG) }.to raise_error(Errno::ECHILD)
+    left = children_left_by { %w[pass fail die hang].each { |mode| run_mode(mode, timeout: 0.3) } }
+    expect(left).to be_empty
   end
 
   it "keeps the child log only for errors" do

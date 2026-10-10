@@ -27,7 +27,7 @@ module ReportHelpers
 
   def report_of(*results, warnings: [])
     Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.25,
-                         root: File.dirname(person_subject.file), warnings:)
+                         root: File.dirname(person_subject.file), warnings:, seed: 1)
   end
 end
 

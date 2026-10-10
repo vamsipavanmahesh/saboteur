@@ -33,12 +33,15 @@ module Saboteur
 
       # log_dir: where children write their output; a child's log is kept
       # only when it ends in an error.
-      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new)
+      # seed: every child seeds Ruby's random numbers with it before its
+      # tests, so a test that uses rand sees the same values in every run.
+      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1)
         @integration = integration
         @reevaluator = reevaluator
         @hooks = hooks
         @log_dir = log_dir
         @supervisor = supervisor
+        @seed = seed
       end
 
       # text: method source to evaluate in the child (the unchanged source for
@@ -67,6 +70,7 @@ module Saboteur
         @hooks.run(:after_fork)
         @reevaluator.call(job.subject, job.text)
         Protocol.emit(writer, "started")
+        Kernel.srand(@seed)
         result = @hooks.around(job.mutation) { run_tests(job.test_ids) }
         if result.nil?
           Protocol.emit(writer, "error", message: "around_mutant hook did not run the tests")

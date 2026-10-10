@@ -85,6 +85,7 @@ module Saboteur
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         recorder = Selection::Recorder.new(files)
         recorder.start
+        Kernel.srand(@config["seed"])
         @integration.run_all(recorder)
         build_seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
         writer.write(recorder.result(build_seconds: build_seconds).to_json)

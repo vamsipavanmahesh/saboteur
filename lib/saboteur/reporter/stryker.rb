@@ -35,7 +35,7 @@ module Saboteur
           files: files,
           testFiles: test_files(test_ids),
           framework: { name: "saboteur", version: VERSION }
-        }
+        }.merge(report.seed ? { config: { seed: report.seed } } : {})
       end
 
       def self.test_index(results)

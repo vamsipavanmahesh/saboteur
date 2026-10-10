@@ -100,6 +100,13 @@ RSpec.describe Saboteur::Config, "details" do
     end
   end
 
+  # A fixed default makes every run repeatable; --seed or seed: changes it.
+  it "seeds runs with 1 by default and rejects a negative seed" do
+    expect(described_class.new({})["seed"]).to eq(1)
+    expect(described_class.new({ "seed" => "7" })["seed"]).to eq(7)
+    expect { described_class.new({ "seed" => -1 }) }.to raise_error(Saboteur::ConfigError, /seed must be >= 0/)
+  end
+
   it "has no path for a setting that is off" do
     expect(described_class.new({ "json_report" => nil }, root: @root).path("json_report")).to be_nil
   end

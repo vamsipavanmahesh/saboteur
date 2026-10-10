@@ -6,7 +6,7 @@ require_relative "../saboteur"
 
 module Saboteur
   class CLI
-    USAGE = "Usage: saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] [--jobs N]"
+    USAGE = "Usage: saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N]"
 
     EXIT_OK = 0
     EXIT_SURVIVORS = 1
@@ -89,6 +89,9 @@ module Saboteur
         opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
         opts.on("--timeout-factor N", Float, "Multiple of baseline runtime (default 3)") { |v| set(:timeout_factor, v) }
         opts.on("--jobs N", Integer, "Concurrent workers (default 1)") { |v| set(:jobs, v) }
+        opts.on("--seed N", Integer, "Seed for Ruby's random numbers in every test run (default 1)") do |v|
+          set(:seed, v)
+        end
         opts.on("--config PATH", "Config file (default .saboteur.yml)") { |v| set(:config, v) }
         opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
         opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }

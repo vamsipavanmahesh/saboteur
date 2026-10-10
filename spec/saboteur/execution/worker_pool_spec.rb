@@ -111,8 +111,8 @@ RSpec.describe Saboteur::Execution::WorkerPool do
   end
 
   it "leaves no worker processes behind" do
-    described_class.new(jobs: 3).map([1, 2, 3]) { |n| { "n" => n } }
-    expect { Process.wait(-1, Process::WNOHANG) }.to raise_error(Errno::ECHILD)
+    left = children_left_by { described_class.new(jobs: 3).map([1, 2, 3]) { |n| { "n" => n } } }
+    expect(left).to be_empty
   end
 
   it "calls on_start in each worker, with its number, before its first item" do

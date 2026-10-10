@@ -78,10 +78,12 @@ module Saboteur
 
   # Everything one run produced.
   class Report
-    attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :root
+    attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :root, :seed
 
     # REVIEW: diff mode; the terminal then shows one survivor per line.
-    def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [], review: false)
+    # seed: the random seed every test run started from (nil when unknown).
+    def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [], review: false,
+                   seed: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -89,6 +91,7 @@ module Saboteur
       @invalid_mutations = invalid_mutations
       @warnings = warnings
       @review = review
+      @seed = seed
     end
 
     def review?

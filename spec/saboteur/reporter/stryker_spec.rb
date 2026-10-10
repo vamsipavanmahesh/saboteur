@@ -24,6 +24,10 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("files", "person.rb", "language")).to eq("ruby")
   end
 
+  it "records the seed, so the run can be repeated" do
+    expect(json["config"]).to eq("seed" => 1)
+  end
+
   it "maps every saboteur status to a distinct schema status" do
     expect(mutants.map { |m| m["status"] })
       .to eq(%w[Killed Survived Timeout RuntimeError NoCoverage Ignored])

@@ -14,7 +14,20 @@ module ProcessHelpers
     false
   end
 
+  # Pids of this process's children (zombies included) that the block left
+  # behind. Only new ones count: on Linux this process is a subreaper, so
+  # orphans of other examples may still be arriving or dying here.
+  def children_left_by
+    before = own_children
+    yield
+    own_children - before
+  end
+
   private
+
+  def own_children
+    Saboteur::Execution::ProcessTable.snapshot.values.select { |entry| entry.ppid == Process.pid }.map(&:pid)
+  end
 
   def reap_if_ours(pid)
     Process.waitpid(pid, Process::WNOHANG)

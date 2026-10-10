@@ -33,10 +33,11 @@ module Saboteur
       "subjects" => [],
       "since" => nil,
       "cache" => true,
-      "incremental" => false
+      "incremental" => false,
+      "seed" => 1
     }.freeze
 
-    INTEGER_KEYS = %w[jobs max_memory_mb max_processes].freeze
+    INTEGER_KEYS = %w[jobs max_memory_mb max_processes seed].freeze
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
     LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects].freeze
 
@@ -116,6 +117,7 @@ module Saboteur
 
     def validate!
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
+      raise ConfigError, "seed must be >= 0" if self["seed"].negative?
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
       raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?

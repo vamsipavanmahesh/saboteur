@@ -18,11 +18,11 @@ RSpec.describe Saboteur::CLI do
 
   it "parses run options into config overrides" do
     command = cli("run", "--since", "main", "--subject", "A#b", "--subject", "C.d",
-                  "--timeout-factor", "2.5", "--jobs", "1", "--reeval", "nesting", "--no-cache")
+                  "--timeout-factor", "2.5", "--jobs", "1", "--reeval", "nesting", "--no-cache", "--seed", "42")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
     command.call
     expect(command.options).to eq(since: "main", subjects: ["A#b", "C.d"], timeout_factor: 2.5, jobs: 1,
-                                  reeval: "nesting", cache: false)
+                                  reeval: "nesting", cache: false, seed: 42)
   end
 
   it "exits 2 for config errors, without starting a run" do

@@ -37,7 +37,13 @@ bundle exec saboteur run --since origin/main      # methods changed on this bran
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
+bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
 ```
+
+Every test run starts from the same random seed (1 by default), so tests
+that use `rand` see the same values in each mutant's run and in the check
+that confirms a kill. The report prints the seed; pass it to `--seed` to
+repeat a run.
 
 `--incremental` reuses an earlier verdict only while the method, the mutant,
 its covering tests and their files, the lockfile and the config are all
@@ -64,6 +70,7 @@ timeout_min: 5
 max_memory_mb: 2048         # memory growth cap per mutant process tree
 max_processes: 64
 ignore_file: .saboteur-ignore.yml
+seed: 1                     # Ruby's random seed in every test run
 ```
 
 ### Ignoring a survivor

@@ -85,6 +85,12 @@ survivors classified and a census of defs inside blocks.
 
 ## Decisions log
 
+- 2026-10-10 Seed: every test run (mutants, verdict checks, coverage build)
+  calls Kernel.srand(seed) first; default 1, `--seed N` / `seed:` to change,
+  printed in the terminal summary and in the Stryker JSON `config`. A fixed
+  default keeps runs repeatable, CI snapshots exact and the incremental cache
+  valid (seed is a verdict input). Leak specs now compare this process's
+  children before and after (orphans of other examples arrive on Linux).
 - 2026-10-10 First Linux run (public CI) found zombies: the supervisor is a
   child subreaper on Linux, and it looked at each adopted orphan only once,
   right after SIGKILL, so orphans that had not finished dying stayed zombies.
