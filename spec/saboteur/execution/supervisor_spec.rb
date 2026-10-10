@@ -22,14 +22,7 @@ RSpec.describe Saboteur::Execution::Supervisor do
     FileUtils.rm_rf(dir)
   end
 
-  def alive?(pid)
-    Process.kill(0, pid)
-    true
-  rescue Errno::ESRCH
-    false
-  end
-
-  # Orphans are reaped by init asynchronously; give it a moment.
+  # Orphans are reaped asynchronously; give it a moment.
   def dead_within?(pid, seconds)
     deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + seconds
     sleep 0.05 while alive?(pid) && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline

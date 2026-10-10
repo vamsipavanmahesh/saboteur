@@ -102,14 +102,8 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       expect(status_of("spin")).to eq("Timeout")
       pid = File.read(File.join(dir, "grandchild.pid")).to_i
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 3
-      alive = lambda do
-        Process.kill(0, pid)
-        true
-      rescue Errno::ESRCH
-        false
-      end
-      sleep 0.05 while alive.call && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
-      expect(alive.call).to be(false)
+      sleep 0.05 while alive?(pid) && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
+      expect(alive?(pid)).to be(false)
     end
 
     it "reports a child that crashes during its tests as error, not killed" do

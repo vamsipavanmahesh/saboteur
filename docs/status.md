@@ -85,6 +85,15 @@ survivors classified and a census of defs inside blocks.
 
 ## Decisions log
 
+- 2026-10-10 First Linux run (public CI) found zombies: the supervisor is a
+  child subreaper on Linux, and it looked at each adopted orphan only once,
+  right after SIGKILL, so orphans that had not finished dying stayed zombies.
+  It now polls each leftover until reaped or gone, and also reaps whatever
+  of the child's own process group it adopted (a grandchild started after
+  the last tree snapshot). Spec helpers count a zombie as dead. Verified in
+  a ruby:3.4 Docker container: 391/391. Integration snapshots updated for
+  the verdict check (class_eval) and given per-platform counts for
+  tty-color, whose own tests depend on tput and on stdout being a terminal.
 - 2026-10-10 Child logs live in .saboteur/logs (cleared each run) instead of
   a new $TMPDIR/saboteur-* per run (1,711 had piled up). SimpleCov is turned
   off through Object.const_added the moment the app defines it, instead of

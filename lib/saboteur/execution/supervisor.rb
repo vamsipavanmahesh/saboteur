@@ -178,6 +178,7 @@ module Saboteur
         exit_status ||= reap(pid)
         self.class.live.delete(pid)
         reap_adopted(leftover_pids)
+        reap_group(pid)
         Result.new(payload: payload, exit_status: exit_status, stopped_by: stop, detail: detail,
                    runtime: monotonic - started, leftover_pids: leftover_pids)
       end
@@ -261,14 +262,48 @@ module Saboteur
         :reaped
       end
 
-      # With a subreaper (Linux), killed orphans were re-parented to us; reap
-      # exactly those, never another child of the supervisor.
+      # With a subreaper (Linux), killed orphans are re-parented to us; reap
+      # exactly those, never another child of the supervisor. SIGKILL takes
+      # effect asynchronously and re-parenting happens only once each parent
+      # has died, so one look is not enough: keep looking until every leftover
+      # is reaped or gone, for at most REAP_DEADLINE.
       def reap_adopted(pids)
-        pids.each do |pid|
-          Process.waitpid(pid, Process::WNOHANG)
-        rescue Errno::ECHILD
-          nil
+        pending = pids.dup
+        deadline = monotonic + REAP_DEADLINE
+        until pending.empty? || monotonic > deadline
+          pending.reject! { |pid| settled?(pid) }
+          sleep 0.01 unless pending.empty?
         end
+      end
+
+      # A process the child started just before it was killed may never have
+      # been seen by the tree, yet the group signal killed it and, with a
+      # subreaper, it is now ours. The child led its own process group, so
+      # reap whatever of that group was adopted, for at most REAP_DEADLINE.
+      def reap_group(pgid)
+        signal("KILL", -pgid)
+        deadline = monotonic + REAP_DEADLINE
+        until monotonic > deadline
+          sleep 0.01 unless Process.waitpid(-pgid, Process::WNOHANG)
+        end
+      rescue Errno::ECHILD
+        nil
+      end
+
+      # True once the process is reaped by us, or gone and not ours to reap.
+      def settled?(pid)
+        Process.waitpid(pid, Process::WNOHANG) ? true : false
+      rescue Errno::ECHILD
+        !exists?(pid)
+      end
+
+      def exists?(pid)
+        Process.kill(0, pid)
+        true
+      rescue Errno::ESRCH
+        false
+      rescue Errno::EPERM
+        true
       end
 
       def own_group(pid)

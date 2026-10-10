@@ -67,13 +67,6 @@ RSpec.describe Saboteur::Execution::Runner do
     runner.run(subject: subject_stub, text: text, test_ids: tests, timeout: timeout)
   end
 
-  def alive?(pid)
-    Process.kill(0, pid)
-    true
-  rescue Errno::ESRCH
-    false
-  end
-
   it "names the mutant in the child's process title, so ps shows what is running" do
     subject_with_id = Struct.new(:id).new("Shop::Cart#total")
     edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")

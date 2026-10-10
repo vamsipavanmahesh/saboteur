@@ -71,6 +71,10 @@ exit 0 unless check
 mutants = JSON.parse(File.read(report)).fetch("files").values.flat_map { |file| file.fetch("mutants") }
 actual = Hash.new(0).merge(mutants.map { |m| STATUS.fetch(m.fetch("status")) }.tally)
 expected = target.fetch("expect").fetch(strategy)
+# Some targets' own tests depend on the machine (a terminal, a command on
+# PATH), so a few counts differ by platform; those live under expect_on.
+platform = RUBY_PLATFORM.include?("linux") ? "linux" : "macos"
+expected = expected.merge(target.dig("expect_on", platform, strategy) || {})
 diff = expected.reject { |key, value| actual[key] == value }
 if diff.any?
   abort "#{name} (#{strategy}): counts changed: " +
