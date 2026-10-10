@@ -7,7 +7,7 @@ the tests that execute each change, and reports the changes no test notices
 (survivors). Each survivor points at a missing test or at code that does not
 matter.
 
-Status: 0.1.0, an early release. Tested on the RSpec suites of plain gems
+Status: an early release (0.2.0). Tested on the RSpec suites of plain gems
 (dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
 human-essentials on Postgres (4,080 mutants, 6 workers) and lobsters on
 SQLite, both on macOS. Not yet tried on MySQL or older Rails versions. RSpec

@@ -6,6 +6,8 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-10
+
 ### Added
 - `--seed N` (and `seed:` in `.saboteur.yml`, default 1): every test run seeds
   Ruby's random numbers with it, so runs repeat; the report prints the seed.
@@ -13,6 +15,7 @@ All notable changes are documented here. The format follows
 ### Fixed
 - Linux: killed orphans adopted by the supervisor are reaped reliably, so no
   zombies are left behind (first run on Linux CI).
+- The README status line describes what has actually been tested.
 
 ## [0.1.0] - 2026-10-10
 
