@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Regenerates every number in REPORT.md.
+#
+# Needs: the targets checked out at the commits in PHASE0.md, each with
+# Gemfile.bench and its bundle, under BENCH_TARGETS; the pre-fix hashie
+# checkouts (hashie-<sha>) under BENCH_BUGS; BENCH_HE_ENV pointing at the
+# human-essentials env file (never printed). Heavy runs go through
+# script/watchdog, one at a time.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+: "${BENCH_TARGETS:?}" "${BENCH_BUGS:?}" "${BENCH_HE_ENV:?}"
+export BENCH_OUT=$here/raw/runs
+"$here/gems_small"
+"$here/rails_and_bugs_small"
+"$here/bugs_small"
+BENCH_SUBSET=$here/samples/human-essentials-1.txt "$here/run_one" human-essentials saboteur defaults 1 1
+BENCH_SUBSET=$here/samples/human-essentials-1.txt "$here/run_one" human-essentials mutineer defaults 1 1 || true
+"$here/summarize.py" "$BENCH_OUT" > "$here/raw/summary.json"
+echo "Fake kills and usefulness: see REPORT.md sections 1 and 3 for the manual steps"
+echo "(overlap_check.py, fake_kill_check.py, fake_kill_run, blind labelling)."

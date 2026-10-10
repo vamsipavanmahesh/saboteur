@@ -1,0 +1,590 @@
+W, [2026-10-10T09:56:10.694887 #54176]  WARN -- : heinous_inline_partial initialized, found: {"app/views/comments/_threads.html.erb" => "app/views/comments/_comment.html.erb", "app/views/home/index.html.erb" => "app/views/stories/_listdetail.html.erb", "app/views/search/index.html.erb" => "app/views/stories/_listdetail.html.erb"}
+saboteur 0.0.1: 32 subjects, 231 mutants, wall 124.56 s
+killed 166  survived 47  timeout 0  resource limit 0  error 3  skipped 15
+score 77.9 % (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+mean time per executed mutant 1.471 s
+skipped: no coverage: 13
+skipped: coarse mutant survived: 2
+kills: 61 by a failed assertion, 104 by a crash (RuntimeError 19, ActiveRecord::RecordInvalid 17, ActionView::Template::Error 17, NoMethodError 14, NameError 11, ArgumentError 5, ActiveRecord::InvalidForeignKey 5, Capybara::ElementNotFound 5, ActiveRecord::RecordNotFound 4, ActiveRecord::NotNullViolation 3, TypeError 2, ActiveRecord::DeleteRestrictionError 1, ActionController::UrlGenerationError 1)
+crash kills by operator: body_nil 13 of 22, body_raise 28 of 28, condition_true 6 of 15, condition_false 4 of 12, statement_removal 42 of 66, literal_number 4 of 5, boolean_logic 2 of 5, comparison 1 of 2, body_true 2 of 3, body_false 2 of 4
+warning: 3 other thread(s) alive at fork time; they do not run in children
+warning: Domain#update_origins: 1 verdict(s) failed with the method unchanged
+warning: Domain#find_or_create_origin: 1 verdict(s) failed with the method unchanged
+warning: Tag#can_be_applied_by?: 1 verdict(s) failed with the method unchanged
+
+Errors (not counted as killed):
+  Domain#update_origins condition_true 493c8a9461755f23: killing test ./spec/features/submit_story_spec.rb[1:10] also fails with the method unchanged: Validation failed: Domain has already been taken
+  Domain#find_or_create_origin boolean_logic 21efc27b35cab3a1: killing test ./spec/features/submit_story_spec.rb[1:10] also fails with the method unchanged: Validation failed: Domain has already been taken
+  Tag#can_be_applied_by? body_true d68e4f3cdb3aea87: killing test ./spec/features/submit_story_spec.rb[1:10] also fails with the method unchanged: Validation failed: Domain has already been taken
+
+Survivors:
+
+Domain#valid_selector condition_false 1ed93c1cfb6fc469 app/models/domain.rb:29
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -29,7 +29,7 @@
+   def valid_selector
+     return if selector.nil?
+ 
+-    if selector.include? "\n"
++    if false
+       errors.add(:selector, "no newlines")
+       return
+     end
+
+Domain#selector= statement_removal 4c492222d323a015 app/models/domain.rb:46
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -46,5 +46,5 @@
+   def selector=(s)
+-    s = s.strip
++    nil
+     s = "\\A#{s}" unless s.starts_with?("\\A")
+     s = "#{s}\\z" unless s.ends_with?("\\z")
+     super
+
+Domain#selector= condition_false 30b2967fe5251f9d app/models/domain.rb:46
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -46,6 +46,6 @@
+   def selector=(s)
+     s = s.strip
+-    s = "\\A#{s}" unless s.starts_with?("\\A")
++    s = "\\A#{s}" unless false
+     s = "#{s}\\z" unless s.ends_with?("\\z")
+     super
+   end
+
+Domain#selector= condition_false 2bc497f639ba275b app/models/domain.rb:46
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -46,6 +46,6 @@
+   def selector=(s)
+     s = s.strip
+     s = "\\A#{s}" unless s.starts_with?("\\A")
+-    s = "#{s}\\z" unless s.ends_with?("\\z")
++    s = "#{s}\\z" unless false
+     super
+   end
+
+Domain#update_origins boolean_logic f9a5f58b6d0035b4 app/models/domain.rb:57
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -57,4 +57,4 @@
+   def update_origins
+-    return unless saved_change_to_selector? || saved_change_to_replacement?
++    return unless saved_change_to_selector?
+     refresh_origins!
+   end
+
+Domain#refresh_origins! condition_false aa8cc79c3ca12425 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -64,7 +64,7 @@
+     stories.find_each do |story|
+       was = story.origin_id
+       origin = find_or_create_origin(story.url)
+-      next if !origin
++      next if false
+ 
+       # update_column skips the counter_cache, so the loop below resets stories_count
+       moved[origin.id] ||= []
+
+Domain#refresh_origins! statement_removal 42d93536f2e9fe6c app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -67,7 +67,7 @@
+       next if !origin
+ 
+       # update_column skips the counter_cache, so the loop below resets stories_count
+-      moved[origin.id] ||= []
++      nil
+       (moved[was] ||= []) << origin.id if was && was != origin.id
+       story.update_column(:origin_id, origin.id)
+     end
+
+Domain#refresh_origins! or_assign fe1c524608f42ae4 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -67,7 +67,7 @@
+       next if !origin
+ 
+       # update_column skips the counter_cache, so the loop below resets stories_count
+-      moved[origin.id] ||= []
++      moved[origin.id] = []
+       (moved[was] ||= []) << origin.id if was && was != origin.id
+       story.update_column(:origin_id, origin.id)
+     end
+
+Domain#refresh_origins! condition_true ce817a323f593520 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -68,7 +68,7 @@
+ 
+       # update_column skips the counter_cache, so the loop below resets stories_count
+       moved[origin.id] ||= []
+-      (moved[was] ||= []) << origin.id if was && was != origin.id
++      (moved[was] ||= []) << origin.id if true
+       story.update_column(:origin_id, origin.id)
+     end
+ 
+
+Domain#refresh_origins! boolean_logic 18453d970d729085 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -68,7 +68,7 @@
+ 
+       # update_column skips the counter_cache, so the loop below resets stories_count
+       moved[origin.id] ||= []
+-      (moved[was] ||= []) << origin.id if was && was != origin.id
++      (moved[was] ||= []) << origin.id if was
+       story.update_column(:origin_id, origin.id)
+     end
+ 
+
+Domain#refresh_origins! boolean_logic ef6896c713241055 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -68,7 +68,7 @@
+ 
+       # update_column skips the counter_cache, so the loop below resets stories_count
+       moved[origin.id] ||= []
+-      (moved[was] ||= []) << origin.id if was && was != origin.id
++      (moved[was] ||= []) << origin.id if was != origin.id
+       story.update_column(:origin_id, origin.id)
+     end
+ 
+
+Domain#refresh_origins! comparison ce90d109de1b47c4 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -68,7 +68,7 @@
+ 
+       # update_column skips the counter_cache, so the loop below resets stories_count
+       moved[origin.id] ||= []
+-      (moved[was] ||= []) << origin.id if was && was != origin.id
++      (moved[was] ||= []) << origin.id if was && true
+       story.update_column(:origin_id, origin.id)
+     end
+ 
+
+Domain#refresh_origins! or_assign 62c730cdb3f8324c app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -68,7 +68,7 @@
+ 
+       # update_column skips the counter_cache, so the loop below resets stories_count
+       moved[origin.id] ||= []
+-      (moved[was] ||= []) << origin.id if was && was != origin.id
++      (moved[was] = []) << origin.id if was && was != origin.id
+       story.update_column(:origin_id, origin.id)
+     end
+ 
+
+Domain#refresh_origins! comparison d0ff661767dd1ae2 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -76,7 +76,7 @@
+       Origin.reset_counters(origin.id, :stories)
+       origin.reload
+ 
+-      if origin.stories_count > 0
++      if origin.stories_count != 0
+         origin.update_column(:created_at, origin.stories.minimum(:created_at))
+         next
+       end
+
+Domain#refresh_origins! condition_true 605b1b146cd60a20 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -83,7 +83,7 @@
+ 
+       # an emptied Origin is a duplicate of the one its Stories moved to
+       successors = Origin.where(id: moved[origin.id].compact.uniq)
+-      if successors.one?
++      if true
+         origin.merge_into!(successors.first)
+       elsif origin.banned? || origin.moderation.present?
+         next # Stories split up, so no one Origin to hand its ban and modlog to
+
+Domain#refresh_origins! condition_true fc94193012007525 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -85,7 +85,7 @@
+       successors = Origin.where(id: moved[origin.id].compact.uniq)
+       if successors.one?
+         origin.merge_into!(successors.first)
+-      elsif origin.banned? || origin.moderation.present?
++      elsif true
+         next # Stories split up, so no one Origin to hand its ban and modlog to
+       else
+         origin.destroy!
+
+Domain#refresh_origins! condition_false 73d9f56342d4c7b0 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -85,7 +85,7 @@
+       successors = Origin.where(id: moved[origin.id].compact.uniq)
+       if successors.one?
+         origin.merge_into!(successors.first)
+-      elsif origin.banned? || origin.moderation.present?
++      elsif false
+         next # Stories split up, so no one Origin to hand its ban and modlog to
+       else
+         origin.destroy!
+
+Domain#refresh_origins! boolean_logic 503245a9dbc2f28f app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -85,7 +85,7 @@
+       successors = Origin.where(id: moved[origin.id].compact.uniq)
+       if successors.one?
+         origin.merge_into!(successors.first)
+-      elsif origin.banned? || origin.moderation.present?
++      elsif origin.banned?
+         next # Stories split up, so no one Origin to hand its ban and modlog to
+       else
+         origin.destroy!
+
+Domain#refresh_origins! boolean_logic 89d5a2bb644f5438 app/models/domain.rb:62
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -85,7 +85,7 @@
+       successors = Origin.where(id: moved[origin.id].compact.uniq)
+       if successors.one?
+         origin.merge_into!(successors.first)
+-      elsif origin.banned? || origin.moderation.present?
++      elsif origin.moderation.present?
+         next # Stories split up, so no one Origin to hand its ban and modlog to
+       else
+         origin.destroy!
+
+Domain#find_or_create_origin boolean_logic 7d23b088cd496baf app/models/domain.rb:96
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -96,5 +96,5 @@
+   def find_or_create_origin(url)
+-    return nil if selector.blank? || replacement.blank?
++    return nil if replacement.blank?
+     valid?
+     raise ArgumentError, "Domain not valid: #{errors.full_messages.join(", ")}" if errors.any?
+     raise ArgumentError, "Can't create Origin until Domain is persisted" if new_record?
+
+Domain#find_or_create_origin statement_removal fe87a112d2e9edf5 app/models/domain.rb:96
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -96,6 +96,6 @@
+   def find_or_create_origin(url)
+     return nil if selector.blank? || replacement.blank?
+-    valid?
++    nil
+     raise ArgumentError, "Domain not valid: #{errors.full_messages.join(", ")}" if errors.any?
+     raise ArgumentError, "Can't create Origin until Domain is persisted" if new_record?
+ 
+
+Domain#find_or_create_origin condition_false 00197d047e07f95d app/models/domain.rb:96
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -96,7 +96,7 @@
+   def find_or_create_origin(url)
+     return nil if selector.blank? || replacement.blank?
+     valid?
+-    raise ArgumentError, "Domain not valid: #{errors.full_messages.join(", ")}" if errors.any?
++    raise ArgumentError, "Domain not valid: #{errors.full_messages.join(", ")}" if false
+     raise ArgumentError, "Can't create Origin until Domain is persisted" if new_record?
+ 
+     # github.com/foo -> github.com/foo
+
+Domain#find_or_create_origin condition_false d939ef8dee9be8dc app/models/domain.rb:96
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -97,7 +97,7 @@
+     return nil if selector.blank? || replacement.blank?
+     valid?
+     raise ArgumentError, "Domain not valid: #{errors.full_messages.join(", ")}" if errors.any?
+-    raise ArgumentError, "Can't create Origin until Domain is persisted" if new_record?
++    raise ArgumentError, "Can't create Origin until Domain is persisted" if false
+ 
+     # github.com/foo -> github.com/foo
+     # github.com/foo/bar -> github.com/foo
+
+Domain#find_or_create_origin or_assign 0fc46d32820586a1 app/models/domain.rb:96
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -110,7 +110,7 @@
+ 
+     # Origin#identifier= picks the Domain that owns the host; this is the fallback for a host
+     # no Domain has yet. It has to run before the save, because belongs_to :domain is required.
+-    origin = Origin.find_or_create_by(identifier: identifier) { |o| o.domain ||= self }
++    origin = Origin.find_or_create_by(identifier: identifier) { |o| o.domain = self }
+ 
+     # unpersisted means invalid: raced another request, or an unusable identifier like too long
+     origin.persisted? ? origin : Origin.find_by(identifier: identifier)
+
+Domain#find_or_create_origin condition_true 6770bc6aaabca377 app/models/domain.rb:96
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -113,7 +113,7 @@
+     origin = Origin.find_or_create_by(identifier: identifier) { |o| o.domain ||= self }
+ 
+     # unpersisted means invalid: raced another request, or an unusable identifier like too long
+-    origin.persisted? ? origin : Origin.find_by(identifier: identifier)
++    true ? origin : Origin.find_by(identifier: identifier)
+   rescue ActiveRecord::RecordNotUnique
+     Origin.find_by(identifier: identifier)
+   end
+
+Domain#find_or_create_origin condition_false f9e38ad3f235f428 app/models/domain.rb:96
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -113,7 +113,7 @@
+     origin = Origin.find_or_create_by(identifier: identifier) { |o| o.domain ||= self }
+ 
+     # unpersisted means invalid: raced another request, or an unusable identifier like too long
+-    origin.persisted? ? origin : Origin.find_by(identifier: identifier)
++    false ? origin : Origin.find_by(identifier: identifier)
+   rescue ActiveRecord::RecordNotUnique
+     Origin.find_by(identifier: identifier)
+   end
+
+Domain#n_submitters body_nil 7f7c5ead3d6ca547 app/models/domain.rb:153
+--- a/app/models/domain.rb
++++ b/app/models/domain.rb
+@@ -153,3 +153,3 @@
+   def n_submitters
+-    stories.count("distinct user_id")
++    nil
+   end
+
+Origin#identifier= safe_navigation 787c617155aab10c app/models/origin.rb:33
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -33,5 +33,5 @@
+   def identifier=(s)
+     super
+-    found = Domain.find_by(domain: Utils::URL_RE.match("https://#{s}")&.[](:domain))
++    found = Domain.find_by(domain: Utils::URL_RE.match("https://#{s}").[](:domain))
+     self.domain = found if found
+   end
+
+Origin#ban_by_user_for_reason! statement_removal 992b7fedec503696 app/models/origin.rb:39
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -43,7 +43,7 @@
+     save!
+ 
+     m = Moderation.new
+-    m.moderator_user_id = banner.id
++    nil
+     m.origin = self
+     m.action = "Banned"
+     m.reason = reason
+
+Origin#unban_by_user_for_reason! statement_removal 4253d9d0f477e996 app/models/origin.rb:53
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -53,6 +53,6 @@
+   def unban_by_user_for_reason!(banner, reason)
+     self.banned_at = nil
+-    self.banned_by_user_id = nil
++    nil
+     self.banned_reason = nil
+     save!
+ 
+
+Origin#unban_by_user_for_reason! statement_removal f3f5aec59208ee91 app/models/origin.rb:53
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -57,7 +57,7 @@
+     save!
+ 
+     m = Moderation.new
+-    m.moderator_user_id = banner.id
++    nil
+     m.origin = self
+     m.action = "Unbanned"
+     m.reason = reason
+
+Origin#unban_by_user_for_reason! statement_removal c985551a526898ab app/models/origin.rb:53
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -60,6 +60,6 @@
+     m.moderator_user_id = banner.id
+     m.origin = self
+     m.action = "Unbanned"
+-    m.reason = reason
++    nil
+     m.save!
+   end
+
+Origin#unban_by_user_for_reason! statement_removal 42f27ed83ffd1371 app/models/origin.rb:53
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -61,5 +61,5 @@
+     m.origin = self
+     m.action = "Unbanned"
+     m.reason = reason
+-    m.save!
++    nil
+   end
+
+Origin#merge_into! condition_true 1cedf9c807505021 app/models/origin.rb:77
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -77,6 +77,6 @@
+   def merge_into!(other)
+     transaction do
+-      if banned? && !other.banned?
++      if true
+         other.assign_attributes banned_at: banned_at,
+           banned_by_user_id: banned_by_user_id,
+           banned_reason: banned_reason
+
+Origin#merge_into! boolean_logic 314bae875ca651bd app/models/origin.rb:77
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -77,6 +77,6 @@
+   def merge_into!(other)
+     transaction do
+-      if banned? && !other.banned?
++      if banned?
+         other.assign_attributes banned_at: banned_at,
+           banned_by_user_id: banned_by_user_id,
+           banned_reason: banned_reason
+
+Origin#merge_into! boolean_logic 15489565c8f349a5 app/models/origin.rb:77
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -77,6 +77,6 @@
+   def merge_into!(other)
+     transaction do
+-      if banned? && !other.banned?
++      if !other.banned?
+         other.assign_attributes banned_at: banned_at,
+           banned_by_user_id: banned_by_user_id,
+           banned_reason: banned_reason
+
+Origin#merge_into! statement_removal b8d5d93d205f3e19 app/models/origin.rb:77
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -87,5 +87,5 @@
+       destroy!
+     end
+ 
+-    banned?
++    nil
+   end
+
+Origin#n_submitters body_nil eb6aab5a10fe6443 app/models/origin.rb:93
+--- a/app/models/origin.rb
++++ b/app/models/origin.rb
+@@ -93,3 +93,3 @@
+   def n_submitters
+-    stories.count("distinct user_id")
++    nil
+   end
+
+Tag.all_with_filtered_counts_for statement_removal 287ab25d3c0fa1d3 app/models/tag.rb:52
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -53,7 +53,7 @@
+     counts = TagFilter.group(:tag_id).count
+ 
+     Tag.active.order(:tag).select { |t| t.can_be_applied_by?(user) }.map { |t|
+-      t.filtered_count = counts[t.id].to_i
++      nil
+       t
+     }
+   end
+
+Tag#css_class body_nil f1f7d3d404a02195 app/models/tag.rb:69
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -69,3 +69,3 @@
+   def css_class
+-    "tag tag_#{tag}" << (is_media? ? " tag_is_media" : "")
++    nil
+   end
+
+Tag#user_can_filter? boolean_logic 10676b33ffd2945d app/models/tag.rb:73
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -73,3 +73,3 @@
+   def user_can_filter?(user)
+-    active? && (!privileged? || user.try(:is_moderator?))
++    (!privileged? || user.try(:is_moderator?))
+   end
+
+Tag#can_be_applied_by? condition_false 05cb2e637ea3b2fe app/models/tag.rb:77
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -77,5 +77,5 @@
+   def can_be_applied_by?(user)
+-    if privileged?
++    if false
+       !!user.try(:is_moderator?)
+     # do include tags they can't use so they submit and get error
+     else
+
+Tag#filtered_count or_assign 18bd1bab236f5e44 app/models/tag.rb:86
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -86,3 +86,3 @@
+   def filtered_count
+-    @filtered_count ||= TagFilter.where(tag_id: id).count
++    @filtered_count = TagFilter.where(tag_id: id).count
+   end
+
+Tag#log_modifications literal_number cd36e1a69234c350 app/models/tag.rb:90
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -93,7 +93,7 @@
+         "Created new tag " + attributes.map { |f, c| "with #{f} '#{c}'" }.join(", ")
+       else
+         "Updating tag #{tag}, " + saved_changes
+-          .map { |f, c| "changed #{f} from '#{c[0]}' to '#{c[1]}'" }.join(", ")
++          .map { |f, c| "changed #{f} from '#{c[1]}' to '#{c[1]}'" }.join(", ")
+       end
+       m.moderator_user_id = @edit_user_id
+       m.tag_id = id
+
+Tag#log_modifications literal_number d204df36198c33c1 app/models/tag.rb:90
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -93,7 +93,7 @@
+         "Created new tag " + attributes.map { |f, c| "with #{f} '#{c}'" }.join(", ")
+       else
+         "Updating tag #{tag}, " + saved_changes
+-          .map { |f, c| "changed #{f} from '#{c[0]}' to '#{c[1]}'" }.join(", ")
++          .map { |f, c| "changed #{f} from '#{c[(-1)]}' to '#{c[1]}'" }.join(", ")
+       end
+       m.moderator_user_id = @edit_user_id
+       m.tag_id = id
+
+Tag#log_modifications literal_number feb67d318263a90b app/models/tag.rb:90
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -93,7 +93,7 @@
+         "Created new tag " + attributes.map { |f, c| "with #{f} '#{c}'" }.join(", ")
+       else
+         "Updating tag #{tag}, " + saved_changes
+-          .map { |f, c| "changed #{f} from '#{c[0]}' to '#{c[1]}'" }.join(", ")
++          .map { |f, c| "changed #{f} from '#{c[0]}' to '#{c[2]}'" }.join(", ")
+       end
+       m.moderator_user_id = @edit_user_id
+       m.tag_id = id
+
+Tag#log_modifications literal_number 45ad54c14a7c1242 app/models/tag.rb:90
+--- a/app/models/tag.rb
++++ b/app/models/tag.rb
+@@ -93,7 +93,7 @@
+         "Created new tag " + attributes.map { |f, c| "with #{f} '#{c}'" }.join(", ")
+       else
+         "Updating tag #{tag}, " + saved_changes
+-          .map { |f, c| "changed #{f} from '#{c[0]}' to '#{c[1]}'" }.join(", ")
++          .map { |f, c| "changed #{f} from '#{c[0]}' to '#{c[0]}'" }.join(", ")
+       end
+       m.moderator_user_id = @edit_user_id
+       m.tag_id = id
+
+JSON report: ~/work/saboteur/bench/vs-mutineer/raw/runs/lobsters-saboteur-defaults-j6-r1.json

@@ -1,0 +1,647 @@
+You can add benchmark to your Gemfile or gemspec to silence this warning.
+Also please contact the author of delayed_job-4.1.13 to request adding benchmark into its gemspec.
+[DEPRECATION] Calling `SimpleCov.start` from `.simplecov` is deprecated and will be removed in a future release. `.simplecov` should contain configuration only; move the `SimpleCov.start` call into your `spec_helper.rb` / `test_helper.rb`. Coverage tracking still begins for backward compatibility, but a future release will require the explicit `SimpleCov.start` from a test helper. See https://github.com/simplecov-ruby/simplecov/issues/581.
+DEPRECATION WARNING: `config.active_support.to_time_preserves_timezone` is deprecated and will be removed in Rails 8.2 (called from <top (required)> at <scratch>/targets/human-essentials/config/environment.rb:5)
+objc[7614]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7614]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/admin/account_requests_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7615]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7615]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/admins_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7617]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7617]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/application_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7639]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7639]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/distributions_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7641]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7641]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/donation_sites_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7642]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7642]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/donations_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7648]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7648]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/help_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7710]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7710]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/items_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7711]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7711]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/controllers/transfers_controller_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7724]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7724]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/events/inventory_aggregate_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7726]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7726]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/application_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7783]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7783]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/dashboard_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7784]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7784]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/date_range_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7786]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7786]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/donations_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7787]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7787]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/historical_trends_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7788]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7788]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/partners_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7789]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7789]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/product_drive_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7791]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7791]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/purchases_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7792]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7792]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/reports/annual_reports_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7793]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7793]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/site_urls_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7794]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7794]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/helpers/ui_helper_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7796]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7796]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/jobs/historical_data_cache_job_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7797]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7797]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/jobs/notify_partner_job_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7798]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7798]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/jobs/partner_mailer_job_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7799]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7799]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/jobs/reminder_deadline_job_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7801]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7801]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/lib/dispersed_past_dates_generator_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7802]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7802]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/lib/kaminari_config_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7803]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7803]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/mailers/account_request_mailer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7806]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7806]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/mailers/distribution_mailer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7807]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7807]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/mailers/organization_mailer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7809]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7809]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/mailers/partner_mailer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7810]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7810]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/mailers/reminder_deadline_mailer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7812]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7812]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/mailers/request_mailer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7814]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7814]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/mailers/requests_confirmation_mailer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7815]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7815]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/mailers/user_mailer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7816]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7816]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/migrations/backfill_fulfilled_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7817]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7817]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/account_request_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7819]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7819]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/adjustment_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7820]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7820]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/audit_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7821]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7821]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/barcode_item_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7823]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7823]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/base_item_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7827]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7827]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/broadcast_announcement_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7834]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7834]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/county_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7836]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7836]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/distribution_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7837]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7837]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/donation_site_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7838]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7838]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/donation_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7839]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7839]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/event_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7841]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7841]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/item_category_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7842]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7842]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/item_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7843]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7843]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/item_unit_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7845]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7845]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/kit_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7846]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7846]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/line_item_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7847]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7847]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/manufacturer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7849]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7849]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/ndbn_member_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7850]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7850]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/organization_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7851]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7851]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/organization_stats_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7852]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7852]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partner_group_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7854]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7854]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partner_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7855]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7855]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partners/authorized_family_member_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7856]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7856]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partners/child_item_request_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7858]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7858]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partners/child_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7859]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7859]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partners/family_request_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7860]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7860]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partners/family_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7862]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7862]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partners/item_request_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7863]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7863]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partners/profile_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7864]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7864]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/partners/served_area_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7866]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7866]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/product_drive_participant_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7867]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7867]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/product_drive_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7868]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7868]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/purchase_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7869]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7869]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/question_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7871]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7871]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/request_item_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7872]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7872]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/request_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7873]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7873]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/role_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7875]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7875]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/storage_location_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7879]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7879]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/tag_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7881]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7881]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/tagging_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7883]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7883]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/transfer_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7884]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7884]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/unit_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7885]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7885]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/user_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7886]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7886]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/users_role_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7888]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7888]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/vendor_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7889]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7889]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/view/inventory_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7890]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7890]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/view/product_drive_participants_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7892]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7892]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/view/request_info_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7893]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7893]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/models/view/requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7894]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7894]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/pdfs/distribution_pdf_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7896]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7896]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/pdfs/donation_pdf_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7897]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7897]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/pdfs/picklists_pdf_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7898]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7898]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/queries/distribution_summary_by_county_query_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7899]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7899]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/queries/items_in_query_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7901]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7901]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/queries/items_in_total_query_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7902]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7902]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/queries/items_out_query_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7903]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7903]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/queries/items_out_total_query_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7904]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7904]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/queries/low_inventory_query_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7906]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7906]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/account_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7907]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7907]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/adjustments_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7908]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7908]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/account_requests_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7909]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7909]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/barcode_items_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7911]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7911]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/base_items_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7912]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7912]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/broadcast_announcements_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7913]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7913]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/ndbn_members_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7914]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7914]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/organizations_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7916]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7916]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/partners_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7917]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7917]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/questions_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7918]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7918]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin/users_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7920]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7920]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/admin_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7921]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7921]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/attachments_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7922]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7922]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/audits_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7923]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7923]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/barcode_items_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7928]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7928]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/broadcast_announcements_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7929]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7929]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/dashboard_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7930]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7930]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/distributions_by_county_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7932]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7932]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/distributions_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7933]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7933]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/donation_sites_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7934]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7934]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/donations_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7936]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7936]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/events_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7937]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7937]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/item_categories_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7938]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7938]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/items_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7939]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7939]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/kit_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7941]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7941]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/organization_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7942]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7942]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partner_group_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7943]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7943]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partner_groups_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7945]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7945]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partner_users_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7946]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7946]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/children_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7947]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7947]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/dashboard_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7951]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7951]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/distributions_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7952]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7952]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/family_requests_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7953]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7953]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/family_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7954]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7954]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/helps_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7956]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7956]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/individuals_requests_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7959]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7959]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/profiles_requests_county_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7960]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7960]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/profiles_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7962]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7962]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7964]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7964]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners/user_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[7966]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[7966]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/partners_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8023]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8023]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/product_drive_participants_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8025]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8025]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/product_drives_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8026]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8026]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/profiles_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8028]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8028]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/purchases_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8030]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8030]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/activity_graph_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8031]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8031]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/annual_reports_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8032]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8032]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/distributions_summary_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8034]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8034]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/donations_summary_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8039]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8039]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/itemized_distributions_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8049]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8049]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/itemized_donations_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8050]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8050]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/manufacturer_donations_summary_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8052]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8052]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/product_drives_summary_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8053]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8053]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/reports/purchases_summary_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8054]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8054]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/requests_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8056]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8056]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/sessions_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8057]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8057]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/static_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8071]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8071]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/storage_locations_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8072]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8072]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/transfers_request_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8077]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8077]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/transfers_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8132]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8132]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/user_dropdown_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8133]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8133]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/users/omniauth_callbacks_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8135]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8135]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/users_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8150]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8150]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/requests/vendors_requests_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8164]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8164]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/routing/account_requests_routing_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8166]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8166]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/add_role_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8176]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8176]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/adjustment_create_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8178]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8178]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/calendar_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8179]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8179]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/deadline_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8180]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8180]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/distribution_content_change_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8191]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8191]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/distribution_create_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8192]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8192]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/distribution_destroy_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8194]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8194]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/distribution_itemized_breakdown_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8203]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8203]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/distribution_update_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8205]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8205]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/donation_create_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8206]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8206]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/donation_destroy_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8207]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8207]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/donation_itemized_breakdown_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8209]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8209]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/exports/export_adjustments_csv_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8210]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8210]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/exports/export_distributions_csv_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8211]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8211]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/exports/export_donations_csv_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8212]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8212]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/exports/export_partners_csv_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8214]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8214]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/exports/export_purchases_csv_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8215]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8215]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/exports/export_report_csv_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8216]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8216]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/exports/export_request_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8218]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8218]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/exports/export_transfers_csv_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8222]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8222]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/historical_trend_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8223]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8223]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/inventory_check_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8224]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8224]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/item_create_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8226]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8226]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/itemizable_update_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8229]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8229]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/kit_create_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8289]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8289]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/organization_update_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8291]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8291]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partner_approval_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8292]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8292]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partner_create_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8293]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8293]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partner_fetch_requestable_items_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8295]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8295]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partner_invite_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8296]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8296]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partner_profile_update_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8297]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8297]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partner_request_recertification_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8298]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8298]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partners/family_request_create_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8300]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8300]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partners/fetch_partners_to_remind_now_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8301]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8301]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partners/request_approval_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8302]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8302]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partners/request_create_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8304]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8304]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partners/section_error_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8305]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8305]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/partners/update_family_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8306]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8306]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/reminder_schedule_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8308]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8308]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/remove_role_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8309]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8309]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/reports/adult_incontinence_report_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8310]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8310]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/reports/children_served_report_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8311]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8311]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/reports/other_products_report_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8313]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8313]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/reports/partner_info_report_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8314]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8314]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/reports/period_supply_report_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8315]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8315]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/reports/summary_report_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8317]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8317]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/reports/warehouse_report_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8318]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8318]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/request_destroy_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8319]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8319]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/request_itemized_breakdown_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8320]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8320]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/requests_total_items_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8322]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8322]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/service_object_errors_mixin_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8326]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8326]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/sync_ndbn_members_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8327]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8327]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/text_interpolator_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8329]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8329]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/transfer_destroy_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+objc[8333]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[8333]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+[mutineer] coverage skipped for spec/services/user_invite_service_spec.rb: fork capture produced no result (re-run with --verbose for the error)
+mutineer: no test recorded coverage, and capture failed for spec/controllers/admin/account_requests_controller_spec.rb, spec/controllers/admins_controller_spec.rb, spec/controllers/application_controller_spec.rb, spec/controllers/distributions_controller_spec.rb, spec/controllers/donation_sites_controller_spec.rb, spec/controllers/donations_controller_spec.rb, spec/controllers/help_controller_spec.rb, spec/controllers/items_controller_spec.rb, spec/controllers/transfers_controller_spec.rb, spec/events/inventory_aggregate_spec.rb, spec/helpers/application_helper_spec.rb, spec/helpers/dashboard_helper_spec.rb, spec/helpers/date_range_helper_spec.rb, spec/helpers/donations_helper_spec.rb, spec/helpers/historical_trends_helper_spec.rb, spec/helpers/partners_helper_spec.rb, spec/helpers/product_drive_helper_spec.rb, spec/helpers/purchases_helper_spec.rb, spec/helpers/reports/annual_reports_helper_spec.rb, spec/helpers/site_urls_helper_spec.rb, spec/helpers/ui_helper_spec.rb, spec/jobs/historical_data_cache_job_spec.rb, spec/jobs/notify_partner_job_spec.rb, spec/jobs/partner_mailer_job_spec.rb, spec/jobs/reminder_deadline_job_spec.rb, spec/lib/dispersed_past_dates_generator_spec.rb, spec/lib/kaminari_config_spec.rb, spec/mailers/account_request_mailer_spec.rb, spec/mailers/distribution_mailer_spec.rb, spec/mailers/organization_mailer_spec.rb, spec/mailers/partner_mailer_spec.rb, spec/mailers/reminder_deadline_mailer_spec.rb, spec/mailers/request_mailer_spec.rb, spec/mailers/requests_confirmation_mailer_spec.rb, spec/mailers/user_mailer_spec.rb, spec/migrations/backfill_fulfilled_requests_spec.rb, spec/models/account_request_spec.rb, spec/models/adjustment_spec.rb, spec/models/audit_spec.rb, spec/models/barcode_item_spec.rb, spec/models/base_item_spec.rb, spec/models/broadcast_announcement_spec.rb, spec/models/county_spec.rb, spec/models/distribution_spec.rb, spec/models/donation_site_spec.rb, spec/models/donation_spec.rb, spec/models/event_spec.rb, spec/models/item_category_spec.rb, spec/models/item_spec.rb, spec/models/item_unit_spec.rb, spec/models/kit_spec.rb, spec/models/line_item_spec.rb, spec/models/manufacturer_spec.rb, spec/models/ndbn_member_spec.rb, spec/models/organization_spec.rb, spec/models/organization_stats_spec.rb, spec/models/partner_group_spec.rb, spec/models/partner_spec.rb, spec/models/partners/authorized_family_member_spec.rb, spec/models/partners/child_item_request_spec.rb, spec/models/partners/child_spec.rb, spec/models/partners/family_request_spec.rb, spec/models/partners/family_spec.rb, spec/models/partners/item_request_spec.rb, spec/models/partners/profile_spec.rb, spec/models/partners/served_area_spec.rb, spec/models/product_drive_participant_spec.rb, spec/models/product_drive_spec.rb, spec/models/purchase_spec.rb, spec/models/question_spec.rb, spec/models/request_item_spec.rb, spec/models/request_spec.rb, spec/models/role_spec.rb, spec/models/storage_location_spec.rb, spec/models/tag_spec.rb, spec/models/tagging_spec.rb, spec/models/transfer_spec.rb, spec/models/unit_spec.rb, spec/models/user_spec.rb, spec/models/users_role_spec.rb, spec/models/vendor_spec.rb, spec/models/view/inventory_spec.rb, spec/models/view/product_drive_participants_spec.rb, spec/models/view/request_info_spec.rb, spec/models/view/requests_spec.rb, spec/pdfs/distribution_pdf_spec.rb, spec/pdfs/donation_pdf_spec.rb, spec/pdfs/picklists_pdf_spec.rb, spec/queries/distribution_summary_by_county_query_spec.rb, spec/queries/items_in_query_spec.rb, spec/queries/items_in_total_query_spec.rb, spec/queries/items_out_query_spec.rb, spec/queries/items_out_total_query_spec.rb, spec/queries/low_inventory_query_spec.rb, spec/requests/account_requests_spec.rb, spec/requests/adjustments_requests_spec.rb, spec/requests/admin/account_requests_requests_spec.rb, spec/requests/admin/barcode_items_requests_spec.rb, spec/requests/admin/base_items_requests_spec.rb, spec/requests/admin/broadcast_announcements_spec.rb, spec/requests/admin/ndbn_members_spec.rb, spec/requests/admin/organizations_requests_spec.rb, spec/requests/admin/partners_requests_spec.rb, spec/requests/admin/questions_spec.rb, spec/requests/admin/users_requests_spec.rb, spec/requests/admin_requests_spec.rb, spec/requests/attachments_requests_spec.rb, spec/requests/audits_requests_spec.rb, spec/requests/barcode_items_requests_spec.rb, spec/requests/broadcast_announcements_spec.rb, spec/requests/dashboard_requests_spec.rb, spec/requests/distributions_by_county_spec.rb, spec/requests/distributions_requests_spec.rb, spec/requests/donation_sites_requests_spec.rb, spec/requests/donations_requests_spec.rb, spec/requests/events_requests_spec.rb, spec/requests/item_categories_requests_spec.rb, spec/requests/items_requests_spec.rb, spec/requests/kit_requests_spec.rb, spec/requests/organization_requests_spec.rb, spec/requests/partner_group_spec.rb, spec/requests/partner_groups_requests_spec.rb, spec/requests/partner_users_requests_spec.rb, spec/requests/partners/children_requests_spec.rb, spec/requests/partners/dashboard_requests_spec.rb, spec/requests/partners/distributions_spec.rb, spec/requests/partners/family_requests_requests_spec.rb, spec/requests/partners/family_requests_spec.rb, spec/requests/partners/helps_requests_spec.rb, spec/requests/partners/individuals_requests_requests_spec.rb, spec/requests/partners/profiles_requests_county_spec.rb, spec/requests/partners/profiles_requests_spec.rb, spec/requests/partners/requests_spec.rb, spec/requests/partners/user_requests_spec.rb, spec/requests/partners_requests_spec.rb, spec/requests/product_drive_participants_requests_spec.rb, spec/requests/product_drives_requests_spec.rb, spec/requests/profiles_requests_spec.rb, spec/requests/purchases_requests_spec.rb, spec/requests/reports/activity_graph_spec.rb, spec/requests/reports/annual_reports_requests_spec.rb, spec/requests/reports/distributions_summary_requests_spec.rb, spec/requests/reports/donations_summary_spec.rb, spec/requests/reports/itemized_distributions_spec.rb, spec/requests/reports/itemized_donations_spec.rb, spec/requests/reports/manufacturer_donations_summary_spec.rb, spec/requests/reports/product_drives_summary_spec.rb, spec/requests/reports/purchases_summary_requests_spec.rb, spec/requests/requests_requests_spec.rb, spec/requests/sessions_requests_spec.rb, spec/requests/static_requests_spec.rb, spec/requests/storage_locations_requests_spec.rb, spec/requests/transfers_request_spec.rb, spec/requests/transfers_requests_spec.rb, spec/requests/user_dropdown_requests_spec.rb, spec/requests/users/omniauth_callbacks_requests_spec.rb, spec/requests/users_requests_spec.rb, spec/requests/vendors_requests_spec.rb, spec/routing/account_requests_routing_spec.rb, spec/services/add_role_service_spec.rb, spec/services/adjustment_create_service_spec.rb, spec/services/calendar_service_spec.rb, spec/services/deadline_service_spec.rb, spec/services/distribution_content_change_service_spec.rb, spec/services/distribution_create_service_spec.rb, spec/services/distribution_destroy_service_spec.rb, spec/services/distribution_itemized_breakdown_service_spec.rb, spec/services/distribution_update_service_spec.rb, spec/services/donation_create_service_spec.rb, spec/services/donation_destroy_service_spec.rb, spec/services/donation_itemized_breakdown_service_spec.rb, spec/services/exports/export_adjustments_csv_service_spec.rb, spec/services/exports/export_distributions_csv_service_spec.rb, spec/services/exports/export_donations_csv_service_spec.rb, spec/services/exports/export_partners_csv_service_spec.rb, spec/services/exports/export_purchases_csv_service_spec.rb, spec/services/exports/export_report_csv_service_spec.rb, spec/services/exports/export_request_service_spec.rb, spec/services/exports/export_transfers_csv_service_spec.rb, spec/services/historical_trend_service_spec.rb, spec/services/inventory_check_service_spec.rb, spec/services/item_create_service_spec.rb, spec/services/itemizable_update_service_spec.rb, spec/services/kit_create_service_spec.rb, spec/services/organization_update_service_spec.rb, spec/services/partner_approval_service_spec.rb, spec/services/partner_create_service_spec.rb, spec/services/partner_fetch_requestable_items_service_spec.rb, spec/services/partner_invite_service_spec.rb, spec/services/partner_profile_update_service_spec.rb, spec/services/partner_request_recertification_service_spec.rb, spec/services/partners/family_request_create_service_spec.rb, spec/services/partners/fetch_partners_to_remind_now_service_spec.rb, spec/services/partners/request_approval_service_spec.rb, spec/services/partners/request_create_service_spec.rb, spec/services/partners/section_error_service_spec.rb, spec/services/partners/update_family_spec.rb, spec/services/reminder_schedule_service_spec.rb, spec/services/remove_role_service_spec.rb, spec/services/reports/adult_incontinence_report_service_spec.rb, spec/services/reports/children_served_report_service_spec.rb, spec/services/reports/other_products_report_service_spec.rb, spec/services/reports/partner_info_report_service_spec.rb, spec/services/reports/period_supply_report_service_spec.rb, spec/services/reports/summary_report_service_spec.rb, spec/services/reports/warehouse_report_service_spec.rb, spec/services/request_destroy_service_spec.rb, spec/services/request_itemized_breakdown_service_spec.rb, spec/services/requests_total_items_service_spec.rb, spec/services/service_object_errors_mixin_spec.rb, spec/services/sync_ndbn_members_spec.rb, spec/services/text_interpolator_service_spec.rb, spec/services/transfer_destroy_service_spec.rb, spec/services/user_invite_service_spec.rb

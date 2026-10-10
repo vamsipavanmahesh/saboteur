@@ -1,0 +1,1072 @@
+[32m[Coveralls] Set up the SimpleCov formatter.[0m
+[32m[Coveralls] Using SimpleCov settings defined in block.[0m
+saboteur 0.0.1: 30 subjects, 435 mutants, wall 6.89 s
+killed 342  survived 84  timeout 0  resource limit 0  error 0  skipped 9
+score 80.3 % (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+mean time per executed mutant 0.031 s
+skipped: coarse mutant survived: 5
+skipped: no coverage: 4
+kills: 169 by a failed assertion, 173 by a crash (NoMethodError 68, NameError 43, TypeError 31, RuntimeError 28, SystemStackError 1, Addressable::Template::InvalidTemplateValueError 1, Encoding::CompatibilityError 1)
+crash kills by operator: body_nil 13 of 25, body_raise 28 of 28, statement_removal 64 of 106, condition_true 24 of 47, condition_false 14 of 53, boolean_logic 20 of 34, negation_removal 2 of 6, comparison 4 of 26, literal_number 1 of 12, arithmetic 3 of 4
+
+Survivors:
+
+Addressable::Template::MatchData#values or_assign 863d161cc7707213 lib/addressable/template.rb:145
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -145,5 +145,5 @@
+       def values
+-        @values ||= self.variables.inject([]) do |accu, key|
++        @values = self.variables.inject([]) do |accu, key|
+           accu << self.mapping[key]
+           accu
+         end
+
+Addressable::Template#freeze body_nil 827c98941d1d9537 lib/addressable/template.rb:247
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -247,6 +247,3 @@
+     def freeze
+-      self.variables
+-      self.variable_defaults
+-      self.named_captures
+-      super
++      nil
+     end
+
+Addressable::Template#inspect body_nil d3e45ece09c5b4a6 lib/addressable/template.rb:262
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -262,4 +262,3 @@
+     def inspect
+-      sprintf("#<%s:%#0x PATTERN:%s>",
+-        self.class.to_s, self.object_id, self.pattern)
++      nil
+     end
+
+Addressable::Template#inspect body_raise f83d9787821aca78 lib/addressable/template.rb:262
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -262,4 +262,3 @@
+     def inspect
+-      sprintf("#<%s:%#0x PATTERN:%s>",
+-        self.class.to_s, self.object_id, self.pattern)
++      raise
+     end
+
+Addressable::Template#extract condition_true 093d58245b7579ef lib/addressable/template.rb:344
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -344,4 +344,4 @@
+     def extract(uri, processor=nil)
+       match_data = self.match(uri, processor)
+-      return (match_data ? match_data.mapping : nil)
++      return (true ? match_data.mapping : nil)
+     end
+
+Addressable::Template#match condition_false be79a8ef6a038ac4 lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -415,5 +415,5 @@
+     def match(uri, processor=nil)
+-      uri = Addressable::URI.parse(uri) unless uri.is_a?(Addressable::URI)
++      uri = Addressable::URI.parse(uri) unless false
+       mapping = {}
+ 
+       # First, we need to process the pattern, and extract the values.
+
+Addressable::Template#match condition_true 66f430a9638e7e7b lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -425,7 +425,7 @@
+ 
+       if uri.to_str == pattern
+         return Addressable::Template::MatchData.new(uri, self, mapping)
+-      elsif expansions.size > 0
++      elsif true
+         index = 0
+         expansions.each do |expansion|
+           _, operator, varlist = *expansion.match(EXPRESSION)
+
+Addressable::Template#match comparison c1f91955a8ac33f9 lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -425,7 +425,7 @@
+ 
+       if uri.to_str == pattern
+         return Addressable::Template::MatchData.new(uri, self, mapping)
+-      elsif expansions.size > 0
++      elsif expansions.size >= 0
+         index = 0
+         expansions.each do |expansion|
+           _, operator, varlist = *expansion.match(EXPRESSION)
+
+Addressable::Template#match comparison d893674f7cd693c0 lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -425,7 +425,7 @@
+ 
+       if uri.to_str == pattern
+         return Addressable::Template::MatchData.new(uri, self, mapping)
+-      elsif expansions.size > 0
++      elsif expansions.size != 0
+         index = 0
+         expansions.each do |expansion|
+           _, operator, varlist = *expansion.match(EXPRESSION)
+
+Addressable::Template#match literal_number e989dfa315fa06cd lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -425,7 +425,7 @@
+ 
+       if uri.to_str == pattern
+         return Addressable::Template::MatchData.new(uri, self, mapping)
+-      elsif expansions.size > 0
++      elsif expansions.size > (-1)
+         index = 0
+         expansions.each do |expansion|
+           _, operator, varlist = *expansion.match(EXPRESSION)
+
+Addressable::Template#match statement_removal 986047a12f6b2477 lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -435,7 +435,7 @@
+             case operator
+             when nil, '+', '#', '/', '.'
+               unparsed_value = unparsed_values[index]
+-              name = varspec[VARSPEC, 1]
++              nil
+               value = unparsed_value
+               value = value.split(JOINERS[operator]) if value && modifier == '*'
+             when ';', '?', '&'
+
+Addressable::Template#match boolean_logic 2eecb8cd5d778036 lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -437,7 +437,7 @@
+               unparsed_value = unparsed_values[index]
+               name = varspec[VARSPEC, 1]
+               value = unparsed_value
+-              value = value.split(JOINERS[operator]) if value && modifier == '*'
++              value = value.split(JOINERS[operator]) if modifier == '*'
+             when ';', '?', '&'
+               if modifier == '*'
+                 if unparsed_values[index]
+
+Addressable::Template#match condition_false 2b948d67c4af7d08 lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -444,7 +444,7 @@
+                   value = unparsed_values[index].split(JOINERS[operator])
+                   value = value.inject({}) do |acc, v|
+                     key, val = v.split('=')
+-                    val = "" if val.nil?
++                    val = "" if false
+                     acc[key] = val
+                     acc
+                   end
+
+Addressable::Template#match boolean_logic ca99c4d05414b8b4 lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -456,7 +456,7 @@
+                 end
+               end
+             end
+-            if processor != nil && processor.respond_to?(:restore)
++            if processor.respond_to?(:restore)
+               value = processor.restore(name, value)
+             end
+             if processor == nil
+
+Addressable::Template#match comparison d67846f00f1f9708 lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -456,7 +456,7 @@
+                 end
+               end
+             end
+-            if processor != nil && processor.respond_to?(:restore)
++            if true && processor.respond_to?(:restore)
+               value = processor.restore(name, value)
+             end
+             if processor == nil
+
+Addressable::Template#match condition_true eae761982186f4cd lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -459,7 +459,7 @@
+             if processor != nil && processor.respond_to?(:restore)
+               value = processor.restore(name, value)
+             end
+-            if processor == nil
++            if true
+               if value.is_a?(Hash)
+                 value = value.inject({}){|acc, (k, v)|
+                   acc[Addressable::URI.unencode_component(k)] =
+
+Addressable::Template#match boolean_logic 7b511cdc9119de7e lib/addressable/template.rb:415
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -472,7 +472,7 @@
+                 value = Addressable::URI.unencode_component(value)
+               end
+             end
+-            if !mapping.has_key?(name) || mapping[name].nil?
++            if mapping[name].nil?
+               # Doesn't exist, set to value (even if value is nil)
+               mapping[name] = value
+             end
+
+Addressable::Template#variables or_assign cad070b6fd91e8dd lib/addressable/template.rb:609
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -609,3 +609,3 @@
+     def variables
+-      @variables ||= ordered_variable_defaults.map { |var, val| var }.uniq
++      @variables = ordered_variable_defaults.map { |var, val| var }.uniq
+     end
+
+Addressable::Template#variable_defaults body_nil 6ddbddaf118d5e14 lib/addressable/template.rb:620
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -620,4 +620,3 @@
+     def variable_defaults
+-      @variable_defaults ||=
+-        Hash[*ordered_variable_defaults.reject { |k, v| v.nil? }.flatten]
++      nil
+     end
+
+Addressable::Template#named_captures body_nil 029d0d4d07f91b0c lib/addressable/template.rb:653
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -653,3 +653,3 @@
+     def named_captures
+-      self.to_regexp.named_captures
++      nil
+     end
+
+Addressable::Template#ordered_variable_defaults or_assign 87ffb136e97d002a lib/addressable/template.rb:658
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -658,5 +658,5 @@
+     def ordered_variable_defaults
+-      @ordered_variable_defaults ||= begin
++      @ordered_variable_defaults = begin
+         expansions, _ = parse_template_pattern(pattern)
+         expansions.flat_map do |capture|
+           _, _, varlist = *capture.match(EXPRESSION)
+
+Addressable::Template#transform_partial_capture condition_true 45342e27e56cdb60 lib/addressable/template.rb:696
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -699,7 +699,7 @@
+ 
+       vars = varlist.split(",")
+ 
+-      if operator == "?"
++      if true
+         # partial expansion of form style query variables sometimes requires a
+         # slight reordering of the variables to produce a valid url.
+         first_to_expand = vars.find { |varspec|
+
+Addressable::Template#transform_partial_capture boolean_logic f2e8d8350d833858 lib/addressable/template.rb:696
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -704,7 +704,7 @@
+         # slight reordering of the variables to produce a valid url.
+         first_to_expand = vars.find { |varspec|
+           _, name, _ =  *varspec.match(VARSPEC)
+-          mapping.key?(name) && !mapping[name].nil?
++          mapping.key?(name)
+         }
+ 
+         vars = [first_to_expand] + vars.reject {|varspec| varspec == first_to_expand}  if first_to_expand
+
+Addressable::Template#transform_partial_capture boolean_logic 9f34a2beb0ba334f lib/addressable/template.rb:696
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -704,7 +704,7 @@
+         # slight reordering of the variables to produce a valid url.
+         first_to_expand = vars.find { |varspec|
+           _, name, _ =  *varspec.match(VARSPEC)
+-          mapping.key?(name) && !mapping[name].nil?
++          !mapping[name].nil?
+         }
+ 
+         vars = [first_to_expand] + vars.reject {|varspec| varspec == first_to_expand}  if first_to_expand
+
+Addressable::Template#transform_capture boolean_logic 1dc563cfbf456e37 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -762,7 +762,7 @@
+           allow_reserved = %w(+ #).include?(operator)
+           # Common primitives where the .to_s output is well-defined
+           if Numeric === value || Symbol === value ||
+-              value == true || value == false
++              value == true
+             value = value.to_s
+           end
+           length = modifier.gsub(':', '').to_i if modifier =~ /^:\d+/
+
+Addressable::Template#transform_capture comparison 3fa4c3ac09e630cf lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -762,7 +762,7 @@
+           allow_reserved = %w(+ #).include?(operator)
+           # Common primitives where the .to_s output is well-defined
+           if Numeric === value || Symbol === value ||
+-              value == true || value == false
++              value == true || false
+             value = value.to_s
+           end
+           length = modifier.gsub(':', '').to_i if modifier =~ /^:\d+/
+
+Addressable::Template#transform_capture condition_true f8673efff0b53e1f lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -767,8 +767,7 @@
+           end
+           length = modifier.gsub(':', '').to_i if modifier =~ /^:\d+/
+ 
+-          unless (Hash === value) ||
+-            value.respond_to?(:to_ary) || value.respond_to?(:to_str)
++          unless true
+             raise TypeError,
+               "Can't convert #{value.class} into String or Array."
+           end
+
+Addressable::Template#transform_capture boolean_logic 6542514dbd391186 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -767,8 +767,7 @@
+           end
+           length = modifier.gsub(':', '').to_i if modifier =~ /^:\d+/
+ 
+-          unless (Hash === value) ||
+-            value.respond_to?(:to_ary) || value.respond_to?(:to_str)
++          unless true || value.respond_to?(:to_str)
+             raise TypeError,
+               "Can't convert #{value.class} into String or Array."
+           end
+
+Addressable::Template#transform_capture condition_true 3d81b88de6994e1a lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -775,7 +775,7 @@
+ 
+           value = normalize_value(value) if normalize_values
+ 
+-          if processor == nil || !processor.respond_to?(:transform)
++          if true
+             # Handle percent escaping
+             if allow_reserved
+               encode_map =
+
+Addressable::Template#transform_capture boolean_logic 0024167f2c2e0d5a lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -775,7 +775,7 @@
+ 
+           value = normalize_value(value) if normalize_values
+ 
+-          if processor == nil || !processor.respond_to?(:transform)
++          if processor == nil
+             # Handle percent escaping
+             if allow_reserved
+               encode_map =
+
+Addressable::Template#transform_capture boolean_logic cfa937b2a9d5ece7 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -775,7 +775,7 @@
+ 
+           value = normalize_value(value) if normalize_values
+ 
+-          if processor == nil || !processor.respond_to?(:transform)
++          if !processor.respond_to?(:transform)
+             # Handle percent escaping
+             if allow_reserved
+               encode_map =
+
+Addressable::Template#transform_capture comparison d6668ee8bd44aa39 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -775,7 +775,7 @@
+ 
+           value = normalize_value(value) if normalize_values
+ 
+-          if processor == nil || !processor.respond_to?(:transform)
++          if false || !processor.respond_to?(:transform)
+             # Handle percent escaping
+             if allow_reserved
+               encode_map =
+
+Addressable::Template#transform_capture comparison 6ae10e4bda6ae5a2 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -775,7 +775,7 @@
+ 
+           value = normalize_value(value) if normalize_values
+ 
+-          if processor == nil || !processor.respond_to?(:transform)
++          if true || !processor.respond_to?(:transform)
+             # Handle percent escaping
+             if allow_reserved
+               encode_map =
+
+Addressable::Template#transform_capture negation_removal f177bf319ac85eca lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -775,7 +775,7 @@
+ 
+           value = normalize_value(value) if normalize_values
+ 
+-          if processor == nil || !processor.respond_to?(:transform)
++          if processor == nil || processor.respond_to?(:transform)
+             # Handle percent escaping
+             if allow_reserved
+               encode_map =
+
+Addressable::Template#transform_capture condition_true 83bfcc09c1724283 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -786,7 +786,7 @@
+             end
+             if value.kind_of?(Array)
+               transformed_value = value.map do |val|
+-                if length
++                if true
+                   Addressable::URI.encode_component(val[0...length], encode_map)
+                 else
+                   Addressable::URI.encode_component(val, encode_map)
+
+Addressable::Template#transform_capture condition_false 9a39a80ae8c8fe39 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -786,7 +786,7 @@
+             end
+             if value.kind_of?(Array)
+               transformed_value = value.map do |val|
+-                if length
++                if false
+                   Addressable::URI.encode_component(val[0...length], encode_map)
+                 else
+                   Addressable::URI.encode_component(val, encode_map)
+
+Addressable::Template#transform_capture condition_true f350425161e363db lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -815,7 +815,7 @@
+                 transformed_value = transformed_value.join(',')
+               end
+             else
+-              if length
++              if true
+                 transformed_value = Addressable::URI.encode_component(
+                   value[0...length], encode_map)
+               else
+
+Addressable::Template#transform_capture condition_true 18a8afe9f949ac42 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -826,7 +826,7 @@
+           end
+ 
+           # Process, if we've got a processor
+-          if processor != nil
++          if true
+             if processor.respond_to?(:validate)
+               if !processor.validate(name, value)
+                 display_value = value.kind_of?(Array) ? value.inspect : value
+
+Addressable::Template#transform_capture condition_true 05b00c40ddafa640 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -827,7 +827,7 @@
+ 
+           # Process, if we've got a processor
+           if processor != nil
+-            if processor.respond_to?(:validate)
++            if true
+               if !processor.validate(name, value)
+                 display_value = value.kind_of?(Array) ? value.inspect : value
+                 raise InvalidTemplateValueError,
+
+Addressable::Template#transform_capture condition_true f9db0477c113f423 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -829,7 +829,7 @@
+           if processor != nil
+             if processor.respond_to?(:validate)
+               if !processor.validate(name, value)
+-                display_value = value.kind_of?(Array) ? value.inspect : value
++                display_value = true ? value.inspect : value
+                 raise InvalidTemplateValueError,
+                   "#{name}=#{display_value} is an invalid template value."
+               end
+
+Addressable::Template#transform_capture condition_false c496f0c83f155427 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -829,7 +829,7 @@
+           if processor != nil
+             if processor.respond_to?(:validate)
+               if !processor.validate(name, value)
+-                display_value = value.kind_of?(Array) ? value.inspect : value
++                display_value = false ? value.inspect : value
+                 raise InvalidTemplateValueError,
+                   "#{name}=#{display_value} is an invalid template value."
+               end
+
+Addressable::Template#transform_capture condition_true b058a98befa7ffc5 lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -834,7 +834,7 @@
+                   "#{name}=#{display_value} is an invalid template value."
+               end
+             end
+-            if processor.respond_to?(:transform)
++            if true
+               transformed_value = processor.transform(name, value)
+               if normalize_values
+                 transformed_value = normalize_value(transformed_value)
+
+Addressable::Template#transform_capture condition_true 53f2c1e245a1251b lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -836,7 +836,7 @@
+             end
+             if processor.respond_to?(:transform)
+               transformed_value = processor.transform(name, value)
+-              if normalize_values
++              if true
+                 transformed_value = normalize_value(transformed_value)
+               end
+             end
+
+Addressable::Template#transform_capture condition_false 734d645a97eeb47e lib/addressable/template.rb:755
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -836,7 +836,7 @@
+             end
+             if processor.respond_to?(:transform)
+               transformed_value = processor.transform(name, value)
+-              if normalize_values
++              if false
+                 transformed_value = normalize_value(transformed_value)
+               end
+             end
+
+Addressable::Template#join_values boolean_logic 0450bd4c5e75403d lib/addressable/template.rb:863
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -881,7 +881,7 @@
+           elsif v.is_a?(Array)
+             ';' + v.map{|inner_value| "#{k}=#{inner_value}"}.join(";")
+           else
+-            v && v != '' ?  ";#{k}=#{v}" : ";#{k}"
++            v != '' ?  ";#{k}=#{v}" : ";#{k}"
+           end
+         }.join
+       else
+
+Addressable::Template#normalize_value condition_true 16acf920955042e8 lib/addressable/template.rb:900
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -907,7 +907,7 @@
+           acc
+         }
+       else
+-        value = value.to_s if !value.kind_of?(String)
++        value = value.to_s if true
+         if value.encoding != Encoding::UTF_8
+           value = value.dup.force_encoding(Encoding::UTF_8)
+         end
+
+Addressable::Template#normalize_value condition_true 322cdc524ebd6342 lib/addressable/template.rb:900
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -908,7 +908,7 @@
+         }
+       else
+         value = value.to_s if !value.kind_of?(String)
+-        if value.encoding != Encoding::UTF_8
++        if true
+           value = value.dup.force_encoding(Encoding::UTF_8)
+         end
+         value = value.unicode_normalize(:nfc)
+
+Addressable::Template#parse_template_pattern condition_true f00b64350a0c3661 lib/addressable/template.rb:952
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -952,5 +952,5 @@
+     def parse_template_pattern(pattern, processor = nil)
+-      if processor.nil? && pattern == @pattern
++      if true
+         @cached_template_parse ||=
+           parse_new_template_pattern(pattern, processor)
+       else
+
+Addressable::Template#parse_template_pattern condition_false 2289964b0ace100f lib/addressable/template.rb:952
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -952,5 +952,5 @@
+     def parse_template_pattern(pattern, processor = nil)
+-      if processor.nil? && pattern == @pattern
++      if false
+         @cached_template_parse ||=
+           parse_new_template_pattern(pattern, processor)
+       else
+
+Addressable::Template#parse_template_pattern boolean_logic 09ed29f8ce7c6d27 lib/addressable/template.rb:952
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -952,5 +952,5 @@
+     def parse_template_pattern(pattern, processor = nil)
+-      if processor.nil? && pattern == @pattern
++      if processor.nil?
+         @cached_template_parse ||=
+           parse_new_template_pattern(pattern, processor)
+       else
+
+Addressable::Template#parse_template_pattern boolean_logic 73af2f6fb6c089ec lib/addressable/template.rb:952
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -952,5 +952,5 @@
+     def parse_template_pattern(pattern, processor = nil)
+-      if processor.nil? && pattern == @pattern
++      if pattern == @pattern
+         @cached_template_parse ||=
+           parse_new_template_pattern(pattern, processor)
+       else
+
+Addressable::Template#parse_template_pattern comparison 2d340a907311c544 lib/addressable/template.rb:952
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -952,5 +952,5 @@
+     def parse_template_pattern(pattern, processor = nil)
+-      if processor.nil? && pattern == @pattern
++      if processor.nil? && false
+         @cached_template_parse ||=
+           parse_new_template_pattern(pattern, processor)
+       else
+
+Addressable::Template#parse_template_pattern comparison 633be2a15d8bc5c5 lib/addressable/template.rb:952
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -952,5 +952,5 @@
+     def parse_template_pattern(pattern, processor = nil)
+-      if processor.nil? && pattern == @pattern
++      if processor.nil? && true
+         @cached_template_parse ||=
+           parse_new_template_pattern(pattern, processor)
+       else
+
+Addressable::Template#parse_template_pattern or_assign c32a8de9e2ef5be7 lib/addressable/template.rb:952
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -952,6 +952,6 @@
+     def parse_template_pattern(pattern, processor = nil)
+       if processor.nil? && pattern == @pattern
+-        @cached_template_parse ||=
++        @cached_template_parse =
+           parse_new_template_pattern(pattern, processor)
+       else
+         parse_new_template_pattern(pattern, processor)
+
+Addressable::Template#parse_new_template_pattern comparison 5db73bec88d194b5 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -993,7 +993,7 @@
+         # joiners and remove outer optionality on non-last variables to prevent
+         # O(2^k) backtracking from the combination of optional variables and
+         # optional separators.
+-        has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
++        has_explode = varspecs.any? { |vs| false }
+         atomic_multi = varspecs.size > 1 &&
+                        (operator == '+' || operator == '#') &&
+                        !has_explode
+
+Addressable::Template#parse_new_template_pattern safe_navigation cf0c9688a4b75be8 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -993,7 +993,7 @@
+         # joiners and remove outer optionality on non-last variables to prevent
+         # O(2^k) backtracking from the combination of optional variables and
+         # optional separators.
+-        has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
++        has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures.last == '*' }
+         atomic_multi = varspecs.size > 1 &&
+                        (operator == '+' || operator == '#') &&
+                        !has_explode
+
+Addressable::Template#parse_new_template_pattern safe_navigation e9431c8a8cc5faaa lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -993,7 +993,7 @@
+         # joiners and remove outer optionality on non-last variables to prevent
+         # O(2^k) backtracking from the combination of optional variables and
+         # optional separators.
+-        has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
++        has_explode = varspecs.any? { |vs| vs.match(VARSPEC).captures&.last == '*' }
+         atomic_multi = varspecs.size > 1 &&
+                        (operator == '+' || operator == '#') &&
+                        !has_explode
+
+Addressable::Template#parse_new_template_pattern boolean_logic eb214454bae946c5 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -995,8 +995,7 @@
+         # optional separators.
+         has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
+         atomic_multi = varspecs.size > 1 &&
+-                       (operator == '+' || operator == '#') &&
+-                       !has_explode
++                       (operator == '+' || operator == '#')
+         joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
+         combined = varspecs.map do |varspec|
+           _, name, modifier = *varspec.match(VARSPEC)
+
+Addressable::Template#parse_new_template_pattern boolean_logic b2f418777e9f022c lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -994,8 +994,7 @@
+         # O(2^k) backtracking from the combination of optional variables and
+         # optional separators.
+         has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
+-        atomic_multi = varspecs.size > 1 &&
+-                       (operator == '+' || operator == '#') &&
++        atomic_multi = (operator == '+' || operator == '#') &&
+                        !has_explode
+         joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
+         combined = varspecs.map do |varspec|
+
+Addressable::Template#parse_new_template_pattern comparison 2614cdbfc8d7cb57 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -994,7 +994,7 @@
+         # O(2^k) backtracking from the combination of optional variables and
+         # optional separators.
+         has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
+-        atomic_multi = varspecs.size > 1 &&
++        atomic_multi = varspecs.size >= 1 &&
+                        (operator == '+' || operator == '#') &&
+                        !has_explode
+         joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
+
+Addressable::Template#parse_new_template_pattern comparison 379977510834120d lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -994,7 +994,7 @@
+         # O(2^k) backtracking from the combination of optional variables and
+         # optional separators.
+         has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
+-        atomic_multi = varspecs.size > 1 &&
++        atomic_multi = varspecs.size != 1 &&
+                        (operator == '+' || operator == '#') &&
+                        !has_explode
+         joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
+
+Addressable::Template#parse_new_template_pattern literal_number 75faf70d4f6ab2d1 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -994,7 +994,7 @@
+         # O(2^k) backtracking from the combination of optional variables and
+         # optional separators.
+         has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
+-        atomic_multi = varspecs.size > 1 &&
++        atomic_multi = varspecs.size > 0 &&
+                        (operator == '+' || operator == '#') &&
+                        !has_explode
+         joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
+
+Addressable::Template#parse_new_template_pattern boolean_logic ab12e0c0775d7537 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -995,7 +995,7 @@
+         # optional separators.
+         has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
+         atomic_multi = varspecs.size > 1 &&
+-                       (operator == '+' || operator == '#') &&
++                       (operator == '+') &&
+                        !has_explode
+         joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
+         combined = varspecs.map do |varspec|
+
+Addressable::Template#parse_new_template_pattern comparison 4e1bbe08db13f529 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -995,7 +995,7 @@
+         # optional separators.
+         has_explode = varspecs.any? { |vs| vs.match(VARSPEC)&.captures&.last == '*' }
+         atomic_multi = varspecs.size > 1 &&
+-                       (operator == '+' || operator == '#') &&
++                       (operator == '+' || false) &&
+                        !has_explode
+         joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
+         combined = varspecs.map do |varspec|
+
+Addressable::Template#parse_new_template_pattern condition_true 008bae1c72e2f5e9 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -997,7 +997,7 @@
+         atomic_multi = varspecs.size > 1 &&
+                        (operator == '+' || operator == '#') &&
+                        !has_explode
+-        joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
++        joiner_sep = true ? "(?>#{joiner}?)" : "#{joiner}?"
+         combined = varspecs.map do |varspec|
+           _, name, modifier = *varspec.match(VARSPEC)
+ 
+
+Addressable::Template#parse_new_template_pattern condition_false 570f571a6a07fa75 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -997,7 +997,7 @@
+         atomic_multi = varspecs.size > 1 &&
+                        (operator == '+' || operator == '#') &&
+                        !has_explode
+-        joiner_sep = atomic_multi ? "(?>#{joiner}?)" : "#{joiner}?"
++        joiner_sep = false ? "(?>#{joiner}?)" : "#{joiner}?"
+         combined = varspecs.map do |varspec|
+           _, name, modifier = *varspec.match(VARSPEC)
+ 
+
+Addressable::Template#parse_new_template_pattern condition_false fff95312328d3b77 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1001,7 +1001,7 @@
+         combined = varspecs.map do |varspec|
+           _, name, modifier = *varspec.match(VARSPEC)
+ 
+-          result = processor && processor.respond_to?(:match) ? processor.match(name) : nil
++          result = false ? processor.match(name) : nil
+           if result
+             "(?<#{name}>#{ result })"
+           else
+
+Addressable::Template#parse_new_template_pattern boolean_logic b5a85f8a0b27c07c lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1001,7 +1001,7 @@
+         combined = varspecs.map do |varspec|
+           _, name, modifier = *varspec.match(VARSPEC)
+ 
+-          result = processor && processor.respond_to?(:match) ? processor.match(name) : nil
++          result = processor ? processor.match(name) : nil
+           if result
+             "(?<#{name}>#{ result })"
+           else
+
+Addressable::Template#parse_new_template_pattern boolean_logic e9c5c38f088265ef lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1001,7 +1001,7 @@
+         combined = varspecs.map do |varspec|
+           _, name, modifier = *varspec.match(VARSPEC)
+ 
+-          result = processor && processor.respond_to?(:match) ? processor.match(name) : nil
++          result = processor.respond_to?(:match) ? processor.match(name) : nil
+           if result
+             "(?<#{name}>#{ result })"
+           else
+
+Addressable::Template#parse_new_template_pattern condition_false ff9737ddca54bbda lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1002,7 +1002,7 @@
+           _, name, modifier = *varspec.match(VARSPEC)
+ 
+           result = processor && processor.respond_to?(:match) ? processor.match(name) : nil
+-          if result
++          if false
+             "(?<#{name}>#{ result })"
+           else
+             group = case operator
+
+Addressable::Template#parse_new_template_pattern condition_false 28b3d894efaef8b8 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1028,7 +1028,7 @@
+                     when '+', '#' then "(?>#{RESERVED_NO_COMMA}*)"
+                     else group
+                     end
+-              joiner_pattern = operator.nil? ? joiner : "#{joiner}?"
++              joiner_pattern = false ? joiner : "#{joiner}?"
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+
+Addressable::Template#parse_new_template_pattern boolean_logic ce32bb66f8c40756 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1030,7 +1030,7 @@
+                     end
+               joiner_pattern = operator.nil? ? joiner : "#{joiner}?"
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+-            elsif atomic_multi && varspec != varspecs.last
++            elsif atomic_multi
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+             elsif operator == '+' && varspecs.size == 1 &&
+                   post_expansion.start_with?('{+')
+
+Addressable::Template#parse_new_template_pattern comparison f7bea9c0ca46b389 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1030,7 +1030,7 @@
+                     end
+               joiner_pattern = operator.nil? ? joiner : "#{joiner}?"
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+-            elsif atomic_multi && varspec != varspecs.last
++            elsif atomic_multi && true
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+             elsif operator == '+' && varspecs.size == 1 &&
+                   post_expansion.start_with?('{+')
+
+Addressable::Template#parse_new_template_pattern condition_false 4acf5d3e3aaf6bf5 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,8 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
+-                  post_expansion.start_with?('{+')
++            elsif false
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+               "(?<#{name}>#{group})?"
+
+Addressable::Template#parse_new_template_pattern boolean_logic 850282fd7050934f lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,8 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
+-                  post_expansion.start_with?('{+')
++            elsif post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+               "(?<#{name}>#{group})?"
+
+Addressable::Template#parse_new_template_pattern boolean_logic b04b4c3fd2e5dbdb lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif operator == '+' &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+Addressable::Template#parse_new_template_pattern boolean_logic b466a404c48da9fd lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif varspecs.size == 1 &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+Addressable::Template#parse_new_template_pattern boolean_logic 132d6d7cc23e723a lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif false &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+Addressable::Template#parse_new_template_pattern comparison 21e0dcc456ac1e7f lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif false && varspecs.size == 1 &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+Addressable::Template#parse_new_template_pattern comparison 7d65be9c50c65537 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif true && varspecs.size == 1 &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+Addressable::Template#parse_new_template_pattern comparison f21a3cbc6819eb27 lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif operator == '+' && false &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+Addressable::Template#parse_new_template_pattern comparison 6160b51e184e119a lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif operator == '+' && true &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+Addressable::Template#parse_new_template_pattern literal_number 6fbb01c012883d8b lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif operator == '+' && varspecs.size == 2 &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+Addressable::Template#parse_new_template_pattern literal_number 2a7dd888c7ac54cc lib/addressable/template.rb:970
+--- a/lib/addressable/template.rb
++++ b/lib/addressable/template.rb
+@@ -1032,7 +1032,7 @@
+               "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+             elsif atomic_multi && varspec != varspecs.last
+               "(?<#{name}>(?>#{RESERVED_NO_COMMA}*))"
+-            elsif operator == '+' && varspecs.size == 1 &&
++            elsif operator == '+' && varspecs.size == 0 &&
+                   post_expansion.start_with?('{+')
+               "(?<#{name}>(?>#{RESERVED}*))?"
+             else
+
+JSON report: ~/work/saboteur/bench/vs-mutineer/raw/runs/addressable-saboteur-defaults-j6-r1.json

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Small-scale lobsters runs, the mutineer --matrix run for the fake-kill
+# check, and the three real-bug runs on hashie. One run each.
+set -u
+here=$(cd "$(dirname "$0")" && pwd)
+run() { "$here/run_one" "$@" >/dev/null 2>&1; echo "done: $*"; }
+export BENCH_SUBSET=$here/samples/lobsters-3.txt
+run lobsters mutineer defaults 1 1
+run lobsters saboteur defaults 1 1
+run lobsters saboteur defaults 6 1
+BENCH_MUTINEER_ARGS=--matrix run lobsters mutineer defaults 1 2
+BENCH_SUBSET=$here/samples/lobsters-tag.txt run lobsters mutineer defaults 1 3 reload
+unset BENCH_SUBSET
+for bug in 3988742 043aa89 e295a0d; do
+  BENCH_TARGETS=$BENCH_BUGS run hashie-$bug mutineer defaults 6 1
+  BENCH_TARGETS=$BENCH_BUGS run hashie-$bug saboteur defaults 6 1
+done

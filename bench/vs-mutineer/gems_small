@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Small-scale gem runs (one run each). See REPORT.md for scope.
+set -u
+here=$(cd "$(dirname "$0")" && pwd)
+run() { "$here/run_one" "$@" >/dev/null 2>&1; echo "done: $*"; }
+run hashie mutineer defaults 6 1
+run hashie saboteur defaults 6 1
+BENCH_SUBSET=$here/samples/addressable-1.txt run addressable mutineer defaults 6 1
+BENCH_SUBSET=$here/samples/addressable-1.txt run addressable saboteur defaults 6 1
+run hashie mutineer matched 6 1
+run hashie mutineer defaults 1 1
+run hashie saboteur defaults 1 1

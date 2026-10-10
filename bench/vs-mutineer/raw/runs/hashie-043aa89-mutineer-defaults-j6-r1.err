@@ -1,0 +1,152 @@
+Warning! PATH is not properly set up, ~/.rvm/gems/ruby-3.3.4/bin is not at first place.
+         <log>Usually this is caused by shell initialization files. Search for <code>PATH=...</code> entries.
+         You can also re-add RVM to your profile by running: <code>rvm get stable --auto-dotfiles</code>
+         To fix it temporarily in this shell session run: <code>rvm use ruby-3.3.4</code>
+         To ignore this error add <code>rvm_silence_path_mismatch_check_flag=1</code> to your <code>~/.rvmrc</code> file.
+<scratch>/bugs/hashie-043aa89/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-043aa89/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: previous definition of config= was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old first_name=
+<scratch>/bugs/hashie-043aa89/lib/hashie/dash.rb:99: warning: previous definition of first_name= was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-043aa89/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-043aa89/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-043aa89/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-043aa89/spec/hashie/extensions/symbolize_keys_spec.rb:4: warning: method redefined; discarding old invoke
+<scratch>/bugs/hashie-043aa89/spec/hashie/extensions/stringify_keys_spec.rb:4: warning: previous definition of invoke was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: previous definition of config= was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old first_name=
+<scratch>/bugs/hashie-043aa89/lib/hashie/dash.rb:99: warning: previous definition of first_name= was here
+<scratch>/bugs/hashie-043aa89/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-043aa89/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-043aa89/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-043aa89/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-043aa89/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+[mutineer] 9/90 mutants (10%)
+[mutineer] 18/90 mutants (20%)
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59567-gmffkq.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+[mutineer] 27/90 mutants (30%)
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59570-oqvv1c.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59571-ykbawm.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59577-wekgz1.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59576-y5dha1.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59601-zwgd4a.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59603-gj1qdt.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59611-3kgzpf.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59612-8rjd5r.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+[mutineer] 36/90 mutants (40%)
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59616-u52ccc.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59617-j4xmpu.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59636-a4qiwg.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59644-jnz7k8.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59646-v0hck9.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59648-28jjpy.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59651-i48jhm.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59652-5cerua.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59674-1ew2mx.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+[mutineer] 45/90 mutants (50%)
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59681-pmda0w.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59683-j7g7ho.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59686-yqz8rw.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59687-1ms94k.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59689-4tv4pc.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59711-bl9t3x.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59717-kqklt6.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59719-f8ec7n.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+[mutineer] 54/90 mutants (60%)
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59721-u9eehi.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59723-k2hx18.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59725-kbbqf8.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59747-j4ol4k.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59754-x161ij.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59756-p32wve.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59758-gop2fr.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59760-pxtgff.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59762-ngfggt.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59770-2cjbu6.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+[mutineer] 63/90 mutants (70%)
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59793-sae53y.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59794-yw6tn3.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59797-k74oo4.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59799-2hzjq6.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59804-9o7eli.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59811-kuj090.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+[mutineer] 72/90 mutants (80%)
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59829-q0j6xr.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59831-qe81r.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59833-c9hflp.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59835-o1nyko.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59837-b08nbp.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59850-jeb39h.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59865-n7vfhc.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59867-y2yohn.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+[mutineer] 81/90 mutants (90%)
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59870-i07sdm.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59872-2njy25.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59874-okwysp.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59888-ekxxxg.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+<scratch>/bugs/hashie-043aa89/lib/hashie/mutineer_mutant20261010-59902-o9c5ly.rb:68: warning: already initialized constant Hashie::Mash::ALLOWED_SUFFIXES
+<scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:68: warning: previous definition of ALLOWED_SUFFIXES was here
+[mutineer] 90/90 mutants (100%)
+Report written to ~/work/saboteur/bench/vs-mutineer/raw/runs/hashie-043aa89-mutineer-defaults-j6-r1.json

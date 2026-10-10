@@ -1,0 +1,188 @@
+saboteur 0.0.1: 17 subjects, 95 mutants, wall 1.94 s
+killed 73  survived 15  timeout 0  resource limit 0  error 0  skipped 7
+score 83.0 % (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+mean time per executed mutant 0.025 s
+skipped: coarse mutant survived: 7
+kills: 35 by a failed assertion, 38 by a crash (NoMethodError 15, RuntimeError 15, NameError 4, SystemStackError 3, ArgumentError 1)
+crash kills by operator: body_nil 5 of 12, body_raise 15 of 16, statement_removal 9 of 16, condition_true 6 of 10, body_true 3 of 3
+
+Survivors:
+
+Hashie::Extensions::Dash::PropertyTranslation.included body_nil 0e3dc35442a89380 lib/hashie/extensions/dash/property_translation.rb:41
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -41,6 +41,3 @@
+         def self.included(base)
+-          base.instance_variable_set(:@transforms, {})
+-          base.instance_variable_set(:@translations_hash, ::Hash.new { |hash, key| hash[key] = {} })
+-          base.extend(ClassMethods)
+-          base.send(:include, InstanceMethods)
++          nil
+         end
+
+Hashie::Extensions::Dash::PropertyTranslation.included body_raise a352ed8bc2c90917 lib/hashie/extensions/dash/property_translation.rb:41
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -41,6 +41,3 @@
+         def self.included(base)
+-          base.instance_variable_set(:@transforms, {})
+-          base.instance_variable_set(:@translations_hash, ::Hash.new { |hash, key| hash[key] = {} })
+-          base.extend(ClassMethods)
+-          base.send(:include, InstanceMethods)
++          raise
+         end
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#permitted_input_keys or_assign 4e7af55e31062267 lib/hashie/extensions/dash/property_translation.rb:60
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -60,5 +60,5 @@
+           def permitted_input_keys
+-            @permitted_input_keys ||=
++            @permitted_input_keys =
+               properties
+               .map { |property| inverse_translations.fetch property, property }
+           end
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#property condition_true db506a4106db3a2b lib/hashie/extensions/dash/property_translation.rb:74
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -78,7 +78,7 @@
+             converter = options[:with]
+             transformer = options[:transform_with]
+ 
+-            if from
++            if true
+               fail_self_transformation_error!(property_name) if property_name == from
+               define_translation(from, property_name, converter || transformer)
+               define_writer_for_source_property(from)
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#property boolean_logic 7327203e8b7e5058 lib/hashie/extensions/dash/property_translation.rb:74
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -80,7 +80,7 @@
+ 
+             if from
+               fail_self_transformation_error!(property_name) if property_name == from
+-              define_translation(from, property_name, converter || transformer)
++              define_translation(from, property_name, converter)
+               define_writer_for_source_property(from)
+             elsif valid_transformer?(transformer)
+               transforms[property_name] = transformer
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#property boolean_logic ecf409c47318cb4a lib/hashie/extensions/dash/property_translation.rb:74
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -80,7 +80,7 @@
+ 
+             if from
+               fail_self_transformation_error!(property_name) if property_name == from
+-              define_translation(from, property_name, converter || transformer)
++              define_translation(from, property_name, transformer)
+               define_writer_for_source_property(from)
+             elsif valid_transformer?(transformer)
+               transforms[property_name] = transformer
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#property boolean_logic 48eb409198a3f823 lib/hashie/extensions/dash/property_translation.rb:74
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -80,7 +80,7 @@
+ 
+             if from
+               fail_self_transformation_error!(property_name) if property_name == from
+-              define_translation(from, property_name, converter || transformer)
++              define_translation(from, property_name, true)
+               define_writer_for_source_property(from)
+             elsif valid_transformer?(transformer)
+               transforms[property_name] = transformer
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#property condition_false 76bbeb5b6b0350d9 lib/hashie/extensions/dash/property_translation.rb:74
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -82,7 +82,7 @@
+               fail_self_transformation_error!(property_name) if property_name == from
+               define_translation(from, property_name, converter || transformer)
+               define_writer_for_source_property(from)
+-            elsif valid_transformer?(transformer)
++            elsif false
+               transforms[property_name] = transformer
+             end
+           end
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#translations or_assign 2c3660a9353c8639 lib/hashie/extensions/dash/property_translation.rb:102
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -102,5 +102,5 @@
+           def translations
+-            @translations ||= {}.tap do |translations|
++            @translations = {}.tap do |translations|
+               translations_hash.each do |(property_name, property_translations)|
+                 translations[property_name] =
+                   if property_translations.size > 1
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#translations comparison b8e735f759a5797f lib/hashie/extensions/dash/property_translation.rb:102
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -103,7 +103,7 @@
+             @translations ||= {}.tap do |translations|
+               translations_hash.each do |(property_name, property_translations)|
+                 translations[property_name] =
+-                  if property_translations.size > 1
++                  if property_translations.size != 1
+                     property_translations.keys
+                   else
+                     property_translations.keys.first
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#inverse_translations or_assign 34aaea8cee3a54e1 lib/hashie/extensions/dash/property_translation.rb:115
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -115,5 +115,5 @@
+           def inverse_translations
+-            @inverse_translations ||= {}.tap do |translations|
++            @inverse_translations = {}.tap do |translations|
+               translations_hash.each do |(property_name, property_translations)|
+                 property_translations.each_key do |key|
+                   translations[key] = property_name
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#define_writer_for_source_property condition_false 166d54d1411430e5 lib/hashie/extensions/dash/property_translation.rb:131
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -131,7 +131,7 @@
+           def define_writer_for_source_property(property)
+             define_method "#{property}=" do |val|
+               __translations[property].each do |name, with|
+-                self[name] = with.respond_to?(:call) ? with.call(val) : val
++                self[name] = false ? with.call(val) : val
+               end
+             end
+           end
+
+Hashie::Extensions::Dash::PropertyTranslation::ClassMethods#valid_transformer? body_false 696086c21a0bb14a lib/hashie/extensions/dash/property_translation.rb:144
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -144,3 +144,3 @@
+           def valid_transformer?(transformer)
+-            transformer.respond_to? :call
++            false
+           end
+
+Hashie::Extensions::Dash::PropertyTranslation::InstanceMethods#initialize_attributes condition_true 7dbba0985a4c75c7 lib/hashie/extensions/dash/property_translation.rb:170
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -170,5 +170,5 @@
+           def initialize_attributes(attributes)
+-            return unless attributes
++            return unless true
+             attributes_copy = attributes.dup.delete_if do |k, v|
+               if self.class.translations_hash.include?(k)
+                 self[k] = v
+
+Hashie::Extensions::Dash::PropertyTranslation::InstanceMethods#property_exists? body_true a1a14625255162cd lib/hashie/extensions/dash/property_translation.rb:182
+--- a/lib/hashie/extensions/dash/property_translation.rb
++++ b/lib/hashie/extensions/dash/property_translation.rb
+@@ -182,4 +182,3 @@
+           def property_exists?(property)
+-            fail_no_property_error!(property) unless self.class.property?(property)
+             true
+           end
+
+JSON report: ~/work/saboteur/bench/vs-mutineer/raw/runs/hashie-3988742-saboteur-defaults-j6-r1.json

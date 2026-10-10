@@ -1,0 +1,65 @@
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56534-k2yb57.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56534-k2yb57.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56534-k2yb57.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56545-t632mq.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56545-t632mq.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56545-t632mq.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+[mutineer] 2/11 mutants (18%)
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56547-l9wvv1.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56547-l9wvv1.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56547-l9wvv1.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+[mutineer] 3/11 mutants (27%)
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56550-jeoawx.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56550-jeoawx.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56550-jeoawx.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+[mutineer] 4/11 mutants (36%)
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56552-jin12x.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56552-jin12x.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56552-jin12x.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+[mutineer] 5/11 mutants (45%)
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56555-jncwga.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56555-jncwga.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56555-jncwga.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+[mutineer] 6/11 mutants (54%)
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56557-469foy.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56557-469foy.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56557-469foy.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+[mutineer] 7/11 mutants (63%)
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56560-4m2trm.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56560-4m2trm.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56560-4m2trm.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+[mutineer] 8/11 mutants (72%)
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56562-2p27z.rb:23: warning: already initialized constant Tag::TAG_FORMAT
+<scratch>/targets/lobsters/app/models/tag.rb:23: warning: previous definition of TAG_FORMAT was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56562-2p27z.rb:24: warning: already initialized constant Tag::NAME_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:24: warning: previous definition of NAME_MAXLENGTH was here
+<scratch>/targets/lobsters/app/models/mutineer_mutant20261010-56562-2p27z.rb:25: warning: already initialized constant Tag::DESCRIPTION_MAXLENGTH
+<scratch>/targets/lobsters/app/models/tag.rb:25: warning: previous definition of DESCRIPTION_MAXLENGTH was here
+[mutineer] 9/11 mutants (81%)
+[mutineer] 10/11 mutants (90%)
+[mutineer] 11/11 mutants (100%)
+Report written to ~/work/saboteur/bench/vs-mutineer/raw/runs/lobsters-mutineer-defaults-j1-reload-r3.json

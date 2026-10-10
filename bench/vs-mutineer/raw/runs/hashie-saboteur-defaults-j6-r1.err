@@ -1,0 +1,16 @@
+Warning! PATH is not properly set up, ~/.rvm/gems/ruby-3.3.4/bin is not at first place.
+         <log>Usually this is caused by shell initialization files. Search for <code>PATH=...</code> entries.
+         You can also re-add RVM to your profile by running: <code>rvm get stable --auto-dotfiles</code>
+         To fix it temporarily in this shell session run: <code>rvm use ruby-3.3.4</code>
+         To ignore this error add <code>rvm_silence_path_mismatch_check_flag=1</code> to your <code>~/.rvmrc</code> file.
+<scratch>/saboteur-2b6ec02/lib/saboteur/execution/process_table.rb:4: warning: fiddle was loaded from the standard library, but will no longer be part of the default gems starting from Ruby 3.5.0.
+You can add fiddle to your Gemfile or gemspec to silence this warning.
+<scratch>/targets/hashie/spec/hashie/extensions/symbolize_keys_spec.rb:4: warning: method redefined; discarding old invoke
+<scratch>/targets/hashie/spec/hashie/extensions/stringify_keys_spec.rb:4: warning: previous definition of invoke was here
+<scratch>/targets/hashie/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old config=
+<scratch>/targets/hashie/lib/hashie/extensions/dash/property_translation.rb:133: warning: previous definition of config= was here
+<scratch>/targets/hashie/lib/hashie/extensions/dash/property_translation.rb:133: warning: method redefined; discarding old first_name=
+<scratch>/targets/hashie/lib/hashie/dash.rb:99: warning: previous definition of first_name= was here
+saboteur: building coverage map (runs the whole suite once)
+saboteur: 261 subjects, 719 tests in coverage map
+..............................S....S....S..SS.............S......S......S.....S...S..........................S........S..S.....S...........................S.....S...S.................S...S..S.S...S.S.S..S..S....S....S...........S.....S..S....S.....S..S.S..SS...S...S..S....S.S..S....S.....SS...S...........S....S..........S..S.......S......S........S..........S.S..............S.....SSS............S......S..S.....S.S....S.......SS...S......S.......S.....S...........S.........SS....................S.......S.S........S.............S.........S.....S........S.........S......S........S...............S...S...........S........................S....SS........SS........S...S.......S......S........S...S.S........S.S.....S.S..S.............S.........................S...........S...........SSS.....S.S.S.SS..S.....S..S........S............S..S.S.........................S...SS...........S.........S.......S..S.....S.........S.SSS.SS.....................S.........S.S............S.....S...........................S.......SES................S..S.SS...S......................S.....S............S...................S..S...SSSS.....S.....................................S....................S....S.......S....SS..E...S...............S......................................S.SSSSS.S.......................S........................................................

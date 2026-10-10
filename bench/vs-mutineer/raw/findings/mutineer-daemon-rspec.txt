@@ -1,0 +1,1 @@
+mutineer: --daemon supports only --framework minitest (rspec is not implemented on the daemon path yet)

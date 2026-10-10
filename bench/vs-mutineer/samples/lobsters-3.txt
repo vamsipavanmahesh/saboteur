@@ -1,0 +1,3 @@
+app/models/domain.rb
+app/models/origin.rb
+app/models/tag.rb

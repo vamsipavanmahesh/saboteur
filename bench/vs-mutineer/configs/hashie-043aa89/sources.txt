@@ -1,0 +1,2 @@
+lib/hashie/extensions/method_access.rb
+lib/hashie/mash.rb

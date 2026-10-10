@@ -1,0 +1,92 @@
+Warning! PATH is not properly set up, ~/.rvm/gems/ruby-3.3.4/bin is not at first place.
+         <log>Usually this is caused by shell initialization files. Search for <code>PATH=...</code> entries.
+         You can also re-add RVM to your profile by running: <code>rvm get stable --auto-dotfiles</code>
+         To fix it temporarily in this shell session run: <code>rvm use ruby-3.3.4</code>
+         To ignore this error add <code>rvm_silence_path_mismatch_check_flag=1</code> to your <code>~/.rvmrc</code> file.
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/symbolize_keys_spec.rb:4: warning: method redefined; discarding old invoke
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/stringify_keys_spec.rb:4: warning: previous definition of invoke was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/property_translation.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-61986-us4ct3.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-61986-us4ct3.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-61982-k9we09.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-61982-k9we09.rb:132: warning: previous definition of config= was here
+[mutineer] 3/21 mutants (14%)
+[mutineer] 5/21 mutants (23%)
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62017-5d3q0l.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62017-5d3q0l.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62016-9k5q2u.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62016-9k5q2u.rb:132: warning: previous definition of config= was here
+[mutineer] 7/21 mutants (33%)
+[mutineer] 9/21 mutants (42%)
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62024-py8b2k.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62024-py8b2k.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62024-py8b2k.rb:132: warning: method redefined; discarding old first_name=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of first_name= was here
+[mutineer] 11/21 mutants (52%)
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62054-v3igbp.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62054-v3igbp.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62052-bdbg71.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62052-bdbg71.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62055-p3vp53.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62055-p3vp53.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62057-7gpncf.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62057-7gpncf.rb:132: warning: previous definition of config= was here
+[mutineer] 13/21 mutants (61%)
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62059-nf1jws.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62059-nf1jws.rb:132: warning: previous definition of config= was here
+[mutineer] 15/21 mutants (71%)
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62067-12dab5.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62067-12dab5.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62059-nf1jws.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62059-nf1jws.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62059-nf1jws.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+[mutineer] 17/21 mutants (80%)
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62087-b499aj.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62087-b499aj.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62089-jfm2ly.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62089-jfm2ly.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62091-690drl.rb:132: warning: method redefined; discarding old config=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62091-690drl.rb:132: warning: previous definition of config= was here
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: already initialized constant ALIASES
+<scratch>/bugs/hashie-e295a0d/spec/hashie/extensions/indifferent_access_spec.rb:124: warning: previous definition of ALIASES was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62091-690drl.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62091-690drl.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+<scratch>/bugs/hashie-e295a0d/lib/hashie/extensions/dash/mutineer_mutant20261010-62091-690drl.rb:132: warning: method redefined; discarding old id=
+<scratch>/bugs/hashie-e295a0d/lib/hashie/dash.rb:99: warning: previous definition of id= was here
+[mutineer] 19/21 mutants (90%)
+[mutineer] 21/21 mutants (100%)
+Report written to ~/work/saboteur/bench/vs-mutineer/raw/runs/hashie-e295a0d-mutineer-defaults-j6-r1.json

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Real-bug runs on hashie: pre-fix lib and spec, the file(s) the fix changed.
+# Each pre-fix checkout uses hashie's current Gemfile (development tools only)
+# so it can share one bundle.
+set -u
+here=$(cd "$(dirname "$0")" && pwd)
+for bug in 3988742 043aa89 e295a0d; do
+  for tool in mutineer saboteur; do
+    BENCH_TARGETS=$BENCH_BUGS "$here/run_one" hashie-$bug $tool defaults 6 1 >/dev/null 2>&1
+    echo "done: $bug $tool"
+  done
+  python3 "$here/bug_detect.py" "$here/configs/hashie-$bug/fixed_lines.json" \
+    "$BENCH_OUT/hashie-$bug-saboteur-defaults-j6-r1.json" "$BENCH_OUT/hashie-$bug-mutineer-defaults-j6-r1.json" \
+    > "$here/raw/bug-$bug.json" && echo "scored: $bug"
+done

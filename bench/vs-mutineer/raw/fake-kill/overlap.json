@@ -1,0 +1,114 @@
+[
+ {
+  "file": "app/models/domain.rb",
+  "start": {
+   "line": 47,
+   "column": 5
+  },
+  "end": {
+   "line": 47,
+   "column": 16
+  },
+  "replacement": "nil",
+  "mutineer_id": "5a89bbecabcc",
+  "saboteur_id": "4c492222d323a015"
+ },
+ {
+  "file": "app/models/domain.rb",
+  "start": {
+   "line": 70,
+   "column": 7
+  },
+  "end": {
+   "line": 70,
+   "column": 30
+  },
+  "replacement": "nil",
+  "mutineer_id": "57bdf654ef75",
+  "saboteur_id": "42d93536f2e9fe6c"
+ },
+ {
+  "file": "app/models/domain.rb",
+  "start": {
+   "line": 98,
+   "column": 5
+  },
+  "end": {
+   "line": 98,
+   "column": 11
+  },
+  "replacement": "nil",
+  "mutineer_id": "5728070f4d7b",
+  "saboteur_id": "fe87a112d2e9edf5"
+ },
+ {
+  "file": "app/models/origin.rb",
+  "start": {
+   "line": 46,
+   "column": 5
+  },
+  "end": {
+   "line": 46,
+   "column": 36
+  },
+  "replacement": "nil",
+  "mutineer_id": "db02c8d72e1f",
+  "saboteur_id": "992b7fedec503696"
+ },
+ {
+  "file": "app/models/origin.rb",
+  "start": {
+   "line": 55,
+   "column": 5
+  },
+  "end": {
+   "line": 55,
+   "column": 33
+  },
+  "replacement": "nil",
+  "mutineer_id": "63237683ff4d",
+  "saboteur_id": "4253d9d0f477e996"
+ },
+ {
+  "file": "app/models/origin.rb",
+  "start": {
+   "line": 60,
+   "column": 5
+  },
+  "end": {
+   "line": 60,
+   "column": 36
+  },
+  "replacement": "nil",
+  "mutineer_id": "6545dde96369",
+  "saboteur_id": "f3f5aec59208ee91"
+ },
+ {
+  "file": "app/models/origin.rb",
+  "start": {
+   "line": 63,
+   "column": 5
+  },
+  "end": {
+   "line": 63,
+   "column": 22
+  },
+  "replacement": "nil",
+  "mutineer_id": "49a53223fe81",
+  "saboteur_id": "c985551a526898ab"
+ },
+ {
+  "file": "app/models/tag.rb",
+  "start": {
+   "line": 56,
+   "column": 7
+  },
+  "end": {
+   "line": 56,
+   "column": 43
+  },
+  "replacement": "nil",
+  "mutineer_id": "f4cdb38d4eb3",
+  "saboteur_id": "287ab25d3c0fa1d3"
+ }
+]

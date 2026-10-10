@@ -1,0 +1,425 @@
+saboteur 0.0.1: 59 subjects, 365 mutants, wall 3.48 s
+killed 313  survived 36  timeout 0  resource limit 0  error 0  skipped 16
+score 89.7 % (killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded
+mean time per executed mutant 0.026 s
+skipped: shadowed definition (runtime method at <scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:210): 2
+skipped: shadowed definition (runtime method at <scratch>/bugs/hashie-043aa89/lib/hashie/mash.rb:216): 4
+skipped: no coverage: 10
+kills: 183 by a failed assertion, 130 by a crash (NoMethodError 54, RuntimeError 53, NameError 11, ArgumentError 4, SystemStackError 3, LocalJumpError 3, TypeError 2)
+crash kills by operator: body_true 1 of 10, body_false 2 of 11, body_raise 52 of 55, condition_true 11 of 31, condition_false 11 of 33, boolean_logic 11 of 35, body_nil 11 of 44, statement_removal 18 of 53, literal_number 11 of 27, comparison 2 of 4
+
+Survivors:
+
+Hashie::Extensions::MethodReader#respond_to_missing? statement_removal ba80b7b578165217 lib/hashie/extensions/method_access.rb:30
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -30,4 +30,4 @@
+       def respond_to_missing?(name, include_private = false)
+         return true if key?(name.to_s) || key?(name.to_sym)
+-        super
++        nil
+       end
+
+Hashie::Extensions::MethodReader#method_missing boolean_logic 7e6442697259ac09 lib/hashie/extensions/method_access.rb:35
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -41,7 +41,7 @@
+             self[sname]
+           elsif sname[-1] == '?'
+             kname = sname[0..-2]
+-            key?(kname) || key?(kname.to_sym)
++            key?(kname.to_sym)
+           else
+             super
+           end
+
+Hashie::Extensions::MethodWriter#respond_to_missing? statement_removal 6ceb41f2d0ae56ef lib/hashie/extensions/method_access.rb:70
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -70,4 +70,4 @@
+       def respond_to_missing?(name, include_private = false)
+         return true if name.to_s =~ /=$/
+-        super
++        nil
+       end
+
+Hashie::Extensions::MethodWriter#method_missing boolean_logic 970aef7494931ad4 lib/hashie/extensions/method_access.rb:75
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -75,5 +75,5 @@
+       def method_missing(name, *args)
+-        if args.size == 1 && name.to_s =~ /(.*)=$/
++        if name.to_s =~ /(.*)=$/
+           return self[convert_key(Regexp.last_match[1])] = args.first
+         end
+ 
+
+Hashie::Extensions::MethodWriter#method_missing comparison 26f6550f81f22542 lib/hashie/extensions/method_access.rb:75
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -75,5 +75,5 @@
+       def method_missing(name, *args)
+-        if args.size == 1 && name.to_s =~ /(.*)=$/
++        if true && name.to_s =~ /(.*)=$/
+           return self[convert_key(Regexp.last_match[1])] = args.first
+         end
+ 
+
+Hashie::Extensions::MethodQuery#respond_to_missing? boolean_logic f78e07897d0a77a3 lib/hashie/extensions/method_access.rb:109
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -109,5 +109,5 @@
+       def respond_to_missing?(name, include_private = false)
+-        if query_method?(name) && indifferent_key?(key_from_query_method(name))
++        if indifferent_key?(key_from_query_method(name))
+           true
+         else
+           super
+
+Hashie::Extensions::MethodQuery#method_missing condition_true 0387f421a8fd3256 lib/hashie/extensions/method_access.rb:117
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -117,5 +117,5 @@
+       def method_missing(name, *args)
+-        return super unless args.empty?
++        return super unless true
+ 
+         if query_method?(name)
+           key = key_from_query_method(name)
+
+Hashie::Extensions::MethodQuery#method_missing condition_true c169de2c7dc6a418 lib/hashie/extensions/method_access.rb:117
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -117,7 +117,7 @@
+       def method_missing(name, *args)
+         return super unless args.empty?
+ 
+-        if query_method?(name)
++        if true
+           key = key_from_query_method(name)
+           if indifferent_key?(key)
+             !!(self[key] || self[key.to_sym])
+
+Hashie::Extensions::MethodQuery#indifferent_key? statement_removal 60931523840dc6d9 lib/hashie/extensions/method_access.rb:134
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -134,4 +134,4 @@
+       def indifferent_key?(name)
+-        name = name.to_s
++        nil
+         key?(name) || key?(name.to_sym)
+       end
+
+Hashie::Extensions::MethodQuery#query_method? body_true 52de167a6a654913 lib/hashie/extensions/method_access.rb:143
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -143,3 +143,3 @@
+       def query_method?(name)
+-        name.to_s.end_with?('?')
++        true
+       end
+
+Hashie::Extensions::MethodOverridingWriter#method_missing boolean_logic 0d4193e0f3757fb1 lib/hashie/extensions/method_access.rb:206
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -206,5 +206,5 @@
+       def method_missing(name, *args)
+-        if args.size == 1 && name.to_s =~ /(.*)=$/
++        if name.to_s =~ /(.*)=$/
+           key = Regexp.last_match[1]
+           redefine_method(key) if method?(key) && !already_overridden?(key)
+           return self[convert_key(key)] = args.first
+
+Hashie::Extensions::MethodOverridingWriter#method_missing comparison b5002aaca7afd2a1 lib/hashie/extensions/method_access.rb:206
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -206,5 +206,5 @@
+       def method_missing(name, *args)
+-        if args.size == 1 && name.to_s =~ /(.*)=$/
++        if true && name.to_s =~ /(.*)=$/
+           key = Regexp.last_match[1]
+           redefine_method(key) if method?(key) && !already_overridden?(key)
+           return self[convert_key(key)] = args.first
+
+Hashie::Extensions::MethodOverridingWriter#respond_to_missing? statement_removal cb2942a5b56c153f lib/hashie/extensions/method_access.rb:216
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -216,4 +216,4 @@
+       def respond_to_missing?(name, include_private = false)
+         return true if name.to_s.end_with?('=')
+-        super
++        nil
+       end
+
+Hashie::Extensions::MethodOverridingInitializer#initialize condition_true d46677a8179a8bb5 lib/hashie/extensions/method_access.rb:258
+--- a/lib/hashie/extensions/method_access.rb
++++ b/lib/hashie/extensions/method_access.rb
+@@ -258,7 +258,7 @@
+       def initialize(hash = {})
+         hash.each do |key, value|
+           skey = key.to_s
+-          redefine_method(skey) if method?(skey)
++          redefine_method(skey) if true
+           self[skey] = value
+         end
+       end
+
+Hashie::Mash.load statement_removal fc60a9dfd2f643c1 lib/hashie/mash.rb:70
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -73,7 +73,7 @@
+       return @_mashes[path] if @_mashes.key?(path)
+       raise ArgumentError, "The following file doesn't exist: #{path}" unless File.file?(path)
+ 
+-      options = options.dup
++      nil
+       parser = options.delete(:parser) { Hashie::Extensions::Parsers::YamlErbParser }
+       @_mashes[path] = new(parser.perform(path, options)).freeze
+     end
+
+Hashie::Mash#initialize condition_false e3f89722774506dd lib/hashie/mash.rb:100
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -100,4 +100,4 @@
+     def initialize(source_hash = nil, default = nil, &blk)
+       deep_update(source_hash) if source_hash
+-      default ? super(default) : super(&blk)
++      false ? super(default) : super(&blk)
+     end
+
+Hashie::Mash#_deep_update boolean_logic 37522895f7e7019a lib/hashie/mash.rb:244
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -244,7 +244,7 @@
+     def _deep_update(other_hash, &blk)
+       other_hash.each_pair do |k, v|
+         key = convert_key(k)
+-        if v.is_a?(::Hash) && key?(key) && regular_reader(key).is_a?(Mash)
++        if v.is_a?(::Hash) && key?(key)
+           custom_reader(key).deep_update(v, &blk)
+         else
+           value = convert_value(v, true)
+
+Hashie::Mash#_deep_update boolean_logic 3acb5585259348f2 lib/hashie/mash.rb:244
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -244,7 +244,7 @@
+     def _deep_update(other_hash, &blk)
+       other_hash.each_pair do |k, v|
+         key = convert_key(k)
+-        if v.is_a?(::Hash) && key?(key) && regular_reader(key).is_a?(Mash)
++        if v.is_a?(::Hash) && regular_reader(key).is_a?(Mash)
+           custom_reader(key).deep_update(v, &blk)
+         else
+           value = convert_value(v, true)
+
+Hashie::Mash#_deep_update boolean_logic bcda0c2269d718db lib/hashie/mash.rb:244
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -244,7 +244,7 @@
+     def _deep_update(other_hash, &blk)
+       other_hash.each_pair do |k, v|
+         key = convert_key(k)
+-        if v.is_a?(::Hash) && key?(key) && regular_reader(key).is_a?(Mash)
++        if key?(key) && regular_reader(key).is_a?(Mash)
+           custom_reader(key).deep_update(v, &blk)
+         else
+           value = convert_value(v, true)
+
+Hashie::Mash#replace arithmetic 91c3d3672b8e9721 lib/hashie/mash.rb:277
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -277,5 +277,5 @@
+     def replace(other_hash)
+-      (keys - other_hash.keys).each { |key| delete(key) }
++      (keys + other_hash.keys).each { |key| delete(key) }
+       other_hash.each { |key, value| self[key] = value }
+       self
+     end
+
+Hashie::Mash#method_name_and_suffix statement_removal 6a23bb150d504e5f lib/hashie/mash.rb:359
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -359,5 +359,5 @@
+     def method_name_and_suffix(method_name)
+-      method_name = method_name.to_s
++      nil
+       if method_name.end_with?(*ALLOWED_SUFFIXES)
+         [method_name[0..-2], method_name[-1]]
+       else
+
+Hashie::Mash#method_name_and_suffix literal_number 41db537acc5d4ff0 lib/hashie/mash.rb:359
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -361,6 +361,6 @@
+       if method_name.end_with?(*ALLOWED_SUFFIXES)
+         [method_name[0..-2], method_name[-1]]
+       else
+-        [method_name[0..-1], nil]
++        [method_name[1..-1], nil]
+       end
+     end
+
+Hashie::Mash#method_name_and_suffix literal_number 7c18ad5d69770deb lib/hashie/mash.rb:359
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -361,6 +361,6 @@
+       if method_name.end_with?(*ALLOWED_SUFFIXES)
+         [method_name[0..-2], method_name[-1]]
+       else
+-        [method_name[0..-1], nil]
++        [method_name[(-1)..-1], nil]
+       end
+     end
+
+Hashie::Mash#method_name_and_suffix literal_number e2e5e0a22ea77f8f lib/hashie/mash.rb:359
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -361,6 +361,6 @@
+       if method_name.end_with?(*ALLOWED_SUFFIXES)
+         [method_name[0..-2], method_name[-1]]
+       else
+-        [method_name[0..-1], nil]
++        [method_name[0..0], nil]
+       end
+     end
+
+Hashie::Mash#method_name_and_suffix literal_number 915ffd6610a3c556 lib/hashie/mash.rb:359
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -361,6 +361,6 @@
+       if method_name.end_with?(*ALLOWED_SUFFIXES)
+         [method_name[0..-2], method_name[-1]]
+       else
+-        [method_name[0..-1], nil]
++        [method_name[0..(-2)], nil]
+       end
+     end
+
+Hashie::Mash#method_suffix statement_removal b5022ec7935c70bc lib/hashie/mash.rb:368
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -368,4 +368,4 @@
+     def method_suffix(method_name)
+-      method_name = method_name.to_s
++      nil
+       method_name[-1] if method_name.end_with?(*ALLOWED_SUFFIXES)
+     end
+
+Hashie::Mash#method_suffix literal_number 12eece01539ec375 lib/hashie/mash.rb:368
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -368,4 +368,4 @@
+     def method_suffix(method_name)
+       method_name = method_name.to_s
+-      method_name[-1] if method_name.end_with?(*ALLOWED_SUFFIXES)
++      method_name[0] if method_name.end_with?(*ALLOWED_SUFFIXES)
+     end
+
+Hashie::Mash#method_suffix literal_number 4cb199c49ec44c0e lib/hashie/mash.rb:368
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -368,4 +368,4 @@
+     def method_suffix(method_name)
+       method_name = method_name.to_s
+-      method_name[-1] if method_name.end_with?(*ALLOWED_SUFFIXES)
++      method_name[(-2)] if method_name.end_with?(*ALLOWED_SUFFIXES)
+     end
+
+Hashie::Mash#convert_value condition_true 3dcca4caae068093 lib/hashie/mash.rb:377
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -379,7 +379,7 @@
+       when self.class
+         val.dup
+       when Hash
+-        duping ? val.dup : val
++        true ? val.dup : val
+       when ::Hash
+         val = val.dup if duping
+         self.class.new(val)
+
+Hashie::Mash#convert_value condition_false 2ab169b7fc88623d lib/hashie/mash.rb:377
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -379,7 +379,7 @@
+       when self.class
+         val.dup
+       when Hash
+-        duping ? val.dup : val
++        false ? val.dup : val
+       when ::Hash
+         val = val.dup if duping
+         self.class.new(val)
+
+Hashie::Mash#convert_value condition_true 9dc95a524f627106 lib/hashie/mash.rb:377
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -381,7 +381,7 @@
+       when Hash
+         duping ? val.dup : val
+       when ::Hash
+-        val = val.dup if duping
++        val = val.dup if true
+         self.class.new(val)
+       when ::Array
+         Array.new(val.map { |e| convert_value(e) })
+
+Hashie::Mash#convert_value condition_false 1c122d7c8ca63ac7 lib/hashie/mash.rb:377
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -381,7 +381,7 @@
+       when Hash
+         duping ? val.dup : val
+       when ::Hash
+-        val = val.dup if duping
++        val = val.dup if false
+         self.class.new(val)
+       when ::Array
+         Array.new(val.map { |e| convert_value(e) })
+
+Hashie::Mash#log_built_in_message condition_false a6c2647f39ed336c lib/hashie/mash.rb:395
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -395,5 +395,5 @@
+     def log_built_in_message(method_key)
+-      return if self.class.disable_warnings?(method_key)
++      return if false
+ 
+       method_information = Hashie::Utils.method_information(method(method_key))
+ 
+
+Hashie::Mash#log_collision? condition_true 2283154c7fd54e01 lib/hashie/mash.rb:408
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -408,5 +408,5 @@
+     def log_collision?(method_key)
+-      return unless method_key.is_a?(String) || method_key.is_a?(Symbol)
++      return unless true
+       return unless respond_to?(method_key)
+ 
+       _, suffix = method_name_and_suffix(method_key)
+
+Hashie::Mash#log_collision? boolean_logic 97b58b5fc76c3556 lib/hashie/mash.rb:408
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -408,5 +408,5 @@
+     def log_collision?(method_key)
+-      return unless method_key.is_a?(String) || method_key.is_a?(Symbol)
++      return unless method_key.is_a?(Symbol)
+       return unless respond_to?(method_key)
+ 
+       _, suffix = method_name_and_suffix(method_key)
+
+Hashie::Mash#log_collision? boolean_logic 8cee9f50aa7c6c8c lib/hashie/mash.rb:408
+--- a/lib/hashie/mash.rb
++++ b/lib/hashie/mash.rb
+@@ -413,5 +413,5 @@
+ 
+       (!suffix || suffix == '='.freeze) &&
+         !self.class.disable_warnings?(method_key) &&
+-        !(regular_key?(method_key) || regular_key?(method_key.to_s))
++        !(regular_key?(method_key.to_s))
+     end
+
+JSON report: ~/work/saboteur/bench/vs-mutineer/raw/runs/hashie-043aa89-saboteur-defaults-j6-r1.json

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# fake_kill_run KILLERS_TXT TARGET_DIR OUT_JSON -- RSPEC_PREFIX...
+# Runs every killing example named in KILLERS_TXT once, on the unchanged code.
+set -euo pipefail
+killers=$(cd "$(dirname "$1")" && pwd)/$(basename "$1") target=$2 out=$(cd "$(dirname "$3")" && pwd)/$(basename "$3"); shift 4
+ids=()
+while IFS= read -r id; do ids+=("$id"); done < <(cut -f2- "$killers" | tr '\t' '\n' | sort -u)
+cd "$target"
+"$@" "${ids[@]}" --format json --out "$out" > /dev/null 2>&1 || true

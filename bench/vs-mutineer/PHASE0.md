@@ -24,20 +24,22 @@ per target.
 | target | role | commit | framework | Ruby | DB | code LOC (non-blank, non-comment) | source files | tests | suite time |
 |--------|------|--------|-----------|------|----|------|----|-------|-----------|
 | addressable | RSpec gem | d298c9f | RSpec 3.13.6 | 3.4.3 | none | 6,657 (a large share is IDNA data tables) | 7 | 1,433 examples (5 pending) | 0.5 s |
-| rack | Minitest gem | a9833c8f | Minitest 6.0.6 | 3.4.3 | none | 5,829 | 50 | 1,244 runs (2 skips) | ~4 s wall |
 | lobsters | Rails app, SQLite | ede993e0 | RSpec 3.13.5, Rails 8.1.3.1 | 4.0.0 | SQLite (4 files: primary, cache, queue, rack_attack) | 8,793 (app + lib) | 131 | 899 examples | 15 s |
 | human-essentials | Rails app, Postgres | d6f8290 | RSpec 3.13.6, Rails 8.1.4 | 3.4.3 | Postgres 16 | 12,871 (app + lib) | 292 | 2,415 examples (1 pending), system specs excluded | 132 s |
-| hashie | spare RSpec gem | 9c81e83 | RSpec 3.13.6 | 3.4.3 | none | 2,094 | 41 | 719 examples | 0.1 s |
+| hashie | RSpec gem | 9c81e83 | RSpec 3.13.6 | 3.4.3 | none | 2,094 | 41 | 719 examples | 0.1 s |
 
-Suite time is RSpec's own duration (median of 3). rack's is wall time
-around `rake test:regular`.
+Suite time is RSpec's own duration (median of 3).
+
+Scope decision (maintainer, 2026-10-10): RSpec projects only. rack
+(Minitest) was checked out and green (1,244 runs, 3/3) but is dropped;
+saboteur supports RSpec only, and mutineer's Minitest support is listed as a
+feature-table win instead of measured.
 
 ## Green runs (3 each, under script/watchdog)
 
 | target | run 1 | run 2 | run 3 | flaky |
 |--------|-------|-------|-------|-------|
 | addressable | 0 failed | 0 failed | 0 failed | none |
-| rack | 0 failed, 0 errors | 0 / 0 | 0 / 0 | none |
 | lobsters | 0 failed | 0 failed | 0 failed | none |
 | human-essentials | 0 failed | 0 failed | 1 failed | 1 |
 | hashie | 0 failed | 0 failed | 0 failed | none |
@@ -76,14 +78,9 @@ Raw numbers: raw/phase0-suite-runs.json.
    unless the target bundle has fiddle. Workaround: `gem "fiddle"` in the
    lobsters Gemfile.bench.
 
-## Open questions for review
+## Decisions
 
-1. rack (Minitest): saboteur supports RSpec only, so on rack it can only
-   report "unsupported". Options: keep rack as a mutineer-only data point
-   (this counts as a mutineer win on framework support), or replace it with
-   hashie as a second RSpec gem so both tools produce numbers. Recommendation:
-   keep rack for the features table and the framework win, and add hashie for
-   the measured comparisons.
-2. Is a Ruby 4.0 target acceptable? Both tools run on the same Ruby there,
-   but saboteur has never been validated on 4.0, so a 4.0 failure would be
-   a saboteur result.
+1. RSpec projects only (maintainer). Targets: addressable, hashie, lobsters,
+   human-essentials.
+2. lobsters stays on Ruby 4.0.0, the version it pins. A saboteur failure
+   there counts as a saboteur result.

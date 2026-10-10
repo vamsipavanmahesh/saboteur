@@ -1,0 +1,5 @@
+lib/addressable.rb
+lib/addressable/idna.rb
+lib/addressable/idna/pure.rb
+lib/addressable/template.rb
+lib/addressable/uri.rb

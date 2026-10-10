@@ -1,0 +1,1 @@
+arithmetic,comparison,operand_removal,condition_true,condition_false,negation_removal,safe_navigation,statement_removal,literal_mutation,return_nil

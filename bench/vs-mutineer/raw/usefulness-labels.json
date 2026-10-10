@@ -1,0 +1,174 @@
+{
+ "reviewers": {
+  "claude_1": {
+   "1": "equivalent",
+   "2": "noise",
+   "3": "noise",
+   "4": "actionable",
+   "5": "actionable",
+   "6": "actionable",
+   "7": "noise",
+   "8": "equivalent",
+   "9": "actionable",
+   "10": "noise",
+   "11": "noise",
+   "12": "equivalent",
+   "13": "equivalent",
+   "14": "equivalent",
+   "15": "actionable",
+   "16": "noise",
+   "17": "actionable",
+   "18": "noise",
+   "19": "equivalent",
+   "20": "actionable"
+  },
+  "claude_2": {
+   "1": "equivalent",
+   "2": "actionable",
+   "3": "actionable",
+   "4": "actionable",
+   "5": "actionable",
+   "6": "actionable",
+   "7": "actionable",
+   "8": "equivalent",
+   "9": "actionable",
+   "10": "noise",
+   "11": "noise",
+   "12": "actionable",
+   "13": "equivalent",
+   "14": "actionable",
+   "15": "actionable",
+   "16": "noise",
+   "17": "actionable",
+   "18": "noise",
+   "19": "equivalent",
+   "20": "actionable"
+  },
+  "grok": {
+   "1": "actionable",
+   "2": "equivalent",
+   "3": "noise",
+   "4": "actionable",
+   "5": "actionable",
+   "6": "actionable",
+   "7": "noise",
+   "8": "equivalent",
+   "9": "actionable",
+   "10": "noise",
+   "11": "noise",
+   "12": "equivalent",
+   "13": "equivalent",
+   "14": "equivalent",
+   "15": "actionable",
+   "16": "noise",
+   "17": "actionable",
+   "18": "noise",
+   "19": "equivalent",
+   "20": "actionable"
+  }
+ },
+ "final": {
+  "1": {
+   "label": "equivalent",
+   "how": "resolved: convert! on an already indifferent hash is idempotent; 2 of 3 reviewers"
+  },
+  "2": {
+   "label": "actionable",
+   "how": "resolved: h.replace(h) empties the hash under the mutant, and key order changes; reachable through the public replace"
+  },
+  "3": {
+   "label": "noise",
+   "how": "resolved: which regex wins on multiple matches depends on a hit-count heuristic; a test would pin a performance detail"
+  },
+  "4": {
+   "label": "actionable",
+   "how": "all three agree"
+  },
+  "5": {
+   "label": "actionable",
+   "how": "all three agree"
+  },
+  "6": {
+   "label": "actionable",
+   "how": "all three agree"
+  },
+  "7": {
+   "label": "noise",
+   "how": "resolved: same heuristic as item 3"
+  },
+  "8": {
+   "label": "equivalent",
+   "how": "all three agree"
+  },
+  "9": {
+   "label": "actionable",
+   "how": "all three agree"
+  },
+  "10": {
+   "label": "noise",
+   "how": "all three agree"
+  },
+  "11": {
+   "label": "noise",
+   "how": "all three agree"
+  },
+  "12": {
+   "label": "equivalent",
+   "how": "resolved: super reaches Object#respond_to_missing?, which returns false; nil is as falsy; 2 of 3 reviewers"
+  },
+  "13": {
+   "label": "equivalent",
+   "how": "all three agree"
+  },
+  "14": {
+   "label": "actionable",
+   "how": "resolved: property_exists? is public; under the mutant it returns true for an undefined property instead of raising"
+  },
+  "15": {
+   "label": "actionable",
+   "how": "all three agree"
+  },
+  "16": {
+   "label": "noise",
+   "how": "all three agree"
+  },
+  "17": {
+   "label": "actionable",
+   "how": "all three agree"
+  },
+  "18": {
+   "label": "noise",
+   "how": "all three agree"
+  },
+  "19": {
+   "label": "equivalent",
+   "how": "all three agree"
+  },
+  "20": {
+   "label": "actionable",
+   "how": "all three agree"
+  }
+ },
+ "key": {
+  "1": "saboteur",
+  "2": "mutineer",
+  "3": "mutineer",
+  "4": "saboteur",
+  "5": "saboteur",
+  "6": "mutineer",
+  "7": "mutineer",
+  "8": "saboteur",
+  "9": "saboteur",
+  "10": "mutineer",
+  "11": "saboteur",
+  "12": "saboteur",
+  "13": "saboteur",
+  "14": "mutineer",
+  "15": "mutineer",
+  "16": "mutineer",
+  "17": "saboteur",
+  "18": "mutineer",
+  "19": "mutineer",
+  "20": "saboteur"
+ }
+}

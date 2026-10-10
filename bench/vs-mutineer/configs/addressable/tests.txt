@@ -1,0 +1,5 @@
+spec/addressable/idna_spec.rb
+spec/addressable/net_http_compat_spec.rb
+spec/addressable/security_spec.rb
+spec/addressable/template_spec.rb
+spec/addressable/uri_spec.rb

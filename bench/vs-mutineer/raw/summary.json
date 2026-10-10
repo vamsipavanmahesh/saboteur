@@ -1,0 +1,448 @@
+[
+ {
+  "run": "addressable-mutineer-defaults-j6-r1",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 14.9,
+  "peak_rss_mb": 547,
+  "peak_procs": 13,
+  "leftovers": 0,
+  "counts": {
+   "killed": 145,
+   "survived": 21,
+   "timeout": 0,
+   "error": 0,
+   "no_coverage": 6,
+   "ran_at_load": 0,
+   "other": 0,
+   "invalid": 0,
+   "total": 172
+  },
+  "executed": 166,
+  "s_per_executed_mutant": 0.09,
+  "score_pct": 87.3
+ },
+ {
+  "run": "addressable-saboteur-defaults-j6-r1",
+  "tool": "saboteur",
+  "exit": 1,
+  "wall_s": 7.7,
+  "peak_rss_mb": 535,
+  "peak_procs": 10,
+  "leftovers": 0,
+  "counts": {
+   "killed": 342,
+   "survived": 84,
+   "subsumed": 5,
+   "no_coverage": 4,
+   "total": 435
+  },
+  "matched": {
+   "killed": 313,
+   "survived": 79,
+   "subsumed": 4,
+   "no_coverage": 3,
+   "total": 399
+  },
+  "executed": 426,
+  "s_per_executed_mutant": 0.018,
+  "score_pct": 80.3
+ },
+ {
+  "run": "hashie-043aa89-mutineer-defaults-j6-r1",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 18.9,
+  "peak_rss_mb": 479,
+  "peak_procs": 16,
+  "leftovers": 0,
+  "counts": {
+   "killed": 84,
+   "survived": 2,
+   "timeout": 0,
+   "error": 0,
+   "no_coverage": 4,
+   "ran_at_load": 0,
+   "other": 0,
+   "invalid": 0,
+   "total": 90
+  },
+  "executed": 86,
+  "s_per_executed_mutant": 0.22,
+  "score_pct": 97.7
+ },
+ {
+  "run": "hashie-043aa89-saboteur-defaults-j6-r1",
+  "tool": "saboteur",
+  "exit": 1,
+  "wall_s": 4.6,
+  "peak_rss_mb": 535,
+  "peak_procs": 11,
+  "leftovers": 0,
+  "counts": {
+   "killed": 313,
+   "survived": 36,
+   "other": 6,
+   "no_coverage": 10,
+   "total": 365
+  },
+  "matched": {
+   "killed": 245,
+   "survived": 35,
+   "other": 4,
+   "no_coverage": 7,
+   "total": 291
+  },
+  "executed": 349,
+  "s_per_executed_mutant": 0.013,
+  "score_pct": 89.7
+ },
+ {
+  "run": "hashie-3988742-mutineer-defaults-j6-r1",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 13.8,
+  "peak_rss_mb": 324,
+  "peak_procs": 13,
+  "leftovers": 0,
+  "counts": {
+   "killed": 19,
+   "survived": 2,
+   "timeout": 0,
+   "error": 0,
+   "no_coverage": 0,
+   "ran_at_load": 0,
+   "other": 0,
+   "invalid": 0,
+   "total": 21
+  },
+  "executed": 21,
+  "s_per_executed_mutant": 0.657,
+  "score_pct": 90.5
+ },
+ {
+  "run": "hashie-3988742-saboteur-defaults-j6-r1",
+  "tool": "saboteur",
+  "exit": 1,
+  "wall_s": 3.1,
+  "peak_rss_mb": 386,
+  "peak_procs": 8,
+  "leftovers": 0,
+  "counts": {
+   "survived": 15,
+   "subsumed": 7,
+   "killed": 73,
+   "total": 95
+  },
+  "matched": {
+   "survived": 10,
+   "subsumed": 7,
+   "killed": 54,
+   "total": 71
+  },
+  "executed": 88,
+  "s_per_executed_mutant": 0.035,
+  "score_pct": 83.0
+ },
+ {
+  "run": "hashie-e295a0d-mutineer-defaults-j6-r1",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 12.8,
+  "peak_rss_mb": 449,
+  "peak_procs": 13,
+  "leftovers": 0,
+  "counts": {
+   "killed": 19,
+   "survived": 2,
+   "timeout": 0,
+   "error": 0,
+   "no_coverage": 0,
+   "ran_at_load": 0,
+   "other": 0,
+   "invalid": 0,
+   "total": 21
+  },
+  "executed": 21,
+  "s_per_executed_mutant": 0.61,
+  "score_pct": 90.5
+ },
+ {
+  "run": "hashie-e295a0d-saboteur-defaults-j6-r1",
+  "tool": "saboteur",
+  "exit": 1,
+  "wall_s": 2.6,
+  "peak_rss_mb": 419,
+  "peak_procs": 9,
+  "leftovers": 0,
+  "counts": {
+   "survived": 15,
+   "subsumed": 7,
+   "killed": 70,
+   "total": 92
+  },
+  "matched": {
+   "survived": 10,
+   "subsumed": 7,
+   "killed": 51,
+   "total": 68
+  },
+  "executed": 85,
+  "s_per_executed_mutant": 0.031,
+  "score_pct": 82.4
+ },
+ {
+  "run": "hashie-mutineer-defaults-j1-r1",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 2640.1,
+  "peak_rss_mb": 148,
+  "peak_procs": 5,
+  "leftovers": 0,
+  "counts": {
+   "killed": 332,
+   "survived": 47,
+   "timeout": 2,
+   "error": 0,
+   "no_coverage": 17,
+   "ran_at_load": 11,
+   "other": 0,
+   "invalid": 0,
+   "total": 409
+  },
+  "executed": 381,
+  "s_per_executed_mutant": 6.929,
+  "score_pct": 87.6
+ },
+ {
+  "run": "hashie-mutineer-defaults-j6-r1",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 34.9,
+  "peak_rss_mb": 471,
+  "peak_procs": 17,
+  "leftovers": 0,
+  "counts": {
+   "killed": 333,
+   "survived": 47,
+   "timeout": 1,
+   "error": 0,
+   "no_coverage": 17,
+   "ran_at_load": 11,
+   "other": 0,
+   "invalid": 0,
+   "total": 409
+  },
+  "executed": 381,
+  "s_per_executed_mutant": 0.092,
+  "score_pct": 87.6
+ },
+ {
+  "run": "hashie-mutineer-matched-j6-r1",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 70.3,
+  "peak_rss_mb": 519,
+  "peak_procs": 18,
+  "leftovers": 0,
+  "counts": {
+   "killed": 986,
+   "survived": 186,
+   "timeout": 2,
+   "error": 1,
+   "no_coverage": 61,
+   "ran_at_load": 34,
+   "other": 0,
+   "invalid": 1,
+   "total": 1271
+  },
+  "executed": 1175,
+  "s_per_executed_mutant": 0.06,
+  "score_pct": 84.1
+ },
+ {
+  "run": "hashie-saboteur-defaults-j1-r1",
+  "tool": "saboteur",
+  "exit": 1,
+  "wall_s": 31.6,
+  "peak_rss_mb": 266,
+  "peak_procs": 2,
+  "leftovers": 0,
+  "counts": {
+   "killed": 1172,
+   "no_coverage": 149,
+   "survived": 177,
+   "subsumed": 68,
+   "other": 12,
+   "error": 2,
+   "total": 1580
+  },
+  "matched": {
+   "killed": 907,
+   "no_coverage": 126,
+   "survived": 158,
+   "subsumed": 67,
+   "other": 8,
+   "error": 1,
+   "total": 1267
+  },
+  "executed": 1351,
+  "s_per_executed_mutant": 0.023,
+  "score_pct": 86.9
+ },
+ {
+  "run": "hashie-saboteur-defaults-j6-r1",
+  "tool": "saboteur",
+  "exit": 1,
+  "wall_s": 10.8,
+  "peak_rss_mb": 595,
+  "peak_procs": 13,
+  "leftovers": 0,
+  "counts": {
+   "killed": 1172,
+   "no_coverage": 149,
+   "survived": 177,
+   "subsumed": 68,
+   "other": 12,
+   "error": 2,
+   "total": 1580
+  },
+  "matched": {
+   "killed": 907,
+   "no_coverage": 126,
+   "survived": 158,
+   "subsumed": 67,
+   "other": 8,
+   "error": 1,
+   "total": 1267
+  },
+  "executed": 1351,
+  "s_per_executed_mutant": 0.008,
+  "score_pct": 86.9
+ },
+ {
+  "run": "lobsters-mutineer-defaults-j1-r1",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 218.8,
+  "peak_rss_mb": 775,
+  "peak_procs": 3,
+  "leftovers": 0,
+  "counts": {
+   "killed": 91,
+   "survived": 0,
+   "timeout": 0,
+   "error": 0,
+   "no_coverage": 4,
+   "ran_at_load": 0,
+   "other": 0,
+   "invalid": 0,
+   "total": 95
+  },
+  "executed": 91,
+  "s_per_executed_mutant": 2.404,
+  "score_pct": 100.0
+ },
+ {
+  "run": "lobsters-mutineer-defaults-j1-r2",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 221.5,
+  "peak_rss_mb": 802,
+  "peak_procs": 3,
+  "leftovers": 0,
+  "counts": {
+   "killed": 91,
+   "survived": 0,
+   "timeout": 0,
+   "error": 0,
+   "no_coverage": 4,
+   "ran_at_load": 0,
+   "other": 0,
+   "invalid": 0,
+   "total": 95
+  },
+  "executed": 91,
+  "s_per_executed_mutant": 2.434,
+  "score_pct": 100.0
+ },
+ {
+  "run": "lobsters-mutineer-defaults-j1-reload-r3",
+  "tool": "mutineer",
+  "exit": 0,
+  "wall_s": 207.5,
+  "peak_rss_mb": 752,
+  "peak_procs": 3,
+  "leftovers": 0,
+  "counts": {
+   "killed": 9,
+   "survived": 0,
+   "timeout": 0,
+   "error": 0,
+   "no_coverage": 2,
+   "ran_at_load": 0,
+   "other": 0,
+   "invalid": 0,
+   "total": 11
+  },
+  "executed": 9,
+  "s_per_executed_mutant": 23.056,
+  "score_pct": 100.0
+ },
+ {
+  "run": "lobsters-saboteur-defaults-j1-r1",
+  "tool": "saboteur",
+  "exit": 1,
+  "wall_s": 442.2,
+  "peak_rss_mb": 1021,
+  "peak_procs": 3,
+  "leftovers": 0,
+  "counts": {
+   "killed": 166,
+   "survived": 47,
+   "no_coverage": 13,
+   "error": 3,
+   "subsumed": 2,
+   "total": 231
+  },
+  "matched": {
+   "killed": 134,
+   "survived": 43,
+   "no_coverage": 10,
+   "error": 2,
+   "subsumed": 2,
+   "total": 191
+  },
+  "executed": 216,
+  "s_per_executed_mutant": 2.047,
+  "score_pct": 77.9
+ },
+ {
+  "run": "lobsters-saboteur-defaults-j6-r1",
+  "tool": "saboteur",
+  "exit": 1,
+  "wall_s": 125.4,
+  "peak_rss_mb": 4261,
+  "peak_procs": 13,
+  "leftovers": 0,
+  "counts": {
+   "killed": 166,
+   "survived": 47,
+   "no_coverage": 13,
+   "error": 3,
+   "subsumed": 2,
+   "total": 231
+  },
+  "matched": {
+   "killed": 134,
+   "survived": 43,
+   "no_coverage": 10,
+   "error": 2,
+   "subsumed": 2,
+   "total": 191
+  },
+  "executed": 216,
+  "s_per_executed_mutant": 0.581,
+  "score_pct": 77.9
+ }
+]
