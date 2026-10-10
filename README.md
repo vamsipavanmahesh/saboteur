@@ -107,6 +107,10 @@ Ruby 3.3 or newer on Linux or macOS (it needs `fork`).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
 
+## Acknowledgements
+
+Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build saboteur.
+
 ## License
 
 MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).

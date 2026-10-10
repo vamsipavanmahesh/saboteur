@@ -66,8 +66,11 @@ go through the watchdog, one at a time (see "Safety rules").
   (in progress, so the mutant column can be added if permission comes); or
   legal review. Not legal advice.
 
-1. Publishing: name `saboteur` free on rubygems and as glomopay/saboteur on
-   GitHub as of 2026-10-09; the maintainer publishes, not the agent.
+1. Publishing: name `saboteur` free on rubygems as of 2026-10-09. The
+   maintainer publishes it under their own name (MIT, 2026-10-10) at
+   github.com/vamsipavanmahesh/saboteur, with a README thank-you to Glomo for
+   the AI tokens; the
+   maintainer publishes, not the agent.
 
 ## Claude-Grok review loop (docs/review/)
 

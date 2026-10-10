@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Email security@glomo.one. Do not open a public issue.
+Email gvpmahesh@gmail.com. Do not open a public issue.
 
 Include the affected version, a description, and steps to reproduce. We
 acknowledge reports within 3 business days (IST) and aim to ship a fix or
