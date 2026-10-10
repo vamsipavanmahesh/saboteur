@@ -54,13 +54,14 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
 
   describe "--jobs" do
     it "gives the same verdicts with parallel workers as with one" do
-      verdicts = lambda do |run|
-        mutants(run).map { |m| [m["id"], m["status"]] }.sort
-      end
+      verdicts = ->(run) { mutants(run).to_h { |m| [m["id"], [m["status"], m["statusReason"]]] } }
       serial = saboteur(dir, "--jobs", "1")
       parallel = saboteur(dir, "--jobs", "3")
       expect(parallel.err).not_to include("not supported")
-      expect(verdicts.call(parallel)).to eq(verdicts.call(serial))
+      one = verdicts.call(serial)
+      many = verdicts.call(parallel)
+      differing = one.keys.union(many.keys).reject { |id| one[id]&.first == many[id]&.first }
+      expect(differing.to_h { |id| [id, { jobs1: one[id], jobs3: many[id] }] }).to eq({})
       expect(parallel.status).to eq(serial.status)
     end
   end

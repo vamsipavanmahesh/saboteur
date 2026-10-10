@@ -105,6 +105,10 @@ survivors classified and a census of defs inside blocks.
   --seed; .rspec does not randomise order), so only killed+error (127) is
   checked there. Randomness is ruled out; the cause may be timing in
   saboteur's class_eval verdict check. nesting (default) is exact.
+  Open: the e2e check that --jobs 3 gives the same verdicts as --jobs 1
+  failed once on the macOS CI runner (one mutant differed; 5 of 5 pass on
+  one CPU in Docker, 6 of 6 locally). The spec now prints the differing
+  mutants with both verdicts and reasons, for the next occurrence.
 - 2026-10-10 Child logs live in .saboteur/logs (cleared each run) instead of
   a new $TMPDIR/saboteur-* per run (1,711 had piled up). SimpleCov is turned
   off through Object.const_added the moment the app defines it, instead of
