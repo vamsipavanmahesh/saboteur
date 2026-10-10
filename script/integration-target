@@ -75,14 +75,12 @@ expected = target.fetch("expect").fetch(strategy)
 # PATH), so a few counts differ by platform; those live under expect_on.
 platform = RUBY_PLATFORM.include?("linux") ? "linux" : "macos"
 expected = expected.merge(target.dig("expect_on", platform, strategy) || {})
-# A count is an exact number, or a range ("65..69") for one that moves
-# between runs because the target's own tests do.
-matches = lambda do |value, count|
-  value.is_a?(String) ? Range.new(*value.split("..").map { |n| Integer(n) }).cover?(count) : value == count
-end
-diff = expected.reject { |key, value| matches.call(value, actual[key]) }
+# A key is one status, or a sum of statuses ("killed+error") for mutants
+# that move between those statuses from run to run while their total holds.
+count = ->(key) { key.split("+").sum { |status| actual[status] } }
+diff = expected.reject { |key, value| count.call(key) == value }
 if diff.any?
   abort "#{name} (#{strategy}): counts changed: " +
-        diff.map { |key, value| "#{key} expected #{value}, got #{actual[key]}" }.join("; ")
+        diff.map { |key, value| "#{key} expected #{value}, got #{count.call(key)}" }.join("; ")
 end
 puts "#{name} (#{strategy}): counts match #{expected}"

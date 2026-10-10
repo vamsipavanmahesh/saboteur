@@ -100,10 +100,11 @@ survivors classified and a census of defs inside blocks.
   a ruby:3.4 Docker container: 391/391. Integration snapshots updated for
   the verdict check (class_eval) and given per-platform counts for
   tty-color, whose own tests depend on tput and on stdout being a terminal.
-  Open: tty-color under class_eval moves three mutants between killed and
-  error from run to run (65/62, 68/59, 69/58; .rspec does not randomise
-  order), so that snapshot is a range. Cause not found yet; it may be in
-  saboteur's class_eval path, not the target. nesting (default) is stable.
+  Open: tty-color under class_eval moves up to ten mutants between killed
+  and error from run to run (59/68 to 69/58 on Linux, also with a fixed
+  --seed; .rspec does not randomise order), so only killed+error (127) is
+  checked there. Randomness is ruled out; the cause may be timing in
+  saboteur's class_eval verdict check. nesting (default) is exact.
 - 2026-10-10 Child logs live in .saboteur/logs (cleared each run) instead of
   a new $TMPDIR/saboteur-* per run (1,711 had piled up). SimpleCov is turned
   off through Object.const_added the moment the app defines it, instead of
