@@ -20,13 +20,15 @@ tty-color:
   config: integration/configs/tty-color.yml
   schedule: pr
   expect:
-    class_eval: { killed: 69, survived: 7, timeout: 0, error: 58, skipped: 2 }
+    # class_eval: killed + error is always 127, but three mutants move between
+    # the two from run to run (seen: 65/62, 68/59, 69/58), because which
+    # killing tests also fail on the unchanged method varies between runs.
+    class_eval: { killed: "64..70", survived: 7, timeout: 0, error: "57..63", skipped: 2 }
     nesting: { killed: 118, survived: 16, timeout: 0, error: 0, skipped: 2 }
   # Mode#from_tput (is tput on PATH?) and Support#support? (is stdout a
   # terminal?) take different paths in tty-color's own tests on Linux CI.
   expect_on:
     linux:
-      class_eval: { killed: 65, error: 62 }
       nesting: { killed: 116, survived: 18 }
 human-essentials:
   repo: https://github.com/rubyforgood/human-essentials.git
