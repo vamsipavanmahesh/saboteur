@@ -33,5 +33,6 @@ Gem::Specification.new do |spec|
 
   # Ruby 3.3 bundles prism 0.19, whose API predates 1.0. Require a 1.x gem
   # with the node names saboteur uses (IfNode#subsequent, UnlessNode#else_clause).
+  spec.add_dependency "fiddle", ">= 1.1"
   spec.add_dependency "prism", ">= 1.2", "< 2"
 end

@@ -6,25 +6,31 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-10
+
+First release that does mutation testing. MIT licensed.
+
 ### Added
-- `saboteur run` with `--since`, `--subject`, `--timeout-factor`, `--jobs 1`,
-  `--reeval`, `--json`, `--no-cache`, `--config`.
-- Subject finder (Prism) and the v1 operators as byte-range edits: coarse
-  `nil`/`raise` bodies first, comparison, boolean, arithmetic, numeric
-  literal, statement removal, safe navigation, `||=`.
-- Per-mutant test selection by line coverage, prior killers then fastest
-  first; coverage map cached by content hash.
-- Neutral check before mutating each method.
-- Supervised children: whole-tree tracking and kill, deadline, memory and
-  process caps, CPU-limit backstop, recursion guard.
-- RSpec adapter; optional Rails profile (in progress). Minitest is out of
-  scope for v1.
+- `saboteur run` with `--since`, `--subject`, `--timeout-factor`, `--jobs`,
+  `--reeval`, `--json`, `--no-cache`, `--incremental`, `--config`.
+- Subjects found with Prism; mutations are byte-range edits: whole-method
+  `nil`/`true`/`false`/`raise` first, then comparison, boolean, arithmetic,
+  numeric literal, statement removal, condition, negation, safe navigation
+  and `||=`.
+- Per-example test selection from a per-test coverage map, cached by content
+  hash; timeouts scaled from each test's recorded duration.
+- Verdict check: every kill is re-run on the unchanged method, so a test that
+  fails anyway cannot count as a kill.
+- Supervised children: whole process tree tracked and killed, deadline,
+  memory and process caps, CPU-limit backstop, recursion guard.
+- Parallel workers (`--jobs N`), including Rails apps on Postgres and SQLite
+  with a database copy per worker.
+- RSpec adapter and a Rails profile. Minitest is out of scope.
 - Terminal report with unified diffs, Stryker JSON report, ignore list with
-  mandatory reasons.
+  mandatory reasons, incremental result cache.
 - Mutation-source extension point and lifecycle hooks.
 
 ## [0.0.1] - unreleased
 
 ### Added
-- Gem skeleton to reserve the name: CLI argument parsing, integration adapter
-  and hook interfaces, mutation-source extension point. No mutation testing yet.
+- Gem skeleton to reserve the name. No mutation testing yet.
