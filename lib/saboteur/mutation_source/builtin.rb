@@ -3,6 +3,7 @@
 
 require "prism"
 require_relative "base"
+require_relative "literal_replacement"
 
 module Saboteur
   module MutationSource
@@ -46,6 +47,7 @@ module Saboteur
       def initialize(arid: DEFAULT_ARID)
         super()
         @arid = arid.map { |pattern| pattern.is_a?(Regexp) ? pattern : Regexp.new(pattern) }
+        @literal_replacement = LiteralReplacement.new(arid: arid)
       end
 
       def name
@@ -58,7 +60,7 @@ module Saboteur
         @found = []
         coarse(body)
         visit(body)
-        @found
+        @found.concat(@literal_replacement.mutations_for(subject))
       ensure
         @subject = nil
       end
