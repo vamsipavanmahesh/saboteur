@@ -5,6 +5,7 @@ require "fileutils"
 require "json"
 require "open3"
 require "tmpdir"
+require "yaml"
 
 # Runs action/run-saboteur against a stand-in saboteur command, so the
 # action's own logic is tested without running mutation tests.
@@ -67,12 +68,14 @@ RSpec.describe "action/run-saboteur" do
   end
 
   # Runs the action. Returns [combined output, exit status].
-  def report_with_findings(findings, truncated: 0, statuses: nil)
+  def report_with_findings(findings, truncated: 0, statuses: nil, version: 1, accepted: [],
+                           accepted_truncated: 0)
     statuses ||= findings.map { "Survived" }
     JSON.generate(schemaVersion: "2",
                   files: { "lib/a.rb" => { mutants: mutants_from(statuses) } },
-                  saboteur: { findings: { version: 1, survivorsTruncated: truncated, acceptedTruncated: 0,
-                                          survivors: findings, accepted: [] } })
+                  saboteur: { findings: { version:, survivorsTruncated: truncated,
+                                          acceptedTruncated: accepted_truncated,
+                                          survivors: findings, accepted: } })
   end
 
   def finding(overrides = {})
@@ -418,7 +421,86 @@ RSpec.describe "action/run-saboteur" do
       expect(status).to eq(0)
       expect(output).to include("::warning")
       expect(output).not_to include("file=")
-      expect(File.read(step_summary)).not_to include("Surviving mutants, most actionable first")
+      expect(File.read(step_summary)).not_to include("Surviving mutants, coarse mutants first")
+    end
+
+    it "keeps an empty original aligned, so a pure insertion does not shift fields" do
+      output, = run_action({}, report: report_with_findings([finding(original: "", replacement: "raise")]))
+      expect(output).to include("became raise (698e4b7eca600583)")
+      expect(File.read(step_summary)).to include("- `lib/a.rb`:3 `comparison`: `` became `raise`")
+    end
+
+    it "widens the code span past any run of backticks in the source text" do
+      run_action({}, report: report_with_findings([finding(replacement: "a``b")]))
+      expect(File.read(step_summary)).to include("``` a``b ```")
+    end
+
+    it "ignores a findings section from another version" do
+      output, = run_action({}, report: report_with_findings([finding], version: 2))
+      expect(output).not_to include("file=")
+    end
+
+    it "skips a finding whose digest could smuggle a workflow command" do
+      output, = run_action({}, report: report_with_findings([finding(digest: "abc%0A::error::injected")]))
+      expect(output).to include("skipped a finding")
+      expect(output).not_to include("file=")
+      expect(output).not_to include("::error::injected")
+    end
+
+    it "clamps an end line below the start line back onto it" do
+      output, = run_action({}, report: report_with_findings([finding(line: 5, endLine: 2)]))
+      expect(output).to include("line=5,endLine=5")
+    end
+
+    it "keeps an empty replacement and a trailing newline aligned" do
+      output, = run_action({}, report: report_with_findings([finding(original: "x", replacement: "")]))
+      expect(output).to include("x became  (698e4b7eca600583)")
+      run_action({}, report: report_with_findings([finding(replacement: "line\n")]))
+      expect(File.read(step_summary, encoding: Encoding::UTF_8)).to include("`line⏎`")
+    end
+
+    it "skips a finding whose path could leave the repository" do
+      output, = run_action({}, report: report_with_findings([finding(path: "../secret.rb")]))
+      expect(output).to include("skipped a finding")
+      expect(output).not_to include("file=")
+    end
+
+    it "widens the span past three backticks and keeps HTML-looking text literal" do
+      run_action({}, report: report_with_findings([finding(replacement: "a```b", subject: "<b>x</b>")]))
+      summary = File.read(step_summary)
+      expect(summary).to include("```` a```b ````").and include("`<b>x</b>`")
+    end
+
+    it "annotates at most ten survivors even when the report lists more" do
+      many = (1..11).map { |n| finding(digest: format("%016x", n), line: n, endLine: n) }
+      output, = run_action({}, report: report_with_findings(many, truncated: 2,
+                                                                  statuses: ["Killed"] + (["Survived"] * 11)))
+      expect(output.scan(/^::warning file=/).size).to eq(10)
+      expect(File.read(step_summary)).to include("Showing the first 10 of 13 surviving mutants")
+    end
+
+    it "lists accepted survivors apart, with their reason, and no notes" do
+      ok = finding(digest: "fb645ab834991e60", reason: "equivalent")
+      output, = run_action({}, report: report_with_findings([finding], accepted: [ok],
+                                                                       statuses: %w[Killed Survived]))
+      expect(output.scan(/^::warning file=/).size).to eq(1)
+      summary = File.read(step_summary)
+      expect(summary).to include("### Accepted survivors (on the ignore list)")
+        .and include("accepted: `equivalent` (`fb645ab834991e60`)")
+    end
+
+    it "diagnoses a findings section that is present but unreadable" do
+      report = JSON.generate(schemaVersion: "2", files: { "lib/a.rb" => { mutants: mutants_from(%w[Survived]) } },
+                             saboteur: { findings: { version: 1, survivors: "broken" } })
+      output, = run_action({}, exit_status: 1, report:)
+      expect(output).to include("findings section, but it is not version 1 findings data")
+      expect(output).not_to include("file=")
+    end
+
+    it "keeps the report artifact even when the saboteur step fails" do
+      action = YAML.safe_load_file(File.join(__dir__, "..", "..", "action.yml"))
+      upload = action.fetch("runs").fetch("steps").find { |step| step["uses"].to_s.include?("upload-artifact") }
+      expect(upload.fetch("if")).to include("always()")
     end
 
     it "keeps working when the findings section is malformed" do
