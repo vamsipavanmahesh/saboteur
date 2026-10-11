@@ -3,6 +3,7 @@
 
 require "digest"
 require "json"
+require_relative "data_inputs"
 
 module Saboteur
   class Engine
@@ -12,7 +13,7 @@ module Saboteur
       FORMAT_VERSION = 1
       MANIFESTS = %w[Gemfile gems.rb Gemfile.lock gems.locked .rspec .rspec-local].freeze
       LOCATION_SETTINGS = %w[cache_dir json_report html_report].freeze
-      ENTRY_KINDS = %w[ruby manifest boot hook source_plugin extra].freeze
+      ENTRY_KINDS = %w[ruby manifest boot hook source_plugin extra data].freeze
       EXCLUDED_DIRECTORIES = %w[.git vendor node_modules].freeze
       Entry = Data.define(:path, :kind, :state, :sha256, :required)
       Change = Data.define(:path, :reason)
@@ -202,12 +203,19 @@ module Saboteur
       def inventory(issues)
         paths = project_files(issues).to_h { |path| [path, "ruby"] }
         MANIFESTS.each { |name| paths[File.join(@root, name)] = "manifest" }
+        data_files(issues).each { |path| paths[path] ||= "data" }
         required = merged_required_files
         required.each { |path, (kind, _)| paths[path] = kind }
         paths.map do |path, kind|
-          needed = required.key?(path) ? required[path].last : kind != "manifest"
+          needed = required.key?(path) ? required[path].last : !%w[manifest data].include?(kind)
           read_entry(path, kind, needed, issues)
         end
+      end
+
+      # Fixtures, schema dumps and database config. A pattern with no match is
+      # fine; a listed file that vanishes later shows up as "removed".
+      def data_files(_issues)
+        DataInputs.files(@root, extra: @config["fingerprint_extra"])
       end
 
       def merged_required_files
