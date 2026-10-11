@@ -60,3 +60,40 @@ RSpec.describe Saboteur::BaselineHealth, "stopped checks" do
       .to raise_error(Saboteur::Error, /stopped: deadline/)
   end
 end
+
+RSpec.describe Saboteur::BaselineHealth, "bad child evidence" do
+  let(:integration) do
+    instance_double(Saboteur::Integration::Base,
+                    all_tests: [Saboteur::Integration::TestCase.new(id: "a", file: "a.rb")])
+  end
+  let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
+
+  def check(payload:, exit_status: nil, leftover_pids: [])
+    result = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
+                                                                      payload: payload, exit_status: exit_status, leftover_pids: leftover_pids)
+    allow(supervisor).to receive(:run).and_return(result)
+    described_class.new(Saboteur::Config.new, integration: integration, supervisor: supervisor).call
+  end
+
+  it "rejects missing payload" do
+    expect { check(payload: "") }.to raise_error(Saboteur::Error, /without a result/)
+  end
+
+  it "rejects malformed and non-object payloads" do
+    ["{", "[]", "null"].each do |payload|
+      expect { check(payload: payload) }.to raise_error(Saboteur::Error, /invalid result/)
+    end
+  end
+
+  it "rejects a nonzero child exit even with green evidence" do
+    pid = fork { exit! 7 }
+    _, status = Process.wait2(pid)
+    expect { check(payload: JSON.generate(passed: true, executed: ["a"]), exit_status: status) }
+      .to raise_error(Saboteur::Error, /exited unsuccessfully/)
+  end
+
+  it "rejects leftover processes" do
+    expect { check(payload: JSON.generate(passed: true, executed: ["a"]), leftover_pids: [123]) }
+      .to raise_error(Saboteur::Error, /left processes/)
+  end
+end
