@@ -26,6 +26,14 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     expect(diagnostics.warnings).to include("K#m: omitted 1 mutant(s) above max_mutants_per_method (2)")
   end
 
+  it "does not warn when the candidate count equals the limit" do
+    allow(map).to receive(:tests_for).and_return(["t1"])
+    list = [[:coarse, "nil"], [:fine, "0"]]
+    allow(candidates).to receive(:for).and_return(list)
+    expect(selection.for(subject_under_test)).to eq(list)
+    expect(diagnostics.warnings).to be_empty
+  end
+
   it "restricts to changed lines before applying the limit" do
     allow(map).to receive(:tests_for).and_return(["t1"])
     list = [[:outside, "a"], [:changed, "b"], [:changed, "c"]]
