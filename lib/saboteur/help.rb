@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "json"
 require_relative "config"
 
 module Saboteur
@@ -50,7 +51,8 @@ module Saboteur
     EXIT_CODE_MEANINGS = {
       0 => "Success. No unignored survivors.",
       1 => "At least one mutant survived and is not on the ignore list.",
-      2 => "Usage or configuration error. Nothing was run. Fix the command or .saboteur.yml.",
+      2 => "Usage or configuration error: fix the command or .saboteur.yml. A replay --id that matches no " \
+           "mutant is only found after the target has booted.",
       3 => "Tool error: saboteur could not finish, or every executed mutant errored."
     }.freeze
 
@@ -135,13 +137,13 @@ module Saboteur
 
     def config_section
       rows = Config::DEFAULTS.map { |key, value| "  #{key}: #{describe_default(value)}" }
-      "CONFIG FILE (.saboteur.yml)\nEvery key with its default. Unknown keys are an error.\n#{rows.join("\n")}\n"
+      intro = "Every key with its default value, as YAML. Unknown keys are an error."
+      "CONFIG FILE (.saboteur.yml)\n#{intro}\n#{rows.join("\n")}\n"
     end
 
+    # Valid YAML (JSON flow style), so a copied line keeps the default's meaning.
     def describe_default(value)
-      return value.inspect unless value.is_a?(Array) && value.size > 3
-
-      "[#{value.size} entries]"
+      JSON.generate(value)
     end
 
     def files_section
