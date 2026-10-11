@@ -1,20 +1,13 @@
 name: saboteur mutation testing
 description: >-
-  Runs saboteur in diff mode on a pull request, so only the methods the pull
-  request changed are mutated. Advisory by default.
+  Runs saboteur in diff mode against the pull request event's exact base
+  commit. Advisory by default.
 author: Vamsi Pavan Mahesh Gunturu
 branding:
   icon: shield
   color: red
 
 inputs:
-  base-ref:
-    description: >-
-      Branch the pull request targets. Defaults to the pull request's base
-      branch. The action only runs on pull_request events and does nothing on
-      any other event, even when this is set.
-    required: false
-    default: ${{ github.base_ref }}
   command:
     description: How to start saboteur. The project's Gemfile must include saboteur.
     required: false
@@ -99,7 +92,7 @@ runs:
       shell: bash
       env:
         SABOTEUR_EVENT_NAME: ${{ github.event_name }}
-        SABOTEUR_BASE_REF: ${{ inputs.base-ref }}
+        SABOTEUR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         SABOTEUR_COMMAND: ${{ inputs.command }}
         SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
         SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
