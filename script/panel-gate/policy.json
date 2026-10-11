@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "context": "panel/head-gate",
+  "baseBranch": "main",
+  "reviewers": {
+    "principal": [
+      1875074
+    ],
+    "architect": [
+      1875074
+    ],
+    "qa": [
+      1875074
+    ]
+  },
+  "workflows": {
+    ".github/workflows/ci.yml": [
+      "Ruby 3.3 / ubuntu-latest",
+      "Ruby 3.3 / macos-latest",
+      "Ruby 3.4 / ubuntu-latest",
+      "Ruby 3.4 / macos-latest",
+      "Ruby ruby / ubuntu-latest",
+      "Ruby ruby / macos-latest",
+      "lint",
+      "dry-inflector (class_eval)",
+      "dry-inflector (nesting)",
+      "tty-color (class_eval)",
+      "tty-color (nesting)",
+      "dogfood"
+    ],
+    ".github/workflows/dco.yml": [
+      "signoff"
+    ]
+  },
+  "protectedFiles": [
+    ".github/workflows",
+    ".github/workflows/ci.yml",
+    ".github/workflows/dco.yml",
+    ".github/workflows/panel-gate.yml",
+    "script/check-dco",
+    "script/integration-target",
+    "script/panel-gate/policy.json",
+    "script/panel-gate/verify.cjs",
+    "script/panel-gate/verify.test.cjs",
+    ".saboteur-ignore.yml"
+  ]
+}
