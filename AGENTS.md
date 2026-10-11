@@ -37,9 +37,10 @@ Names follow Uncle Bob's Clean Code conventions:
 
 ## Review
 
-- Raise the pull request first. The adversarial review panel reviews the open pull request.
-- Land fixes as new commits on the same pull request.
-- Merge only after panel sign-off and green CI.
+- A pull request opens with the first push. Open it as a draft while the work is in progress. No branch sits on origin without a pull request.
+- The adversarial review panel posts its review as comments on the open pull request.
+- The author resolves those comments with fixes as new commits, then the panel re-reviews.
+- Merge only when the panel and the author agree and CI is green.
 
 ## Performance claims
 
