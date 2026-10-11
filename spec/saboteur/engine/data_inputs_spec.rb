@@ -50,6 +50,10 @@ RSpec.describe Saboteur::Engine::DataInputs do
       expect(described_class.match?(@root, File.join(@root, "data/x.csv"))).to be(false)
       expect(described_class.match?(@root, File.join(@root, "app/models/user.rb"))).to be(false)
       expect(described_class.match?(@root, "/elsewhere/db/structure.sql")).to be(false)
+      # Not under root: a bare relative path or a sibling directory is never an input,
+      # even though its text matches a glob once the root prefix is skipped.
+      expect(described_class.match?(@root, "db/structure.sql")).to be(false)
+      expect(described_class.match?(@root, "#{@root}-other/db/structure.sql")).to be(false)
     end
   end
 end
