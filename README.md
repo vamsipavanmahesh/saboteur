@@ -45,6 +45,7 @@ workflow recommendation, not a new CLI default: plain `run` still checks the
 whole configured project. See [the pull-request guide](docs/pull-requests.md)
 for checkout history, configuration and limits. Keep whole-project runs on
 main: diff mode does not check every method affected by a dependency change.
+The [GitHub Action](docs/github-action.md) wires this into a pull request in one step.
 
 Every test run starts from the same random seed (1 by default), so tests
 that use `rand` see the same values in each mutant's run and in the check
