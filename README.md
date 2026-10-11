@@ -198,7 +198,7 @@ Ruby dispatch is dynamic: a matching name does not prove the receiver is an
 Enumerable, and a custom receiver can make the replacement fail. No type or
 real-fault detection guarantee is made.
 
-These are fine mutants, appended after the existing built-in operators. Old
+These are fine mutants, appended after the existing built-in operators. For unchanged subjects, old
 mutant digests and relative order stay unchanged, but runs can produce more
 mutants, change their score, and hit the per-method cap. The operator and source
 name in reports is `filter_replacement`.
