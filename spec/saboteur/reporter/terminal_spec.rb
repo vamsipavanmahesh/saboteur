@@ -54,6 +54,21 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).not_to include("person_spec.rb[1:6]")
   end
 
+  it "lists exactly five covering tests with no 'more' line, and six with one" do
+    five = (1..5).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    expect(render(report_of(result_for(:survived, covered_by: five)))).to include("5 tests covered", "[1:5]")
+      .and(satisfy { |text| !text.include?("more in the JSON report (coveredBy)") })
+    six = render(report_of(result_for(:survived, covered_by: five + ["./spec/person_spec.rb[1:6]"])))
+    expect(six).to include("6 tests covered", "... 1 more in the JSON report (coveredBy)")
+    expect(six).not_to include("[1:6]\n")
+  end
+
+  it "says tests for two covering tests and test for one" do
+    two = render(report_of(result_for(:survived, covered_by: ["./a_spec.rb[1:1]", "./a_spec.rb[1:2]"])))
+    expect(two).to include("2 tests covered this line")
+    expect(two).not_to include("2 test covered")
+  end
+
   it "says a reused survivor's tests passed in an earlier run" do
     text = render(report_of(result_for(:survived, reused: true, covered_by: ["./spec/person_spec.rb[1:1]"])))
     expect(text).to include("1 test covered this line and passed in an earlier run (--incremental)")
