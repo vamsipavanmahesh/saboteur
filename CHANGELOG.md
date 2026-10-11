@@ -6,6 +6,12 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Fine `argument_removal` mutants: remove one ordinary argument from a
+  parenthesized call while preserving keywords and blocks. Token-based comma
+  edits respect comments and strings. Existing candidate validation, order and
+  per-method caps apply. Unparenthesized calls and heredoc arguments are skipped.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added
