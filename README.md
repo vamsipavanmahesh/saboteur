@@ -334,7 +334,7 @@ Public API, stable across minor versions:
 
 ## 🌍 Where it has run
 
-An early release (0.2.0). Tested on the RSpec suites of plain gems
+An early release (0.3.0). Tested on the RSpec suites of plain gems
 (dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
 human-essentials on Postgres (4,080 mutants, 6 workers) and lobsters on SQLite,
 both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
@@ -411,4 +411,3 @@ Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build s
 ## License
 
 MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
-
