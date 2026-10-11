@@ -72,6 +72,7 @@ module Saboteur
       @values = DEFAULTS.merge(values)
       coerce!
       validate!
+      validate_report_paths!
     end
 
     def [](key)
@@ -119,6 +120,13 @@ module Saboteur
 
     def validate_mutant_limit!
       raise ConfigError, "max_mutants_per_method must be > 0" unless self["max_mutants_per_method"].positive?
+    end
+
+    def validate_report_paths!
+      json = path("json_report")
+      return unless json && json == path("html_report")
+
+      raise ConfigError, "json_report and html_report both point to #{json}; give each report its own path"
     end
 
     def validate!
