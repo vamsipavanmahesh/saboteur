@@ -43,4 +43,15 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat" do
     heartbeat.tick
     expect(err.string.lines.size).to eq(2)
   end
+
+  # The gate is inclusive: an elapsed time of exactly the interval prints.
+  it "prints when exactly the interval has elapsed" do
+    allow(Process).to receive(:clock_gettime).and_call_original
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0, 100.0, 130.0)
+    heartbeat = diagnostics.progress_heartbeat("long phase", interval: 30)
+    heartbeat.tick
+    expect(err.string).to eq("")
+    heartbeat.tick
+    expect(err.string).to match(/long phase: 30 s elapsed/)
+  end
 end
