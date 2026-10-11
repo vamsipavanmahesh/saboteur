@@ -206,7 +206,7 @@ for (const fault of ['newRun', 'newAttemptGreen', 'jobFailed', 'jobReplaced', 'n
     const api = fakeAPI(), pages = api.pages.bind(api), call = api.call.bind(api);
     let runLists = 0, ledgerReads = 0;
     api.pages = async path => {
-      if (path === `commits/${policy.revocationAnchor}/statuses` && ++ledgerReads > 2) {
+      if (path === `commits/${policy.revocationAnchor}/statuses` && ++ledgerReads > 1) {  // read 1 is the shared sweep read; read 2 is the live final re-check
         if (fault === 'ledgerError') throw new Error('ledger unavailable');
         if (fault === 'newRevocation') return [{context: 'panel/revoked/pr-1', description: 'principal:10', created_at: '2026-10-12T00:00:00Z'}];
       }
@@ -377,4 +377,115 @@ test('force-push event read failure and invalid epoch fail closed', async () => 
     await assert.rejects(() => verify(api, 1));
     assert.equal(api.statuses.at(-1).state, 'failure');
   }
+});
+
+const {targets, API, RateLimitError} = require('./verify.cjs');
+const openPR = (number, sha = 'c'.repeat(40), extra = {}) => ({number, draft: false, state: 'open', base: {ref: 'main'}, head: {sha}, ...extra});
+function listAPI(list) {
+  const calls = [];
+  return {calls, async call(path) { calls.push(path); const n = Number(path.split('/')[1]); return list.find(p => p.number === n) || {...openPR(n), state: 'closed'}; },
+    async pages(path) { calls.push(path); return list; }};
+}
+test('a comment or dispatch sweeps only its own PR and skips closed, draft or other-base PRs', async () => {
+  const api = listAPI([openPR(5), openPR(6, 'd'.repeat(40), {draft: true}), openPR(7, 'e'.repeat(40), {base: {ref: 'dev'}})]);
+  assert.deepEqual(await targets(api, 'issue_comment', {issue: {number: 5}}), [5]);
+  assert.deepEqual(await targets(api, 'workflow_dispatch', {inputs: {pr_number: '5'}}), [5]);
+  for (const number of [6, 7, 8]) assert.deepEqual(await targets(api, 'issue_comment', {issue: {number}}), []);
+  assert.deepEqual(api.calls.filter(path => path.startsWith('pulls?')), []);
+  await assert.rejects(() => targets(api, 'workflow_dispatch', {inputs: {pr_number: 'x'}}), /invalid PR number/);
+});
+test('a CI run sweeps the PRs it names or whose head it ran, never the rest', async () => {
+  const api = listAPI([openPR(1, 'a'.repeat(40)), openPR(2, 'b'.repeat(40)), openPR(3, 'c'.repeat(40))]);
+  assert.deepEqual(await targets(api, 'workflow_run', {workflow_run: {pull_requests: [{number: 1}], head_sha: 'f'.repeat(40)}}), [1]);
+  assert.deepEqual(await targets(api, 'workflow_run', {workflow_run: {pull_requests: [], head_sha: 'b'.repeat(40)}}), [2]);
+  assert.deepEqual(await targets(api, 'workflow_run', {workflow_run: {head_sha: 'f'.repeat(40)}}), []);
+});
+test('a push to main sweeps every open ready PR', async () => {
+  const api = listAPI([openPR(1), openPR(2, 'd'.repeat(40), {draft: true}), openPR(3)]);
+  assert.deepEqual(await targets(api, 'push', {}), [1, 3]);
+});
+test('one sweep reads the anchor ledger once however many PRs it covers', async () => {
+  const api = fakeAPI(), pages = api.pages.bind(api), sweep = {};
+  let ledgerReads = 0;
+  api.pages = async path => { if (path === `commits/${policy.revocationAnchor}/statuses`) ledgerReads++; return pages(path); };
+  await verify(api, 1, sweep); await verify(api, 1, sweep);
+  assert.equal(ledgerReads, 3); // one shared read plus one live final re-check per PR
+});
+test('a failed shared ledger read is not remembered for the next PR', async () => {
+  const api = fakeAPI(), pages = api.pages.bind(api), sweep = {};
+  let fail = true;
+  api.pages = async path => { if (fail && path === `commits/${policy.revocationAnchor}/statuses`) { fail = false; throw new Error('ledger unavailable'); } return pages(path); };
+  await assert.rejects(() => verify(api, 1, sweep), /ledger unavailable/);
+  await verify(api, 1, sweep);
+});
+function fetchStub(response) {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => response;
+  return () => { globalThis.fetch = original; };
+}
+const reply = (status, headers, body) => ({ok: status < 300, status, headers: new Headers(headers), text: async () => body, json: async () => JSON.parse(body)});
+const limits = [
+  [403, {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1791747209'}, 'Forbidden'],
+  [429, {}, 'slow down'],
+  [403, {'retry-after': '30'}, 'try later'],
+  [403, {}, 'You have exceeded a secondary rate limit']
+];
+for (const [status, headers, message] of limits) {
+  test(`HTTP ${status} with exhaustion evidence (${Object.keys(headers)[0] || message}) is a rate limit`, async () => {
+    const restore = fetchStub(reply(status, headers, JSON.stringify({message})));
+    try {
+      await assert.rejects(() => new API('o/r', 't').call('pulls/1'), error => {
+        assert.ok(error instanceof RateLimitError);
+        assert.match(error.message, new RegExp(`^GitHub API ${status} \\(rate limit\\): pulls/1; remaining ${headers['x-ratelimit-remaining'] ?? 'unknown'}, resets ${headers['x-ratelimit-reset'] ? '2026-10-11T' : 'unknown'}`));
+        assert.ok(error.message.includes(`${message}; stopped without writing statuses`));
+        return true;
+      });
+    } finally { restore(); }
+  });
+}
+for (const [status, headers, message] of [[403, {'x-ratelimit-remaining': '4999'}, 'Resource not accessible by integration'],
+  [403, {}, 'Resource protected by organization SAML enforcement'], [500, {}, 'oops']]) {
+  test(`HTTP ${status} without exhaustion evidence (${message}) is an ordinary failure`, async () => {
+    const restore = fetchStub(reply(status, headers, JSON.stringify({message})));
+    try { await assert.rejects(() => new API('o/r', 't').call('pulls/1'), error => !(error instanceof RateLimitError) && error.message === `GitHub API ${status}: pulls/1`); }
+    finally { restore(); }
+  });
+}
+test('a permission 403 still writes the fail-closed failure status', async () => {
+  const api = fakeAPI(), pages = api.pages.bind(api);
+  api.pages = async path => { if (path === 'issues/1/comments') throw new Error('GitHub API 403: issues/1/comments'); return pages(path); };
+  await assert.rejects(() => verify(api, 1), /GitHub API 403/);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'failure']);
+});
+test('other HTTP errors keep their short message, so a 404 stays recognizable', async () => {
+  const restore = fetchStub(reply(404, {}, '{}'));
+  try { await assert.rejects(() => new API('o/r', 't').call('contents/x'), error => !(error instanceof RateLimitError) && error.message === 'GitHub API 404: contents/x'); }
+  finally { restore(); }
+});
+test('a rate limit stops verification without writing a failure status', async () => {
+  const api = fakeAPI(), pages = api.pages.bind(api);
+  api.pages = async path => { if (path === 'issues/1/comments') throw new RateLimitError('GitHub API 403: out of quota'); return pages(path); };
+  await assert.rejects(() => verify(api, 1), RateLimitError);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending']);
+});
+test('a failure status that cannot be written does not hide the original reason', async () => {
+  const api = fakeAPI({behind: true}), call = api.call.bind(api);
+  api.call = async (path, method, data) => { if (method === 'POST' && data.state === 'failure') throw new Error('GitHub API 500: statuses'); return call(path, method, data); };
+  await assert.rejects(() => verify(api, 1), /head is not ahead of its base.*failure status could not be written.*500/);
+});
+
+test('a spent quota during the revocation latch keeps its reset details and still tries both latches', async () => {
+  const api = eventAPI(), call = api.call.bind(api), attempts = [];
+  api.call = async (path, method, data) => {
+    if (method === 'POST') { attempts.push(data.context); throw new RateLimitError('GitHub API 429 (rate limit): statuses/x; remaining 0, resets 2026-10-12T01:00:00.000Z'); }
+    return call(path, method, data);
+  };
+  await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE}))), error => error instanceof RateLimitError && /resets 2026-10-12T01:00:00/.test(error.message));
+  assert.equal(attempts.length, 2);
+});
+test('other latch write failures still fail loudly and now name the cause', async () => {
+  const api = eventAPI(), call = api.call.bind(api);
+  api.call = async (path, method, data) => { if (method === 'POST') throw new Error('GitHub API 500: statuses'); return call(path, method, data); };
+  await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE}))), error => !(error instanceof RateLimitError) &&
+    /^revocation latch write failed; retry event after API recovery: GitHub API 500: statuses \| GitHub API 500: statuses$/.test(error.message));
 });
