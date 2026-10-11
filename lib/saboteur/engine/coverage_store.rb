@@ -27,9 +27,9 @@ module Saboteur
       def fetch(files)
         path = File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}.json")
         cached = @config["cache"] ? Selection::CoverageMap.load(path) : nil
-        return cached if cached
+        return refuse_empty_map(cached, files) if cached
 
-        map = build(files)
+        map = refuse_empty_map(build(files), files)
         map.save(path)
         map
       end
@@ -63,17 +63,17 @@ module Saboteur
         data = JSON.parse(result.payload)
         raise Error, "coverage map build failed: #{data['error']}" if data["error"]
 
-        map = Selection::CoverageMap.from_json(result.payload)
-        refuse_empty_map(map, files)
-        map
+        Selection::CoverageMap.from_json(result.payload)
       end
 
-      # No lines for any included file means the setup is broken (Bootsnap's
-      # compile cache serving counter-less bytecode is the default Rails
-      # case), never that the tests are weak: a run on this map would test
-      # nothing and still exit 0. Fail here, before the map is cached.
+      # No covered line in any included file means the setup is broken
+      # (Bootsnap's compile cache serving counter-less bytecode is the
+      # default Rails case), never that the tests are weak: a run on this
+      # map would test nothing and still exit 0. Applies to a cached map
+      # too, so a map cached before this check cannot keep a run green,
+      # and the guard runs before saving, so an empty map is never cached.
       def refuse_empty_map(map, files)
-        return if files.empty? || map.lines.any?
+        return map if files.empty? || map.lines.any? { |_file, by_line| by_line.any? }
 
         raise Error, "Coverage recorded no lines in #{files.size} included files. " \
                      "Is Bootsnap's compile cache on? Run `saboteur doctor`."
