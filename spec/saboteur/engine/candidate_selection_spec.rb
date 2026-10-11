@@ -44,3 +44,32 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     expect(diagnostics.warnings).to be_empty
   end
 end
+
+RSpec.describe Saboteur::Engine::CandidateSelection, "real candidate pipeline" do
+  it "validates, deduplicates, orders coarse first, restricts the diff, then caps proposals" do
+    subject = subjects_in("class K\n  def m(a)\n    a + 1\n    a + 2\n  end\nend\n").first
+    source = Class.new(Saboteur::MutationSource::Base) do
+      def mutations_for(subject)
+        [["a + 1", "a - 1", false], ["a + 2", "a +", false],
+         ["a + 2", "a + 2", false], ["a + 2", "a - 2", false],
+         ["a + 2", "a - 2", false], ["a + 2", "nil", true],
+         ["a + 2", "a * 2", false]].map do |original, replacement, coarse|
+          start = subject.file_source.index(original)
+          edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: start,
+                                                    end_byte: start + original.bytesize, replacement: replacement)
+          Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: replacement,
+                                                 edits: [edit], coarse: coarse)
+        end
+      end
+    end.new
+    diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+    candidates = Saboteur::Engine::Candidates.new([source, source], diagnostics)
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 4 => ["t1"] } }, tests: ["t1"])
+    scope = Saboteur::Engine::DiffScope.new(subject.file => Set[4])
+    selection = described_class.new(candidates: candidates, map: map, limit: 2, diagnostics: diagnostics)
+    selected = selection.for(subject, scope: scope)
+    expect(selected.map { |mutation, _| mutation.operator }).to eq(["nil", "a - 2"])
+    expect(diagnostics.invalid_mutations).to eq(1)
+    expect(diagnostics.warnings).to eq(["K#m: omitted 1 mutant(s) above max_mutants_per_method (2)"])
+  end
+end
