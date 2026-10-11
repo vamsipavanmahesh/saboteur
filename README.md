@@ -242,6 +242,11 @@ jobs: 4                           # optional; the default is 1
 Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
 generator is planned; until then this block is the supported setup.
 
+A Rails engine's dummy app has no `config/environment.rb`. Point `require`
+at the file that boots the dummy app instead - typically
+`spec/rails_helper.rb`, which calls `DummyApp.setup` - and keep
+`rails: true`.
+
 Bootsnap needs no extra setting: bytecode from its compile cache carries no
 coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
 own process when the variable is not already set (Bootsnap treats any set
