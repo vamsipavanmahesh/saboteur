@@ -153,7 +153,9 @@ RSpec.describe Saboteur::Frameworks::Rails do
                          [:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur3"', :removed])
     end
 
-    it "drops only the copies a failed prepare actually made" do
+    # The copy for saboteur3 was really made before the error, so it must
+    # be dropped too - tracking after copy_database returns would leak it.
+    it "drops the copies a failed prepare attempted, including the one that failed" do
       db = fake_pool(:writing).db_config
       base = fake_base(db)
       stub_const("ActiveRecord::Base", base)
@@ -164,7 +166,23 @@ RSpec.describe Saboteur::Frameworks::Rails do
       expect { rails.prepare_workers(3) }.to raise_error("disk full")
       log.clear
       rails.cleanup_workers
-      expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed])
+      expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed,
+                         [:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur3"', :removed])
+    end
+
+    # A disconnect that raises must not escape as an unrescued error and
+    # mask the run's outcome; it is reported with the drop failures.
+    it "reports a failed disconnect with the drop failures" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(2)
+      log.clear
+      allow(rails).to receive(:disconnect).and_raise("handler exploded")
+      expect { rails.cleanup_workers }.to raise_error(
+        Saboteur::Error,
+        /could not drop worker database copies: app_test_saboteur2: handler exploded; disconnect: handler exploded/
+      )
+      # The drop was attempted even though its disconnect failed.
+      expect(rails.instance_variable_get(:@worker_copies)).to be_empty
     end
 
     it "keeps dropping after a failed drop and reports every failure at the end" do
