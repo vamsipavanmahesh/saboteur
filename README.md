@@ -133,6 +133,14 @@ NoCoverage as undetected.
 Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 2 bad configuration, 3 the tool failed.
 
+### Rejected kills
+
+The terminal prints `kills rejected by unchanged-method check: N`; JSON adds
+`rejectedKills`. This counts fresh per-mutant kill claims whose tests also fail
+with the method unchanged. They stay errors outside the score. Timeout checks,
+other errors and reused cached kills are not included. See
+[rejected kills](docs/rejected-kills.md) for details.
+
 ## ⚙️ Configuration
 
 `.saboteur.yml` in the project root; CLI flags override it. Keep the shared
