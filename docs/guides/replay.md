@@ -10,7 +10,8 @@ The digest above is an example. Use a digest from your own current source.
 Keep the source, config, dependencies and seed the same as the original run.
 
 `--id` resolves exactly one current mutant within the configured include files
-and any `--subject` or `--since` filters. Prefixes, unknown digests and ambiguous
+and any `--subject` or `--since` filters. Diff mode keeps its normal
+changed-line restriction for fine mutants and retains coarse mutants. Prefixes, unknown digests and ambiguous
 digests are errors (exit 2). Changed source or mutation-source config can make an
 old digest unavailable.
 
@@ -23,4 +24,5 @@ history. Replay does not reproduce timing or previous killer-first ordering.
 
 A surviving replay exits 1 even if the digest is in the ignore list. Killed or
 timeout results exit 0; a tool error exits 3. Existing terminal and JSON reports
-contain only the selected mutant. An uncovered mutant is reported as skipped.
+contain only the selected mutant. Replay prints its digest, diff and
+coverage-selected test ids for every status, including a kill or timeout. An uncovered mutant is reported as skipped.
