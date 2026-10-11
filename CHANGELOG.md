@@ -79,7 +79,9 @@ All notable changes are documented here. The format follows
 ### Fixed
 - Rails apps whose test database is in-memory SQLite (`:memory:`) no longer
   lose their schema: saboteur never disconnects, renames or copies an
-  in-memory pool, and workers inherit the parent's database through fork.
+  in-memory pool. Each in-memory database is snapshotted to a temporary
+  file after boot, and every forked child restores the snapshot into its
+  own fresh database.
 - Linux: killed orphans adopted by the supervisor are reaped reliably, so no
   zombies are left behind (first run on Linux CI).
 - The README status line describes what has actually been tested.
