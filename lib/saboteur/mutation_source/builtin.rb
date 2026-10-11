@@ -46,8 +46,8 @@ module Saboteur
 
       def initialize(arid: DEFAULT_ARID)
         super()
-        @filter_replacement = FilterReplacement.new(arid: arid)
         @arid = arid.map { |pattern| pattern.is_a?(Regexp) ? pattern : Regexp.new(pattern) }
+        @filter_replacement = FilterReplacement.new(arid: arid)
       end
 
       def name
