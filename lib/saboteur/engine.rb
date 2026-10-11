@@ -30,19 +30,35 @@ module Saboteur
       started = monotonic
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
       boot = Boot.new(config, hooks)
-      integration = boot.load_target
-      @rails = boot.rails
-      files = config.included_files
-      subjects, scope = select_subjects(files)
-      results = subjects.empty? ? [] : mutate(subjects, files, integration, scope)
-      @diagnostics.warnings.concat(ignore_list.apply(results))
+      begin
+        integration = boot.load_target
+        @rails = boot.rails
+        files = config.included_files
+        subjects, scope = select_subjects(files)
+        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope)
+        @diagnostics.warnings.concat(ignore_list.apply(results))
+        build_report(results, subjects, scope, started)
+      ensure
+        # The run boundary for the per-worker databases: cleanup runs however
+        # the call ends - a boot that raised partway through, a baseline or
+        # coverage failure, no subjects, no runnable work - so a host that
+        # embeds Engine and calls it repeatedly never holds copies or
+        # snapshots until process exit. cleanup_workers is idempotent; the
+        # Rails profile's at_exit handler stays as the fallback for an
+        # abrupt process exit.
+        safely_cleanup_workers(boot.rails)
+      end
+    end
+
+    private
+
+    # The run's immutable report, built once the last result is in.
+    def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope)
     end
-
-    private
 
     # The subjects to mutate and, in diff mode, the scope of changed lines.
     def select_subjects(files)
@@ -67,20 +83,14 @@ module Saboteur
       return [] if work.empty?
 
       runnable_subjects, runnable_lists = work.transpose
-      begin
-        @rails&.prepare_workers(config["jobs"])
-        # The execution phase forks next: the worker batch, or one child per
-        # mutant when serial. Pack the heap now that the map and candidates
-        # are retained, to reduce later copying of shared pages.
-        Execution::ForkReadiness.prepare_heap
-        results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                                   cache: cache, on_start: method(:start_worker)).run(runnable_subjects,
-                                                                                      runnable_lists)
-      ensure
-        # The per-worker database copies exist only for this run, however it
-        # ends; copies made before a failed prepare go too.
-        safely_cleanup_workers
-      end
+      @rails&.prepare_workers(config["jobs"])
+      # The execution phase forks next: the worker batch, or one child per
+      # mutant when serial. Pack the heap now that the map and candidates
+      # are retained, to reduce later copying of shared pages.
+      Execution::ForkReadiness.prepare_heap
+      results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+                                 cache: cache, on_start: method(:start_worker)).run(runnable_subjects,
+                                                                                    runnable_lists)
       cache&.save
       results
     end
@@ -114,8 +124,8 @@ module Saboteur
 
     # A cleanup failure must never mask the run's own outcome - not even
     # one cleanup_workers did not anticipate.
-    def safely_cleanup_workers
-      @rails&.cleanup_workers
+    def safely_cleanup_workers(rails)
+      rails&.cleanup_workers
     rescue StandardError => e
       @diagnostics.warn(e.message)
     end
