@@ -38,7 +38,8 @@ module Saboteur
       @diagnostics.warnings.concat(ignore_list.apply(results))
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
-                 review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects)
+                 review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
+                 diff_scope: scope)
     end
 
     private
