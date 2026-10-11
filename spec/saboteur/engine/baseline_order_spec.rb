@@ -17,7 +17,16 @@ RSpec.describe Saboteur::Engine, "baseline refusal" do
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       baseline = instance_double(Saboteur::Engine::BaselineGuard)
       allow(baseline).to receive(:call).and_raise(Saboteur::Error, "baseline failed")
-      allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
+      expect(Saboteur::Engine::BaselineGuard).to receive(:new) do |config:, integration:, hooks:, supervisor:,
+                                                                                diagnostics:|
+        expect(config["seed"]).to eq(1)
+        expect(integration).to equal(boot.load_target)
+        expect(hooks).to be_a(Saboteur::Hooks)
+        expect(supervisor).to be_a(Saboteur::Execution::Supervisor)
+        expect(supervisor.instance_variable_get(:@limits).max_memory_mb).to eq(8192)
+        expect(diagnostics).to be_a(Saboteur::Engine::Diagnostics)
+        baseline
+      end
       expect(Saboteur::Engine::CoverageStore).not_to receive(:new)
       expect(Saboteur::Engine::Candidates).not_to receive(:new)
       expect(Saboteur::Engine::ResultCache).not_to receive(:new)
