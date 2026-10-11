@@ -44,10 +44,10 @@ that says so when the checkout is shallow or the base branch is missing.
 | --- | --- | --- |
 | `base-ref` | the pull request's base branch | Branch to diff against. |
 | `command` | `bundle exec saboteur` | How to start saboteur. |
-| `arguments` | empty | Extra saboteur arguments, such as `--jobs 2`. Split on whitespace; shell quoting is not supported, so a value with a space cannot be passed. `--since` and `--json` belong to the action and are rejected here, including shortened forms like `--js`. |
+| `arguments` | empty | Extra saboteur arguments, such as `--jobs 2`. Split on whitespace; shell quoting is not supported, so a value with a space cannot be passed. `--since` and `--json` belong to the action and are rejected here, including shortened forms like `--js`, and a bare `--` is rejected. |
 | `fail-on-survivors` | `false` | `true` or `false`; any other value fails the step. `true` fails the step when a mutant survives, and also when the run is incomplete (see below). |
-| `cache` | `true` | `true` or `false`. Caches saboteur's coverage map files. |
-| `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only. |
+| `cache` | `true` | `true` or `false`; any other value fails the step. `false` skips restoring the cached coverage map and also passes `--no-cache` to saboteur, so the map is rebuilt. |
+| `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only, and it may not start with `-`. |
 
 The action runs only on `pull_request` events. On any other event, such as
 `push`, it prints a notice and does nothing, even if `base-ref` is set. It does
@@ -59,9 +59,12 @@ not support `pull_request_target`, which would run with privileges.
   advisory mode. A broken setup that reports green would be worse than a red
   check.
 - A run where saboteur exits 0 or 1 but this run's report is missing, is not
-  valid JSON, or holds a status the action does not know. The action deletes
-  any old report before the run, so a report restored from a cache is never
-  mistaken for this run's result. The step fails with exit code 3.
+  exactly one JSON document, is not a schemaVersion 2 report with a `files`
+  object, or holds a file entry without a `mutants` list or a mutant with a
+  status the action does not know. The action deletes any old report before
+  the run, and fails if it cannot, so a report restored from a cache is never
+  mistaken for this run's result. The step fails with exit code 3. A report
+  with no files is valid: it means nothing was mutated.
 - Survivors, only with `fail-on-survivors: "true"`.
 - An incomplete run, only with `fail-on-survivors: "true"`. A run is
   incomplete when some mutants errored or hit a resource limit. Those mutants
@@ -101,8 +104,9 @@ name contains a hash of the files it was built from, so changing a listed input
 (source files, spec files, `.saboteur.yml` settings) leads to a rebuild. The
 hash cannot see everything: an environment variable, a database fixture or the
 Ruby version can change coverage without changing a listed file. If a run
-looks wrong, set `cache: "false"` to rebuild from scratch. Building the map
-runs your whole suite once, which is the fixed cost of a run.
+looks wrong, set `cache: "false"`. That skips the restore and passes
+`--no-cache`, which makes saboteur rebuild the map. Building the map runs your
+whole suite once, which is the fixed cost of a run.
 
 The cache key uses the runner OS, `Gemfile.lock` and `.saboteur.yml`, plus the
 commit. A run restores the newest earlier entry with the same prefix. If you
