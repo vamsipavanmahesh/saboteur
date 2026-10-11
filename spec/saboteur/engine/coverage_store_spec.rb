@@ -116,6 +116,31 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     end
   end
 
+  # Bootsnap's compile cache is the common cause, but whatever hides every
+  # included file from Coverage must stop the run: the map would skip every
+  # subject as "no coverage" and exit 0 (field report, issue 2).
+  it "refuses a map with no lines for any included file and does not cache it" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect { store.fetch([file]) }.to raise_error(
+      Saboteur::Error,
+      "Coverage recorded no lines in 1 included files. Is Bootsnap's compile cache on? Run `saboteur doctor`."
+    )
+    expect(cache_files).to be_empty
+  end
+
+  it "accepts a map with no lines when nothing is included" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect(store.fetch([]).tests).to eq(["t1"])
+  end
+
   it "refuses to build when Coverage was not set up by the executable" do
     allow(Coverage).to receive(:state).and_return(:idle)
     expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /SimpleCov/)
