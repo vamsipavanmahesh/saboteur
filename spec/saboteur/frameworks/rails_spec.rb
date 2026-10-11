@@ -220,6 +220,27 @@ RSpec.describe Saboteur::Frameworks::Rails do
       rails.cleanup_workers
       expect(log).to be_empty
     end
+
+    # With nothing to drop there is nothing to disconnect from: reaching
+    # disconnect would mask the early return as a no-op.
+    it "does not even disconnect when there are no copies to drop" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(1)
+      expect(rails).not_to receive(:disconnect)
+      rails.cleanup_workers
+    end
+
+    # A second prepare replaces the tracked set: without the reset, the
+    # first attempt's names would be dropped twice.
+    it "tracks only the latest prepare's copies when prepare runs twice" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(2)
+      rails.prepare_workers(3)
+      log.clear
+      rails.cleanup_workers
+      expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed,
+                         [:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur3"', :removed])
+    end
   end
 
   describe "#before_boot" do
@@ -239,6 +260,64 @@ RSpec.describe Saboteur::Frameworks::Rails do
       stub_const("ENV", { "RAILS_ENV" => "test", "PGGSSENCMODE" => "prefer" })
       rails.before_boot
       expect(ENV.fetch("PGGSSENCMODE")).to eq("prefer")
+    end
+
+    # Bytecode from Bootsnap's compile cache has no coverage counters, so a
+    # file served from the cache is invisible to the coverage map. Turning
+    # the cache off must happen here, before config/boot loads Bootsnap.
+    it "turns off Bootsnap's compile cache unless the user chose" do
+      stub_const("ENV", { "RAILS_ENV" => "test" })
+      rails.before_boot
+      expect(ENV.fetch("DISABLE_BOOTSNAP_COMPILE_CACHE")).to eq("1")
+    end
+
+    it "keeps a compile-cache choice the user set" do
+      stub_const("ENV", { "RAILS_ENV" => "test", "DISABLE_BOOTSNAP_COMPILE_CACHE" => "0" })
+      rails.before_boot
+      expect(ENV.fetch("DISABLE_BOOTSNAP_COMPILE_CACHE")).to eq("0")
+    end
+  end
+
+  describe "#after_boot" do
+    let(:rails) { described_class.new(Saboteur::Config.new({}), Saboteur::Hooks.new) }
+    let(:application) { double("application", eager_load!: nil) }
+
+    before do
+      stub_const("Rails", double("Rails", env: double("env", test?: true), application: application))
+      allow(Coverage).to receive(:state).and_return(:suspended)
+      allow(Coverage).to receive(:resume)
+      allow(Coverage).to receive(:suspend)
+    end
+
+    # Bootsnap serves cached bytecode unless Coverage is running, and cached
+    # bytecode has no coverage counters (field report, issue 1). The eager
+    # load is where most app files come in, so Coverage runs across it.
+    it "resumes Coverage just around the eager load" do
+      expect(Coverage).to receive(:resume).ordered
+      expect(application).to receive(:eager_load!).ordered
+      expect(Coverage).to receive(:suspend).ordered
+      rails.after_boot
+    end
+
+    it "does not suspend when Coverage.resume itself fails" do
+      allow(Coverage).to receive(:resume).and_raise("cannot resume")
+      expect(Coverage).not_to receive(:suspend)
+      expect(application).not_to receive(:eager_load!)
+      expect { rails.after_boot }.to raise_error("cannot resume")
+    end
+
+    it "suspends Coverage again when the eager load raises" do
+      allow(application).to receive(:eager_load!).and_raise("boom")
+      expect(Coverage).to receive(:resume).ordered
+      expect(Coverage).to receive(:suspend).ordered
+      expect { rails.after_boot }.to raise_error("boom")
+    end
+
+    it "leaves Coverage alone when it is already running" do
+      allow(Coverage).to receive(:state).and_return(:running)
+      expect(Coverage).not_to receive(:resume)
+      expect(Coverage).not_to receive(:suspend)
+      rails.after_boot
     end
   end
 
