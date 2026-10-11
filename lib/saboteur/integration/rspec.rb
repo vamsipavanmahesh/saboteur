@@ -17,8 +17,11 @@ module Saboteur
       end
 
       # RSpec only adds its default "spec" path when $0 is `rspec`.
+      # Explicit tests replace the spec paths in rspec_args; its options stay.
       def rspec_args
         args = Array(config.fetch("rspec_args", []))
+        explicit = Array(config.fetch("tests", []))
+        args = args.reject { |arg| spec_path?(arg) } + explicit if explicit.any?
         args.any? { |arg| !arg.start_with?("-") } ? args : args + ["spec"]
       end
 
@@ -52,6 +55,10 @@ module Saboteur
       end
 
       private
+
+      def spec_path?(arg)
+        !arg.start_with?("-") && File.exist?(File.expand_path(arg.sub(/:\d+\z/, ""), config.root))
+      end
 
       def world
         ::RSpec.world
