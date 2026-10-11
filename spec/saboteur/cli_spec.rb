@@ -147,6 +147,22 @@ RSpec.describe Saboteur::CLI do
       report = report_of(result_for(:killed), result_for(:error))
       expect(run_with(report)).to eq(0)
     end
+
+    # Skipped mutants never ran, so they are neither numerator nor
+    # denominator: 2 errors of 3 executed is a majority even with skips.
+    it "does not let skipped mutants dilute the error fraction" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error),
+                         result_for(:skipped, reason: "no coverage"), result_for(:skipped, reason: "no coverage"))
+      expect(run_with(report)).to eq(3)
+      expect(err.string).to include("2 of 3 mutants errored")
+    end
+
+    # The majority rule fires before the survivor gate: a run that tested
+    # almost nothing fails as a tool error, not as survivors.
+    it "is 3, not 1, with survivors when most executed mutants errored" do
+      report = report_of(result_for(:survived), result_for(:error), result_for(:error), result_for(:error))
+      expect(run_with(report)).to eq(3)
+    end
   end
 end
 
