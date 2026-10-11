@@ -80,8 +80,9 @@ module Saboteur
         values.keys.sort == %i[kind path required sha256 state] && valid_path?(values[:path]) &&
           [true,
            false].include?(values[:required]) && ENTRY_KINDS.include?(values[:kind]) &&
-          (!%w[ruby boot hook source_plugin].include?(values[:kind]) || values[:required]) && valid_state?(values[:state],
-                                                                                                     values[:sha256])
+          (!%w[ruby boot hook
+               source_plugin].include?(values[:kind]) || values[:required]) && valid_state?(values[:state],
+                                                                                            values[:sha256])
       end
 
       def self.valid_path?(path)
