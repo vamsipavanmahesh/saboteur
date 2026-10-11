@@ -29,6 +29,19 @@ only, by design.
 - **Open report format.** JSON in the Stryker mutation-testing-report schema.
 - **Pluggable mutation sources.** Add your own mutants by file and byte range.
 
+### The unchanged suite is checked first
+
+Every run with selected subjects runs the entire unchanged suite twice in fresh
+supervised children before coverage lookup or incremental verdict reuse. This
+costs two suite runs even on a cache hit, plus a coverage-building suite run on
+a cache miss. Both baseline passes must be green, complete and in the same
+RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Each suite pass
+uses `coverage_timeout` and configured memory/process limits (the suite memory
+budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
+need a rerun before they describe this extra fixed cost.
+Two passes detect observed instability, not every possible flaky test. See
+[baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
+
 ## Usage
 
 ```sh
