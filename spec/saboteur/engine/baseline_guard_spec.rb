@@ -42,6 +42,8 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
   it "retains hook/diagnostic collaborators and prepares before each supervised child" do
     diagnostics = instance_double(Saboteur::Engine::Diagnostics)
     expect(diagnostics).to receive(:inform).with("checking the unchanged suite twice (seed 42)")
+    heartbeat = instance_double(Saboteur::Engine::Diagnostics::ProgressHeartbeat, tick: nil)
+    allow(diagnostics).to receive(:progress_heartbeat).and_return(heartbeat)
     expect(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap).twice
     allow(supervisor).to receive(:run).and_return(response)
     checked = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
@@ -59,7 +61,9 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
   end
 
   it "runs two independent supervised checks with the configured suite deadline" do
-    expect(supervisor).to receive(:run).with(timeout: config["coverage_timeout"]).twice.and_return(response)
+    expect(supervisor).to receive(:run).twice.with(
+      timeout: config["coverage_timeout"], on_tick: anything
+    ).and_return(response)
     expect(guard.call).to be_nil
   end
 
