@@ -318,6 +318,29 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "Rails data inputs" do
       end
     end
 
+    it "keeps Ruby files that are also data inputs (db/schema.rb) as ruby entries" do
+      FileUtils.mkdir_p(File.join(@root, "db"))
+      File.write(File.join(@root, "db/schema.rb"), "1\n")
+      File.write(File.join(@root, "spec/fixtures/users.yml"), "a: 1\n")
+      kinds = issues_for({}).inventory.to_h { |entry| [entry.path, entry.kind] }
+      expect(kinds).to include("db/schema.rb" => "ruby", "spec/fixtures/users.yml" => "data")
+    end
+
+    it "rejects a cache directory that contains existing data inputs outside the fixture trees" do
+      FileUtils.mkdir_p(File.join(@root, "config"))
+      File.write(File.join(@root, "config/database.yml"), "x: 1\n")
+      FileUtils.mkdir_p(File.join(@root, "db"))
+      File.write(File.join(@root, "db/structure.sql"), "1")
+      FileUtils.mkdir_p(File.join(@root, "data"))
+      File.write(File.join(@root, "data/seed.csv"), "1")
+      %w[config db].each do |cache|
+        expect(issues_for("cache_dir" => cache).issues).to include("cache directory overlaps inputs: #{cache}")
+      end
+      extra = issues_for("cache_dir" => "data", "fingerprint_extra" => ["data/*.csv"])
+      expect(extra.issues).to include("cache directory overlaps inputs: data")
+      expect(issues_for("cache_dir" => "data").issues).to eq([])
+    end
+
     it "stays complete for the default cache and report locations" do
       File.write(File.join(@root, "spec/fixtures/users.yml"), "a: 1\n")
       expect(issues_for({}).complete).to be(true)
