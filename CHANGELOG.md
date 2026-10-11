@@ -7,6 +7,12 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- An integration target can declare a known error profile
+  (`allow_error_fraction` per strategy in integration/targets.yml): the
+  majority-error exit is accepted only when the run's own fresh report
+  carries the CLI's `errorMajority` marker, the errored fraction stays
+  within the bound, and no mutant hit a resource limit. The JSON report
+  records the run's exit cause under `saboteur.exitCause`.
 - A survivor lists the first five tests that covered its line and still passed
   with the mutant applied, in the terminal and the HTML page.
 - In diff mode (`--since`), each survivor names the changed line it relates to
