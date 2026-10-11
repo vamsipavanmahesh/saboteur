@@ -220,6 +220,7 @@ max_processes: 64
 max_mutants_per_method: 100  # positive integer; raise it for a broader run
 ignore_file: .saboteur-ignore.yml
 seed: 1                     # Ruby's random seed in every test run
+fingerprint_extra: []       # extra globs whose contents invalidate caches, e.g. [data/*.csv]
 ```
 
 ### Rails apps
@@ -235,6 +236,11 @@ jobs: 4                           # optional; the default is 1
 
 Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
 generator is planned; until then this block is the supported setup.
+
+Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
+`db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
+cache fingerprint automatically. Use `fingerprint_extra` for any other file your
+tests read.
 
 ### Skipped subjects and the mutant cap
 
