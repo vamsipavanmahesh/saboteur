@@ -42,7 +42,7 @@ RSpec.describe "action/run-saboteur" do
   def report_json(report)
     return report if report.is_a?(String)
 
-    JSON.generate(files: { "lib/a.rb" => { mutants: mutants_from(report) } })
+    JSON.generate(schemaVersion: "2", files: { "lib/a.rb" => { mutants: mutants_from(report) } })
   end
 
   def write_stand_in_command(exit_status, report, log_text)
@@ -195,6 +195,48 @@ RSpec.describe "action/run-saboteur" do
       expect(status).to eq(3)
     end
 
+    it "fails when files is a list, not an object" do
+      output, status = run_action({}, report: '{"schemaVersion":"2","files":[]}')
+      expect(status).to eq(3)
+      expect(output).to include("files object")
+    end
+
+    it "fails when the report is not a schemaVersion 2 report" do
+      _, status = run_action({}, report: '{"schemaVersion":"1","files":{}}')
+      expect(status).to eq(3)
+    end
+
+    it "fails when the output holds more than one JSON document" do
+      output, status = run_action({}, report: "#{report_json(%w[Killed])}\n#{report_json(%w[Survived])}")
+      expect(status).to eq(3)
+      expect(output).to include("exactly one JSON document")
+    end
+
+    it "fails when a file entry has no mutants list" do
+      output, status = run_action({}, report: '{"schemaVersion":"2","files":{"lib/a.rb":{}}}')
+      expect(status).to eq(3)
+      expect(output).to include("mutants array")
+    end
+
+    it "fails when a mutant is not an object with a status" do
+      _, status = run_action({}, report: '{"schemaVersion":"2","files":{"lib/a.rb":{"mutants":["Killed"]}}}')
+      expect(status).to eq(3)
+    end
+
+    it "accepts a report with no files as a run that mutated nothing" do
+      _, status = run_action({}, report: '{"schemaVersion":"2","files":{}}')
+      expect(status).to eq(0)
+      expect(outputs).to include("report-valid" => "true", "score" => "n/a")
+    end
+
+    it "fails when the old report cannot be removed" do
+      FileUtils.mkdir_p(File.join(workspace, ".saboteur", "report.json", "inside"))
+      output, status = run_action({})
+      expect(status).to eq(3)
+      expect(output).to include("could not remove the old report")
+      expect(File.exist?(invocation_log)).to be(false)
+    end
+
     it "fails when the report holds a status it does not know" do
       output, status = run_action({}, report: %w[Killed Mystery])
       expect(status).to eq(3)
@@ -238,7 +280,38 @@ RSpec.describe "action/run-saboteur" do
     end
   end
 
+  describe "caching" do
+    it "does not pass --no-cache by default" do
+      run_action
+      expect(invocation).not_to include("--no-cache")
+    end
+
+    it "passes --no-cache when the cache is off, so saboteur rebuilds the coverage map" do
+      run_action({ "SABOTEUR_CACHE" => "false" })
+      expect(invocation).to include("run --no-cache")
+    end
+
+    it "refuses a cache value that is not exactly true or false" do
+      output, status = run_action({ "SABOTEUR_CACHE" => "yes" })
+      expect(status).to eq(2)
+      expect(output).to include("cache must be")
+      expect(File.exist?(invocation_log)).to be(false)
+    end
+  end
+
   describe "inputs the action refuses" do
+    it "rejects a bare -- in arguments" do
+      output, status = run_action({ "SABOTEUR_ARGUMENTS" => "--jobs 2 -- --since x" })
+      expect(status).to eq(2)
+      expect(output).to include("bare --")
+    end
+
+    it "refuses a report path that starts with a dash" do
+      output, status = run_action({ "SABOTEUR_REPORT_PATH" => "-rf" })
+      expect(status).to eq(2)
+      expect(output).to include("report-path")
+    end
+
     ["--since origin/other", "--since=origin/other", "--json other.json", "--json=other.json", "--js x",
      "--si=1"].each do |extra|
       it "rejects '#{extra}' in arguments" do
