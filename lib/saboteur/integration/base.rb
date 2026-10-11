@@ -61,6 +61,14 @@ module Saboteur
         raise NotImplementedError
       end
 
+      # Checks the unchanged suite in a fresh child. Existing adapters can
+      # use their selected-test runner; adapters may override to retain full
+      # suite ordering and report every executed test.
+      def run_baseline(seed:)
+        Kernel.srand(seed)
+        run(all_tests.map(&:id))
+      end
+
       # Files whose content decides which tests exist (for the cache key).
       def test_files
         []
