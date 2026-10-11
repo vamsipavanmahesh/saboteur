@@ -37,7 +37,7 @@ RSpec.describe TrivialEquivalence::EquivalenceJudge do
 
   it "fails toward running when the mutated source does not compile" do
     verdict = verdict("def a = 1\n", "def a = (\n")
-    expect(verdict.reason).to eq(:compile_failed)
+    expect(verdict.reason).to eq(:mutated_compile_failed)
     expect(verdict).not_to be_fingerprint_match
   end
 
@@ -71,6 +71,28 @@ RSpec.describe TrivialEquivalence::EquivalenceJudge do
 
     it "does not match a changed statement after return, which the compiler keeps" do
       expect(verdict("def a\n  return 1\n  2\nend\n", "def a\n  return 1\n  3\nend\n")).not_to be_fingerprint_match
+    end
+  end
+
+  it "reports an original that does not compile separately from a mutant that does not" do
+    expect(verdict("def a = (\n", "def a = 1\n").reason).to eq(:original_compile_failed)
+  end
+
+  describe "known counterexample to a relaxed match" do
+    def backtrace_line(source)
+      eval(source, TOPLEVEL_BINDING, "counterexample.rb", 1) # rubocop:disable Security/Eval
+      begin
+        Object.new.counterexample_raise
+      rescue RuntimeError => raised # rubocop:disable Naming/RescuedExceptionsVariableName
+        raised.backtrace.first[/:(\d+):/, 1].to_i
+      end
+    end
+
+    it "matches at the relaxed level although the exception backtrace line differs" do
+      original = "class Object\n  def counterexample_raise\n    raise 'x'\n  end\nend\n"
+      shifted = original.sub("    raise", "\n    raise")
+      expect(verdict(original, shifted, level: :relaxed)).to be_fingerprint_match
+      expect(backtrace_line(original)).not_to eq(backtrace_line(shifted))
     end
   end
 
