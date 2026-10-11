@@ -326,10 +326,11 @@ RSpec.describe Saboteur::Frameworks::Rails do
       allow(Coverage).to receive(:suspend)
     end
 
-    it "points engine users at their dummy app's setup when Rails did not load" do
+    it "points engine users at the dummy environment, and at the setup shim only without one" do
       hide_const("Rails")
       expect { rails.after_boot }.to raise_error(
-        Saboteur::Error, %r{add config/environment to require.*DummyApp\.setup.*spec/rails_helper}m
+        Saboteur::Error,
+        %r{add config/environment to require.*test/dummy/config/environment\.rb.*dynamically.*DummyApp\.setup}m
       )
     end
 
