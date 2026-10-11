@@ -20,6 +20,7 @@ module Saboteur
       @hooks = Hooks.new
       @diagnostics = Diagnostics.new(err)
       @root = File.realpath(config.root)
+      @skipped_subjects = {}
     end
 
     def call
@@ -35,7 +36,7 @@ module Saboteur
       @diagnostics.warnings.concat(ignore_list.apply(results))
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
-                 review: !scope.nil?, seed: config["seed"])
+                 review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects)
     end
 
     private
@@ -56,7 +57,7 @@ module Saboteur
       cache = result_cache
       scheduler = scheduler_for(map, integration, cache)
       @rails&.prepare_workers(config["jobs"])
-      lists = candidate_lists(subjects, scope)
+      lists = candidate_lists(subjects, scope, map)
       # The execution phase forks next: the worker batch, or one child per
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
@@ -90,11 +91,12 @@ module Saboteur
     end
 
     # Each subject's candidates, narrowed to changed lines in diff mode.
-    def candidate_lists(subjects, scope)
+    def candidate_lists(subjects, scope, map)
       candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
-      subjects.map do |subject|
-        list = candidates.for(subject)
-        scope ? scope.restrict(subject, list) : list
+      selection = CandidateSelection.new(candidates: candidates, map: map,
+                                         limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
+      subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
+        @skipped_subjects = selection.skipped_subjects
       end
     end
 
@@ -130,6 +132,7 @@ require_relative "engine/subject_selection"
 require_relative "engine/suite_files"
 require_relative "engine/coverage_store"
 require_relative "engine/candidates"
+require_relative "engine/candidate_selection"
 require_relative "engine/diff_scope"
 require_relative "engine/result_cache"
 require_relative "engine/verdict_check"
