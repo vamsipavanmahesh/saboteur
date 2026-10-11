@@ -20,8 +20,11 @@ after a coarse survivor. The configured cap is retained but any truncation
 makes the gate incomplete. Users can raise the cap or narrow their scope.
 Uncovered subjects/candidates, runtime skips, errors, resource stops, invalid
 execution evidence and changed-during-run inputs also make it incomplete.
-An empty scope is not a clean gate. Invalid proposals rejected by the parser
-are counted separately; they are not runnable candidates.
+An empty scope is not a clean gate. Every dropped proposal records source, subject and a typed reason. Parser-invalid
+mutations, failed application, exceptions and unexpected empty generation make
+baseline mode incomplete. An explicitly supported no-operator subject records
+a typed exclusion in the inventory; zero selected runnable candidates still
+cannot pass. Rejecting all proposals must never masquerade as a clean gate.
 
 ## Identity and compatibility
 
@@ -71,7 +74,8 @@ green and stable, planned candidates were all tested, and input verification
 passed. Baseline mode must not claim complete using legacy Stryker JSON.
 
 Reuse the engine lane's RunFingerprint snapshot-then-verify vocabulary and
-implementation once available. Snapshot before mutation execution; verify
+implementation once available. The snapshot covers suite dependencies, shared
+spec support, config, boot, hook and generator files, not just selected code. Snapshot before target boot (including coverage construction); verify
 before producing acceptance-ready evidence. Unreadable inputs or changing
 inputs block acceptance and clean comparison, even if a fresh verdict run
 can still be useful. External DB/network/time/environment state cannot be
@@ -85,7 +89,11 @@ Classify independently and list deterministically by file, subject, ID:
 - accepted survivors: exact identity and unchanged acceptance context;
 - new survivors: current survivor identities absent from the baseline;
 - changed survivors: identity exists but acceptance context changed;
-- resolved entries: previously accepted candidate now killed or timed out;
+- resolved kills: previously accepted candidate now killed, with assertion
+  versus crash kill cause retained;
+- detected timeouts: previously accepted candidate now timed out under the
+  existing detection policy. These no longer need survivor acceptance, but
+  are not assertion kills and are never labeled resolved kills;
 - unmatched entries: accepted identity no longer generated, or file/subject
   missing. Never call these resolved or automatically carry their acceptance;
 - incomplete evidence, errors and compatibility failures.
@@ -106,9 +114,14 @@ normal run exit policy is unchanged outside this opt-in mode.
 Proposed CLI (subject to panel review):
 
 1. `saboteur run --baseline BASELINE.json` checks without writing the baseline.
-2. `saboteur baseline propose --output PROPOSAL.json` runs the same exhaustive,
-   fresh scope and creates a new proposal only after complete evidence.
-   Existing output paths are refused. Survivors start with empty reasons.
+2. `saboteur baseline propose --initial --output PROPOSAL.json` prepares an
+   initial baseline. For replacement use `saboteur baseline propose --baseline
+   BASELINE.json --output PROPOSAL.json` instead. Exactly one mode is required.
+   Both run the same exhaustive fresh scope and create a proposal only after
+   complete evidence. Existing output paths are refused. The replacement
+   proposal records the current baseline hash and full removal/change list;
+   initial mode records that the destination must not exist. Survivors start
+   with empty reasons.
 3. A person reads diffs, supplies a reason for each survivor and reviews the
    proposed removals/changes in version control.
 4. `saboteur baseline accept --proposal PROPOSAL.json --output BASELINE.json`
@@ -116,16 +129,39 @@ Proposed CLI (subject to panel review):
    baseline it also requires `--previous-sha256 HASH`, matching the file
    reviewed. No force flag, automatic promotion or silent overwrite.
 
-A proposal records the previous baseline hash (or explicit initial state)
-and a content hash of the complete immutable run evidence; edits are allowed
-only to acceptance reasons. Accept validates this binding and rechecks the
-local input snapshot. Stale or edited evidence requires a fresh proposal.
-Use strict bounded JSON validation, an advisory lock, exclusive creation for
-new paths, and same-directory temp+atomic rename for reviewed replacements.
-Check the previous hash under the lock. A failed accept leaves the old file
-unchanged. Never accept an imported unverified report. Reasons are human
-judgment, not a proof of equivalence. Version control review remains a team
-responsibility, not something a local command can enforce.
+A proposal contains a random run token referring to a separately stored local
+run-evidence record outside the proposal/destination, in saboteur's private
+run-evidence directory (owner-only directory and files, exclusive token
+creation, no user-supplied record path, no symlink following). This record
+stores complete results, candidate inventory, snapshot, proposal mode,
+previous baseline path/hash and generator metadata. It is never rewritten by
+editing/accepting a proposal. A checksum *inside* editable JSON is only an
+accidental-edit check, not trusted evidence. Accept loads the local record by
+token and compares every evidence field to it; only survivor reasons may
+change. Unknown tokens, imported reports, missing local records and modified
+evidence fail. This protects against proposal edits, not a malicious local
+account owner who can edit both files or forge execution. No cryptographic
+attestation or cross-machine report authenticity is claimed. The baseline
+itself remains a human-reviewed version-controlled artifact.
+
+Accept rechecks the full pre-boot snapshot, including config/support/generator
+files. Stale evidence needs a fresh proposal. Output files and these evidence
+records are excluded by exact canonical path, not arbitrary directories. If
+a requested baseline/proposal path aliases an app/test/config/generator input
+or another report artifact, refuse it rather than exclude real inputs. Do not
+exclude arbitrary source paths or resolve symlinks into input locations.
+
+Use strict bounded JSON validation and an advisory destination lock. Under
+that lock, initial mode requires a nonexistent destination; replacement mode
+requires the same canonical destination as the source baseline and its current
+hash must equal both the proposal/local-record previous hash and the explicit
+`--previous-sha256` supplied by the reviewer. A different destination or a
+concurrent update fails without changes. Use exclusive creation for initial
+paths and same-directory temp+atomic rename for replacement. A failed accept
+leaves old bytes unchanged. Consume the local token only after successful
+publication; failed writes remain retryable after fresh validation. Reasons
+are human judgment, not proof of equivalence. Version control review remains
+a team responsibility, not something a local command can enforce.
 
 ## Delivery and tests
 
@@ -139,5 +175,8 @@ changed context, file/subject rename, killed versus missing entries,
 duplicate identities, malformed/version/config/generator mismatches, capped
 and uncovered runs, coarse-survivor fine execution, partial worker failure,
 ignored survivors, snapshot drift, blank reasons, tampered/stale proposals,
-initial exclusive create, concurrent replacement hash conflicts and failure
+initial/replacement mode, proposal rehash attacks, unknown tokens, pre-boot
+drift, exact artifact exclusions, parser-invalid/all-rejected generation,
+timeout-versus-assertion classification, initial exclusive create, concurrent
+replacement hash conflicts and failure
 preserving old bytes. Dogfood changed code with no new ignore entries.
