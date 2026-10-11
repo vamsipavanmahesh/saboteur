@@ -248,6 +248,15 @@ own process when the variable is not already set (Bootsnap treats any set
 value as off) and runs the eager load with Coverage active. App code is seen
 by Coverage with the app unchanged.
 
+With `jobs: 4` (or more), each extra worker gets a copy of every test
+database, named `<database>_saboteur2` and up, made with
+`CREATE DATABASE ... TEMPLATE` on Postgres or a file copy on SQLite.
+saboteur drops the copies when the run ends, on a best-effort basis: a
+drop that fails is reported as a warning and never changes the run's
+outcome. A copy left behind - by a failed drop or a killed run - is
+reclaimed by the next run, whose prepare starts from
+`DROP DATABASE IF EXISTS`. MySQL is not supported for `jobs` above 1.
+
 ### Skipped subjects and the mutant cap
 
 Subjects with no test coverage are skipped before mutation sources run. They
