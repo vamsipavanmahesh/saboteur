@@ -93,6 +93,7 @@ runs:
       env:
         SABOTEUR_EVENT_NAME: ${{ github.event_name }}
         SABOTEUR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        SABOTEUR_EXPECTED_HEAD_SHA: ${{ github.sha }}
         SABOTEUR_COMMAND: ${{ inputs.command }}
         SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
         SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
