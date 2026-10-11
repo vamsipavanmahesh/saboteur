@@ -129,8 +129,8 @@ module Saboteur
       @score_breakdown ||= Score.of(results)
     end
 
-    # The same breakdown without the whole-method mutants (body_nil,
-    # body_raise and the like). Almost any test that runs the method kills
+    # The same breakdown without the whole-body mutants (every
+    # mutation marked coarse: body_nil, body_true, body_false, body_raise). Almost any test that runs the method kills
     # those, so they flatter the score.
     def fine_score_breakdown
       @fine_score_breakdown ||= Score.of(results.reject { |result| result.mutation.coarse })
