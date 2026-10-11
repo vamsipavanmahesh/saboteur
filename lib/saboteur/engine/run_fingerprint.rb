@@ -11,6 +11,8 @@ module Saboteur
     class RunFingerprint
       FORMAT_VERSION = 1
       MANIFESTS = %w[Gemfile gems.rb Gemfile.lock gems.locked .rspec .rspec-local].freeze
+      LOCATION_SETTINGS = %w[cache_dir json_report html_report].freeze
+      ENTRY_KINDS = %w[ruby manifest boot hook source_plugin extra].freeze
       EXCLUDED_DIRECTORIES = %w[.git vendor node_modules].freeze
       Entry = Data.define(:path, :kind, :state, :sha256)
       Change = Data.define(:path, :reason)
@@ -64,9 +66,26 @@ module Saboteur
       end
 
       def self.valid_entry?(values)
-        values.keys.sort == %i[kind path sha256 state] && values[:path].is_a?(String) &&
-          %w[present missing unreadable].include?(values[:state]) && values[:kind].is_a?(String) &&
-          (values[:sha256].nil? || values[:sha256].match?(/\A[0-9a-f]{64}\z/))
+        values.keys.sort == %i[kind path sha256 state] && valid_path?(values[:path]) &&
+          ENTRY_KINDS.include?(values[:kind]) && valid_state?(values[:state], values[:sha256])
+      end
+
+      def self.valid_path?(path)
+        return false unless path.is_a?(String) && !path.empty? && !path.include?("\0") && !path.include?("\\")
+
+        candidate = path.delete_prefix("external:")
+        absolute = path.start_with?("external:")
+        return false unless candidate.start_with?("/") == absolute
+
+        segments = candidate.split("/", -1)
+        segments.shift if absolute
+        segments.none? { |part| part.empty? || %w[. ..].include?(part) }
+      end
+
+      def self.valid_state?(state, digest)
+        return digest.is_a?(String) && digest.match?(/\A[0-9a-f]{64}\z/) if state == "present"
+
+        %w[missing unreadable].include?(state) && digest.nil?
       end
 
       def self.runtime_identity
@@ -88,7 +107,7 @@ module Saboteur
         issues = output_overlap_issues
         entries = inventory(issues).sort_by(&:path).freeze
         issues = issues.uniq.sort
-        settings_digest = hash_value(@config.to_h)
+        settings_digest = hash_value(@config.to_h.reject { |key, _| LOCATION_SETTINGS.include?(key) })
         runtime_digest = hash_value(@runtime_identity)
         digest = hash_value(format: FORMAT_VERSION, files: entries.map(&:to_h),
                             settings: settings_digest, runtime: runtime_digest)
@@ -117,14 +136,24 @@ module Saboteur
 
       private
 
+      def canonical_path(path)
+        expanded = File.expand_path(path, @root)
+        return File.realpath(expanded) if File.exist?(expanded)
+
+        parent = File.dirname(expanded)
+        return expanded if parent == expanded
+
+        File.join(canonical_path(parent), File.basename(expanded))
+      end
+
       def output_overlap_issues
         paths = required_files.map(&:first)
         outputs = %w[json_report html_report].filter_map { |key| @config.fetch(key) }
-                                             .map { |path| File.expand_path(path, @root) }
+                                             .map { |path| canonical_path(path) }
         issues = outputs.filter_map do |path|
           "output overlaps input: #{display_path(path)}" if path.end_with?(".rb") || paths.include?(path)
         end
-        cache = @config.path("cache_dir")
+        cache = canonical_path(@config["cache_dir"])
         protected = [@root] + %w[app lib spec].map { |name| File.join(@root, name) } + paths
         if protected.any? { |path| path == cache || path.start_with?("#{cache}/") }
           issues << "cache directory overlaps inputs: #{display_path(cache)}"
@@ -164,9 +193,9 @@ module Saboteur
       end
 
       def excluded?(path, name)
-        EXCLUDED_DIRECTORIES.include?(name) || path == @config.path("cache_dir") ||
+        EXCLUDED_DIRECTORIES.include?(name) || path == canonical_path(@config["cache_dir"]) ||
           %w[json_report html_report].filter_map { |key| @config.fetch(key) }.any? do |output|
-            path == File.expand_path(output, @root)
+            path == canonical_path(output)
           end
       end
 
