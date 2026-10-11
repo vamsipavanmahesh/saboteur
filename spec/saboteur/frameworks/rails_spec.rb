@@ -164,6 +164,13 @@ RSpec.describe Saboteur::Frameworks::Rails do
       rails.after_boot
     end
 
+    it "does not suspend when Coverage.resume itself fails" do
+      allow(Coverage).to receive(:resume).and_raise("cannot resume")
+      expect(Coverage).not_to receive(:suspend)
+      expect(application).not_to receive(:eager_load!)
+      expect { rails.after_boot }.to raise_error("cannot resume")
+    end
+
     it "suspends Coverage again when the eager load raises" do
       allow(application).to receive(:eager_load!).and_raise("boom")
       expect(Coverage).to receive(:resume).ordered
