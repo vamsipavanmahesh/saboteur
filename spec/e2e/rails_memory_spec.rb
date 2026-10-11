@@ -69,4 +69,39 @@ RSpec.describe "rails integration with an in-memory sqlite database" do
       expect(err).not_to include("Could not find table")
     end
   end
-end
+
+  def early_exit_script(dir)
+    path = File.join(dir, "early_exit.rb")
+    File.write(path, <<~RUBY)
+      ENV["RAILS_ENV"] = "test"
+      require "active_record"
+      require "saboteur"
+      require "saboteur/frameworks/rails"
+
+      module Rails
+        def self.env = ActiveSupport::StringInquirer.new("test")
+        def self.application = Object.new.tap { |app| def app.eager_load! = nil }
+      end
+
+      ActiveRecord::Base.establish_connection(adapter: "sqlite3", database: ":memory:")
+      rails = Saboteur::Frameworks::Rails.new(Saboteur::Config.new({}), Saboteur::Hooks.new)
+      rails.after_boot
+      puts "snapshot_dir=\#{Dir.glob(File.join(Dir.tmpdir, 'saboteur-memory-*')).max_by { |p| File.mtime(p) }}"
+      # A boot, baseline or coverage failure ends the run here, without
+      # cleanup_workers ever running.
+      exit(3)
+    RUBY
+    path
+  end
+
+  it "removes the snapshot directory when the run exits without cleanup" do
+    Dir.mktmpdir do |dir|
+      lib = File.expand_path("../../lib", __dir__)
+      env = { "GEM_HOME" => Gem.dir, "GEM_PATH" => Gem.path.join(File::PATH_SEPARATOR) }
+      out, = Open3.capture3(env, RbConfig.ruby, "-I", lib, early_exit_script(dir))
+      snapshot_dir = out[/^snapshot_dir=(.+)$/, 1]
+      expect(snapshot_dir).not_to be_nil
+      expect(Dir.exist?(snapshot_dir)).to be(false)
+    end
+  end
+  end
