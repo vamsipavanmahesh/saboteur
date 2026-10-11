@@ -132,6 +132,26 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(cache_files).to be_empty
   end
 
+  # An empty map cached by an older saboteur must not keep a run green.
+  it "refuses a restored cached map with no lines for any included file" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    allow(Saboteur::Selection::CoverageMap).to receive(:load).and_return(empty)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded no lines in 1 included files/)
+  end
+
+  # "No coverage" can be spelled per-file hashes with no line entries, not
+  # only a literally empty map.
+  it "refuses a map whose per-file entries hold no covered lines" do
+    hollow = Saboteur::Selection::CoverageMap.new(lines: { file => {} }, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: hollow.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded no lines in 1 included files/)
+    expect(cache_files).to be_empty
+  end
+
   it "accepts a map with no lines when nothing is included" do
     empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
     result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
