@@ -66,21 +66,27 @@ module Saboteur
         Selection::CoverageMap.from_json(result.payload)
       end
 
-      # A whole-suite build that records no line in any included file means
-      # the setup is broken (Bootsnap's compile cache serving counter-less
-      # bytecode is the default Rails case), never that the tests are weak:
-      # a run on this map would test nothing and still exit 0. With explicit
-      # tests (--test) an empty map is a legitimate outcome instead: the
-      # user narrowed the suite to specs that may not touch these sources.
-      # Applies to a cached map too, so a map cached before this check
-      # cannot keep a run green, and the guard runs before saving, so an
-      # empty map is never cached.
+      # A whole-suite build that records no line in any included file fails
+      # the run (exit 3): usually the setup hid the app from Coverage
+      # (Bootsnap's compile cache is the default Rails case); it can also
+      # mean no test in the suite exercises any included file. Either way a
+      # run on this map would test nothing, and exit 0 would lie. With
+      # explicit tests (--test) an empty map is a legitimate outcome
+      # instead: the user narrowed the suite to specs that may not touch
+      # these sources, so the map passes with a warning. Applies to a cached
+      # map too, so a map cached before this check cannot keep a run green,
+      # and the guard runs before saving, so an empty map is never cached.
       def refuse_empty_map(map, files)
         return map if files.empty? || map.lines.any? { |_file, by_line| by_line.any? }
-        return map unless @config["tests"].empty?
 
-        raise Error, "Coverage recorded no lines in #{files.size} included files. " \
-                     "Is Bootsnap's compile cache on? Run `saboteur doctor`."
+        if @config["tests"].empty?
+          raise Error, "Coverage recorded no lines in #{files.size} included files during a whole-suite " \
+                       "build. Is Bootsnap's compile cache on? If not, no test may exercise these files. " \
+                       "Run `saboteur doctor`."
+        end
+        @diagnostics.warn("Coverage recorded no lines in #{files.size} included files; " \
+                          "the selected specs may not exercise them.")
+        map
       end
 
       def died(status)
