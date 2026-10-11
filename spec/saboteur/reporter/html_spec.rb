@@ -37,6 +37,38 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).to include("covered by 1 test that passed in an earlier run: ./spec/person_spec.rb[1:1]")
   end
 
+  it "separates the passing-test note from other notes with a semicolon" do
+    survivor = result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])
+    survivor.ignored = "equivalent"
+    page = described_class.build(report_of(survivor))
+    expect(page).to include("ignored: equivalent; covered by 1 test that passed: ./spec/person_spec.rb[1:1]")
+  end
+
+  it "joins the passing tests with a comma and a space" do
+    tests = ["./spec/person_spec.rb[1:1]", "./spec/person_spec.rb[1:2]"]
+    page = described_class.build(report_of(result_for(:survived, covered_by: tests)))
+    expect(page).to include("covered by 2 tests that passed: ./spec/person_spec.rb[1:1], ./spec/person_spec.rb[1:2]<")
+  end
+
+  it "adds no passing-test note to a survivor with no covering tests" do
+    page = described_class.build(report_of(result_for(:survived)))
+    expect(page).not_to include("covered by")
+  end
+
+  it "shows exactly five covering tests with no 'more' note, and six with '+1 more'" do
+    five = (1..5).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    exact = described_class.build(report_of(result_for(:survived, covered_by: five)))
+    expect(exact).to include("covered by 5 tests that passed", "[1:5]")
+    expect(exact).not_to include("more)")
+    six = described_class.build(report_of(result_for(:survived, covered_by: five + ["./spec/person_spec.rb[1:6]"])))
+    expect(six).to include("covered by 6 tests that passed", "[1:5] (+1 more)")
+  end
+
+  it "says test for one covering test and tests for two" do
+    one = described_class.build(report_of(result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(one).to include("covered by 1 test that passed")
+  end
+
   it "does not call a killed mutant's covering tests passing" do
     page = described_class.build(report_of(result_for(:killed, covered_by: ["./spec/person_spec.rb[1:1]"])))
     expect(page).not_to include("that passed")
