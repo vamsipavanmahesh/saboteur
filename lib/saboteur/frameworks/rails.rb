@@ -3,6 +3,7 @@
 
 require "coverage"
 require "fileutils"
+require "pathname"
 
 module Saboteur
   module Frameworks
@@ -183,10 +184,7 @@ module Saboteur
           disconnect
           copy_postgres(db, name)
         when /sqlite/
-          # A database in WAL mode keeps recent writes in -wal/-shm files.
-          ["", "-wal", "-shm"].each do |suffix|
-            FileUtils.cp("#{db.database}#{suffix}", "#{name}#{suffix}") if File.exist?("#{db.database}#{suffix}")
-          end
+          copy_sqlite(db, name)
         else
           raise Error, "--jobs > 1 with Rails needs Postgres or SQLite (got #{db.adapter})"
         end
@@ -204,6 +202,46 @@ module Saboteur
         end
       end
 
+      # A relative sqlite path means something only to Rails: 7.1+ resolves
+      # it against Rails.root, not the process working directory. Resolve
+      # the source the same way, checkpoint so a live WAL database holds
+      # every committed write in its main file, then copy. A missing source
+      # is an error, not a skip: otherwise the worker starts from a fresh
+      # empty database and silently tests nothing.
+      def copy_sqlite(db, name)
+        source = sqlite_absolute(db.database)
+        unless File.exist?(source)
+          raise Error, "test database #{source} does not exist; run the test suite once to create it"
+        end
+
+        checkpoint_sqlite(db)
+        target = sqlite_absolute(name)
+        ["", "-wal", "-shm"].each do |suffix|
+          FileUtils.cp("#{source}#{suffix}", "#{target}#{suffix}") if File.exist?("#{source}#{suffix}")
+        end
+      end
+
+      def sqlite_absolute(database)
+        return database if Pathname.new(database).absolute?
+        return database unless defined?(::Rails)
+
+        File.expand_path(database, ::Rails.root)
+      end
+
+      # Through a connection class of saboteur's own, so the app's
+      # connections never point at the database being checkpointed.
+      def checkpoint_sqlite(db)
+        admin = maintenance_record
+        begin
+          admin.establish_connection(db.configuration_hash)
+          admin.connection_pool.with_connection { |connection| connection.execute("PRAGMA wal_checkpoint(TRUNCATE)") }
+        ensure
+          admin.remove_connection
+        end
+      end
+
+      # Through a connection class of saboteur's own, so the app's
+      # connections never point at the maintenance database.
       def copy_postgres(db, name)
         with_maintenance_connection(db) do |connection|
           connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
