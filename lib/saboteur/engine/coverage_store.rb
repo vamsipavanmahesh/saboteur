@@ -63,7 +63,20 @@ module Saboteur
         data = JSON.parse(result.payload)
         raise Error, "coverage map build failed: #{data['error']}" if data["error"]
 
-        Selection::CoverageMap.from_json(result.payload)
+        map = Selection::CoverageMap.from_json(result.payload)
+        refuse_empty_map(map, files)
+        map
+      end
+
+      # No lines for any included file means the setup is broken (Bootsnap's
+      # compile cache serving counter-less bytecode is the default Rails
+      # case), never that the tests are weak: a run on this map would test
+      # nothing and still exit 0. Fail here, before the map is cached.
+      def refuse_empty_map(map, files)
+        return if files.empty? || map.lines.any?
+
+        raise Error, "Coverage recorded no lines in #{files.size} included files. " \
+                     "Is Bootsnap's compile cache on? Run `saboteur doctor`."
       end
 
       def died(status)
