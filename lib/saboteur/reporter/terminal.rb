@@ -130,7 +130,7 @@ module Saboteur
         tests = result.covered_by
         return if tests.empty?
 
-        @out.puts "#{tests.size} test#{'s' if tests.size > 1} covered this line and #{passed_phrase(result)} " \
+        @out.puts "#{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and #{passed_phrase(result)} " \
                   "(the missing check may belong in one of them):"
         tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "  #{name}" }
         more = tests.size - MAX_PASSING_TESTS
