@@ -171,6 +171,17 @@ out and keeps survivors accepted on the ignore list in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
+For code-review surfaces, the JSON report also carries a `saboteur.findings`
+section: a bounded, deterministically ordered list of survivors, coarse
+mutants first (a surviving coarse mutant hints that no test pins the method's
+behavior - it can also be a re-evaluation limit or an equivalent mutant),
+then file, line and digest. Each finding holds the file, line, digest,
+subject, operator, original and replacement a note on a pull-request diff
+needs, plus one entry per edit for mutants that edit more than one spot.
+Survivors accepted on the ignore list are listed separately with their
+reason, and `survivorsTruncated` and `acceptedTruncated` count what the bound
+left out; the full data stays in the schema's `files` section.
+
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `--threshold`; 1 survivors, or the score is below `--threshold` or missing;
 2 bad configuration or a missing source or test; 3 the tool failed (with
@@ -377,3 +388,4 @@ Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build s
 ## License
 
 MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
+
