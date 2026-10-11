@@ -183,7 +183,15 @@ RSpec.describe Saboteur::CLI, "details" do
 
     it "exits 2 and names the real commands for help about an unknown command" do
       expect(cli("help", "explode").call).to eq(2)
-      expect(err.string).to include("unknown command: explode").and include("run, version, help")
+      names = Saboteur::Help::COMMANDS.map(&:name).join(", ")
+      expect(err.string).to include("unknown command: explode").and include(names)
+    end
+
+    it "shows doctor's own help without running it" do
+      allow(Saboteur::Doctor).to receive(:new)
+      expect(cli("doctor", "--help").call).to eq(0)
+      expect(out.string).to include("saboteur doctor - ").and include("--seed N")
+      expect(Saboteur::Doctor).not_to have_received(:new)
     end
 
     it "points to help from the usage text" do
