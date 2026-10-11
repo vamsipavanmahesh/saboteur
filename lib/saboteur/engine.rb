@@ -66,18 +66,19 @@ module Saboteur
       return [] if work.empty?
 
       runnable_subjects, runnable_lists = work.transpose
-      @rails&.prepare_workers(config["jobs"])
-      # The execution phase forks next: the worker batch, or one child per
-      # mutant when serial. Pack the heap now that the map and candidates
-      # are retained, to reduce later copying of shared pages.
-      Execution::ForkReadiness.prepare_heap
       begin
+        @rails&.prepare_workers(config["jobs"])
+        # The execution phase forks next: the worker batch, or one child per
+        # mutant when serial. Pack the heap now that the map and candidates
+        # are retained, to reduce later copying of shared pages.
+        Execution::ForkReadiness.prepare_heap
         results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
                                    cache: cache, on_start: method(:start_worker)).run(runnable_subjects,
                                                                                       runnable_lists)
       ensure
-        # The per-worker database copies exist only for this run.
-        @rails&.cleanup_workers(config["jobs"])
+        # The per-worker database copies exist only for this run, however it
+        # ends; copies made before a failed prepare go too.
+        safely_cleanup_workers
       end
       cache&.save
       results
@@ -108,6 +109,13 @@ module Saboteur
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] })
       ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
                       suite_digest: SuiteFiles.new(config).digest)
+    end
+
+    # A cleanup failure must never mask the run's own outcome.
+    def safely_cleanup_workers
+      @rails&.cleanup_workers
+    rescue Error => e
+      @diagnostics.warn(e.message)
     end
 
     # In each worker: its own database, then the user's worker_start hooks.
