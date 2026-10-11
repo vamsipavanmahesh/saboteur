@@ -20,11 +20,15 @@ module Saboteur
       def self.prepare_heap
         if Process.respond_to?(:warmup)
           Process.warmup
-        elsif GC.respond_to?(:compact)
-          GC.compact
-        else
-          GC.start(full_mark: true, immediate_sweep: true)
+          return
         end
+
+        if GC.respond_to?(:compact)
+          GC.compact
+          return
+        end
+
+        GC.start(full_mark: true, immediate_sweep: true)
         nil
       end
     end
