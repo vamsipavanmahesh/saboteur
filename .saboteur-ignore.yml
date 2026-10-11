@@ -130,3 +130,7 @@
   mutation: bd07c16b6d849639
   reason: 'equivalent: git quotes a whole path, so a path that starts with a quote
     also ends with one'
+- subject: Saboteur::CLI#mostly_errored?
+  mutation: 860ea390299a837a
+  reason: 'equivalent: with no executed mutants errors is 0, 0.fdiv(0) is NaN,
+    and NaN > MAX_ERROR_FRACTION is false either way'
