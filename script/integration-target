@@ -21,9 +21,9 @@ require "shellwords"
 require "tmpdir"
 require "yaml"
 
+require_relative "integration_target"
+
 ROOT = File.expand_path("..", __dir__)
-STATUS = { "Killed" => "killed", "Survived" => "survived", "Timeout" => "timeout",
-           "RuntimeError" => "error", "NoCoverage" => "skipped", "Ignored" => "skipped" }.freeze
 
 args = ARGV.dup
 extra = (index = args.index("--")) ? args.slice!(index..)[1..] : []
@@ -60,35 +60,32 @@ env = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_WITHOUT" => target.fetch("bundle_wi
 sh(env, "bundle", "install", "--quiet")
 config = File.join(ROOT, target.fetch("config"))
 report = File.join(workdir, "#{name}-#{strategy}.json")
+# A report from an earlier run must never speak for this one.
+FileUtils.rm_f(report)
 system(env, "bundle", "exec", "saboteur", "run", "--config", config, "--reeval", strategy, "--json", report,
        *extra, chdir: checkout)
 code = $CHILD_STATUS.exitstatus
 
-def counts(report)
-  mutants = JSON.parse(File.read(report)).fetch("files").values.flat_map { |file| file.fetch("mutants") }
-  Hash.new(0).merge(mutants.map { |m| STATUS.fetch(m.fetch("status")) }.tally)
-end
-
 # A target whose own tests error on most mutants (the killing test also
 # fails with the method unchanged) trips the majority-error exit on every
 # run. Such a target names its error profile as allow_error_fraction in
-# targets.yml; exit 3 is accepted for it only while the report shows the
-# errors stay within the allowance. A run that died another way has no
-# usable report and still aborts here.
-unless [0, 1].include?(code)
-  allowance = target.dig("allow_error_fraction", strategy)
-  actual = counts(report)
+# targets.yml; exit 3 is accepted only when this run's own report shows
+# the majority-error outcome within the allowance.
+unless [0, 1].include?(code) ||
+       IntegrationTarget.accept_error_majority?(code, target.dig("allow_error_fraction", strategy), report)
+  abort "saboteur failed with exit code #{code}"
+end
+if code == 3
+  actual = IntegrationTarget.counts(report)
   executed = actual.values_at("killed", "survived", "timeout", "error").sum
-  fraction = executed.zero? ? 1.0 : actual["error"].fdiv(executed)
-  abort "saboteur failed with exit code #{code}" unless code == 3 && allowance && fraction <= allowance
-  warn "#{name} (#{strategy}): #{actual['error']} of #{executed} mutants errored " \
-       "(#{(fraction * 100).round(1)}%), within the allowed #{allowance}"
+  warn "#{name} (#{strategy}): #{actual['error']} of #{executed} mutants errored, " \
+       "within the allowed #{target.dig('allow_error_fraction', strategy)}"
 end
 exit 0 unless check
 
 # Survivors are expected in someone else's project. What must not change
 # silently is how many mutants land in each status at the pinned commit.
-actual = counts(report)
+actual = IntegrationTarget.counts(report)
 expected = target.fetch("expect").fetch(strategy)
 # Some targets' own tests depend on the machine (a terminal, a command on
 # PATH), so a few counts differ by platform; those live under expect_on.
