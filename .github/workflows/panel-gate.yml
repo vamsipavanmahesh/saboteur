@@ -1,0 +1,45 @@
+name: Panel head gate
+
+on:
+  push:
+    branches: [main]
+  issue_comment:
+    types: [created, edited, deleted]
+  workflow_run:
+    workflows: [CI, DCO]
+    types: [requested, in_progress, completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to revalidate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  actions: read
+  statuses: write
+
+# Serialize all decisions, including comment revocations and workflow reruns.
+concurrency:
+  group: panel-head-gate
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Test trusted verifier
+        run: node --test script/panel-gate/verify.test.cjs
+      - name: Verify without checking out or executing PR code
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node script/panel-gate/verify.cjs
