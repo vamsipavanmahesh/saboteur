@@ -90,20 +90,58 @@ class API {
 }
 // Stable trusted-main anchor, scoped by PR, survives head pushes and stale-SHA markers.
 const ledgerContext = number => `panel/revoked/pr-${number}`;
+// A single intent covers all affected lenses before any fragile comments read.
+// The redundant gate failure is also a durable latch, not a disposable display.
+const intentContext = number => `panel/revocation-intent/pr-${number}`;
+function intent(record, number) {
+  const match = /^(all|principal|architect|qa):([1-9][0-9]*)$/.exec(record.description || '');
+  const latch = new RegExp(`^revoked-pr-${number}:(all|principal|architect|qa):([1-9][0-9]*)$`).exec(record.description || '');
+  if (record.context === intentContext(number)) { demand(match, 'invalid revocation intent'); return match; }
+  if (record.context === policy.context && latch) return latch;
+  // Recover failures emitted by the previous verifier before this latch format.
+  if (record.context === policy.context && record.description === 'Verdict edited/deleted; require fresh panel attestations') {
+    return [record.description, 'all', '1'];
+  }
+  return null;
+}
+async function recoverRevocations(api, number, head) {
+  const [ledger, records] = await Promise.all([
+    api.pages(`commits/${policy.revocationAnchor}/statuses`), api.pages(`commits/${head}/statuses`)
+  ]);
+  // Promote head-only latches before any pending/success can replace the display.
+  // Preserve the original server epoch in the recovery record, not recovery time.
+  for (const record of records) {
+    const match = intent(record, number);
+    if (!match) continue;
+    const epoch = Date.parse(record.created_at);
+    demand(Number.isFinite(epoch), 'invalid revocation latch epoch');
+    const description = `${match[1]}:${match[2]}:${epoch}`;
+    if (ledger.some(r => r.context === ledgerContext(number) && r.description === description)) continue;
+    const saved = await api.call(`statuses/${policy.revocationAnchor}`, 'POST', {
+      state: 'error', context: ledgerContext(number), description
+    });
+    // Local de-duplication only; API implementations may share the backing list.
+    if (!ledger.some(r => r.context === ledgerContext(number) && r.description === description)) ledger.push(saved);
+  }
+}
 async function revocations(api, number, head) {
   const [ledger, legacy] = await Promise.all([
     api.pages(`commits/${policy.revocationAnchor}/statuses`), api.pages(`commits/${head}/statuses`)
   ]);
   const revoked = {};
-  for (const record of [...ledger.filter(r => r.context === ledgerContext(number)),
-    ...legacy.filter(r => r.context === 'panel/deleted-verdict')]) {
-    const match = /^(principal|architect|qa):([1-9][0-9]*)$/.exec(record.description || '');
-    const epoch = Date.parse(record.created_at);
+  for (const record of [...ledger, ...legacy]) {
+    const latch = intent(record, number);
+    const relevant = record.context === ledgerContext(number) || record.context === 'panel/deleted-verdict';
+    if (!latch && !relevant) continue;
+    const match = latch || /^(all|principal|architect|qa):([1-9][0-9]*)(?::([0-9]+))?$/.exec(record.description || '');
+    const epoch = match?.[3] ? Number(match[3]) : Date.parse(record.created_at);
     demand(match && Number.isSafeInteger(Number(match[2])) && Number.isFinite(epoch), 'invalid revocation record');
-    const lens = match[1], previous = revoked[lens];
-    revoked[lens] = {id: Math.max(previous?.id || 0, Number(match[2])), epoch: Math.max(previous?.epoch || 0, epoch)};
+    const lenses = match[1] === 'all' ? Object.keys(policy.reviewers) : [match[1]];
+    for (const lens of lenses) {
+      const previous = revoked[lens];
+      revoked[lens] = {id: Math.max(previous?.id || 0, Number(match[2])), epoch: Math.max(previous?.epoch || 0, epoch)};
+    }
   }
-  // Stable order, independent of API status pagination/order.
   return Object.fromEntries(Object.keys(policy.reviewers).filter(lens => revoked[lens]).map(lens => [lens, revoked[lens]]));
 }
 async function revokeEvent(api, event) {
@@ -111,28 +149,31 @@ async function revokeEvent(api, event) {
   const id = event.comment?.user?.id;
   const oldBody = event.action === 'edited' ? event.changes?.body?.from : event.comment?.body;
   if (!Object.values(policy.reviewers).some(ids => ids.includes(id)) || !oldBody?.includes('```panel-verdict')) return;
-  let lenses = Object.keys(policy.reviewers);
+  let lens = 'all';
   try {
     const marker = parse(oldBody);
     demand(policy.reviewers[marker.lens].includes(id), 'revoked marker wrong publisher');
-    lenses = [marker.lens];
-  } catch { /* Malformed trusted marker revokes every lens, even on a stale head. */ }
-  const pr = await api.call(`pulls/${event.issue.number}`);
-  // Revoke the CURRENT head even when the removed marker names another SHA.
-  await api.call(`statuses/${pr.head.sha}`, 'POST', {
-    state: 'failure', context: policy.context, description: 'Verdict edited/deleted; require fresh panel attestations'
-  });
-  const comments = await api.pages(`issues/${event.issue.number}/comments`);
+    lens = marker.lens;
+  } catch { /* One atomic all-lens intent handles malformed trusted markers. */ }
+  demand(Number.isSafeInteger(event.comment.id) && event.comment.id > 0 && SHA.test(policy.revocationAnchor), 'invalid revocation facts');
+  const number = event.issue.number, description = `${lens}:${event.comment.id}`;
+  const pr = await api.call(`pulls/${number}`);
+  // Attempt BOTH independent latches even if one write fails. Both are consumed
+  // by verification; head-only persistence is promoted to the stable anchor.
+  const writes = await Promise.allSettled([
+    api.call(`statuses/${policy.revocationAnchor}`, 'POST', {state: 'error', context: intentContext(number), description}),
+    api.call(`statuses/${pr.head.sha}`, 'POST', {state: 'failure', context: policy.context,
+      description: `revoked-pr-${number}:${description}`})
+  ]);
+  if (writes.some(w => w.status === 'rejected')) throw new Error('revocation latch write failed; retry event after API recovery');
+  const comments = await api.pages(`issues/${number}/comments`);
   const highWater = Math.max(event.comment.id, ...comments.map(c => c.id));
   demand(Number.isSafeInteger(highWater) && highWater > 0, 'invalid comment high-water ID');
-  demand(SHA.test(policy.revocationAnchor), 'invalid revocation anchor');
-  for (const lens of lenses) {
-    // GitHub's server-generated created_at supplies the revocation epoch.
-    await api.call(`statuses/${policy.revocationAnchor}`, 'POST', {
-      state: 'error', context: ledgerContext(event.issue.number), description: `${lens}:${highWater}`
-    });
-  }
-
+  // High-water refinement is optional for safety: the earlier server epoch
+  // already excludes every approval created before the durable intent.
+  await api.call(`statuses/${policy.revocationAnchor}`, 'POST', {
+    state: 'error', context: ledgerContext(number), description: `${lens}:${highWater}`
+  });
 }
 async function workflows(api, number, head) {
   const runs = await api.pages(`actions/runs?event=pull_request&head_sha=${head}`, 'workflow_runs');
@@ -161,8 +202,9 @@ async function verify(api, number) {
     state, context: policy.context, description: description.slice(0, 140),
     target_url: `https://github.com/${api.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   });
-  await status('pending', 'Checking current head panel, CI, DCO and policy');
   try {
+    await recoverRevocations(api, number, head);
+    await status('pending', 'Checking current head panel, CI, DCO and policy');
     const currentBase = await api.call(`git/ref/heads/${policy.baseBranch}`);
     demand(currentBase.object.sha === base, 'main moved during validation');
     const compare = await api.call(`compare/${base}...${head}`);
