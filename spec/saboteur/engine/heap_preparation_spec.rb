@@ -33,7 +33,8 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     stub_test_phase(events, box)
     engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: StringIO.new)
     record_candidate_lists(engine, events, box)
-    engine.call
+    report = engine.call
+    expect(report.skipped_subjects).to eq({}) if subjects.empty?
     [box[:lists], box[:run_args]]
   end
 
@@ -46,6 +47,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   end
 
   def stub_boot_phase(events, subjects)
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     rails = instance_double(Saboteur::Frameworks::Rails)
     allow(rails).to receive(:prepare_workers) { events << :rails_prepared }
     boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
