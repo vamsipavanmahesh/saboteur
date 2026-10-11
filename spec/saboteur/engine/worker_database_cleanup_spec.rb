@@ -22,12 +22,12 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
   end
   let(:integration) { instance_double(Saboteur::Integration::RSpec, test_files: []) }
   let(:rails) { instance_double(Saboteur::Frameworks::Rails, prepare_workers: nil, cleanup_workers: nil) }
+  let(:err) { StringIO.new }
 
-  def run_engine(events, run_error: nil)
+  def run_engine(events, run_error: nil, prepare_error: nil, cleanup_error: nil)
     stub_boot_phase
-    stub_test_phase(events, run_error)
-    engine = described_class.new(Saboteur::Config.new({ "jobs" => 2 }, root: @root), err: StringIO.new)
-    engine.call
+    stub_test_phase(events, run_error, prepare_error, cleanup_error)
+    described_class.new(Saboteur::Config.new({ "jobs" => 2 }, root: @root), err: err).call
   end
 
   def stub_boot_phase
@@ -38,12 +38,20 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 
-  def stub_test_phase(events, run_error)
+  def stub_test_phase(events, run_error, prepare_error, cleanup_error)
     stub_baseline_and_store
     stub_distribution(events, run_error)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
-    allow(rails).to receive(:prepare_workers) { events << :prepare }
-    allow(rails).to receive(:cleanup_workers) { events << :cleanup }
+    if prepare_error
+      allow(rails).to receive(:prepare_workers) { events << :prepare and raise(prepare_error) }
+    else
+      allow(rails).to receive(:prepare_workers) { events << :prepare }
+    end
+    if cleanup_error
+      allow(rails).to receive(:cleanup_workers) { events << :cleanup and raise(cleanup_error) }
+    else
+      allow(rails).to receive(:cleanup_workers) { events << :cleanup }
+    end
   end
 
   def stub_baseline_and_store
@@ -74,5 +82,16 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
     events = []
     expect { run_engine(events, run_error: "boom") }.to raise_error("boom")
     expect(events).to eq(%i[prepare distribute cleanup])
+  end
+
+  it "drops the copies a failed prepare actually made" do
+    events = []
+    expect { run_engine(events, prepare_error: "disk full") }.to raise_error("disk full")
+    expect(events).to eq(%i[prepare cleanup])
+  end
+
+  it "warns about a cleanup failure instead of masking the run's outcome" do
+    report = run_engine([], cleanup_error: Saboteur::Error.new("could not drop worker database copies: x"))
+    expect(report.warnings).to include("could not drop worker database copies: x")
   end
 end
