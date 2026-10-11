@@ -30,7 +30,7 @@ module Saboteur
         inventory = fields.fetch(:inventory).map { |entry| restore_entry(entry) }.freeze
         raise ArgumentError, "duplicate inventory paths" unless inventory.map(&:path).uniq.size == inventory.size
 
-        issues = fields.fetch(:issues).map { |issue| String(issue).dup.freeze }.freeze
+        issues = restore_issues(fields.fetch(:issues))
         validate_snapshot_identity(fields, inventory, issues)
         frozen_fields = fields.transform_values { |value| value.is_a?(String) ? value.dup.freeze : value }
         Snapshot.new(**frozen_fields, inventory: inventory, issues: issues)
@@ -38,8 +38,16 @@ module Saboteur
         raise ArgumentError, "invalid fingerprint snapshot: #{e.class}"
       end
 
+      def self.restore_issues(issues)
+        raise ArgumentError, "invalid issues" unless
+          issues.is_a?(Array) && issues.all?(String) && issues == issues.uniq.sort
+
+        issues.map { |issue| issue.dup.freeze }.freeze
+      end
+
       def self.validate_snapshot_identity(fields, inventory, issues)
-        raise ArgumentError, "invalid complete snapshot" if fields[:complete] && issues.any?
+        raise ArgumentError, "invalid complete snapshot" if
+          fields[:complete] && (issues.any? || inventory.any? { |entry| entry.state == "unreadable" })
         raise ArgumentError, "unsorted inventory" unless inventory.map(&:path) == inventory.map(&:path).sort
 
         inputs = { format: FORMAT_VERSION, files: inventory.map(&:to_h),
@@ -107,7 +115,7 @@ module Saboteur
         issues = output_overlap_issues
         entries = inventory(issues).sort_by(&:path).freeze
         issues = issues.uniq.sort
-        settings_digest = hash_value(@config.to_h.reject { |key, _| LOCATION_SETTINGS.include?(key) })
+        settings_digest = hash_value(@config.to_h.except(*LOCATION_SETTINGS))
         runtime_digest = hash_value(@runtime_identity)
         digest = hash_value(format: FORMAT_VERSION, files: entries.map(&:to_h),
                             settings: settings_digest, runtime: runtime_digest)
@@ -127,11 +135,25 @@ module Saboteur
 
       def self.canonical_value(value)
         case value
-        when Hash then value.keys.sort_by(&:to_s).to_h { |key| [key.to_s, canonical_value(value[key])] }.freeze
+        when Hash then canonical_mapping(value)
         when Array then value.map { |entry| canonical_value(entry) }.freeze
         when String then value.dup.freeze
-        else value
+        when NilClass, TrueClass, FalseClass, Integer then value
+        when Float
+          raise ArgumentError, "non-finite identity number" unless value.finite?
+
+          value
+        else raise ArgumentError, "unsupported identity value"
         end
+      end
+
+      def self.canonical_mapping(value)
+        raise ArgumentError, "invalid identity key" unless value.keys.all? do |key|
+          key.is_a?(String) || key.is_a?(Symbol)
+        end
+        raise ArgumentError, "duplicate normalized identity key" unless value.keys.map(&:to_s).uniq.size == value.size
+
+        value.keys.sort_by(&:to_s).to_h { |key| [key.to_s, canonical_value(value[key])] }.freeze
       end
 
       private
@@ -147,7 +169,7 @@ module Saboteur
       end
 
       def output_overlap_issues
-        paths = required_files.map(&:first)
+        paths = required_files.map(&:first) + MANIFESTS.map { |name| File.join(@root, name) }
         outputs = %w[json_report html_report].filter_map { |key| @config.fetch(key) }
                                              .map { |path| canonical_path(path) }
         issues = outputs.filter_map do |path|
@@ -164,11 +186,19 @@ module Saboteur
       def inventory(issues)
         paths = project_files(issues).to_h { |path| [path, "ruby"] }
         MANIFESTS.each { |name| paths[File.join(@root, name)] = "manifest" }
-        required = required_files.to_h { |path, kind, needed| [path, [kind, needed]] }
+        required = merged_required_files
         required.each { |path, (kind, _)| paths[path] = kind }
         paths.map do |path, kind|
           needed = required.key?(path) ? required[path].last : kind != "manifest"
           read_entry(path, kind, needed, issues)
+        end
+      end
+
+      def merged_required_files
+        required_files.group_by(&:first).transform_values do |entries|
+          roles = entries.map { |_, kind, _| kind }
+          role = (roles - ["extra"]).min || "extra"
+          [role, entries.any? { |_, _, needed| needed }]
         end
       end
 
