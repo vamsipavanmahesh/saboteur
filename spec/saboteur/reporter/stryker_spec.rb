@@ -71,6 +71,13 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(mutants[3]["statusReason"]).to eq("boom")
   end
 
+  it "carries the bounded findings a code-review surface annotates from" do
+    findings = json.fetch("saboteur").fetch("findings")
+    expect(findings["version"]).to eq(1)
+    expect(findings["survivors"]).to eq([])
+    expect(findings["accepted"].map { |finding| finding["reason"] }).to eq(["equivalent"])
+  end
+
   it "writes the file" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "out", "report.json")
