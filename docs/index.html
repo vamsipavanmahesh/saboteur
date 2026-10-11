@@ -23,6 +23,9 @@ nav .brand{font-weight:700;color:var(--text);text-decoration:none;margin-right:a
 nav .brand span{color:var(--accent)}
 nav a{color:var(--muted);text-decoration:none;font-size:.95rem}
 nav a:hover{color:var(--text)}
+.brand-logo{height:30px;width:30px;vertical-align:middle;margin-right:8px}
+.hero-logo{float:right;width:210px;height:210px;margin:0 0 16px 28px}
+@media(max-width:700px){.hero-logo{float:none;display:block;width:130px;height:130px;margin:0 0 12px}}
 .hero{padding:72px 0 48px}
 .hero h1{font-size:clamp(2.2rem,6vw,3.6rem);line-height:1.08;margin:0 0 20px;letter-spacing:-.02em}
 .hero h1 em{font-style:normal;color:var(--accent)}
@@ -60,12 +63,13 @@ footer a{color:var(--muted)}
 </head>
 <body>
 <nav><div class="wrap">
-<a class="brand" href="#top">sabo<span>teur</span></a>
+<a class="brand" href="#top"><img class="brand-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="" width="30" height="30">sabo<span>teur</span></a>
 <a href="#how">How it works</a><a href="#why">Why saboteur</a><a href="#start">Quickstart</a><a href="#compare">Compare</a><a href="#bench">Benchmarks</a>
 <a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
 </div></nav>
 
 <header class="hero" id="top"><div class="wrap">
+<img class="hero-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="saboteur logo: a ninja beetle with a ruby shell carrying a lit bomb" width="210" height="210">
 <h1>Your tests pass.<br><em>Do they test anything?</em></h1>
 <p class="lead">saboteur changes your Ruby code in small ways, one change at a time. If your tests still pass, saboteur shows you the exact change they missed. It runs only the tests that touch each change, so it is fast, and it never counts a broken test as a catch.</p>
 <div class="btns"><a class="btn primary" href="#start">Get started</a><a class="btn" href="https://github.com/vamsipavanmahesh/saboteur">View on GitHub</a></div>

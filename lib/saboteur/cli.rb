@@ -54,6 +54,7 @@ module Saboteur
       @err.puts
       Reporter::Terminal.new(@out).call(report)
       write_json(report)
+      write_html(report)
       exit_code(report)
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
@@ -69,6 +70,14 @@ module Saboteur
 
       Reporter::Stryker.new(path).call(report)
       @out.puts "\nJSON report: #{path}"
+    end
+
+    def write_html(report)
+      path = config.path("html_report")
+      return unless path
+
+      Reporter::Html.new(path).call(report)
+      @out.puts "HTML report: #{path}"
     end
 
     def exit_code(report)
@@ -96,6 +105,7 @@ module Saboteur
         opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
         opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
         opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
+        opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
         opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
         opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
       end

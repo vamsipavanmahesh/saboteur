@@ -7,6 +7,10 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Self-contained HTML report (`Saboteur::Reporter::Html`): one file with inline
+  style and no script or network use, written to `.saboteur/report.html`.
+  Change the path with `--html PATH` or `html_report:`. It shows the score,
+  per-file mutants, survivors, warnings and skipped subjects.
 - Built-in `filter_replacement` mutants: `select` / `reject` and
   `select!` / `reject!`, for explicit-receiver calls with a block and no ordinary
   arguments. For unchanged subjects, existing mutants retain their digests and order.
