@@ -95,7 +95,10 @@ RSpec.describe "action/run-saboteur" do
       "SABOTEUR_COMMAND" => write_stand_in_command(exit_status, report, log_text),
       "SABOTEUR_ARGUMENTS" => "", "SABOTEUR_FAIL_ON_SURVIVORS" => "false",
       "SABOTEUR_REPORT_PATH" => ".saboteur/report.json",
-      "GITHUB_OUTPUT" => github_output, "GITHUB_STEP_SUMMARY" => step_summary
+      "GITHUB_OUTPUT" => github_output, "GITHUB_STEP_SUMMARY" => step_summary,
+      # A real runner always sets these; blank them so examples stay hermetic
+      # and set their own when they need a run location.
+      "GITHUB_RUN_ID" => "", "GITHUB_SERVER_URL" => "", "GITHUB_REPOSITORY" => ""
     }
     defaults["PATH"] = path if path
     stdout, status = Open3.capture2e(defaults.merge(environment), "bash", script, chdir: workspace)
