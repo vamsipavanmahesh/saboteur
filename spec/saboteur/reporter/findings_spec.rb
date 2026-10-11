@@ -50,7 +50,9 @@ RSpec.describe Saboteur::Reporter::Findings do
     expect(finding).to eq(
       "digest" => person_result_digest, "path" => "person.rb", "line" => 2, "endLine" => 2,
       "subject" => "Person#adult?", "operator" => "comparison", "original" => ">=",
-      "replacement" => ">", "coarse" => false
+      "replacement" => ">", "edits" => [{ "line" => 2, "endLine" => 2, "original" => ">=",
+                                          "replacement" => ">" }],
+      "coarse" => false
     )
   end
 
@@ -91,7 +93,7 @@ RSpec.describe Saboteur::Reporter::Findings do
     expect(digests).to eq([one.digest, two.digest].sort)
   end
 
-  it "joins a multi-edit mutant's texts like the Stryker report does" do
+  it "joins a multi-edit mutant's texts like the Stryker report does, with one location per edit" do
     source = <<~RUBY
       class Pair
         def call
@@ -117,6 +119,95 @@ RSpec.describe Saboteur::Reporter::Findings do
     finding = only(build(report).fetch("survivors"))
     expect(finding.values_at("original", "replacement", "line", "endLine"))
       .to eq(["alpha | beta", "gamma | delta", 3, 3])
+    expect(finding.fetch("edits")).to eq([
+                                           { "line" => 3, "endLine" => 3, "original" => "alpha",
+                                             "replacement" => "gamma" },
+                                           { "line" => 3, "endLine" => 3, "original" => "beta",
+                                             "replacement" => "delta" }
+                                         ])
+  end
+
+  it "sorts a reversed multi-edit array into a sane range, like Subject#apply does" do
+    source = <<~RUBY
+      class Pair
+        def call
+          alpha + beta
+        end
+      end
+    RUBY
+    subject = project("pair.rb" => source).last.first
+    at = subject.file_source.index("alpha")
+    finish = subject.file_source.index("beta") + "beta".size
+    # Handed over last edit first: a custom mutation source may not sort.
+    edits = [
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: finish - 4, end_byte: finish,
+                                         replacement: "delta"),
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 5,
+                                         replacement: "gamma")
+    ]
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "rename",
+                                                      edits:)
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(mutation.edits))
+    root = File.dirname(subject.file)
+    report = Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0, root:, seed: 1)
+    finding = only(build(report).fetch("survivors"))
+    expect(finding.values_at("original", "replacement", "line", "endLine"))
+      .to eq(["alpha | beta", "gamma | delta", 3, 3])
+    expect(finding.fetch("edits").map { |e| e.fetch("original") }).to eq(%w[alpha beta])
+  end
+
+  it "bounds the accepted list and counts what it left out" do
+    accepted = %w[> < == != <= >= + - * / %].map do |replacement|
+      survivor = result_for(:survived, replacement:)
+      survivor.ignored = "equivalent"
+      survivor
+    end
+    findings = build(report_of(*accepted))
+    expect(findings.fetch("accepted").size).to eq(10)
+    expect(findings.fetch("acceptedTruncated")).to eq(1)
+  end
+
+  it "ranges a reversed multi-edit mutant across the lines its edits touch" do
+    source = "class Pair\n  def call\n    alpha +\n      beta\n  end\nend\n"
+    subject = project("pair.rb" => source).last.first
+    at = subject.file_source.index("alpha")
+    beta_at = subject.file_source.index("beta")
+    # Handed over last edit first, spanning two lines.
+    edits = [
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: beta_at, end_byte: beta_at + 4,
+                                         replacement: "delta"),
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 5,
+                                         replacement: "gamma")
+    ]
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "rename",
+                                                      edits:)
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(mutation.edits))
+    root = File.dirname(subject.file)
+    report = Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0, root:, seed: 1)
+    finding = only(build(report).fetch("survivors"))
+    expect(finding.values_at("line", "endLine", "original", "replacement"))
+      .to eq([3, 4, "alpha | beta", "gamma | delta"])
+    expect(finding.fetch("edits").map { |e| [e["line"], e["original"]] })
+      .to eq([[3, "alpha"], [4, "beta"]])
+  end
+
+  it "locates a zero-width insertion on its own line, with an empty original" do
+    source = "class Pair\n  def call\n    alpha + beta\n  end\nend\n"
+    subject = project("pair.rb" => source).last.first
+    at = subject.file_source.index("alpha")
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at,
+                                              replacement: "raise ")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "insertion",
+                                                      edits: [edit])
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(mutation.edits))
+    root = File.dirname(subject.file)
+    report = Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0, root:, seed: 1)
+    finding = only(build(report).fetch("survivors"))
+    expect(finding.values_at("line", "endLine", "original", "replacement"))
+      .to eq([3, 3, "", "raise "])
   end
 
   it "keeps an edit that ends on a line boundary on the line above" do
@@ -131,7 +222,9 @@ RSpec.describe Saboteur::Reporter::Findings do
                                         mutated_source: subject.apply(mutation.edits))
     root = File.dirname(subject.file)
     report = Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0, root:, seed: 1)
-    expect(only(build(report).fetch("survivors")).fetch("endLine")).to eq(4)
+    finding = only(build(report).fetch("survivors"))
+    expect(finding.fetch("endLine")).to eq(4)
+    expect(finding.fetch("edits").map { |e| e.fetch("endLine") }).to eq([4])
   end
 
   it "survives invalid UTF-8 and frozen strings, which JSON cannot hold as is" do
