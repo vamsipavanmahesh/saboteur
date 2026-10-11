@@ -11,7 +11,7 @@ module Saboteur
     # unchanged, otherwise built by running the whole suite once in a
     # supervised child and saved.
     class CoverageStore
-      CACHE_INPUTS = %w[integration require rspec_args rails].freeze
+      CACHE_INPUTS = %w[integration require rspec_args rails tests].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
 
