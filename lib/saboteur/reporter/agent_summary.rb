@@ -62,9 +62,25 @@ module Saboteur
             report.score&.round(4)
           end
 
+          # Display values are clipped; the commands under next use the exact values or are left out.
           def provenance_hash(provenance)
-            { ref: provenance.ref, seed: provenance.seed, head: provenance.head,
-              workingTree: provenance.working_tree, mode: provenance.mode }
+            { ref: clip_value(provenance.ref, 120), seed: provenance.seed, head: clip_value(provenance.head, 40),
+              workingTree: provenance.working_tree, changedFiles: provenance.changed_files,
+              mode: provenance.mode, selection: selection_hash(provenance) }
+          end
+
+          def selection_hash(provenance)
+            %i[subjects tests sources].to_h do |key|
+              list = provenance.public_send(key)
+              [key, { count: list.size, first: list.first(3).map { |entry| clip_value(entry, 120) } }]
+            end.merge(config: clip_value(provenance.config_path, 120), digest: provenance.digest)
+          end
+
+          def clip_value(value, limit)
+            return nil if value.nil?
+
+            text = value.to_s
+            text.length > limit ? "#{text[0, limit]}..." : text
           end
 
           def findings(report, shown, snippet_limit)
@@ -79,8 +95,9 @@ module Saboteur
 
           def shown_findings(listed, shown, snippet_limit)
             listed.first(shown).map do |finding|
-              finding.slice(:digest, :path, :line, :endLine, :subject, :operator, :coarse)
-                     .merge(original: clip(finding[:original], snippet_limit),
+              finding.slice(:digest, :line, :endLine, :operator, :coarse)
+                     .merge(path: clip_value(finding[:path], 200), subject: clip_value(finding[:subject], 200),
+                            original: clip(finding[:original], snippet_limit),
                             replacement: clip(finding[:replacement], snippet_limit))
             end
           end
@@ -96,16 +113,24 @@ module Saboteur
           end
 
           def next_steps(report, provenance)
-            steps = { rerun: rerun_command(provenance) }
+            steps = {}
+            add_command(steps, :rerun, Commands.rerun(provenance))
             first = Findings.build(report)[:survivors].first
-            steps[:replay] = "saboteur run --id #{first[:digest]} --seed #{provenance.seed}" if first
-            steps[:fullReport] = provenance.json_report if provenance.json_report
+            add_command(steps, :replay, Commands.replay(provenance, first[:digest])) if first
+            steps[:fullReport] = provenance.json_report if short_path?(provenance.json_report)
             steps
           end
 
-          def rerun_command(provenance)
-            since = provenance.ref ? " --since #{provenance.ref}" : ""
-            "saboteur run --agent#{since} --seed #{provenance.seed}"
+          def short_path?(path)
+            path && path.bytesize <= 400
+          end
+
+          def add_command(steps, key, command)
+            steps[key] = command
+            return if command
+
+            steps[:"#{key}Unavailable"] =
+              "command longer than #{Commands::MAX_BYTES} bytes; rebuild it from provenance"
           end
         end
       end
