@@ -32,13 +32,19 @@ only, by design.
 ## Usage
 
 ```sh
-bundle exec saboteur run                          # whole project
-bundle exec saboteur run --since origin/main      # methods changed on this branch
+bundle exec saboteur run --since origin/main      # default workflow for pull requests
+bundle exec saboteur run                          # whole-project audit (main branch)
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
 bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
 ```
+
+For pull requests, start with `--since` against the target branch. This is a
+workflow recommendation, not a new CLI default: plain `run` still checks the
+whole configured project. See [the pull-request guide](docs/pull-requests.md)
+for checkout history, configuration and limits. Keep whole-project runs on
+main: diff mode does not check every method affected by a dependency change.
 
 Every test run starts from the same random seed (1 by default), so tests
 that use `rand` see the same values in each mutant's run and in the check
@@ -58,7 +64,10 @@ Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 
 ## Configuration
 
-`.saboteur.yml` in the project root; CLI flags override it.
+`.saboteur.yml` in the project root; CLI flags override it. Keep the shared
+config usable for whole-project runs and pass `--since` in the pull-request
+job. A PR-only config may set `since: origin/main`; omit `since` (or use
+`since: null`) in the config for audits on main. Use your actual target branch.
 
 ```yaml
 include: [lib/**/*.rb]
