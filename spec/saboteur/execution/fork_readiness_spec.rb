@@ -53,4 +53,12 @@ RSpec.describe Saboteur::Execution::ForkReadiness do
   it "returns nil, so callers cannot depend on GC internals" do
     expect(described_class.prepare_heap).to be_nil
   end
+  # Errors are not rescued: a failing capability must surface, not be
+  # silently swapped for another GC strategy.
+  context "when the available capability fails" do
+    it "lets the error propagate" do
+      allow(Process).to receive(:warmup).and_raise(StandardError, "boom")
+      expect { described_class.prepare_heap }.to raise_error(StandardError, "boom")
+    end
+  end
 end
