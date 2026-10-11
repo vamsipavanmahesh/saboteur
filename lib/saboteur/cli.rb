@@ -6,7 +6,8 @@ require_relative "../saboteur"
 
 module Saboteur
   class CLI
-    USAGE = "Usage: saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N]"
+    USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
+            "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N]"
 
     EXIT_OK = 0
     EXIT_SURVIVORS = 1
@@ -48,7 +49,8 @@ module Saboteur
 
     def run
       parser.parse!(@argv)
-      raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
+      use_explicit_sources
+      raise UsageError, "--test needs at least one source file" if options[:tests] && !options[:include]
 
       report = Engine.new(config, err: @err).call
       @err.puts
@@ -84,7 +86,25 @@ module Saboteur
       executed = report.executed
       return EXIT_TOOL if executed.any? && executed.all? { |result| result.status == :error }
 
-      report.unignored_survivors.any? ? EXIT_SURVIVORS : EXIT_OK
+      failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
+    end
+
+    # With --threshold the score decides; without it any unignored survivor does.
+    def failed_quality_gate?(report)
+      threshold = config["threshold"]
+      return report.unignored_survivors.any? if threshold.nil?
+
+      score = report.score
+      !score.nil? && score * 100 < threshold
+    end
+
+    # Positional arguments name the files to mutate. They replace the
+    # configured include and exclude patterns.
+    def use_explicit_sources
+      return if @argv.empty?
+
+      options[:include] = @argv
+      options[:exclude] = []
     end
 
     def overrides
@@ -101,13 +121,27 @@ module Saboteur
         opts.on("--seed N", Integer, "Seed for Ruby's random numbers in every test run (default 1)") do |v|
           set(:seed, v)
         end
+        add_explicit_file_options(opts)
         opts.on("--config PATH", "Config file (default .saboteur.yml)") { |v| set(:config, v) }
         opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
         opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
-        opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
-        opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
+        add_report_options(opts)
         opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
         opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
+      end
+    end
+
+    def add_report_options(opts)
+      opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
+      opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
+    end
+
+    def add_explicit_file_options(opts)
+      opts.on("--test PATH", "Spec file or directory to run; repeatable. Replaces the configured spec paths") do |v|
+        (options[:tests] ||= []) << v
+      end
+      opts.on("--threshold PERCENT", Float, "Exit 1 when the score is below PERCENT (0-100)") do |v|
+        set(:threshold, v)
       end
     end
 
