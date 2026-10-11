@@ -4,6 +4,7 @@
 require "coverage"
 require "fileutils"
 require "pathname"
+require "English"
 require "tmpdir"
 
 module Saboteur
@@ -410,18 +411,46 @@ module Saboteur
         return if memory_pools.empty?
 
         @memory_snapshot_dir = Dir.mktmpdir("saboteur-memory-")
+        own_memory_snapshots
         memory_pools.each_with_index do |pool, index|
           path = File.join(@memory_snapshot_dir, "#{index}.sqlite3")
           pool.with_connection do |connection|
             file = SQLite3::Database.new(path)
+            backup = SQLite3::Backup.new(file, "main", connection.raw_connection, "main")
             begin
-              step_backup(SQLite3::Backup.new(file, "main", connection.raw_connection, "main"), path)
+              step_backup(backup, path)
             ensure
-              file.close
+              backup.finish
+              close_without_masking(file)
             end
           end
           @memory_snapshots[pool.db_config] = path
         end
+      end
+
+      # Whatever exit the run takes once the snapshots exist - a boot,
+      # baseline or coverage failure, no subjects, no runnable work - the
+      # owner process removes them. Forked children inherit the handler but
+      # not the pid, so they leave the files alone.
+      def own_memory_snapshots
+        owner = Process.pid
+        at_exit { cleanup_memory_snapshots(owner) }
+      end
+
+      def cleanup_memory_snapshots(owner)
+        return unless Process.pid == owner && @memory_snapshot_dir
+
+        FileUtils.rm_rf(@memory_snapshot_dir)
+      end
+
+      # SQLite wants exactly one finish per backup; the handle goes back
+      # even when the step fails. A close can fail too, and a close that
+      # fails on the way out must not hide the error already in flight.
+      def close_without_masking(database)
+        in_flight = $ERROR_INFO
+        database.close
+      rescue SQLite3::Exception
+        raise unless in_flight
       end
 
       # Child: load the parent's snapshot into this process's own fresh
@@ -437,11 +466,12 @@ module Saboteur
 
           pool.with_connection do |connection|
             source = SQLite3::Database.new(snapshot, readonly: true)
+            backup = SQLite3::Backup.new(connection.raw_connection, "main", source, "main")
             begin
-              step_backup(SQLite3::Backup.new(connection.raw_connection, "main", source, "main"),
-                          pool.db_config.database)
+              step_backup(backup, pool.db_config.database)
             ensure
-              source.close
+              backup.finish
+              close_without_masking(source)
             end
           end
         end
