@@ -17,7 +17,8 @@ RSpec.describe "baseline stability guard", :e2e do
     expect(run.status).to eq(3)
     expect(run.json).to be_nil
     expect(run.err).to include("baseline check 1 failed at seed 42", "Fix the suite", "No mutants were started")
-    expect(File).to exist(File.join(directory, ".saboteur/baseline-1.log"))
+    log = File.read(File.join(directory, ".saboteur/baseline-1.log"))
+    expect(log).to include("fails unchanged", "expected", "examples finished", "1 failure")
   end
 
   it "detects a second-check failure in a separate child" do
