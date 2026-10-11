@@ -9,6 +9,9 @@ All notable changes are documented here. The format follows
 ### Added
 - A survivor lists the first five tests that covered its line and still passed
   with the mutant applied, in the terminal and the HTML page.
+- In diff mode (`--since`), each survivor names the changed line it relates to
+  (`changed line: path:N` in the terminal, `changedLines` in each JSON finding),
+  because a multi-line statement is reported at its first line.
 - The score is split into assertion kills and crash kills, in the terminal,
   the JSON report (`saboteur.scores`) and the HTML page. A second score leaves
   out whole-body mutants (`body_nil`, `body_true`, `body_false`, `body_raise`). The headline score and

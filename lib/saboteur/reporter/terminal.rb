@@ -8,6 +8,7 @@ module Saboteur
     class Terminal
       MAX_ERRORS = 10
       MAX_PASSING_TESTS = 5
+      MAX_CHANGED_LINES = 3
 
       def initialize(out)
         @out = out
@@ -141,6 +142,7 @@ module Saboteur
         shown(report).each do |result, hidden|
           location = "#{relative(result.subject.file, report.root)}:#{result.subject.start_line}"
           @out.puts "\n#{result.subject.id} #{result.mutation.operator} #{result.digest} #{location}"
+          changed_lines(report, result)
           @out.puts "ignored: #{result.ignored}" if result.ignored
           @out.puts result.diff(root: report.root)
           passing_tests(result)
@@ -166,6 +168,19 @@ module Saboteur
       # A reused verdict was not run again: its tests passed in the earlier run.
       def passed_phrase(result)
         result.reused? ? "passed in an earlier run (--incremental)" : "still passed"
+      end
+
+      # In diff mode: the changed lines this mutant touches. The location above
+      # is where the mutated statement starts, which can be a line or two above
+      # the line that changed.
+      def changed_lines(report, result)
+        lines = report.changed_lines_for(result)
+        return if lines.empty?
+
+        path = relative(result.subject.file, report.root)
+        shown = lines.first(MAX_CHANGED_LINES).map { |line| "#{path}:#{line}" }.join(", ")
+        more = lines.size - MAX_CHANGED_LINES
+        @out.puts "changed #{lines.one? ? 'line' : 'lines'}: #{shown}#{" (+#{more} more)" if more.positive?}"
       end
 
       # [[result, how many more on the same line]]. In review mode survivors

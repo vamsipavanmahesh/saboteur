@@ -50,6 +50,59 @@ RSpec.describe Saboteur::Engine::Boot do
     end
   end
 
+  describe "#load_target" do
+    def boot_with(config, _dir)
+      rails = instance_double(Saboteur::Frameworks::Rails, before_boot: nil, after_boot: nil)
+      allow(Saboteur::Frameworks::Rails).to receive(:new).and_return(rails)
+      integration = instance_double(Saboteur::Integration::RSpec, setup: nil)
+      allow(Saboteur::Integration).to receive(:fetch).and_return(double(new: integration))
+      described_class.new(config, Saboteur::Hooks.new).load_target
+    end
+
+    # rspec puts spec/ on the load path, so a boot file under spec/ (a
+    # dummy app's rails_helper, say) can require its siblings. saboteur
+    # must match that, or the same require list fails to load.
+    it "puts spec/ on the load path when rails: true, so boot files can require siblings" do
+      Dir.mktmpdir do |dir|
+        spec_dir = File.join(dir, "spec")
+        Dir.mkdir(spec_dir)
+        File.write(File.join(spec_dir, "dummy_env.rb"), "DUMMY_ENV_LOADED = true\n")
+        File.write(File.join(spec_dir, "rails_helper.rb"), 'require "dummy_env"')
+        config = Saboteur::Config.new({ "rails" => true, "require" => ["./spec/rails_helper"] }, root: dir)
+        begin
+          boot_with(config, dir)
+          expect(defined?(DUMMY_ENV_LOADED)).to eq("constant")
+          expect($LOAD_PATH).to include(File.realpath(spec_dir))
+        ensure
+          Object.send(:remove_const, :DUMMY_ENV_LOADED) if defined?(DUMMY_ENV_LOADED)
+          $LOAD_PATH.delete(File.realpath(spec_dir))
+          $LOADED_FEATURES.delete_if { |feature| feature.start_with?(File.realpath(dir)) }
+        end
+      end
+    end
+
+    it "does not add spec/ twice when it is already on the load path" do
+      Dir.mktmpdir do |dir|
+        path = File.join(File.realpath(dir), "spec")
+        $LOAD_PATH.unshift(path)
+        config = Saboteur::Config.new({ "rails" => true, "require" => [] }, root: dir)
+        begin
+          boot_with(config, dir)
+          expect($LOAD_PATH.count(path)).to eq(1)
+        ensure
+          $LOAD_PATH.delete(path)
+        end
+      end
+    end
+
+    it "leaves the load path alone when rails: false" do
+      Dir.mktmpdir do |dir|
+        config = Saboteur::Config.new({ "require" => [] }, root: dir)
+        expect { boot_with(config, dir) }.not_to(change { $LOAD_PATH.dup })
+      end
+    end
+  end
+
   # If the guard were missing, this spec must fail without starting a run:
   # everything after the guard raises a sentinel instead of doing work.
   it "is the first thing a run does" do

@@ -95,7 +95,7 @@ module Saboteur
     # REVIEW: diff mode; the terminal then shows one survivor per line.
     # seed: the random seed every test run started from (nil when unknown).
     def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [], review: false,
-                   seed: nil, skipped_subjects: {})
+                   seed: nil, skipped_subjects: {}, diff_scope: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -105,6 +105,14 @@ module Saboteur
       @review = review
       @seed = seed
       @skipped_subjects = skipped_subjects
+      @diff_scope = diff_scope
+    end
+
+    # In diff mode, the changed lines (sorted) that a mutant touches; empty
+    # outside diff mode, or when the mutant touches none (a whole-body mutant
+    # of a method whose only change is its signature).
+    def changed_lines_for(result)
+      @diff_scope ? @diff_scope.changed_lines_for(result.subject, result.mutation) : []
     end
 
     def rejected_kills
