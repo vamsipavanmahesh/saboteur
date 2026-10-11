@@ -23,6 +23,27 @@ RSpec.describe Saboteur::Config do
       .to eq(["rspec", 3.0, 5.0, 1, "nesting"])
   end
 
+  it "has no threshold or explicit tests by default, and reads both from the file" do
+    expect(described_class.load(root: @root).to_h.values_at("threshold", "tests")).to eq([nil, []])
+    write(".saboteur.yml", "threshold: 90\ntests: spec/a_spec.rb\n")
+    config = described_class.load(root: @root)
+    expect([config["threshold"], config["tests"]]).to eq([90.0, ["spec/a_spec.rb"]])
+  end
+
+  it "accepts the threshold bounds 0 and 100 and rejects values outside them" do
+    expect(described_class.new({ "threshold" => 0 }, root: @root)["threshold"]).to eq(0.0)
+    expect(described_class.new({ "threshold" => 100 }, root: @root)["threshold"]).to eq(100.0)
+    [-0.1, 100.1].each do |value|
+      expect { described_class.new({ "threshold" => value }, root: @root) }
+        .to raise_error(Saboteur::ConfigError, /threshold must be between 0 and 100/)
+    end
+  end
+
+  it "rejects a threshold that is not a number" do
+    expect { described_class.new({ "threshold" => "high" }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /invalid config value/)
+  end
+
   it "reads .saboteur.yml and lets CLI overrides win" do
     write(".saboteur.yml", "timeout_factor: 4\njobs: 1\nreeval: nesting\n")
     config = described_class.load(root: @root, overrides: { timeout_factor: 2.5, since: nil })
