@@ -264,6 +264,12 @@ saboteur puts the app's `spec/` directory on the load path before
 processing `require`, matching rspec, so a boot file like a dummy app's
 `spec/rails_helper.rb` can require its siblings.
 
+For a Rails engine, point `require` at the dummy app's environment -
+`test/dummy/config/environment.rb`, usually loaded for you by
+`spec/rails_helper.rb`. Only a dynamically created dummy app has no
+environment file; there, require the helper that calls setup instead,
+such as `DummyApp.setup` in `spec/rails_helper.rb`.
+
 Bootsnap needs no extra setting: bytecode from its compile cache carries no
 coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
 own process when the variable is not already set (Bootsnap treats any set
