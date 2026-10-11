@@ -73,8 +73,7 @@ function fakeAPI(change = {}) {
     async call(path, method, data) {
       if (method === 'POST') { statuses.push(data); return data; }
       if (path === 'pulls/1') { reads++; return reads > 1 && change.newHead ? {...pr, head: {sha: BASE}} : pr; }
-      if (path === 'git/ref/heads/main') return {object: {sha: change.movedBase ? HEAD : BASE}};
-      if (path.startsWith('compare/')) return {status: 'ahead', merge_base_commit: {sha: change.behind ? HEAD : BASE}};
+      if (path.startsWith('compare/')) return {status: change.behind ? 'behind' : change.movedBase ? 'diverged' : 'ahead', merge_base_commit: {sha: BASE}};
       if (path.startsWith('contents/')) return {sha: change.policyEdit && path.endsWith(HEAD) ? HEAD : BASE};
       if (path.startsWith('actions/runs/')) return {...runs[Number(path.split('/')[2]) - 1], status: 'completed', conclusion: 'success', run_attempt: 2};
       throw new Error('unexpected call ' + path);
@@ -94,7 +93,11 @@ test('end-to-end API decision posts pending then success for current facts', asy
   const api = fakeAPI(); await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
 });
-for (const fault of ['newHead', 'movedBase', 'behind', 'policyEdit', 'noQA', 'wrongRun', 'skipped']) {
+test('a head that trails a moved main still passes when its checks are green', async () => {
+  const api = fakeAPI({movedBase: true}); await verify(api, 1);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
+});
+for (const fault of ['newHead', 'behind', 'policyEdit', 'noQA', 'wrongRun', 'skipped']) {
   test(`API decision fails closed: ${fault}`, async () => {
     const api = fakeAPI({[fault]: true}); await assert.rejects(() => verify(api, 1));
     assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'failure']);
