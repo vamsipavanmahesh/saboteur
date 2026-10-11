@@ -19,7 +19,7 @@ RSpec.describe Saboteur::Install do
   it "creates the config, the binstub and the gitignore entry" do
     results = install
     expect(results.map { |r| [r.status, r.path] }).to eq([[:created, ".saboteur.yml"], [:created, "bin/saboteur"],
-                                                          [:appended, ".gitignore"]])
+                                       [:appended, ".gitignore"]])
     expect(read(".gitignore")).to eq(".saboteur/\n")
   end
 
@@ -75,5 +75,26 @@ RSpec.describe Saboteur::Install do
     expect(read("Gemfile")).to eq("source 'x'\n")
     File.write(File.join(@root, "Gemfile"), "gem \"saboteur\", group: :test\n")
     expect(installer.gemfile_hint).to be_nil
+  end
+
+  it "does not write through a dangling symlink without force" do
+    target = File.join(@root, "outside.yml")
+    File.symlink(target, File.join(@root, ".saboteur.yml"))
+    File.symlink(File.join(@root, "outside-ignore"), File.join(@root, ".gitignore"))
+    results = install
+    expect(results.map(&:status)).to eq(%i[skipped created skipped])
+    expect(File.exist?(target)).to be(false)
+    expect(File.exist?(File.join(@root, "outside-ignore"))).to be(false)
+    expect(File.symlink?(File.join(@root, ".saboteur.yml"))).to be(true)
+  end
+
+  it "replaces a symlink with a regular file under force instead of writing through it" do
+    target = File.join(@root, "outside.yml")
+    File.write(target, "keep")
+    File.symlink(target, File.join(@root, ".saboteur.yml"))
+    expect(install(force: true).first.status).to eq(:overwritten)
+    expect(File.symlink?(File.join(@root, ".saboteur.yml"))).to be(false)
+    expect(File.read(target)).to eq("keep")
+    expect(read(".saboteur.yml")).to eq(described_class::CONFIG)
   end
 end
