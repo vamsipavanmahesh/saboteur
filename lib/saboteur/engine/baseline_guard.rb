@@ -28,7 +28,10 @@ module Saboteur
         2.times do |index|
           number = index + 1
           data = check(number)
-          refuse(number, "the suite failed: #{Array(data['failed']).join(', ')}") unless data["passed"] == true
+          unless data["passed"] && data["failed"].empty?
+            refuse(number,
+                   "the suite failed: #{Array(data['failed']).join(', ')}")
+          end
           executed = data["executed"]
           refuse(number, "executed tests do not match the loaded suite") unless
             executed.is_a?(Array) && executed.sort == expected.sort
@@ -41,19 +44,29 @@ module Saboteur
       private
 
       def check(number)
-        @hooks.run(:before_fork, nil)
         Execution::ForkReadiness.prepare_heap
         result = @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, number) }
         refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
         refuse(number, "the child did not report a result") if result.payload.empty?
         refuse(number, "the child exited unsuccessfully") if
           result.exit_status.is_a?(Process::Status) && !result.exit_status.success?
-        data = JSON.parse(result.payload)
+        refuse(number, "the suite left child processes behind") if result.leftover_pids.any?
+        parse_result(number, result.payload)
+      end
+
+      def parse_result(number, payload)
+        data = JSON.parse(payload)
         refuse(number, "the child reported an invalid result") unless data.is_a?(Hash)
         refuse(number, data["error"]) if data["error"]
+        refuse(number, "the child reported invalid test results") unless valid_result?(data)
         data
       rescue JSON::ParserError
         refuse(number, "the child reported invalid JSON")
+      end
+
+      def valid_result?(data)
+        [true, false].include?(data["passed"]) && data["failed"].is_a?(Array) &&
+          data["executed"].is_a?(Array) && data["executed"].all?(String)
       end
 
       def record(writer, number)
