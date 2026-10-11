@@ -9,6 +9,9 @@ All notable changes are documented here. The format follows
 ### Added
 - A survivor lists the first five tests that covered its line and still passed
   with the mutant applied, in the terminal and the HTML page.
+- In diff mode (`--since`), each survivor names the changed line it relates to
+  (`changed line: path:N` in the terminal, `changedLines` in each JSON finding),
+  because a multi-line statement is reported at its first line.
 - `saboteur run --agent` (`--format agent`): one bounded JSON summary (under 8 KiB) on stdout
   with status, verdict, provenance, the first three findings and the commands for full
   detail. Exit 0 means a complete, clean run only: 1 survivors, 2 usage or config error,
