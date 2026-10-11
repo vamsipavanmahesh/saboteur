@@ -29,6 +29,20 @@ fail?" for many small breakages and lists the ones nobody noticed. Read the
 [design notes](docs/design.md) when you want the details. For adopting it on a team, see the
 [best practices guide](docs/best-practices.md).
 
+### The unchanged suite is checked first
+
+Every run with selected subjects runs the entire unchanged suite twice in fresh
+supervised children before coverage lookup or incremental verdict reuse. This
+costs two suite runs even on a cache hit, plus a coverage-building suite run on
+a cache miss. Both baseline passes must be green, complete and in the same
+RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Each suite pass
+uses `coverage_timeout` and configured memory/process limits (the suite memory
+budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
+need a rerun before they describe this extra fixed cost.
+Two passes detect observed instability, not every possible flaky test. See
+[baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
+
+
 ## 🚀 Try it in a minute
 
 Add saboteur to the test group of your project's Gemfile (Ruby 3.3+, RSpec):
