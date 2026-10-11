@@ -341,6 +341,36 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "Rails data inputs" do
       expect(issues_for("cache_dir" => "data").issues).to eq([])
     end
 
+    it "marks the snapshot incomplete for data reached through a symlinked file, even if the walk skips it" do
+      File.write(File.join(@root, "input.csv"), "1")
+      FileUtils.mkdir_p(File.join(@root, "vendor"))
+      File.symlink(File.join(@root, "input.csv"), File.join(@root, "vendor/input.csv"))
+      snapshot = issues_for("fingerprint_extra" => ["vendor/*.csv"], "json_report" => "input.csv")
+      expect(snapshot.complete).to be(false)
+      expect(snapshot.issues).to include("symlink input: vendor/input.csv")
+      expect(snapshot.inventory.map(&:path)).not_to include("vendor/input.csv")
+    end
+
+    it "marks the snapshot incomplete for a fixture symlinked to a file outside the project" do
+      Dir.mktmpdir do |outside|
+        File.write(File.join(outside, "ext.yml"), "a: 1\n")
+        File.symlink(File.join(outside, "ext.yml"), File.join(@root, "spec/fixtures/ext.yml"))
+        snapshot = issues_for({})
+        expect(snapshot.complete).to be(false)
+        expect(snapshot.issues).to include("symlink input: spec/fixtures/ext.yml")
+      end
+    end
+
+    it "marks the snapshot incomplete for data under a symlinked directory" do
+      Dir.mktmpdir do |outside|
+        FileUtils.mkdir_p(File.join(outside, "set"))
+        File.write(File.join(outside, "set/a.csv"), "1")
+        File.symlink(File.join(outside, "set"), File.join(@root, "linked"))
+        snapshot = issues_for("fingerprint_extra" => ["linked/*.csv"])
+        expect(snapshot.issues).to include("symlink input: linked/a.csv")
+      end
+    end
+
     it "stays complete for the default cache and report locations" do
       File.write(File.join(@root, "spec/fixtures/users.yml"), "a: 1\n")
       expect(issues_for({}).complete).to be(true)
