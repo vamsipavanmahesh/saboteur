@@ -6,6 +6,12 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Built-in `filter_replacement` mutants: `select` / `reject` and
+  `select!` / `reject!`, for explicit-receiver calls with a block and no ordinary
+  arguments. Existing mutants retain their digests and relative order.
+  Runs may now include more mutants and report a different score.
+
 ## [0.2.0] - 2026-10-10
 
 ### Added
