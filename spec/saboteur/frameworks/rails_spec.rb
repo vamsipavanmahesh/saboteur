@@ -326,6 +326,13 @@ RSpec.describe Saboteur::Frameworks::Rails do
       allow(Coverage).to receive(:suspend)
     end
 
+    it "points engine users at their dummy app's setup when Rails did not load" do
+      hide_const("Rails")
+      expect { rails.after_boot }.to raise_error(
+        Saboteur::Error, %r{add config/environment to require.*DummyApp\.setup.*spec/rails_helper}m
+      )
+    end
+
     # Bootsnap serves cached bytecode unless Coverage is running, and cached
     # bytecode has no coverage counters (field report, issue 1). The eager
     # load is where most app files come in, so Coverage runs across it.
