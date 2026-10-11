@@ -35,7 +35,9 @@ Every run with selected subjects runs the entire unchanged suite twice in fresh
 supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
 a cache miss. Both baseline passes must be green, complete and in the same
-RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Each suite pass
+RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Long phases
+print their elapsed time about every 30 seconds, and each phase's log holds
+the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
 need a rerun before they describe this extra fixed cost.
@@ -190,6 +192,20 @@ out and keeps survivors accepted on the ignore list in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
+The score is split by how the mutant was killed. A crash kill (a `NoMethodError`,
+a `TypeError`, a parse error) shows the code ran and broke, not that a test
+checked a value. The terminal prints
+`score 100.0 % (assertion 50.0 %, crash 50.0 %)`: each share is a part of
+tested mutants, so the parts add up to the score. Timeouts and kills with no
+recorded cause (a verdict reused from an older run, a test that called `exit`,
+a failure outside any example) are named when there are some. Whole-body
+mutants (`body_nil`, `body_true`, `body_false`, `body_raise`) are killed by
+almost any test that runs the method, so a second line scores the run without
+them, and shows them alone. The headline score and `--threshold` still count every
+mutant. The JSON report carries both splits under `saboteur.scores`
+(`all` and `withoutWholeBodyMutants`), and the HTML page prints them under
+the score.
+
 For code-review surfaces, the JSON report also carries a `saboteur.findings`
 section: a bounded, deterministically ordered list of survivors, coarse
 mutants first (a surviving coarse mutant hints that no test pins the method's
@@ -261,6 +277,12 @@ generator is planned; until then this block is the supported setup.
 saboteur puts the app's `spec/` directory on the load path before
 processing `require`, matching rspec, so a boot file like a dummy app's
 `spec/rails_helper.rb` can require its siblings.
+
+For a Rails engine, point `require` at the dummy app's environment -
+`test/dummy/config/environment.rb`, usually loaded for you by
+`spec/rails_helper.rb`. Only a dynamically created dummy app has no
+environment file; there, require the helper that calls setup instead,
+such as `DummyApp.setup` in `spec/rails_helper.rb`.
 
 Bootsnap needs no extra setting: bytecode from its compile cache carries no
 coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its

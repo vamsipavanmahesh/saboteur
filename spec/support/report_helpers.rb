@@ -12,15 +12,16 @@ module ReportHelpers
     @person_subject ||= subjects_in(PERSON, name: "person.rb").first
   end
 
-  def comparison_mutation(replacement: ">")
+  def comparison_mutation(replacement: ">", coarse: false)
     at = person_subject.file_source.index(">=")
     edit = Saboteur::MutationSource::Edit.new(file: person_subject.file, start_byte: at, end_byte: at + 2,
                                               replacement:)
-    Saboteur::MutationSource::Mutation.new(subject_id: person_subject.id, operator: "comparison", edits: [edit])
+    operator = coarse ? "body_nil" : "comparison"
+    Saboteur::MutationSource::Mutation.new(subject_id: person_subject.id, operator:, edits: [edit], coarse:)
   end
 
-  def result_for(status, replacement: ">", **)
-    mutation = comparison_mutation(replacement:)
+  def result_for(status, replacement: ">", coarse: false, **)
+    mutation = comparison_mutation(replacement:, coarse:)
     Saboteur::MutantResult.new(subject: person_subject, mutation:, status:,
                                mutated_source: person_subject.apply(mutation.edits), **)
   end

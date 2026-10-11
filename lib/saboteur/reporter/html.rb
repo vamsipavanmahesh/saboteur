@@ -76,11 +76,43 @@ module Saboteur
           <p class="note">Covered mutation score = #{SCORE_FORMULA}. NoCoverage, errors, resource limits and skipped
           mutants are not counted. Survivors accepted on the ignore list stay in the denominator. It covers only the subjects of this run, not the whole project. A tool that reads the
           Stryker JSON may show a different score, because the schema counts NoCoverage as undetected.</p>
+          #{score_split(report)}
           <p class="note">Wide tables scroll sideways.</p>
           <p>#{counts.map { |status, count| "#{status_label(status)} #{count}" }.join(' ')}</p>
           <p>Survivors: #{report.unignored_survivors.size} to fix, #{report.survivors.size - report.unignored_survivors.size}
           accepted on the ignore list (still shown as Survived, with the reason).</p>
         HTML
+      end
+
+      # How the score splits into assertion and crash kills, and the score
+      # without the whole-body mutants, which almost any test that runs the
+      # method kills. Each part shows only when it has something to say.
+      def score_split(report)
+        breakdown = report.score_breakdown
+        lines = []
+        lines << kill_split_line(breakdown) if breakdown.split_known?
+        lines << whole_body_line(report)
+        lines.compact.join("\n")
+      end
+
+      def kill_split_line(breakdown)
+        "<p>Of the tested mutants: #{parts_text(breakdown)}. A crash shows the code ran and broke, " \
+          "not that a test checked a value.</p>"
+      end
+
+      def parts_text(breakdown)
+        breakdown.parts.map { |label, share| "#{score_text(share)} #{label}" }.join(", ")
+      end
+
+      def whole_body_line(report)
+        whole = report.coarse_score_breakdown
+        fine = report.fine_score_breakdown
+        return if whole.tested.zero? || fine.tested.zero?
+
+        split = fine.split_known? ? " (#{parts_text(fine)})" : ""
+        "<p>Without whole-body mutants (body_nil, body_true, body_false, body_raise): #{score_text(fine.value)}" \
+          "#{split} over #{fine.tested} mutants. Whole-body mutants alone: #{score_text(whole.value)} " \
+          "over #{whole.tested}.</p>"
       end
 
       def score_text(score)

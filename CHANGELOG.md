@@ -12,6 +12,10 @@ All notable changes are documented here. The format follows
 - In diff mode (`--since`), each survivor names the changed line it relates to
   (`changed line: path:N` in the terminal, `changedLines` in each JSON finding),
   because a multi-line statement is reported at its first line.
+- The score is split into assertion kills and crash kills, in the terminal,
+  the JSON report (`saboteur.scores`) and the HTML page. A second score leaves
+  out whole-body mutants (`body_nil`, `body_true`, `body_false`, `body_raise`). The headline score and
+  `--threshold` are unchanged.
 - `saboteur run --agent` (`--format agent`): one bounded JSON summary (under 8 KiB) on stdout
   with status, verdict, provenance, the first three findings and the commands for full
   detail. Exit 0 means a complete, clean run only: 1 survivors, 2 usage or config error,
@@ -78,7 +82,7 @@ First release that does mutation testing. MIT licensed.
 ### Added
 - `saboteur run` with `--since`, `--subject`, `--timeout-factor`, `--jobs`,
   `--reeval`, `--json`, `--no-cache`, `--incremental`, `--config`.
-- Subjects found with Prism; mutations are byte-range edits: whole-method
+- Subjects found with Prism; mutations are byte-range edits: whole-body
   `nil`/`true`/`false`/`raise` first, then comparison, boolean, arithmetic,
   numeric literal, statement removal, condition, negation, safe navigation
   and `||=`.

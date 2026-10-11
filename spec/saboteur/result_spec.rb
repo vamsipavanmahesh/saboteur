@@ -62,3 +62,36 @@ RSpec.describe Saboteur::MutantResult do
     expect(diff).to include("--- a/person.rb", "-  def adult?; @age >= 18; end", "+  def adult?; @age > 18; end")
   end
 end
+
+RSpec.describe Saboteur::MutantResult, "#assertion_kill?" do
+  it "is true only for a killed mutant whose cause is an assertion" do
+    expect(result_for(:killed, kill_cause: "assertion").assertion_kill?).to be(true)
+    expect(result_for(:killed, kill_cause: "NoMethodError").assertion_kill?).to be(false)
+    expect(result_for(:killed).assertion_kill?).to be(false)
+  end
+
+  it "is false for every status other than killed, whatever the cause" do
+    %i[survived timeout error skipped].each do |status|
+      expect(result_for(status, kill_cause: "assertion").assertion_kill?).to be(false)
+    end
+  end
+end
+
+RSpec.describe Saboteur::Report, "score without whole-body mutants" do
+  let(:report) do
+    report_of(result_for(:killed, coarse: true, kill_cause: "NoMethodError"),
+              result_for(:killed, replacement: "<", kill_cause: "assertion"),
+              result_for(:survived, replacement: "=="))
+  end
+
+  it "scores the fine mutants apart from the whole-body ones" do
+    expect([report.score, report.fine_score_breakdown.value, report.coarse_score_breakdown.value])
+      .to eq([2.0 / 3, 0.5, 1.0])
+  end
+
+  it "computes each breakdown once and returns the same object afterwards" do
+    expect(report.score_breakdown).to equal(report.score_breakdown)
+    expect(report.fine_score_breakdown).to equal(report.fine_score_breakdown)
+    expect(report.coarse_score_breakdown).to equal(report.coarse_score_breakdown)
+  end
+end
