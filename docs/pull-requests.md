@@ -73,8 +73,8 @@ bundle exec saboteur run --config .saboteur-pr.yml
 saboteur compares the working tree to the merge base of the ref and HEAD,
 including tracked uncommitted changes. It selects methods whose current
 source lines intersect the diff. Within each selected method, it keeps fine
-mutants whose edits touch changed lines, plus the coarse whole-method `nil`
-and `raise` mutants. Keep new files tracked so git diff can see them.
+mutants whose edits touch changed lines, plus the available coarse whole-method mutants
+(`nil`, or `true`/`false` for predicates, and `raise` where applicable). Keep new files tracked so git diff can see them.
 
 Diff mode still builds a per-test coverage map from the configured suite
 when there is no valid cached map. A smaller mutation scope does not remove
