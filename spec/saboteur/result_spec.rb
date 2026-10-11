@@ -63,6 +63,20 @@ RSpec.describe Saboteur::MutantResult do
   end
 end
 
+RSpec.describe Saboteur::MutantResult, "#assertion_kill?" do
+  it "is true only for a killed mutant whose cause is an assertion" do
+    expect(result_for(:killed, kill_cause: "assertion").assertion_kill?).to be(true)
+    expect(result_for(:killed, kill_cause: "NoMethodError").assertion_kill?).to be(false)
+    expect(result_for(:killed).assertion_kill?).to be(false)
+  end
+
+  it "is false for every status other than killed, whatever the cause" do
+    %i[survived timeout error skipped].each do |status|
+      expect(result_for(status, kill_cause: "assertion").assertion_kill?).to be(false)
+    end
+  end
+end
+
 RSpec.describe Saboteur::Report, "score without whole-body mutants" do
   let(:report) do
     report_of(result_for(:killed, coarse: true, kill_cause: "NoMethodError"),
