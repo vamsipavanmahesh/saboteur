@@ -11,7 +11,7 @@ RSpec.describe Saboteur::Reporter::Agent do
     described_class::Provenance.new(
       ref: "origin/main", seed: 7, head: "abc1234", working_tree: "clean", changed_files: 0, mode: "diff",
       json_report: ".saboteur/report.json", subjects: [], tests: [], sources: [], config_path: nil,
-      digest: nil, cache: true, incremental: false, **changes
+      digest: nil, cache: true, incremental: false, settings: {}, **changes
     )
   end
 
