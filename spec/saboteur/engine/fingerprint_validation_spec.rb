@@ -130,7 +130,9 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "inventory contracts" do
     write("extra.txt")
     write("lib/a.rb")
     write("lib/readme.txt")
-    File.mkfifo(File.join(@root, "pipe.rb"))
+    non_regular = write("pipe.rb")
+    allow(File).to receive(:file?).and_call_original
+    allow(File).to receive(:file?).with(non_regular).and_return(false)
     instance = capture({ "require" => ["boot"], "hooks" => ["hook"], "sources" => ["plugin:Thing"] }, ["extra.txt"])
     entries = instance.snapshot.inventory.to_h { |entry| [entry.path, [entry.kind, entry.required, entry.state]] }
     expect(entries.fetch("boot.rb")).to eq(["boot", true, "present"])
@@ -293,6 +295,22 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "missing suffix boundary" do
       snapshot = described_class.new(config: config).snapshot
       expect(snapshot.issues).to eq(["missing required input: missing.rb"])
       expect(snapshot.inventory.find { |entry| entry.kind == "boot" }.path).to eq("missing.rb")
+    end
+  end
+end
+
+RSpec.describe Saboteur::Engine::RunFingerprint, "unreadable directories" do
+  it "reports directory enumeration failure instead of claiming a complete inventory" do
+    Dir.mktmpdir do |root|
+      child = File.join(root, "blocked")
+      FileUtils.mkdir_p(child)
+      instance = described_class.new(config: Saboteur::Config.new({}, root: root))
+      allow(Dir).to receive(:children).and_call_original
+      allow(Dir).to receive(:children).with(child).and_raise(Errno::EACCES)
+      snapshot = instance.snapshot
+      expect(snapshot.inventory.map(&:kind).uniq).to eq(["manifest"])
+      expect(snapshot.complete).to be(false)
+      expect(snapshot.issues).to eq(["unreadable directory: blocked"])
     end
   end
 end
