@@ -155,4 +155,39 @@ RSpec.describe Saboteur::CLI, "details" do
       .and_return(instance_double(Saboteur::Engine, call: report_of(result_for(:skipped, reason: "no coverage"))))
     expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
   end
+
+  describe "help" do
+    it "prints the full map for help, --help and -h, to stdout, and exits 0" do
+      [%w[help], %w[--help], %w[-h]].each do |argv|
+        output = StringIO.new
+        error = StringIO.new
+        expect(described_class.new(argv, out: output, err: error).call).to eq(0)
+        expect(output.string).to include("COMMANDS").and include("--since REF")
+        expect(error.string).to be_empty
+      end
+    end
+
+    it "prints details for one command with help <command> and <command> --help" do
+      [%w[help run], %w[run --help], %w[run -h]].each do |argv|
+        output = StringIO.new
+        expect(described_class.new(argv, out: output, err: err).call).to eq(0)
+        expect(output.string).to start_with("saboteur run - ")
+      end
+    end
+
+    it "does not run mutation testing when help is asked for" do
+      allow(Saboteur::Engine).to receive(:new)
+      cli("run", "--help").call
+      expect(Saboteur::Engine).not_to have_received(:new)
+    end
+
+    it "exits 2 and names the real commands for help about an unknown command" do
+      expect(cli("help", "explode").call).to eq(2)
+      expect(err.string).to include("unknown command: explode").and include("run, version, help")
+    end
+
+    it "points to help from the usage text" do
+      expect(described_class::USAGE).to include("saboteur help")
+    end
+  end
 end
