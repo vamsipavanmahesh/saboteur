@@ -71,8 +71,14 @@ module Saboteur
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
-      results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                                 cache: cache, on_start: method(:start_worker)).run(runnable_subjects, runnable_lists)
+      begin
+        results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+                                   cache: cache, on_start: method(:start_worker)).run(runnable_subjects,
+                                                                                      runnable_lists)
+      ensure
+        # The per-worker database copies exist only for this run.
+        @rails&.cleanup_workers(config["jobs"])
+      end
       cache&.save
       results
     end
