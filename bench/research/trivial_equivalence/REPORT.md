@@ -140,7 +140,7 @@ rspec spec    # 18 examples, includes clean-process runs of the library and meas
 
 The lobsters and saboteur rows are static (no bundle was installed for them; lobsters pins its
 gems in its own `Gemfile.lock` at the revision above). The hashie suite ran with `rspec -I lib spec` after installing rspec,
-rspec-pending_for, pry and activesupport; hashie ships no lockfile, so
+rspec-pending_for and pry (activesupport was not installed); hashie ships no lockfile, so
 dependency versions are the ones recorded under `suite_tool` in `results.json`.
 `--suite` rewrites project files during the run and restores them after each
 mutant, so point `--project` at a scratch copy.
