@@ -10,7 +10,13 @@ RSpec.describe Saboteur::Engine, "uncovered subjects" do
     it "keeps uncovered subjects in the report without invoking sources (#{jobs} workers)" do
       allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
       integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
-      boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+      rails = instance_double(Saboteur::Frameworks::Rails)
+      expect(rails).not_to receive(:prepare_workers)
+      expect(rails).not_to receive(:start_worker)
+      expect(Saboteur::Engine::Distribution).not_to receive(:new)
+      expect(Saboteur::Execution::WorkerPool).not_to receive(:new)
+      expect(Saboteur::Execution::ForkReadiness).not_to receive(:prepare_heap)
+      boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection,
                                   select: [subject_under_test], changed_lines: nil)
@@ -21,7 +27,9 @@ RSpec.describe Saboteur::Engine, "uncovered subjects" do
       expect_any_instance_of(Saboteur::Engine::Candidates).not_to receive(:for)
       Dir.mktmpdir do |root|
         config = Saboteur::Config.new({ "jobs" => jobs, "cache_dir" => root }, root: root)
-        report = described_class.new(config, err: StringIO.new).call
+        engine = described_class.new(config, err: StringIO.new)
+        engine.hooks.register(:worker_start) { raise "worker should not start" }
+        report = engine.call
         expect(report.subjects).to eq([subject_under_test])
         expect(report.results).to be_empty
         expect(report.skipped_subjects).to eq(subject_under_test => "no coverage")
