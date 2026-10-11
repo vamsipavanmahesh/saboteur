@@ -60,7 +60,10 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   def stub_boot_phase(events, subjects, rails:)
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     rails = rails ? instance_double(Saboteur::Frameworks::Rails) : nil
-    allow(rails).to receive(:prepare_workers) { events << :rails_prepared } if rails
+    if rails
+      allow(rails).to receive(:prepare_workers) { events << :rails_prepared }
+      allow(rails).to receive(:cleanup_workers) { events << :rails_cleaned }
+    end
     boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
     selection = instance_double(Saboteur::Engine::SubjectSelection, select: subjects, changed_lines: nil)
@@ -87,14 +90,16 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   it "prepares after the map and candidates are retained, before distribution, on the parallel path" do
     events = []
     lists, run_args = run_engine(jobs: 4, events: events)
-    expect(events).to eq(%i[baseline_checked map_retained candidates_retained rails_prepared prepare distribute])
+    expect(events).to eq(%i[baseline_checked map_retained candidates_retained rails_prepared prepare
+                            distribute rails_cleaned])
     expect(run_args.last).to eq(lists)
   end
 
   it "prepares after the map and candidates are retained, before distribution, on the serial path" do
     events = []
     lists, run_args = run_engine(jobs: 1, events: events)
-    expect(events).to eq(%i[baseline_checked map_retained candidates_retained rails_prepared prepare distribute])
+    expect(events).to eq(%i[baseline_checked map_retained candidates_retained rails_prepared prepare
+                            distribute rails_cleaned])
     expect(run_args.last).to eq(lists)
   end
 
