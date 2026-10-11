@@ -26,7 +26,7 @@ Snapshot (immutable Data value): `format_version`, `digest`, `inventory`,
 `path` and `reason` (`added`, `removed`, `changed`, `unreadable`). No contents,
 configuration values or secrets are returned in change explanations.
 
-Inventory entries have `path`, `kind`, `state`, `sha256`. Paths are normalized
+Inventory entries have `path`, `kind`, `state`, `sha256`, `required`. Paths are normalized
 project-relative paths, or `external:<absolute-path>` for explicit outside inputs.
 Kinds are `ruby`, `manifest`, `boot`, `hook`, `source_plugin`, `extra`. States are
 `present`, `missing`, `unreadable`. Missing dependency/option manifests are allowed
@@ -81,3 +81,9 @@ Symbol/String collisions after key normalization and reject non-JSON values and
 non-finite numbers. Restored issues must be sorted unique strings; a complete
 snapshot cannot contain unreadable entries even if its issues list was altered.
 Fixed manifests are protected from report-output overlap too.
+
+Explicit root must realpath to Config.root; differing roots raise ArgumentError.
+Report paths naming existing directories are unsafe. Cache directories inside or
+above app/lib/spec or explicit required inputs are unsafe. Entry `required` is a
+Boolean preserved in evidence so restored complete snapshots cannot hide missing
+required extras. Missing optional extras/manifests remain valid missing markers.
