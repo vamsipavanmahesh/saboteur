@@ -33,11 +33,11 @@ RSpec.describe Saboteur::Frameworks::Rails do
   end
 
   # Fakes for the parts of ActiveRecord the worker setup touches.
-  def fake_pool(role, database: "app_test")
+  def fake_pool(role, database: "app_test", adapter: "postgresql")
     config = Struct.new(:connection_descriptor, :role, :shard)
                    .new(Struct.new(:name).new("ActiveRecord::Base"), role, :default)
     db = Struct.new(:database, :configuration_hash, :adapter)
-               .new(database, { adapter: "postgresql", database: database }, "postgresql")
+               .new(database, { adapter: adapter, database: database }, adapter)
     Struct.new(:pool_config, :db_config).new(config, db)
   end
 
@@ -58,6 +58,17 @@ RSpec.describe Saboteur::Frameworks::Rails do
           .with({ adapter: "postgresql", database: "app_test_saboteur2" }, owner_name: base, role: role,
                                                                            shard: :default)
       end
+    end
+
+    # Re-establishing an in-memory sqlite pool would discard the database;
+    # the worker keeps the connection it inherited through fork.
+    it "keeps in-memory sqlite pools on the inherited connection" do
+      handler = double("handler",
+                       connection_pool_list: [fake_pool(:writing, database: ":memory:", adapter: "sqlite3")])
+      stub_const("ActiveRecord::Base", double("ActiveRecord::Base", connection_handler: handler))
+      allow(handler).to receive(:establish_connection)
+      rails.start_worker(1)
+      expect(handler).not_to have_received(:establish_connection)
     end
 
     it "leaves worker 0 on the test database" do
@@ -439,6 +450,49 @@ RSpec.describe Saboteur::Frameworks::Rails do
         Saboteur::Error, /7 other session.*connected \(a, b, c, d, e\), \.\.\./
       )
     end
+    # The database lives in the parent's connection, so there is no file to
+    # copy: workers inherit it through fork. The doorkeeper dogfood broke
+    # here - every example failed "Could not find table" after the copies
+    # renamed the memory database.
+    it "makes no copies for an in-memory sqlite database and tracks nothing to clean up" do
+      db = Struct.new(:database, :configuration_hash, :adapter)
+                 .new(":memory:", { adapter: "sqlite3", database: ":memory:" }, "sqlite3")
+      base = fake_base(db)
+      stub_const("ActiveRecord::Base", base)
+      allow(SQLite3::Database).to receive(:new).and_call_original
+      rails.prepare_workers(2)
+      expect(SQLite3::Database).not_to have_received(:new)
+      expect { rails.cleanup_workers }.not_to raise_error
+    end
+  end
+
+  describe "#disconnect" do
+    let(:rails) { described_class.new(Saboteur::Config.new({}), Saboteur::Hooks.new) }
+
+    # A real in-memory database: disconnecting its pool would close the
+    # connection and drop every table, which is how the doorkeeper dogfood
+    # lost its schema. File-backed pools still disconnect.
+    it "keeps a real in-memory sqlite database alive and still disconnects file pools" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      sqlite.execute("INSERT INTO t VALUES (1)")
+      memory_db = Struct.new(:database, :configuration_hash, :adapter)
+                        .new(":memory:", { adapter: "sqlite3", database: ":memory:" }, "sqlite3")
+      memory_pool = Object.new
+      memory_pool.define_singleton_method(:db_config) { memory_db }
+      memory_pool.define_singleton_method(:disconnect!) { sqlite.close }
+      file_db = Struct.new(:database, :configuration_hash, :adapter)
+                      .new("app_test", { adapter: "sqlite3", database: "app_test" }, "sqlite3")
+      file_pool = Object.new
+      file_pool.define_singleton_method(:db_config) { file_db }
+      file_disconnected = false
+      file_pool.define_singleton_method(:disconnect!) { file_disconnected = true }
+      handler = double("handler", connection_pool_list: [memory_pool, file_pool])
+      stub_const("ActiveRecord::Base", double("ActiveRecord::Base", connection_handler: handler))
+      rails.send(:disconnect)
+      expect(file_disconnected).to be(true)
+      expect(sqlite.execute("SELECT COUNT(*) FROM t").first.first).to eq(1)
+    end
   end
 
   describe "#cleanup_workers" do
@@ -677,6 +731,18 @@ RSpec.describe Saboteur::Frameworks::Rails do
       expect(Coverage).not_to receive(:resume)
       expect(Coverage).not_to receive(:suspend)
       rails.after_boot
+    end
+  end
+
+  describe ".memory_database?" do
+    def db(database, adapter)
+      Struct.new(:database, :configuration_hash, :adapter).new(database, { adapter: adapter }, adapter)
+    end
+
+    it "matches only an in-memory sqlite database" do
+      expect(described_class.memory_database?(db(":memory:", "sqlite3"))).to be(true)
+      expect(described_class.memory_database?(db("app_test", "sqlite3"))).to be(false)
+      expect(described_class.memory_database?(db(":memory:", "postgresql"))).to be(false)
     end
   end
 
