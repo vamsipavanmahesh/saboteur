@@ -60,7 +60,10 @@ Output: counts per status, the score, timing, and a unified diff for every
 survivor. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `json_report` / `html_report` in
-`.saboteur.yml`.
+`.saboteur.yml`; set either to `null` to turn that report off. The two paths
+must differ. The HTML page shows the covered mutation score
+`(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage
+out; the JSON report counts NoCoverage as undetected.
 
 Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 2 bad configuration, 3 the tool failed.
