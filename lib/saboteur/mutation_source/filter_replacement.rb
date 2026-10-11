@@ -12,7 +12,8 @@ module Saboteur
       REPLACEMENTS = { select: "reject", reject: "select", select!: "reject!", reject!: "select!" }.freeze
       SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
 
-      def initialize(arid: [])
+      # Base inherits Object's empty initializer; there is no parent state to set.
+      def initialize(arid: []) # rubocop:disable Lint/MissingSuper
         @arid = arid.map { |pattern| Regexp.new(pattern) }
       end
 
