@@ -57,8 +57,9 @@ module Saboteur
         # The suite child forked next inherits this heap; pack it first, to
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
-        result = @diagnostics.with_progress_heartbeat("building coverage map") do
-          @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, files) }
+        heartbeat = @diagnostics.progress_heartbeat("building coverage map")
+        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
+          record(writer, files)
         end
         raise Error, "coverage map build stopped: #{result.detail}" if result.stopped_by
         raise Error, "coverage map build failed: #{died(result.exit_status)}" if result.payload.empty?
