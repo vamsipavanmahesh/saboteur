@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Runs saboteur in diff mode for the saboteur GitHub Action (see action.yml).
+#
+# Input comes from environment variables, never from shell text:
+#   SABOTEUR_EVENT_NAME         GitHub event name; the action only runs on "pull_request"
+#   SABOTEUR_BASE_REF           pull request base branch
+#   SABOTEUR_COMMAND            how to start saboteur, for example "bundle exec saboteur"
+#   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on whitespace (no shell quoting)
+#   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" also fails on an incomplete run
+#   SABOTEUR_REPORT_PATH        where saboteur writes its JSON report
+#   SABOTEUR_CACHE              "true" or "false"; "false" also passes --no-cache to saboteur
+# Exit codes of saboteur: 0 clean, 1 survivors, 2 usage error, 3 tool error.
+# This script exits 2 for input it refuses, and 3 when saboteur's result cannot be trusted.
+set -uo pipefail
+
+event_name="${SABOTEUR_EVENT_NAME:-}"
+base_ref="${SABOTEUR_BASE_REF:-}"
+command_line="${SABOTEUR_COMMAND:-bundle exec saboteur}"
+extra_arguments="${SABOTEUR_ARGUMENTS:-}"
+fail_on_survivors="${SABOTEUR_FAIL_ON_SURVIVORS:-false}"
+report_path="${SABOTEUR_REPORT_PATH:-.saboteur/report.json}"
+use_cache="${SABOTEUR_CACHE:-true}"
+github_output="${GITHUB_OUTPUT:-/dev/null}"
+step_summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+
+write_output() { echo "$1=$2" >>"$github_output"; }
+
+stop_with_error() {
+  echo "::error::$1"
+  write_output ran false
+  exit "${2:-2}"
+}
+
+if [ "$event_name" != "pull_request" ] || [ -z "$base_ref" ]; then
+  echo "::notice::saboteur: this action only runs on pull_request events (this one is '${event_name:-unknown}'). Nothing was mutated."
+  write_output ran false
+  exit 0
+fi
+
+case "$fail_on_survivors" in
+  true | false) ;;
+  *) stop_with_error "saboteur: fail-on-survivors must be exactly \"true\" or \"false\", not \"$fail_on_survivors\"." ;;
+esac
+
+case "$use_cache" in
+  true | false) ;;
+  *) stop_with_error "saboteur: cache must be exactly \"true\" or \"false\", not \"$use_cache\"." ;;
+esac
+
+if ! [[ "$base_ref" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+  stop_with_error "saboteur: base-ref contains characters a branch name should not have. Pass the pull request's base branch name."
+fi
+
+if ! [[ "$report_path" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]]; then
+  stop_with_error "saboteur: report-path may only contain letters, digits, dot, underscore, slash and dash, and may not start with a dash."
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  stop_with_error "saboteur: the action needs jq to read the report, and jq was not found on this runner." 3
+fi
+
+read -r -a command_words <<<"$command_line"
+read -r -a argument_words <<<"$extra_arguments"
+
+# The action owns --since and --json. saboteur accepts unambiguous prefixes
+# of long options, so a word such as --js would also reach them.
+for word in ${argument_words[@]+"${argument_words[@]}"}; do
+  if [ "$word" = "--" ]; then
+    stop_with_error "saboteur: 'arguments' may not contain a bare --, because the action's --since and --json come after it."
+  fi
+  option_name="${word%%=*}"
+  if [[ "$option_name" == --* ]] && { [[ "--since" == "$option_name"* ]] || [[ "--json" == "$option_name"* ]]; }; then
+    stop_with_error "saboteur: 'arguments' may not contain $option_name. The action sets --since from base-ref and --json from report-path."
+  fi
+done
+
+if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  stop_with_error "saboteur: the checkout is shallow, so the merge base cannot be found. Set 'fetch-depth: 0' on actions/checkout."
+fi
+
+if ! git rev-parse --verify --quiet "refs/remotes/origin/$base_ref^{commit}" >/dev/null; then
+  stop_with_error "saboteur: origin/$base_ref does not exist in this checkout. Set 'fetch-depth: 0' on actions/checkout, and check that base-ref names a branch."
+fi
+
+# A report left by an earlier run (for example a restored cache) must never
+# stand in for this run's report.
+if ! rm -f -- "$report_path" || [ -e "$report_path" ]; then
+  stop_with_error "saboteur: could not remove the old report at $report_path, so this run's result could not be told apart from it." 3
+fi
+
+cache_arguments=()
+[ "$use_cache" = "false" ] && cache_arguments=(--no-cache)
+
+log_file="$(mktemp)"
+"${command_words[@]}" run ${cache_arguments[@]+"${cache_arguments[@]}"} ${argument_words[@]+"${argument_words[@]}"} --since "origin/$base_ref" --json "$report_path" 2>&1 | tee "$log_file"
+saboteur_status="${PIPESTATUS[0]}"
+
+killed=0 timed_out=0 survivors=0 accepted=0 errors=0 uncovered=0 score="n/a" report_valid=false
+if [ "$saboteur_status" -le 1 ]; then
+  if [ ! -f "$report_path" ]; then
+    echo "::error::saboteur exited with $saboteur_status but wrote no report at $report_path, so the result cannot be trusted."
+  elif ! counts="$(jq -es -r '
+        def known: IN("Killed", "Timeout", "Survived", "NoCoverage", "Ignored", "RuntimeError");
+        if length != 1 then error("the report must hold exactly one JSON document")
+        else .[0] as $report
+          | if ($report | type) != "object" or $report.schemaVersion != "2" or ($report.files | type) != "object"
+            then error("the report is not a schemaVersion 2 report with a files object")
+            else [ $report.files[]
+                   | if type == "object" and (.mutants | type) == "array" then .mutants[]
+                     else error("a file entry has no mutants array") end
+                   | if type == "object" and (.status | type) == "string" and (.status | known)
+                     then {status, accepted: ((.statusReason // "" | tostring) | startswith("ignored:"))}
+                     else error("unknown mutant status") end ]
+                 | [ (map(select(.status == "Killed")) | length),
+                     (map(select(.status == "Timeout")) | length),
+                     (map(select(.status == "Survived" and (.accepted | not))) | length),
+                     (map(select(.status == "Survived" and .accepted)) | length),
+                     (map(select(.status == "RuntimeError")) | length),
+                     (map(select(.status == "NoCoverage" or .status == "Ignored")) | length) ] | @tsv
+            end
+        end' "$report_path" 2>&1)"; then
+    echo "::error::saboteur wrote a report at $report_path that could not be read ($counts), so the result cannot be trusted."
+  else
+    report_valid=true
+    read -r killed timed_out survivors accepted errors uncovered <<<"$counts"
+    scored=$((killed + timed_out + survivors + accepted))
+    if [ "$scored" -gt 0 ]; then
+      score="$(awk -v good=$((killed + timed_out)) -v all="$scored" 'BEGIN { printf "%.1f", good * 100 / all }')"
+    fi
+  fi
+fi
+
+incomplete=false
+[ "$errors" -gt 0 ] && incomplete=true
+
+write_output ran true
+write_output exit-code "$saboteur_status"
+write_output report-valid "$report_valid"
+write_output score "$score"
+write_output killed "$killed"
+write_output timeouts "$timed_out"
+write_output survivors "$survivors"
+write_output accepted-survivors "$accepted"
+write_output errors "$errors"
+write_output incomplete "$incomplete"
+write_output report-path "$report_path"
+
+# A code fence one backtick longer than any run of backticks in the log, so
+# the log cannot close the fence and inject markdown.
+fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > longest) longest = RLENGTH; $0 = substr($0, RSTART + RLENGTH) } } END { s = ""; for (i = 0; i <= longest; i++) s = s "`"; print s }' "$log_file")"
+{
+  echo "## Mutation testing (diff against origin/$base_ref)"
+  echo
+  if [ "$report_valid" != "true" ] && [ "$saboteur_status" -le 1 ]; then
+    echo "**No trusted result.** saboteur exited with $saboteur_status but its report is missing or unreadable."
+  elif [ "$score" = "n/a" ]; then
+    echo "No mutant was scored. $uncovered had no coverage or were ignored, and $errors errored or hit a resource limit."
+  else
+    echo "Covered score: **$score %** = (killed + timeout) / (killed + timeout + survived), over $scored scored mutants."
+    echo "Killed $killed, timeout $timed_out, survived $survivors, survived and accepted by the ignore list $accepted."
+    echo "Not scored: $uncovered with no coverage or ignored, $errors errored or hit a resource limit."
+  fi
+  [ "$incomplete" = "true" ] && echo && echo "**Incomplete run:** $errors mutants errored or hit a resource limit, so the score covers fewer mutants than were generated."
+  echo
+  echo '<details><summary>saboteur output</summary>'
+  echo
+  echo "$fence"
+  cat "$log_file"
+  echo "$fence"
+  echo '</details>'
+} >>"$step_summary"
+rm -f "$log_file"
+
+if [ "$saboteur_status" -le 1 ] && [ "$report_valid" != "true" ]; then
+  exit 3
+fi
+
+case "$saboteur_status" in
+  0 | 1)
+    if [ "$incomplete" = "true" ]; then
+      echo "::warning::saboteur: $errors mutants errored or hit a resource limit. The score does not cover them."
+      [ "$fail_on_survivors" = "true" ] && exit 3
+    fi
+    if [ "$saboteur_status" = "1" ]; then
+      echo "::warning::saboteur: $survivors mutants survived. Add a test that fails for each one, or list it in .saboteur-ignore.yml with a reason."
+      [ "$fail_on_survivors" = "true" ] && exit 1
+    fi
+    exit 0
+    ;;
+  *)
+    echo "::error::saboteur stopped with exit code $saboteur_status (2 means bad configuration, 3 means the run itself failed). Read the output above."
+    exit "$saboteur_status"
+    ;;
+esac
