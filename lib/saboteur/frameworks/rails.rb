@@ -416,36 +416,41 @@ module Saboteur
           path = File.join(@memory_snapshot_dir, "#{index}.sqlite3")
           pool.with_connection do |connection|
             file = SQLite3::Database.new(path)
-            backup = SQLite3::Backup.new(file, "main", connection.raw_connection, "main")
-            begin
-              step_backup(backup, path)
-            ensure
-              backup.finish
-              close_without_masking(file)
-            end
+            with_backup(file, connection.raw_connection, close: file) { |backup| step_backup(backup, path) }
           end
           @memory_snapshots[pool.db_config] = path
         end
       end
 
-      # Whatever exit the run takes once the snapshots exist - a boot,
-      # baseline or coverage failure, no subjects, no runnable work - the
-      # owner process removes them. Forked children inherit the handler but
-      # not the pid, so they leave the files alone.
+      # The safety net for an abrupt process exit: Engine.call removes the
+      # snapshots at the run boundary on every normal path, so this handler
+      # fires only when the owner process dies first. Forked children
+      # inherit the handler but not the pid.
       def own_memory_snapshots
         owner = Process.pid
         at_exit { cleanup_memory_snapshots(owner) }
       end
 
       def cleanup_memory_snapshots(owner)
-        return unless Process.pid == owner && @memory_snapshot_dir
-
-        FileUtils.rm_rf(@memory_snapshot_dir)
+        FileUtils.rm_rf(@memory_snapshot_dir) if Process.pid == owner && @memory_snapshot_dir
       end
 
-      # SQLite wants exactly one finish per backup; the handle goes back
-      # even when the step fails. A close can fail too, and a close that
-      # fails on the way out must not hide the error already in flight.
+      # Yields a backup and always returns both handles: exactly one finish
+      # per init (skipped only when backup_init itself raised, leaving no
+      # handle), and the database closes even when finish fails.
+      def with_backup(destination, source, close:)
+        backup = SQLite3::Backup.new(destination, "main", source, "main")
+        yield backup
+      ensure
+        begin
+          backup&.finish
+        ensure
+          close_without_masking(close)
+        end
+      end
+
+      # A close can fail too, and a close that fails on the way out must
+      # not hide the error already in flight.
       def close_without_masking(database)
         in_flight = $ERROR_INFO
         database.close
@@ -466,12 +471,8 @@ module Saboteur
 
           pool.with_connection do |connection|
             source = SQLite3::Database.new(snapshot, readonly: true)
-            backup = SQLite3::Backup.new(connection.raw_connection, "main", source, "main")
-            begin
+            with_backup(connection.raw_connection, source, close: source) do |backup|
               step_backup(backup, pool.db_config.database)
-            ensure
-              backup.finish
-              close_without_masking(source)
             end
           end
         end
