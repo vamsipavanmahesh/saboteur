@@ -34,8 +34,15 @@ module Saboteur
           projectRoot: report.root,
           files: files,
           testFiles: test_files(test_ids),
+          skippedSubjects: skipped_subjects(report),
           framework: { name: "saboteur", version: VERSION }
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
+      end
+
+      def self.skipped_subjects(report)
+        report.skipped_subjects.map do |subject, reason|
+          { subject: subject.id, file: relative(subject.file, report.root), line: subject.start_line, reason: reason }
+        end
       end
 
       def self.test_index(results)
