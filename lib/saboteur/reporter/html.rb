@@ -76,11 +76,36 @@ module Saboteur
           <p class="note">Covered mutation score = #{SCORE_FORMULA}. NoCoverage, errors, resource limits and skipped
           mutants are not counted. Survivors accepted on the ignore list stay in the denominator. It covers only the subjects of this run, not the whole project. A tool that reads the
           Stryker JSON may show a different score, because the schema counts NoCoverage as undetected.</p>
+          #{score_split(report)}
           <p class="note">Wide tables scroll sideways.</p>
           <p>#{counts.map { |status, count| "#{status_label(status)} #{count}" }.join(' ')}</p>
           <p>Survivors: #{report.unignored_survivors.size} to fix, #{report.survivors.size - report.unignored_survivors.size}
           accepted on the ignore list (still shown as Survived, with the reason).</p>
         HTML
+      end
+
+      # Assertion and crash shares of the score, and the score without the
+      # whole-method mutants, which almost any test that runs the method kills.
+      def score_split(report)
+        breakdown = report.score_breakdown
+        return "" unless breakdown.split_known?
+
+        lines = ["<p>Of the tested mutants, #{score_text(breakdown.assertion_share)} were killed by a failed " \
+                 "assertion and #{score_text(breakdown.crash_share)} by a crash. A crash shows the code ran and " \
+                 "broke, not that a test checked a value.</p>"]
+        lines << whole_method_line(report)
+        lines.compact.join("\n")
+      end
+
+      def whole_method_line(report)
+        whole = report.coarse_score_breakdown
+        fine = report.fine_score_breakdown
+        return if whole.tested.zero? || fine.tested.zero?
+
+        "<p>Without whole-method mutants (body_nil, body_raise): #{score_text(fine.value)} " \
+          "(assertion #{score_text(fine.assertion_share)}, crash #{score_text(fine.crash_share)}) " \
+          "over #{fine.tested} mutants. Whole-method mutants alone: #{score_text(whole.value)} " \
+          "over #{whole.tested}.</p>"
       end
 
       def score_text(score)
