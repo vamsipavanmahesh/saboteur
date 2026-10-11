@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "stringio"
+require "saboteur/doctor"
+
+RSpec.describe Saboteur::Doctor do
+  let(:config) { Saboteur::Config.new }
+  let(:out) { StringIO.new }
+  let(:doctor) { described_class.new(config, out: out) }
+
+  before do
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(Coverage).to receive(:supported?).with(:lines).and_return(true)
+  end
+
+  it "boots once, checks coverage before and after boot, and reports two baseline runs" do
+    hide_const("SimpleCov")
+    integration = instance_double(Saboteur::Integration::Base)
+    boot = instance_double(Saboteur::Engine::Boot, load_target: integration)
+    expect(Saboteur::Engine::Boot).to receive(:new).with(config, instance_of(Saboteur::Hooks)).and_return(boot)
+    expect(Coverage).to receive(:state).twice.and_return(:suspended)
+    expect(Saboteur::BaselineHealth).to receive(:new).with(config, integration: integration, hooks: instance_of(Saboteur::Hooks))
+                                                     .and_return(instance_double(Saboteur::BaselineHealth,
+                                                                                 call: %w[a b]))
+    expect(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+    expect(doctor).to receive(:check_boot_files).and_call_original
+    expect(doctor.call).to be(true)
+    expect(out.string).to include("Ruby:", "Coverage: suspended", "Integration: rspec (loaded)", "Rails: disabled",
+                                  "Baseline: 2 tests passed twice in the same order with seed 1", "does not prove",
+                                  "SimpleCov: not loaded")
+  end
+
+  it "reports enabled Rails and present SimpleCov" do
+    stub_const("SimpleCov", Module.new)
+    allow(config).to receive(:[]).and_call_original
+    allow(config).to receive(:[]).with("rails").and_return(true)
+    allow(Saboteur::Engine::Boot).to receive(:new).and_return(instance_double(Saboteur::Engine::Boot, load_target: nil))
+    allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth, call: ["a"]))
+    doctor.call
+    expect(out.string).to include("Rails: enabled", "SimpleCov: present; start suppressed for this process")
+  end
+
+  it "rejects unsupported Ruby, no fork, and non-RSpec adapters" do
+    stub_const("RUBY_VERSION", "3.2.9")
+    expect { doctor.send(:check_runtime) }.to raise_error(Saboteur::Error, /Ruby 3.3/)
+    stub_const("RUBY_VERSION", "3.3.0")
+    allow(Process).to receive(:respond_to?).with(:fork).and_return(false)
+    expect { doctor.send(:check_runtime) }.to raise_error(Saboteur::Error, /with fork/)
+    allow(Process).to receive(:respond_to?).with(:fork).and_return(true)
+    allow(config).to receive(:[]).with("integration").and_return("other")
+    expect { doctor.send(:check_runtime) }.to raise_error(Saboteur::ConfigError, /rspec/)
+  end
+
+  it "requires both suspended coverage and line support" do
+    allow(Coverage).to receive(:state).and_return(:running)
+    expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /Coverage must be suspended/)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(Coverage).to receive(:supported?).and_return(false)
+    expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /line support/)
+  end
+
+  it "checks both require and hook files and warns about unmatched include patterns" do
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, "boot.rb"), "")
+      config = Saboteur::Config.new(
+        { "require" => ["boot.rb"], "hooks" => ["missing.rb"], "include" => ["none/*.rb"] }, root: root
+      )
+      doctor = described_class.new(config, out: out)
+      expect { doctor.send(:check_boot_files) }.to raise_error(Saboteur::ConfigError, /hooks file missing: missing.rb/)
+      File.write(File.join(root, "missing.rb"), "")
+      doctor.send(:check_boot_files)
+      expect(out.string).to include("require: boot.rb (found)", "hooks: missing.rb (found)",
+                                    "none/*.rb matches no file")
+      File.unlink(File.join(root, "boot.rb"))
+      expect { doctor.send(:check_boot_files) }.to raise_error(Saboteur::ConfigError, /require file missing/)
+    end
+  end
+
+  it "wraps load, syntax, exit, and ordinary boot failures without swallowing interrupts" do
+    boot = instance_double(Saboteur::Engine::Boot)
+    allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+    [LoadError, SyntaxError, SystemExit, RuntimeError].each do |type|
+      allow(boot).to receive(:load_target).and_raise(type.new("broken"))
+      expect do
+        doctor.send(:boot_target, Saboteur::Hooks.new)
+      end.to raise_error(Saboteur::Error, /target boot failed: #{type}/)
+    end
+    allow(boot).to receive(:load_target).and_raise(Interrupt)
+    expect { doctor.send(:boot_target, Saboteur::Hooks.new) }.to raise_error(Interrupt)
+  end
+end
+
+RSpec.describe Saboteur::CLI, "doctor command" do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+
+  it "parses config and seed and calls doctor, not the mutation engine" do
+    config = Saboteur::Config.new
+    expect(Saboteur::Config).to receive(:load).with(root: Dir.pwd, path: "health.yml",
+                                                    overrides: { seed: 42 }).and_return(config)
+    expect(Saboteur::Doctor).to receive(:new).with(config,
+                                                   out: out).and_return(instance_double(Saboteur::Doctor, call: true))
+    expect(Saboteur::Engine).not_to receive(:new)
+    expect(described_class.new(%w[doctor --config health.yml --seed 42], out: out, err: err).call).to eq(0)
+  end
+
+  it "describes doctor options in its own parser banner" do
+    command = described_class.new(["doctor"], out: out, err: err)
+    expect(command.send(:doctor_parser).to_s).to include("Usage: saboteur doctor [--config PATH] [--seed N]")
+  end
+
+  it "returns usage for stray or invalid arguments, and reports config and tool failures" do
+    expect(described_class.new(%w[doctor extra], out: out, err: err).call).to eq(2)
+    expect(err.string).to include("unexpected arguments: extra")
+    expect(described_class.new(%w[doctor --seed bad], out: out, err: err).call).to eq(2)
+    [Saboteur::ConfigError, Saboteur::Error].zip([2, 3]).each do |type, code|
+      err.truncate(0)
+      err.rewind
+      allow(Saboteur::Doctor).to receive(:new).and_raise(type, "health problem")
+      expect(described_class.new(["doctor"], out: out, err: err).call).to eq(code)
+      expect(err.string).to include("saboteur: health problem")
+    end
+  end
+end

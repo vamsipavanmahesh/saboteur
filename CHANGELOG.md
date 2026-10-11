@@ -28,6 +28,8 @@ All notable changes are documented here. The format follows
   `select!` / `reject!`, for explicit-receiver calls with a block and no ordinary
   arguments. For unchanged subjects, existing mutants retain their digests and order.
   Runs may now include more mutants and report a different score.
+- `saboteur doctor [--config PATH] [--seed N]`: environment checks and two fresh
+  unchanged-suite checks, without mutation reports or coverage/verdict cache writes.
 - `saboteur run SOURCE... --test TEST...`: mutate the named source files and
   run only the named spec files or directories. Positional sources replace
   `include` and `exclude`; `--test` replaces the spec paths in `rspec_args`.

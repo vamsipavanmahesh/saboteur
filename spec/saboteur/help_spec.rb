@@ -14,7 +14,8 @@ RSpec.describe Saboteur::Help do
 
   it "has the sections an agent looks for, in a fixed order" do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
-    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "EXAMPLES", "EXIT CODES",
+    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur doctor)", "EXAMPLES",
+                           "EXIT CODES (saboteur run)", "EXIT CODES (saboteur doctor)",
                            "CONFIG FILE (.saboteur.yml)", "FILES"])
   end
 
@@ -27,6 +28,25 @@ RSpec.describe Saboteur::Help do
       (switch.long + switch.short).each { |flag| expect(overview).to include(flag) }
       switch.desc.each { |description| expect(overview).to include(description) }
     end
+  end
+
+  it "lists every switch of the doctor parser with its description" do
+    cli.doctor_parser.top.list.each do |switch|
+      (switch.long + switch.short).each { |flag| expect(overview).to include(flag) }
+      switch.desc.each { |description| expect(overview).to include(description) }
+    end
+  end
+
+  it "has an options section and an exit codes section for every command that takes options" do
+    described_class::COMMANDS.select(&:takes_options).each do |command|
+      expect(overview).to include("OPTIONS (saboteur #{command.name})")
+      expect(overview).to include("EXIT CODES (saboteur #{command.name})")
+    end
+  end
+
+  it "lists the doctor exit codes under the doctor heading" do
+    section = overview[/^EXIT CODES \(saboteur doctor\)\n(.*?)\n\n/m, 1]
+    expect(section.lines.map(&:strip)).to eq(described_class::DOCTOR_EXIT_CODE_MEANINGS.map { |c, m| "#{c}  #{m}" })
   end
 
   it "lists every command" do
@@ -75,6 +95,30 @@ RSpec.describe Saboteur::Help do
     expect(help.command("version")).not_to include("--since")
   end
 
+  describe "saboteur help doctor" do
+    let(:text) { help.command("doctor") }
+
+    it "lists every switch of the doctor parser with its description" do
+      expect(text).to include("OPTIONS (saboteur doctor)").and include("saboteur doctor [options]")
+      cli.doctor_parser.top.list.each do |switch|
+        (switch.long + switch.short).each { |flag| expect(text).to include(flag) }
+        switch.desc.each { |description| expect(text).to include(description) }
+      end
+    end
+
+    it "does not leak run-only switches" do
+      flags = ->(parser) { parser.top.list.flat_map(&:long) }
+      run_only = flags.call(cli.parser) - flags.call(cli.doctor_parser)
+      expect(run_only).to include("--since", "--id")
+      run_only.each { |flag| expect(text).not_to match(/#{Regexp.escape(flag)}(?![\w-])/) }
+    end
+
+    it "has its own exit codes, not the run ones" do
+      expect(text).to include("EXIT CODES\n  0  Healthy")
+      expect(text).not_to include("unignored survivors")
+    end
+  end
+
   it "gives a command without options a bare usage line and no exit codes section" do
     text = help.command("version")
     expect(text).to include("USAGE\n  saboteur version\n")
@@ -93,7 +137,7 @@ RSpec.describe Saboteur::Help do
   end
 
   describe "--threshold exit semantics" do
-    let(:exit_rows) { overview[/^EXIT CODES\n(.*?)\n\n/m, 1].gsub("\n    ", " ") }
+    let(:exit_rows) { overview[/^EXIT CODES \(saboteur run\)\n(.*?)\n\n/m, 1].gsub("\n    ", " ") }
 
     def row(code)
       exit_rows.lines.find { |line| line.start_with?("  #{code}  ") }

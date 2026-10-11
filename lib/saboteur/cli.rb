@@ -3,6 +3,7 @@
 
 require "optparse"
 require_relative "../saboteur"
+require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
 
@@ -32,6 +33,7 @@ module Saboteur
     def call
       case @argv.shift
       when "run" then help_requested? ? show_help("run") : run
+      when "doctor" then help_requested? ? show_help("doctor") : doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help" then show_help(@argv.shift)
       when "--help", "-h" then show_help(nil)
@@ -55,9 +57,17 @@ module Saboteur
       end
     end
 
-    # The parser's option lines, as printed under OPTIONS in `saboteur help`.
+    # Each command's own option lines, as printed under OPTIONS in `saboteur help`.
     def option_lines
-      parser.summarize
+      { "run" => parser.summarize, "doctor" => doctor_parser.summarize }
+    end
+
+    def doctor_parser
+      OptionParser.new do |opts|
+        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N]"
+        opts.on("--config PATH", "Config file (default .saboteur.yml)") { |value| set(:config, value) }
+        opts.on("--seed N", Integer, "Seed for the two baseline runs (default 1)") { |value| set(:seed, value) }
+      end
     end
 
     private
@@ -94,6 +104,20 @@ module Saboteur
       write_json(report)
       write_html(report)
       exit_code(report)
+    rescue ConfigError => e
+      @err.puts("saboteur: #{e.message}")
+      EXIT_USAGE
+    rescue Error => e
+      @err.puts("saboteur: #{e.message}")
+      EXIT_TOOL
+    end
+
+    def doctor
+      doctor_parser.parse!(@argv)
+      raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
+
+      Doctor.new(config, out: @out).call
+      EXIT_OK
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
       EXIT_USAGE

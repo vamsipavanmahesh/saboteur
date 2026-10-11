@@ -1,0 +1,285 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "saboteur/baseline_health"
+
+RSpec.describe Saboteur::BaselineHealth do
+  let(:config) { Saboteur::Config.new }
+  let(:integration) { instance_double(Saboteur::Integration::Base, all_tests: [Saboteur::Integration::TestCase.new(id: "a", file: "spec/a.rb")]) }
+  let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
+
+  def response(passed: true, executed: ["a"])
+    instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
+                                                             payload: JSON.generate(passed: passed, executed: executed),
+                                                             exit_status: nil, leftover_pids: [])
+  end
+
+  it "requires two green runs with the same executed sequence" do
+    allow(supervisor).to receive(:run).and_return(response, response)
+    expect(described_class.new(config, integration: integration, supervisor: supervisor).call).to eq(["a"])
+    expect(supervisor).to have_received(:run).with(timeout: 300.0).twice
+  end
+
+  it "rejects a red baseline" do
+    allow(supervisor).to receive(:run).and_return(response(passed: false))
+    expect { described_class.new(config, integration: integration, supervisor: supervisor).call }
+      .to raise_error(Saboteur::Error, /baseline run 1 failed/)
+  end
+
+  it "rejects an incomplete green run" do
+    allow(supervisor).to receive(:run).and_return(response(executed: []))
+    expect { described_class.new(config, integration: integration, supervisor: supervisor).call }
+      .to raise_error(Saboteur::Error, /did not execute every/)
+  end
+
+  it "rejects different order on the second run" do
+    tests = %w[a b].map { |id| Saboteur::Integration::TestCase.new(id: id, file: "spec/a.rb") }
+    allow(integration).to receive(:all_tests).and_return(tests)
+    allow(supervisor).to receive(:run).and_return(response(executed: %w[a b]), response(executed: %w[b a]))
+    expect { described_class.new(config, integration: integration, supervisor: supervisor).call }
+      .to raise_error(Saboteur::Error, /different test order/)
+  end
+
+  it "refuses to call an empty suite healthy" do
+    allow(integration).to receive(:all_tests).and_return([])
+    expect { described_class.new(config, integration: integration, supervisor: supervisor).call }
+      .to raise_error(Saboteur::Error, /no tests/)
+    expect(supervisor).not_to receive(:run)
+  end
+end
+
+RSpec.describe Saboteur::BaselineHealth, "stopped checks" do
+  it "reports supervised resource and deadline stops" do
+    config = Saboteur::Config.new
+    integration = instance_double(Saboteur::Integration::Base,
+                                  all_tests: [Saboteur::Integration::TestCase.new(id: "a", file: "a.rb")])
+    supervisor = instance_double(Saboteur::Execution::Supervisor)
+    result = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: :timeout, detail: "deadline")
+    allow(supervisor).to receive(:run).and_return(result)
+    expect { described_class.new(config, integration: integration, supervisor: supervisor).call }
+      .to raise_error(Saboteur::Error, /stopped: deadline/)
+  end
+end
+
+RSpec.describe Saboteur::BaselineHealth, "bad child evidence" do
+  let(:integration) do
+    instance_double(Saboteur::Integration::Base,
+                    all_tests: [Saboteur::Integration::TestCase.new(id: "a", file: "a.rb")])
+  end
+  let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
+
+  def check(payload:, exit_status: nil, leftover_pids: [])
+    result = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
+                                                                      payload: payload, exit_status: exit_status,
+                                                                      leftover_pids: leftover_pids)
+    allow(supervisor).to receive(:run).and_return(result)
+    described_class.new(Saboteur::Config.new, integration: integration, supervisor: supervisor).call
+  end
+
+  it "rejects missing payload" do
+    expect { check(payload: "") }.to raise_error(Saboteur::Error, /without a result/)
+  end
+
+  it "rejects malformed and non-object payloads" do
+    ["{", "[]", "null"].each do |payload|
+      expect { check(payload: payload) }.to raise_error(Saboteur::Error, /invalid result/)
+    end
+  end
+
+  it "rejects a nonzero child exit even with green evidence" do
+    pid = fork { exit! 7 }
+    _, status = Process.wait2(pid)
+    expect do
+      check(payload: JSON.generate(passed: true,
+                                   executed: ["a"]), exit_status: status)
+    end
+      .to raise_error(Saboteur::Error, /exited unsuccessfully/)
+  end
+
+  it "rejects leftover processes" do
+    expect do
+      check(payload: JSON.generate(passed: true,
+                                   executed: ["a"]), leftover_pids: [123])
+    end
+      .to raise_error(Saboteur::Error, /left processes/)
+  end
+end
+
+RSpec.describe Saboteur::BaselineHealth, "baseline supervision wiring" do
+  it "constructs configured limits and supervises both numbered passes" do
+    config = Saboteur::Config.new({ "max_memory_mb" => 512, "max_processes" => 8, "baseline_timeout" => 42 })
+    integration = instance_double(Saboteur::Integration::Base,
+                                  all_tests: [Saboteur::Integration::TestCase.new(id: "a", file: "a.rb")])
+    supervisor = instance_double(Saboteur::Execution::Supervisor)
+    expect(Saboteur::Execution::Supervisor::Limits).to receive(:new).with(max_memory_mb: 512,
+                                                                          max_processes: 8).and_call_original
+    expect(Saboteur::Execution::Supervisor).to receive(:new).with(limits: instance_of(Saboteur::Execution::Supervisor::Limits)).and_return(supervisor)
+    result = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
+                                                                      payload: JSON.generate(passed: true,
+                                                                                             executed: ["a"]),
+                                                                      exit_status: nil, leftover_pids: [])
+    expect(supervisor).to receive(:run).with(timeout: 42.0).twice.and_return(result)
+    expect(described_class.new(config, integration: integration).call).to eq(["a"])
+  end
+
+  it "reports the second run number, accepts successful exits, and rejects wrong executed types" do
+    integration = instance_double(Saboteur::Integration::Base,
+                                  all_tests: [Saboteur::Integration::TestCase.new(id: "a", file: "a.rb")])
+    supervisor = instance_double(Saboteur::Execution::Supervisor)
+    pid = fork { exit! 0 }
+    _, status = Process.wait2(pid)
+    green = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
+                                                                     payload: JSON.generate(passed: true,
+                                                                                            executed: ["a"]),
+                                                                     exit_status: status, leftover_pids: [])
+    red = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
+                                                                   payload: JSON.generate(passed: true, executed: "a"),
+                                                                   exit_status: status, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(green, red)
+    expect { described_class.new(Saboteur::Config.new, integration: integration, supervisor: supervisor).call }
+      .to raise_error(Saboteur::Error, /baseline run 2 did not execute every/)
+  end
+
+  it "rejects nonmatching arrays and red runs with complete evidence" do
+    health = described_class.new(Saboteur::Config.new, integration: instance_double(Saboteur::Integration::Base))
+    expect { health.send(:verify_execution, { "passed" => true, "executed" => ["b"] }, 1, ["a"]) }
+      .to raise_error(Saboteur::Error, /did not execute every/)
+    expect { health.send(:verify_execution, { "passed" => false, "executed" => ["a"], "error" => "oops" }, 1, ["a"]) }
+      .to raise_error(Saboteur::Error, /failed: oops/)
+  end
+
+  it "records real supervised child sequence, seed and after-fork hooks without mutation hooks" do
+    integration = Object.new
+    def integration.all_tests
+      [Saboteur::Integration::TestCase.new(id: "a", file: "a.rb")]
+    end
+
+    def integration.run_all(sequence) # rubocop:disable Naming/PredicateMethod
+      raise "wrong seed" unless rand(1000) == Random.new(42).rand(1000)
+      raise "hook missing" unless ENV["BASELINE_SPEC_HOOK"] == "yes"
+
+      sequence.test_started("a", "a.rb")
+      sequence.test_finished("a")
+      true
+    end
+    hooks = Saboteur::Hooks.new
+    hooks.register(:after_fork) { ENV["BASELINE_SPEC_HOOK"] = "yes" }
+    hooks.register(:before_fork) { raise "mutation hook called" }
+    hooks.register(:around_mutant) { raise "mutation hook called" }
+    config = Saboteur::Config.new({ "seed" => 42 })
+    expect(described_class.new(config, integration: integration, hooks: hooks).call).to eq(["a"])
+  end
+
+  it "bounds failure descriptions and first nonempty error lines" do
+    exception = RuntimeError.new("\nshort message\nother line")
+    example = double(id: "spec/a.rb[1:1]", full_description: "x" * 300, execution_result: double(exception: exception))
+    allow(RSpec.world).to receive(:all_examples).and_return([example] * 8)
+    health = described_class.new(Saboteur::Config.new, integration: instance_double(Saboteur::Integration::Base))
+    detail = health.send(:failure_detail)
+    expect(detail.split("; ").size).to eq(5)
+    expect(detail).to include("spec/a.rb[1:1]: #{'x' * 200}: short message")
+    expect(detail).not_to include("other line")
+  end
+end
+
+RSpec.describe Saboteur::BaselineHealth, "child record in process" do
+  let(:config) { Saboteur::Config.new({ "seed" => 42 }) }
+  let(:integration) { instance_double(Saboteur::Integration::Base) }
+  let(:hooks) { instance_double(Saboteur::Hooks) }
+  let(:health) { described_class.new(config, integration: integration, hooks: hooks) }
+  let(:writer) { StringIO.new }
+
+  before do
+    allow($stdout).to receive(:reopen)
+    allow($stderr).to receive(:reopen)
+    allow(Kernel).to receive(:srand)
+    allow(RSpec.configuration).to receive(:order=)
+    allow(hooks).to receive(:run)
+  end
+
+  it "records sequence and failed example details, reseeds and closes the writer" do
+    expect($stdout).to receive(:reopen).with("/tmp/baseline-log", "w")
+    expect($stderr).to receive(:reopen).with($stdout)
+    expect(hooks).to receive(:run).with(:after_fork)
+    expect(Kernel).to receive(:srand).with(42)
+    expect(RSpec.configuration).to receive(:order=).with("rand:42")
+    allow(integration).to receive(:run_all) do |sequence|
+      expect(sequence.executed).to eq([])
+      sequence.test_started("a", "a.rb")
+      sequence.test_finished("a")
+      sequence.test_finished("b")
+      false
+    end
+    allow(health).to receive(:failure_detail).and_return("failure identity")
+    health.send(:record, writer, "/tmp/baseline-log")
+    expect(JSON.parse(writer.string)).to eq("passed" => false, "executed" => %w[a b], "error" => "failure identity")
+    expect(writer).to be_closed
+  end
+
+  it "captures child exceptions and still closes the pipe" do
+    allow(integration).to receive(:run_all).and_raise(SyntaxError, "bad syntax")
+    health.send(:record, writer, "/tmp/baseline-log")
+    expect(JSON.parse(writer.string)).to eq("passed" => false, "error" => "SyntaxError: bad syntax")
+    expect(writer).to be_closed
+  end
+
+  it "returns nil without RSpec and skips examples without exceptions" do
+    allow(RSpec.world).to receive(:all_examples).and_return([double(execution_result: double(exception: nil))])
+    expect(health.send(:failure_detail)).to eq("")
+    checker = health
+    rspec = Object.send(:remove_const, :RSpec)
+    begin
+      detail = checker.send(:failure_detail)
+    ensure
+      Object.const_set(:RSpec, rspec)
+    end
+    expect(detail).to be_nil
+  end
+
+  it "uses exactly the first 200 characters of messages and descriptions" do
+    example = double(id: "test", full_description: "A#{'b' * 299}",
+                     execution_result: double(exception: RuntimeError.new("M#{'n' * 299}")))
+    allow(RSpec.world).to receive(:all_examples).and_return([example])
+    expect(health.send(:failure_detail)).to eq("test: A#{'b' * 199}: M#{'n' * 199}")
+  end
+
+  it "preserves known errors and wraps unexpected supervision errors" do
+    supervisor = instance_double(Saboteur::Execution::Supervisor)
+    health = described_class.new(config, integration: integration, supervisor: supervisor)
+    error = Saboteur::Error.new("known")
+    allow(supervisor).to receive(:run).and_raise(error)
+    expect { health.send(:check_run, 1, ["a"]) }.to(raise_error { |raised| expect(raised).to equal(error) })
+    allow(supervisor).to receive(:run).and_raise(RuntimeError, "unexpected")
+    expect do
+      health.send(:check_run, 1, ["a"])
+    end.to raise_error(Saboteur::Error, /baseline check failed: RuntimeError: unexpected/)
+    expect { health.send(:verify_execution, { "passed" => false }, 1, ["a"]) }
+      .to raise_error(Saboteur::Error, /failed: fix the unchanged suite/)
+  end
+end
+
+RSpec.describe Saboteur::BaselineHealth, "record without RSpec" do
+  it "records an adapter run even when RSpec is not loaded" do
+    integration = Object.new
+    def integration.run_all(sequence) # rubocop:disable Naming/PredicateMethod
+      sequence.test_finished("a")
+      true
+    end
+    health = described_class.new(Saboteur::Config.new, integration: integration)
+    writer = StringIO.new
+    stdout = $stdout.dup
+    stderr = $stderr.dup
+    rspec = Object.send(:remove_const, :RSpec)
+    begin
+      Tempfile.create("baseline-spec") { |log| health.send(:record, writer, log.path) }
+    ensure
+      Object.const_set(:RSpec, rspec)
+      $stdout.reopen(stdout)
+      $stderr.reopen(stderr)
+      stdout.close
+      stderr.close
+    end
+    expect(JSON.parse(writer.string)).to eq("passed" => true, "executed" => ["a"], "error" => nil)
+    expect(writer).to be_closed
+  end
+end

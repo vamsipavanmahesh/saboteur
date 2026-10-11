@@ -109,6 +109,7 @@ schema, and you can add your own mutants through a small public interface.
 
 ```sh
 bundle exec saboteur run                          # whole project
+bundle exec saboteur doctor --seed 42             # environment + two unchanged suite checks
 bundle exec saboteur run --since origin/main      # methods changed on this branch
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
@@ -144,6 +145,11 @@ workflow recommendation, not a CLI default: plain `run` still checks the whole
 configured project. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
+
+`saboteur doctor` prints Ruby, coverage, integration, Rails/SimpleCov and boot-file
+checks, then runs the unchanged suite twice with the chosen seed. It writes no
+mutation reports or coverage/verdict caches. Target boot files and tests still
+run, so their normal side effects remain. See the [doctor guide](docs/guides/doctor.md).
 
 `--id` runs exactly one current mutant with its coverage-selected tests, bypassing
 per-method caps, coarse gating, ignore suppression and incremental verdict reuse.

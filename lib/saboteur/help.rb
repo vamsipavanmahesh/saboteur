@@ -12,47 +12,10 @@ module Saboteur
   # own line, command and key rows start with two spaces. Option lines come from
   # the CLI's own option parser, so a new option shows up here without an edit.
   class Help
-    Command = Data.define(:name, :summary, :description, :takes_options, :examples)
+    Command = Data.define(:name, :summary, :description, :takes_options, :exit_codes, :examples)
 
     PURPOSE = "mutation testing for Ruby and RSpec"
     DOCUMENTATION = "https://github.com/vamsipavanmahesh/saboteur"
-
-    COMMANDS = [
-      Command.new(
-        name: "run",
-        summary: "Mutate your code and report the mutants your tests do not catch",
-        description: "Builds a per-test coverage map, makes small changes to your methods, runs only the " \
-                     "tests that cover each change, and reports survivors (changes no test noticed). Source files or " \
-                     "directories after run replace include and exclude; --test limits the specs that run; " \
-                     "--threshold PERCENT replaces the survivor check: exit 0 when the score is at or above PERCENT, " \
-                     "exit 1 when it is below.",
-        takes_options: true,
-        examples: [
-          ["Pull request: only methods changed since the target branch", "saboteur run --since origin/main"],
-          ["Whole project, four workers, repeatable seed", "saboteur run --jobs 4 --seed 42"],
-          ["One class or method", "saboteur run --subject 'Person#adult?'"],
-          ["Replay one mutant by the digest printed next to a survivor", "saboteur run --id 1a2b3c4d5e6f7a8b"],
-          ["Mutate named files against named specs, skipping the whole-suite coverage run",
-           "saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb"],
-          ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"]
-        ]
-      ),
-      Command.new(
-        name: "version",
-        summary: "Print the installed version",
-        description: "Prints the version number and nothing else.",
-        takes_options: false,
-        examples: [["Print the version", "saboteur version"]]
-      ),
-      Command.new(
-        name: "help",
-        summary: "Show this map, or details for one command: saboteur help <command>",
-        description: "Without an argument, prints every command, option, config key and exit code. " \
-                     "With a command name, prints that command's usage, options and examples.",
-        takes_options: false,
-        examples: [["Show everything", "saboteur help"], ["Show one command", "saboteur help run"]]
-      )
-    ].freeze
 
     EXIT_CODE_MEANINGS = {
       0 => "Success. Without --threshold: no unignored survivors. With --threshold: the score is at or above " \
@@ -66,6 +29,63 @@ module Saboteur
            "also any errored or resource-limited mutant."
     }.freeze
 
+    DOCTOR_EXIT_CODE_MEANINGS = {
+      0 => "Healthy: the environment checks passed and the baseline passed twice in the same order.",
+      2 => "Usage or configuration error: fix the command or .saboteur.yml.",
+      3 => "A check failed: the target did not boot, or the baseline failed or changed between runs."
+    }.freeze
+
+    COMMANDS = [
+      Command.new(
+        name: "run",
+        summary: "Mutate your code and report the mutants your tests do not catch",
+        description: "Builds a per-test coverage map, makes small changes to your methods, runs only the " \
+                     "tests that cover each change, and reports survivors (changes no test noticed). Source files or " \
+                     "directories after run replace include and exclude; --test limits the specs that run; " \
+                     "--threshold PERCENT replaces the survivor check: exit 0 when the score is at or above " \
+                     "PERCENT, exit 1 when it is below.",
+        takes_options: true,
+        exit_codes: EXIT_CODE_MEANINGS,
+        examples: [
+          ["Pull request: only methods changed since the target branch", "saboteur run --since origin/main"],
+          ["Whole project, four workers, repeatable seed", "saboteur run --jobs 4 --seed 42"],
+          ["One class or method", "saboteur run --subject 'Person#adult?'"],
+          ["Replay one mutant by the digest printed next to a survivor", "saboteur run --id 1a2b3c4d5e6f7a8b"],
+          ["Mutate named files against named specs, skipping the whole-suite coverage run",
+           "saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb"],
+          ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"]
+        ]
+      ),
+      Command.new(
+        name: "doctor",
+        summary: "Check the environment and run the baseline twice, without mutating anything",
+        description: "Boots the target like a run, checks runtime, coverage and boot files, then runs your " \
+                     "suite twice in the same order with one seed and reports whether both runs passed. " \
+                     "It never mutates anything.",
+        takes_options: true,
+        exit_codes: DOCTOR_EXIT_CODE_MEANINGS,
+        examples: [["Check the setup before the first run", "saboteur doctor"],
+                   ["Use another config file and seed", "saboteur doctor --config ci.yml --seed 7"]]
+      ),
+      Command.new(
+        name: "version",
+        summary: "Print the installed version",
+        description: "Prints the version number and nothing else.",
+        takes_options: false,
+        exit_codes: nil,
+        examples: [["Print the version", "saboteur version"]]
+      ),
+      Command.new(
+        name: "help",
+        summary: "Show this map, or details for one command: saboteur help <command>",
+        description: "Without an argument, prints every command, option, config key and exit code. " \
+                     "With a command name, prints that command's usage, options and examples.",
+        takes_options: false,
+        exit_codes: nil,
+        examples: [["Show everything", "saboteur help"], ["Show one command", "saboteur help run"]]
+      )
+    ].freeze
+
     FILES = [
       [".saboteur.yml", "Settings. Command line options override it."],
       [".saboteur-ignore.yml", "Accepted survivors: entries with subject, mutation (digest) and a required reason."],
@@ -74,14 +94,15 @@ module Saboteur
       [".saboteur/", "Cache: coverage map and incremental verdicts. Safe to delete."]
     ].freeze
 
+    # option_lines: the option lines of each command's parser, keyed by command name.
     def initialize(option_lines:, commands: COMMANDS)
       @option_lines = option_lines
       @commands = commands
     end
 
     def overview
-      [title, usage_section, commands_section, options_section(run_command), examples_section(all_examples),
-       exit_codes_section, config_section, files_section, "Documentation: #{DOCUMENTATION}\n"].join("\n")
+      [title, usage_section, commands_section, *option_sections, examples_section(all_examples),
+       *exit_code_sections, config_section, files_section, "Documentation: #{DOCUMENTATION}\n"].join("\n")
     end
 
     # Details for one command, or nil when there is no such command.
@@ -92,7 +113,7 @@ module Saboteur
       sections = ["saboteur #{found.name} - #{found.summary}\n", "#{found.description}\n", command_usage(found)]
       sections << options_section(found) if found.takes_options
       sections << examples_section(found.examples)
-      sections << exit_codes_section if found.takes_options
+      sections << exit_codes_section(found.exit_codes) if found.exit_codes
       sections.join("\n")
     end
 
@@ -102,8 +123,13 @@ module Saboteur
 
     private
 
-    def run_command
-      @commands.find(&:takes_options)
+    # One section for every command that takes options, so the overview needs no other page.
+    def option_sections
+      @commands.select(&:takes_options).map { |command| options_section(command) }
+    end
+
+    def exit_code_sections
+      @commands.select(&:exit_codes).map { |command| exit_codes_section(command.exit_codes, command.name) }
     end
 
     def title
@@ -129,7 +155,7 @@ module Saboteur
     end
 
     def options_section(command)
-      "OPTIONS (saboteur #{command.name})\n#{@option_lines.map(&:rstrip).join("\n")}\n"
+      "OPTIONS (saboteur #{command.name})\n#{@option_lines.fetch(command.name).map(&:rstrip).join("\n")}\n"
     end
 
     def all_examples
@@ -140,9 +166,10 @@ module Saboteur
       "EXAMPLES\n#{examples.map { |note, line| "  # #{note}\n  #{line}" }.join("\n")}\n"
     end
 
-    def exit_codes_section
-      rows = EXIT_CODE_MEANINGS.map { |code, meaning| "  #{code}  #{meaning}" }
-      "EXIT CODES\n#{rows.join("\n")}\n"
+    def exit_codes_section(codes, command_name = nil)
+      rows = codes.map { |code, meaning| "  #{code}  #{meaning}" }
+      title = command_name ? "EXIT CODES (saboteur #{command_name})" : "EXIT CODES"
+      "#{title}\n#{rows.join("\n")}\n"
     end
 
     def config_section
