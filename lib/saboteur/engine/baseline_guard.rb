@@ -47,10 +47,12 @@ module Saboteur
         Execution::ForkReadiness.prepare_heap
         result = @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, number) }
         refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
-        refuse(number, "the child did not report a result") if result.payload.empty?
+        # Before the payload checks: a child killed by a signal (the OOM
+        # killer, say) writes nothing, and the signal is the explanation.
         if result.exit_status.is_a?(Process::Status) && !result.exit_status.success?
           refuse(number, unsuccessful_exit(result.exit_status))
         end
+        refuse(number, "the child did not report a result") if result.payload.empty?
         refuse(number, "the suite left child processes behind") if result.leftover_pids.any?
         parse_result(number, result.payload)
       end
