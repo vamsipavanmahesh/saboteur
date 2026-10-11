@@ -40,6 +40,8 @@ RSpec.describe "clean process entry points" do
       _output, error, status = run_ruby("measure.rb", "--project", project, "--files", "*.rb", "--out", report)
       result = JSON.parse(File.read(report))
       expect([status.success?, error, result["mutants"].positive?]).to eq([true, "", true])
+      expected_command = ["ruby", "measure.rb", "--project", project, "--files", "*.rb", "--out", report]
+      expect(result.dig("provenance", "command")).to eq(expected_command)
     end
   end
 end
