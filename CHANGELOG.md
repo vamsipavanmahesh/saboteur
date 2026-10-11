@@ -10,6 +10,10 @@ All notable changes are documented here. The format follows
 - `saboteur run --id DIGEST`: replay one exact current mutant with selected tests,
   independent of caps, coarse gating, ignore suppression and incremental reuse.
   Prints the mutation diff and selected test ids for every replay result.
+- Self-contained HTML report (`Saboteur::Reporter::Html`): one file with inline
+  style and no script or network use, written to `.saboteur/report.html`.
+  Change the path with `--html PATH` or `html_report:`. It shows the score,
+  per-file mutants, survivors, warnings and skipped subjects.
 
 ## [0.2.0] - 2026-10-10
 
