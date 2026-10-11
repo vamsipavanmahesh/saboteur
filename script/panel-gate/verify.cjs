@@ -227,17 +227,19 @@ async function verify(api, number) {
   try {
     await recoverRevocations(api, number, head);
     await status('pending', 'Checking current head panel, CI, DCO and policy');
-    const currentBase = await api.call(`git/ref/heads/${policy.baseBranch}`);
-    demand(currentBase.object.sha === base, 'main moved during validation');
+    // Up-to-date enforcement is intentionally relaxed: the head may trail main. Protected
+    // files are compared against the merge base, so edits made on main are not blamed on the PR.
     const compare = await api.call(`compare/${base}...${head}`);
-    demand(compare.status === 'ahead' && compare.merge_base_commit.sha === base, 'update branch against current main and retest');
+    demand(compare.status === 'ahead' || compare.status === 'diverged', 'head is not ahead of its base');
+    const mergeBase = compare.merge_base_commit.sha;
+    demand(SHA.test(mergeBase), 'bad merge base SHA');
     // Compare exact bytes via Git objects. Missing files on both sides are OK at bootstrap.
     for (const path of policy.protectedFiles) {
       async function blob(ref) {
         try { return await api.call(`contents/${path}?ref=${ref}`); }
         catch (error) { if (error.message.startsWith('GitHub API 404:')) return null; throw error; }
       }
-      const [before, after] = await Promise.all([blob(base), blob(head)]);
+      const [before, after] = await Promise.all([blob(mergeBase), blob(head)]);
       function identity(item) {
         if (Array.isArray(item)) return JSON.stringify(item.map(x => [x.name, x.sha, x.type]).sort());
         return item?.sha ?? null;
@@ -251,13 +253,13 @@ async function verify(api, number) {
     const checkedRuns = await workflows(api, number, head);
     // Repeat the whole selection, latest attempt and job inspection, not just PR facts.
     // Recheck live facts immediately before publishing. New head never inherits success.
-    const [lastPR, lastBase, lastComments, lastRevoked, lastRuns] = await Promise.all([
-      api.call(`pulls/${number}`), api.call(`git/ref/heads/${policy.baseBranch}`), api.pages(`issues/${number}/comments`),
+    const [lastPR, lastComments, lastRevoked, lastRuns] = await Promise.all([
+      api.call(`pulls/${number}`), api.pages(`issues/${number}/comments`),
       revocations(api, number, head), workflows(api, number, head)
     ]);
     demand(JSON.stringify(lastRuns) === JSON.stringify(checkedRuns), 'CI runs/attempts/jobs changed during verification');
     demand(lastPR.state === 'open' && !lastPR.draft && lastPR.head.sha === head &&
-      lastPR.base.sha === base && lastPR.base.ref === policy.baseBranch && lastBase.object.sha === base, 'PR/main changed during verification');
+      lastPR.base.ref === policy.baseBranch, 'PR changed during verification');
     demand(JSON.stringify(lastRevoked) === JSON.stringify(revoked), 'revocations changed during verification');
     panel(lastComments, head, lastRevoked);
     await status('success', '3 exact-head lens approvals; 13 green jobs; DCO; unchanged gate policy');

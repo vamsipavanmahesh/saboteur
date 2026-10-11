@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "tmpdir"
+
 RSpec.describe Saboteur::Frameworks::Rails do
   describe ".worker_database" do
     # Names of their own, so a developer's parallel_tests databases
@@ -74,11 +76,18 @@ RSpec.describe Saboteur::Frameworks::Rails do
 
     # A stand-in for ActiveRecord::Base that logs which class connects where
     # and what SQL runs.
-    def fake_base(db)
-      calls = log
+    def fake_connection(calls, template_sessions)
       connection = Object.new
       connection.define_singleton_method(:quote_table_name) { |name| %("#{name}") }
+      connection.define_singleton_method(:quote) { |value| "'#{value}'" }
       connection.define_singleton_method(:execute) { |sql| calls << sql }
+      connection.define_singleton_method(:select_values) { |*| template_sessions }
+      connection
+    end
+
+    def fake_base(db, template_sessions: [])
+      calls = log
+      connection = fake_connection(calls, template_sessions)
       pool = Object.new
       pool.define_singleton_method(:with_connection) { |&block| block.call(connection) }
       Class.new.tap do |base|
@@ -106,6 +115,176 @@ RSpec.describe Saboteur::Frameworks::Rails do
       expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"',
                          'CREATE DATABASE "app_test_saboteur2" TEMPLATE "app_test"', :removed])
     end
+
+    # Postgres refuses CREATE DATABASE ... TEMPLATE while any other session
+    # is connected to the template (field report, issue 7); name the
+    # blockers instead of dying mid-run with the raw error.
+    it "names the sessions blocking the template copy instead of failing mid-run" do
+      stub_const("ActiveRecord::Base",
+                 fake_base(fake_pool(:writing).db_config, template_sessions: ["psql", ""]))
+      expect { rails.prepare_workers(2) }.to raise_error(
+        Saboteur::Error,
+        "cannot copy the test database app_test: 2 other session(s) connected (psql, unnamed). " \
+        "Stop other test runs, consoles or Spring, then run saboteur again."
+      )
+      expect(log).not_to include('CREATE DATABASE "app_test_saboteur2" TEMPLATE "app_test"')
+    end
+
+    # pg_stat_activity.application_name can be NULL (older servers, some
+    # drivers) as well as empty.
+    it "treats a NULL application name as unnamed" do
+      stub_const("ActiveRecord::Base",
+                 fake_base(fake_pool(:writing).db_config, template_sessions: [nil]))
+      expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /1 other session.*unnamed/)
+    end
+
+    it "bounds the number of session names in the error" do
+      stub_const("ActiveRecord::Base",
+                 fake_base(fake_pool(:writing).db_config, template_sessions: %w[a b c d e f g]))
+      expect { rails.prepare_workers(2) }.to raise_error(
+        Saboteur::Error, /7 other session.*connected \(a, b, c, d, e\), \.\.\./
+      )
+    end
+  end
+
+  describe "#cleanup_workers" do
+    let(:rails) { described_class.new(Saboteur::Config.new({}), Saboteur::Hooks.new) }
+    let(:log) { [] }
+
+    after do
+      described_class.send(:remove_const, :MaintenanceRecord) if described_class.const_defined?(:MaintenanceRecord,
+                                                                                                false)
+    end
+
+    # Same stand-in as #prepare_workers: logs which class connects where and
+    # what SQL runs.
+    def fake_connection(calls)
+      Object.new.tap do |connection|
+        connection.define_singleton_method(:quote_table_name) { |name| %("#{name}") }
+        connection.define_singleton_method(:quote) { |value| "'#{value}'" }
+        connection.define_singleton_method(:execute) { |sql| calls << sql }
+        connection.define_singleton_method(:select_values) { |_sql| [] }
+      end
+    end
+
+    def fake_base(db)
+      calls = log
+      connection = fake_connection(calls)
+      pool = Object.new
+      pool.define_singleton_method(:with_connection) { |&block| block.call(connection) }
+      Class.new.tap do |base|
+        base.singleton_class.attr_accessor(:abstract_class)
+        base.define_singleton_method(:establish_connection) do |config|
+          calls << [equal?(base) ? :app : :maintenance, config[:database]]
+        end
+        base.define_singleton_method(:connection_pool) { pool }
+        base.define_singleton_method(:remove_connection) { calls << :removed }
+        handler = Object.new
+        handler.define_singleton_method(:connection_pool_list) { |_role| [] }
+        base.define_singleton_method(:connection_handler) { handler }
+        base.define_singleton_method(:configurations) do
+          Object.new.tap { |c| c.define_singleton_method(:configs_for) { |**| [db] } }
+        end
+      end
+    end
+
+    it "drops every copy prepare_workers made, through the maintenance connection" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(3)
+      log.clear
+      rails.cleanup_workers
+      expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed,
+                         [:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur3"', :removed])
+    end
+
+    # The copy for saboteur3 was really made before the error, so it must
+    # be dropped too - tracking after copy_database returns would leak it.
+    it "drops the copies a failed prepare attempted, including the one that failed" do
+      db = fake_pool(:writing).db_config
+      base = fake_base(db)
+      stub_const("ActiveRecord::Base", base)
+      allow(rails).to receive(:copy_database).and_wrap_original do |original, config, name|
+        original.call(config, name)
+        raise "disk full" if name.end_with?("saboteur3")
+      end
+      expect { rails.prepare_workers(3) }.to raise_error("disk full")
+      log.clear
+      rails.cleanup_workers
+      expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed,
+                         [:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur3"', :removed])
+    end
+
+    # A disconnect that raises must not escape as an unrescued error and
+    # mask the run's outcome; it is reported with the drop failures.
+    it "reports a failed disconnect with the drop failures" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(2)
+      log.clear
+      allow(rails).to receive(:disconnect).and_raise("handler exploded")
+      expect { rails.cleanup_workers }.to raise_error(
+        Saboteur::Error,
+        /could not drop worker database copies: app_test_saboteur2: handler exploded; disconnect: handler exploded/
+      )
+      # The drop was attempted even though its disconnect failed.
+      expect(rails.instance_variable_get(:@worker_copies)).to be_empty
+    end
+
+    it "keeps dropping after a failed drop and reports every failure at the end" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(3)
+      log.clear
+      allow(rails).to receive(:drop_database) do |db, name|
+        raise "server closed the connection" if name.end_with?("saboteur2")
+
+        ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{name}#{suffix}") } if db.adapter =~ /sqlite/
+        log << "dropped #{name}"
+      end
+      expect { rails.cleanup_workers }.to raise_error(
+        Saboteur::Error, /could not drop worker database copies: app_test_saboteur2: server closed the connection/
+      )
+      expect(log).to include("dropped app_test_saboteur3")
+      expect { rails.cleanup_workers }.not_to raise_error
+    end
+
+    it "removes SQLite copies, including WAL and SHM files" do
+      Dir.mktmpdir do |dir|
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(File.join(dir, "test.sqlite3"), { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        ["", "-wal", "-shm"].each { |suffix| File.write("#{db.database}#{suffix}", "x") }
+        rails.prepare_workers(2)
+        rails.cleanup_workers
+        expect(Dir.children(dir).sort).to eq(["test.sqlite3", "test.sqlite3-shm", "test.sqlite3-wal"])
+      end
+    end
+
+    it "does nothing when prepare_workers made no copies" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(1)
+      rails.cleanup_workers
+      expect(log).to be_empty
+    end
+
+    # With nothing to drop there is nothing to disconnect from: reaching
+    # disconnect would mask the early return as a no-op.
+    it "does not even disconnect when there are no copies to drop" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(1)
+      expect(rails).not_to receive(:disconnect)
+      rails.cleanup_workers
+    end
+
+    # A second prepare replaces the tracked set: without the reset, the
+    # first attempt's names would be dropped twice.
+    it "tracks only the latest prepare's copies when prepare runs twice" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(2)
+      rails.prepare_workers(3)
+      log.clear
+      rails.cleanup_workers
+      expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed,
+                         [:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur3"', :removed])
+    end
   end
 
   describe "#before_boot" do
@@ -125,6 +304,64 @@ RSpec.describe Saboteur::Frameworks::Rails do
       stub_const("ENV", { "RAILS_ENV" => "test", "PGGSSENCMODE" => "prefer" })
       rails.before_boot
       expect(ENV.fetch("PGGSSENCMODE")).to eq("prefer")
+    end
+
+    # Bytecode from Bootsnap's compile cache has no coverage counters, so a
+    # file served from the cache is invisible to the coverage map. Turning
+    # the cache off must happen here, before config/boot loads Bootsnap.
+    it "turns off Bootsnap's compile cache unless the user chose" do
+      stub_const("ENV", { "RAILS_ENV" => "test" })
+      rails.before_boot
+      expect(ENV.fetch("DISABLE_BOOTSNAP_COMPILE_CACHE")).to eq("1")
+    end
+
+    it "keeps a compile-cache choice the user set" do
+      stub_const("ENV", { "RAILS_ENV" => "test", "DISABLE_BOOTSNAP_COMPILE_CACHE" => "0" })
+      rails.before_boot
+      expect(ENV.fetch("DISABLE_BOOTSNAP_COMPILE_CACHE")).to eq("0")
+    end
+  end
+
+  describe "#after_boot" do
+    let(:rails) { described_class.new(Saboteur::Config.new({}), Saboteur::Hooks.new) }
+    let(:application) { double("application", eager_load!: nil) }
+
+    before do
+      stub_const("Rails", double("Rails", env: double("env", test?: true), application: application))
+      allow(Coverage).to receive(:state).and_return(:suspended)
+      allow(Coverage).to receive(:resume)
+      allow(Coverage).to receive(:suspend)
+    end
+
+    # Bootsnap serves cached bytecode unless Coverage is running, and cached
+    # bytecode has no coverage counters (field report, issue 1). The eager
+    # load is where most app files come in, so Coverage runs across it.
+    it "resumes Coverage just around the eager load" do
+      expect(Coverage).to receive(:resume).ordered
+      expect(application).to receive(:eager_load!).ordered
+      expect(Coverage).to receive(:suspend).ordered
+      rails.after_boot
+    end
+
+    it "does not suspend when Coverage.resume itself fails" do
+      allow(Coverage).to receive(:resume).and_raise("cannot resume")
+      expect(Coverage).not_to receive(:suspend)
+      expect(application).not_to receive(:eager_load!)
+      expect { rails.after_boot }.to raise_error("cannot resume")
+    end
+
+    it "suspends Coverage again when the eager load raises" do
+      allow(application).to receive(:eager_load!).and_raise("boom")
+      expect(Coverage).to receive(:resume).ordered
+      expect(Coverage).to receive(:suspend).ordered
+      expect { rails.after_boot }.to raise_error("boom")
+    end
+
+    it "leaves Coverage alone when it is already running" do
+      allow(Coverage).to receive(:state).and_return(:running)
+      expect(Coverage).not_to receive(:resume)
+      expect(Coverage).not_to receive(:suspend)
+      rails.after_boot
     end
   end
 

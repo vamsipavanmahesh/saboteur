@@ -7,6 +7,8 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- A survivor lists the first five tests that covered its line and still passed
+  with the mutant applied, in the terminal and the HTML page.
 - `saboteur run --agent` (`--format agent`): one bounded JSON summary (under 8 KiB) on stdout
   with status, verdict, provenance, the first three findings and the commands for full
   detail. Exit 0 means a complete, clean run only: 1 survivors, 2 usage or config error,
