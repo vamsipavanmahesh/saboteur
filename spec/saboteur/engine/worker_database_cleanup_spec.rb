@@ -24,13 +24,13 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
   let(:rails) { instance_double(Saboteur::Frameworks::Rails, prepare_workers: nil, cleanup_workers: nil) }
   let(:err) { StringIO.new }
 
-  def run_engine(events, run_error: nil, prepare_error: nil, cleanup_error: nil)
-    stub_boot_phase
+  def run_engine(events, run_error: nil, prepare_error: nil, cleanup_error: nil, rails: self.rails)
+    stub_boot_phase(rails)
     stub_test_phase(events, run_error, prepare_error, cleanup_error)
     described_class.new(Saboteur::Config.new({ "jobs" => 2 }, root: @root), err: err).call
   end
 
-  def stub_boot_phase
+  def stub_boot_phase(rails)
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
@@ -93,6 +93,15 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
   it "warns about a cleanup failure instead of masking the run's outcome" do
     report = run_engine([], cleanup_error: Saboteur::Error.new("could not drop worker database copies: x"))
     expect(report.warnings).to include("could not drop worker database copies: x")
+  end
+
+  # A non-Rails project has no copies to drop; cleanup must be skipped
+  # silently, not warn about a nil cleanup call.
+  it "does nothing and warns about nothing when the project has no Rails databases" do
+    events = []
+    report = run_engine(events, rails: nil)
+    expect(events).to eq(%i[distribute])
+    expect(report.warnings.grep(/undefined method|cleanup/)).to be_empty
   end
 
   it "warns about an unanticipated cleanup error instead of masking the run's outcome" do
