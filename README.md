@@ -97,7 +97,20 @@ bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
 bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
+bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
+bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
 ```
+
+Positional files name the sources to mutate; they replace `include` and
+`exclude`. `--test` (repeatable, spec files or directories, needs at least one
+source) replaces the spec paths in `rspec_args`, so the coverage map is built
+from only those specs and each mutant runs only the ones among them that cover
+it. Options in `rspec_args` such as `--require` stay.
+
+`--threshold PERCENT` (0 to 100, or `threshold:` in `.saboteur.yml`) is for CI:
+the run exits 1 when the score is below PERCENT and 0 when it is at or above,
+even with survivors. A run that tested nothing has no score and passes. Without
+a threshold, any unignored survivor exits 1.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
@@ -130,7 +143,8 @@ out and keeps survivors accepted on the ignore list in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
-Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
+Exit codes: 0 no survivors (or all on the ignore list), or the score meets
+`--threshold`; 1 survivors, or the score is below `--threshold`;
 2 bad configuration, 3 the tool failed.
 
 ## ⚙️ Configuration
