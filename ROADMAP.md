@@ -106,8 +106,6 @@ comment in under ten minutes.
 
 ## Milestone 4: Wider coverage of Ruby projects (0.6)
 
-- Minitest through a second `Integration::Base` implementation. RSpec stays
-  first-class.
 - Verify and document MySQL and older Rails versions.
 - Linux and macOS in CI for saboteur itself, on every supported Ruby.
 - Better handling of metaprogramming-heavy code (`define_method`,
@@ -138,7 +136,10 @@ Work that runs alongside the milestones:
 
 ## Not planned
 
-- Support for test frameworks other than RSpec and Minitest.
+- Support for test frameworks other than RSpec. saboteur is deliberately
+  RSpec-only. Doing one framework well beats doing two halfway. The
+  `Integration::Base` interface stays public for anyone who wants to build
+  their own.
 - Anything that needs a hosted service to run. saboteur stays a local tool.
 
 ## How this file changes
