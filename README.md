@@ -182,12 +182,13 @@ a `TypeError`, a parse error) shows the code ran and broke, not that a test
 checked a value. The terminal prints
 `score 100.0 % (assertion 50.0 %, crash 50.0 %)`: each share is a part of
 tested mutants, so the parts add up to the score. Timeouts and kills with no
-recorded cause (verdicts reused from an older run) are named when there are
-some. Whole-method mutants (`body_nil`, `body_raise`) are killed by almost any
-test that runs the method, so a second line scores the run without them, and
-shows them alone. The headline score and `--threshold` still count every
+recorded cause (a verdict reused from an older run, a test that called `exit`,
+a failure outside any example) are named when there are some. Whole-body
+mutants (`body_nil`, `body_true`, `body_false`, `body_raise`) are killed by
+almost any test that runs the method, so a second line scores the run without
+them, and shows them alone. The headline score and `--threshold` still count every
 mutant. The JSON report carries both splits under `saboteur.scores`
-(`all` and `withoutWholeMethodMutants`), and the HTML page prints them under
+(`all` and `withoutWholeBodyMutants`), and the HTML page prints them under
 the score.
 
 For code-review surfaces, the JSON report also carries a `saboteur.findings`
