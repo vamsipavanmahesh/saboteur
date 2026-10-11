@@ -16,6 +16,10 @@ All notable changes are documented here. The format follows
   `include` and `exclude`; `--test` replaces the spec paths in `rspec_args`.
 - `--threshold PERCENT` (and `threshold:` in `.saboteur.yml`): exit 1 when the
   score is below PERCENT. The score decides the exit code instead of survivors.
+  It fails closed: no score exits 1, and errored or resource-limited mutants
+  exit 3.
+- Positional sources must exist (exit 2 otherwise), and the selected tests are
+  part of the coverage-map and `--incremental` cache keys.
 
 ## [0.2.0] - 2026-10-10
 
