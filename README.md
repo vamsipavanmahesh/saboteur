@@ -26,7 +26,8 @@ $ bundle exec saboteur run --since origin/main
 
 Never heard of mutation testing? It asks "if I broke this, would a test
 fail?" for many small breakages and lists the ones nobody noticed. Read the
-[design notes](docs/design.md) when you want the details.
+[design notes](docs/design.md) when you want the details. For adopting it on a team, see the
+[best practices guide](docs/best-practices.md).
 
 ## 🚀 Try it in a minute
 
@@ -98,6 +99,7 @@ bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
 bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
+bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
 ```
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
@@ -114,6 +116,11 @@ checkout history, a GitHub Actions example, configuration and limits.
 checks, then runs the unchanged suite twice with the chosen seed. It writes no
 mutation reports or coverage/verdict caches. Target boot files and tests still
 run, so their normal side effects remain. See the [doctor guide](docs/guides/doctor.md).
+
+`--id` runs exactly one current mutant with its coverage-selected tests, bypassing
+per-method caps, coarse gating, ignore suppression and incremental verdict reuse.
+It still honors `--subject` and `--since` changed-line selection. See the
+[replay guide](docs/guides/replay.md) for digest format, checks and limits.
 
 Every test run starts from the same random seed (1 by default), so tests that
 use `rand` see the same values in each mutant's run and in the check that
