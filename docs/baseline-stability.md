@@ -10,3 +10,8 @@ the suite before trying again. Each check uses `coverage_timeout` and the suite
 memory/process limits. Two passing checks detect observed instability; they
 do not prove that a suite can never be flaky. No subjects selected means no
 mutation run and no baseline check.
+
+Baseline children run `after_fork` for child setup, but do not call the
+mutation-specific `before_fork` or `around_mutant` callbacks. The parent was
+already prepared by normal boot (including the Rails disconnect step). Coverage
+uses the same RSpec seed/order and refuses a failing suite instead of caching it.
