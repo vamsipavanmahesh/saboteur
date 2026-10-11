@@ -192,6 +192,20 @@ out and keeps survivors accepted on the ignore list in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
+The score is split by how the mutant was killed. A crash kill (a `NoMethodError`,
+a `TypeError`, a parse error) shows the code ran and broke, not that a test
+checked a value. The terminal prints
+`score 100.0 % (assertion 50.0 %, crash 50.0 %)`: each share is a part of
+tested mutants, so the parts add up to the score. Timeouts and kills with no
+recorded cause (a verdict reused from an older run, a test that called `exit`,
+a failure outside any example) are named when there are some. Whole-body
+mutants (`body_nil`, `body_true`, `body_false`, `body_raise`) are killed by
+almost any test that runs the method, so a second line scores the run without
+them, and shows them alone. The headline score and `--threshold` still count every
+mutant. The JSON report carries both splits under `saboteur.scores`
+(`all` and `withoutWholeBodyMutants`), and the HTML page prints them under
+the score.
+
 For code-review surfaces, the JSON report also carries a `saboteur.findings`
 section: a bounded, deterministically ordered list of survivors, coarse
 mutants first (a surviving coarse mutant hints that no test pins the method's
@@ -263,11 +277,20 @@ generator is planned; until then this block is the supported setup.
 saboteur puts the app's `spec/` directory on the load path before
 processing `require`, matching rspec, so a boot file like a dummy app's
 `spec/rails_helper.rb` can require its siblings.
-With `jobs` above 1 on SQLite, each extra worker gets a file copy of the
-test database. A relative `database:` path resolves against `Rails.root`,
-the same as Rails 7.1+ does; the copy checkpoints the source first
-(`PRAGMA wal_checkpoint(TRUNCATE)`), and a source file that does not
-exist is an error, not a skipped copy.
+With `jobs` above 1 on SQLite, each extra worker gets a copy of the test
+database made through SQLite's backup API, so the copy is a consistent
+snapshot. A relative `database:` path resolves against `Rails.root`, the
+same as Rails 7.1+ does, for the copy and for its cleanup. The copy
+checkpoints the source first (`PRAGMA wal_checkpoint(TRUNCATE)`) and
+refuses to run when a reader keeps the WAL busy, because copying on
+would silently miss committed rows. A source file that does not exist is
+an error, not a skipped copy.
+
+For a Rails engine, point `require` at the dummy app's environment -
+`test/dummy/config/environment.rb`, usually loaded for you by
+`spec/rails_helper.rb`. Only a dynamically created dummy app has no
+environment file; there, require the helper that calls setup instead,
+such as `DummyApp.setup` in `spec/rails_helper.rb`.
 
 Bootsnap needs no extra setting: bytecode from its compile cache carries no
 coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
