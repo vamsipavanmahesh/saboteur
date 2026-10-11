@@ -50,7 +50,6 @@ module Saboteur
     def run
       parser.parse!(@argv)
       use_explicit_sources
-      raise UsageError, "--test needs at least one source file" if options[:tests] && !options[:include]
 
       report = Engine.new(config, err: @err).call
       @err.puts
@@ -86,6 +85,8 @@ module Saboteur
       executed = report.executed
       return EXIT_TOOL if executed.any? && executed.all? { |result| result.status == :error }
 
+      return EXIT_TOOL if incomplete_under_threshold?(report)
+
       failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
     end
 
@@ -95,16 +96,53 @@ module Saboteur
       return report.unignored_survivors.any? if threshold.nil?
 
       score = report.score
-      !score.nil? && score * 100 < threshold
+      return missing_score_reported? if score.nil?
+
+      score * 100 < threshold
     end
 
-    # Positional arguments name the files to mutate. They replace the
-    # configured include and exclude patterns.
+    # A gate that cannot measure a score must not pass: CI would go green
+    # on a run that tested nothing.
+    def missing_score_reported?
+      @err.puts("saboteur: no mutant was tested, so there is no score to compare with --threshold")
+      true
+    end
+
+    # Errors and resource limits are outside the score. With a threshold they
+    # make the run incomplete, so the score alone cannot pass it.
+    def incomplete_under_threshold?(report)
+      return false if config["threshold"].nil?
+
+      count = report.counts.values_at(:error, :resource_limit).sum
+      @err.puts("saboteur: #{count} mutant(s) errored or hit a resource limit, so the score is incomplete") if
+        count.positive?
+      count.positive?
+    end
+
+    # Positional arguments name the files (or directories) to mutate. They
+    # replace the configured include and exclude patterns. Each must exist,
+    # so a typo is an error and not a run over zero subjects.
     def use_explicit_sources
+      raise UsageError, "--test needs at least one source file" if options[:tests] && @argv.empty?
       return if @argv.empty?
 
-      options[:include] = @argv
+      options[:include] = @argv.map { |source| source_pattern(source) }
       options[:exclude] = []
+      options[:tests]&.each { |test| require_existing_test(test) }
+    end
+
+    def source_pattern(source)
+      return "#{source.chomp('/')}/**/*.rb" if File.directory?(source)
+      raise UsageError, "source is not a Ruby file: #{source}" if File.file?(source) && !source.end_with?(".rb")
+      raise UsageError, "source file not found: #{source}" unless File.file?(source)
+
+      source
+    end
+
+    # A test may carry an example selector: spec/a_spec.rb:12 or spec/a_spec.rb[1:2].
+    def require_existing_test(test)
+      path = test.sub(/(:\d+|\[[\d:]+\])+\z/, "")
+      raise UsageError, "test file not found: #{test}" unless File.exist?(path)
     end
 
     def overrides
