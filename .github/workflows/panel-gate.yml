@@ -26,6 +26,7 @@ permissions:
 concurrency:
   group: panel-head-gate
   cancel-in-progress: false
+  queue: max
 
 jobs:
   verify:
