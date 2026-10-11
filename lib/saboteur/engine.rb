@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "json"
+require_relative "replay"
 
 module Saboteur
   # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
@@ -15,18 +16,19 @@ module Saboteur
 
     attr_reader :config, :hooks
 
-    def initialize(config, err: $stderr)
+    def initialize(config, err: $stderr, digest: nil)
       @config = config
       @hooks = Hooks.new
       @diagnostics = Diagnostics.new(err)
       @root = File.realpath(config.root)
       @skipped_subjects = {}
+      @replay = Replay.new(digest: digest) if digest
     end
 
     def call
       Boot.refuse_recursion!
       started = monotonic
-      ignore_list = IgnoreList.load(config.path("ignore_file"))
+      ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
       boot = Boot.new(config, hooks)
       integration = boot.load_target
       @rails = boot.rails
@@ -46,7 +48,10 @@ module Saboteur
       config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
       selection = SubjectSelection.new(config, @diagnostics)
       subjects = selection.select(files)
-      [subjects, selection.changed_lines && DiffScope.new(selection.changed_lines)]
+      scope = selection.changed_lines && DiffScope.new(selection.changed_lines)
+      return replay_subject(subjects, scope) if @replay
+
+      [subjects, scope]
     end
 
     def mutate(subjects, files, integration, scope)
@@ -81,6 +86,7 @@ module Saboteur
     end
 
     def result_cache
+      return nil if @replay
       return nil unless config["incremental"]
 
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] })
@@ -96,12 +102,21 @@ module Saboteur
 
     # Each subject's candidates, narrowed to changed lines in diff mode.
     def candidate_lists(subjects, scope, map)
+      return [@replay_candidate] if @replay
+
       candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
       selection = CandidateSelection.new(candidates: candidates, map: map,
                                          limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
       subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
         @skipped_subjects = selection.skipped_subjects
       end
+    end
+
+    def replay_subject(subjects, scope)
+      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
+      subject, candidate = @replay.select(subjects, candidates, scope: scope)
+      @replay_candidate = [candidate]
+      [[subject], nil]
     end
 
     def supervisor(memory_factor: 1)
