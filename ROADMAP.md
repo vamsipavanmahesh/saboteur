@@ -340,6 +340,36 @@ Work that runs alongside the milestones:
 - Open issues labelled "good first issue" for operators and reporters, since
   the plugin API makes them small and safe to review.
 
+## AI-native track
+
+Coding agents already run test commands and read their output. This track makes
+saboteur safe and cheap for an agent to call after the specs pass. The
+`--help` map for agents has already shipped.
+
+- P0: a compact agent JSON projection, about 8 KiB, with the top 3 survivors
+  and detail on demand, an explicit complete, partial or not-applicable status,
+  and provenance. Why: the full report is too big for an agent's context, and
+  an agent must not mistake a partial run for a clean one.
+- P0: strict agent exit semantics: 0 only for a complete, clean run. Why: today
+  mixed errors can exit 0, and an agent reads 0 as "done".
+- P0: a repo-dropped agent skill or rule (`AGENTS.md` / `CLAUDE.md` trigger)
+  that runs saboteur after RSpec goes green. Why: agents only use what the
+  repo tells them to use.
+- P1: explain a survivor by digest. Why: the agent needs the diff, the covering
+  tests and a hint for one survivor, without rerunning anything.
+- P1: a total-runtime budget that includes the cold coverage run. Why: an agent
+  session has a time limit, and a timeout must read as incomplete, not clean.
+- P1: artifact and lock safety for concurrent runs. Why: two agents in one
+  checkout can overwrite each other's cache and report.
+- P1: warn when untracked files fall outside the diff scope. Why: a new file an
+  agent just wrote is not in `git diff`, so the run silently skips it.
+- P2: a local MCP adapter with `run_diff_mutation`, `explain_survivor` and
+  `replay_mutant`. Why: tool calls are more reliable than shell parsing, but
+  only after the CLI contract above is stable.
+- P2: an agent eval harness that scores correct tool use, useful tests written,
+  false dismissals of real survivors, and token cost. Why: without it we are
+  guessing whether any of this helps.
+
 ## Not planned
 
 - Support for test frameworks other than RSpec. saboteur is deliberately
