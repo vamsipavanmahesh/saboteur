@@ -7,6 +7,7 @@ module Saboteur
     # errors, then a unified diff for each survivor.
     class Terminal
       MAX_ERRORS = 10
+      MAX_PASSING_TESTS = 5
 
       def initialize(out)
         @out = out
@@ -142,8 +143,29 @@ module Saboteur
           @out.puts "\n#{result.subject.id} #{result.mutation.operator} #{result.digest} #{location}"
           @out.puts "ignored: #{result.ignored}" if result.ignored
           @out.puts result.diff(root: report.root)
+          passing_tests(result)
           @out.puts "#{hidden} more survivor#{'s' if hidden > 1} on this line in the JSON report" if hidden.positive?
         end
+      end
+
+      # The tests that ran with the mutant applied and still passed: the
+      # missing assertion belongs in one of them. They are listed likeliest
+      # killers first, the order the run used. Line coverage can overstate which
+      # tests exercise the line, so the list is a lead, not proof.
+      def passing_tests(result)
+        tests = result.covered_by
+        return if tests.empty?
+
+        @out.puts "#{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and #{passed_phrase(result)} " \
+                  "(the missing check may belong in one of them):"
+        tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "  #{name}" }
+        more = tests.size - MAX_PASSING_TESTS
+        @out.puts "  ... #{more} more in the JSON report (coveredBy)" if more.positive?
+      end
+
+      # A reused verdict was not run again: its tests passed in the earlier run.
+      def passed_phrase(result)
+        result.reused? ? "passed in an earlier run (--incremental)" : "still passed"
       end
 
       # [[result, how many more on the same line]]. In review mode survivors
