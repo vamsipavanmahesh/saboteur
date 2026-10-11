@@ -28,18 +28,19 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat" do
   let(:err) { StringIO.new }
   let(:diagnostics) { described_class.new(err) }
 
-  it "prints elapsed time about every interval while the block runs" do
-    diagnostics.with_progress_heartbeat("long phase", interval: 0.01) { sleep 0.05 }
+  # The supervisor's wait loop drives tick, so no thread is ever alive at
+  # fork time.
+  it "prints elapsed time only once the interval passed" do
+    heartbeat = diagnostics.progress_heartbeat("long phase", interval: 0.05)
+    heartbeat.tick
+    expect(err.string).to eq("")
+    sleep 0.06
+    heartbeat.tick
     expect(err.string).to match(/long phase: 0 s elapsed/)
-    expect(err.string.lines.size).to be >= 2
-  end
-
-  it "stops the heartbeat when the block raises" do
-    expect do
-      diagnostics.with_progress_heartbeat("long phase", interval: 0.01) { raise "boom" }
-    end.to raise_error("boom")
-    lines = err.string.lines.size
-    sleep 0.05
-    expect(err.string.lines.size).to eq(lines)
+    heartbeat.tick
+    expect(err.string.lines.size).to eq(1)
+    sleep 0.06
+    heartbeat.tick
+    expect(err.string.lines.size).to eq(2)
   end
 end
