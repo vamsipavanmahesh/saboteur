@@ -173,7 +173,14 @@ unchanged. It cannot see a change in a method this one calls, so run without
 it now and then (and in CI on the main branch).
 
 Output: counts per status, the score, timing, and a unified diff for every
-survivor. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
+survivor. Under each diff the terminal lists the tests that covered that line
+and still passed with the mutant applied (the first five, likeliest killers
+first; the rest are under `coveredBy` in the JSON report). The missing
+check may belong in one of them. Line coverage can overstate which tests
+exercise a line, so treat the list as a lead. A survivor reused with
+`--incremental` was not run again, and the list says its tests passed in an
+earlier run. The HTML page shows the same list in the
+survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `json_report` / `html_report` in
 `.saboteur.yml`; set either to `null` to turn that report off. The two paths
@@ -242,10 +249,11 @@ jobs: 4                           # optional; the default is 1
 Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
 generator is planned; until then this block is the supported setup.
 
-A Rails engine's dummy app has no `config/environment.rb`. Point `require`
-at the file that boots the dummy app instead - typically
-`spec/rails_helper.rb`, which calls `DummyApp.setup` - and keep
-`rails: true`.
+For a Rails engine, point `require` at the dummy app's environment -
+`test/dummy/config/environment.rb`, usually loaded for you by
+`spec/rails_helper.rb`. Only a dynamically created dummy app has no
+environment file; there, require the helper that calls setup instead,
+such as `DummyApp.setup` in `spec/rails_helper.rb`.
 
 Bootsnap needs no extra setting: bytecode from its compile cache carries no
 coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
