@@ -181,7 +181,6 @@ module Saboteur
     # children cannot write into the JSON on stdout.
     def stdout_on_stderr
       saved = $stdout.dup
-      $stdout.flush
       $stdout.reopen($stderr)
       yield
     ensure
