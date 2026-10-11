@@ -21,6 +21,20 @@ RSpec.describe "baseline stability guard", :e2e do
     expect(log).to include("fails unchanged", "expected", "examples finished", "1 failure")
   end
 
+  it "puts a suite-hook failure's detail in the phase log" do
+    directory = copy_fixture("people")
+    write_suite(directory, <<~RUBY)
+      RSpec.configure { |config| config.before(:suite) { raise "hook exploded" } }
+      RSpec.describe People::Person do
+        it("runs") { expect(true).to be(true) }
+      end
+    RUBY
+    run = saboteur(directory, "--seed", "42")
+    expect(run.status).to eq(3)
+    log = File.read(File.join(directory, ".saboteur/baseline-1.log"))
+    expect(log).to include("hook exploded")
+  end
+
   it "detects a second-check failure in a separate child" do
     directory = copy_fixture("people")
     write_suite(directory, <<~RUBY)
