@@ -132,6 +132,14 @@ timeout_factor: 3        # deadline = 3 x the tests' recorded time
 max_memory_mb: 2048      # memory growth cap per mutant
 max_processes: 64
 seed: 1</code></pre>
+<h3>Rails apps</h3>
+<p>The defaults are for plain gems. A Rails app needs its boot file and <code>app/</code> paths:</p>
+<pre><code><span class="c"># .saboteur.yml</span>
+include: [app/**/*.rb]
+require: [./config/environment]
+rails: true
+jobs: 4                  # optional, default is 1</code></pre>
+<p>Run with <code>RAILS_ENV=test</code>.</p>
 <h3>5. Accept a survivor with a reason</h3>
 <pre><code><span class="c"># .saboteur-ignore.yml</span>
 - subject: "Billing::Invoice#total"
