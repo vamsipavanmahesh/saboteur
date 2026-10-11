@@ -18,8 +18,8 @@ RSpec.describe Saboteur::Install do
 
   it "creates the config, the binstub and the gitignore entry" do
     results = install
-    expect(results.map { |r| [r.status, r.path] }).to eq([[:created, ".saboteur.yml"], [:created, "bin/saboteur"],
-                                                          [:appended, ".gitignore"]])
+    expected = [[:created, ".saboteur.yml"], [:created, "bin/saboteur"], [:appended, ".gitignore"]]
+    expect(results.map { |result| [result.status, result.path] }).to eq(expected)
     expect(read(".gitignore")).to eq(".saboteur/\n")
   end
 
@@ -96,5 +96,46 @@ RSpec.describe Saboteur::Install do
     expect(File.symlink?(File.join(@root, ".saboteur.yml"))).to be(false)
     expect(File.read(target)).to eq("keep")
     expect(read(".saboteur.yml")).to eq(described_class::CONFIG)
+  end
+
+  describe "symlinks" do
+    let(:outside) { Dir.mktmpdir }
+
+    after { FileUtils.remove_entry(outside) }
+
+    it "does not write or chmod through a symlinked bin directory without force" do
+      File.symlink(outside, File.join(@root, "bin"))
+      results = install
+      expect(results.map(&:status)).to eq(%i[created skipped appended])
+      expect(Dir.children(outside)).to eq([])
+      expect(File.symlink?(File.join(@root, "bin"))).to be(true)
+    end
+
+    it "replaces a symlinked bin directory under force and leaves the target alone" do
+      File.write(File.join(outside, "other"), "keep")
+      File.symlink(outside, File.join(@root, "bin"))
+      install(force: true)
+      expect(File.symlink?(File.join(@root, "bin"))).to be(false)
+      expect(File.executable?(File.join(@root, "bin/saboteur"))).to be(true)
+      expect(Dir.children(outside)).to eq(["other"])
+    end
+
+    it "does not modify a live .gitignore symlink without force" do
+      target = File.join(outside, "ignore")
+      File.write(target, "log/*\n")
+      File.symlink(target, File.join(@root, ".gitignore"))
+      expect(install.last.status).to eq(:skipped)
+      expect(File.read(target)).to eq("log/*\n")
+    end
+
+    it "replaces a live .gitignore symlink with a regular file under force, keeping its lines" do
+      target = File.join(outside, "ignore")
+      File.write(target, "log/*\n")
+      File.symlink(target, File.join(@root, ".gitignore"))
+      expect(install(force: true).last.status).to eq(:overwritten)
+      expect(File.symlink?(File.join(@root, ".gitignore"))).to be(false)
+      expect(read(".gitignore")).to eq("log/*\n.saboteur/\n")
+      expect(File.read(target)).to eq("log/*\n")
+    end
   end
 end
