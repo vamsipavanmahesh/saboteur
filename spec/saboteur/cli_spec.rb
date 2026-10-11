@@ -134,6 +134,78 @@ RSpec.describe Saboteur::CLI do
     it "is 3 when every executed mutant errored" do
       expect(run_with(report_of(result_for(:error), result_for(:skipped, reason: "no coverage")))).to eq(3)
     end
+
+    # Errored mutants are outside the score, so a mostly-errored run tested
+    # almost nothing; it must not go green even without a threshold.
+    it "is 3 when most executed mutants errored, and says why" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      expect(run_with(report)).to eq(3)
+      expect(err.string).to include("2 of 3 mutants errored")
+    end
+
+    it "still passes when at most half of the executed mutants errored" do
+      report = report_of(result_for(:killed), result_for(:error))
+      expect(run_with(report)).to eq(0)
+    end
+
+    # Skipped mutants never ran, so they are neither numerator nor
+    # denominator: 2 errors of 3 executed is a majority even with skips.
+    it "does not let skipped mutants dilute the error fraction" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error),
+                         result_for(:skipped, reason: "no coverage"), result_for(:skipped, reason: "no coverage"))
+      expect(run_with(report)).to eq(3)
+      expect(err.string).to include("2 of 3 mutants errored")
+    end
+
+    # The majority rule fires before the survivor gate: a run that tested
+    # almost nothing fails as a tool error, not as survivors.
+    it "is 3, not 1, with survivors when most executed mutants errored" do
+      report = report_of(result_for(:survived), result_for(:error), result_for(:error), result_for(:error))
+      expect(run_with(report)).to eq(3)
+    end
+
+    it "writes the majority-error cause into the JSON report" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--json", json).call).to eq(3)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("errorMajority")
+    end
+
+    it "writes ok into the JSON report when nothing failed" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report_of(result_for(:killed)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--json", json).call).to eq(0)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("ok")
+    end
+
+    it "writes survivors into the JSON report when the survivor gate fails" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report_of(result_for(:survived)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
+    end
+
+    it "writes belowThreshold into the JSON report when the score misses the threshold" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      report = report_of(result_for(:killed), result_for(:survived))
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "90", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("belowThreshold")
+    end
+
+    it "writes the incomplete-under-threshold cause into the JSON report" do
+      report = report_of(result_for(:killed), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "50", "--json", json).call).to eq(3)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("incompleteUnderThreshold")
+    end
   end
 end
 
