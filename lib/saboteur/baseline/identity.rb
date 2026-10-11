@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "digest"
+require "json"
+require "pathname"
+
+module Saboteur
+  module Baseline
+    # Stable mutation identity, separate from the bytes accepted by a reviewer.
+    class Identity
+      VERSION = 1
+
+      attr_reader :tuple, :id, :context
+
+      def initialize(subject:, mutation:, root:)
+        @subject = subject
+        @mutation = mutation
+        raise ConfigError, "baseline mutation subject differs from its subject" unless mutation.subject_id == subject.id
+
+        file = Pathname.new(File.expand_path(subject.file))
+        base = Pathname.new(File.expand_path(root))
+        path = file.relative_path_from(base).to_s
+        raise ConfigError, "baseline subject outside project root" if path == ".." || path.start_with?("../")
+
+        @tuple = [VERSION, path, subject.id, mutation.source, mutation.operator, mutation.coarse, edits].freeze
+        @id = Digest::SHA256.hexdigest(JSON.generate(tuple))
+        @context = Digest::SHA256.hexdigest(subject.source.b)
+      end
+
+      def entry
+        { "id" => id, "identity" => tuple, "context" => context }
+      end
+
+      private
+
+      def edits
+        previous_end = nil
+        @mutation.edits.sort_by { |edit| [edit.start_byte, edit.end_byte] }.map do |edit|
+          validate_edit(edit, previous_end)
+          previous_end = edit.end_byte
+          original = @subject.file_source.byteslice(edit.start_byte, edit.end_byte - edit.start_byte)
+          [edit.start_byte - @subject.start_byte, edit.end_byte - @subject.start_byte,
+           original.b.unpack1("H*"), edit.replacement.b.unpack1("H*")]
+        end
+      end
+
+      def validate_edit(edit, previous_end)
+        unless File.expand_path(edit.file) == File.expand_path(@subject.file) &&
+               edit.start_byte >= @subject.start_byte && edit.end_byte <= @subject.end_byte &&
+               edit.end_byte >= edit.start_byte
+          raise ConfigError, "baseline edit outside subject or in another file"
+        end
+        return unless previous_end && edit.start_byte < previous_end
+
+        raise ConfigError, "baseline edits overlap"
+      end
+    end
+  end
+end
