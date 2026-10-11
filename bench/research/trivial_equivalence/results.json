@@ -1,85 +1,272 @@
 {
-  "hashie_lib_sample400": {
-    "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; compile options {:coverage_enabled=>true, :debug_frozen_string_literal=>false, :debug_level=>0, :frozen_string_literal=>false, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
-    "project": "/tmp/hashie_run",
-    "files": 41,
-    "mutants": 1645,
-    "strict": {
-      "proven": 0,
-      "proven_checked_by_suite": 0,
-      "wrong_skips": 0,
-      "reasons": {
-        "different": 1645
-      }
-    },
-    "relaxed": {
-      "proven": 0,
-      "proven_checked_by_suite": 0,
-      "wrong_skips": 0,
-      "reasons": {
-        "reflection": 1251,
-        "different": 394
-      }
-    },
-    "by_operator_proven_relaxed": {},
-    "executed_mutants": 400,
-    "survivors_among_executed": 66,
-    "executed_all": false
+ "hashie_lib_sample400": {
+  "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; pinned compile options {:coverage_enabled=>false, :debug_frozen_string_literal=>false, :debug_level=>0, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
+  "provenance": {
+   "command": [
+    "ruby",
+    "measure.rb"
+   ],
+   "ruby": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]",
+   "prism": "1.9.0",
+   "project_git_revision": "9c81e8340d6b69940e14d8411f34a3efd7a6aa24",
+   "saboteur_git_revision": "09b64bb4fb044f87cb0d4a867e5b49b0257e3a11",
+   "suite_tool": "RSpec 3.13 / - rspec-core 3.13.6 / - rspec-expectations 3.13.5",
+   "file_sha256": {
+    "lib/hashie.rb": "72ce9171181655cfebe890f3a02ea15704e71d93a2705846b1a4d653156cbabe",
+    "lib/hashie/array.rb": "d1af9e09b8393e71bfd1fd50b1ed129dd4a361a47cd0400a39548d54de6dacfa",
+    "lib/hashie/clash.rb": "d1d16bd65a90f0d6882f38ade48283ec0e03ff9d2883006bce0390da4e8edb40",
+    "lib/hashie/dash.rb": "b01129028187911e5f596f1ade3b3ea90419d88d4e40c7b935d636a187eac24f",
+    "lib/hashie/extensions/active_support/core_ext/hash.rb": "b9af7f0ae90768fc0654330447d747a6c18b6015d4249b8d456b2e54dc65e900",
+    "lib/hashie/extensions/array/pretty_inspect.rb": "b0a27c222ed5b1d6b292a7c1d57ab0b4bef2a2432d045d05fa279f999b816597",
+    "lib/hashie/extensions/coercion.rb": "eaad8aab156c9ba2cd315576ba09bf0bfc76e2574eb4e8194d70ce3100ed0a8d",
+    "lib/hashie/extensions/dash/coercion.rb": "8faa45a982deedfdb2bb02f6b60c262b5a35713ed317cff751a23ad0100b62c5",
+    "lib/hashie/extensions/dash/indifferent_access.rb": "f1f270cb4cbd18d13e810a4ce1eac32a16fe28a9615c054b2736b2e77d663c2f",
+    "lib/hashie/extensions/dash/predefined_values.rb": "42658258d6ec4d17c9bfc12b805141578de7de24cdcd978db700effa03dfa426",
+    "lib/hashie/extensions/dash/property_translation.rb": "dda59f71d1f456f2015f91473239159fa86ec46aa0e86237e5f2112582c2b252",
+    "lib/hashie/extensions/deep_fetch.rb": "68f702da533065021958eaa08fd2f6931205758658f01a3f74c0bdcd2dc04d3f",
+    "lib/hashie/extensions/deep_find.rb": "41fcf8df11cb3914a7edbb388013542ce841d61c2346ebc4e87faa1136751d88",
+    "lib/hashie/extensions/deep_locate.rb": "7b0296b1f71fc7c787d38e5df3ae885bbb7d3dc18755192b8620a9a34808b693",
+    "lib/hashie/extensions/deep_merge.rb": "0fba081a1ef531eda0a5953cda220d5869a41d0aa93edb2ac4a51b4e4b1955a5",
+    "lib/hashie/extensions/ignore_undeclared.rb": "ce5bc55512ac44299e5d41fd2241e6770e0f18141ca6256b67d85cff2fa27093",
+    "lib/hashie/extensions/indifferent_access.rb": "a2dd726653219fb79fe8b10e4208585d936eb0f45303e43a8cdf345e3bb46c97",
+    "lib/hashie/extensions/key_conflict_warning.rb": "d27b5775ce966610e1a2aa8a163f9e5266d902785e9433b6a6ce4ea589363a51",
+    "lib/hashie/extensions/key_conversion.rb": "b9859b71c17b17032be98886a27119e2d3e0799baf63bf66435a2c5c8a4054bf",
+    "lib/hashie/extensions/mash/define_accessors.rb": "f41bd09ba5149d31510fdf32a7fd4e2ba24b45555adef430e4f383e7acccb583",
+    "lib/hashie/extensions/mash/keep_original_keys.rb": "6e82a2a0f2b6f3828444a545593e81c28dba25ba6f0ca0f4ca7e996782bfd063",
+    "lib/hashie/extensions/mash/permissive_respond_to.rb": "d5d7fd9ef60065a9a57a5411ad774344042704318029dd44b726b9e718ee91f0",
+    "lib/hashie/extensions/mash/safe_assignment.rb": "82ea8612b300be8af426b14a675c031d3449e740519b1676fcca3c068375de16",
+    "lib/hashie/extensions/mash/symbolize_keys.rb": "550801bcc14f557d8a39a9495b8fa8b82c1cb22b66c9128ec71ad38ade3d2283",
+    "lib/hashie/extensions/merge_initializer.rb": "fdc2de9f9e2513d7486dda5ebc557b370df16f459b00ed818aa238874420c3c2",
+    "lib/hashie/extensions/method_access.rb": "8877f708f0ff4389c34b923c05a6d0aa43ad2a6badb2b63ce4d706a64ed7b666",
+    "lib/hashie/extensions/parsers/yaml_erb_parser.rb": "b70ff4a15dc33c557cc13765af2b8d3ef2cdaa6f708375dfde47bd17309c869b",
+    "lib/hashie/extensions/pretty_inspect.rb": "44cd59fb99747957e0e2ed2b87879e9c169ce56375b0b022cfea8e07b3a2ff79",
+    "lib/hashie/extensions/ruby_version.rb": "ad66501838ed7c7afc90224a48ff153a1dd5fe684cdf49ea7b812cf20ff07d68",
+    "lib/hashie/extensions/ruby_version_check.rb": "69b709df66de196ed407620e05250233b07c67bb2cc9c97b8a8f46f8f68870c7",
+    "lib/hashie/extensions/strict_key_access.rb": "0ebdec73816340fe00ec952f6347d6e519fe048c88daec1c9f5b0c646e223a89",
+    "lib/hashie/extensions/stringify_keys.rb": "342a503139e0efb2f18e248c46a14ea74cc1fd2a2377b97950646978e79c740b",
+    "lib/hashie/extensions/symbolize_keys.rb": "f9f206cf31bc32c32e03a949c6195b1443f7df654816e953b486cb32490a1311",
+    "lib/hashie/hash.rb": "7908b3e3fe4f59114dd50b557eabcdba1369731c5e5a79f184ef64fcdf204496",
+    "lib/hashie/logger.rb": "96d170356b4a5501a0610ce489d24764d577cb35e4b9d4e1b61df47cc0e3892a",
+    "lib/hashie/mash.rb": "f50c5803496c5cbda3643b998a154dea248c029b896941b463aeada78de78898",
+    "lib/hashie/railtie.rb": "36977e457faedaa8c34d41f63dfc0e66966ee684f8cb5b17fd3c8bfec3c648c3",
+    "lib/hashie/rash.rb": "4baaea6c2224784d9cbd04caf435714c852c62b29d2ba87596398b02a7e5a4b8",
+    "lib/hashie/trash.rb": "c0b728edb725ad3ca86f6dbcbaf2c69c0e3d158a0fea7ccfa2c43a4cb24b2404",
+    "lib/hashie/utils.rb": "bbb45382d8c09f0a5d287455eb280c3e79a1325db5fe1a89b62046199adc49f1",
+    "lib/hashie/version.rb": "9699d4cac9d719538dcb207a8ecce285dc74b94e9c77c71044dc45b188957820"
+   },
+   "accounting": {
+    "files_with_parse_errors": [],
+    "subjects_found": 261,
+    "subjects_skipped": {},
+    "files_without_subjects": 5
+   }
   },
-  "saboteur_lib_static": {
-    "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; compile options {:coverage_enabled=>true, :debug_frozen_string_literal=>false, :debug_level=>0, :frozen_string_literal=>false, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
-    "project": "/tmp/saboteur",
-    "files": 43,
-    "mutants": 3589,
-    "strict": {
-      "proven": 0,
-      "proven_checked_by_suite": 0,
-      "wrong_skips": 0,
-      "reasons": {
-        "different": 3589
-      }
-    },
-    "relaxed": {
-      "proven": 0,
-      "proven_checked_by_suite": 0,
-      "wrong_skips": 0,
-      "reasons": {
-        "different": 2221,
-        "reflection": 1368
-      }
-    },
-    "by_operator_proven_relaxed": {},
-    "executed_mutants": 0,
-    "survivors_among_executed": 0,
-    "executed_all": false
+  "project": "hashie_run",
+  "files": 41,
+  "mutants": 1645,
+  "strict": {
+   "matched": 0,
+   "matched_and_run_against_suite": 0,
+   "matched_but_killed": 0,
+   "reasons": {
+    "different": 1645
+   }
   },
-  "lobsters_models_lib_static": {
-    "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; compile options {:coverage_enabled=>true, :debug_frozen_string_literal=>false, :debug_level=>0, :frozen_string_literal=>false, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
-    "project": "/tmp/lobsters",
-    "files": 49,
-    "mutants": 3944,
-    "strict": {
-      "proven": 0,
-      "proven_checked_by_suite": 0,
-      "wrong_skips": 0,
-      "reasons": {
-        "different": 3932,
-        "compile_failed": 12
-      }
-    },
-    "relaxed": {
-      "proven": 0,
-      "proven_checked_by_suite": 0,
-      "wrong_skips": 0,
-      "reasons": {
-        "different": 2248,
-        "reflection": 1684,
-        "compile_failed": 12
-      }
-    },
-    "by_operator_proven_relaxed": {},
-    "executed_mutants": 0,
-    "survivors_among_executed": 0,
-    "executed_all": false
-  }
+  "relaxed": {
+   "matched": 0,
+   "matched_and_run_against_suite": 0,
+   "matched_but_killed": 0,
+   "reasons": {
+    "reflection": 1251,
+    "different": 394
+   }
+  },
+  "executed_mutants": 400,
+  "survivors_among_executed": 72,
+  "executed_all": false
+ },
+ "saboteur_lib_static": {
+  "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; pinned compile options {:coverage_enabled=>false, :debug_frozen_string_literal=>false, :debug_level=>0, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
+  "provenance": {
+   "command": [
+    "ruby",
+    "measure.rb"
+   ],
+   "ruby": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]",
+   "prism": "1.9.0",
+   "project_git_revision": "09b64bb4fb044f87cb0d4a867e5b49b0257e3a11",
+   "saboteur_git_revision": "09b64bb4fb044f87cb0d4a867e5b49b0257e3a11",
+   "suite_tool": null,
+   "file_sha256": {
+    "lib/saboteur.rb": "ba9f2742d86d2e5d8251d0d36b2d6561f8279fa4fe635362af83963c8779b987",
+    "lib/saboteur/cli.rb": "24e9356b5859a5b54e30aa46a327504c71796301ee4a8f44486054ab1fac367b",
+    "lib/saboteur/config.rb": "3578843c9f1c94733d5d6283a258cb97eabcc5b8cd2bc0ec77b722ce67306ebe",
+    "lib/saboteur/engine.rb": "fe9641a9fd57efd23b3614e758e420b43af4cdaaf887b553f361106a2b5fab67",
+    "lib/saboteur/engine/boot.rb": "e38830d8b5931c73e4365d9d13a8188e4641bed21ca307157ca371c25e0a5416",
+    "lib/saboteur/engine/candidate_selection.rb": "1b12e446087478d6aa8eb6ef9e166334507467cfdbf42ea0c07180890c2abeae",
+    "lib/saboteur/engine/candidates.rb": "2ffb66ba64389d16a47f2ca1ec879ce92b4758d3086591325574ccc91211430c",
+    "lib/saboteur/engine/coverage_store.rb": "5d344f72ec083b4a3e1aba2479e97a7fc48202170481f0b7bdc4820350ea0055",
+    "lib/saboteur/engine/diagnostics.rb": "00028fdd14594fd16ab67bff840f967ff7de47cdd5016ed44f3e60b708ad9a63",
+    "lib/saboteur/engine/diff_scope.rb": "d867bcc211f5d162fbd16d9a78ce364d6604dfe3448be4c86d512f5361885b78",
+    "lib/saboteur/engine/distribution.rb": "ddec4a7a59940755c49ba389ae73c6a68fcb027647fc21e9af1c7194815fdec3",
+    "lib/saboteur/engine/result_cache.rb": "28734c3e37f9fba97c05f5ae79d1b232993c036716e309f6ae05cbb99205088d",
+    "lib/saboteur/engine/scheduler.rb": "6946a23459edb55c9d798d048749907850588654f4b3d335a7cb49231277f7bb",
+    "lib/saboteur/engine/subject_selection.rb": "0c5f34f6c85d799a70b021d0a9fe0984b35bedd105445f1f6b497e1dba0e79ae",
+    "lib/saboteur/engine/suite_files.rb": "d22a33c9d584e39f3c671486794281a04ccde2bdb2e044a32cc7bbcefa332a62",
+    "lib/saboteur/engine/verdict_check.rb": "340fc23cc7c5d4f836822302926d30620b7ed85bbb2d679a9af2073108686d68",
+    "lib/saboteur/execution/fork_readiness.rb": "f8949083ea213a616edc9aedf31c7ebf0f38cff9638c54c7e77ced8001cdee66",
+    "lib/saboteur/execution/process_table.rb": "72703bd93f5f2ca47cb0f368dc2199240b6cfca4a69091ffd29f2dc78a4bd0e3",
+    "lib/saboteur/execution/process_tree.rb": "db67594f79d430ceba43c920cfe9a90f1e84bfa4e422323d5604b91b98b546cf",
+    "lib/saboteur/execution/protocol.rb": "4f6a53417a3a502c8dd212048ff15bbf33b8dc18f3f9f8535ed2eb25f4e225d3",
+    "lib/saboteur/execution/reevaluator.rb": "763c1ee1c490a1c0c85f41f20146b19ff6c3e4e8b1c7b51dee400ef4fd75ca9b",
+    "lib/saboteur/execution/runner.rb": "3b6fe1693102ada3ad59c4b132a5bc70cb489dcf5feae17239fd47e5518f02e5",
+    "lib/saboteur/execution/supervisor.rb": "bec030b993747b537ec6782022a844fa1faea50f22b9b13f9b55b6a109196c24",
+    "lib/saboteur/execution/worker_pool.rb": "cdca37cc72a37569d3cc7d4b5207a6a0d3f55054b0c16ce4bb9d74c1927fa721",
+    "lib/saboteur/frameworks/rails.rb": "0b260cb4bf6e68de5629e8062a42f7b74a5e5db1d8ac450bee1329db1b32322a",
+    "lib/saboteur/hooks.rb": "3df24fa92ab2c1b1b8e9f8f5b7995fded1e8db9c49fe2a3ac153bc8254e06879",
+    "lib/saboteur/ignore_list.rb": "f776fb08d68a2ec830ce556c425436c2de0c1f171e2dffb704e5ea7eccd6d22e",
+    "lib/saboteur/integration/base.rb": "c1b6e055954364eded96d555d5da84e8b02f717cc7d13579b0d1b58b89fe9e66",
+    "lib/saboteur/integration/rspec.rb": "5b86ffa561e4a3897d51d3aa0a8e141c4b5e49e53ebaed886bd390395ad135db",
+    "lib/saboteur/mutation_source/base.rb": "c4dd0120b63d8e14b4a467a37c34fecd457215b74fc2c4a722c547c6cda1552b",
+    "lib/saboteur/mutation_source/builtin.rb": "ea95bbb1935359bf5c3689bad687e5058c17063e21b2fbf6addf9b603db17d10",
+    "lib/saboteur/mutation_source/edit.rb": "c0a1f3749efd8cf880e730aa9f1abca6fd3614d227b387ff773b5b0f9ecfeb7a",
+    "lib/saboteur/mutation_source/mutation.rb": "c81b2b65b3988092f2cf67c3ac9e9a5d75164bfe6c2b36f01f4f5e2f056fb516",
+    "lib/saboteur/reporter/diff.rb": "a70adcafde6d0f8cba82864985478ca71c2f03ffaff76b4be27a1fb9307231ed",
+    "lib/saboteur/reporter/stryker.rb": "b0e49fee275a9711f870c1479503c3fb304bdc2881073849b0db35250b3d9b77",
+    "lib/saboteur/reporter/terminal.rb": "9226cf882b0075d365f6125f6955acd59db497119bd2981bcf3b2f68c0ec3d07",
+    "lib/saboteur/result.rb": "d7bc1d18f03d06572bc7e789a277dcb34778ebcf9eec80269954a0276c645faa",
+    "lib/saboteur/selection/coverage_map.rb": "76af11c57ac6995fe05df94149c7eab745ef4558f7ff485da084e33bd05836c3",
+    "lib/saboteur/selection/git_diff.rb": "5131843ed7a3ddb7a0fc6f3207db46c2c94e552578ce563901097acf367e3864",
+    "lib/saboteur/selection/recorder.rb": "f9924dd2ea395d758b133174d835f27c0661fa58cbfd1fa78557c285bbfded62",
+    "lib/saboteur/subject.rb": "2fce309aae9a1272133f6d8e5b886534e4df758cfac2d3b6fdf6b6da34d9e8ab",
+    "lib/saboteur/subject_finder.rb": "308d798ce7d2d7a8285c1efbbc15e3e80f644eef335349a0733902ea89b8ae6d",
+    "lib/saboteur/version.rb": "33c80605a959812b7cf9272ff526adef1116c0ab541a8bdc98753860b6245560"
+   },
+   "accounting": {
+    "files_with_parse_errors": [],
+    "subjects_found": 392,
+    "subjects_skipped": {},
+    "files_without_subjects": 3
+   }
+  },
+  "project": "saboteur",
+  "files": 43,
+  "mutants": 3589,
+  "strict": {
+   "matched": 0,
+   "matched_and_run_against_suite": 0,
+   "matched_but_killed": 0,
+   "reasons": {
+    "different": 3589
+   }
+  },
+  "relaxed": {
+   "matched": 0,
+   "matched_and_run_against_suite": 0,
+   "matched_but_killed": 0,
+   "reasons": {
+    "different": 2221,
+    "reflection": 1368
+   }
+  },
+  "executed_mutants": 0,
+  "survivors_among_executed": 0,
+  "executed_all": false
+ },
+ "lobsters_models_lib_static": {
+  "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; pinned compile options {:coverage_enabled=>false, :debug_frozen_string_literal=>false, :debug_level=>0, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
+  "provenance": {
+   "command": [
+    "ruby",
+    "measure.rb"
+   ],
+   "ruby": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]",
+   "prism": "1.9.0",
+   "project_git_revision": "0d162b9cb010b5e3a54e2b3bfd3e80460254856d",
+   "saboteur_git_revision": "09b64bb4fb044f87cb0d4a867e5b49b0257e3a11",
+   "suite_tool": null,
+   "file_sha256": {
+    "app/models/application_record.rb": "3eba1eb80c4cf377466a57f28a98de4980f511be3bfb56338042997888d81ab1",
+    "app/models/category.rb": "094249dd5b3602421c710cf9b1bde1516aa9004276cbbeab9cebf4b9d930a29b",
+    "app/models/comment.rb": "ef1c1e8a49969e6494f840e16cfda4dfa5e46c76e0fedd4fa4314e790325b9fe",
+    "app/models/comment_redirect_cache.rb": "e910d25f5d7fd86570a4a250948891aafd1f0aee89c245a134880cb67418047a",
+    "app/models/comment_stat.rb": "79a0aa2df997983b3f8cf95f2c657584b53718243a5f9b431315779dd4c13847",
+    "app/models/comment_vote_hydrator.rb": "c40127fd02bf50102f0a8f1fe0a51430a3f691d34122323da11b6d624bca0a43",
+    "app/models/domain.rb": "0909ad22624856b2c3bd2870226c2cfe880fff84bdd3050ebb01cf346f2e5959",
+    "app/models/flagged_commenters.rb": "9ef6ff129212a4d37ca374b4aa3a32c74f848033f9467073a0e80e16fd921792",
+    "app/models/full_text_search.rb": "3fdfc674f6cc7082d33c783197963d42493bc6d8bf46eb3121abe5988cd982bd",
+    "app/models/hat.rb": "36d927a37f4940f7ba141794ec40208a5b1b57107d46b842869371c7090443a3",
+    "app/models/hat_request.rb": "5dde66b0a2239db07f2439d161cb24939a62b7cfe9a71dc45cfedfbb6cc762b1",
+    "app/models/hidden_story.rb": "1158d5a9b458eaae428ee7f23c4aaaa2f950ba68e0681962354ef3b47c25d5a5",
+    "app/models/inactive_user.rb": "1edced515be8b711d62d182b2e27448ccc5e87d4e8aa9d595ff58aee16f72d3c",
+    "app/models/invitation.rb": "4b959aa87c43036be29926fd62f7f3c355bb5366fb3c3a9cffe5839ab2b70623",
+    "app/models/invitation_request.rb": "182592e38842509dc5defb817eb9d0f26a9727549fa0642dd87c0ce034234817",
+    "app/models/keystore.rb": "e843429f3474542e9adacc8b49efdbfc7cdcb0e1a57f371f8b679c8704681052",
+    "app/models/link.rb": "9bcbcadc75ecb922de6ea3921549951c819e667c5c90dfb433f0a0b90c1037e6",
+    "app/models/mastodon_app.rb": "36bef3d693ff8af9f15b210b818de318c1c3afee9e0b8cad9277e39dfe50122a",
+    "app/models/message.rb": "c715358ef2feabac84508269ac3db08d2ce87672cdd2bdd72119b68f83efeb33",
+    "app/models/mod_activity.rb": "b33dff2d1813fa5ebd075221a40d6d0ada23c345441113fc772f6984832fe7d0",
+    "app/models/mod_mail.rb": "b3910111c08a05d620ca6098649bed80eaa291476729ba2bee47f380717d135e",
+    "app/models/mod_mail_message.rb": "09934d53ae0400324dd8b38360fbb18a7b8bb0ac0dc9512a9567f85a95d8732f",
+    "app/models/mod_mail_recipient.rb": "e885198250c708dabfd96dd3f012e026494b40865ed2409df4e1c5007c357c4f",
+    "app/models/mod_mail_reference.rb": "985df80bba3d80c39519588f936c76bd79bf3426f0c59a0f53326911dc9bbcd7",
+    "app/models/mod_note.rb": "5f1cea87d6a91cea1f0c508a544648949823d2aae60cd0f63c40b7c3a195da87",
+    "app/models/moderation.rb": "0a67fef340ddbf14b7e38c38a30dd49f48ca3f9e4b92c77a42cf7ea8b8be5f11",
+    "app/models/notification.rb": "663b6710a25e7840bc6b77cdc2a51a7cb60c5d65608c9f8f1bb2305c0af0bcb1",
+    "app/models/origin.rb": "dbd2bf8b2dadd1e1435a0d494615344bfbb8816f77a1b208bc69d7724ae2c628",
+    "app/models/read_ribbon.rb": "e7bd83193c727224fc545389487813e2d8ed7cc735d5500233ff5e1007bde975",
+    "app/models/saved_story.rb": "587800098de67d67e5daad2a1d072934b00fe8ed3ba6b191072a70d0cc66fe05",
+    "app/models/search.rb": "8db1e1ce71d2099e0606aeb734cfecae0c5dca25e1ee7f9a0422352b0c64ed97",
+    "app/models/search_parser.rb": "867654996a1d4d7d4a15c20c7d7dd890c58592c3b0682cf593c62be7e4efd516",
+    "app/models/short_id.rb": "8ccd1ae8bfe7f84eb3c0ce61578d7e74fe0c9372be5fa53e1e489732a811de63",
+    "app/models/stats.rb": "7999a6270f47dde1ae037da29552fef0b20d1cc9fb87c2edc1de3cf2ce7125e7",
+    "app/models/stories_paginator.rb": "58c7fa3d7a2fad6a8823474387f98e029df914ae8c0b8437ee3c8f218a8e6097",
+    "app/models/story.rb": "b41e6ce2d6886e3250cd8953bc7ac1a2336311135f877b885a92f82b12d41e04",
+    "app/models/story_image.rb": "a476318985fdb5dd9febe2be3b556029916d1dac9cfcff09ef487b6a1a208293",
+    "app/models/story_text.rb": "90c6e99dfb14531398fb778026e99c8167ca746a46fb35fa44ccd06b7d1445d9",
+    "app/models/suggested_tagging.rb": "3ac4c67d62cb9115fa6942b9f3b28a6b8fa3f4cda4113c244851b807484083ae",
+    "app/models/suggested_title.rb": "01915528684347a76c851c5d76171db5d097933a880094c2fa4d680f09563c81",
+    "app/models/tag.rb": "0b725ce8c4590d3f3da37597e96c1e4f1cfd8140b4a556d063e402449a6191db",
+    "app/models/tag_filter.rb": "74f0f81e3680e688cb0eff06ef2332663d595658c101217501024661755a64db",
+    "app/models/tagging.rb": "438dd6f8a2831d0944db45b65442b6fbfee7b0b8c4b1547fb98de39ea6f953bc",
+    "app/models/user.rb": "238392fe5ff16977cf8eb867f9699a8973801c88f1e037a73ce700f4e6ba5ee3",
+    "app/models/username.rb": "5bb91cdee359c4184c573372a78443606a3141030858b33eac1324865a8d87a9",
+    "app/models/vote.rb": "4eb050bb8cbc4e43757ba0e3e25094f580522e239fda60003276c4f0b78dcd03",
+    "lib/custom_cops/inherits_moderator_controller.rb": "1a55f6a15ada0a27299d154efe62c868c3992946b27173e39ac6df051fd4293b",
+    "lib/time_ago_in_words.rb": "371f85f529aee80fdabf524afeec65eb8c57743d63c05b9b39e1dfc8eca46d28",
+    "lib/time_series.rb": "fbc4879968bc558725da8271b4c87795689596a74d8e4ec35bcbde225009246b"
+   },
+   "accounting": {
+    "files_with_parse_errors": [],
+    "subjects_found": 366,
+    "subjects_skipped": {},
+    "files_without_subjects": 8
+   }
+  },
+  "project": "lobsters",
+  "files": 49,
+  "mutants": 3944,
+  "strict": {
+   "matched": 0,
+   "matched_and_run_against_suite": 0,
+   "matched_but_killed": 0,
+   "reasons": {
+    "different": 3932,
+    "compile_failed": 12
+   }
+  },
+  "relaxed": {
+   "matched": 0,
+   "matched_and_run_against_suite": 0,
+   "matched_but_killed": 0,
+   "reasons": {
+    "different": 2248,
+    "reflection": 1684,
+    "compile_failed": 12
+   }
+  },
+  "executed_mutants": 0,
+  "survivors_among_executed": 0,
+  "executed_all": false
+ }
 }
