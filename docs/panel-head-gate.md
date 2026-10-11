@@ -69,8 +69,15 @@ one atomic PR-scoped revocation intent (one lens, or all lenses for malformed
 markers) to the fixed anchor, plus a redundant current-head failure latch.
 Either record blocks old approvals by its server creation epoch. A failed
 refinement or comments read cannot erase the intent. Before posting pending,
-verification promotes a head-only latch to the fixed anchor with its original
-epoch; promotion failure fails closed. Fresh attestations clear the condition,
+verification scans statuses on the current head and every current PR commit,
+then promotes head-only latches to the fixed anchor with their original epoch;
+promotion failure fails closed. A fast-forward retains earlier heads in that
+commit set. To cover force-pushed/reverted-away heads, the latest GitHub
+`head_ref_force_pushed` issue event imposes an all-lens creation-time floor.
+Even if a prior SHA already has exact-head approvals, force-pushing back to it
+requires new comments created strictly after the force-push event. Event reads,
+commit/status pagination and malformed event times fail closed. These extra
+reads scale with PR commit count; a timeout is not an approval. Fresh attestations clear the condition,
 not the stored history. This prevents later sweeps from treating a transient
 ledger failure or partial malformed-marker write as a clean approval.
 
@@ -128,9 +135,10 @@ which historical merge candidate a run tested.
   replacing it requires an explicit migration, not clearing review history.
   Status-history pagination limits and ledger API failures fail closed.
   Redundant intent/head latches tolerate one failed storage write, not total
-  write failure. Retry a failed revocation event after API recovery. If only
-  the head latch persisted, recover it before any head rewrite/force-push; an
-  abandoned head can otherwise hide that fallback. No comments-only sweep can
+  write failure. Retry a failed revocation event after API recovery. Current PR commit scans recover head-only latches after fast-forward pushes;
+  the force-push event freshness floor blocks pre-rewrite approvals even when
+  the prior head is abandoned. This depends on GitHub retaining/returning its
+  PR issue-event history, not on an operator recovering before a push. No comments-only sweep can
   recover a deleted event that never reached either durable write. Queue overflow
   remains a delivery-loss boundary, not a solved durable queue problem.
 - An administrator can change rules/settings. Other write-capable workflows or
@@ -238,7 +246,10 @@ the event handler, cross-head/PR-scoped persistence, same-second cutoffs, reruns
 becoming pending, newer runs/green attempts, failing/replaced jobs, new revocations
 and ledger failures during the final recheck. Failed write/read regressions
 invoke verification on later recovered-API sweeps, including all-lens malformed
-revocations, original-epoch latch promotion and fresh-attestation recovery. CI oracle path changes fail closed.
+revocations, original-epoch latch promotion and fresh-attestation recovery.
+Cross-head regressions force anchor-write failure, then move to a pre-approved
+SHA via fast-forward or force-revert BEFORE recovery; old approvals must fail,
+and fresh comments after the recovery/force-push floor must pass. CI oracle path changes fail closed.
 
 ## Sources
 
@@ -252,3 +263,5 @@ revocations, original-epoch latch promotion and fresh-attestation recovery. CI o
 
 
 Concurrency queue behavior: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency
+
+Force-push issue-event schema: https://docs.github.com/en/rest/using-the-rest-api/issue-event-types?apiVersion=2022-11-28
