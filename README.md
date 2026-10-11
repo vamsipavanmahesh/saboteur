@@ -26,7 +26,8 @@ $ bundle exec saboteur run --since origin/main
 
 Never heard of mutation testing? It asks "if I broke this, would a test
 fail?" for many small breakages and lists the ones nobody noticed. Read the
-[design notes](docs/design.md) when you want the details.
+[design notes](docs/design.md) when you want the details. For adopting it on a team, see the
+[best practices guide](docs/best-practices.md).
 
 ## 🚀 Try it in a minute
 
