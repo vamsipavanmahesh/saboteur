@@ -38,6 +38,7 @@ bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
 bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
+bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
 ```
 
 For pull requests, start with `--since` against the target branch. This is a
@@ -45,6 +46,11 @@ workflow recommendation, not a new CLI default: plain `run` still checks the
 whole configured project. See [the pull-request guide](docs/pull-requests.md)
 for checkout history, configuration and limits. Keep whole-project runs on
 main: diff mode does not check every method affected by a dependency change.
+
+`--id` runs exactly one current mutant with its coverage-selected tests, bypassing
+per-method caps, coarse gating, ignore suppression and incremental verdict reuse.
+It still honors `--subject` and `--since` changed-line selection. See the
+[replay guide](docs/guides/replay.md) for digest format, checks and limits.
 
 Every test run starts from the same random seed (1 by default), so tests
 that use `rand` see the same values in each mutant's run and in the check
