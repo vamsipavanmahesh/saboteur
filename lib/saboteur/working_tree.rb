@@ -5,7 +5,8 @@ require "open3"
 
 module Saboteur
   # The state of the working source a run looked at: the commit it was on and
-  # whether files differed from it, tracked changes and untracked files alike.
+  # (the full SHA) and whether files differed from it, tracked changes and each
+  # untracked file alike.
   # Saboteur's own output (cache and reports) is passed in as ignored paths, so a
   # report from an earlier run does not make the tree look dirty. Without git, or
   # outside a repository, the state is unknown.
@@ -27,7 +28,7 @@ module Saboteur
     end
 
     def state
-      head, head_status = Open3.capture2e("git", "rev-parse", "--short", "HEAD", chdir: @root)
+      head, head_status = Open3.capture2e("git", "rev-parse", "HEAD", chdir: @root)
       changes, changes_status = Open3.capture2e(*status_command, chdir: @root)
       return UNKNOWN unless head_status.success? && changes_status.success?
 
@@ -41,7 +42,7 @@ module Saboteur
 
     def status_command
       excluded = @ignored.map { |path| ":(exclude)#{path}" }
-      ["git", "status", "--porcelain", "--untracked-files=normal", "--", ".", *excluded]
+      ["git", "status", "--porcelain", "--untracked-files=all", "--", ".", *excluded]
     end
   end
 end
