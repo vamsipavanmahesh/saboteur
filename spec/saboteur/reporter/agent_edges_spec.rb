@@ -10,7 +10,7 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
     described_class::Provenance.new(
       ref: "origin/main", seed: 7, head: "abc1234", working_tree: "clean", changed_files: 0, mode: "diff",
       json_report: ".saboteur/report.json", subjects: [], tests: [], sources: [], config_path: nil,
-      digest: nil, cache: true, incremental: false, **changes
+      digest: nil, cache: true, incremental: false, settings: {}, **changes
     )
   end
 
@@ -117,6 +117,13 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       expect(payload_for(survivor_report, ref: letters(121))[:provenance][:ref]).to eq("#{letters(120)}...")
     end
 
+    it "keeps a setting of exactly 120 characters and clips one of 121" do
+      exact = payload_for(survivor_report, settings: { reeval: letters(120) })
+      clipped = payload_for(survivor_report, settings: { reeval: letters(121) })
+      expect(exact[:provenance][:selection][:settings]).to eq(reeval: letters(120))
+      expect(clipped[:provenance][:selection][:settings]).to eq(reeval: "#{letters(120)}...")
+    end
+
     it "keeps a head of exactly 64 characters and clips one of 65" do
       expect(payload_for(survivor_report, head: letters(64))[:provenance][:head]).to eq(letters(64))
       expect(payload_for(survivor_report, head: letters(65))[:provenance][:head]).to eq("#{letters(64)}...")
@@ -179,6 +186,10 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
     end
     let(:long_text) { { original: letters(150), replacement: letters(150) } }
 
+    def minimal_size
+      described_class.render(described_class.send(:minimal, report, provenance_with)).bytesize
+    end
+
     def size_of(shown, snippet_limit)
       text = described_class.render(described_class::Summary.build(report, provenance_with, shown, snippet_limit))
       text.bytesize
@@ -223,7 +234,7 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
     end
 
     it "falls back to the minimal payload when even that does not fit" do
-      stub_const("Saboteur::Reporter::Agent::BYTE_BUDGET", 10)
+      stub_const("Saboteur::Reporter::Agent::BYTE_BUDGET", minimal_size)
       payload = payload_for(report)
       expect(payload[:findings][:shown]).to eq([])
       expect(payload).to include(warnings: [], next: {})
@@ -231,8 +242,26 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       expect(payload).to include(verdict: "survivors", exitCode: 1)
     end
 
-    it "reduces the reasons in the minimal payload to a code and a count" do
+    it "returns four fixed keys when even the minimal payload does not fit" do
       stub_const("Saboteur::Reporter::Agent::BYTE_BUDGET", 10)
+      expect(payload_for(report)).to eq(version: 1, status: "complete", verdict: "survivors", exitCode: 1,
+                                        truncated: true)
+    end
+
+    it "keeps a huge valid seed inside the budget on the normal and the minimal path" do
+      huge = 10**9000
+      expect(described_class.render(payload_for(report, seed: huge)).bytesize).to be <= 8192
+      stub_const("Saboteur::Reporter::Agent::BYTE_BUDGET", minimal_size)
+      expect(described_class.render(payload_for(report, seed: huge)).bytesize).to be <= minimal_size
+    end
+
+    it "keeps a short seed as a number and clips a seed of 21 digits" do
+      expect(payload_for(report, seed: 10**19)[:provenance][:seed]).to eq(10**19)
+      expect(payload_for(report, seed: 10**20)[:provenance][:seed]).to be_a(String)
+    end
+
+    it "reduces the reasons in the minimal payload to a code and a count" do
+      stub_const("Saboteur::Reporter::Agent::BYTE_BUDGET", minimal_size + 100)
       payload = payload_for(report_of(result_for(:killed), result_for(:error, replacement: "<")))
       expect(payload[:incomplete]).to eq([{ reason: "errors", count: 1 }])
     end
@@ -244,7 +273,7 @@ RSpec.describe Saboteur::Reporter::Agent::Commands do
     Saboteur::Reporter::Agent::Provenance.new(
       ref: nil, seed: 7, head: "abc", working_tree: "clean", changed_files: 0, mode: "full", json_report: nil,
       subjects: [], tests: [], sources: [], config_path: nil, digest: nil, cache: true,
-      incremental: false, **changes
+      incremental: false, settings: {}, **changes
     )
   end
 
@@ -252,6 +281,15 @@ RSpec.describe Saboteur::Reporter::Agent::Commands do
     provenance = provenance_with(digest: "a" * 16)
     expect(described_class.replay(provenance, "b" * 16)).to eq("saboteur run --id #{'b' * 16} --seed 7")
     expect(described_class.rerun(provenance)).to eq("saboteur run --agent --id #{'a' * 16} --seed 7")
+  end
+
+  it "carries the command line settings into the rerun command and the selection" do
+    settings = { reeval: "a:b", integration: "rspec", jobs: 3, timeout_factor: 2.5, json_report: "j.json",
+                 html_report: "h.html" }
+    expect(described_class.rerun(provenance_with(settings: settings))).to eq(
+      "saboteur run --agent --reeval a:b --integration rspec --jobs 3 --timeout-factor 2.5 " \
+      "--json j.json --html h.html --seed 7"
+    )
   end
 
   it "leaves out --since without a ref and --config without a config path" do
