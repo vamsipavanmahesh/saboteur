@@ -236,6 +236,12 @@ jobs: 4                           # optional; the default is 1
 Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
 generator is planned; until then this block is the supported setup.
 
+Bootsnap needs no extra setting: bytecode from its compile cache carries no
+coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
+own process when the variable is not already set (Bootsnap treats any set
+value as off) and runs the eager load with Coverage active. App code is seen
+by Coverage with the app unchanged.
+
 With `jobs: 4` (or more), each extra worker gets a copy of every test
 database, named `<database>_saboteur2` and up, made with
 `CREATE DATABASE ... TEMPLATE` on Postgres or a file copy on SQLite.
