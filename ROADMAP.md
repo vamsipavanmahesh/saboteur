@@ -80,8 +80,8 @@ Speed is the first reason teams give up on mutation testing.
   ([`--git-diff-lines`](https://infection.github.io/guide/command-line-options.html));
   Google mutates only changed lines
   ([Petrovic et al., 2021](https://arxiv.org/pdf/2102.11378)).
-- **In review (#6):** skip subjects with no coverage and cap mutants per
-  method. **Planned:** keep that pull request's score caveats in the docs
+- **Shipped (#6):** skip subjects with no coverage and cap mutants per
+  method. **Planned:** keep the score caveats from that change in the docs
   until the score work in Milestone 2 lands.
 - **Planned, opt-in:** limit incidental coverage. A test that reaches a
   method only through a long call chain may be incidental to it, and running
