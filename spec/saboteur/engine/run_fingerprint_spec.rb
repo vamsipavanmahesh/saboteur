@@ -244,3 +244,136 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "evidence key schema" do
     end
   end
 end
+
+RSpec.describe Saboteur::Engine::RunFingerprint, "Rails data inputs" do
+  around do |example|
+    Dir.mktmpdir do |root|
+      @root = File.realpath(root)
+      FileUtils.mkdir_p(File.join(@root, "spec/fixtures"))
+      example.run
+    end
+  end
+
+  let(:config) { Saboteur::Config.new({}, root: @root) }
+  let(:fingerprint) { described_class.new(config: config, runtime_identity: { ruby: "test" }) }
+
+  it "records fixtures as data entries and detects an edit" do
+    path = File.join(@root, "spec/fixtures/users.yml")
+    File.write(path, "a: 1\n")
+    snapshot = fingerprint.snapshot
+    expect(snapshot.inventory.find { |e| e.path == "spec/fixtures/users.yml" }.kind).to eq("data")
+    File.write(path, "a: 2\n")
+    expect(fingerprint.verify(snapshot).changes.map(&:path)).to include("spec/fixtures/users.yml")
+  end
+
+  it "detects a schema dump edit and a deleted fixture" do
+    FileUtils.mkdir_p(File.join(@root, "db"))
+    File.write(File.join(@root, "db/structure.sql"), "1")
+    File.write(File.join(@root, "spec/fixtures/a.yml"), "1")
+    snapshot = fingerprint.snapshot
+    File.write(File.join(@root, "db/structure.sql"), "2")
+    File.delete(File.join(@root, "spec/fixtures/a.yml"))
+    changes = fingerprint.verify(snapshot).changes
+    expect(changes.map(&:path)).to include("db/structure.sql", "spec/fixtures/a.yml")
+    expect(changes.map(&:reason)).to include("removed")
+  end
+
+  it "round-trips a snapshot containing data entries" do
+    File.write(File.join(@root, "spec/fixtures/a.yml"), "1")
+    snapshot = fingerprint.snapshot
+    restored = described_class.restore_snapshot(JSON.parse(JSON.generate(snapshot.to_h)))
+    expect(restored.digest).to eq(snapshot.digest)
+  end
+
+  describe "data inputs and run outputs" do
+    def issues_for(settings)
+      described_class.new(config: Saboteur::Config.new(settings, root: @root)).snapshot
+    end
+
+    it "marks the snapshot incomplete when a report would overwrite a declared data input" do
+      %w[db/structure.sql config/database.yml spec/fixtures/users.yml test/fixtures/users.yml].each do |path|
+        snapshot = issues_for("json_report" => path)
+        expect(snapshot.complete).to be(false), path
+        expect(snapshot.issues).to include("output overlaps input: #{path}")
+      end
+    end
+
+    it "treats a not-yet-existing fixture path as an input too" do
+      expect(issues_for("html_report" => "test/fixtures/new/report.html").complete).to be(false)
+    end
+
+    it "flags a report that matches a fingerprint_extra glob" do
+      snapshot = issues_for("json_report" => "data/out.csv", "fingerprint_extra" => ["data/*.csv"])
+      expect(snapshot.issues).to include("output overlaps input: data/out.csv")
+    end
+
+    it "marks the snapshot incomplete when the cache directory is or contains data inputs" do
+      File.write(File.join(@root, "spec/fixtures/users.yml"), "a: 1\n")
+      FileUtils.mkdir_p(File.join(@root, "test/fixtures"))
+      File.write(File.join(@root, "test/fixtures/users.yml"), "a: 1\n")
+      ["test/fixtures", "spec/fixtures", "test/fixtures/cache", "db/structure.sql"].each do |cache|
+        snapshot = issues_for("cache_dir" => cache)
+        expect(snapshot.complete).to be(false), cache
+        expect(snapshot.issues).to include("cache directory overlaps inputs: #{cache}")
+      end
+    end
+
+    it "keeps Ruby files that are also data inputs (db/schema.rb) as ruby entries" do
+      FileUtils.mkdir_p(File.join(@root, "db"))
+      File.write(File.join(@root, "db/schema.rb"), "1\n")
+      File.write(File.join(@root, "spec/fixtures/users.yml"), "a: 1\n")
+      kinds = issues_for({}).inventory.to_h { |entry| [entry.path, entry.kind] }
+      expect(kinds).to include("db/schema.rb" => "ruby", "spec/fixtures/users.yml" => "data")
+    end
+
+    it "rejects a cache directory that contains existing data inputs outside the fixture trees" do
+      FileUtils.mkdir_p(File.join(@root, "config"))
+      File.write(File.join(@root, "config/database.yml"), "x: 1\n")
+      FileUtils.mkdir_p(File.join(@root, "db"))
+      File.write(File.join(@root, "db/structure.sql"), "1")
+      FileUtils.mkdir_p(File.join(@root, "data"))
+      File.write(File.join(@root, "data/seed.csv"), "1")
+      %w[config db].each do |cache|
+        expect(issues_for("cache_dir" => cache).issues).to include("cache directory overlaps inputs: #{cache}")
+      end
+      extra = issues_for("cache_dir" => "data", "fingerprint_extra" => ["data/*.csv"])
+      expect(extra.issues).to include("cache directory overlaps inputs: data")
+      expect(issues_for("cache_dir" => "data").issues).to eq([])
+    end
+
+    it "marks the snapshot incomplete for data reached through a symlinked file, even if the walk skips it" do
+      File.write(File.join(@root, "input.csv"), "1")
+      FileUtils.mkdir_p(File.join(@root, "vendor"))
+      File.symlink(File.join(@root, "input.csv"), File.join(@root, "vendor/input.csv"))
+      snapshot = issues_for("fingerprint_extra" => ["vendor/*.csv"], "json_report" => "input.csv")
+      expect(snapshot.complete).to be(false)
+      expect(snapshot.issues).to include("symlink input: vendor/input.csv")
+      expect(snapshot.inventory.map(&:path)).not_to include("vendor/input.csv")
+    end
+
+    it "marks the snapshot incomplete for a fixture symlinked to a file outside the project" do
+      Dir.mktmpdir do |outside|
+        File.write(File.join(outside, "ext.yml"), "a: 1\n")
+        File.symlink(File.join(outside, "ext.yml"), File.join(@root, "spec/fixtures/ext.yml"))
+        snapshot = issues_for({})
+        expect(snapshot.complete).to be(false)
+        expect(snapshot.issues).to include("symlink input: spec/fixtures/ext.yml")
+      end
+    end
+
+    it "marks the snapshot incomplete for data under a symlinked directory" do
+      Dir.mktmpdir do |outside|
+        FileUtils.mkdir_p(File.join(outside, "set"))
+        File.write(File.join(outside, "set/a.csv"), "1")
+        File.symlink(File.join(outside, "set"), File.join(@root, "linked"))
+        snapshot = issues_for("fingerprint_extra" => ["linked/*.csv"])
+        expect(snapshot.issues).to include("symlink input: linked/a.csv")
+      end
+    end
+
+    it "stays complete for the default cache and report locations" do
+      File.write(File.join(@root, "spec/fixtures/users.yml"), "a: 1\n")
+      expect(issues_for({}).complete).to be(true)
+    end
+  end
+end

@@ -57,3 +57,47 @@ RSpec.describe Saboteur::Engine::SuiteFiles do
     expect(described_class.new(Saboteur::Config.new({}, root: @root)).digest).not_to eq(first)
   end
 end
+
+RSpec.describe Saboteur::Engine::SuiteFiles, "Rails data inputs" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def write(path, content)
+    full = File.join(@root, path)
+    FileUtils.mkdir_p(File.dirname(full))
+    File.write(full, content)
+  end
+
+  def digest(extra = {})
+    described_class.new(Saboteur::Config.new(extra, root: @root)).digest
+  end
+
+  %w[spec/fixtures/users.yml db/structure.sql config/database.yml].each do |path|
+    it "changes the digest when #{path} changes" do
+      write(path, "one")
+      before = digest
+      write(path, "two")
+      expect(digest).not_to eq(before)
+    end
+  end
+
+  it "does not change the digest for an unrelated file" do
+    write("README.md", "one")
+    before = digest
+    write("README.md", "two")
+    expect(digest).to eq(before)
+  end
+
+  it "tracks files matched by fingerprint_extra" do
+    write("data/seed.csv", "one")
+    ignored = digest
+    before = digest("fingerprint_extra" => ["data/*.csv"])
+    write("data/seed.csv", "two")
+    expect(digest("fingerprint_extra" => ["data/*.csv"])).not_to eq(before)
+    expect(digest).to eq(ignored) # without the key the file is ignored
+  end
+end

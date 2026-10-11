@@ -258,6 +258,7 @@ max_processes: 64
 max_mutants_per_method: 100  # positive integer; raise it for a broader run
 ignore_file: .saboteur-ignore.yml
 seed: 1                     # Ruby's random seed in every test run
+fingerprint_extra: []       # extra globs whose contents invalidate caches, e.g. [data/*.csv]
 ```
 
 ### Rails apps
@@ -298,6 +299,11 @@ drop that fails is reported as a warning and never changes the run's
 outcome. A copy left behind - by a failed drop or a killed run - is
 reclaimed by the next run, whose prepare starts from
 `DROP DATABASE IF EXISTS`. MySQL is not supported for `jobs` above 1.
+
+Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
+`db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
+cache fingerprint automatically. Use `fingerprint_extra` for any other file your
+tests read.
 
 ### Skipped subjects and the mutant cap
 

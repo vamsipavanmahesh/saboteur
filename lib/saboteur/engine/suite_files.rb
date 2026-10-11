@@ -3,6 +3,7 @@
 
 require "digest"
 require "shellwords"
+require_relative "data_inputs"
 
 module Saboteur
   class Engine
@@ -22,7 +23,7 @@ module Saboteur
       end
 
       def files
-        (shared_spec_files + boot_and_hook_files + option_files + required_by_options).uniq.sort
+        (shared_spec_files + boot_and_hook_files + option_files + required_by_options + data_files).uniq.sort
       end
 
       def digest
@@ -32,6 +33,12 @@ module Saboteur
       end
 
       private
+
+      # Fixtures, schema dumps and database config: not Ruby, but they change
+      # what the tests see, so a stale cache must not survive an edit to them.
+      def data_files
+        DataInputs.files(@root, extra: @config["fingerprint_extra"])
+      end
 
       def shared_spec_files
         Dir.glob("spec/**/*.rb", base: @root).reject { |file| file.end_with?("_spec.rb") }
