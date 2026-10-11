@@ -45,7 +45,9 @@ module Saboteur
 
       def check(number)
         Execution::ForkReadiness.prepare_heap
-        result = @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, number) }
+        result = @diagnostics.with_progress_heartbeat("baseline check #{number}") do
+          @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, number) }
+        end
         refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
         refuse(number, "the child did not report a result") if result.payload.empty?
         refuse(number, "the child exited unsuccessfully") if
