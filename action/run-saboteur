@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Runs saboteur in diff mode for the saboteur GitHub Action (see action.yml).
+#
+# Input comes from environment variables, never from shell text:
+#   SABOTEUR_BASE_REF           pull request base branch; empty outside pull requests
+#   SABOTEUR_COMMAND            how to start saboteur, for example "bundle exec saboteur"
+#   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on spaces
+#   SABOTEUR_FAIL_ON_SURVIVORS  "true" makes survivors fail the step
+#   SABOTEUR_REPORT_PATH        where saboteur writes its JSON report
+# Exit codes of saboteur: 0 clean, 1 survivors, 2 usage error, 3 tool error.
+set -uo pipefail
+
+base_ref="${SABOTEUR_BASE_REF:-}"
+command_line="${SABOTEUR_COMMAND:-bundle exec saboteur}"
+extra_arguments="${SABOTEUR_ARGUMENTS:-}"
+fail_on_survivors="${SABOTEUR_FAIL_ON_SURVIVORS:-false}"
+report_path="${SABOTEUR_REPORT_PATH:-.saboteur/report.json}"
+github_output="${GITHUB_OUTPUT:-/dev/null}"
+step_summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+
+write_output() { echo "$1=$2" >>"$github_output"; }
+
+stop_with_error() {
+  echo "::error::$1"
+  write_output ran false
+  exit "${2:-2}"
+}
+
+if [ -z "$base_ref" ]; then
+  echo "::notice::saboteur: this is not a pull request run, so there is no base branch. Nothing was mutated."
+  write_output ran false
+  exit 0
+fi
+
+if ! [[ "$base_ref" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+  stop_with_error "saboteur: base-ref contains characters a branch name should not have. Pass the pull request's base branch name."
+fi
+
+if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  stop_with_error "saboteur: the checkout is shallow, so the merge base cannot be found. Set 'fetch-depth: 0' on actions/checkout."
+fi
+
+if ! git rev-parse --verify --quiet "refs/remotes/origin/$base_ref^{commit}" >/dev/null; then
+  stop_with_error "saboteur: origin/$base_ref does not exist in this checkout. Set 'fetch-depth: 0' on actions/checkout, and check that base-ref names a branch."
+fi
+
+read -r -a command_words <<<"$command_line"
+read -r -a argument_words <<<"$extra_arguments"
+
+log_file="$(mktemp)"
+"${command_words[@]}" run --since "origin/$base_ref" --json "$report_path" ${argument_words[@]+"${argument_words[@]}"} 2>&1 | tee "$log_file"
+saboteur_status="${PIPESTATUS[0]}"
+
+killed=0
+survivors=0
+score="n/a"
+if [ -f "$report_path" ]; then
+  statuses="$(jq -r '[.files[].mutants[]] | map(.status) | group_by(.) | map("\(.[0]) \(length)") | .[]' "$report_path")"
+  count_of() { awk -v name="$1" '$1 == name { total += $2 } END { print total + 0 }' <<<"$statuses"; }
+  killed="$(count_of Killed)"
+  timed_out="$(count_of Timeout)"
+  survivors="$(count_of Survived)"
+  scored=$((killed + timed_out + survivors))
+  if [ "$scored" -gt 0 ]; then
+    score="$(awk -v good=$((killed + timed_out)) -v all="$scored" 'BEGIN { printf "%.1f", good * 100 / all }')"
+  fi
+fi
+
+write_output ran true
+write_output exit-code "$saboteur_status"
+write_output score "$score"
+write_output killed "$killed"
+write_output survivors "$survivors"
+write_output report-path "$report_path"
+
+{
+  echo "## Mutation testing (diff against origin/$base_ref)"
+  echo
+  if [ "$score" = "n/a" ]; then
+    echo "No mutants were scored. A pull request that changes no covered methods has nothing to mutate."
+  else
+    echo "Score: **$score %** ($killed killed, $survivors survived). Timeouts count as kills."
+  fi
+  echo
+  echo '<details><summary>saboteur output</summary>'
+  echo
+  echo '```'
+  cat "$log_file"
+  echo '```'
+  echo '</details>'
+} >>"$step_summary"
+rm -f "$log_file"
+
+case "$saboteur_status" in
+  0) exit 0 ;;
+  1)
+    echo "::warning::saboteur: $survivors mutants survived. Add a test that fails for each one, or list it in .saboteur-ignore.yml with a reason."
+    [ "$fail_on_survivors" = "true" ] && exit 1
+    exit 0
+    ;;
+  *)
+    echo "::error::saboteur stopped with exit code $saboteur_status (2 means bad configuration, 3 means the run itself failed). Read the output above."
+    exit "$saboteur_status"
+    ;;
+esac
