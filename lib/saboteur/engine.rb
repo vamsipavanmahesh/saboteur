@@ -168,3 +168,5 @@ require_relative "engine/result_cache"
 require_relative "engine/verdict_check"
 require_relative "engine/scheduler"
 require_relative "engine/distribution"
+
+require_relative "engine/run_fingerprint"
