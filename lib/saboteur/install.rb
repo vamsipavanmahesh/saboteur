@@ -68,18 +68,31 @@ module Saboteur
 
     private
 
+    # Never writes or chmods through a symlink: not the file itself, and not a
+    # symlinked directory above it (bin -> elsewhere). Without force the file is
+    # skipped; with force the link is removed and replaced by a real file or
+    # directory inside the project, and the old target is left alone.
     def write(relative, content, mode: nil)
       path = File.join(@root, relative)
+      link = symlink_component(relative)
       existed = present?(path)
-      return Result.new(:skipped, relative) if existed && !@force
+      return Result.new(:skipped, relative) if (existed || link) && !@force
 
-      # Replace a symlink itself (even a dangling one) rather than writing
-      # through it to wherever it points.
-      File.delete(path) if File.symlink?(path)
+      File.delete(link) if link
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, content)
       File.chmod(mode, path) if mode
       Result.new(existed ? :overwritten : :created, relative)
+    end
+
+    # The first symlink on the way from the project root to the file, if any.
+    def symlink_component(relative)
+      current = @root
+      relative.split("/").each do |part|
+        current = File.join(current, part)
+        return current if File.symlink?(current)
+      end
+      nil
     end
 
     # A dangling symlink does not "exist" but is not free to write either.
@@ -89,14 +102,28 @@ module Saboteur
 
     def gitignore
       path = File.join(@root, ".gitignore")
-      return Result.new(:skipped, ".gitignore") if File.symlink?(path) && !File.exist?(path)
+      link = symlink_component(".gitignore")
+      return Result.new(:skipped, ".gitignore") if link && !@force
 
       current = File.file?(path) ? File.read(path) : ""
-      return Result.new(:unchanged, ".gitignore") if current.lines.map(&:strip).include?(IGNORE_ENTRY)
+      listed = listed?(current)
+      return Result.new(:unchanged, ".gitignore") if listed && !link
+
+      File.delete(link) if link
+      File.write(path, "#{current}#{missing_entry(current, listed)}")
+      Result.new(link ? :overwritten : :appended, ".gitignore")
+    end
+
+    def listed?(text)
+      text.lines.map(&:strip).include?(IGNORE_ENTRY)
+    end
+
+    # What to append so .saboteur/ is on its own line; nothing if already there.
+    def missing_entry(current, listed)
+      return "" if listed
 
       separator = current.empty? || current.end_with?("\n") ? "" : "\n"
-      File.write(path, "#{current}#{separator}#{IGNORE_ENTRY}\n")
-      Result.new(:appended, ".gitignore")
+      "#{separator}#{IGNORE_ENTRY}\n"
     end
   end
 end
