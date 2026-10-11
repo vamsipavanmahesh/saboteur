@@ -5,10 +5,12 @@ require "open3"
 
 module Saboteur
   # The state of the working source a run looked at: the commit it was on and
-  # whether files differed from it. An agent needs this to know which code a
-  # verdict describes. Without git, or outside a repository, the state is unknown.
+  # whether files differed from it, tracked changes and untracked files alike.
+  # Saboteur's own output (cache and reports) is passed in as ignored paths, so a
+  # report from an earlier run does not make the tree look dirty. Without git, or
+  # outside a repository, the state is unknown.
   class WorkingTree
-    State = Data.define(:head, :dirty) do
+    State = Data.define(:head, :dirty, :changed_files) do
       def label
         return "unknown" if dirty.nil?
 
@@ -16,20 +18,30 @@ module Saboteur
       end
     end
 
-    UNKNOWN = State.new(head: nil, dirty: nil)
+    UNKNOWN = State.new(head: nil, dirty: nil, changed_files: nil)
 
-    def initialize(root)
+    # ignored: paths relative to root that are not source (saboteur's cache and reports).
+    def initialize(root, ignored: [])
       @root = root
+      @ignored = ignored
     end
 
     def state
       head, head_status = Open3.capture2e("git", "rev-parse", "--short", "HEAD", chdir: @root)
-      changes, changes_status = Open3.capture2e("git", "status", "--porcelain", "--untracked-files=no", chdir: @root)
+      changes, changes_status = Open3.capture2e(*status_command, chdir: @root)
       return UNKNOWN unless head_status.success? && changes_status.success?
 
-      State.new(head: head.strip, dirty: !changes.strip.empty?)
+      count = changes.lines.size
+      State.new(head: head.strip, dirty: count.positive?, changed_files: count)
     rescue SystemCallError
       UNKNOWN
+    end
+
+    private
+
+    def status_command
+      excluded = @ignored.map { |path| ":(exclude)#{path}" }
+      ["git", "status", "--porcelain", "--untracked-files=normal", "--", ".", *excluded]
     end
   end
 end
