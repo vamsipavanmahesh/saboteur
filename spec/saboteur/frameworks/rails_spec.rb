@@ -648,6 +648,35 @@ RSpec.describe Saboteur::Frameworks::Rails do
       expect { rails.send(:snapshot_memory_databases) }.to raise_error(SQLite3::Exception, "close boom")
     end
 
+    # backup_init itself can fail (readonly, locked, invalid destination):
+    # no backup handle exists to finish, but the opened database must still
+    # close.
+    it "closes the snapshot file when backup_init raises" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      file = instance_double(SQLite3::Database, close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(file)
+      allow(SQLite3::Backup).to receive(:new).and_raise(SQLite3::Exception, "readonly database")
+      expect { rails.send(:snapshot_memory_databases) }.to raise_error(SQLite3::Exception, "readonly database")
+      expect(file).to have_received(:close)
+    end
+
+    it "closes the snapshot source when backup_init raises on restore" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      db = memory_db
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, db)]))
+      rails.send(:snapshot_memory_databases)
+      child_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(child_sqlite, db)]))
+      source = instance_double(SQLite3::Database, close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(source)
+      allow(SQLite3::Backup).to receive(:new).and_raise(SQLite3::Exception, "invalid destination")
+      expect { rails.send(:restore_memory_databases) }.to raise_error(SQLite3::Exception, "invalid destination")
+      expect(source).to have_received(:close)
+    end
+
     it "registers an at_exit cleanup that removes the snapshots only in the owner process" do
       sqlite = SQLite3::Database.new(":memory:")
       sqlite.execute("CREATE TABLE t (i)")
