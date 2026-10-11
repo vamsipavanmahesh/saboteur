@@ -30,6 +30,17 @@ Names follow Uncle Bob's Clean Code conventions:
 - Classes and modules are nouns. Methods are verbs.
 - A name says what the thing does, so no comment is needed to explain it.
 
+## Documentation
+
+- A pull request that changes CLI flags, behavior or usage must update [README.md](README.md) in the same pull request.
+- A pull request without that README update fails review.
+
+## Review
+
+- Raise the pull request first. The adversarial review panel reviews the open pull request.
+- Land fixes as new commits on the same pull request.
+- Merge only after panel sign-off and green CI.
+
 ## Performance claims
 
 A claim about speed or memory needs reproducible proof in the pull request:
