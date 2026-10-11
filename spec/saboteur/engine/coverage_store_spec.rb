@@ -90,12 +90,31 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                                          detail: nil, runtime: 1.0, leftover_pids: [])
     allow(supervisor).to receive(:run).and_return(result)
     allow(Coverage).to receive(:state).and_return(:suspended)
+    diagnostics = Saboteur::Engine::Diagnostics.new(err)
+    allow(diagnostics).to receive(:progress_heartbeat).and_call_original
     store = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
                                 hooks: Saboteur::Hooks.new, supervisor: supervisor,
-                                diagnostics: Saboteur::Engine::Diagnostics.new(err))
+                                diagnostics: diagnostics)
     expect(store.fetch([file]).tests).to eq(["t1"])
-    expect(err.string).to include("building coverage map")
+    expect(err.string).to include("building coverage map (runs the whole suite once)")
+    expect(diagnostics).to have_received(:progress_heartbeat).with("building coverage map")
     expect(supervisor).to have_received(:run).with(timeout: 3600.0, on_tick: anything)
+  end
+
+  # --test narrows the map build to the given specs; the message must say
+  # so, or a user waits for the whole suite without knowing.
+  it "says the map build runs only the selected specs when --test narrowed the suite" do
+    err = StringIO.new
+    built = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: built.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    store = described_class.new(config: Saboteur::Config.new({ "tests" => ["spec/one_spec.rb"] }, root: @root),
+                                integration: integration, hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                diagnostics: Saboteur::Engine::Diagnostics.new(err))
+    store.fetch([file])
+    expect(err.string).to include("building coverage map (runs the selected specs once)")
   end
 
   # A child that dies before reporting (a crash in a native extension, an
