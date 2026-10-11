@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "pathname"
 require "tmpdir"
 
 RSpec.describe Saboteur::Frameworks::Rails do
@@ -104,6 +105,70 @@ RSpec.describe Saboteur::Frameworks::Rails do
           Object.new.tap { |c| c.define_singleton_method(:configs_for) { |**| [db] } }
         end
       end
+    end
+
+    # Rails 7.1+ resolves a relative sqlite path against Rails.root, not
+    # the process working directory; the copy must come from the same file.
+    it "resolves a relative sqlite path against Rails.root, not the working directory" do
+      Dir.mktmpdir do |dir|
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new("db/test.sqlite3", { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        rails_root = Module.new
+        rails_root.define_singleton_method(:root) { Pathname.new(dir) }
+        stub_const("Rails", rails_root)
+        FileUtils.mkdir_p(File.join(dir, "db"))
+        File.write(File.join(dir, "db", "test.sqlite3"), "x")
+        Dir.chdir("/") { rails.prepare_workers(2) }
+        expect(File).to exist(File.join(dir, "db", "test_saboteur2.sqlite3"))
+      end
+    end
+
+    # A missing source must not become a silent skip: the worker would get
+    # a fresh empty database and test nothing.
+    it "raises when the sqlite source file does not exist" do
+      Dir.mktmpdir do |dir|
+        missing = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(missing, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /#{Regexp.escape(missing)}/)
+      end
+    end
+
+    # A file copy of a live WAL database can catch it mid-write; checkpoint
+    # first so the main file holds every committed write.
+    it "checkpoints a WAL sqlite database before copying it" do
+      Dir.mktmpdir do |dir|
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(File.join(dir, "test.sqlite3"),
+                        { adapter: "sqlite3", database: File.join(dir, "test.sqlite3") }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        File.write(db.database, "x")
+        log.clear
+        rails.prepare_workers(2)
+        expect(log).to eq([[:maintenance, File.join(dir, "test.sqlite3")],
+                           "PRAGMA wal_checkpoint(TRUNCATE)", :removed])
+      end
+    end
+
+    # A database in WAL mode keeps recent writes in -wal/-shm files; the
+    # copy is incomplete without them.
+    it "copies the sqlite database with its WAL and SHM files" do
+      Dir.mktmpdir do |dir|
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(File.join(dir, "test.sqlite3"), { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        ["", "-wal", "-shm"].each { |suffix| File.write("#{db.database}#{suffix}", "x") }
+        rails.prepare_workers(2)
+        target = File.join(dir, "test_saboteur2.sqlite3")
+        expect(["", "-wal", "-shm"].map { |suffix| File.exist?("#{target}#{suffix}") }).to eq([true, true, true])
+      end
+    end
+
+    it "resolves only relative sqlite paths, and only with Rails present" do
+      expect(rails.send(:sqlite_absolute, "/data/test.sqlite3")).to eq("/data/test.sqlite3")
+      expect(rails.send(:sqlite_absolute, "db/test.sqlite3")).to eq("db/test.sqlite3")
     end
 
     # Copying runs CREATE DATABASE from the maintenance database. Doing that
