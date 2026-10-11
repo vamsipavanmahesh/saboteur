@@ -21,6 +21,15 @@ Rules for anyone changing this repository, human or automated.
 - Principal-engineer level: SOLID, design patterns where they help, tests first (TDD), scalable design.
 - Write comments and names in simple English. Comments must be technically precise. Do not claim more than the code does.
 
+## Naming
+
+Names follow Uncle Bob's Clean Code conventions:
+
+- Intention-revealing, pronounceable and searchable.
+- No abbreviations and no noise words (`Manager`, `Data`, `Info`, `Util`).
+- Classes and modules are nouns. Methods are verbs.
+- A name says what the thing does, so no comment is needed to explain it.
+
 ## Performance claims
 
 A claim about speed or memory needs reproducible proof in the pull request:
