@@ -130,7 +130,7 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "inventory contracts" do
     write("extra.txt")
     write("lib/a.rb")
     write("lib/readme.txt")
-    non_regular = write("pipe.rb")
+    non_regular = File.realpath(write("pipe.rb"))
     allow(File).to receive(:file?).and_call_original
     allow(File).to receive(:file?).with(non_regular).and_return(false)
     instance = capture({ "require" => ["boot"], "hooks" => ["hook"], "sources" => ["plugin:Thing"] }, ["extra.txt"])
@@ -154,12 +154,12 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "inventory contracts" do
   end
 
   it "refuses caches surrounding external required inputs and custom project inputs" do
-    external = File.join(File.dirname(@root), "external-#{File.basename(@root)}")
+    external = File.join(File.dirname(File.realpath(@root)), "external-#{File.basename(@root)}")
     FileUtils.mkdir_p(external)
     File.write(File.join(external, "boot.rb"), "1")
     begin
       snapshot = capture({ "cache_dir" => external, "require" => [File.join(external, "boot.rb")] }).snapshot
-      expect(snapshot.issues).to include("cache directory overlaps inputs: external:#{external}")
+      expect(snapshot.issues).to include("cache directory overlaps inputs: external:#{File.realpath(external)}")
       write("custom/input.txt")
       snapshot = capture({ "cache_dir" => "custom" }, ["custom/input.txt"]).snapshot
       expect(snapshot.issues).to include("cache directory overlaps inputs: custom")
@@ -191,7 +191,7 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "inventory contracts" do
     expect(configured.verify(snapshot).changes.map(&:to_h)).to eq([{ path: "settings", reason: "changed" }])
     runtime = described_class.new(config: Saboteur::Config.new({}, root: @root), runtime_identity: { other: 1 })
     expect(runtime.verify(snapshot).changes.map(&:to_h)).to eq([{ path: "runtime", reason: "changed" }])
-    allow(Digest::SHA256).to receive(:file).with(path).and_raise(IOError)
+    allow(Digest::SHA256).to receive(:file).with(File.realpath(path)).and_raise(IOError)
     expect(instance.verify(snapshot).changes.map(&:to_h)).to eq([{ path: "a.rb", reason: "unreadable" }])
   end
 
@@ -306,7 +306,7 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "unreadable directories" do
       FileUtils.mkdir_p(child)
       instance = described_class.new(config: Saboteur::Config.new({}, root: root))
       allow(Dir).to receive(:children).and_call_original
-      allow(Dir).to receive(:children).with(child).and_raise(Errno::EACCES)
+      allow(Dir).to receive(:children).with(File.realpath(child)).and_raise(Errno::EACCES)
       snapshot = instance.snapshot
       expect(snapshot.inventory.map(&:kind).uniq).to eq(["manifest"])
       expect(snapshot.complete).to be(false)
