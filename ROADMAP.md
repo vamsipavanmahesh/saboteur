@@ -29,7 +29,8 @@ request.
 
 Known gaps, taken from our own benchmark against
 [mutineer](https://github.com/davidteren/mutineer) (MIT): fewer operators, no
-baseline file, no HTML report, no ready-made GitHub Action.
+baseline file, no HTML report. A ready-made GitHub Action now exists, but it
+is advisory and does not post a pull request comment yet.
 
 ## Design rules
 
@@ -200,8 +201,16 @@ invalidation rules and specs above.
 
 ## Milestone 3: Fits into a team's workflow (0.5)
 
-- **GitHub Action.** One step that runs diff mode on a pull request, posts the
-  score and the survivors as a comment, and sets the check status.
+- **GitHub Action.** One step that runs diff mode on a pull request and
+  sets the check status. **Shipped:** a composite action
+  ([docs/github-action.md](docs/github-action.md)) that is advisory by
+  default, writes the covered score and survivors to the job summary and as
+  workflow warnings, and fails on survivors when asked. It uses a read-only
+  token, so it works on fork pull requests. **Planned:** posting the score and
+  survivors as a pull request comment. That needs a token with write access,
+  which fork pull requests never get, so it needs its own design: a separate
+  trusted workflow that reads the report and never runs the pull request's
+  code.
 - **Survivors in the comment.** **Shipped:** in review mode the terminal
   output shows one survivor per line and counts the rest. **Planned:** a cap
   on survivors per pull request, with the rest in the report. The order
@@ -246,7 +255,7 @@ invalidation rules and specs above.
   it ships.
 
 Exit criteria: a new project can add the Action and get a useful pull request
-comment in under ten minutes, and every operator added in this milestone has
+result (a job summary now, a comment once that ships) in under ten minutes, and every operator added in this milestone has
 a documented real-fault reason.
 
 ## Milestone 4: An Action a team can adopt (0.6)

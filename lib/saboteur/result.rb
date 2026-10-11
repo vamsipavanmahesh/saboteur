@@ -17,7 +17,7 @@ module Saboteur
     attr_accessor :ignored
 
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
-                   covered_by: [], kill_cause: nil, reused: false)
+                   covered_by: [], kill_cause: nil, reused: false, rejected_kill: false)
       raise ArgumentError, "unknown status #{status.inspect}" unless STATUSES.include?(status)
 
       @subject = subject
@@ -29,14 +29,20 @@ module Saboteur
       @covered_by = covered_by
       @mutated_source = mutated_source
       @kill_cause = kill_cause
+      @rejected_kill = rejected_kill
       @reused = reused
       @ignored = nil
     end
 
     # The same mutant, marked as an error: its verdict did not hold up.
-    def as_error(reason)
+    def as_error(reason, rejected_kill: false)
       MutantResult.new(subject: subject, mutation: mutation, status: :error, mutated_source: mutated_source,
-                       reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by)
+                       reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by,
+                       rejected_kill: rejected_kill)
+    end
+
+    def rejected_kill?
+      @rejected_kill
     end
 
     def digest
@@ -93,6 +99,10 @@ module Saboteur
       @review = review
       @seed = seed
       @skipped_subjects = skipped_subjects
+    end
+
+    def rejected_kills
+      results.count(&:rejected_kill?)
     end
 
     def review?

@@ -26,7 +26,8 @@ $ bundle exec saboteur run --since origin/main
 
 Never heard of mutation testing? It asks "if I broke this, would a test
 fail?" for many small breakages and lists the ones nobody noticed. Read the
-[design notes](docs/design.md) when you want the details.
+[design notes](docs/design.md) when you want the details. For adopting it on a team, see the
+[best practices guide](docs/best-practices.md).
 
 ## 🚀 Try it in a minute
 
@@ -132,6 +133,14 @@ NoCoverage as undetected.
 
 Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 2 bad configuration, 3 the tool failed.
+
+### Rejected kills
+
+The terminal prints `kills rejected by unchanged-method check: N`; JSON adds
+`rejectedKills`. This counts fresh per-mutant kill claims whose tests also fail
+with the method unchanged. They stay errors outside the score. Timeout checks,
+other errors and reused cached kills are not included. See
+[rejected kills](docs/rejected-kills.md) for details.
 
 ## ⚙️ Configuration
 
