@@ -30,6 +30,14 @@ RSpec.describe Saboteur::Score do
     expect([score.unclassified_share, score.assertion_share, score.value]).to eq([0.5, 0.5, 1.0])
   end
 
+  it "has a split when the only recorded cause is a crash" do
+    expect(score_of(result_for(:killed, kill_cause: "NoMethodError")).split_known?).to be(true)
+  end
+
+  it "has a split when the only recorded cause is an assertion" do
+    expect(score_of(result_for(:killed, kill_cause: "assertion")).split_known?).to be(true)
+  end
+
   it "has no split when no kill has a recorded cause" do
     expect(score_of(result_for(:killed)).split_known?).to be(false)
     expect(half_and_half.split_known?).to be(true)
