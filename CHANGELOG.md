@@ -6,6 +6,11 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `saboteur run --id DIGEST`: replay one exact current mutant with selected tests,
+  independent of caps, coarse gating, ignore suppression and incremental reuse.
+  Prints the mutation diff and selected test ids for every replay result.
+
 ## [0.2.0] - 2026-10-10
 
 ### Added
