@@ -142,7 +142,7 @@ module Saboteur
       # every other fallible reporting stage, or a late failure would
       # leave a fresh, misleading report behind.
       write_html(report)
-      write_json(report, code)
+      write_json(report, exit_cause(report, code))
       code
     end
 
@@ -165,12 +165,14 @@ module Saboteur
     def agent_run(arguments)
       tree = WorkingTree.new(config.root, ignored: output_paths).state
       report = stdout_on_stderr { Engine.new(config, **arguments).call }
-      # Same publish order as text_run: the JSON is the completion
-      # evidence, so it is written only after every other fallible stage.
-      write_html(report, announce: false)
-      write_json(report, exit_code(report), announce: false)
       payload = Reporter::Agent.call(report, agent_provenance(report, tree))
-      @out.print(Reporter::Agent.render(payload))
+      rendered = Reporter::Agent.render(payload)
+      # Same publish order as text_run: the JSON is the completion
+      # evidence, so it is written only after every other fallible stage,
+      # including the agent payload itself.
+      write_html(report, announce: false)
+      write_json(report, agent_exit_cause(report, payload), announce: false)
+      @out.print(rendered)
       Reporter::Agent.exit_code(payload)
     end
 
@@ -211,11 +213,11 @@ module Saboteur
       @sources&.any? ? "files" : "full"
     end
 
-    def write_json(report, code, announce: true)
+    def write_json(report, cause, announce: true)
       path = config.path("json_report")
       return unless path
 
-      Reporter::Stryker.new(path).call(report, exit_cause: exit_cause(report, code))
+      Reporter::Stryker.new(path).call(report, exit_cause: cause)
       @out.puts "\nJSON report: #{path}" if announce
     end
 
@@ -243,6 +245,18 @@ module Saboteur
       @err.puts("saboteur: #{errors} of #{executed.size} mutants errored, so the run tested almost nothing; " \
                 "fix the errors and run again")
       true
+    end
+
+    # Agent mode: the recorded cause is the payload's own verdict, so the
+    # JSON and the process exit classify the run the same way. An
+    # incomplete run that mostly errored keeps its distinct cause, so the
+    # harness rule means the same thing in both modes.
+    def agent_exit_cause(report, payload)
+      case payload[:verdict]
+      when "clean" then "ok"
+      when "survivors" then "survivors"
+      else report.majority_errored? ? "errorMajority" : "incomplete"
+      end
     end
 
     # Why the run exits the way it does, recorded in the JSON report so an
