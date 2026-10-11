@@ -19,6 +19,15 @@ module Saboteur
       # How many blocking session names the template-copy error lists.
       MAX_BLOCKER_NAMES = 5
 
+      # sqlite3-ruby's Backup#step returns raw SQLite status codes instead
+      # of raising, and finish discards its own: without an explicit check
+      # a partial destination would pass as a copy.
+      SQLITE_DONE = 101
+      SQLITE_BUSY = 5
+      SQLITE_LOCKED = 6
+      BACKUP_ATTEMPTS = 5
+      BACKUP_RETRY_DELAY = 0.05
+
       def initialize(config, hooks)
         @config = config
         @hooks = hooks
@@ -245,6 +254,9 @@ module Saboteur
                        "(busy: #{busy}, frames: #{frames}, checkpointed: #{checkpointed}); " \
                        "close the connections holding it and run again"
         end
+      rescue SQLite3::BusyException => e
+        raise Error, "could not checkpoint #{source} before copying it (#{e.message}); " \
+                     "close the connections holding it and run again"
       end
 
       # A byte copy of main + WAL + SHM is no snapshot: a write landing
@@ -258,12 +270,27 @@ module Saboteur
           with_sqlite(target) do |dst|
             backup = SQLite3::Backup.new(dst, "main", src, "main")
             begin
-              backup.step(-1)
+              step_backup(backup, target)
             ensure
               backup.finish
             end
           end
         end
+      end
+
+      # BUSY and LOCKED earn a bounded retry; DONE means the target holds
+      # every page; anything else fails the copy.
+      def step_backup(backup, target)
+        BACKUP_ATTEMPTS.times do
+          case (status = backup.step(-1))
+          when SQLITE_DONE then return
+          when SQLITE_BUSY, SQLITE_LOCKED
+            sleep(BACKUP_RETRY_DELAY)
+          else
+            raise Error, "could not copy the database to #{target}: sqlite backup failed with status #{status}"
+          end
+        end
+        raise Error, "could not copy the database to #{target}: still busy after #{BACKUP_ATTEMPTS} attempts"
       end
 
       def with_sqlite(path, **)
