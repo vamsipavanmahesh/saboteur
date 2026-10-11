@@ -95,7 +95,7 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                 diagnostics: Saboteur::Engine::Diagnostics.new(err))
     expect(store.fetch([file]).tests).to eq(["t1"])
     expect(err.string).to include("building coverage map")
-    expect(supervisor).to have_received(:run).with(timeout: 3600.0)
+    expect(supervisor).to have_received(:run).with(timeout: 3600.0, on_tick: anything)
   end
 
   # A child that dies before reporting (a crash in a native extension, an
