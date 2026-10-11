@@ -304,6 +304,31 @@ Exit criteria: a compatibility table in the docs, backed by runs, not guesses.
 
 Exit criteria: no known correctness bugs, and an API we are willing to keep.
 
+## Rails track
+
+Rails and RSpec teams are the first audience. The positioning: the easiest
+trustworthy pull request test-quality check for Rails and RSpec, not the tool
+with the most operators. The install generator, Rails doctor and cache
+fingerprint fixes are in flight as the first priority; the rest follows.
+
+- P1: measure cold and warm CI overhead on real Rails apps. Why: the cost of
+  the job is app boot, database setup, coverage and mutants, and buyers need a
+  measured number, not a guess.
+- P1: independent Rails and Postgres install evidence from an outside project
+  on Linux CI. Why: "works on two apps" is not a compatibility claim.
+- P1: Rails auto-detect config defaults (Gemfile.lock and `config/environment.rb`
+  present). Why: a Rails user should not need to know the boot file or globs.
+- P1: DSL-aware subject discovery for validations, scopes and associations.
+  Why: discovery is `def`-only, so a lot of Rails behaviour is never mutated.
+- P1: database hardening: detect an open fixture transaction before fork, and
+  namespace worker databases per run. Why: today a committed write or a second
+  run at the same time can corrupt results silently.
+- P2: legacy baseline and ratchet UX, and reviewer-friendly output. Why: a team
+  with many old survivors will not adopt a tool that fails on day one.
+- P2: tested CI templates for SQLite and Postgres, and a Rails config bridge
+  (`config.saboteur`, lighter than a second settings system). Why: copy-paste
+  CI that works is the main way Rails tools spread.
+
 ## Outreach
 
 Work that runs alongside the milestones:
@@ -314,6 +339,36 @@ Work that runs alongside the milestones:
   conference such as RubyConf India once Milestone 2 is done.
 - Open issues labelled "good first issue" for operators and reporters, since
   the plugin API makes them small and safe to review.
+
+## AI-native track
+
+Coding agents already run test commands and read their output. This track makes
+saboteur safe and cheap for an agent to call after the specs pass. The
+`--help` map for agents has already shipped.
+
+- P0: a compact agent JSON projection, about 8 KiB, with the top 3 survivors
+  and detail on demand, an explicit complete, partial or not-applicable status,
+  and provenance. Why: the full report is too big for an agent's context, and
+  an agent must not mistake a partial run for a clean one.
+- P0: strict agent exit semantics: 0 only for a complete, clean run. Why: today
+  mixed errors can exit 0, and an agent reads 0 as "done".
+- P0: a repo-dropped agent skill or rule (`AGENTS.md` / `CLAUDE.md` trigger)
+  that runs saboteur after RSpec goes green. Why: agents only use what the
+  repo tells them to use.
+- P1: explain a survivor by digest. Why: the agent needs the diff, the covering
+  tests and a hint for one survivor, without rerunning anything.
+- P1: a total-runtime budget that includes the cold coverage run. Why: an agent
+  session has a time limit, and a timeout must read as incomplete, not clean.
+- P1: artifact and lock safety for concurrent runs. Why: two agents in one
+  checkout can overwrite each other's cache and report.
+- P1: warn when untracked files fall outside the diff scope. Why: a new file an
+  agent just wrote is not in `git diff`, so the run silently skips it.
+- P2: a local MCP adapter with `run_diff_mutation`, `explain_survivor` and
+  `replay_mutant`. Why: tool calls are more reliable than shell parsing, but
+  only after the CLI contract above is stable.
+- P2: an agent eval harness that scores correct tool use, useful tests written,
+  false dismissals of real survivors, and token cost. Why: without it we are
+  guessing whether any of this helps.
 
 ## Not planned
 

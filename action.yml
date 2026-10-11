@@ -38,6 +38,13 @@ inputs:
     description: Where saboteur writes its JSON report.
     required: false
     default: .saboteur/report.json
+  artifact-name:
+    description: >-
+      Name of the uploaded JSON report artifact. Defaults to
+      saboteur-report-<job>-<matrix leg>. Set it when a job uses this action
+      more than once: upload-artifact rejects a second upload under one name.
+    required: false
+    default: ""
 
 outputs:
   ran:
@@ -99,4 +106,16 @@ runs:
         SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
         SABOTEUR_REPORT_PATH: ${{ inputs.report-path }}
         SABOTEUR_CACHE: ${{ inputs.cache }}
+        SABOTEUR_ARTIFACT_NAME: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}
       run: bash "${{ github.action_path }}/action/run-saboteur"
+    # Only a report this run produced and could trust is kept: an early
+    # failure (bad inputs, missing base ref, no jq) leaves report-valid unset,
+    # so a stale file restored from a cache is never published. A survivor or
+    # incomplete failure still uploads, because the summary promises it.
+    - name: Keep the JSON report
+      if: always() && github.event_name == 'pull_request' && steps.run.outputs.report-valid == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}
+        path: ${{ inputs.report-path }}
+        if-no-files-found: ignore

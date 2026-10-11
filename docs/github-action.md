@@ -39,11 +39,34 @@ contains it is published. `@main` follows development.
 The action does not set up Ruby or install gems. Your project's own setup
 (Ruby version, database, boot files) stays in your workflow, where you can see
 it. The action reads the base SHA from `github.event.pull_request.base.sha`;
-there is no user-settable base branch or SHA. It verifies `HEAD` matches `github.sha`, fetches that exact base commit if
-needed, then deepens only the PR merge ref in bounded increments (up to 2,000
-commits) until Git can prove a merge base. If it cannot, the action stops before starting saboteur
-and prints instructions. It never substitutes a moving branch tip or widens
-the scan. The PR job remains `pull_request`, not `pull_request_target`.
+there is no user-settable base branch or SHA. It verifies `HEAD` matches
+`github.sha`, fetches that exact base commit if needed, then deepens only the
+PR merge ref in bounded increments (up to 2,000 commits) until Git can prove a
+merge base. If it cannot, the action stops before starting saboteur and prints
+instructions. It never substitutes a moving branch tip or widens the scan.
+The PR job remains `pull_request`, not `pull_request_target`.
+
+
+## What lands on the pull request
+
+Each surviving mutant becomes a file/line annotation on the diff: the subject,
+the operator, the original text and what saboteur replaced it with. The job
+summary lists the same survivors, coarse mutants first (a surviving coarse
+mutant hints that no test pins the method's behavior), then file, line and
+digest. The JSON report is uploaded as the run's `saboteur-report-<job>-<matrix
+leg>` artifact on every pull request run that produced a trusted report -
+including an enforced survivor failure - and the summary links it. An early
+failure before saboteur runs keeps no report, so a stale one is never
+published.
+
+Both read the report's `saboteur.findings` section, written by saboteur 0.3.0
+and later, which bounds the list (10, GitHub's own per-step annotation limit)
+and counts what it left out. With an older saboteur the action still reports
+the counts, the score and a warning, but there are no per-survivor notes.
+Accepted survivors (on `.saboteur-ignore.yml`) get no note; they are counted
+in the `accepted-survivors` output and the summary's score line, and the
+summary lists them apart with the reason from the ignore list.
+
 
 ## Inputs
 
@@ -142,6 +165,8 @@ own release cadence or a Marketplace listing, it can move to its own
 repository without changing the inputs above.
 
 The logic is tested by `spec/action/pull_request_run_spec.rb`, which runs the
-script against a stand-in saboteur command, including missing, stale and
-malformed reports. This repository's `dogfood` CI
-job uses the action (`uses: ./`) on its own pull requests.
+script against a stand-in saboteur command, including real shallow-fetch and
+merge-base cases, annotation escaping, artifact handling, and malformed
+reports. The repository's dogfood workflow uses the action on its own pull
+requests.
+
