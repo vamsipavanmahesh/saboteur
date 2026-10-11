@@ -94,4 +94,9 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
     report = run_engine([], cleanup_error: Saboteur::Error.new("could not drop worker database copies: x"))
     expect(report.warnings).to include("could not drop worker database copies: x")
   end
+
+  it "warns about an unanticipated cleanup error instead of masking the run's outcome" do
+    report = run_engine([], cleanup_error: StandardError.new("handler exploded"))
+    expect(report.warnings).to include("handler exploded")
+  end
 end
