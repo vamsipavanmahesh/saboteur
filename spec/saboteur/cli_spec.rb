@@ -246,6 +246,23 @@ RSpec.describe Saboteur::CLI, "explicit files" do
     expect(command.options[:include]).to eq(%w[lib/sub/**/*.rb lib/**/*.rb])
   end
 
+  it "escapes glob characters in a literal source file or directory" do
+    FileUtils.mkdir_p("src[1]")
+    FileUtils.touch(["lib/a[1].rb", "lib/a{x}.rb", "src[1]/c.rb"])
+    command = cli("run", "lib/a[1].rb", "lib/a{x}.rb", "src[1]")
+    command.call
+    expect(command.options[:include]).to eq(['lib/a\\[1\\].rb', 'lib/a\\{x\\}.rb', 'src\\[1\\]/**/*.rb'])
+    config = Saboteur::Config.new({ "include" => command.options[:include] }, root: Dir.pwd)
+    expect(config.included_files.map { |file| file.delete_prefix("#{File.realpath(Dir.pwd)}/") })
+      .to eq(["lib/a[1].rb", "lib/a{x}.rb", "src[1]/c.rb"])
+  end
+
+  it "accepts a test with comma-separated ids in one selector" do
+    command = cli("run", "lib/a.rb", "--test", "spec/a_spec.rb[1:1,1:2]", "--test", "spec/b_spec.rb:3:9")
+    expect(command.call).to eq(3)
+    expect(command.options[:tests]).to eq(%w[spec/a_spec.rb[1:1,1:2] spec/b_spec.rb:3:9])
+  end
+
   it "accepts a test with a line or id selector when its file exists" do
     command = cli("run", "lib/a.rb", "--test", "spec/a_spec.rb:12", "--test", "spec/b_spec.rb[1:2]")
     expect(command.call).to eq(3)
