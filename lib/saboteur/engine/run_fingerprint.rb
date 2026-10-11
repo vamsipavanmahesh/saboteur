@@ -179,11 +179,12 @@ module Saboteur
       end
 
       def output_overlap_issues
-        paths = required_files.map(&:first) + MANIFESTS.map { |name| File.join(@root, name) }
+        paths = required_files.map(&:first) + MANIFESTS.map { |name| File.join(@root, name) } +
+                DataInputs.files(@root, extra: @config["fingerprint_extra"])
         outputs = %w[json_report html_report].filter_map { |key| @config.fetch(key) }
                                              .map { |path| canonical_path(path) }
         issues = outputs.filter_map do |path|
-          if path.end_with?(".rb") || paths.include?(path) || File.directory?(path)
+          if path.end_with?(".rb") || paths.include?(path) || File.directory?(path) || data_input?(path)
             "output overlaps input: #{display_path(path)}"
           end
         end
@@ -193,11 +194,17 @@ module Saboteur
 
       def cache_overlap_issues(paths)
         cache = canonical_path(@config["cache_dir"])
-        protected = [@root] + %w[app lib spec].map { |name| File.join(@root, name) } + paths
-        overlaps = protected.any? do |path|
+        protected = [@root] + %w[app lib spec test/fixtures].map { |name| File.join(@root, name) } + paths
+        inside = protected.any? do |path|
           path == cache || path.start_with?("#{cache}/") || (path != @root && cache.start_with?("#{path}/"))
         end
+        overlaps = inside || data_input?(cache)
         overlaps ? ["cache directory overlaps inputs: #{display_path(cache)}"] : []
+      end
+
+      # Declared fixture, schema or config input, or a path inside a fixture tree.
+      def data_input?(path)
+        DataInputs.match?(@root, path, extra: @config["fingerprint_extra"])
       end
 
       def inventory(issues)
