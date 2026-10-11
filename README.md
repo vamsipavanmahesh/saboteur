@@ -57,9 +57,8 @@ bundle exec saboteur run --subject 'YourClass#your_method'
 ```
 
 Outside a Bundler project, `gem install saboteur` installs the same executable.
-Rails apps need a Rails block in `.saboteur.yml` (boot file, `app/**/*.rb`,
-`rails: true`); see [Rails apps](#rails-apps) below. The defaults are for plain
-gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
+Rails app? Follow the [Rails quickstart](#rails-apps) below: the defaults are for
+plain gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
 
 Start with one method. You get counts per status, a score, timing, and a
 unified diff for every survivor, so you can read the exact change your tests
@@ -224,7 +223,27 @@ seed: 1                     # Ruby's random seed in every test run
 
 ### Rails apps
 
-The defaults target a plain gem, so a Rails app needs this in `.saboteur.yml`:
+Quickstart for a Rails + RSpec app. The defaults target a plain gem, so a Rails
+app needs a few settings; the generator writes them for you.
+
+**1. Add the gem**
+
+```sh
+bundle add saboteur --group test
+```
+
+**2. Generate the setup**
+
+```sh
+bundle exec rails generate saboteur:install
+```
+
+This writes `.saboteur.yml`, a `bin/saboteur` binstub (it sets `RAILS_ENV=test`
+for you) and a `.gitignore` entry for `.saboteur/`. It never overwrites an
+existing file unless you pass `--force`, and never edits your Gemfile.
+
+Prefer to do it by hand, or on a version without the generator? Put this in
+`.saboteur.yml`:
 
 ```yaml
 include: [app/**/*.rb]
@@ -233,8 +252,26 @@ rails: true                       # reconnects ActiveRecord after fork, per-work
 jobs: 4                           # optional; the default is 1
 ```
 
-Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
-generator is planned; until then this block is the supported setup.
+**3. Check the setup**
+
+```sh
+bin/saboteur doctor
+```
+
+Doctor boots your app, checks the config, test database and migrations, and runs
+your suite twice before any mutation. Fix whatever it reports first. Turn
+SimpleCov off for the run if you use it.
+
+**4. Test what your branch changed**
+
+```sh
+bin/saboteur run --since main
+```
+
+It mutates only the methods changed since `main` and reports each survivor with
+its diff: a change your tests did not notice. Write a test that fails on that
+diff, then run again. Use `--since origin/main` in CI. Without the generator, use
+`bundle exec saboteur` and `RAILS_ENV=test` instead of `bin/saboteur`.
 
 ### Skipped subjects and the mutant cap
 
