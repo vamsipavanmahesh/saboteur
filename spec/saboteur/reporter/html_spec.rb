@@ -54,7 +54,8 @@ RSpec.describe Saboteur::Reporter::Html do
 
   it "labels the score as covered-only, with its formula and what it leaves out" do
     expect(html).to include("(killed + timeout) / (killed + survived + timeout)", "NoCoverage",
-                            "counts NoCoverage as undetected")
+                            "stay in the denominator", "different score",
+                            "only the subjects of this run")
   end
 
   it "has a viewport tag, table headings and wrapping that keeps replacement whitespace" do
@@ -91,7 +92,7 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).to include("Accepted", "ignored: equivalent", "Survivors: 1 to fix, 1")
   end
 
-  it "keeps NoCoverage and ignored survivors out of the score it shows" do
+  it "leaves NoCoverage out of the score but keeps accepted survivors in it" do
     ignored = result_for(:survived, replacement: "==")
     ignored.ignored = "equivalent"
     page = described_class.build(report_of(result_for(:killed), ignored, result_for(:skipped, reason: "no coverage")))
