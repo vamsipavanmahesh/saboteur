@@ -12,17 +12,22 @@ module Saboteur
       @digest = digest
     end
 
-    def select(subjects, candidates)
-      matches = subjects.flat_map do |subject|
-        candidates.for(subject).filter_map do |mutation, text|
+    def select(subjects, candidates, scope: nil)
+      match = nil
+      subjects.each do |subject|
+        list = candidates.for(subject)
+        list = scope.restrict(subject, list) if scope
+        list.each do |mutation, text|
           digest = mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
-          [subject, [mutation, text]] if digest == @digest
+          next unless digest == @digest
+          raise ConfigError, "mutant #{@digest} is ambiguous; narrow --subject or include files" if match
+
+          match = [subject, [mutation, text]]
         end
       end
-      raise ConfigError, "mutant #{@digest} not found in the selected current source" if matches.empty?
-      raise ConfigError, "mutant #{@digest} is ambiguous; narrow --subject or include files" if matches.size > 1
+      raise ConfigError, "mutant #{@digest} not found in the selected current source" unless match
 
-      matches.first
+      match
     end
   end
 end
