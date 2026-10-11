@@ -173,6 +173,20 @@ RSpec.describe Saboteur::CLI do
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("errorMajority")
     end
 
+    # A fresh majority JSON plus a failing later stage used to pass the
+    # harness's acceptance: the report is the completion evidence, so it
+    # must not exist when reporting did not complete.
+    it "writes no JSON report when a later reporting stage fails" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      dir = Dir.mktmpdir
+      json = File.join(dir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow_any_instance_of(Saboteur::Reporter::Html).to receive(:call).and_raise(Saboteur::Error, "no html")
+      expect(cli("run", "--json", json, "--html", File.join(dir, "r.html")).call).to eq(3)
+      expect(File).not_to exist(json)
+    end
+
     it "writes ok into the JSON report when nothing failed" do
       json = File.join(Dir.mktmpdir, "r.json")
       engine = instance_double(Saboteur::Engine, call: report_of(result_for(:killed)))
