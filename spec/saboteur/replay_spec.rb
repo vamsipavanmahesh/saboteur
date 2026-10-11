@@ -45,3 +45,13 @@ RSpec.describe Saboteur::Replay, "diff scope" do
       .to raise_error(Saboteur::ConfigError, /not found/)
   end
 end
+
+RSpec.describe Saboteur::Replay, "nonmatching candidates" do
+  it "skips existing candidates with a different digest" do
+    subject = person_subject
+    mutation = comparison_mutation
+    candidates = instance_double(Saboteur::Engine::Candidates, for: [[mutation, subject.apply(mutation.edits)]])
+    expect { described_class.new(digest: "0" * 16).select([subject], candidates) }
+      .to raise_error(Saboteur::ConfigError, /not found/)
+  end
+end
