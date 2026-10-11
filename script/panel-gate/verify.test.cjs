@@ -424,19 +424,39 @@ function fetchStub(response) {
   return () => { globalThis.fetch = original; };
 }
 const reply = (status, headers, body) => ({ok: status < 300, status, headers: new Headers(headers), text: async () => body, json: async () => JSON.parse(body)});
-for (const [status, headers] of [[403, {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1791747209'}], [429, {'retry-after': '30'}], [403, {}]]) {
-  test(`HTTP ${status} is reported as a rate limit with the reset time and message`, async () => {
-    const restore = fetchStub(reply(status, headers, JSON.stringify({message: 'API rate limit exceeded'})));
+const limits = [
+  [403, {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1791747209'}, 'Forbidden'],
+  [429, {}, 'slow down'],
+  [403, {'retry-after': '30'}, 'try later'],
+  [403, {}, 'You have exceeded a secondary rate limit']
+];
+for (const [status, headers, message] of limits) {
+  test(`HTTP ${status} with exhaustion evidence (${Object.keys(headers)[0] || message}) is a rate limit`, async () => {
+    const restore = fetchStub(reply(status, headers, JSON.stringify({message})));
     try {
       await assert.rejects(() => new API('o/r', 't').call('pulls/1'), error => {
         assert.ok(error instanceof RateLimitError);
-        assert.match(error.message, new RegExp(`GitHub API ${status} .*: pulls/1; remaining ${headers['x-ratelimit-remaining'] ?? 'unknown'}, resets ${headers['x-ratelimit-reset'] ? '2026-10-11T' : 'unknown'}`));
-        assert.match(error.message, /API rate limit exceeded; stopped without writing statuses/);
+        assert.match(error.message, new RegExp(`^GitHub API ${status} \\(rate limit\\): pulls/1; remaining ${headers['x-ratelimit-remaining'] ?? 'unknown'}, resets ${headers['x-ratelimit-reset'] ? '2026-10-11T' : 'unknown'}`));
+        assert.ok(error.message.includes(`${message}; stopped without writing statuses`));
         return true;
       });
     } finally { restore(); }
   });
 }
+for (const [status, headers, message] of [[403, {'x-ratelimit-remaining': '4999'}, 'Resource not accessible by integration'],
+  [403, {}, 'Resource protected by organization SAML enforcement'], [500, {}, 'oops']]) {
+  test(`HTTP ${status} without exhaustion evidence (${message}) is an ordinary failure`, async () => {
+    const restore = fetchStub(reply(status, headers, JSON.stringify({message})));
+    try { await assert.rejects(() => new API('o/r', 't').call('pulls/1'), error => !(error instanceof RateLimitError) && error.message === `GitHub API ${status}: pulls/1`); }
+    finally { restore(); }
+  });
+}
+test('a permission 403 still writes the fail-closed failure status', async () => {
+  const api = fakeAPI(), pages = api.pages.bind(api);
+  api.pages = async path => { if (path === 'issues/1/comments') throw new Error('GitHub API 403: issues/1/comments'); return pages(path); };
+  await assert.rejects(() => verify(api, 1), /GitHub API 403/);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'failure']);
+});
 test('other HTTP errors keep their short message, so a 404 stays recognizable', async () => {
   const restore = fetchStub(reply(404, {}, '{}'));
   try { await assert.rejects(() => new API('o/r', 't').call('contents/x'), error => !(error instanceof RateLimitError) && error.message === 'GitHub API 404: contents/x'); }
@@ -452,4 +472,20 @@ test('a failure status that cannot be written does not hide the original reason'
   const api = fakeAPI({behind: true}), call = api.call.bind(api);
   api.call = async (path, method, data) => { if (method === 'POST' && data.state === 'failure') throw new Error('GitHub API 500: statuses'); return call(path, method, data); };
   await assert.rejects(() => verify(api, 1), /head is not ahead of its base.*failure status could not be written.*500/);
+});
+
+test('a spent quota during the revocation latch keeps its reset details and still tries both latches', async () => {
+  const api = eventAPI(), call = api.call.bind(api), attempts = [];
+  api.call = async (path, method, data) => {
+    if (method === 'POST') { attempts.push(data.context); throw new RateLimitError('GitHub API 429 (rate limit): statuses/x; remaining 0, resets 2026-10-12T01:00:00.000Z'); }
+    return call(path, method, data);
+  };
+  await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE}))), error => error instanceof RateLimitError && /resets 2026-10-12T01:00:00/.test(error.message));
+  assert.equal(attempts.length, 2);
+});
+test('other latch write failures still fail loudly and now name the cause', async () => {
+  const api = eventAPI(), call = api.call.bind(api);
+  api.call = async (path, method, data) => { if (method === 'POST') throw new Error('GitHub API 500: statuses'); return call(path, method, data); };
+  await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE}))), error => !(error instanceof RateLimitError) &&
+    /^revocation latch write failed; retry event after API recovery: GitHub API 500: statuses \| GitHub API 500: statuses$/.test(error.message));
 });
