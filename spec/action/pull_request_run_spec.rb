@@ -16,7 +16,10 @@ RSpec.describe "action/run-saboteur" do
   let(:invocation_log) { File.join(workspace, "invocation.log") }
   let(:stale_report) { JSON.generate(files: { "lib/old.rb" => { mutants: [{ id: "old", status: "Killed" }] } }) }
 
-  after { FileUtils.remove_entry(workspace) }
+  after do
+    FileUtils.remove_entry(workspace)
+    FileUtils.rm_rf(@bare_origin) if @bare_origin
+  end
 
   def run_git(*arguments)
     _, status = Open3.capture2e("git", *arguments, chdir: workspace)
@@ -25,12 +28,46 @@ RSpec.describe "action/run-saboteur" do
 
   def prepare_repository(shallow: false)
     run_git("init", "-q", "-b", "feature")
-    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "base")
+    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "root")
+    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "event base")
     @base_sha = `git -C #{workspace} rev-parse HEAD`.strip
+    run_git("branch", "main")
+    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "moved base tip")
+    run_git("update-ref", "refs/remotes/origin/main", "HEAD")
+    run_git("checkout", "-q", "-b", "pr", @base_sha)
     run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "pr merge")
     run_git("update-ref", "refs/pull/7/merge", "HEAD")
-    head = `git -C #{workspace} rev-parse HEAD`.strip
-    File.write(File.join(workspace, ".git", "shallow"), "#{head}\n") if shallow
+    @head_sha = `git -C #{workspace} rev-parse HEAD`.strip
+    File.write(File.join(workspace, ".git", "shallow"), "#{@head_sha}\n") if shallow
+  end
+
+
+  def prepare_real_shallow_repository
+    bare = File.join(File.dirname(workspace), "saboteur-action-origin-#{Process.pid}-#{object_id}.git")
+    @bare_origin = bare
+    run_git("init", "-q", "-b", "feature")
+    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "root")
+    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "event base")
+    @base_sha = `git -C #{workspace} rev-parse HEAD`.strip
+    run_git("branch", "main")
+    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "moved base tip")
+    moved_tip = `git -C #{workspace} rev-parse HEAD`.strip
+    run_git("checkout", "-q", "-b", "pr", @base_sha)
+    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "pr merge")
+    pr_merge = `git -C #{workspace} rev-parse HEAD`.strip
+    _, status = Open3.capture2e("git", "init", "--bare", "-q", bare)
+    raise "could not create bare origin" unless status.success?
+    _, status = Open3.capture2e("git", "--git-dir", bare, "symbolic-ref", "HEAD", "refs/heads/main")
+    raise "could not set bare origin HEAD" unless status.success?
+    run_git("push", "-q", bare, "#{moved_tip}:refs/heads/main", "#{pr_merge}:refs/pull/7/merge")
+    FileUtils.rm_rf(File.join(workspace, ".git"))
+    _, status = Open3.capture2e("git", "clone", "--no-checkout", "--depth=1", "file://#{bare}", workspace)
+    raise "could not shallow-clone local origin" unless status.success?
+    _, status = Open3.capture2e("git", "-C", workspace, "fetch", "--no-tags", "--depth=1", "origin", "refs/pull/7/merge")
+    raise "could not fetch shallow PR merge ref" unless status.success?
+    run_git("checkout", "-q", "--detach", "FETCH_HEAD")
+    @head_sha = `git -C #{workspace} rev-parse HEAD`.strip
+    File.write(File.join(workspace, ".git", "shallow"), "#{@head_sha}\n") unless File.exist?(File.join(workspace, ".git", "shallow"))
   end
 
   # report: an array of statuses, or [status, reason] pairs, a raw String
@@ -79,7 +116,7 @@ RSpec.describe "action/run-saboteur" do
     end
     defaults = {
       "SABOTEUR_EVENT_NAME" => "pull_request", "SABOTEUR_BASE_SHA" => @base_sha,
-      "GITHUB_REF" => "refs/pull/7/merge",
+      "SABOTEUR_EXPECTED_HEAD_SHA" => @head_sha, "GITHUB_REF" => "refs/pull/7/merge",
       "SABOTEUR_COMMAND" => write_stand_in_command(exit_status, report, log_text),
       "SABOTEUR_ARGUMENTS" => "", "SABOTEUR_FAIL_ON_SURVIVORS" => "false",
       "SABOTEUR_REPORT_PATH" => ".saboteur/report.json",
@@ -92,12 +129,34 @@ RSpec.describe "action/run-saboteur" do
     File.write(shim, <<~SH)
       #!/usr/bin/env bash
       case "$*" in
-        "fetch --no-tags --depth=1 origin "*) [ "${GIT_SHIM_FAIL_BASE:-}" != 1 ] && exit 0 ;;
-        "fetch --no-tags --deepen=100 origin "*) [ "${GIT_SHIM_FAIL_DEEPEN:-}" != 1 ] && exit 0 ;;
+        "merge-base "*)
+          if [ "${GIT_SHIM_FORCE_NO_MERGE_BASE:-}" = 1 ] || [ "${GIT_SHIM_LAST_INCREMENT:-}" = 1 ]; then
+            count=0
+            [ -f "$GIT_SHIM_STATE" ] && count=$(cat "$GIT_SHIM_STATE")
+            count=$((count + 1)); echo "$count" > "$GIT_SHIM_STATE"
+            [ "${GIT_SHIM_FORCE_NO_MERGE_BASE:-}" = 1 ] && exit 1
+            if [ "$count" -le 20 ]; then exit 1; fi
+            echo "$GIT_SHIM_BASE_SHA"
+            exit 0
+          fi
+          ;;
+        "fetch --no-tags --depth=1 origin "*)
+          echo base >> "$GIT_SHIM_FETCHES"
+          [ "${GIT_SHIM_FAIL_BASE:-}" = 1 ] && exit 1
+          [ "${GIT_SHIM_FORCE_NO_MERGE_BASE:-}" = 1 ] || [ "${GIT_SHIM_LAST_INCREMENT:-}" = 1 ] && exit 0
+          ;;
+        "fetch --no-tags --deepen=100 origin "*)
+          echo deepen >> "$GIT_SHIM_FETCHES"
+          [ "${GIT_SHIM_FAIL_DEEPEN:-}" = 1 ] && exit 1
+          [ "${GIT_SHIM_FORCE_NO_MERGE_BASE:-}" = 1 ] || [ "${GIT_SHIM_LAST_INCREMENT:-}" = 1 ] && exit 0
+          ;;
       esac
       exec "#{real_git}" "$@"
     SH
     File.chmod(0o755, shim)
+    defaults["GIT_SHIM_STATE"] = File.join(workspace, "git-shim-state")
+    defaults["GIT_SHIM_FETCHES"] = File.join(workspace, "git-shim-fetches")
+    defaults["GIT_SHIM_BASE_SHA"] = @base_sha
     defaults["PATH"] = [bin, path || ENV.fetch("PATH")].join(File::PATH_SEPARATOR)
     stdout, status = Open3.capture2e(defaults.merge(environment), "bash", script, chdir: workspace)
     [stdout, status.exitstatus]
@@ -145,11 +204,59 @@ RSpec.describe "action/run-saboteur" do
       expect(File.exist?(invocation_log)).to be(false)
     end
 
+    it "checks the exact event checkout SHA before running saboteur" do
+      output, status = run_action({ "SABOTEUR_EXPECTED_HEAD_SHA" => "b" * 40 })
+      expect(status).to eq(2)
+      expect(output).to include("does not match the pull_request event checkout SHA")
+      expect(File.exist?(invocation_log)).to be(false)
+    end
+
+    it "rechecks the merge base after the twentieth and final successful deepen" do
+      prepare_repository(shallow: true)
+      output, status = run_action({ "GIT_SHIM_LAST_INCREMENT" => "1" }, exit_status: 0)
+      expect(status).to eq(0)
+      expect(File.read(File.join(workspace, "git-shim-fetches")).lines.count { |line| line == "deepen\n" }).to eq(20)
+      expect(output).not_to include("after fetching 2,000")
+    end
+
+    it "stops at the explicit bound when no merge base is found" do
+      prepare_repository(shallow: true)
+      output, status = run_action({ "GIT_SHIM_FORCE_NO_MERGE_BASE" => "1" })
+      expect(status).to eq(2)
+      expect(output).to include("after fetching 2,000 pull-request commits")
+      expect(File.read(File.join(workspace, "git-shim-fetches")).lines.count { |line| line == "deepen\n" }).to eq(20)
+      expect(File.exist?(invocation_log)).to be(false)
+    end
+
+    it "fails closed for complete unrelated histories" do
+      tree = `git -C #{workspace} rev-parse HEAD^{tree}`.strip
+      unrelated_sha, status = Open3.capture2("git", "-C", workspace, "-c", "user.name=t", "-c", "user.email=t@example.com",
+                                            "commit-tree", tree, "-m", "unrelated")
+      raise "could not create unrelated test commit" unless status.success?
+      run_git("update-ref", "refs/remotes/origin/unrelated", unrelated_sha.strip)
+      output, status = run_action({ "SABOTEUR_BASE_SHA" => unrelated_sha.strip })
+      # A complete checkout has no history boundary to deepen: missing merge
+      # base is a terminal scope error, never an invitation to full-scan.
+      expect(status).to eq(2)
+      expect(output).to include("no merge base exists")
+      expect(File.exist?(invocation_log)).to be(false)
+    end
+
     it "rejects a non-PR ref rather than deepening an arbitrary ref" do
       output, status = run_action({ "GITHUB_REF" => "refs/heads/main" })
       expect(status).to eq(2)
       expect(output).to include("cannot deepen the pull request checkout safely")
       expect(File.exist?(invocation_log)).to be(false)
+    end
+
+    it "deepens a real shallow PR checkout to the exact event base while the branch tip has moved" do
+      prepare_real_shallow_repository
+      _, status = run_action
+      expect(status).to eq(0)
+      expect(invocation).to include("--since #{@base_sha}")
+      expect(invocation).not_to include("--since origin/main")
+      expect(`git -C #{workspace} rev-parse refs/remotes/origin/main`.strip).not_to eq(@base_sha)
+      expect(`git -C #{workspace} merge-base #{@base_sha} HEAD`.strip).to eq(@base_sha)
     end
 
     it "fails closed when the base commit cannot be fetched" do
@@ -378,6 +485,7 @@ RSpec.describe "action/run-saboteur" do
       unrelated_sha, status = Open3.capture2("git", "-C", workspace, "-c", "user.name=t", "-c", "user.email=t@example.com",
                                             "commit-tree", `git -C #{workspace} rev-parse HEAD^{tree}`.strip, "-m", "unrelated")
       raise "could not create unrelated test commit" unless status.success?
+      run_git("update-ref", "refs/remotes/origin/unrelated", unrelated_sha.strip)
       output, status = run_action({ "SABOTEUR_BASE_SHA" => unrelated_sha.strip, "GIT_SHIM_FAIL_DEEPEN" => "1" })
       expect(status).to eq(2)
       expect(output).to include("could not deepen pull request history")
