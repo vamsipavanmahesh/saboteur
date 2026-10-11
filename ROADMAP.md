@@ -53,7 +53,7 @@ written reason in its pull request.
 - **Public API is a contract.** Anything listed under "Extending" in the
   README stays stable across minor versions.
 
-## How to read milestones 1 to 3
+## How to read milestones 1 to 4
 
 Each item says which of two things it is. **Shipped** means the code is in
 `main` today and the item is about keeping it honest or making it stronger.
@@ -249,7 +249,34 @@ Exit criteria: a new project can add the Action and get a useful pull request
 comment in under ten minutes, and every operator added in this milestone has
 a documented real-fault reason.
 
-## Milestone 4: Wider coverage of Ruby projects (0.6)
+## Milestone 4: An Action a team can adopt (0.6)
+
+Planned. This comes from a review of the mutineer GitHub Action by four
+reviewers and was approved by the maintainer. The order below is the order of
+work.
+
+1. **Survivor annotations.** Per-survivor notes on the changed lines of the
+   pull request diff, and a top-N survivor list in the job summary. This is
+   the feature that shows the tool working inside a review.
+2. **Exact base anchoring for diff scope.** Pin the pull request's
+   `base.sha`, fetch a bounded amount of history, and fail closed when there
+   is no merge base. The Action never falls back to a silent full scan.
+3. **A "no new survivors" gate.** The adoption path for an existing project:
+   stable mutant identity, baseline metadata (generator, config, scope),
+   explicit acceptance of survivors, and a rule that an incomplete run is
+   never reported as clean.
+4. **A usable Action.** A `working-directory` input and an install test on an
+   external repository, then a Marketplace listing with a `v1` tag and a
+   badge.
+5. **Threshold flags.** A covered-score floor and limits on timeouts and
+   errors, added after the score semantics are documented. Scores are never
+   compared across tools.
+
+Exit criteria: a project that is not saboteur's own adds the Action, sees
+survivor notes on its pull request, and can adopt the baseline gate without
+a cleanup week.
+
+## Milestone 5: Wider coverage of Ruby projects (0.7)
 
 - Verify and document MySQL and older Rails versions.
 - Linux and macOS in CI for saboteur itself, on every supported Ruby.
@@ -258,7 +285,7 @@ a documented real-fault reason.
 
 Exit criteria: a compatibility table in the docs, backed by runs, not guesses.
 
-## Milestone 5: 1.0
+## Milestone 6: 1.0
 
 - Freeze the public API and the report schema. Publish a deprecation policy.
 - Full documentation: a getting-started page, a "reading a survivor" guide,
@@ -297,6 +324,9 @@ Work that runs alongside the milestones:
   counted and on the cases included, on one population of generated Kotlin
   code, so we draw no number from it. A plugin on the mutation source API
   may try the idea.
+- For the GitHub Action: operator-matrix inputs, a silent full-scan fallback
+  when the diff base cannot be found, and pull request comment bots that need
+  a write token.
 
 ## Where these ideas come from
 
@@ -323,3 +353,17 @@ AGENTS.md).
 
 Open a pull request. Milestones are reordered only with a reason that appears
 in the description. When a milestone ships, move it to the changelog.
+
+## Research
+
+Two research tracks sit beside the milestones. They are listed in priority
+order.
+
+1. **Track B: dependency-aware incremental mutation.** A complete
+   input-fingerprint invalidation model, evaluated by replaying project
+   history against naive caching. The paper target is the Mutation workshop,
+   then ICST or ISSTA. It builds on the ResultCache design.
+2. **Track A: an equivalent-mutant benchmark for MRI Ruby.** A labelled
+   benchmark of equivalent and duplicate mutants across real projects, and a
+   validated, guarded detector. It measures where YARV bytecode filtering
+   works and where it fails.

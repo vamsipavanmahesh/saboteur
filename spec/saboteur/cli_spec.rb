@@ -115,6 +115,41 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  it "writes the HTML report it names, next to the JSON one" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "r.html")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      cli("run", "--json", File.join(dir, "r.json"), "--html", path).call
+      expect(out.string).to include("HTML report: #{path}")
+      expect(File.read(path)).to start_with("<!DOCTYPE html>")
+    end
+  end
+
+  it "writes no HTML report when html_report is null in the config" do
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, ".saboteur.yml"), "html_report: null\n")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      Dir.chdir(dir) { cli("run").call }
+      expect(out.string).not_to include("HTML report:")
+      expect(Dir.glob("#{dir}/**/*.html")).to be_empty
+    end
+  end
+
+  it "refuses to run when the JSON and HTML reports share one path" do
+    allow(Saboteur::Engine).to receive(:new)
+    expect(cli("run", "--json", "same.out", "--html", "same.out").call).to eq(2)
+    expect(err.string).to include("json_report and html_report both point to")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  it "refuses to run when the default JSON path is also the HTML path" do
+    allow(Saboteur::Engine).to receive(:new)
+    expect(cli("run", "--html", ".saboteur/report.json").call).to eq(2)
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
   it "exits 0 when every mutant was skipped (nothing ran, nothing errored)" do
     allow(Saboteur::Engine).to receive(:new)
       .and_return(instance_double(Saboteur::Engine, call: report_of(result_for(:skipped, reason: "no coverage"))))
