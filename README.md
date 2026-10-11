@@ -34,6 +34,7 @@ only, by design.
 ```sh
 bundle exec saboteur run --since origin/main      # default workflow for pull requests
 bundle exec saboteur run                          # whole-project audit (main branch)
+bundle exec saboteur doctor --seed 42             # environment + two unchanged suite checks
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
@@ -45,6 +46,11 @@ workflow recommendation, not a new CLI default: plain `run` still checks the
 whole configured project. See [the pull-request guide](docs/pull-requests.md)
 for checkout history, configuration and limits. Keep whole-project runs on
 main: diff mode does not check every method affected by a dependency change.
+
+`saboteur doctor` prints Ruby, coverage, integration, Rails/SimpleCov and boot-file
+checks, then runs the unchanged suite twice with the chosen seed. It writes no
+mutation reports or coverage/verdict caches. Target boot files and tests still
+run, so their normal side effects remain. See the [doctor guide](docs/guides/doctor.md).
 
 Every test run starts from the same random seed (1 by default), so tests
 that use `rand` see the same values in each mutant's run and in the check
