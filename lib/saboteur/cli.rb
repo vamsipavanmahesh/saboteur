@@ -18,7 +18,6 @@ module Saboteur
     EXIT_SURVIVORS = 1
     EXIT_USAGE = 2
     EXIT_TOOL = 3
-
     class UsageError < ConfigError; end
 
     attr_reader :options
@@ -101,9 +100,10 @@ module Saboteur
       @err.puts
       Reporter::Terminal.new(@out).call(report)
       Reporter::Replay.new(@out).call(report) if options[:id]
-      write_json(report)
+      code = exit_code(report)
+      write_json(report, code)
       write_html(report)
-      exit_code(report)
+      code
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
       EXIT_USAGE
@@ -126,11 +126,11 @@ module Saboteur
       EXIT_TOOL
     end
 
-    def write_json(report)
+    def write_json(report, code)
       path = config.path("json_report")
       return unless path
 
-      Reporter::Stryker.new(path).call(report)
+      Reporter::Stryker.new(path).call(report, exit_cause: exit_cause(report, code))
       @out.puts "\nJSON report: #{path}"
     end
 
@@ -143,12 +143,31 @@ module Saboteur
     end
 
     def exit_code(report)
-      executed = report.executed
-      return EXIT_TOOL if executed.any? && executed.all? { |result| result.status == :error }
+      return EXIT_TOOL if mostly_errored?(report)
 
       return EXIT_TOOL if incomplete_under_threshold?(report)
 
       failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
+    end
+
+    def mostly_errored?(report)
+      return false unless report.majority_errored?
+
+      executed = report.executed
+      errors = executed.count { |result| result.status == :error }
+      @err.puts("saboteur: #{errors} of #{executed.size} mutants errored, so the run tested almost nothing; " \
+                "fix the errors and run again")
+      true
+    end
+
+    # Why the run exits the way it does, recorded in the JSON report so an
+    # outer harness can tell "most mutants errored" from the other exit 3s.
+    def exit_cause(report, code)
+      case code
+      when EXIT_OK then "ok"
+      when EXIT_SURVIVORS then config["threshold"].nil? ? "survivors" : "belowThreshold"
+      else report.majority_errored? ? "errorMajority" : "incompleteUnderThreshold"
+      end
     end
 
     # With --threshold the score decides; without it any unignored survivor does.
