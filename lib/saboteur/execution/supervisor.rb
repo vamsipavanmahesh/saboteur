@@ -175,13 +175,20 @@ module Saboteur
         tree = ProcessTree.new(pid)
         self.class.live[pid] = tree
         own_group(pid)
-        payload, stop, detail = watch(tree, reader, started + timeout, on_tick)
-        exit_status = stop == :timeout ? terminate(pid) : nil
-        leftover_pids = tree.kill_all - [pid]
-        exit_status ||= reap(pid)
-        self.class.live.delete(pid)
-        reap_adopted(leftover_pids)
-        reap_group(pid)
+        begin
+          payload, stop, detail = watch(tree, reader, started + timeout, on_tick)
+        ensure
+          # Containment holds on every path out of watch: a raising on_tick
+          # (progress IO failed) or any other error must not skip the
+          # kill/reap, or the child and its tree would run unsupervised
+          # until this process exits.
+          exit_status = stop == :timeout ? terminate(pid) : nil
+          leftover_pids = tree.kill_all - [pid]
+          exit_status ||= reap(pid)
+          self.class.live.delete(pid)
+          reap_adopted(leftover_pids)
+          reap_group(pid)
+        end
         Result.new(payload: payload, exit_status: exit_status, stopped_by: stop, detail: detail,
                    runtime: monotonic - started, leftover_pids: leftover_pids)
       end
