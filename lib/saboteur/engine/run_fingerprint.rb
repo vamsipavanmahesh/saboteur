@@ -14,7 +14,7 @@ module Saboteur
       LOCATION_SETTINGS = %w[cache_dir json_report html_report].freeze
       ENTRY_KINDS = %w[ruby manifest boot hook source_plugin extra].freeze
       EXCLUDED_DIRECTORIES = %w[.git vendor node_modules].freeze
-      Entry = Data.define(:path, :kind, :state, :sha256)
+      Entry = Data.define(:path, :kind, :state, :sha256, :required)
       Change = Data.define(:path, :reason)
       Snapshot = Data.define(:format_version, :digest, :inventory, :settings_digest, :runtime_digest, :complete,
                              :issues) do
@@ -25,7 +25,7 @@ module Saboteur
       Verification = Data.define(:unchanged, :complete, :current_digest, :changes, :issues)
 
       def self.restore_snapshot(hash)
-        fields = hash.transform_keys(&:to_sym)
+        fields = canonical_mapping(hash).transform_keys(&:to_sym)
         validate_snapshot_fields(fields)
         inventory = fields.fetch(:inventory).map { |entry| restore_entry(entry) }.freeze
         raise ArgumentError, "duplicate inventory paths" unless inventory.map(&:path).uniq.size == inventory.size
@@ -47,7 +47,9 @@ module Saboteur
 
       def self.validate_snapshot_identity(fields, inventory, issues)
         raise ArgumentError, "invalid complete snapshot" if
-          fields[:complete] && (issues.any? || inventory.any? { |entry| entry.state == "unreadable" })
+          fields[:complete] && (issues.any? || inventory.any? do |entry|
+            entry.state == "unreadable" || (entry.required && entry.state == "missing")
+          end)
         raise ArgumentError, "unsorted inventory" unless inventory.map(&:path) == inventory.map(&:path).sort
 
         inputs = { format: FORMAT_VERSION, files: inventory.map(&:to_h),
@@ -58,6 +60,7 @@ module Saboteur
       end
 
       def self.validate_snapshot_fields(fields)
+        raise ArgumentError, "invalid snapshot fields" unless fields.keys.sort == Snapshot.members.sort
         raise ArgumentError, "unsupported fingerprint format" unless fields[:format_version] == FORMAT_VERSION
         raise ArgumentError, "invalid completeness" unless [true, false].include?(fields[:complete])
 
@@ -67,15 +70,18 @@ module Saboteur
       end
 
       def self.restore_entry(entry)
-        values = entry.transform_keys(&:to_sym)
+        values = canonical_mapping(entry).transform_keys(&:to_sym)
         raise ArgumentError, "invalid fingerprint entry" unless valid_entry?(values)
 
         Entry.new(**values.transform_values { |value| value.is_a?(String) ? value.dup.freeze : value })
       end
 
       def self.valid_entry?(values)
-        values.keys.sort == %i[kind path sha256 state] && valid_path?(values[:path]) &&
-          ENTRY_KINDS.include?(values[:kind]) && valid_state?(values[:state], values[:sha256])
+        values.keys.sort == %i[kind path required sha256 state] && valid_path?(values[:path]) &&
+          [true,
+           false].include?(values[:required]) && ENTRY_KINDS.include?(values[:kind]) &&
+          (!%w[ruby boot hook source_plugin].include?(values[:kind]) || values[:required]) && valid_state?(values[:state],
+                                                                                                     values[:sha256])
       end
 
       def self.valid_path?(path)
@@ -104,6 +110,8 @@ module Saboteur
       def initialize(config:, root: config.root, extra_files: [], runtime_identity: self.class.runtime_identity)
         @config = config
         @root = File.realpath(root)
+        raise ArgumentError, "root differs from config.root" unless @root == File.realpath(config.root)
+
         @extra_files = extra_files.map do |file|
           options = file.is_a?(Hash) ? file : { path: file, required: true }
           [File.expand_path(options.fetch(:path), @root), options.fetch(:required, true)]
@@ -173,14 +181,21 @@ module Saboteur
         outputs = %w[json_report html_report].filter_map { |key| @config.fetch(key) }
                                              .map { |path| canonical_path(path) }
         issues = outputs.filter_map do |path|
-          "output overlaps input: #{display_path(path)}" if path.end_with?(".rb") || paths.include?(path)
+          if path.end_with?(".rb") || paths.include?(path) || File.directory?(path)
+            "output overlaps input: #{display_path(path)}"
+          end
         end
+        issues.concat(cache_overlap_issues(paths))
+        issues
+      end
+
+      def cache_overlap_issues(paths)
         cache = canonical_path(@config["cache_dir"])
         protected = [@root] + %w[app lib spec].map { |name| File.join(@root, name) } + paths
-        if protected.any? { |path| path == cache || path.start_with?("#{cache}/") }
-          issues << "cache directory overlaps inputs: #{display_path(cache)}"
+        overlaps = protected.any? do |path|
+          path == cache || path.start_with?("#{cache}/") || (path != @root && cache.start_with?("#{path}/"))
         end
-        issues
+        overlaps ? ["cache directory overlaps inputs: #{display_path(cache)}"] : []
       end
 
       def inventory(issues)
@@ -251,12 +266,13 @@ module Saboteur
         name = display_path(path).freeze
         unless File.exist?(path)
           issues << "missing required input: #{name}".freeze if required
-          return Entry.new(path: name, kind: kind.freeze, state: "missing", sha256: nil)
+          return Entry.new(path: name, kind: kind.freeze, state: "missing", sha256: nil, required: required)
         end
-        Entry.new(path: name, kind: kind.freeze, state: "present", sha256: Digest::SHA256.file(path).hexdigest.freeze)
+        Entry.new(path: name, kind: kind.freeze, state: "present", sha256: Digest::SHA256.file(path).hexdigest.freeze,
+                  required: required)
       rescue SystemCallError, IOError
         issues << "unreadable input: #{name}".freeze
-        Entry.new(path: name, kind: kind.freeze, state: "unreadable", sha256: nil)
+        Entry.new(path: name, kind: kind.freeze, state: "unreadable", sha256: nil, required: required)
       end
 
       def display_path(path)
