@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {parse, panel, jobsPass, dco, verify} = require('./verify.cjs');
+const {parse, panel, jobsPass, dco, verify, revokeEvent, revocations} = require('./verify.cjs');
 const policy = require('./policy.json');
 const HEAD = 'a'.repeat(40), BASE = 'b'.repeat(40);
 const marker = (changes = {}) => ({schema: 1, lens: 'principal', head: HEAD,
@@ -10,7 +10,7 @@ const marker = (changes = {}) => ({schema: 1, lens: 'principal', head: HEAD,
   uncertainty: ['Static review only'], prior_findings: [], blockers: [], ...changes});
 const body = value => '```panel-verdict\n' + JSON.stringify(value, null, 2) + '\n```\nOptional human-readable discussion.';
 const comments = () => ['principal', 'architect', 'qa'].map((lens, i) => ({
-  id: i + 1, user: {id: 1875074}, body: body(marker({lens}))}));
+  id: i + 1, created_at: '2026-10-10T00:00:00Z', user: {id: 1875074}, body: body(marker({lens}))}));
 test('canonical exact-head distinct lenses pass under one explicitly trusted publisher', () => {
   assert.equal(parse(body(marker())).head, HEAD);
   assert.deepEqual(Object.keys(panel(comments(), HEAD)), ['principal', 'architect', 'qa']);
@@ -76,7 +76,7 @@ function fakeAPI(change = {}) {
       if (path === 'git/ref/heads/main') return {object: {sha: change.movedBase ? HEAD : BASE}};
       if (path.startsWith('compare/')) return {status: 'ahead', merge_base_commit: {sha: change.behind ? HEAD : BASE}};
       if (path.startsWith('contents/')) return {sha: change.policyEdit && path.endsWith(HEAD) ? HEAD : BASE};
-      if (path.startsWith('actions/runs/')) return {head_sha: HEAD, status: 'completed', conclusion: 'success', run_attempt: 2};
+      if (path.startsWith('actions/runs/')) return {...runs[Number(path.split('/')[2]) - 1], status: 'completed', conclusion: 'success', run_attempt: 2};
       throw new Error('unexpected call ' + path);
     },
     async pages(path) {
@@ -102,8 +102,8 @@ for (const fault of ['newHead', 'movedBase', 'behind', 'policyEdit', 'noQA', 'wr
 }
 
 test('deleted newer verdict cannot uncover an older approval', () => {
-  assert.throws(() => panel(comments(), HEAD, {qa: 8}));
-  assert.doesNotThrow(() => panel([...comments(), {id: 9, user: {id: 1875074}, body: body(marker({lens: 'qa'}))}], HEAD, {qa: 8}));
+  assert.throws(() => panel(comments(), HEAD, {qa: {id: 8, epoch: Date.parse('2026-10-11T00:00:00Z')}}));
+  assert.doesNotThrow(() => panel([...comments(), {id: 9, created_at: '2026-10-12T00:00:00Z', user: {id: 1875074}, body: body(marker({lens: 'qa'}))}], HEAD, {qa: {id: 8, epoch: Date.parse('2026-10-11T00:00:00Z')}}));
 });
 test('editing an older comment to a blocking verdict wins by update time', () => {
   const c = comments().map(x => ({...x, updated_at: '2026-10-10T00:00:00Z'}));
@@ -111,4 +111,155 @@ test('editing an older comment to a blocking verdict wins by update time', () =>
   c[0].updated_at = '2026-10-12T00:00:00Z';
   c[0].body = body(marker({verdict: 'CHANGES_REQUIRED', blockers: ['new bug']}));
   assert.throws(() => panel(c, HEAD));
+});
+
+
+// These regressions failed against PR #28's original verifier.
+test('edited low-ID blocker deletion cannot resurrect a higher-ID old approval', () => {
+  const c = comments();
+  c.push({...c[0], id: 10, created_at: '2026-10-11T00:00:00Z'});
+  assert.throws(() => panel(c, HEAD, {principal: {id: 10, epoch: Date.parse('2026-10-12T00:00:00Z')}}));
+});
+test('rerun starts after initial green CI read: never publish success', async () => {
+  const api = fakeAPI(), call = api.call.bind(api), seen = new Set();
+  api.call = async (path, method, data) => {
+    const result = await call(path, method, data);
+    if (path.startsWith('actions/runs/') && method !== 'POST') {
+      if (seen.has(path)) return {...result, status: 'in_progress', conclusion: null, run_attempt: 3};
+      seen.add(path);
+    }
+    return result;
+  };
+  await assert.rejects(() => verify(api, 1));
+  assert.equal(api.statuses.at(-1).state, 'failure');
+});
+
+function eventAPI() {
+  const api = fakeAPI(), call = api.call.bind(api), pages = api.pages.bind(api);
+  const records = [], current = comments();
+  let epoch = '2026-10-12T00:00:00Z';
+  api.comments = current;
+  api.records = records;
+  api.call = async (path, method, data) => {
+    if (method === 'POST' && data.context.startsWith('panel/revoked/')) {
+      const record = {...data, created_at: epoch}; records.push(record); api.statuses.push(data); return record;
+    }
+    return call(path, method, data);
+  };
+  api.pages = async path => {
+    if (path === `commits/${policy.revocationAnchor}/statuses`) return records;
+    if (path === 'issues/1/comments') return current;
+    return pages(path);
+  };
+  return api;
+}
+const deletion = (value, action = 'deleted') => ({action, issue: {number: 1, pull_request: {}},
+  comment: {id: 1, user: {id: 1875074}, body: body(value)},
+  ...(action === 'edited' ? {changes: {body: {from: body(value)}}} : {})});
+for (const action of ['deleted', 'edited']) {
+  for (const stale of [false, true]) {
+    test(`${action} old-ID blocker ${stale ? 'on stale SHA' : 'on current SHA'} persists across heads`, async () => {
+      const api = eventAPI();
+      api.comments.push({...comments()[0], id: 10});
+      await revokeEvent(api, deletion(marker({head: stale ? BASE : HEAD, verdict: 'CHANGES_REQUIRED', blockers: ['bug']}), action));
+      assert.equal(api.records.length, 1);
+      assert.equal(api.records[0].context, 'panel/revoked/pr-1');
+      assert.equal(api.records[0].description, 'principal:10');
+      const cutoff = await revocations(api, 1, HEAD);
+      assert.throws(() => panel(api.comments, HEAD, cutoff));
+      assert.deepEqual(await revocations(api, 1, BASE), cutoff);
+      // An edit of an old approval is not a new attestation.
+      api.comments.at(-1).updated_at = '2026-10-13T00:00:00Z';
+      assert.throws(() => panel(api.comments, HEAD, cutoff));
+      // ID alone is insufficient: comment existed before server revocation epoch.
+      api.comments.push({...comments()[0], id: 11, created_at: '2026-10-12T00:00:00Z'});
+      assert.throws(() => panel(api.comments, HEAD, cutoff));
+      api.comments.push({...comments()[0], id: 12, created_at: '2026-10-13T00:00:01Z', updated_at: '2026-10-13T00:00:01Z'});
+      assert.doesNotThrow(() => panel(api.comments, HEAD, cutoff));
+      assert.deepEqual(await revocations(api, 2, HEAD), {});
+    });
+  }
+}
+test('malformed marker edit revokes all lenses; untrusted event cannot revoke', async () => {
+  const api = eventAPI(), event = deletion(marker());
+  event.comment.body = '```panel-verdict malformed';
+  await revokeEvent(api, event);
+  assert.deepEqual(Object.keys(await revocations(api, 1, HEAD)), ['principal', 'architect', 'qa']);
+  event.comment.user.id = 666;
+  await revokeEvent(api, event);
+  assert.equal(api.records.length, 3);
+});
+test('revocation ledger failure cannot publish success', async () => {
+  const api = fakeAPI(), pages = api.pages.bind(api);
+  api.pages = async path => {
+    if (path === `commits/${policy.revocationAnchor}/statuses`) throw new Error('ledger unavailable');
+    return pages(path);
+  };
+  await assert.rejects(() => verify(api, 1), /ledger unavailable/);
+  assert.equal(api.statuses.at(-1).state, 'failure');
+});
+for (const fault of ['newRun', 'newAttemptGreen', 'jobFailed', 'jobReplaced', 'newRevocation', 'ledgerError']) {
+  test(`mid-verification ${fault} never publishes success`, async () => {
+    const api = fakeAPI(), pages = api.pages.bind(api), call = api.call.bind(api);
+    let runLists = 0, ledgerReads = 0;
+    api.pages = async path => {
+      if (path === `commits/${policy.revocationAnchor}/statuses` && ++ledgerReads > 1) {
+        if (fault === 'ledgerError') throw new Error('ledger unavailable');
+        if (fault === 'newRevocation') return [{context: 'panel/revoked/pr-1', description: 'principal:10', created_at: '2026-10-12T00:00:00Z'}];
+      }
+      const result = await pages(path);
+      if (path.startsWith('actions/runs?')) {
+        runLists++;
+        if (runLists > 1 && fault === 'newRun') return [...result, {...result[0], id: 99}];
+      }
+      if (path.includes('/jobs') && runLists > 1) {
+        if (fault === 'jobFailed') return result.map((j, i) => i ? j : {...j, conclusion: 'failure'});
+        if (fault === 'jobReplaced') return result.map((j, i) => ({...j, id: i + 100}));
+      }
+      return result;
+    };
+    api.call = async (path, method, data) => {
+      if (path === 'actions/runs/99') return {id: 99, status: 'in_progress', conclusion: null};
+      const result = await call(path, method, data);
+      return path.startsWith('actions/runs/') && runLists > 1 && fault === 'newAttemptGreen' ? {...result, run_attempt: 3} : result;
+    };
+    await assert.rejects(() => verify(api, 1));
+    assert.equal(api.statuses.at(-1).state, 'failure');
+  });
+}
+for (const path of ['action.yml', 'action/run-saboteur', 'integration', '.saboteur.yml']) {
+  test(`CI oracle protected: ${path}`, async () => {
+    assert(policy.protectedFiles.includes(path));
+    const api = fakeAPI(), call = api.call.bind(api);
+    api.call = async (p, method, data) => p === `contents/${path}?ref=${HEAD}` ? {sha: HEAD} : call(p, method, data);
+    await assert.rejects(() => verify(api, 1), /protected policy changed/);
+  });
+}
+
+test('revocation write/read errors revoke current head before stopping event handler', async () => {
+  for (const fault of ['comments', 'write']) {
+    const api = eventAPI(), call = api.call.bind(api), pages = api.pages.bind(api);
+    api.call = async (path, method, data) => {
+      if (fault === 'write' && method === 'POST' && data.context.startsWith('panel/revoked/')) throw new Error('ledger write error');
+      return call(path, method, data);
+    };
+    api.pages = async path => {
+      if (fault === 'comments' && path === 'issues/1/comments') throw new Error('comments unavailable');
+      return pages(path);
+    };
+    await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE}))));
+    assert.equal(api.statuses[0].context, policy.context);
+    assert.equal(api.statuses[0].state, 'failure');
+  }
+});
+test('multiple revocations retain highest ID and epoch regardless of API order', async () => {
+  const api = eventAPI();
+  api.records.push({context: 'panel/revoked/pr-1', description: 'principal:20', created_at: '2026-10-12T00:00:00Z'},
+    {context: 'panel/revoked/pr-1', description: 'principal:10', created_at: '2026-10-13T00:00:00Z'});
+  assert.deepEqual(await revocations(api, 1, HEAD), {principal: {id: 20, epoch: Date.parse('2026-10-13T00:00:00Z')}});
+});
+test('invalid ledger record fails closed, never silently drops revocation', async () => {
+  const api = eventAPI(); api.records.push({context: 'panel/revoked/pr-1', description: 'principal:10'});
+  await assert.rejects(() => verify(api, 1), /invalid revocation record/);
+  assert.equal(api.statuses.at(-1).state, 'failure');
 });
