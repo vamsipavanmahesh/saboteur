@@ -21,6 +21,7 @@ module Saboteur
       BYTE_BUDGET = 8 * 1024
       FINDING_LIMIT = 3
       SNIPPET_LIMITS = [200, 80, 0].freeze
+      MAX_NUMBER_DIGITS = 20
       WARNING_LIMIT = 3
       WARNING_LENGTH = 160
 
@@ -32,7 +33,7 @@ module Saboteur
       # Where a verdict comes from: the exact selection and the state of the working
       # source before the run started. subjects, tests and sources are arrays.
       Provenance = Data.define(:ref, :seed, :head, :working_tree, :changed_files, :mode, :json_report, :subjects,
-                               :tests, :sources, :config_path, :digest, :cache, :incremental)
+                               :tests, :sources, :config_path, :digest, :cache, :incremental, :settings)
 
       class << self
         def call(report, provenance)
@@ -63,7 +64,15 @@ module Saboteur
               return payload if render(payload).bytesize <= BYTE_BUDGET
             end
           end
-          minimal(report, provenance)
+          bounded_last_resort(report, provenance)
+        end
+
+        # The minimal payload, or four fixed keys when even that is over the budget.
+        def bounded_last_resort(report, provenance)
+          small = minimal(report, provenance)
+          return small if render(small).bytesize <= BYTE_BUDGET
+
+          small.slice(:version, :status, :verdict, :exitCode).merge(truncated: true)
         end
 
         # The last resort: fixed keys and short clipped values, so it always fits.
