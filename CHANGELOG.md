@@ -9,6 +9,9 @@ All notable changes are documented here. The format follows
 ### Added
 - A survivor lists the first five tests that covered its line and still passed
   with the mutant applied, in the terminal and the HTML page.
+- In diff mode (`--since`), each survivor names the changed line it relates to
+  (`changed line: path:N` in the terminal, `changedLines` in each JSON finding),
+  because a multi-line statement is reported at its first line.
 
 ## [0.3.0] - 2026-10-11
 
