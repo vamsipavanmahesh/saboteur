@@ -41,7 +41,7 @@ go through the watchdog, one at a time (see "Safety rules").
 
 ## Next up (ordered)
 
-- [ ] Benchmark (bench/compare/BRIEF.md): Phase 0 done (bench/compare/phase0-candidates.md); pick:
+- [ ] Benchmark (bench/compare/BRIEF.md): Phase 0 done; pick:
       rubyforgood/human-essentials at d6f8290 (MIT, Postgres, needs Ruby 3.4). Saboteur-only
       measurements until mutant licence question is resolved.
 
