@@ -130,3 +130,7 @@
   mutation: bd07c16b6d849639
   reason: 'equivalent: git quotes a whole path, so a path that starts with a quote
     also ends with one'
+- subject: Saboteur::Report#majority_errored?
+  mutation: 6b4e7009a196f437
+  reason: 'equivalent: with nothing executed the count is 0 and 0.fdiv(0) is
+    NaN, which is not > 0.5 either'
