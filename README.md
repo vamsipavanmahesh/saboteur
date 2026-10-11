@@ -39,6 +39,12 @@ RSpec order at the run seed. A failure exits 3, stops mutation and names the log
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
 need a rerun before they describe this extra fixed cost.
+A whole-suite coverage build that records no lines for any included file
+means the setup hid the app from Coverage (Bootsnap's compile cache is the
+common cause), so the run fails with exit 3 instead of testing nothing, and
+the empty map is not cached. With `--test` an empty map instead stays a
+legitimate "no coverage" outcome, because the chosen specs may not touch the
+selected sources.
 Two passes detect observed instability, not every possible flaky test. See
 [baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
 
@@ -167,7 +173,14 @@ unchanged. It cannot see a change in a method this one calls, so run without
 it now and then (and in CI on the main branch).
 
 Output: counts per status, the score, timing, and a unified diff for every
-survivor. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
+survivor. Under each diff the terminal lists the tests that covered that line
+and still passed with the mutant applied (the first five, likeliest killers
+first; the rest are under `coveredBy` in the JSON report). The missing
+check may belong in one of them. Line coverage can overstate which tests
+exercise a line, so treat the list as a lead. A survivor reused with
+`--incremental` was not run again, and the list says its tests passed in an
+earlier run. The HTML page shows the same list in the
+survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `json_report` / `html_report` in
 `.saboteur.yml`; set either to `null` to turn that report off. The two paths
@@ -255,6 +268,15 @@ coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
 own process when the variable is not already set (Bootsnap treats any set
 value as off) and runs the eager load with Coverage active. App code is seen
 by Coverage with the app unchanged.
+
+With `jobs: 4` (or more), each extra worker gets a copy of every test
+database, named `<database>_saboteur2` and up, made with
+`CREATE DATABASE ... TEMPLATE` on Postgres or a file copy on SQLite.
+saboteur drops the copies when the run ends, on a best-effort basis: a
+drop that fails is reported as a warning and never changes the run's
+outcome. A copy left behind - by a failed drop or a killed run - is
+reclaimed by the next run, whose prepare starts from
+`DROP DATABASE IF EXISTS`. MySQL is not supported for `jobs` above 1.
 
 ### Skipped subjects and the mutant cap
 
