@@ -15,6 +15,9 @@ module Saboteur
     class Rails
       LOCAL_HOSTS = ["localhost", "127.0.0.1", "::1", "[::1]"].freeze
 
+      # How many blocking session names the template-copy error lists.
+      MAX_BLOCKER_NAMES = 5
+
       def initialize(config, hooks)
         @config = config
         @hooks = hooks
@@ -162,11 +165,28 @@ module Saboteur
         admin.establish_connection(db.configuration_hash.merge(database: "postgres"))
         admin.connection_pool.with_connection do |connection|
           connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
+          refuse_busy_template(connection, db.database)
           connection.execute("CREATE DATABASE #{connection.quote_table_name(name)} " \
                              "TEMPLATE #{connection.quote_table_name(db.database)}")
         end
       ensure
         admin&.remove_connection
+      end
+
+      # Postgres refuses CREATE DATABASE ... TEMPLATE while any other session
+      # is connected to the template, so name the blockers instead of dying
+      # mid-run with the raw error. Never terminates other sessions.
+      def refuse_busy_template(connection, database)
+        blockers = connection.select_values(<<~SQL)
+          SELECT application_name FROM pg_stat_activity
+          WHERE datname = #{connection.quote(database)} AND pid <> pg_backend_pid()
+        SQL
+        return if blockers.empty?
+
+        names = blockers.map { |app| app.to_s.empty? ? "unnamed" : app }.first(MAX_BLOCKER_NAMES)
+        raise Error, "cannot copy the test database #{database}: #{blockers.size} other session(s) connected " \
+                     "(#{names.join(', ')})#{', ...' if blockers.size > names.size}. " \
+                     "Stop other test runs, consoles or Spring, then run saboteur again."
       end
 
       # ActiveRecord names a connection's owner by class name, so the class

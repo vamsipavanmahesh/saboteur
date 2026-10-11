@@ -74,11 +74,18 @@ RSpec.describe Saboteur::Frameworks::Rails do
 
     # A stand-in for ActiveRecord::Base that logs which class connects where
     # and what SQL runs.
-    def fake_base(db)
-      calls = log
+    def fake_connection(calls, template_sessions)
       connection = Object.new
       connection.define_singleton_method(:quote_table_name) { |name| %("#{name}") }
+      connection.define_singleton_method(:quote) { |value| "'#{value}'" }
       connection.define_singleton_method(:execute) { |sql| calls << sql }
+      connection.define_singleton_method(:select_values) { |*| template_sessions }
+      connection
+    end
+
+    def fake_base(db, template_sessions: [])
+      calls = log
+      connection = fake_connection(calls, template_sessions)
       pool = Object.new
       pool.define_singleton_method(:with_connection) { |&block| block.call(connection) }
       Class.new.tap do |base|
@@ -105,6 +112,36 @@ RSpec.describe Saboteur::Frameworks::Rails do
       rails.prepare_workers(2)
       expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"',
                          'CREATE DATABASE "app_test_saboteur2" TEMPLATE "app_test"', :removed])
+    end
+
+    # Postgres refuses CREATE DATABASE ... TEMPLATE while any other session
+    # is connected to the template (field report, issue 7); name the
+    # blockers instead of dying mid-run with the raw error.
+    it "names the sessions blocking the template copy instead of failing mid-run" do
+      stub_const("ActiveRecord::Base",
+                 fake_base(fake_pool(:writing).db_config, template_sessions: ["psql", ""]))
+      expect { rails.prepare_workers(2) }.to raise_error(
+        Saboteur::Error,
+        "cannot copy the test database app_test: 2 other session(s) connected (psql, unnamed). " \
+        "Stop other test runs, consoles or Spring, then run saboteur again."
+      )
+      expect(log).not_to include('CREATE DATABASE "app_test_saboteur2" TEMPLATE "app_test"')
+    end
+
+    # pg_stat_activity.application_name can be NULL (older servers, some
+    # drivers) as well as empty.
+    it "treats a NULL application name as unnamed" do
+      stub_const("ActiveRecord::Base",
+                 fake_base(fake_pool(:writing).db_config, template_sessions: [nil]))
+      expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /1 other session.*unnamed/)
+    end
+
+    it "bounds the number of session names in the error" do
+      stub_const("ActiveRecord::Base",
+                 fake_base(fake_pool(:writing).db_config, template_sessions: %w[a b c d e f g]))
+      expect { rails.prepare_workers(2) }.to raise_error(
+        Saboteur::Error, /7 other session.*connected \(a, b, c, d, e\), \.\.\./
+      )
     end
   end
 
