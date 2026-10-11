@@ -28,6 +28,7 @@ module Saboteur
       @out = out
       @err = err
       @options = {}
+      @format = "agent" if agent_requested?
     end
 
     def call
@@ -36,6 +37,7 @@ module Saboteur
       when "doctor" then help_requested? ? show_help("doctor") : doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help" then show_help(@argv.shift)
+      when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
       when "--help", "-h" then show_help(nil)
       else usage_error
       end
@@ -88,28 +90,56 @@ module Saboteur
     def usage_error(message = nil)
       @err.puts(message) if message
       @err.puts(USAGE)
-      EXIT_USAGE
+      agent_failure(message || USAGE, EXIT_USAGE)
+    end
+
+    def agent?
+      @format == "agent"
+    end
+
+    # Found before parsing, so any error, even a bad option that comes first, still
+    # answers an agent with JSON.
+    def agent_requested?
+      @argv.include?("--agent") || @argv.include?("--format=agent") ||
+        @argv.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }
+    end
+
+    # In agent mode the failure is also on stdout, where the agent reads its answer.
+    def agent_failure(message, exit_code)
+      @out.print(Reporter::Agent.render(Reporter::Agent.failure(message, exit_code))) if agent?
+      exit_code
     end
 
     def run
       parser.parse!(@argv)
       use_explicit_sources
+      reject_threshold_with_agent_format
 
       arguments = { err: @err }
       arguments[:digest] = options[:id] if options[:id]
-      report = Engine.new(config, **arguments).call
+      agent? ? agent_run(arguments) : text_run(Engine.new(config, **arguments).call)
+    rescue ConfigError => e
+      @err.puts("saboteur: #{e.message}")
+      agent_failure(e.message, EXIT_USAGE)
+    rescue Error => e
+      @err.puts("saboteur: #{e.message}")
+      agent_failure(e.message, EXIT_TOOL)
+    end
+
+    # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
+    def reject_threshold_with_agent_format
+      return unless agent? && config["threshold"]
+
+      raise UsageError, "--threshold cannot be combined with --agent: agent mode exits 0 only for a complete, clean run"
+    end
+
+    def text_run(report)
       @err.puts
       Reporter::Terminal.new(@out).call(report)
       Reporter::Replay.new(@out).call(report) if options[:id]
       write_json(report)
       write_html(report)
       exit_code(report)
-    rescue ConfigError => e
-      @err.puts("saboteur: #{e.message}")
-      EXIT_USAGE
-    rescue Error => e
-      @err.puts("saboteur: #{e.message}")
-      EXIT_TOOL
     end
 
     def doctor
@@ -126,9 +156,6 @@ module Saboteur
       EXIT_TOOL
     end
 
-<<<<<<< HEAD
-    def write_json(report)
-=======
     # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
     # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
     def agent_run(arguments)
@@ -179,20 +206,19 @@ module Saboteur
     end
 
     def write_json(report, announce: true)
->>>>>>> Bound the agent seed and add a last-resort payload; record CLI settings in rerun commands
       path = config.path("json_report")
       return unless path
 
       Reporter::Stryker.new(path).call(report)
-      @out.puts "\nJSON report: #{path}"
+      @out.puts "\nJSON report: #{path}" if announce
     end
 
-    def write_html(report)
+    def write_html(report, announce: true)
       path = config.path("html_report")
       return unless path
 
       Reporter::Html.new(path).call(report)
-      @out.puts "HTML report: #{path}"
+      @out.puts "HTML report: #{path}" if announce
     end
 
     def exit_code(report)
@@ -240,6 +266,7 @@ module Saboteur
       raise UsageError, "--test needs at least one source file" if options[:tests] && @argv.empty?
       return if @argv.empty?
 
+      @sources = @argv.dup
       options[:include] = @argv.map { |source| source_pattern(source) }
       options[:exclude] = []
       options[:tests]&.each { |test| require_existing_test(test) }
@@ -290,6 +317,9 @@ module Saboteur
     def define_output_options(opts)
       opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
       opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
+      opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
+                                                 "strict exit codes") { |v| @format = v }
+      opts.on("--agent", "Same as --format agent") { @format = "agent" }
     end
 
     def define_explicit_file_options(opts)
@@ -309,4 +339,4 @@ module Saboteur
       options[key] = value
     end
   end
-  end
+end
