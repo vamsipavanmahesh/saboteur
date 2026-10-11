@@ -22,7 +22,12 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
   end
 
   it "falls back to the first backtrace frame for an unnamed thread" do
-    unnamed = Thread.new { sleep }
+    ready = Queue.new
+    unnamed = Thread.new do
+      ready << true
+      sleep
+    end
+    ready.pop
     engine.send(:warn_about_threads)
     expect(warnings.last).to include("thread_warning_spec.rb")
   ensure
@@ -31,7 +36,7 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
   end
 
   it "says nothing when no other thread is alive" do
-    Thread.list.reject { |thread| thread == Thread.current }.each(&:kill)
+    allow(Thread).to receive(:list).and_return([Thread.current])
     engine.send(:warn_about_threads)
     expect(warnings).to be_empty
   end
