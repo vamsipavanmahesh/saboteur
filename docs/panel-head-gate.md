@@ -54,8 +54,13 @@ Any malformed trusted marker fails the gate, even when older than a valid one.
 Untrusted publishers cannot approve or revoke. Lens-specific publisher IDs are
 allowlisted in `script/panel-gate/policy.json`; names alone are not identities.
 An edited older blocking verdict takes precedence by update time. Editing or
-deleting a marker produces a persistent deletion tombstone on its SHA and requires a new
-comment with a higher ID for that lens. Editing/deleting a malformed marker requires
+deleting a marker records a persistent PR-scoped revocation on the fixed trusted-main
+commit anchor in policy. It applies across head pushes, including removal of a
+stale-head blocker. A replacement must be a new comment with an ID above the
+observed comment high-water mark AND a creation time strictly after GitHub
+recorded the revocation. Same-second comments fail conservatively; publish again
+in a later second. Editing or restoring an older comment cannot clear revocation.
+Editing/deleting a malformed marker requires
 fresh comments for all lenses. Do not edit/delete review history; publish a new
 superseding verdict. Tombstones remain even if the deleted marker is restored.
 
@@ -72,13 +77,18 @@ comments/commits/jobs/runs, and posts `panel/head-gate` on the actual PR head.
 API errors fail closed; if it cannot publish a result, a missing/pending gate
 is not approval. Protected paths include the entire workflow directory (including additions),
 CI, DCO, verifier, policy, tests,
-integration harness and the mutation ignore file.
+Action manifest/launcher, integration manifest/configs, mutation config and ignore file.
 
 CI's pull_request workflow is allowed to execute untrusted code with read-only
 permissions. The trusted verifier never executes that code. A completed CI run
 must match the exact head, PR number, repository and workflow path, with exactly
 12 expected successful jobs; DCO must have exactly one successful signoff job.
-Newest run ID and its latest attempt win. Skipped/neutral jobs do not pass.
+Newest run ID and its latest attempt win. Immediately before success, the verifier
+reselects the newest required runs, refreshes their latest attempts and checks
+all jobs again. Run IDs, attempts, job IDs and green conclusions must match
+the initial validation. It also rereads the PR-scoped revocation ledger; any
+change during verification fails conservatively, even if new approvals exist.
+Skipped/neutral jobs do not pass.
 DCO is also checked from commit metadata, with exact author-matching trailer
 lines; the existing policy exempts merge commits.
 
@@ -93,11 +103,20 @@ which historical merge candidate a run tested.
   cryptographic or three-person attestation. Same-account lenses share trust.
 - GitHub comment/rerun events and status updates are asynchronous. A prior
   success can remain visible until revocation is processed. Concurrency is
-  serialized and every wake sweeps all open main PRs, but GitHub can replace a
-  pending run. An edit/deletion event lost before its tombstone is written
+  serialized with `queue: max` (up to 100 pending runs), and every wake sweeps
+  all open main PRs. Queue overflow cancels additional runs. The default
+  single pending slot is deliberately not used: it replaces older queued events.
+  An edit/deletion event lost before its tombstone is written
   cannot be recovered from the comments API. Never delete verdicts; supersede
   with CHANGES_REQUIRED, wait for the failing gate, and only merge after a fresh
-  completed gate. The website merge lane must check newest comments as well.
+  completed gate. The website merge lane must check newest comments, required run IDs/latest
+  attempts/jobs and fresh gate completion as well. GitHub offers no atomic
+  snapshot or compare-and-set across these APIs: a rerun, comment edit/deletion,
+  push or revocation can occur after the final reads but before the success
+  POST (or after it). Rechecks narrow this window; they do not eliminate it.
+  The fixed ledger anchor must remain unchanged across normal policy updates;
+  replacing it requires an explicit migration, not clearing review history.
+  Status-history pagination limits and ledger API failures fail closed.
 - An administrator can change rules/settings. Other write-capable workflows or
   credentials could spoof the same commit-status context. Requiring all 13
   native GitHub Actions checks helps, but Actions source binding does not
@@ -198,6 +217,10 @@ Tests cover spoofed/short/stale SHAs, malformed/noncanonical/duplicate markers,
 wrong publishers, wrong lenses, latest blockers and edited older blockers,
 deletions/tombstones, skipped/neutral/duplicate/missing jobs, DCO mismatches,
 wrong run head, changed policy, stale main and a head change during verification.
+Regression tests cover low-ID edited blockers, stale-head edits/deletions through
+the event handler, cross-head/PR-scoped persistence, same-second cutoffs, reruns
+becoming pending, newer runs/green attempts, failing/replaced jobs, new revocations
+and ledger failures during the final recheck. CI oracle path changes fail closed.
 
 ## Sources
 
@@ -208,3 +231,6 @@ wrong run head, changed policy, stale main and a head change during verification
 - https://docs.github.com/en/pull-requests/concepts/deploying-code
 - https://docs.github.com/en/rest/actions/workflow-runs
 - https://docs.github.com/en/rest/commits/statuses
+
+
+Concurrency queue behavior: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency
