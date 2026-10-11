@@ -211,6 +211,7 @@ cold caches.</p>
   </tbody>
 </table>
 </div>
+<p>The saboteur memory figures in this table were measured before the fork-memory work. Result 6 below has the paired before and after on hashie.</p>
 <p>One mutineer run is unexplained: hashie with 1 worker took 2,640 s, against 34.9 s with 6 workers. It needs a
 repeat and is left out of the verdict. CI cost is small for both: at GitHub's $0.006 per minute for a standard
 Linux runner (<a href="https://docs.github.com/en/billing/reference/actions-runner-pricing">source</a>), each run
@@ -246,6 +247,32 @@ type can produce.</p>
   </tbody>
 </table>
 </div>
+
+<h2>Result 6: memory after the fork-sharing change (hashie)</h2>
+<p class="finding">Peak PSS dropped about 17-18% with 2 or more workers; verdicts did not change.</p>
+<p>Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with AB/BA alternation and cold caches, on a 2 vCPU / 2 GB shared sandbox. Peak memory is per-process-tree PSS from /proc/smaps_rollup sampled at 0.3s. Verdict parity: <strong>0 verdict differences in 23,700 mutant outcomes</strong> (1,580 mutants x 15 pairs); kill reasons (assertion vs crash class) vary run to run on both variants, as before.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>jobs</th><th>peak PSS baseline (median, range)</th><th>peak PSS PR (median, range)</th><th>shared-memory delta</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>101 MB (101-101)</td><td>100 MB (100-102)</td><td>~0 (no workers to share with)</td></tr>
+    <tr><td>2</td><td>133 MB (116-134)</td><td>109 MB (106-121)</td><td>-18%</td></tr>
+    <tr><td>6</td><td>235 MB (192-269)</td><td>196 MB (175-201)</td><td>-17%</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On machines running many parallel workers this is the difference that keeps the box out of swap.</p>
+<p>Wall time on uncontended runs: 30-36s for both variants at every job level (no regression; per-cell minimums 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6, PR first). The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
+<h3>Environment and method</h3>
+<ul>
+  <li>Candidate: saboteur at d2b7abb336eae53ec8cd5a71c111f9daef66218a (merge of PR #4, "Pack the heap at fork boundaries"). Baseline: 32c0f21bdcbc059ac5938ae7630eb117442cd5fc, the first code-change ancestor; 32c0f21..d2b7abb^ is doc-only (AGENTS.md, docs/status.md).</li>
+  <li>Target: intridea/hashie at 9c81e8340d6b69940e14d8411f34a3efd7a6aa24 (261 subjects, 719 tests, 1,580 mutants).</li>
+  <li>Hardware: shared CI sandbox, 2 vCPU (x86_64), 2 GB RAM, Ubuntu 22.04.5, Ruby 3.4.3 (+PRISM). Absolute wall times are sandbox-specific; only same-box paired ratios are meaningful.</li>
+  <li>30 runs: jobs in {1,2,6} x {baseline, candidate} x 5 pairs, AB/BA alternation (odd pairs baseline-first, even pairs candidate-first), serial under flock, cold cache (<code>rm -rf .saboteur</code>) per run.</li>
+  <li>Memory sampled every 0.3s across the whole process tree from /proc: RSS from status, PSS from smaps_rollup (falls back to RSS when unreadable). Peak over the run is reported. Wall is end-to-end run_one duration including the coverage-map build.</li>
+</ul>
+<h3>Host contention</h3>
+<p>The sandbox shares CPU with other tenants. Starvation windows show in the sampler cadence (healthy 0.3s per sample; starved over 1s per sample). Runs flagged contended (wall inflated, memory peaks unaffected): hashie-j2-baseline-1 (83s, borderline cadence 0.94s), hashie-j6-baseline-1 (273s), hashie-j1-candidate-2 (279s), hashie-j2-candidate-2 (261s), hashie-j6-candidate-2 (251s), hashie-j1-baseline-3 (292s), hashie-j1-candidate-3 (282s), hashie-j2-candidate-3 (275s), hashie-j6-candidate-3 (267s), hashie-j2-candidate-4 (580s), hashie-j6-candidate-4 (571s), hashie-j1-baseline-5 (594s), hashie-j1-candidate-5 (288s), hashie-j2-candidate-5 (268s), hashie-j6-candidate-5 (264s). Contended windows hit baseline and candidate slots both (order-bound, not variant-bound). Wall analysis uses clean runs and per-cell minimums; PSS and RSS peaks are valid in all windows.</p>
 
 <h2>Features compared</h2>
 <div class="table-wrap">

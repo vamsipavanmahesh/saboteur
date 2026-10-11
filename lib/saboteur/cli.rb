@@ -3,12 +3,16 @@
 
 require "optparse"
 require_relative "../saboteur"
+require_relative "doctor"
+require_relative "help"
 require_relative "reporter/replay"
 
 module Saboteur
   class CLI
-    USAGE = "Usage: saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] " \
-            "[--jobs N] [--seed N] [--id DIGEST]"
+    USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
+            "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
+" \
+            "Run 'saboteur help' for every command, option, config key and exit code."
 
     EXIT_OK = 0
     EXIT_SURVIVORS = 1
@@ -28,8 +32,11 @@ module Saboteur
 
     def call
       case @argv.shift
-      when "run" then run
+      when "run" then help_requested? ? show_help("run") : run
+      when "doctor" then help_requested? ? show_help("doctor") : doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
+      when "help" then show_help(@argv.shift)
+      when "--help", "-h" then show_help(nil)
       else usage_error
       end
     rescue OptionParser::ParseError => e
@@ -40,7 +47,43 @@ module Saboteur
       @config ||= Config.load(root: Dir.pwd, path: options[:config], overrides: overrides)
     end
 
+    def parser
+      OptionParser.new do |opts|
+        opts.banner = USAGE
+        define_selection_options(opts)
+        define_explicit_file_options(opts)
+        define_execution_options(opts)
+        define_output_options(opts)
+      end
+    end
+
+    # Each command's own option lines, as printed under OPTIONS in `saboteur help`.
+    def option_lines
+      { "run" => parser.summarize, "doctor" => doctor_parser.summarize }
+    end
+
+    def doctor_parser
+      OptionParser.new do |opts|
+        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N]"
+        opts.on("--config PATH", "Config file (default .saboteur.yml)") { |value| set(:config, value) }
+        opts.on("--seed N", Integer, "Seed for the two baseline runs (default 1)") { |value| set(:seed, value) }
+      end
+    end
+
     private
+
+    def help_requested?
+      @argv.intersect?(%w[--help -h])
+    end
+
+    def show_help(command_name)
+      help = Help.new(option_lines: option_lines)
+      text = command_name ? help.command(command_name) : help.overview
+      return @out.puts(text) || EXIT_OK if text
+
+      @err.puts("unknown command: #{command_name}. Commands: #{help.command_names.join(', ')}")
+      EXIT_USAGE
+    end
 
     def usage_error(message = nil)
       @err.puts(message) if message
@@ -50,7 +93,7 @@ module Saboteur
 
     def run
       parser.parse!(@argv)
-      raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
+      use_explicit_sources
 
       arguments = { err: @err }
       arguments[:digest] = options[:id] if options[:id]
@@ -61,6 +104,20 @@ module Saboteur
       write_json(report)
       write_html(report)
       exit_code(report)
+    rescue ConfigError => e
+      @err.puts("saboteur: #{e.message}")
+      EXIT_USAGE
+    rescue Error => e
+      @err.puts("saboteur: #{e.message}")
+      EXIT_TOOL
+    end
+
+    def doctor
+      doctor_parser.parse!(@argv)
+      raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
+
+      Doctor.new(config, out: @out).call
+      EXIT_OK
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
       EXIT_USAGE
@@ -89,20 +146,73 @@ module Saboteur
       executed = report.executed
       return EXIT_TOOL if executed.any? && executed.all? { |result| result.status == :error }
 
-      report.unignored_survivors.any? ? EXIT_SURVIVORS : EXIT_OK
+      return EXIT_TOOL if incomplete_under_threshold?(report)
+
+      failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
+    end
+
+    # With --threshold the score decides; without it any unignored survivor does.
+    def failed_quality_gate?(report)
+      threshold = config["threshold"]
+      return report.unignored_survivors.any? if threshold.nil?
+
+      score = report.score
+      return missing_score_reported? if score.nil?
+
+      score * 100 < threshold
+    end
+
+    # A gate that cannot measure a score must not pass: CI would go green
+    # on a run that tested nothing.
+    def missing_score_reported?
+      @err.puts("saboteur: no mutant was tested, so there is no score to compare with --threshold")
+      true
+    end
+
+    # Errors and resource limits are outside the score. With a threshold they
+    # make the run incomplete, so the score alone cannot pass it.
+    def incomplete_under_threshold?(report)
+      return false if config["threshold"].nil?
+
+      count = report.counts.values_at(:error, :resource_limit).sum
+      @err.puts("saboteur: #{count} mutant(s) errored or hit a resource limit, so the score is incomplete") if
+        count.positive?
+      count.positive?
+    end
+
+    # Positional arguments name the files (or directories) to mutate. They
+    # replace the configured include and exclude patterns. Each must exist,
+    # so a typo is an error and not a run over zero subjects.
+    def use_explicit_sources
+      raise UsageError, "--test needs at least one source file" if options[:tests] && @argv.empty?
+      return if @argv.empty?
+
+      options[:include] = @argv.map { |source| source_pattern(source) }
+      options[:exclude] = []
+      options[:tests]&.each { |test| require_existing_test(test) }
+    end
+
+    def source_pattern(source)
+      return "#{glob_escape(source.chomp('/'))}/**/*.rb" if File.directory?(source)
+      raise UsageError, "source is not a Ruby file: #{source}" if File.file?(source) && !source.end_with?(".rb")
+      raise UsageError, "source file not found: #{source}" unless File.file?(source)
+
+      glob_escape(source)
+    end
+
+    # include is a list of glob patterns; a named file must match only itself.
+    def glob_escape(path)
+      path.gsub(/[\\*?\[\]{}]/) { |character| "\\#{character}" }
+    end
+
+    # A test may carry an example selector: spec/a_spec.rb:12 or spec/a_spec.rb[1:2].
+    def require_existing_test(test)
+      path = test.sub(/(:\d+|\[[\d:,]+\])+\z/, "")
+      raise UsageError, "test file not found: #{test}" unless File.exist?(path)
     end
 
     def overrides
       options.except(:config, :id)
-    end
-
-    def parser
-      OptionParser.new do |opts|
-        opts.banner = USAGE
-        define_selection_options(opts)
-        define_execution_options(opts)
-        define_output_options(opts)
-      end
     end
 
     def define_selection_options(opts)
@@ -127,6 +237,15 @@ module Saboteur
     def define_output_options(opts)
       opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
       opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
+    end
+
+    def define_explicit_file_options(opts)
+      opts.on("--test PATH", "Spec file or directory to run; repeatable. Replaces the configured spec paths") do |v|
+        (options[:tests] ||= []) << v
+      end
+      opts.on("--threshold PERCENT", Float, "Exit 1 when the score is below PERCENT (0-100)") do |v|
+        set(:threshold, v)
+      end
     end
 
     def add_subject(expr)

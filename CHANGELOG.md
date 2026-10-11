@@ -16,6 +16,13 @@ All notable changes are documented here. The format follows
 - `saboteur run --id DIGEST`: replay one exact current mutant with selected tests,
   independent of caps, coarse gating, ignore suppression and incremental reuse.
   Prints the mutation diff and selected test ids for every replay result.
+- Review findings in the JSON report (`saboteur.findings`,
+  `Saboteur::Reporter::Findings`): a bounded, deterministically ordered list
+  of survivors (coarse first, then file, line and digest) with the file,
+  line, digest, subject, operator, original and replacement a note on a
+  pull-request diff needs. Survivors accepted on the ignore list are listed
+  separately with their reason; `survivorsTruncated` counts the rest, which
+  stay in the full `files` data.
 - Self-contained HTML report (`Saboteur::Reporter::Html`): one file with inline
   style and no script or network use, written to `.saboteur/report.html`.
   Change the path with `--html PATH` or `html_report:`. It shows the score,
@@ -23,6 +30,21 @@ All notable changes are documented here. The format follows
 - A GitHub Action (`uses: vamsipavanmahesh/saboteur`) that runs diff mode on pull
   requests. Advisory by default, with a job summary, outputs and a cached
   coverage map. See `docs/github-action.md`.
+- Built-in `filter_replacement` mutants: `select` / `reject` and
+  `select!` / `reject!`, for explicit-receiver calls with a block and no ordinary
+  arguments. For unchanged subjects, existing mutants retain their digests and order.
+  Runs may now include more mutants and report a different score.
+- `saboteur doctor [--config PATH] [--seed N]`: environment checks and two fresh
+  unchanged-suite checks, without mutation reports or coverage/verdict cache writes.
+- `saboteur run SOURCE... --test TEST...`: mutate the named source files and
+  run only the named spec files or directories. Positional sources replace
+  `include` and `exclude`; `--test` replaces the spec paths in `rspec_args`.
+- `--threshold PERCENT` (and `threshold:` in `.saboteur.yml`): exit 1 when the
+  score is below PERCENT. The score decides the exit code instead of survivors.
+  It fails closed: no score exits 1, and errored or resource-limited mutants
+  exit 3.
+- Positional sources must exist (exit 2 otherwise), and the selected tests are
+  part of the coverage-map and `--incremental` cache keys.
 
 ## [0.2.0] - 2026-10-10
 

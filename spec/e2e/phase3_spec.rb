@@ -24,7 +24,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
 
     it "mutates only methods whose lines changed since the ref" do
       path = File.join(dir, "lib", "people.rb")
-      File.write(path, File.read(path).sub('"age ', '"aged '))
+      File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
       run = saboteur(dir, "--since", "HEAD")
       expect(subject_lines(run)).to eq([31])
       expect(run.out).to include("1 subjects")

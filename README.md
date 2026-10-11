@@ -29,6 +29,20 @@ fail?" for many small breakages and lists the ones nobody noticed. Read the
 [design notes](docs/design.md) when you want the details. For adopting it on a team, see the
 [best practices guide](docs/best-practices.md).
 
+### The unchanged suite is checked first
+
+Every run with selected subjects runs the entire unchanged suite twice in fresh
+supervised children before coverage lookup or incremental verdict reuse. This
+costs two suite runs even on a cache hit, plus a coverage-building suite run on
+a cache miss. Both baseline passes must be green, complete and in the same
+RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Each suite pass
+uses `coverage_timeout` and configured memory/process limits (the suite memory
+budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
+need a rerun before they describe this extra fixed cost.
+Two passes detect observed instability, not every possible flaky test. See
+[baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
+
+
 ## 🚀 Try it in a minute
 
 Add saboteur to the test group of your project's Gemfile (Ruby 3.3+, RSpec):
@@ -43,7 +57,9 @@ bundle exec saboteur run --subject 'YourClass#your_method'
 ```
 
 Outside a Bundler project, `gem install saboteur` installs the same executable.
-Rails apps need their boot file in `require:`; see Configuration below.
+Rails apps need a Rails block in `.saboteur.yml` (boot file, `app/**/*.rb`,
+`rails: true`); see [Rails apps](#rails-apps) below. The defaults are for plain
+gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
 
 Start with one method. You get counts per status, a score, timing, and a
 unified diff for every survivor, so you can read the exact change your tests
@@ -93,13 +109,32 @@ schema, and you can add your own mutants through a small public interface.
 
 ```sh
 bundle exec saboteur run                          # whole project
+bundle exec saboteur doctor --seed 42             # environment + two unchanged suite checks
 bundle exec saboteur run --since origin/main      # methods changed on this branch
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
 bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
+bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
+bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
 bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
 ```
+
+Positional operands name the sources to mutate: Ruby files, or directories
+(all their `.rb` files). Each must exist; a typo or a non-Ruby file exits 2
+before anything runs. They replace `include` and `exclude`. `--test`
+(repeatable; spec files or directories, with an optional `:LINE` or `[1:2]`
+selector; needs at least one source) replaces only the files RSpec runs. Other
+`rspec_args` and `.rspec` options such as `--require` stay. The coverage map
+is built from only those specs, each mutant runs only the ones that cover it,
+and the selection is part of the coverage and `--incremental` cache keys.
+
+`--threshold PERCENT` (0 to 100, or `threshold:` in `.saboteur.yml`) is for CI.
+The run exits 1 when the score is below PERCENT and 0 when it is at or above,
+even with survivors. It fails closed: a run that tested no mutant has no score
+and exits 1, and a run where any mutant errored or hit a resource limit exits 3,
+because the score covers only part of the run. Without a threshold, any
+unignored survivor exits 1.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
@@ -110,6 +145,11 @@ workflow recommendation, not a CLI default: plain `run` still checks the whole
 configured project. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
+
+`saboteur doctor` prints Ruby, coverage, integration, Rails/SimpleCov and boot-file
+checks, then runs the unchanged suite twice with the chosen seed. It writes no
+mutation reports or coverage/verdict caches. Target boot files and tests still
+run, so their normal side effects remain. See the [doctor guide](docs/guides/doctor.md).
 
 `--id` runs exactly one current mutant with its coverage-selected tests, bypassing
 per-method caps, coarse gating, ignore suppression and incremental verdict reuse.
@@ -137,8 +177,21 @@ out and keeps survivors accepted on the ignore list in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
-Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
-2 bad configuration, 3 the tool failed.
+For code-review surfaces, the JSON report also carries a `saboteur.findings`
+section: a bounded, deterministically ordered list of survivors, coarse
+mutants first (a surviving coarse mutant hints that no test pins the method's
+behavior - it can also be a re-evaluation limit or an equivalent mutant),
+then file, line and digest. Each finding holds the file, line, digest,
+subject, operator, original and replacement a note on a pull-request diff
+needs, plus one entry per edit for mutants that edit more than one spot.
+Survivors accepted on the ignore list are listed separately with their
+reason, and `survivorsTruncated` and `acceptedTruncated` count what the bound
+left out; the full data stays in the schema's `files` section.
+
+Exit codes: 0 no survivors (or all on the ignore list), or the score meets
+`--threshold`; 1 survivors, or the score is below `--threshold` or missing;
+2 bad configuration or a missing source or test; 3 the tool failed (with
+`--threshold`, also any errored or resource-limited mutant).
 
 ### Rejected kills
 
@@ -168,6 +221,20 @@ max_mutants_per_method: 100  # positive integer; raise it for a broader run
 ignore_file: .saboteur-ignore.yml
 seed: 1                     # Ruby's random seed in every test run
 ```
+
+### Rails apps
+
+The defaults target a plain gem, so a Rails app needs this in `.saboteur.yml`:
+
+```yaml
+include: [app/**/*.rb]
+require: [./config/environment]   # boots the app
+rails: true                       # reconnects ActiveRecord after fork, per-worker databases
+jobs: 4                           # optional; the default is 1
+```
+
+Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
+generator is planned; until then this block is the supported setup.
 
 ### Skipped subjects and the mutant cap
 
@@ -207,6 +274,34 @@ An entry without a reason is rejected.
 
 saboteur needs Ruby's `Coverage` for itself. Disable SimpleCov for the run
 (most projects already guard it with an environment variable).
+
+## Filter mutations
+
+The built-in source also swaps `select` / `reject` and `select!` / `reject!`.
+These catch a filter that keeps the items it should discard (or discards the
+items it should keep). For example, a command replacement should remove the
+old command, not keep only that command:
+
+```ruby
+commands.reject! { |name, _| name == replaced_name }
+# mutant: commands.select! { |name, _| name == replaced_name }
+```
+
+Only explicit-receiver calls with a block and no ordinary arguments are
+changed. A block passed as `&predicate` counts; safe navigation is preserved.
+`relation.select(:name)`, bare `select { ... }`, and `items.select` without a
+block are not changed. Arid statements and nested definitions remain skipped.
+Ruby dispatch is dynamic: a matching name does not prove the receiver is an
+Enumerable, and a custom receiver can make the replacement fail. No type or
+real-fault detection guarantee is made.
+
+These are fine mutants, appended after the existing built-in operators. For unchanged subjects, old
+mutant digests and relative order stay unchanged, but runs can produce more
+mutants, change their score, and hit the per-method cap. The operator and source
+name in reports is `filter_replacement`.
+
+See [the operator rationale](docs/filter-operators.md) for the Ruby fault used
+to choose this family and the limits of that evidence.
 
 ## Literal mutations
 
@@ -268,6 +363,34 @@ per-process RSS, which counts shared pages more than once, and it was measured
 before the fork-memory work. Read it as history, not a ranking of physical
 memory.
 
+### Memory after the fork-memory work (hashie @ 9c81e83)
+
+Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with
+AB/BA alternation and cold caches, on a 2 vCPU / 2 GB shared sandbox. Peak
+memory is per-process-tree PSS from /proc/smaps_rollup sampled at 0.3s. Verdict
+parity: **0 verdict differences in 23,700 mutant outcomes** (1,580 mutants x 15
+pairs); kill reasons (assertion vs crash class) vary run to run on both
+variants, as before.
+
+| jobs | peak PSS baseline (median, range) | peak PSS PR (median, range) | shared-memory delta |
+|------|-----------------------------------|-----------------------------|---------------------|
+| 1    | 101 MB (101-101)                  | 100 MB (100-102)            | ~0 (no workers to share with) |
+| 2    | 133 MB (116-134)                  | 109 MB (106-121)            | -18% |
+| 6    | 235 MB (192-269)                  | 196 MB (175-201)            | -17% |
+
+Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not
+touch less memory, it keeps more of it shared between workers after fork, which
+is what PSS measures. On machines running many parallel workers this is the
+difference that keeps the box out of swap.
+
+Wall time on uncontended runs: 30-36s for both variants at every job level (no
+regression; per-cell minimums 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s
+vs 32s at jobs=6, PR first). The shared sandbox had multi-minute CPU-starvation
+windows during this session (walls up to 594s); affected runs are flagged via
+sampler cadence and excluded from wall analysis. Absolute times are specific to
+this 2-core sandbox. Environment, method and the contention log are on the
+[benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
+
 ## 🗺️ Where it is going
 
 [ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
@@ -288,3 +411,4 @@ Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build s
 ## License
 
 MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
+

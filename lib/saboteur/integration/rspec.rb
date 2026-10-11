@@ -10,9 +10,9 @@ module Saboteur
       def setup
         require "rspec/core"
         ::RSpec::Core::Runner.disable_autorun!
-        options = ::RSpec::Core::ConfigurationOptions.new(rspec_args)
-        @runner = ::RSpec::Core::Runner.new(options)
+        @runner = ::RSpec::Core::Runner.new(configuration_options)
         @runner.setup($stderr, $stdout)
+        configuration.order = "rand:#{config.fetch('seed', 1)}"
         raise Error, "rspec quit while loading spec files" if world.wants_to_quit
       end
 
@@ -20,6 +20,16 @@ module Saboteur
       def rspec_args
         args = Array(config.fetch("rspec_args", []))
         args.any? { |arg| !arg.start_with?("-") } ? args : args + ["spec"]
+      end
+
+      # RSpec's own parser reads rspec_args and .rspec, so option values such
+      # as `--require path` stay intact. Explicit tests then replace only the
+      # files and directories to run.
+      def configuration_options
+        ::RSpec::Core::ConfigurationOptions.new(rspec_args).tap do |options|
+          explicit = Array(config.fetch("tests", []))
+          options.options[:files_or_directories_to_run] = explicit if explicit.any?
+        end
       end
 
       def all_tests
@@ -47,8 +57,19 @@ module Saboteur
       end
 
       def run_all(recorder)
+        configuration.order = "rand:#{config.fetch('seed', 1)}"
         configuration.fail_fast = false
         execute(Listener.new(recorder))
+      end
+
+      def run_baseline(seed:)
+        configuration.order = "rand:#{seed}"
+        configuration.fail_fast = false
+        listener = Listener.new
+        passed = execute(listener)
+        RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
+                      executed_ids: listener.executed, runtime: listener.runtime,
+                      failure_classes: listener.failure_classes, failure_messages: listener.failure_messages)
       end
 
       private

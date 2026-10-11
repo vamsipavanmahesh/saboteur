@@ -12,6 +12,15 @@ RSpec.describe Saboteur::Integration do
     expect { described_class.fetch(:cucumber) }.to raise_error(Saboteur::Error, /unknown integration/)
   end
 
+  it "provides an additive baseline fallback for existing adapters" do
+    adapter = described_class::Base.new({})
+    tests = [described_class::TestCase.new(id: "t1", file: "spec/a.rb")]
+    result = described_class::RunResult.new(passed: true, failed_ids: [], executed_ids: ["t1"], runtime: 0.1)
+    allow(adapter).to receive(:all_tests).and_return(tests)
+    expect(adapter).to receive(:run).with(["t1"]).and_return(result)
+    expect(adapter.run_baseline(seed: 42)).to equal(result)
+  end
+
   it "requires adapters to implement the contract" do
     adapter = described_class::Base.new({})
     %i[setup all_tests].each { |m| expect { adapter.public_send(m) }.to raise_error(NotImplementedError) }

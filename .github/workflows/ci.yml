@@ -11,6 +11,8 @@ permissions:
 jobs:
   test:
     name: Ruby ${{ matrix.ruby }} / ${{ matrix.os }}
+    # TEMPORARY: all cells on GitHub-hosted runners (parallel) for the 0.3.0 release window.
+    # Revert to the self-hosted Mac routing from #36 after the release.
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
