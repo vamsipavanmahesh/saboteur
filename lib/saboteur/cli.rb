@@ -4,12 +4,14 @@
 require "optparse"
 require_relative "../saboteur"
 require_relative "doctor"
+require_relative "help"
 require_relative "reporter/replay"
 
 module Saboteur
   class CLI
     USAGE = "Usage: saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] " \
-            "[--jobs N] [--seed N] [--id DIGEST]"
+            "[--jobs N] [--seed N] [--id DIGEST]\n" \
+            "Run 'saboteur help' for every command, option, config key and exit code."
 
     EXIT_OK = 0
     EXIT_SURVIVORS = 1
@@ -29,9 +31,11 @@ module Saboteur
 
     def call
       case @argv.shift
-      when "run" then run
-      when "doctor" then doctor
+      when "run" then help_requested? ? show_help("run") : run
+      when "doctor" then help_requested? ? show_help("doctor") : doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
+      when "help" then show_help(@argv.shift)
+      when "--help", "-h" then show_help(nil)
       else usage_error
       end
     rescue OptionParser::ParseError => e
@@ -42,7 +46,34 @@ module Saboteur
       @config ||= Config.load(root: Dir.pwd, path: options[:config], overrides: overrides)
     end
 
+    def parser
+      OptionParser.new do |opts|
+        opts.banner = USAGE
+        define_selection_options(opts)
+        define_execution_options(opts)
+        define_output_options(opts)
+      end
+    end
+
+    # The parser's option lines, as printed under OPTIONS in `saboteur help`.
+    def option_lines
+      parser.summarize
+    end
+
     private
+
+    def help_requested?
+      @argv.intersect?(%w[--help -h])
+    end
+
+    def show_help(command_name)
+      help = Help.new(option_lines: option_lines)
+      text = command_name ? help.command(command_name) : help.overview
+      return @out.puts(text) || EXIT_OK if text
+
+      @err.puts("unknown command: #{command_name}. Commands: #{help.command_names.join(', ')}")
+      EXIT_USAGE
+    end
 
     def usage_error(message = nil)
       @err.puts(message) if message
@@ -118,15 +149,6 @@ module Saboteur
 
     def overrides
       options.except(:config, :id)
-    end
-
-    def parser
-      OptionParser.new do |opts|
-        opts.banner = USAGE
-        define_selection_options(opts)
-        define_execution_options(opts)
-        define_output_options(opts)
-      end
     end
 
     def define_selection_options(opts)
