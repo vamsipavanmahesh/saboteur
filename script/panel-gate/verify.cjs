@@ -104,10 +104,29 @@ function intent(record, number) {
   }
   return null;
 }
-async function recoverRevocations(api, number, head) {
-  const [ledger, records] = await Promise.all([
-    api.pages(`commits/${policy.revocationAnchor}/statuses`), api.pages(`commits/${head}/statuses`)
+// Fast-forward pushes retain old heads as PR commits. Force-pushes may abandon
+// them, so every force-push creates a conservative all-lens freshness floor.
+async function prRevocationSources(api, number, head) {
+  const [commits, events] = await Promise.all([
+    api.pages(`pulls/${number}/commits`), api.pages(`issues/${number}/events`)
   ]);
+  const heads = [...new Set([head, ...commits.map(c => c.sha)])];
+  demand(heads.every(sha => SHA.test(sha)), 'invalid recovery commit SHA');
+  const records = (await Promise.all(heads.map(sha => api.pages(`commits/${sha}/statuses`)))).flat();
+  let forceEpoch = 0;
+  for (const event of events) {
+    if (event.event !== 'head_ref_force_pushed') continue;
+    const epoch = Date.parse(event.created_at);
+    demand(Number.isFinite(epoch), 'invalid force-push event epoch');
+    forceEpoch = Math.max(forceEpoch, epoch);
+  }
+  return {records, forceEpoch};
+}
+async function recoverRevocations(api, number, head) {
+  const [ledger, sources] = await Promise.all([
+    api.pages(`commits/${policy.revocationAnchor}/statuses`), prRevocationSources(api, number, head)
+  ]);
+  const records = sources.records;
   // Promote head-only latches before any pending/success can replace the display.
   // Preserve the original server epoch in the recovery record, not recovery time.
   for (const record of records) {
@@ -125,11 +144,14 @@ async function recoverRevocations(api, number, head) {
   }
 }
 async function revocations(api, number, head) {
-  const [ledger, legacy] = await Promise.all([
-    api.pages(`commits/${policy.revocationAnchor}/statuses`), api.pages(`commits/${head}/statuses`)
+  const [ledger, sources] = await Promise.all([
+    api.pages(`commits/${policy.revocationAnchor}/statuses`), prRevocationSources(api, number, head)
   ]);
   const revoked = {};
-  for (const record of [...ledger, ...legacy]) {
+  if (sources.forceEpoch) {
+    for (const lens of Object.keys(policy.reviewers)) revoked[lens] = {id: 0, epoch: sources.forceEpoch};
+  }
+  for (const record of [...ledger, ...sources.records]) {
     const latch = intent(record, number);
     const relevant = record.context === ledgerContext(number) || record.context === 'panel/deleted-verdict';
     if (!latch && !relevant) continue;
