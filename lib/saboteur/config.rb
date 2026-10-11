@@ -30,6 +30,7 @@ module Saboteur
       "reeval" => "nesting",
       "cache_dir" => ".saboteur",
       "json_report" => ".saboteur/report.json",
+      "html_report" => ".saboteur/report.html",
       "rspec_args" => [],
       "subjects" => [],
       "since" => nil,
