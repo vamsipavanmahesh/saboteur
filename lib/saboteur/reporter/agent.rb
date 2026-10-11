@@ -57,8 +57,8 @@ module Saboteur
         private
 
         def fit(report, provenance)
-          SNIPPET_LIMITS.each do |snippet_limit|
-            FINDING_LIMIT.downto(0) do |shown|
+          FINDING_LIMIT.downto(0) do |shown|
+            SNIPPET_LIMITS.each do |snippet_limit|
               payload = Summary.build(report, provenance, shown, snippet_limit)
               return payload if render(payload).bytesize <= BYTE_BUDGET
             end
@@ -68,7 +68,7 @@ module Saboteur
 
         # The last resort: fixed keys and short clipped values, so it always fits.
         def minimal(report, provenance)
-          small = Summary.build(report, provenance, 0, 0)
+          small = Summary.build(report, provenance, 0, SNIPPET_LIMITS.last)
           small.merge(warnings: [], next: {}, provenance: small[:provenance].slice(:seed, :workingTree, :mode),
                       incomplete: small[:incomplete].map { |reason| reason.slice(:reason, :count) })
         end
