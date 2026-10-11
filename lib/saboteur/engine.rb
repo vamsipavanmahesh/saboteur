@@ -59,7 +59,7 @@ module Saboteur
       lists = candidate_lists(subjects, scope)
       # The execution phase forks next: the worker batch, or one child per
       # mutant when serial. Pack the heap now that the map and candidates
-      # are retained, so those children share it instead of copying it.
+      # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
       results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
                                  cache: cache, on_start: method(:start_worker)).run(subjects, lists)
