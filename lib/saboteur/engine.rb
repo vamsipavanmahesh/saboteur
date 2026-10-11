@@ -50,10 +50,10 @@ module Saboteur
     end
 
     def mutate(subjects, files, integration, scope)
+      check_baseline(integration)
       map = CoverageStore.new(config: config, integration: integration, hooks: hooks,
                               supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics).fetch(files)
-      @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
-      warn_about_threads
+      inform_about_run(subjects, map)
       cache = result_cache
       scheduler = scheduler_for(map, integration, cache)
       lists = candidate_lists(subjects, scope, map)
@@ -70,6 +70,16 @@ module Saboteur
                                  cache: cache, on_start: method(:start_worker)).run(runnable_subjects, runnable_lists)
       cache&.save
       results
+    end
+
+    def inform_about_run(subjects, map)
+      @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
+      warn_about_threads
+    end
+
+    def check_baseline(integration)
+      BaselineGuard.new(config: config, integration: integration, hooks: hooks,
+                        supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics).call
     end
 
     def scheduler_for(map, integration, cache)
@@ -135,6 +145,7 @@ require_relative "engine/boot"
 require_relative "engine/subject_selection"
 require_relative "engine/suite_files"
 require_relative "engine/coverage_store"
+require_relative "engine/baseline_guard"
 require_relative "engine/candidates"
 require_relative "engine/candidate_selection"
 require_relative "engine/diff_scope"
