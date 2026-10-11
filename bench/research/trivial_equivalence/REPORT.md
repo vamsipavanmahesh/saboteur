@@ -106,9 +106,12 @@ the 72 had a fingerprint match.
 
 Limits: the full 1,645 hashie mutants were not run (400 sampled). No suite was
 run for saboteur or lobsters, so those rows are static counts only; the
-lobsters suite needs a database and services not provisioned here. Lobsters
-targets a newer Ruby than the pin, and 12 of its mutants failed to compile
-(counted as no match). Subject and parse accounting per workload is in
+lobsters suite needs a database and services not provisioned here. For lobsters, 12 mutated files failed to
+compile while their originals compiled (`mutated_compile_failed`; a spot check
+shows builtin edits such as `statement_removal` and `body_nil` breaking
+syntax inside multi-line expressions). They are counted as no match. The
+cause was not traced to the engine's own re-parse check, and the 12 are not a
+Ruby-version effect on the originals. Subject and parse accounting per workload is in
 `results.json`.
 
 ## Reproduce
@@ -135,7 +138,8 @@ ruby measure.rb --project DIR --files 'lib/**/*.rb' \
 rspec spec    # 18 examples, includes clean-process runs of the library and measure.rb
 ```
 
-The hashie suite ran with `rspec -I lib spec` after installing rspec,
+The lobsters and saboteur rows are static (no bundle was installed for them; lobsters pins its
+gems in its own `Gemfile.lock` at the revision above). The hashie suite ran with `rspec -I lib spec` after installing rspec,
 rspec-pending_for, pry and activesupport; hashie ships no lockfile, so
 dependency versions are the ones recorded under `suite_tool` in `results.json`.
 `--suite` rewrites project files during the run and restores them after each
