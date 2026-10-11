@@ -187,6 +187,72 @@ RSpec.describe Saboteur::CLI do
       expect(File).not_to exist(json)
     end
 
+    # Agent mode shares the publish rule: the payload build and render are
+    # fallible stages too, so the JSON is written only after them.
+    it "writes no JSON report in agent mode when the payload build fails" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      dir = Dir.mktmpdir
+      json = File.join(dir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_raise(Saboteur::Error, "no payload")
+      expect(cli("run", "--agent", "--json", json).call).to eq(3)
+      expect(File).not_to exist(json)
+    end
+
+    # The recorded cause is the agent-mode classification: survivors exit 1
+    # even when most mutants errored, and the JSON must say the same.
+    it "records survivors as the cause in agent mode when survivors gate the exit" do
+      report = report_of(result_for(:survived), result_for(:error), result_for(:error), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
+    end
+
+    it "records the majority-error cause in agent mode when it decides the exit" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json).call).to eq(3)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("errorMajority")
+    end
+
+    it "records an incomplete cause in agent mode when a minority errored" do
+      report = report_of(result_for(:killed), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json).call).to eq(3)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("incomplete")
+    end
+
+    # Agent mode prints exactly one payload on stdout: any announcement or
+    # a missing print breaks the parse, and the reports it names exist.
+    it "prints only the payload and writes both reports in agent mode" do
+      report = report_of(result_for(:killed))
+      dir = Dir.mktmpdir
+      json = File.join(dir, "r.json")
+      html = File.join(dir, "r.html")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json, "--html", html).call).to eq(0)
+      expect(JSON.parse(out.string)["status"]).to eq("complete")
+      expect(File).to exist(json)
+      expect(File.read(html)).to start_with("<!DOCTYPE html>")
+    end
+
+    it "records ok as the cause in agent mode when the run is clean" do
+      report = report_of(result_for(:killed))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json).call).to eq(0)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("ok")
+    end
+
     it "writes ok into the JSON report when nothing failed" do
       json = File.join(Dir.mktmpdir, "r.json")
       engine = instance_double(Saboteur::Engine, call: report_of(result_for(:killed)))
