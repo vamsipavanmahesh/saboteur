@@ -38,7 +38,7 @@ Lists preserve order. Format version 1 describes this fingerprint, not cache for
 
 The declared model includes all project `.rb` files, regardless of mutation include,
 exclude or diff scope; Gemfile, gems.rb, both lockfiles, .rspec and .rspec-local;
-explicit boot/hook/source-plugin/extra paths; effective config; Ruby engine/version/
+explicit boot/hook/source-plugin/extra paths; effective config except cache/report destination paths; Ruby engine/version/
 patchlevel/platform and saboteur version. It does not follow directory symlinks:
 a discovered project symlink marks the snapshot incomplete. Unreadable files or
 directories likewise make it incomplete. It excludes `.git`, `vendor`,
@@ -66,3 +66,10 @@ explicit inputs and report paths overlapping explicit inputs/Ruby files make the
 snapshot incomplete, not silently safe. Consumers must also reject artifact aliases
 and symlink/hardlink destinations before writes; this read-only class does not grant
 safe write destinations or offer arbitrary artifact exclusions.
+
+Checkout root and configured artifact paths use the same canonical path basis,
+including existing symlink ancestors of missing destinations. Settings identity
+excludes `cache_dir`, `json_report` and `html_report`; overlap checks still inspect
+them. Restore accepts only normalized relative inventory paths or normalized
+`external:/absolute` paths, known kinds, and present entries with a SHA-256 hash
+(missing/unreadable entries must have no hash).
