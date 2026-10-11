@@ -89,6 +89,62 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).not_to include("still passed")
   end
 
+  it "splits the score into assertion and crash shares" do
+    text = render(report_of(result_for(:killed, kill_cause: "assertion"),
+                            result_for(:killed, replacement: "<", kill_cause: "NoMethodError")))
+    expect(text).to include("score 100.0 % (assertion 50.0 %, crash 50.0 %)")
+  end
+
+  it "names timeouts and kills with no recorded cause in the split" do
+    text = render(report_of(result_for(:killed, kill_cause: "assertion"),
+                            result_for(:timeout, replacement: "<"),
+                            result_for(:killed, replacement: "<=")))
+    expect(text).to include("(assertion 33.3 %, crash 0.0 %, timeout 33.3 %, cause not recorded 33.3 %)")
+  end
+
+  it "scores whole-body mutants apart even when no kill has a recorded cause" do
+    text = render(report_of(result_for(:killed, coarse: true), result_for(:killed, replacement: "<"),
+                            result_for(:survived, replacement: "==")))
+    expect(text).to include("score without whole-body mutants 50.0 % (2 mutants); " \
+                            "whole-body mutants alone 100.0 % (1)")
+  end
+
+  it "scores whole-body mutants apart in a run of timeouts only" do
+    text = render(report_of(result_for(:timeout, coarse: true), result_for(:timeout, replacement: "<")))
+    expect(text).to include("score without whole-body mutants 100.0 % (1 mutants); " \
+                            "whole-body mutants alone 100.0 % (1)")
+  end
+
+  it "prints no whole-body line when the run has only whole-body mutants" do
+    text = render(report_of(result_for(:killed, coarse: true, kill_cause: "assertion"),
+                            result_for(:survived, coarse: true, replacement: "==")))
+    expect(text).not_to include("without whole-body mutants")
+  end
+
+  it "prints no whole-body line when the run has only fine mutants" do
+    text = render(report_of(result_for(:killed, kill_cause: "assertion"),
+                            result_for(:survived, replacement: "==")))
+    expect(text).not_to include("without whole-body mutants")
+  end
+
+  it "prints no whole-body line when the only whole-body mutant errored" do
+    text = render(report_of(result_for(:error, coarse: true), result_for(:killed, kill_cause: "assertion")))
+    expect(text).not_to include("without whole-body mutants")
+  end
+
+  it "leaves the split out when no kill has a recorded cause" do
+    expect(render(report_of(result_for(:killed)))).to include("score 100.0 % (killed+timeout)")
+  end
+
+  it "scores the whole-body mutants on their own line" do
+    text = render(report_of(result_for(:killed, coarse: true, kill_cause: "NoMethodError"),
+                            result_for(:killed, replacement: "<", kill_cause: "assertion"),
+                            result_for(:survived, replacement: "==")))
+    expect(text).to include("score 66.7 % (assertion 33.3 %, crash 33.3 %)",
+                            "score without whole-body mutants 50.0 % (assertion 50.0 %, crash 0.0 %) " \
+                            "(2 mutants); whole-body mutants alone 100.0 % (1)")
+  end
+
   it "shows one survivor per line in review mode, and says how many more the JSON holds" do
     survivors = [result_for(:survived, replacement: ">"), result_for(:survived, replacement: "<=")]
     report = Saboteur::Report.new(results: survivors, subjects: [person_subject], wall_time: 1.0,
