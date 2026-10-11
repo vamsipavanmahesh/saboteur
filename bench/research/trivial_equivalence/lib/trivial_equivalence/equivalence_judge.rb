@@ -14,8 +14,10 @@ module TrivialEquivalence
 
     def judge(original_source:, mutated_source:, path:)
       original = compile(original_source, path)
+      return no_match(:original_compile_failed) unless original
+
       mutated = compile(mutated_source, path)
-      return no_match(:compile_failed) unless original && mutated
+      return no_match(:mutated_compile_failed) unless mutated
       return no_match(:reflection) if @level == :relaxed && reflective?(original_source, path)
 
       same = @fingerprint.call(original) == @fingerprint.call(mutated)
