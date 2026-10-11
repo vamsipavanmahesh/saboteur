@@ -132,7 +132,7 @@ module Saboteur
         path = relative(result.subject.file, report.root)
         shown = lines.first(MAX_CHANGED_LINES).map { |line| "#{path}:#{line}" }.join(", ")
         more = lines.size - MAX_CHANGED_LINES
-        @out.puts "changed line#{'s' if lines.size > 1}: #{shown}#{" (+#{more} more)" if more.positive?}"
+        @out.puts "changed #{lines.one? ? 'line' : 'lines'}: #{shown}#{" (+#{more} more)" if more.positive?}"
       end
 
       # [[result, how many more on the same line]]. In review mode survivors
