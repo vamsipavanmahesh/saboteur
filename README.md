@@ -293,7 +293,13 @@ same as Rails 7.1+ does, for the copy and for its cleanup. The copy
 checkpoints the source first (`PRAGMA wal_checkpoint(TRUNCATE)`) and
 refuses to run when a reader keeps the WAL busy, because copying on
 would silently miss committed rows. A source file that does not exist is
-an error, not a skipped copy.
+an error, not a skipped copy. An in-memory SQLite database (`:memory:`) is
+never copied, renamed or disconnected. After the app boots, each in-memory
+database is snapshotted to a temporary file through SQLite's backup API,
+and every forked child restores the snapshot into its own fresh database -
+a child cannot keep the parent's connection (ActiveRecord discards
+inherited pools and sqlite3 closes inherited writable handles), so without
+the snapshot it would see an empty database.
 
 For a Rails engine, point `require` at the dummy app's environment -
 `test/dummy/config/environment.rb`, usually loaded for you by

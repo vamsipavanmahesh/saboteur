@@ -147,3 +147,7 @@
   mutation: 6b4e7009a196f437
   reason: 'equivalent: with nothing executed the count is 0 and 0.fdiv(0) is
     NaN, which is not > 0.5 either'
+- subject: Saboteur::Frameworks::Rails#restore_memory_databases
+  mutation: fb7088c67b8733c9
+  reason: 'equivalent: with an empty snapshot map the pool loop finds no
+    matching config and skips every pool, as the early return does'

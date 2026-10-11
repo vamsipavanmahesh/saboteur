@@ -4,6 +4,8 @@
 require "coverage"
 require "fileutils"
 require "pathname"
+require "English"
+require "tmpdir"
 
 module Saboteur
   module Frameworks
@@ -32,6 +34,7 @@ module Saboteur
         @config = config
         @hooks = hooks
         @worker_copies = []
+        @memory_snapshots = {}
       end
 
       def before_boot
@@ -66,6 +69,7 @@ module Saboteur
         check_databases
         eager_load_with_coverage_running
         disconnect
+        snapshot_memory_databases
         @hooks.register(:before_fork) { |_mutation| disconnect }
         @hooks.register(:after_fork) { reconnect }
       end
@@ -89,6 +93,10 @@ module Saboteur
 
         @worker_copies = []
         test_configs.each do |db|
+          # An in-memory SQLite database lives in the parent's connection;
+          # workers inherit it through fork, so there is nothing to copy.
+          next if self.class.memory_database?(db)
+
           (1...jobs).each do |number|
             name = self.class.worker_database(db.database, number)
             # Track the target before the copy, not after it: an attempt
@@ -107,7 +115,7 @@ module Saboteur
       # do not collect one database per worker. Every copy is attempted even
       # when a drop fails; the failures are reported together at the end.
       def cleanup_workers
-        return if @worker_copies.empty?
+        return if @worker_copies.empty? && @memory_snapshot_dir.nil?
 
         failures = @worker_copies.filter_map do |db, name|
           drop_database(db, name)
@@ -116,6 +124,11 @@ module Saboteur
           "#{name}: #{e.message}"
         end
         @worker_copies = []
+        if @memory_snapshot_dir
+          FileUtils.rm_rf(@memory_snapshot_dir)
+          @memory_snapshot_dir = nil
+          @memory_snapshots = {}
+        end
         begin
           disconnect
         rescue StandardError => e
@@ -134,17 +147,27 @@ module Saboteur
         handler.connection_pool_list(:all).to_a.each do |pool|
           config = pool.pool_config
           db = pool.db_config
+          # An in-memory SQLite database would be discarded by
+          # re-establishing: the worker keeps its own connection.
+          next if self.class.memory_database?(db)
+
           handler.establish_connection(db.configuration_hash.merge(database: self.class.worker_database(db.database,
                                                                                                         number)),
                                        owner_name: self.class.owner_of(config), role: config.role,
                                        shard: config.shard)
         end
+        restore_memory_databases
       end
 
       def self.owner_of(pool_config)
         return pool_config.connection_class if pool_config.respond_to?(:connection_class)
 
         Object.const_get(pool_config.connection_descriptor.name)
+      end
+
+      # Only SQLite can be in-memory; every other adapter names a server.
+      def self.memory_database?(db)
+        db.adapter.to_s.match?(/sqlite/) && db.database.to_s == ":memory:"
       end
 
       def self.local_host?(host)
@@ -355,10 +378,15 @@ module Saboteur
         self.class.const_set(:MaintenanceRecord, Class.new(::ActiveRecord::Base) { self.abstract_class = true })
       end
 
+      # Disconnecting an in-memory SQLite pool destroys the database, so
+      # those pools stay connected everywhere saboteur disconnects: the
+      # schema loaded at boot survives, and workers inherit it via fork.
       def disconnect
         return unless defined?(::ActiveRecord::Base)
 
-        ::ActiveRecord::Base.connection_handler.connection_pool_list(:all).each(&:disconnect!)
+        ::ActiveRecord::Base.connection_handler.connection_pool_list(:all).each do |pool|
+          pool.disconnect! unless self.class.memory_database?(pool.db_config)
+        end
       end
 
       # The parent disconnected before fork, so inherited pools hold no sockets.
@@ -366,6 +394,88 @@ module Saboteur
       # checks out a fresh connection of its own on first use.
       def reconnect
         disconnect
+        restore_memory_databases
+      end
+
+      # Parent, once the app booted: an in-memory SQLite database survives
+      # only inside its own connection, and a forked child cannot keep it -
+      # ActiveRecord discards inherited pools and the sqlite3 gem closes
+      # writable handles in the child, so the next access there opens an
+      # empty database. Snapshot each in-memory database to a file the
+      # children can restore from.
+      def snapshot_memory_databases
+        return unless defined?(::ActiveRecord::Base)
+
+        pools = ::ActiveRecord::Base.connection_handler.connection_pool_list(:all)
+        memory_pools = pools.select { |pool| self.class.memory_database?(pool.db_config) }
+        return if memory_pools.empty?
+
+        @memory_snapshot_dir = Dir.mktmpdir("saboteur-memory-")
+        own_memory_snapshots
+        memory_pools.each_with_index do |pool, index|
+          path = File.join(@memory_snapshot_dir, "#{index}.sqlite3")
+          pool.with_connection do |connection|
+            file = SQLite3::Database.new(path)
+            with_backup(file, connection.raw_connection, close: file) { |backup| step_backup(backup, path) }
+          end
+          @memory_snapshots[pool.db_config] = path
+        end
+      end
+
+      # The safety net for an abrupt process exit: Engine.call removes the
+      # snapshots at the run boundary on every normal path, so this handler
+      # fires only when the owner process dies first. Forked children
+      # inherit the handler but not the pid.
+      def own_memory_snapshots
+        owner = Process.pid
+        at_exit { cleanup_memory_snapshots(owner) }
+      end
+
+      def cleanup_memory_snapshots(owner)
+        FileUtils.rm_rf(@memory_snapshot_dir) if Process.pid == owner && @memory_snapshot_dir
+      end
+
+      # Yields a backup and always returns both handles: exactly one finish
+      # per init (skipped only when backup_init itself raised, leaving no
+      # handle), and the database closes even when finish fails.
+      def with_backup(destination, source, close:)
+        backup = SQLite3::Backup.new(destination, "main", source, "main")
+        yield backup
+      ensure
+        begin
+          backup&.finish
+        ensure
+          close_without_masking(close)
+        end
+      end
+
+      # A close can fail too, and a close that fails on the way out must
+      # not hide the error already in flight.
+      def close_without_masking(database)
+        in_flight = $ERROR_INFO
+        database.close
+      rescue SQLite3::Exception
+        raise unless in_flight
+      end
+
+      # Child: load the parent's snapshot into this process's own fresh
+      # in-memory database. The backup overwrites the destination, so
+      # restoring more than once is harmless.
+      def restore_memory_databases
+        return unless defined?(::ActiveRecord::Base)
+        return if @memory_snapshots.empty?
+
+        ::ActiveRecord::Base.connection_handler.connection_pool_list(:all).each do |pool|
+          snapshot = @memory_snapshots[pool.db_config]
+          next unless snapshot
+
+          pool.with_connection do |connection|
+            source = SQLite3::Database.new(snapshot, readonly: true)
+            with_backup(connection.raw_connection, source, close: source) do |backup|
+              step_backup(backup, pool.db_config.database)
+            end
+          end
+        end
       end
     end
   end

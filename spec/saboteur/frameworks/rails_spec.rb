@@ -33,11 +33,11 @@ RSpec.describe Saboteur::Frameworks::Rails do
   end
 
   # Fakes for the parts of ActiveRecord the worker setup touches.
-  def fake_pool(role, database: "app_test")
+  def fake_pool(role, database: "app_test", adapter: "postgresql")
     config = Struct.new(:connection_descriptor, :role, :shard)
                    .new(Struct.new(:name).new("ActiveRecord::Base"), role, :default)
     db = Struct.new(:database, :configuration_hash, :adapter)
-               .new(database, { adapter: "postgresql", database: database }, "postgresql")
+               .new(database, { adapter: adapter, database: database }, adapter)
     Struct.new(:pool_config, :db_config).new(config, db)
   end
 
@@ -58,6 +58,17 @@ RSpec.describe Saboteur::Frameworks::Rails do
           .with({ adapter: "postgresql", database: "app_test_saboteur2" }, owner_name: base, role: role,
                                                                            shard: :default)
       end
+    end
+
+    # Re-establishing an in-memory sqlite pool would discard the database;
+    # the worker keeps the connection it inherited through fork.
+    it "keeps in-memory sqlite pools on the inherited connection" do
+      handler = double("handler",
+                       connection_pool_list: [fake_pool(:writing, database: ":memory:", adapter: "sqlite3")])
+      stub_const("ActiveRecord::Base", double("ActiveRecord::Base", connection_handler: handler))
+      allow(handler).to receive(:establish_connection)
+      rails.start_worker(1)
+      expect(handler).not_to have_received(:establish_connection)
     end
 
     it "leaves worker 0 on the test database" do
@@ -439,6 +450,299 @@ RSpec.describe Saboteur::Frameworks::Rails do
         Saboteur::Error, /7 other session.*connected \(a, b, c, d, e\), \.\.\./
       )
     end
+    # The database lives in the parent's connection, so there is no file to
+    # copy: workers inherit it through fork. The doorkeeper dogfood broke
+    # here - every example failed "Could not find table" after the copies
+    # renamed the memory database.
+    it "makes no copies for an in-memory sqlite database and tracks nothing to clean up" do
+      db = Struct.new(:database, :configuration_hash, :adapter)
+                 .new(":memory:", { adapter: "sqlite3", database: ":memory:" }, "sqlite3")
+      base = fake_base(db)
+      stub_const("ActiveRecord::Base", base)
+      allow(SQLite3::Database).to receive(:new).and_call_original
+      rails.prepare_workers(2)
+      expect(SQLite3::Database).not_to have_received(:new)
+      expect { rails.cleanup_workers }.not_to raise_error
+    end
+  end
+
+  describe "in-memory sqlite snapshots" do
+    let(:rails) { described_class.new(Saboteur::Config.new({}), Saboteur::Hooks.new) }
+
+    # A pool stand-in over a real SQLite handle; db_config is shared with
+    # the "child" pool, the way a forked process shares the parent's pool
+    # definitions.
+    def memory_pool(sqlite, db)
+      connection = Struct.new(:raw_connection).new(sqlite)
+      Object.new.tap do |pool|
+        pool.define_singleton_method(:db_config) { db }
+        pool.define_singleton_method(:with_connection) { |&block| block.call(connection) }
+        pool.define_singleton_method(:disconnect!) { nil }
+      end
+    end
+
+    def memory_db
+      Struct.new(:database, :configuration_hash, :adapter)
+            .new(":memory:", { adapter: "sqlite3", database: ":memory:" }, "sqlite3")
+    end
+
+    def fake_backup(statuses)
+      instance_double(SQLite3::Backup).tap do |backup|
+        allow(backup).to receive(:step).and_return(*statuses)
+        allow(backup).to receive(:finish)
+      end
+    end
+
+    def base_with(pools)
+      handler = Object.new
+      handler.define_singleton_method(:connection_pool_list) { |*| pools }
+      double("ActiveRecord::Base", connection_handler: handler)
+    end
+
+    # The parent snapshots after boot; the child sees a fresh, empty
+    # in-memory database for the same config (ActiveRecord discards the
+    # inherited pool) and restores the snapshot into it.
+    it "snapshots the parent's database and restores it into the child's fresh one" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      parent_sqlite.execute("INSERT INTO t VALUES (1)")
+      db = memory_db
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, db)]))
+      rails.send(:snapshot_memory_databases)
+      dir = rails.instance_variable_get(:@memory_snapshot_dir)
+      expect(File.basename(dir)).to start_with("saboteur-memory-")
+      child_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(child_sqlite, db)]))
+      allow(SQLite3::Database).to receive(:new).and_call_original
+      rails.send(:restore_memory_databases)
+      expect(child_sqlite.execute("SELECT COUNT(*) FROM t").first.first).to eq(1)
+      # The snapshot belongs to the parent; restore opens it read-only.
+      expect(SQLite3::Database).to have_received(:new).with(a_string_starting_with(dir), readonly: true)
+    end
+
+    it "restores again without duplicating rows" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      parent_sqlite.execute("INSERT INTO t VALUES (1)")
+      db = memory_db
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, db)]))
+      rails.send(:snapshot_memory_databases)
+      child_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(child_sqlite, db)]))
+      2.times { rails.send(:restore_memory_databases) }
+      expect(child_sqlite.execute("SELECT COUNT(*) FROM t").first.first).to eq(1)
+    end
+
+    it "does nothing when no pool is in-memory" do
+      stub_const("ActiveRecord::Base", base_with([]))
+      rails.send(:snapshot_memory_databases)
+      expect(rails.instance_variable_get(:@memory_snapshot_dir)).to be_nil
+      expect { rails.send(:restore_memory_databases) }.not_to raise_error
+    end
+
+    it "removes the snapshot directory at cleanup" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, memory_db)]))
+      rails.send(:snapshot_memory_databases)
+      dir = rails.instance_variable_get(:@memory_snapshot_dir)
+      rails.cleanup_workers
+      expect(Dir.exist?(dir)).to be(false)
+      expect(rails.instance_variable_get(:@memory_snapshot_dir)).to be_nil
+      expect(rails.instance_variable_get(:@memory_snapshots)).to eq({})
+    end
+
+    # A pool with no snapshot (added after boot, or not in-memory at
+    # snapshot time) is left alone.
+    it "skips pools without a snapshot" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, memory_db)]))
+      rails.send(:snapshot_memory_databases)
+      other_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(other_sqlite, memory_db)]))
+      expect { rails.send(:restore_memory_databases) }.not_to raise_error
+      expect(other_sqlite.execute("SELECT name FROM sqlite_master")).to be_empty
+    end
+
+    # Without ActiveRecord the restore must not touch the snapshots: the
+    # child only reaches it when the app booted.
+    it "restores nothing when ActiveRecord is not loaded" do
+      rails.instance_variable_set(:@memory_snapshots, { memory_db => "x" })
+      hide_const("ActiveRecord")
+      expect { rails.send(:restore_memory_databases) }.not_to raise_error
+    end
+
+    # SQLite wants exactly one finish per backup, success or failure.
+    it "finishes the snapshot backup even when the step fails" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      fake = fake_backup([10])
+      allow(SQLite3::Backup).to receive(:new).and_return(fake)
+      expect { rails.send(:snapshot_memory_databases) }.to raise_error(Saboteur::Error, /could not copy/)
+      expect(fake).to have_received(:finish)
+    end
+
+    it "finishes the restore backup even when the step fails" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      db = memory_db
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, db)]))
+      rails.send(:snapshot_memory_databases)
+      child_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(child_sqlite, db)]))
+      fake = fake_backup([5])
+      allow(SQLite3::Backup).to receive(:new).and_return(fake)
+      expect { rails.send(:restore_memory_databases) }.to raise_error(Saboteur::Error, /could not copy/)
+      expect(fake).to have_received(:finish)
+    end
+
+    # A close that fails on the way out must not hide the step's error.
+    it "lets the step error through when closing the snapshot file also fails" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      allow(SQLite3::Backup).to receive(:new).and_return(fake_backup([10]))
+      file = instance_double(SQLite3::Database)
+      allow(file).to receive(:close).and_raise(SQLite3::Exception, "close boom")
+      allow(SQLite3::Database).to receive(:new).and_return(file)
+      expect { rails.send(:snapshot_memory_databases) }.to raise_error(Saboteur::Error, /could not copy/)
+    end
+
+    it "closes the snapshot file after the backup" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      file = instance_double(SQLite3::Database, close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(file)
+      allow(SQLite3::Backup).to receive(:new).and_return(fake_backup([101]))
+      rails.send(:snapshot_memory_databases)
+      expect(file).to have_received(:close)
+    end
+
+    it "closes the snapshot source after restoring" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      db = memory_db
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, db)]))
+      rails.send(:snapshot_memory_databases)
+      child_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(child_sqlite, db)]))
+      source = instance_double(SQLite3::Database, close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(source)
+      allow(SQLite3::Backup).to receive(:new).and_return(fake_backup([101]))
+      rails.send(:restore_memory_databases)
+      expect(source).to have_received(:close)
+    end
+
+    # On the success path a close failure is the only error, so it surfaces.
+    it "raises a close failure when nothing else went wrong" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      file = instance_double(SQLite3::Database)
+      allow(file).to receive(:close).and_raise(SQLite3::Exception, "close boom")
+      allow(SQLite3::Database).to receive(:new).and_return(file)
+      allow(SQLite3::Backup).to receive(:new).and_return(fake_backup([101]))
+      expect { rails.send(:snapshot_memory_databases) }.to raise_error(SQLite3::Exception, "close boom")
+    end
+
+    # backup_init itself can fail (readonly, locked, invalid destination):
+    # no backup handle exists to finish, but the opened database must still
+    # close.
+    it "closes the snapshot file when backup_init raises" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      file = instance_double(SQLite3::Database, close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(file)
+      allow(SQLite3::Backup).to receive(:new).and_raise(SQLite3::Exception, "readonly database")
+      expect { rails.send(:snapshot_memory_databases) }.to raise_error(SQLite3::Exception, "readonly database")
+      expect(file).to have_received(:close)
+    end
+
+    it "closes the snapshot source when backup_init raises on restore" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      db = memory_db
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, db)]))
+      rails.send(:snapshot_memory_databases)
+      child_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(child_sqlite, db)]))
+      source = instance_double(SQLite3::Database, close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(source)
+      allow(SQLite3::Backup).to receive(:new).and_raise(SQLite3::Exception, "invalid destination")
+      expect { rails.send(:restore_memory_databases) }.to raise_error(SQLite3::Exception, "invalid destination")
+      expect(source).to have_received(:close)
+    end
+
+    it "registers an at_exit cleanup that removes the snapshots only in the owner process" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      captured = nil
+      allow(rails).to receive(:at_exit) { |&block| captured = block }
+      rails.send(:snapshot_memory_databases)
+      dir = rails.instance_variable_get(:@memory_snapshot_dir)
+      captured.call
+      expect(Dir.exist?(dir)).to be(false)
+    end
+
+    it "leaves the snapshots to other processes" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      rails.send(:snapshot_memory_databases)
+      dir = rails.instance_variable_get(:@memory_snapshot_dir)
+      rails.send(:cleanup_memory_snapshots, Process.pid + 1)
+      expect(Dir.exist?(dir)).to be(true)
+      rails.send(:cleanup_memory_snapshots, Process.pid)
+      expect(Dir.exist?(dir)).to be(false)
+    end
+
+    it "does not remove anything when no snapshot directory exists" do
+      allow(FileUtils).to receive(:rm_rf).and_call_original
+      expect { rails.send(:cleanup_memory_snapshots, Process.pid) }.not_to raise_error
+      expect(FileUtils).not_to have_received(:rm_rf)
+    end
+
+    it "restores on reconnect and when a worker starts" do
+      stub_const("ActiveRecord::Base", base_with([]))
+      allow(rails).to receive(:restore_memory_databases)
+      rails.send(:reconnect)
+      rails.start_worker(1)
+      expect(rails).to have_received(:restore_memory_databases).twice
+    end
+  end
+
+  describe "#disconnect" do
+    let(:rails) { described_class.new(Saboteur::Config.new({}), Saboteur::Hooks.new) }
+
+    # A real in-memory database: disconnecting its pool would close the
+    # connection and drop every table, which is how the doorkeeper dogfood
+    # lost its schema. File-backed pools still disconnect.
+    it "keeps a real in-memory sqlite database alive and still disconnects file pools" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      sqlite.execute("INSERT INTO t VALUES (1)")
+      memory_db = Struct.new(:database, :configuration_hash, :adapter)
+                        .new(":memory:", { adapter: "sqlite3", database: ":memory:" }, "sqlite3")
+      memory_pool = Object.new
+      memory_pool.define_singleton_method(:db_config) { memory_db }
+      memory_pool.define_singleton_method(:disconnect!) { sqlite.close }
+      file_db = Struct.new(:database, :configuration_hash, :adapter)
+                      .new("app_test", { adapter: "sqlite3", database: "app_test" }, "sqlite3")
+      file_pool = Object.new
+      file_pool.define_singleton_method(:db_config) { file_db }
+      file_disconnected = false
+      file_pool.define_singleton_method(:disconnect!) { file_disconnected = true }
+      handler = double("handler", connection_pool_list: [memory_pool, file_pool])
+      stub_const("ActiveRecord::Base", double("ActiveRecord::Base", connection_handler: handler))
+      rails.send(:disconnect)
+      expect(file_disconnected).to be(true)
+      expect(sqlite.execute("SELECT COUNT(*) FROM t").first.first).to eq(1)
+    end
   end
 
   describe "#cleanup_workers" do
@@ -640,6 +944,17 @@ RSpec.describe Saboteur::Frameworks::Rails do
       allow(Coverage).to receive(:suspend)
     end
 
+    it "snapshots in-memory sqlite databases for the forked children" do
+      base = double("ActiveRecord::Base")
+      handler = double("handler", connection_pool_list: [])
+      allow(base).to receive(:connection_handler).and_return(handler)
+      allow(base).to receive(:configurations).and_return(double("configs", configs_for: []))
+      stub_const("ActiveRecord::Base", base)
+      allow(rails).to receive(:snapshot_memory_databases)
+      rails.after_boot
+      expect(rails).to have_received(:snapshot_memory_databases)
+    end
+
     it "points engine users at the dummy environment, and at the setup shim only without one" do
       hide_const("Rails")
       expect { rails.after_boot }.to raise_error(
@@ -677,6 +992,18 @@ RSpec.describe Saboteur::Frameworks::Rails do
       expect(Coverage).not_to receive(:resume)
       expect(Coverage).not_to receive(:suspend)
       rails.after_boot
+    end
+  end
+
+  describe ".memory_database?" do
+    def db(database, adapter)
+      Struct.new(:database, :configuration_hash, :adapter).new(database, { adapter: adapter }, adapter)
+    end
+
+    it "matches only an in-memory sqlite database" do
+      expect(described_class.memory_database?(db(":memory:", "sqlite3"))).to be(true)
+      expect(described_class.memory_database?(db("app_test", "sqlite3"))).to be(false)
+      expect(described_class.memory_database?(db(":memory:", "postgresql"))).to be(false)
     end
   end
 
