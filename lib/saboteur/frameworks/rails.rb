@@ -14,6 +14,9 @@ module Saboteur
     class Rails
       LOCAL_HOSTS = ["localhost", "127.0.0.1", "::1", "[::1]"].freeze
 
+      # How many blocking session names the template-copy error lists.
+      MAX_BLOCKER_NAMES = 5
+
       def initialize(config, hooks)
         @config = config
         @hooks = hooks
@@ -152,8 +155,9 @@ module Saboteur
         SQL
         return if blockers.empty?
 
+        names = blockers.map { |app| app.to_s.empty? ? "unnamed" : app }.first(MAX_BLOCKER_NAMES)
         raise Error, "cannot copy the test database #{database}: #{blockers.size} other session(s) connected " \
-                     "(#{blockers.map { |app| app.empty? ? 'unnamed' : app }.join(', ')}). " \
+                     "(#{names.join(', ')})#{', ...' if blockers.size > names.size}. " \
                      "Stop other test runs, consoles or Spring, then run saboteur again."
       end
 
