@@ -238,8 +238,9 @@ generator is planned; until then this block is the supported setup.
 
 Bootsnap needs no extra setting: bytecode from its compile cache carries no
 coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
-own process and runs the eager load with Coverage active. App code is seen by
-Coverage with the app unchanged.
+own process when the variable is not already set (Bootsnap treats any set
+value as off) and runs the eager load with Coverage active. App code is seen
+by Coverage with the app unchanged.
 
 ### Skipped subjects and the mutant cap
 
