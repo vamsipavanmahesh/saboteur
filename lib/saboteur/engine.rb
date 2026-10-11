@@ -111,10 +111,11 @@ module Saboteur
                       suite_digest: SuiteFiles.new(config).digest)
     end
 
-    # A cleanup failure must never mask the run's own outcome.
+    # A cleanup failure must never mask the run's own outcome - not even
+    # one cleanup_workers did not anticipate.
     def safely_cleanup_workers
       @rails&.cleanup_workers
-    rescue Error => e
+    rescue StandardError => e
       @diagnostics.warn(e.message)
     end
 
