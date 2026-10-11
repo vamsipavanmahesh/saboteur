@@ -91,9 +91,8 @@ module Saboteur
     end
 
     def overview
-      [title, usage_section, commands_section, options_section(run_command), examples_section(all_examples),
-       exit_codes_section(run_command.exit_codes), config_section, files_section,
-       "Documentation: #{DOCUMENTATION}\n"].join("\n")
+      [title, usage_section, commands_section, *option_sections, examples_section(all_examples),
+       *exit_code_sections, config_section, files_section, "Documentation: #{DOCUMENTATION}\n"].join("\n")
     end
 
     # Details for one command, or nil when there is no such command.
@@ -114,8 +113,13 @@ module Saboteur
 
     private
 
-    def run_command
-      @commands.find { |command| command.name == "run" }
+    # One section for every command that takes options, so the overview needs no other page.
+    def option_sections
+      @commands.select(&:takes_options).map { |command| options_section(command) }
+    end
+
+    def exit_code_sections
+      @commands.select(&:exit_codes).map { |command| exit_codes_section(command.exit_codes, command.name) }
     end
 
     def title
@@ -152,9 +156,10 @@ module Saboteur
       "EXAMPLES\n#{examples.map { |note, line| "  # #{note}\n  #{line}" }.join("\n")}\n"
     end
 
-    def exit_codes_section(codes)
+    def exit_codes_section(codes, command_name = nil)
       rows = codes.map { |code, meaning| "  #{code}  #{meaning}" }
-      "EXIT CODES\n#{rows.join("\n")}\n"
+      title = command_name ? "EXIT CODES (saboteur #{command_name})" : "EXIT CODES"
+      "#{title}\n#{rows.join("\n")}\n"
     end
 
     def config_section
