@@ -36,7 +36,8 @@ module Saboteur
           testFiles: test_files(test_ids),
           skippedSubjects: skipped_subjects(report),
           warnings: report.warnings,
-          framework: { name: "saboteur", version: VERSION }
+          framework: { name: "saboteur", version: VERSION },
+          saboteur: { findings: Findings.build(report) }
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
       end
 
