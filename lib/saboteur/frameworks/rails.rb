@@ -65,8 +65,13 @@ module Saboteur
         test_configs.each do |db|
           (1...jobs).each do |number|
             name = self.class.worker_database(db.database, number)
-            copy_database(db, name)
+            # Track the target before the copy, not after it: an attempt
+            # that created the database and then failed (a post-CREATE
+            # error, a partial SQLite copy) must still be dropped at the
+            # end of the run. Dropping is idempotent (DROP IF EXISTS,
+            # rm -f), so tracking a copy that never happened costs nothing.
             @worker_copies << [db, name]
+            copy_database(db, name)
           end
         end
         disconnect
@@ -85,7 +90,11 @@ module Saboteur
           "#{name}: #{e.message}"
         end
         @worker_copies = []
-        disconnect
+        begin
+          disconnect
+        rescue StandardError => e
+          failures << "disconnect: #{e.message}"
+        end
         raise Error, "could not drop worker database copies: #{failures.join('; ')}" if failures.any?
       end
 
