@@ -132,6 +132,14 @@ timeout_factor: 3        # deadline = 3 x the tests' recorded time
 max_memory_mb: 2048      # memory growth cap per mutant
 max_processes: 64
 seed: 1</code></pre>
+<h3>Rails apps</h3>
+<p>The defaults are for plain gems. A Rails app needs its boot file and <code>app/</code> paths:</p>
+<pre><code><span class="c"># .saboteur.yml</span>
+include: [app/**/*.rb]
+require: [./config/environment]
+rails: true
+jobs: 4                  # optional, default is 1</code></pre>
+<p>Run with <code>RAILS_ENV=test</code>.</p>
 <h3>5. Accept a survivor with a reason</h3>
 <pre><code><span class="c"># .saboteur-ignore.yml</span>
 - subject: "Billing::Invoice#total"
@@ -150,7 +158,7 @@ seed: 1</code></pre>
 <tr><td>Rails app, parallel</td><td>6 workers, same verdicts as 1</td><td>1 worker only</td><td><span class="tag win">saboteur</span></td></tr>
 <tr><td>Postgres Rails app</td><td>Runs</td><td>Does not run</td><td><span class="tag win">saboteur</span></td></tr>
 <tr><td>Time per mutant (hashie)</td><td>0.008 s</td><td>0.092 s</td><td><span class="tag win">saboteur</span></td></tr>
-<tr><td>Peak memory (hashie)</td><td>595 MB</td><td>471 MB</td><td><span class="tag lose">mutineer</span> <em>(being worked on)</em></td></tr>
+<tr><td>Peak memory (hashie)</td><td>595 MB</td><td>471 MB</td><td><span class="tag lose">mutineer</span> <em>(measured before the fork-memory work; see below)</em></td></tr>
 <tr><td>Operators and CI extras</td><td>Fixed set, fewer</td><td>20 operators, baseline, HTML, GitHub Action</td><td><span class="tag lose">mutineer</span></td></tr>
 <tr><td>Test frameworks</td><td>RSpec</td><td>RSpec and Minitest</td><td><span class="tag lose">mutineer</span></td></tr>
 <tr><td>Ruby version</td><td>3.3+</td><td>3.4+</td><td><span class="tag tie">saboteur is wider</span></td></tr>
@@ -161,11 +169,21 @@ seed: 1</code></pre>
 <section id="bench"><div class="wrap">
 <h2>Benchmarks</h2>
 <p class="sub">Numbers you can rerun yourself.</p>
-<div class="slot">
-<strong>Final memory and speed numbers: coming.</strong> We are cutting saboteur's memory use now. The before and after results, with the commands to repeat them, will be added here when the work lands. Until then, the table above is the latest measured data.
-<!-- SLOT: replace this block with final benchmark numbers from the performance PR. Do not fill in unmeasured values. -->
+<h3>Memory after the fork-sharing change (hashie)</h3>
+<p>Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with AB/BA alternation and cold caches, on a 2 vCPU / 2 GB shared sandbox. Peak memory is per-process-tree PSS from /proc/smaps_rollup sampled at 0.3s. Verdict parity: <strong>0 verdict differences in 23,700 mutant outcomes</strong> (1,580 mutants x 15 pairs); kill reasons (assertion vs crash class) vary run to run on both variants, as before.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>jobs</th><th>peak PSS baseline (median, range)</th><th>peak PSS PR (median, range)</th><th>shared-memory delta</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>101 MB (101-101)</td><td>100 MB (100-102)</td><td>~0 (no workers to share with)</td></tr>
+    <tr><td>2</td><td>133 MB (116-134)</td><td>109 MB (106-121)</td><td>-18%</td></tr>
+    <tr><td>6</td><td>235 MB (192-269)</td><td>196 MB (175-201)</td><td>-17%</td></tr>
+  </tbody>
+</table>
 </div>
-<p>Scripts and raw data: <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>. Full write-up: <a href="benchmark/">benchmark page</a>.</p>
+<p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On machines running many parallel workers this is the difference that keeps the box out of swap.</p>
+<p>Wall time on uncontended runs: 30-36s for both variants at every job level (no regression; per-cell minimums 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6, PR first). The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
+<p>Scripts and raw data: <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>. Full write-up, environment and contention log: <a href="benchmark/">benchmark page</a>.</p>
 </div></section>
 
 <footer><div class="wrap">

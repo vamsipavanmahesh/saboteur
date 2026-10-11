@@ -42,7 +42,8 @@ module Saboteur
           "position" => list.index { |mutation, _| mutation.equal?(result.mutation) },
           "status" => result.status.to_s, "reason" => result.reason, "runtime" => result.runtime,
           "killed_by" => result.killed_by, "covered_by" => result.covered_by,
-          "kill_cause" => result.kill_cause, "reused" => result.reused?
+          "kill_cause" => result.kill_cause, "reused" => result.reused?,
+          "rejected_kill" => result.rejected_kill?
         }
       end
 
@@ -55,7 +56,8 @@ module Saboteur
           result = MutantResult.new(subject: subject, mutation: mutation, status: data["status"].to_sym,
                                     mutated_source: text, reason: data["reason"], runtime: data["runtime"],
                                     killed_by: data["killed_by"], covered_by: data["covered_by"],
-                                    kill_cause: data["kill_cause"], reused: data["reused"])
+                                    kill_cause: data["kill_cause"], reused: data["reused"],
+                                    rejected_kill: data.fetch("rejected_kill", false))
           @cache&.record(result) unless result.reused?
           result
         end

@@ -1,0 +1,127 @@
+name: saboteur mutation testing
+description: >-
+  Runs saboteur in diff mode on a pull request, so only the methods the pull
+  request changed are mutated. Advisory by default.
+author: Vamsi Pavan Mahesh Gunturu
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  base-ref:
+    description: >-
+      Branch the pull request targets. Defaults to the pull request's base
+      branch. The action only runs on pull_request events and does nothing on
+      any other event, even when this is set.
+    required: false
+    default: ${{ github.base_ref }}
+  command:
+    description: How to start saboteur. The project's Gemfile must include saboteur.
+    required: false
+    default: bundle exec saboteur
+  arguments:
+    description: >-
+      Extra saboteur arguments, split on whitespace (shell quoting is not
+      supported), for example "--jobs 2". --since and --json belong to the
+      action and are rejected here.
+    required: false
+    default: ""
+  fail-on-survivors:
+    description: >-
+      "true" or "false" (anything else fails the step). "true" fails the step
+      when a mutant survives or the run is incomplete. The default, "false",
+      only reports. A saboteur usage or tool error, or a missing or unreadable
+      report, always fails the step.
+    required: false
+    default: "false"
+  cache:
+    description: >-
+      "true" or "false" (anything else fails the step). "false" skips restoring
+      the cached coverage map and passes --no-cache to saboteur, so the map is
+      rebuilt.
+    required: false
+    default: "true"
+  report-path:
+    description: Where saboteur writes its JSON report.
+    required: false
+    default: .saboteur/report.json
+  artifact-name:
+    description: >-
+      Name of the uploaded JSON report artifact. Defaults to
+      saboteur-report-<job>-<matrix leg>. Set it when a job uses this action
+      more than once: upload-artifact rejects a second upload under one name.
+    required: false
+    default: ""
+
+outputs:
+  ran:
+    description: '"true" when saboteur ran, "false" when the action had nothing to do or stopped early.'
+    value: ${{ steps.run.outputs.ran }}
+  exit-code:
+    description: "saboteur's exit code: 0 clean, 1 survivors, 2 usage error, 3 tool error."
+    value: ${{ steps.run.outputs.exit-code }}
+  score:
+    description: >-
+      Covered score as a percentage: (killed + timeout) / (killed + timeout +
+      survived). "n/a" when no mutant was scored.
+    value: ${{ steps.run.outputs.score }}
+  killed:
+    description: Number of killed mutants.
+    value: ${{ steps.run.outputs.killed }}
+  survivors:
+    description: Number of survived mutants not accepted by the ignore list.
+    value: ${{ steps.run.outputs.survivors }}
+  accepted-survivors:
+    description: Number of survived mutants accepted by .saboteur-ignore.yml.
+    value: ${{ steps.run.outputs.accepted-survivors }}
+  timeouts:
+    description: Number of mutants that timed out (counted as kills in the score).
+    value: ${{ steps.run.outputs.timeouts }}
+  errors:
+    description: Number of mutants that errored or hit a resource limit. They are not scored.
+    value: ${{ steps.run.outputs.errors }}
+  incomplete:
+    description: '"true" when some mutants errored or hit a resource limit.'
+    value: ${{ steps.run.outputs.incomplete }}
+  report-valid:
+    description: '"true" when this run wrote a report the action could read.'
+    value: ${{ steps.run.outputs.report-valid }}
+  report-path:
+    description: Path of the JSON report.
+    value: ${{ steps.run.outputs.report-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Restore the coverage map
+      if: inputs.cache == 'true' && github.event_name == 'pull_request'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: .saboteur/coverage-*.json
+        key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', '.saboteur.yml') }}-${{ github.sha }}
+        restore-keys: |
+          saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', '.saboteur.yml') }}-
+    - name: Mutate the changed methods
+      id: run
+      shell: bash
+      env:
+        SABOTEUR_EVENT_NAME: ${{ github.event_name }}
+        SABOTEUR_BASE_REF: ${{ inputs.base-ref }}
+        SABOTEUR_COMMAND: ${{ inputs.command }}
+        SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
+        SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
+        SABOTEUR_REPORT_PATH: ${{ inputs.report-path }}
+        SABOTEUR_CACHE: ${{ inputs.cache }}
+        SABOTEUR_ARTIFACT_NAME: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}
+      run: bash "${{ github.action_path }}/action/run-saboteur"
+    # Only a report this run produced and could trust is kept: an early
+    # failure (bad inputs, missing base ref, no jq) leaves report-valid unset,
+    # so a stale file restored from a cache is never published. A survivor or
+    # incomplete failure still uploads, because the summary promises it.
+    - name: Keep the JSON report
+      if: always() && github.event_name == 'pull_request' && steps.run.outputs.report-valid == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}
+        path: ${{ inputs.report-path }}
+        if-no-files-found: ignore

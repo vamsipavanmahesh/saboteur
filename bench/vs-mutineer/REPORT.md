@@ -33,7 +33,8 @@ PHASE0.md and PHASE1.md; raw data is in raw/.
 
 ## Every place mutineer won
 
-1. Peak memory: lower in every pair measured (471 vs 595 MB on hashie; 775 MB
+1. Peak memory, measured before the fork-memory work (the paired before and after on
+   hashie is in Result 6 of the benchmark page): lower in every pair measured (471 vs 595 MB on hashie; 775 MB
    at 1 worker vs saboteur's 1,021 MB at 1 worker on lobsters).
 2. Operator choice: 20 operators and a switch to pick them; saboteur has no
    operator selection.

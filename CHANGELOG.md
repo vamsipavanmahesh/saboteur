@@ -7,6 +7,9 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `saboteur run --id DIGEST`: replay one exact current mutant with selected tests,
+  independent of caps, coarse gating, ignore suppression and incremental reuse.
+  Prints the mutation diff and selected test ids for every replay result.
 - Review findings in the JSON report (`saboteur.findings`,
   `Saboteur::Reporter::Findings`): a bounded, deterministically ordered list
   of survivors (coarse first, then file, line and digest) with the file,
@@ -18,6 +21,13 @@ All notable changes are documented here. The format follows
   style and no script or network use, written to `.saboteur/report.html`.
   Change the path with `--html PATH` or `html_report:`. It shows the score,
   per-file mutants, survivors, warnings and skipped subjects.
+- A GitHub Action (`uses: vamsipavanmahesh/saboteur`) that runs diff mode on pull
+  requests. Advisory by default, with a job summary, outputs and a cached
+  coverage map. See `docs/github-action.md`.
+- Built-in `filter_replacement` mutants: `select` / `reject` and
+  `select!` / `reject!`, for explicit-receiver calls with a block and no ordinary
+  arguments. For unchanged subjects, existing mutants retain their digests and order.
+  Runs may now include more mutants and report a different score.
 
 ## [0.2.0] - 2026-10-10
 

@@ -35,6 +35,7 @@ module Saboteur
           files: files,
           testFiles: test_files(test_ids),
           skippedSubjects: skipped_subjects(report),
+          rejectedKills: report.rejected_kills,
           warnings: report.warnings,
           framework: { name: "saboteur", version: VERSION },
           saboteur: { findings: Findings.build(report) }

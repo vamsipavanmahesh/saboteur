@@ -89,7 +89,11 @@ module Saboteur
         recorder = Selection::Recorder.new(files)
         recorder.start
         Kernel.srand(@config["seed"])
-        @integration.run_all(recorder)
+        passed = @integration.run_all(recorder)
+        if passed == false
+          raise Error, "the unchanged suite failed while building coverage. Fix the suite, then run again " \
+                       "with seed #{@config['seed']}."
+        end
         build_seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
         writer.write(recorder.result(build_seconds: build_seconds).to_json)
         writer.close
