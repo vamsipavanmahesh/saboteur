@@ -3,7 +3,8 @@
 saboteur ships a ready-made GitHub Action. On a pull request it runs diff
 mode (`saboteur run --since origin/<base branch>`), so only the methods the
 pull request changed are mutated. It is advisory by default: survivors show up
-as a warning and in the job summary, and the check stays green.
+as notes on the diff, as a warning and in the job summary, and the check stays
+green.
 
 ## Use it
 
@@ -38,6 +39,26 @@ The action does not set up Ruby or install gems. Your project's own setup
 it. The action needs `fetch-depth: 0` on checkout; it stops with a message
 that says so when the checkout is shallow or the base branch is missing.
 
+## What lands on the pull request
+
+Each surviving mutant becomes a file/line annotation on the diff: the subject,
+the operator, the original text and what saboteur replaced it with. The job
+summary lists the same survivors, coarse mutants first (a surviving coarse
+mutant hints that no test pins the method's behavior), then file, line and
+digest. The JSON report is uploaded as the run's `saboteur-report-<job>-<matrix
+leg>` artifact on every pull request run that produced a trusted report -
+including an enforced survivor failure - and the summary links it. An early
+failure before saboteur runs keeps no report, so a stale one is never
+published.
+
+Both read the report's `saboteur.findings` section, written by saboteur 0.3.0
+and later, which bounds the list (10, GitHub's own per-step annotation limit)
+and counts what it left out. With an older saboteur the action still reports
+the counts, the score and a warning, but there are no per-survivor notes.
+Accepted survivors (on `.saboteur-ignore.yml`) get no note; they are counted
+in the `accepted-survivors` output and the summary's score line, and the
+summary lists them apart with the reason from the ignore list.
+
 ## Inputs
 
 | Input | Default | Meaning |
@@ -48,6 +69,7 @@ that says so when the checkout is shallow or the base branch is missing.
 | `fail-on-survivors` | `false` | `true` or `false`; any other value fails the step. `true` fails the step when a mutant survives, and also when the run is incomplete (see below). |
 | `cache` | `true` | `true` or `false`; any other value fails the step. `false` skips restoring the cached coverage map and also passes `--no-cache` to saboteur, so the map is rebuilt. |
 | `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only, and it may not start with `-`. |
+| `artifact-name` | `saboteur-report-<job>-<matrix leg>` | Name of the uploaded report artifact. Set it when one job uses this action more than once: upload-artifact rejects a second upload under one name. |
 
 The action runs only on `pull_request` events. On any other event, such as
 `push`, it prints a notice and does nothing, even if `base-ref` is set. It does

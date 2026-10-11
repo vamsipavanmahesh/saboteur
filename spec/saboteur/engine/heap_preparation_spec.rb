@@ -31,12 +31,22 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     box = {}
     stub_boot_phase(events, subjects, rails: rails)
     stub_test_phase(events, box)
-    engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: StringIO.new)
+    diagnostics_output = StringIO.new
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: diagnostics_output)
     record_candidate_lists(engine, events, box)
+    expect_run_diagnostics(engine, subjects, map)
     report = engine.call
+    expect(diagnostics_output.string).to include("#{subjects.size} subjects, 1 tests") unless subjects.empty?
     expect(report.subjects).to eq(subjects)
     expect(report.skipped_subjects).to eq({}) if subjects.empty?
     [box[:lists], box[:run_args]]
+  end
+
+  def expect_run_diagnostics(engine, subjects, map)
+    return if subjects.empty?
+
+    expect(engine).to receive(:warn_about_threads).and_call_original
+    expect(engine).to receive(:inform_about_run).with(subjects, map).and_call_original
   end
 
   def record_candidate_lists(engine, events, box)
@@ -57,7 +67,14 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 
+  def stub_baseline_phase(events)
+    baseline = instance_double(Saboteur::Engine::BaselineGuard)
+    allow(baseline).to receive(:call) { events << :baseline_checked }
+    allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
+  end
+
   def stub_test_phase(events, box)
+    stub_baseline_phase(events)
     store = instance_double(Saboteur::Engine::CoverageStore)
     allow(store).to receive(:fetch) { events << :map_retained and map }
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
@@ -70,14 +87,14 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   it "prepares after the map and candidates are retained, before distribution, on the parallel path" do
     events = []
     lists, run_args = run_engine(jobs: 4, events: events)
-    expect(events).to eq(%i[map_retained candidates_retained rails_prepared prepare distribute])
+    expect(events).to eq(%i[baseline_checked map_retained candidates_retained rails_prepared prepare distribute])
     expect(run_args.last).to eq(lists)
   end
 
   it "prepares after the map and candidates are retained, before distribution, on the serial path" do
     events = []
     lists, run_args = run_engine(jobs: 1, events: events)
-    expect(events).to eq(%i[map_retained candidates_retained rails_prepared prepare distribute])
+    expect(events).to eq(%i[baseline_checked map_retained candidates_retained rails_prepared prepare distribute])
     expect(run_args.last).to eq(lists)
   end
 
@@ -93,7 +110,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   it "runs covered work without a Rails adapter" do
     events = []
     _, run_args = run_engine(jobs: 1, events: events, rails: false)
-    expect(events).to eq(%i[map_retained candidates_retained prepare distribute])
+    expect(events).to eq(%i[baseline_checked map_retained candidates_retained prepare distribute])
     expect(run_args.first).to eq([subject_under_test])
   end
 
