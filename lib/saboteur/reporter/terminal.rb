@@ -43,7 +43,7 @@ module Saboteur
         breakdown = report.score_breakdown
         @out.puts "score #{percent(breakdown.value)}#{score_split(breakdown)} " \
                   "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded"
-        whole_method_score(report)
+        whole_body_score(report)
         mean = report.mean_runtime
         @out.puts "mean time per executed mutant #{format('%.3f', mean)} s" if mean
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
@@ -62,21 +62,19 @@ module Saboteur
       def score_split(breakdown)
         return "" unless breakdown.split_known?
 
-        parts = ["assertion #{percent(breakdown.assertion_share)}", "crash #{percent(breakdown.crash_share)}"]
-        parts << "timeout #{percent(breakdown.timeout_share)}" if breakdown.timeouts.positive?
-        parts << "cause unknown #{percent(breakdown.unclassified_share)}" if breakdown.unclassified_kills.positive?
-        " (#{parts.join(', ')})"
+        " (#{breakdown.parts.map { |label, share| "#{label} #{percent(share)}" }.join(', ')})"
       end
 
-      # Whole-method mutants (body_nil, body_raise) are killed by almost any
-      # test that runs the method, so they get their own line.
-      def whole_method_score(report)
+      # Whole-body mutants (body_nil, body_true, body_false, body_raise) are
+      # killed by almost any test that runs the method, so they get their own
+      # line.
+      def whole_body_score(report)
         whole = report.coarse_score_breakdown
         fine = report.fine_score_breakdown
         return if whole.tested.zero? || fine.tested.zero?
 
-        @out.puts "score without whole-method mutants #{percent(fine.value)}#{score_split(fine)} " \
-                  "(#{fine.tested} mutants); whole-method mutants alone #{percent(whole.value)} (#{whole.tested})"
+        @out.puts "score without whole-body mutants #{percent(fine.value)}#{score_split(fine)} " \
+                  "(#{fine.tested} mutants); whole-body mutants alone #{percent(whole.value)} (#{whole.tested})"
       end
 
       def percent(share)
