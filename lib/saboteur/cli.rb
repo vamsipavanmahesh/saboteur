@@ -28,6 +28,7 @@ module Saboteur
       @out = out
       @err = err
       @options = {}
+      @format = "agent" if agent_requested?
     end
 
     def call
@@ -96,6 +97,13 @@ module Saboteur
       @format == "agent"
     end
 
+    # Found before parsing, so any error, even a bad option that comes first, still
+    # answers an agent with JSON.
+    def agent_requested?
+      @argv.include?("--agent") || @argv.include?("--format=agent") ||
+        @argv.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }
+    end
+
     # In agent mode the failure is also on stdout, where the agent reads its answer.
     def agent_failure(message, exit_code)
       @out.print(Reporter::Agent.render(Reporter::Agent.failure(message, exit_code))) if agent?
@@ -109,8 +117,7 @@ module Saboteur
 
       arguments = { err: @err }
       arguments[:digest] = options[:id] if options[:id]
-      report = Engine.new(config, **arguments).call
-      agent? ? agent_run(report) : text_run(report)
+      agent? ? agent_run(arguments) : text_run(Engine.new(config, **arguments).call)
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
       agent_failure(e.message, EXIT_USAGE)
@@ -149,24 +156,54 @@ module Saboteur
       EXIT_TOOL
     end
 
-    # Agent mode: the files are still written, but stdout carries one JSON payload.
-    def agent_run(report)
+    # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
+    # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
+    def agent_run(arguments)
+      tree = WorkingTree.new(config.root, ignored: output_paths).state
+      report = stdout_on_stderr { Engine.new(config, **arguments).call }
       write_json(report, announce: false)
       write_html(report, announce: false)
-      payload = Reporter::Agent.call(report, agent_provenance(report))
+      payload = Reporter::Agent.call(report, agent_provenance(report, tree))
       @out.print(Reporter::Agent.render(payload))
       Reporter::Agent.exit_code(payload)
     end
 
-    def agent_provenance(report)
-      tree = WorkingTree.new(config.root).state
-      mode = if options[:id]
-               "replay"
-             else
-               (options[:since] ? "diff" : "full")
-             end
-      Reporter::Agent::Provenance.new(ref: options[:since], seed: report.seed, head: tree.head,
-                                      working_tree: tree.label, mode: mode, json_report: config.path("json_report"))
+    # Paths of saboteur's own output, relative to the root, that do not count as source changes.
+    def output_paths
+      root = File.join(File.realpath(config.root), "")
+      %w[cache_dir json_report html_report].filter_map { |key| config.path(key) }
+                                           .map { |path| File.expand_path(path) }
+                                           .select { |path| path.start_with?(root) }
+                                           .map { |path| path.delete_prefix(root) }
+    end
+
+    # Descriptor 1 points at stderr for the block, so Kernel#puts, system and forked
+    # children cannot write into the JSON on stdout.
+    def stdout_on_stderr
+      saved = $stdout.dup
+      $stdout.flush
+      $stdout.reopen($stderr)
+      yield
+    ensure
+      $stdout.reopen(saved) if saved
+      saved&.close
+    end
+
+    def agent_provenance(report, tree)
+      Reporter::Agent::Provenance.new(
+        ref: config["since"], seed: report.seed, head: tree.head, working_tree: tree.label,
+        changed_files: tree.changed_files, mode: agent_mode, json_report: config.path("json_report"),
+        subjects: Array(config["subjects"]), tests: Array(options[:tests]), sources: @sources || [],
+        config_path: options[:config], digest: options[:id], cache: config["cache"],
+        incremental: config["incremental"]
+      )
+    end
+
+    def agent_mode
+      return "replay" if options[:id]
+      return "diff" if config["since"]
+
+      @sources&.any? ? "files" : "full"
     end
 
     def write_json(report, announce: true)
@@ -230,6 +267,7 @@ module Saboteur
       raise UsageError, "--test needs at least one source file" if options[:tests] && @argv.empty?
       return if @argv.empty?
 
+      @sources = @argv.dup
       options[:include] = @argv.map { |source| source_pattern(source) }
       options[:exclude] = []
       options[:tests]&.each { |test| require_existing_test(test) }
