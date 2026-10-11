@@ -284,4 +284,43 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "Rails data inputs" do
     restored = described_class.restore_snapshot(JSON.parse(JSON.generate(snapshot.to_h)))
     expect(restored.digest).to eq(snapshot.digest)
   end
+
+  describe "data inputs and run outputs" do
+    def issues_for(settings)
+      described_class.new(config: Saboteur::Config.new(settings, root: @root)).snapshot
+    end
+
+    it "marks the snapshot incomplete when a report would overwrite a declared data input" do
+      %w[db/structure.sql config/database.yml spec/fixtures/users.yml test/fixtures/users.yml].each do |path|
+        snapshot = issues_for("json_report" => path)
+        expect(snapshot.complete).to be(false), path
+        expect(snapshot.issues).to include("output overlaps input: #{path}")
+      end
+    end
+
+    it "treats a not-yet-existing fixture path as an input too" do
+      expect(issues_for("html_report" => "test/fixtures/new/report.html").complete).to be(false)
+    end
+
+    it "flags a report that matches a fingerprint_extra glob" do
+      snapshot = issues_for("json_report" => "data/out.csv", "fingerprint_extra" => ["data/*.csv"])
+      expect(snapshot.issues).to include("output overlaps input: data/out.csv")
+    end
+
+    it "marks the snapshot incomplete when the cache directory is or contains data inputs" do
+      File.write(File.join(@root, "spec/fixtures/users.yml"), "a: 1\n")
+      FileUtils.mkdir_p(File.join(@root, "test/fixtures"))
+      File.write(File.join(@root, "test/fixtures/users.yml"), "a: 1\n")
+      ["test/fixtures", "spec/fixtures", "test/fixtures/cache", "db/structure.sql"].each do |cache|
+        snapshot = issues_for("cache_dir" => cache)
+        expect(snapshot.complete).to be(false), cache
+        expect(snapshot.issues).to include("cache directory overlaps inputs: #{cache}")
+      end
+    end
+
+    it "stays complete for the default cache and report locations" do
+      File.write(File.join(@root, "spec/fixtures/users.yml"), "a: 1\n")
+      expect(issues_for({}).complete).to be(true)
+    end
+  end
 end
