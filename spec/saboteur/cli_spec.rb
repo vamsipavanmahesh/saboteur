@@ -115,6 +115,17 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  it "writes the HTML report it names, next to the JSON one" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "r.html")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      cli("run", "--json", File.join(dir, "r.json"), "--html", path).call
+      expect(out.string).to include("HTML report: #{path}")
+      expect(File.read(path)).to start_with("<!DOCTYPE html>")
+    end
+  end
+
   it "exits 0 when every mutant was skipped (nothing ran, nothing errored)" do
     allow(Saboteur::Engine).to receive(:new)
       .and_return(instance_double(Saboteur::Engine, call: report_of(result_for(:skipped, reason: "no coverage"))))
