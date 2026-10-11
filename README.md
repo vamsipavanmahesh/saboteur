@@ -178,6 +178,34 @@ An entry without a reason is rejected.
 saboteur needs Ruby's `Coverage` for itself. Disable SimpleCov for the run
 (most projects already guard it with an environment variable).
 
+## Filter mutations
+
+The built-in source also swaps `select` / `reject` and `select!` / `reject!`.
+These catch a filter that keeps the items it should discard (or discards the
+items it should keep). For example, a command replacement should remove the
+old command, not keep only that command:
+
+```ruby
+commands.reject! { |name, _| name == replaced_name }
+# mutant: commands.select! { |name, _| name == replaced_name }
+```
+
+Only explicit-receiver calls with a block and no ordinary arguments are
+changed. A block passed as `&predicate` counts; safe navigation is preserved.
+`relation.select(:name)`, bare `select { ... }`, and `items.select` without a
+block are not changed. Arid statements and nested definitions remain skipped.
+Ruby dispatch is dynamic: a matching name does not prove the receiver is an
+Enumerable, and a custom receiver can make the replacement fail. No type or
+real-fault detection guarantee is made.
+
+These are fine mutants, appended after the existing built-in operators. Old
+mutant digests and relative order stay unchanged, but runs can produce more
+mutants, change their score, and hit the per-method cap. The operator and source
+name in reports is `filter_replacement`.
+
+See [the operator rationale](docs/filter-operators.md) for the Ruby fault used
+to choose this family and the limits of that evidence.
+
 ## Extending
 
 Public API, stable across minor versions:
