@@ -5,6 +5,7 @@
 # Input comes from environment variables, never from shell text:
 #   SABOTEUR_EVENT_NAME         GitHub event name; the action only runs on "pull_request"
 #   SABOTEUR_BASE_SHA           exact base commit from the pull_request event
+#   SABOTEUR_EXPECTED_HEAD_SHA  checkout commit from the same GitHub event
 #   SABOTEUR_COMMAND            how to start saboteur, for example "bundle exec saboteur"
 #   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on whitespace (no shell quoting)
 #   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" also fails on an incomplete run
@@ -16,6 +17,7 @@ set -uo pipefail
 
 event_name="${SABOTEUR_EVENT_NAME:-}"
 base_sha="${SABOTEUR_BASE_SHA:-}"
+expected_head_sha="${SABOTEUR_EXPECTED_HEAD_SHA:-}"
 pull_ref="${GITHUB_REF:-}"
 command_line="${SABOTEUR_COMMAND:-bundle exec saboteur}"
 extra_arguments="${SABOTEUR_ARGUMENTS:-}"
@@ -61,6 +63,15 @@ if ! [[ "$pull_ref" =~ ^refs/pull/[0-9]+/merge$ ]]; then
   stop_with_error "saboteur: cannot deepen the pull request checkout safely. Keep actions/checkout on the default pull_request merge ref (refs/pull/<number>/merge), then rerun."
 fi
 
+if ! [[ "$expected_head_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  stop_with_error "saboteur: the pull_request event did not provide a valid checkout SHA. Pass github.sha from the same event."
+fi
+
+checked_out_sha="$(git rev-parse --verify --quiet HEAD^{commit} 2>/dev/null || true)"
+if [ "$checked_out_sha" != "$expected_head_sha" ]; then
+  stop_with_error "saboteur: HEAD ($checked_out_sha) does not match the pull_request event checkout SHA. Check out github.sha for this event before running the action."
+fi
+
 if ! [[ "$report_path" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]]; then
   stop_with_error "saboteur: report-path may only contain letters, digits, dot, underscore, slash and dash, and may not start with a dash."
 fi
@@ -97,22 +108,23 @@ if ! git cat-file -e "$base_sha^{commit}" 2>/dev/null; then
   stop_with_error "saboteur: the exact pull request base SHA is not a commit after fetch. Check the event payload and checkout."
 fi
 
-merge_base=""
-for attempt in {1..20}; do
-  if merge_base="$(git merge-base "$base_sha" HEAD 2>/dev/null)" && [ -n "$merge_base" ]; then
-    break
-  fi
+merge_base="$(git merge-base "$base_sha" HEAD 2>/dev/null || true)"
+attempt=0
+while [ -z "$merge_base" ]; do
   if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" != "true" ]; then
     stop_with_error "saboteur: no merge base exists between the exact pull request base SHA and HEAD. Refusing to widen the diff; verify the checkout uses this pull request's history."
+  fi
+  if [ "$attempt" -ge 20 ]; then
+    stop_with_error "saboteur: no merge base found after fetching 2,000 pull-request commits. Increase actions/checkout fetch-depth or fetch more history; refusing to widen the diff."
   fi
   if ! git fetch --no-tags --deepen=100 origin "$pull_ref"; then
     stop_with_error "saboteur: could not deepen pull request history while finding the merge base. Set actions/checkout fetch-depth to 0 or ensure the pull-request merge ref is fetchable; no mutation run was started."
   fi
+  attempt=$((attempt + 1))
+  # Re-evaluate immediately after each successful fetch, including the last
+  # allowed increment, before deciding the bounded search was exhausted.
+  merge_base="$(git merge-base "$base_sha" HEAD 2>/dev/null || true)"
 done
-
-if [ -z "$merge_base" ]; then
-  stop_with_error "saboteur: no merge base found after fetching 2,000 pull-request commits. Increase actions/checkout fetch-depth or fetch more history; refusing to widen the diff."
-fi
 
 # A report left by an earlier run (for example a restored cache) must never
 # stand in for this run's report.
