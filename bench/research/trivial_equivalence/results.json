@@ -4,7 +4,22 @@
   "provenance": {
    "command": [
     "ruby",
-    "measure.rb"
+    "measure.rb",
+    "--project",
+    "<scratch copy of hashie at 9c81e83>",
+    "--files",
+    "lib/**/*.rb",
+    "--suite",
+    "rspec -I lib spec --fail-fast -f progress",
+    "--run-all",
+    "--sample",
+    "400",
+    "--seed",
+    "1",
+    "--outcomes",
+    "hashie_sample_outcomes.jsonl",
+    "--out",
+    "<results>"
    ],
    "ruby": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]",
    "prism": "1.9.0",
@@ -59,6 +74,22 @@
     "subjects_found": 261,
     "subjects_skipped": {},
     "files_without_subjects": 5
+   },
+   "command_as_recorded_by_harness": [
+    "ruby",
+    "measure.rb"
+   ],
+   "command_note": "Restored from the invocation actually run (measure.rb recorded only its name before the fix in the next commit). Project paths shown as the revision they pointed at; the suite timeout was 120 s per mutant.",
+   "dependency_versions": {
+    "rspec": "3.13.2",
+    "rspec-core": "3.13.6",
+    "rspec-expectations": "3.13.5",
+    "rspec-mocks": "3.13.8",
+    "rspec-support": "3.13.7",
+    "rspec-pending_for": "0.1.28",
+    "pry": "0.16.0",
+    "prism": "1.9.0",
+    "note": "Read from the gem home used for the run, after the run. activesupport was not installed; hashie's .rspec excludes spec/integration."
    }
   },
   "project": "hashie_run",
@@ -90,7 +121,13 @@
   "provenance": {
    "command": [
     "ruby",
-    "measure.rb"
+    "measure.rb",
+    "--project",
+    "<saboteur at 09b64bb>",
+    "--files",
+    "lib/**/*.rb",
+    "--out",
+    "<results>"
    ],
    "ruby": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]",
    "prism": "1.9.0",
@@ -147,7 +184,12 @@
     "subjects_found": 392,
     "subjects_skipped": {},
     "files_without_subjects": 3
-   }
+   },
+   "command_as_recorded_by_harness": [
+    "ruby",
+    "measure.rb"
+   ],
+   "command_note": "Restored from the invocation actually run (measure.rb recorded only its name before the fix in the next commit). Project paths shown as the revision they pointed at; the suite timeout was 120 s per mutant."
   },
   "project": "saboteur",
   "files": 43,
@@ -178,7 +220,15 @@
   "provenance": {
    "command": [
     "ruby",
-    "measure.rb"
+    "measure.rb",
+    "--project",
+    "<lobsters at 0d162b9>",
+    "--files",
+    "app/models/*.rb",
+    "--files",
+    "lib/**/*.rb",
+    "--out",
+    "<results>"
    ],
    "ruby": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]",
    "prism": "1.9.0",
@@ -241,7 +291,12 @@
     "subjects_found": 366,
     "subjects_skipped": {},
     "files_without_subjects": 8
-   }
+   },
+   "command_as_recorded_by_harness": [
+    "ruby",
+    "measure.rb"
+   ],
+   "command_note": "Restored from the invocation actually run (measure.rb recorded only its name before the fix in the next commit). Project paths shown as the revision they pointed at; the suite timeout was 120 s per mutant."
   },
   "project": "lobsters",
   "files": 49,
