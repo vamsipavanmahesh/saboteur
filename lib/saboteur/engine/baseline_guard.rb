@@ -48,10 +48,22 @@ module Saboteur
         result = @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, number) }
         refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
         refuse(number, "the child did not report a result") if result.payload.empty?
-        refuse(number, "the child exited unsuccessfully") if
-          result.exit_status.is_a?(Process::Status) && !result.exit_status.success?
+        if result.exit_status.is_a?(Process::Status) && !result.exit_status.success?
+          refuse(number, unsuccessful_exit(result.exit_status))
+        end
         refuse(number, "the suite left child processes behind") if result.leftover_pids.any?
         parse_result(number, result.payload)
+      end
+
+      # A signaled child (the OOM killer, say) can leave an empty log,
+      # which reads like a suite failure; name the signal and hint the
+      # likely cause instead.
+      def unsuccessful_exit(status)
+        return "the child exited with status #{status.exitstatus}" unless status.signaled?
+
+        signal = "SIG#{Signal.signame(status.termsig)}"
+        hint = signal == "SIGKILL" ? " - possible OOM, check memory" : ""
+        "the child was killed by #{signal}#{hint}"
       end
 
       def parse_result(number, payload)
