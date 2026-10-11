@@ -39,14 +39,20 @@ jobs:
           bundler-cache: true
       - name: Mutate changed code
         env:
-          BASE_REF: ${{ github.base_ref }}
-        run: bundle exec saboteur run --since "origin/$BASE_REF"
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bundle exec saboteur run --since "$BASE_SHA"
 ```
 
-Full checkout history includes the base branch. Pass the base branch through
-an environment variable rather than inserting its name directly in shell code.
-This repository's [CI workflow](../.github/workflows/ci.yml) already follows
-this pattern with `bundle exec exe/saboteur` for the local executable.
+The base commit SHA comes from the pull-request event, not a moving branch tip.
+Pass it through an environment variable rather than inserting it into shell
+code. This manual example fetches full history so Git can establish a real merge
+base. If a merge base is unavailable, the command fails rather than widening
+the scan. The ready-made action can start shallow and deepens only the PR merge
+ref as needed.
+For the ready-made action, checkout must match the event's `github.sha`; the
+action checks this before using history. This repository's dogfood CI calls the
+local action with `uses: ./` and is not an example of the manual `BASE_SHA`
+workflow above.
 Do not run untrusted pull-request code with secrets or privileged credentials.
 
 ## Configuration
@@ -55,17 +61,10 @@ Keep shared `.saboteur.yml` settings such as `include`, `exclude`, `require`
 and `rspec_args`. Pass `--since` only in the PR job, so a main-branch audit
 can use the same config without a diff filter. CLI flags override YAML.
 
-For a dedicated PR-only config, this is also supported:
-
-```yaml
-# .saboteur-pr.yml
-include: [lib/**/*.rb]
-since: origin/main
-```
-
-```sh
-bundle exec saboteur run --config .saboteur-pr.yml
-```
+For a dedicated PR-only config, `since` can be set to the exact 40-character
+base commit SHA from the event payload. Do not put a moving branch name in a
+PR config; refresh the SHA for each event, or pass it as a CLI argument as in
+the workflow example above.
 
 `since` is `null` by default. For whole-project audits, omit `since` or set
 `since: null` in the chosen config. Omitting the CLI flag does not clear a
@@ -73,11 +72,15 @@ bundle exec saboteur run --config .saboteur-pr.yml
 
 ## What gets checked
 
-saboteur compares the working tree to the merge base of the ref and HEAD,
-including tracked uncommitted changes. It selects methods whose current
-source lines intersect the diff. Within each selected method, it keeps fine
-mutants whose edits touch changed lines, plus the available coarse whole-method mutants
-(`nil`, or `true`/`false` for predicates, and `raise` where applicable). Keep new files tracked so git diff can see them.
+saboteur compares the working tree to the merge base of the supplied ref and
+HEAD, including tracked uncommitted changes. For pull requests, use the exact
+base SHA from the event payload rather than a branch name; the SHA pins the
+comparison input, while the merge base still defines the branch point. It
+selects methods whose current source lines intersect the diff. Within each
+selected method, it keeps fine mutants whose edits touch changed lines, plus
+the available coarse whole-method mutants (`nil`, or `true`/`false` for
+predicates, and `raise` where applicable). Keep new files tracked so git diff
+can see them.
 
 Diff mode still builds a per-test coverage map from the configured suite
 when there is no valid cached map. A smaller mutation scope does not remove

@@ -4,20 +4,21 @@
 #
 # Input comes from environment variables, never from shell text:
 #   SABOTEUR_EVENT_NAME         GitHub event name; the action only runs on "pull_request"
-#   SABOTEUR_BASE_REF           pull request base branch
+#   SABOTEUR_BASE_SHA           exact base commit from the pull_request event
+#   SABOTEUR_EXPECTED_HEAD_SHA  checkout commit from the same GitHub event
 #   SABOTEUR_COMMAND            how to start saboteur, for example "bundle exec saboteur"
 #   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on whitespace (no shell quoting)
 #   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" also fails on an incomplete run
 #   SABOTEUR_REPORT_PATH        where saboteur writes its JSON report
 #   SABOTEUR_CACHE              "true" or "false"; "false" also passes --no-cache to saboteur
-# GITHUB_SERVER_URL, GITHUB_REPOSITORY and GITHUB_RUN_ID locate this run, so
-# the summary can link the report artifact; outside GitHub the link is left out.
 # Exit codes of saboteur: 0 clean, 1 survivors, 2 usage error, 3 tool error.
 # This script exits 2 for input it refuses, and 3 when saboteur's result cannot be trusted.
 set -uo pipefail
 
 event_name="${SABOTEUR_EVENT_NAME:-}"
-base_ref="${SABOTEUR_BASE_REF:-}"
+base_sha="${SABOTEUR_BASE_SHA:-}"
+expected_head_sha="${SABOTEUR_EXPECTED_HEAD_SHA:-}"
+pull_ref="${GITHUB_REF:-}"
 command_line="${SABOTEUR_COMMAND:-bundle exec saboteur}"
 extra_arguments="${SABOTEUR_ARGUMENTS:-}"
 fail_on_survivors="${SABOTEUR_FAIL_ON_SURVIVORS:-false}"
@@ -27,12 +28,6 @@ github_output="${GITHUB_OUTPUT:-/dev/null}"
 step_summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 write_output() { echo "$1=$2" >>"$github_output"; }
-
-stop_with_error() {
-  echo "::error::$1"
-  write_output ran false
-  exit "${2:-2}"
-}
 
 # A workflow command cannot hold %, CR or LF; a property value cannot hold :
 # or , on top of that. The report carries source text, which can be anything.
@@ -89,10 +84,21 @@ decode_field() {
   printf -v "$2" '%s' "${decoded%x}"
 }
 
-if [ "$event_name" != "pull_request" ] || [ -z "$base_ref" ]; then
+
+stop_with_error() {
+  echo "::error::$1"
+  write_output ran false
+  exit "${2:-2}"
+}
+
+if [ "$event_name" != "pull_request" ]; then
   echo "::notice::saboteur: this action only runs on pull_request events (this one is '${event_name:-unknown}'). Nothing was mutated."
   write_output ran false
   exit 0
+fi
+
+if [ -z "$base_sha" ]; then
+  stop_with_error "saboteur: the pull_request event did not provide its base SHA. This action requires github.event.pull_request.base.sha; no mutation run was started."
 fi
 
 case "$fail_on_survivors" in
@@ -105,8 +111,21 @@ case "$use_cache" in
   *) stop_with_error "saboteur: cache must be exactly \"true\" or \"false\", not \"$use_cache\"." ;;
 esac
 
-if ! [[ "$base_ref" =~ ^[A-Za-z0-9._/-]+$ ]]; then
-  stop_with_error "saboteur: base-ref contains characters a branch name should not have. Pass the pull request's base branch name."
+if ! [[ "$base_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  stop_with_error "saboteur: the pull_request event did not provide a valid 40-character base SHA. Use this action on pull_request and do not override its base commit."
+fi
+
+if ! [[ "$pull_ref" =~ ^refs/pull/[0-9]+/merge$ ]]; then
+  stop_with_error "saboteur: cannot deepen the pull request checkout safely. Keep actions/checkout on the default pull_request merge ref (refs/pull/<number>/merge), then rerun."
+fi
+
+if ! [[ "$expected_head_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  stop_with_error "saboteur: the pull_request event did not provide a valid checkout SHA. Pass github.sha from the same event."
+fi
+
+checked_out_sha="$(git rev-parse --verify --quiet HEAD^{commit} 2>/dev/null || true)"
+if [ "$checked_out_sha" != "$expected_head_sha" ]; then
+  stop_with_error "saboteur: HEAD ($checked_out_sha) does not match the pull_request event checkout SHA. Check out github.sha for this event before running the action."
 fi
 
 if ! [[ "$report_path" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]]; then
@@ -128,17 +147,40 @@ for word in ${argument_words[@]+"${argument_words[@]}"}; do
   fi
   option_name="${word%%=*}"
   if [[ "$option_name" == --* ]] && { [[ "--since" == "$option_name"* ]] || [[ "--json" == "$option_name"* ]]; }; then
-    stop_with_error "saboteur: 'arguments' may not contain $option_name. The action sets --since from base-ref and --json from report-path."
+    stop_with_error "saboteur: 'arguments' may not contain $option_name. The action sets --since from the exact base SHA and --json from report-path."
   fi
 done
 
-if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
-  stop_with_error "saboteur: the checkout is shallow, so the merge base cannot be found. Set 'fetch-depth: 0' on actions/checkout."
+# Fetch the immutable base commit if it is not already present. Then deepen
+# only this PR's merge ref, in bounded increments, until Git proves a merge
+# base. Never substitute a branch tip or widen the mutation scope.
+if ! git cat-file -e "$base_sha^{commit}" 2>/dev/null; then
+  if ! git fetch --no-tags --depth=1 origin "$base_sha"; then
+    stop_with_error "saboteur: could not fetch the pull request's exact base SHA. Check that it is available from origin and that the workflow can fetch it."
+  fi
 fi
 
-if ! git rev-parse --verify --quiet "refs/remotes/origin/$base_ref^{commit}" >/dev/null; then
-  stop_with_error "saboteur: origin/$base_ref does not exist in this checkout. Set 'fetch-depth: 0' on actions/checkout, and check that base-ref names a branch."
+if ! git cat-file -e "$base_sha^{commit}" 2>/dev/null; then
+  stop_with_error "saboteur: the exact pull request base SHA is not a commit after fetch. Check the event payload and checkout."
 fi
+
+merge_base="$(git merge-base "$base_sha" HEAD 2>/dev/null || true)"
+attempt=0
+while [ -z "$merge_base" ]; do
+  if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" != "true" ]; then
+    stop_with_error "saboteur: no merge base exists between the exact pull request base SHA and HEAD. Refusing to widen the diff; verify the checkout uses this pull request's history."
+  fi
+  if [ "$attempt" -ge 20 ]; then
+    stop_with_error "saboteur: no merge base found after fetching 2,000 pull-request commits. Increase actions/checkout fetch-depth or fetch more history; refusing to widen the diff."
+  fi
+  if ! git fetch --no-tags --deepen=100 origin "$pull_ref"; then
+    stop_with_error "saboteur: could not deepen pull request history while finding the merge base. Set actions/checkout fetch-depth to 0 or ensure the pull-request merge ref is fetchable; no mutation run was started."
+  fi
+  attempt=$((attempt + 1))
+  # Re-evaluate immediately after each successful fetch, including the last
+  # allowed increment, before deciding the bounded search was exhausted.
+  merge_base="$(git merge-base "$base_sha" HEAD 2>/dev/null || true)"
+done
 
 # A report left by an earlier run (for example a restored cache) must never
 # stand in for this run's report.
@@ -150,7 +192,7 @@ cache_arguments=()
 [ "$use_cache" = "false" ] && cache_arguments=(--no-cache)
 
 log_file="$(mktemp)"
-"${command_words[@]}" run ${cache_arguments[@]+"${cache_arguments[@]}"} ${argument_words[@]+"${argument_words[@]}"} --since "origin/$base_ref" --json "$report_path" 2>&1 | tee "$log_file"
+"${command_words[@]}" run ${cache_arguments[@]+"${cache_arguments[@]}"} ${argument_words[@]+"${argument_words[@]}"} --since "$base_sha" --json "$report_path" 2>&1 | tee "$log_file"
 saboteur_status="${PIPESTATUS[0]}"
 
 killed=0 timed_out=0 survivors=0 accepted=0 errors=0 uncovered=0 score="n/a" report_valid=false
@@ -338,11 +380,12 @@ if [ "$report_valid" = "true" ]; then
   fi
 fi
 
+
 # A code fence one backtick longer than any run of backticks in the log, so
 # the log cannot close the fence and inject markdown.
 fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > longest) longest = RLENGTH; $0 = substr($0, RSTART + RLENGTH) } } END { s = ""; for (i = 0; i <= longest; i++) s = s "`"; print s }' "$log_file")"
 {
-  echo "## Mutation testing (diff against origin/$base_ref)"
+  echo "## Mutation testing (diff from merge base of exact PR base $base_sha)"
   echo
   if [ "$report_valid" != "true" ] && [ "$saboteur_status" -le 1 ]; then
     echo "**No trusted result.** saboteur exited with $saboteur_status but its report is missing or unreadable."
@@ -385,7 +428,7 @@ fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > lo
   echo "$fence"
   echo '</details>'
 } >>"$step_summary"
-rm -f "$log_file" "$findings_file" "$accepted_file"
+rm -f "$log_file"
 
 if [ "$saboteur_status" -le 1 ] && [ "$report_valid" != "true" ]; then
   exit 3
@@ -408,3 +451,4 @@ case "$saboteur_status" in
     exit "$saboteur_status"
     ;;
 esac
+
