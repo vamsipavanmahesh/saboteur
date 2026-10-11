@@ -31,12 +31,22 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     box = {}
     stub_boot_phase(events, subjects, rails: rails)
     stub_test_phase(events, box)
-    engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: StringIO.new)
+    diagnostics_output = StringIO.new
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: diagnostics_output)
     record_candidate_lists(engine, events, box)
+    expect_run_diagnostics(engine, subjects, map)
     report = engine.call
+    expect(diagnostics_output.string).to include("#{subjects.size} subjects, 1 tests") unless subjects.empty?
     expect(report.subjects).to eq(subjects)
     expect(report.skipped_subjects).to eq({}) if subjects.empty?
     [box[:lists], box[:run_args]]
+  end
+
+  def expect_run_diagnostics(engine, subjects, map)
+    return if subjects.empty?
+
+    expect(engine).to receive(:warn_about_threads).and_call_original
+    expect(engine).to receive(:inform_about_run).with(subjects, map).and_call_original
   end
 
   def record_candidate_lists(engine, events, box)
