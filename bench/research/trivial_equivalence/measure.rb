@@ -48,6 +48,7 @@ class MutantSuiteRun
   end
 end
 
+original_arguments = ARGV.dup
 options = { files: [], suite: nil, run_all: false, sample: nil, seed: 1, outcomes: nil }
 OptionParser.new do |parser|
   parser.on("--project DIR") { |value| options[:project] = File.expand_path(value) }
@@ -149,7 +150,7 @@ end
 result = {
   compiler: TrivialEquivalence::CompilerPin.description,
   provenance: {
-    command: ["ruby", "measure.rb", *ARGV], ruby: RUBY_DESCRIPTION, prism: Prism::VERSION,
+    command: ["ruby", "measure.rb", *original_arguments], ruby: RUBY_DESCRIPTION, prism: Prism::VERSION,
     project_git_revision: RunProvenance.git_revision(project),
     saboteur_git_revision: RunProvenance.git_revision(File.expand_path("../../..", __dir__)),
     suite_tool: options[:suite] && RunProvenance.tool_version("#{options[:suite].split.first} --version", project),
