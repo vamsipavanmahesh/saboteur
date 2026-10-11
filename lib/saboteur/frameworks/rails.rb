@@ -17,6 +17,7 @@ module Saboteur
       def initialize(config, hooks)
         @config = config
         @hooks = hooks
+        @worker_copies = []
       end
 
       def before_boot
@@ -54,25 +55,38 @@ module Saboteur
       end
 
       # Parent, before workers start: one copy of each test database per
-      # extra worker, made from the prepared test database.
+      # extra worker, made from the prepared test database. Only copies
+      # that were actually made are tracked, so cleanup_workers drops
+      # exactly those - including the partial set when a copy failed.
       def prepare_workers(jobs)
         return unless defined?(::ActiveRecord::Base) && jobs > 1
 
+        @worker_copies = []
         test_configs.each do |db|
-          (1...jobs).each { |number| copy_database(db, self.class.worker_database(db.database, number)) }
+          (1...jobs).each do |number|
+            name = self.class.worker_database(db.database, number)
+            copy_database(db, name)
+            @worker_copies << [db, name]
+          end
         end
         disconnect
       end
 
-      # Parent, after the run (however it ended): drop every copy
-      # prepare_workers made, so runs do not collect one database per worker.
-      def cleanup_workers(jobs)
-        return unless defined?(::ActiveRecord::Base) && jobs > 1
+      # Parent, after the run: drop every copy prepare_workers made, so runs
+      # do not collect one database per worker. Every copy is attempted even
+      # when a drop fails; the failures are reported together at the end.
+      def cleanup_workers
+        return if @worker_copies.empty?
 
-        test_configs.each do |db|
-          (1...jobs).each { |number| drop_database(db, self.class.worker_database(db.database, number)) }
+        failures = @worker_copies.filter_map do |db, name|
+          drop_database(db, name)
+          nil
+        rescue StandardError => e
+          "#{name}: #{e.message}"
         end
+        @worker_copies = []
         disconnect
+        raise Error, "could not drop worker database copies: #{failures.join('; ')}" if failures.any?
       end
 
       # Worker: point every connection pool (primary, and any cache, queue or
