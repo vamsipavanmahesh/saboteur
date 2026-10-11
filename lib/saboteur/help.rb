@@ -22,13 +22,18 @@ module Saboteur
         name: "run",
         summary: "Mutate your code and report the mutants your tests do not catch",
         description: "Builds a per-test coverage map, makes small changes to your methods, runs only the " \
-                     "tests that cover each change, and reports survivors (changes no test noticed).",
+                     "tests that cover each change, and reports survivors (changes no test noticed). Source files or " \
+                     "directories after run replace include and exclude; --test limits the specs that run; " \
+                     "--threshold PERCENT makes the score the exit code.",
         takes_options: true,
         examples: [
           ["Pull request: only methods changed since the target branch", "saboteur run --since origin/main"],
           ["Whole project, four workers, repeatable seed", "saboteur run --jobs 4 --seed 42"],
           ["One class or method", "saboteur run --subject 'Person#adult?'"],
-          ["Replay one mutant by the digest printed next to a survivor", "saboteur run --id 1a2b3c4d5e6f7a8b"]
+          ["Replay one mutant by the digest printed next to a survivor", "saboteur run --id 1a2b3c4d5e6f7a8b"],
+          ["Mutate named files against named specs, skipping the whole-suite coverage run",
+           "saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb"],
+          ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"]
         ]
       ),
       Command.new(
@@ -50,10 +55,12 @@ module Saboteur
 
     EXIT_CODE_MEANINGS = {
       0 => "Success. No unignored survivors.",
-      1 => "At least one mutant survived and is not on the ignore list.",
+      1 => "At least one mutant survived and is not on the ignore list, or with --threshold the score is " \
+           "below it or missing.",
       2 => "Usage or configuration error: fix the command or .saboteur.yml. A replay --id that matches no " \
-           "mutant is only found after the target has booted.",
-      3 => "Tool error: saboteur could not finish, or every executed mutant errored."
+           "mutant is only found after the target has booted. A named source or test file that does not exist.",
+      3 => "Tool error: saboteur could not finish, or every executed mutant errored. With --threshold, " \
+           "also any errored or resource-limited mutant."
     }.freeze
 
     FILES = [
