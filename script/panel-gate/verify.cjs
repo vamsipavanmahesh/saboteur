@@ -78,14 +78,21 @@ class API {
         'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'},
       ...(data ? {body: JSON.stringify(data)} : {})
     });
-    if (!response.ok && (response.status === 403 || response.status === 429 ||
-        response.headers?.get('x-ratelimit-remaining') === '0')) {
-      const reset = Number(response.headers?.get('x-ratelimit-reset'));
-      const resetAt = Number.isFinite(reset) && reset > 0 ? new Date(reset * 1000).toISOString() : 'unknown';
+    if (!response.ok) {
+      const header = name => response.headers?.get(name);
       const detail = await response.text().then(text => { try { return JSON.parse(text).message; } catch { return text; } }, () => '');
-      throw new RateLimitError(`GitHub API ${response.status} (rate limit or access denied): ${path}; ` +
-        `remaining ${response.headers?.get('x-ratelimit-remaining') ?? 'unknown'}, resets ${resetAt}; ` +
-        `${String(detail || 'no message').slice(0, 200)}; stopped without writing statuses`);
+      // Only real exhaustion evidence counts: 429, no calls remaining, a retry-after header, or the
+      // secondary-limit wording. A bare 403 (permissions, SSO) stays an ordinary failure, so the
+      // gate still writes its fail-closed status.
+      const exhausted = response.status === 429 || header('x-ratelimit-remaining') === '0' ||
+        header('retry-after') != null || (response.status === 403 && /rate limit|abuse/i.test(String(detail)));
+      if (exhausted) {
+        const reset = Number(header('x-ratelimit-reset'));
+        const resetAt = Number.isFinite(reset) && reset > 0 ? new Date(reset * 1000).toISOString() : 'unknown';
+        throw new RateLimitError(`GitHub API ${response.status} (rate limit): ${path}; ` +
+          `remaining ${header('x-ratelimit-remaining') ?? 'unknown'}, resets ${resetAt}; ` +
+          `${String(detail || 'no message').slice(0, 200)}; stopped without writing statuses`);
+      }
     }
     demand(response.ok, `GitHub API ${response.status}: ${path}`);
     return response.status === 204 ? null : response.json();
@@ -203,7 +210,11 @@ async function revokeEvent(api, event) {
     api.call(`statuses/${pr.head.sha}`, 'POST', {state: 'failure', context: policy.context,
       description: `revoked-pr-${number}:${description}`})
   ]);
-  if (writes.some(w => w.status === 'rejected')) throw new Error('revocation latch write failed; retry event after API recovery');
+  const rejected = writes.filter(w => w.status === 'rejected').map(w => w.reason);
+  // A spent quota keeps its own error so the log shows the reset time; the latches were still attempted.
+  const quota = rejected.find(reason => reason instanceof RateLimitError);
+  if (quota) throw quota;
+  if (rejected.length) throw new Error(`revocation latch write failed; retry event after API recovery: ${rejected.map(r => r?.message).join(' | ')}`);
   const comments = await api.pages(`issues/${number}/comments`);
   const highWater = Math.max(event.comment.id, ...comments.map(c => c.id));
   demand(Number.isSafeInteger(highWater) && highWater > 0, 'invalid comment high-water ID');
@@ -314,7 +325,8 @@ async function main() {
   const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const api = new API(process.env.GITHUB_REPOSITORY, process.env.GITHUB_TOKEN);
   const name = process.env.GITHUB_EVENT_NAME;
-  // Every wake sweeps all open main PRs. queue:max reduces pending-event loss,
+  // Each wake verifies only the PRs its event can change (see targets); a push to main sweeps all.
+  // queue:max reduces pending-event loss,
   // but overflow/lost delivery before ledger persistence cannot be recovered.
   const allowed = ['issue_comment', 'workflow_dispatch', 'workflow_run', 'push'];
   demand(allowed.includes(name), 'unsupported event');
