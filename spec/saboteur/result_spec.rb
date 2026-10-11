@@ -88,4 +88,10 @@ RSpec.describe Saboteur::Report, "score without whole-body mutants" do
     expect([report.score, report.fine_score_breakdown.value, report.coarse_score_breakdown.value])
       .to eq([2.0 / 3, 0.5, 1.0])
   end
+
+  it "computes each breakdown once and returns the same object afterwards" do
+    expect(report.score_breakdown).to equal(report.score_breakdown)
+    expect(report.fine_score_breakdown).to equal(report.fine_score_breakdown)
+    expect(report.coarse_score_breakdown).to equal(report.coarse_score_breakdown)
+  end
 end
