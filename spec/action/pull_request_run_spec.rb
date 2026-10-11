@@ -427,7 +427,7 @@ RSpec.describe "action/run-saboteur" do
     it "keeps an empty original aligned, so a pure insertion does not shift fields" do
       output, = run_action({}, report: report_with_findings([finding(original: "", replacement: "raise")]))
       expect(output).to include("became raise (698e4b7eca600583)")
-      expect(File.read(step_summary)).to include("- `lib/a.rb`:3 `comparison`: `` became `raise`")
+      expect(File.read(step_summary)).to include("- `lib/a.rb`:3 `comparison`: (empty) became `raise`")
     end
 
     it "widens the code span past any run of backticks in the source text" do
@@ -442,14 +442,32 @@ RSpec.describe "action/run-saboteur" do
 
     it "skips a finding whose digest could smuggle a workflow command" do
       output, = run_action({}, report: report_with_findings([finding(digest: "abc%0A::error::injected")]))
-      expect(output).to include("skipped a finding")
+      expect(output).to include("skipped 1 findings whose fields did not match")
       expect(output).not_to include("file=")
       expect(output).not_to include("::error::injected")
     end
 
-    it "clamps an end line below the start line back onto it" do
+    it "rejects an inverted range and a mistyped field instead of coercing them" do
       output, = run_action({}, report: report_with_findings([finding(line: 5, endLine: 2)]))
-      expect(output).to include("line=5,endLine=5")
+      expect(output).to include("skipped 1 findings whose fields did not match")
+      expect(output).not_to include("file=")
+      output, = run_action({}, report: report_with_findings([finding(line: "3")]))
+      expect(output).not_to include("file=")
+    end
+
+    it "counts only the findings it actually emits" do
+      good = finding
+      bad = finding(digest: "not a digest!")
+      output, = run_action({}, report: report_with_findings([good, bad], statuses: %w[Killed Survived Survived]))
+      expect(output.scan(/^::warning file=/).size).to eq(1)
+      expect(output).to include("skipped 1 findings whose fields did not match")
+      expect(File.read(step_summary)).to include("1 of the findings were skipped")
+    end
+
+    it "treats a fractional truncation count as malformed findings" do
+      output, = run_action({}, report: report_with_findings([finding], truncated: 1.5))
+      expect(output).to include("not version 1 findings data")
+      expect(output).not_to include("file=")
     end
 
     it "keeps an empty replacement and a trailing newline aligned" do
@@ -461,7 +479,7 @@ RSpec.describe "action/run-saboteur" do
 
     it "skips a finding whose path could leave the repository" do
       output, = run_action({}, report: report_with_findings([finding(path: "../secret.rb")]))
-      expect(output).to include("skipped a finding")
+      expect(output).to include("skipped 1 findings whose fields did not match")
       expect(output).not_to include("file=")
     end
 
@@ -497,10 +515,11 @@ RSpec.describe "action/run-saboteur" do
       expect(output).not_to include("file=")
     end
 
-    it "keeps the report artifact even when the saboteur step fails" do
+    it "keeps this run's report artifact even when the saboteur step fails" do
       action = YAML.safe_load_file(File.join(__dir__, "..", "..", "action.yml"))
       upload = action.fetch("runs").fetch("steps").find { |step| step["uses"].to_s.include?("upload-artifact") }
-      expect(upload.fetch("if")).to include("always()")
+      expect(upload.fetch("if")).to include("always()").and include("report-valid")
+      expect(upload.fetch("with").fetch("name")).to include("github.job").and include("strategy.job-index")
     end
 
     it "keeps working when the findings section is malformed" do
