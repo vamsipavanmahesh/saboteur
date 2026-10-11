@@ -54,6 +54,24 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect(ticks).to be >= 1
   end
 
+  # A raising on_tick (progress IO failed) must not leave the child running
+  # unsupervised: containment kills and reaps it before the error propagates.
+  it "kills and reaps the child when on_tick raises" do
+    pid_file = File.join(dir, "child.pid")
+    # Raise only once the child is up, so the kill has a live target.
+    on_tick = -> { raise Errno::EPIPE, "broken pipe" if File.exist?(pid_file) }
+    expect do
+      supervisor.run(timeout: 30, on_tick: on_tick) do |_writer|
+        File.write(pid_file, Process.pid)
+        sleep 30
+      end
+    end.to raise_error(Errno::EPIPE)
+    pid = File.read(pid_file).to_i
+    expect(pid).to be_positive
+    expect { Process.kill(0, pid) }.to raise_error(Errno::ESRCH)
+    expect(described_class.live).to be_empty
+  end
+
   it "records nesting depth in the child" do
     nested = supervisor.run(timeout: 5) do |writer|
       writer.write(described_class.new.run(timeout: 5) { |inner| inner.write(ENV.fetch(described_class::CHILD_ENV)) }
