@@ -29,6 +29,14 @@ only, by design.
 - **Open report format.** JSON in the Stryker mutation-testing-report schema.
 - **Pluggable mutation sources.** Add your own mutants by file and byte range.
 
+### Rejected kills
+
+The terminal prints `kills rejected by unchanged-method check: N`; JSON adds
+`rejectedKills`. This counts fresh per-mutant kill claims whose tests also fail
+with the method unchanged. They stay errors outside the score. Timeout checks,
+other errors and reused cached kills are not included. See
+[rejected kills](docs/rejected-kills.md) for details.
+
 ## Usage
 
 ```sh
