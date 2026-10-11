@@ -46,7 +46,9 @@ module Saboteur
       def after_boot
         unless defined?(::Rails.env)
           raise Error,
-                "rails: true but Rails did not load (add config/environment to require)"
+                "rails: true but Rails did not load (add config/environment to require; an engine's dummy " \
+                "app has no config/environment.rb - require the file that calls DummyApp.setup instead, " \
+                "such as spec/rails_helper)"
         end
         raise Error, "rails integration refuses to run: Rails.env is #{::Rails.env}" unless ::Rails.env.test?
 
