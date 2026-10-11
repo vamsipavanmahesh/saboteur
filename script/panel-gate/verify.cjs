@@ -36,11 +36,14 @@ function panel(comments, head, revoked = {}) {
     const marker = parse(comment.body);
     demand(policy.reviewers[marker.lens].includes(comment.user.id), 'wrong publisher for lens');
     // Latest comment per lens wins even if it points to an older head.
-    latest.set(marker.lens, {...marker, commentId: comment.id});
+    latest.set(marker.lens, {...marker, commentId: comment.id, createdAt: Date.parse(comment.created_at)});
   }
   for (const lens of Object.keys(policy.reviewers)) {
     const verdict = latest.get(lens);
-    demand(verdict?.head === head && verdict.verdict === 'APPROVE' && verdict.commentId > (revoked[lens] || 0), `${lens}: missing, stale or blocking verdict`);
+    const cutoff = revoked[lens];
+    demand(verdict?.head === head && verdict.verdict === 'APPROVE' &&
+      (!cutoff || (verdict.commentId > cutoff.id && verdict.createdAt > cutoff.epoch)),
+    `${lens}: missing, stale, revoked or blocking verdict`);
   }
   return Object.fromEntries(latest);
 }
@@ -85,6 +88,70 @@ class API {
     throw new Error('pagination limit reached');
   }
 }
+// Stable trusted-main anchor, scoped by PR, survives head pushes and stale-SHA markers.
+const ledgerContext = number => `panel/revoked/pr-${number}`;
+async function revocations(api, number, head) {
+  const [ledger, legacy] = await Promise.all([
+    api.pages(`commits/${policy.revocationAnchor}/statuses`), api.pages(`commits/${head}/statuses`)
+  ]);
+  const revoked = {};
+  for (const record of [...ledger.filter(r => r.context === ledgerContext(number)),
+    ...legacy.filter(r => r.context === 'panel/deleted-verdict')]) {
+    const match = /^(principal|architect|qa):([1-9][0-9]*)$/.exec(record.description || '');
+    const epoch = Date.parse(record.created_at);
+    demand(match && Number.isSafeInteger(Number(match[2])) && Number.isFinite(epoch), 'invalid revocation record');
+    const lens = match[1], previous = revoked[lens];
+    revoked[lens] = {id: Math.max(previous?.id || 0, Number(match[2])), epoch: Math.max(previous?.epoch || 0, epoch)};
+  }
+  // Stable order, independent of API status pagination/order.
+  return Object.fromEntries(Object.keys(policy.reviewers).filter(lens => revoked[lens]).map(lens => [lens, revoked[lens]]));
+}
+async function revokeEvent(api, event) {
+  if (!['edited', 'deleted'].includes(event.action) || !event.issue?.pull_request) return;
+  const id = event.comment?.user?.id;
+  const oldBody = event.action === 'edited' ? event.changes?.body?.from : event.comment?.body;
+  if (!Object.values(policy.reviewers).some(ids => ids.includes(id)) || !oldBody?.includes('```panel-verdict')) return;
+  let lenses = Object.keys(policy.reviewers);
+  try {
+    const marker = parse(oldBody);
+    demand(policy.reviewers[marker.lens].includes(id), 'revoked marker wrong publisher');
+    lenses = [marker.lens];
+  } catch { /* Malformed trusted marker revokes every lens, even on a stale head. */ }
+  const pr = await api.call(`pulls/${event.issue.number}`);
+  // Revoke the CURRENT head even when the removed marker names another SHA.
+  await api.call(`statuses/${pr.head.sha}`, 'POST', {
+    state: 'failure', context: policy.context, description: 'Verdict edited/deleted; require fresh panel attestations'
+  });
+  const comments = await api.pages(`issues/${event.issue.number}/comments`);
+  const highWater = Math.max(event.comment.id, ...comments.map(c => c.id));
+  demand(Number.isSafeInteger(highWater) && highWater > 0, 'invalid comment high-water ID');
+  demand(SHA.test(policy.revocationAnchor), 'invalid revocation anchor');
+  for (const lens of lenses) {
+    // GitHub's server-generated created_at supplies the revocation epoch.
+    await api.call(`statuses/${policy.revocationAnchor}`, 'POST', {
+      state: 'error', context: ledgerContext(event.issue.number), description: `${lens}:${highWater}`
+    });
+  }
+
+}
+async function workflows(api, number, head) {
+  const runs = await api.pages(`actions/runs?event=pull_request&head_sha=${head}`, 'workflow_runs');
+  const checked = [];
+  for (const [path, names] of Object.entries(policy.workflows)) {
+    const matches = r => r.path === path && r.head_sha === head && r.event === 'pull_request' &&
+      r.repository?.full_name === api.repo && r.pull_requests?.some(p => p.number === number);
+    const run = runs.filter(matches).sort((a, b) => b.id - a.id)[0];
+    demand(run, `missing current-head workflow: ${path}`);
+    const fresh = await api.call(`actions/runs/${run.id}`);
+    demand(fresh.id === run.id && matches(fresh) && Number.isSafeInteger(fresh.run_attempt) && fresh.run_attempt > 0 &&
+      fresh.status === 'completed' && fresh.conclusion === 'success', `workflow not green: ${path}`);
+    const jobs = await api.pages(`actions/runs/${run.id}/attempts/${fresh.run_attempt}/jobs`, 'jobs');
+    jobsPass(jobs, names, head);
+    checked.push({path, id: fresh.id, attempt: fresh.run_attempt, status: fresh.status, conclusion: fresh.conclusion,
+      jobs: jobs.map(j => [j.id, j.name, j.head_sha, j.status, j.conclusion]).sort((a, b) => a[1].localeCompare(b[1]))});
+  }
+  return checked;
+}
 async function verify(api, number) {
   const pr = await api.call(`pulls/${number}`);
   demand(pr.state === 'open' && !pr.draft && pr.base.ref === policy.baseBranch, 'not an open ready main PR');
@@ -114,35 +181,21 @@ async function verify(api, number) {
       demand(identity(before) === identity(after), `protected policy changed: ${path}`);
     }
     const comments = await api.pages(`issues/${number}/comments`);
-    // Revocations persist an append-only tombstone as a separate status context.
-    // Old approvals cannot reappear after a newer blocking verdict is removed.
-    const records = await api.pages(`commits/${head}/statuses`);
-    const revoked = {};
-    for (const record of records) {
-      if (record.context !== 'panel/deleted-verdict') continue;
-      const match = /^(principal|architect|qa):([1-9][0-9]*)$/.exec(record.description || '');
-      if (match) revoked[match[1]] = Math.max(revoked[match[1]] || 0, Number(match[2]));
-    }
+    const revoked = await revocations(api, number, head);
     panel(comments, head, revoked);
     dco(await api.pages(`pulls/${number}/commits`));
-    const runs = await api.pages(`actions/runs?event=pull_request&head_sha=${head}`, 'workflow_runs');
-    for (const [path, names] of Object.entries(policy.workflows)) {
-      const run = runs.filter(r => r.path === path && r.head_sha === head && r.event === 'pull_request' &&
-        r.repository.full_name === api.repo && r.pull_requests.some(p => p.number === number))
-        .sort((a, b) => b.id - a.id)[0];
-      demand(run, `missing current-head workflow: ${path}`);
-      // Refresh immutable run ID so reruns are evaluated in their latest attempt.
-      const fresh = await api.call(`actions/runs/${run.id}`);
-      demand(fresh.status === 'completed' && fresh.conclusion === 'success' && fresh.head_sha === head, `workflow not green: ${path}`);
-      jobsPass(await api.pages(`actions/runs/${run.id}/attempts/${fresh.run_attempt}/jobs`, 'jobs'), names, head);
-    }
+    const checkedRuns = await workflows(api, number, head);
+    // Repeat the whole selection, latest attempt and job inspection, not just PR facts.
     // Recheck live facts immediately before publishing. New head never inherits success.
-    const [lastPR, lastBase, lastComments] = await Promise.all([
-      api.call(`pulls/${number}`), api.call(`git/ref/heads/${policy.baseBranch}`), api.pages(`issues/${number}/comments`)
+    const [lastPR, lastBase, lastComments, lastRevoked, lastRuns] = await Promise.all([
+      api.call(`pulls/${number}`), api.call(`git/ref/heads/${policy.baseBranch}`), api.pages(`issues/${number}/comments`),
+      revocations(api, number, head), workflows(api, number, head)
     ]);
+    demand(JSON.stringify(lastRuns) === JSON.stringify(checkedRuns), 'CI runs/attempts/jobs changed during verification');
     demand(lastPR.state === 'open' && !lastPR.draft && lastPR.head.sha === head &&
       lastPR.base.sha === base && lastPR.base.ref === policy.baseBranch && lastBase.object.sha === base, 'PR/main changed during verification');
-    panel(lastComments, head, revoked);
+    demand(JSON.stringify(lastRevoked) === JSON.stringify(revoked), 'revocations changed during verification');
+    panel(lastComments, head, lastRevoked);
     await status('success', '3 exact-head lens approvals; 13 green jobs; DCO; unchanged gate policy');
   } catch (error) {
     await status('failure', error.message);
@@ -154,8 +207,8 @@ async function main() {
   const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const api = new API(process.env.GITHUB_REPOSITORY, process.env.GITHUB_TOKEN);
   const name = process.env.GITHUB_EVENT_NAME;
-  // Every wake sweeps all open main PRs. GitHub concurrency may replace a pending
-  // run; a later sweep still rechecks revocations and reruns for every PR.
+  // Every wake sweeps all open main PRs. queue:max reduces pending-event loss,
+  // but overflow/lost delivery before ledger persistence cannot be recovered.
   const allowed = ['issue_comment', 'workflow_dispatch', 'workflow_run', 'push'];
   demand(allowed.includes(name), 'unsupported event');
   if (name === 'workflow_run' && event.workflow_run.event !== 'pull_request') return;
@@ -164,39 +217,7 @@ async function main() {
     const number = Number(event.inputs.pr_number);
     demand(Number.isSafeInteger(number) && number > 0, 'invalid PR number');
   }
-  if (name === 'issue_comment' && ['deleted', 'edited'].includes(event.action)) {
-    // Authenticated event sender still must match the publisher allowlist.
-    // Do not execute content. Parse only the removed record to retain revocation.
-    const id = event.comment?.user?.id;
-    const oldBody = event.action === 'edited' ? event.changes?.body?.from : event.comment?.body;
-    if (Object.values(policy.reviewers).some(ids => ids.includes(id)) &&
-        oldBody?.includes('```panel-verdict')) {
-      let marker;
-      try { marker = parse(oldBody); }
-      catch {
-        const pr = await api.call(`pulls/${event.issue.number}`);
-        for (const lens of Object.keys(policy.reviewers)) {
-          await api.call(`statuses/${pr.head.sha}`, 'POST', {
-            state: 'error', context: 'panel/deleted-verdict', description: `${lens}:${event.comment.id}`
-          });
-        }
-        await api.call(`statuses/${pr.head.sha}`, 'POST', {
-          state: 'failure', context: policy.context, description: 'Malformed verdict edited/deleted; require fresh panel attestations'
-        });
-      }
-      if (marker) {
-        demand(policy.reviewers[marker.lens].includes(id), 'revoked marker wrong publisher');
-      await api.call(`statuses/${marker.head}`, 'POST', {
-        state: 'error', context: 'panel/deleted-verdict',
-        description: `${marker.lens}:${event.comment.id}`
-      });
-      // Revoke before the sweep, even if its API reads fail.
-      await api.call(`statuses/${marker.head}`, 'POST', {
-        state: 'failure', context: policy.context, description: 'Verdict edited/deleted; require a new lens attestation'
-      });
-      }
-    }
-  }
+  if (name === 'issue_comment') await revokeEvent(api, event);
   const numbers = (await api.pages('pulls?state=open')).filter(p =>
     p.base.ref === policy.baseBranch && !p.draft).map(p => p.number);
   let failed = false;
@@ -206,5 +227,5 @@ async function main() {
   }
   if (failed) process.exitCode = 1;
 }
-module.exports = {parse, panel, jobsPass, dco, verify, API};
+module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, API};
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
