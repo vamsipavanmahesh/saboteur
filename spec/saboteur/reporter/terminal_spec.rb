@@ -45,6 +45,35 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "crash kills by operator: comparison 2 of 3")
   end
 
+  it "lists the tests that covered a survivor's line and still passed, top 5" do
+    tests = (1..7).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    text = render(report_of(result_for(:survived, covered_by: tests)))
+    expect(text).to include("7 tests covered this line and still passed",
+                            "  ./spec/person_spec.rb[1:1]", "  ./spec/person_spec.rb[1:5]",
+                            "... 2 more in the JSON report (coveredBy)")
+    expect(text).not_to include("person_spec.rb[1:6]")
+  end
+
+  it "says a reused survivor's tests passed in an earlier run" do
+    text = render(report_of(result_for(:survived, reused: true, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).to include("1 test covered this line and passed in an earlier run (--incremental)")
+  end
+
+  it "says test, not tests, for one covering test" do
+    text = render(report_of(result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).to include("1 test covered this line and still passed")
+    expect(text).not_to include("more in the JSON report (coveredBy)")
+  end
+
+  it "prints no passing-test list for a survivor with no recorded covering tests" do
+    expect(render(report_of(result_for(:survived)))).not_to include("still passed")
+  end
+
+  it "does not list covering tests for a killed mutant" do
+    text = render(report_of(result_for(:killed, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).not_to include("still passed")
+  end
+
   it "shows one survivor per line in review mode, and says how many more the JSON holds" do
     survivors = [result_for(:survived, replacement: ">"), result_for(:survived, replacement: "<=")]
     report = Saboteur::Report.new(results: survivors, subjects: [person_subject], wall_time: 1.0,
