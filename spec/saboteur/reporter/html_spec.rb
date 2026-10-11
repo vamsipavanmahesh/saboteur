@@ -57,6 +57,34 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).to include("Without whole-body mutants", "100.0%")
   end
 
+  it "puts the kill split and the whole-body line in separate paragraphs" do
+    page = described_class.build(report_of(result_for(:killed, coarse: true, kill_cause: "TypeError"),
+                                           result_for(:killed, replacement: "<", kill_cause: "assertion")))
+    expect(page).to match(%r{not that a test checked a value\.</p>\n<p>Without whole-body mutants})
+  end
+
+  it "shows no whole-body line when the run has only whole-body mutants" do
+    page = described_class.build(report_of(result_for(:killed, coarse: true, kill_cause: "assertion"),
+                                           result_for(:survived, coarse: true, replacement: "==")))
+    expect(page).not_to include("Without whole-body mutants")
+  end
+
+  it "shows no whole-body line when the run has only fine mutants" do
+    page = described_class.build(report_of(result_for(:killed, kill_cause: "assertion"),
+                                           result_for(:survived, replacement: "==")))
+    expect(page).not_to include("Without whole-body mutants")
+  end
+
+  it "splits the fine score only when some fine kill has a recorded cause" do
+    known = described_class.build(report_of(result_for(:killed, coarse: true),
+                                            result_for(:killed, replacement: "<", kill_cause: "assertion")))
+    unknown = described_class.build(report_of(result_for(:killed, coarse: true, kill_cause: "TypeError"),
+                                              result_for(:killed, replacement: "<")))
+    expect(known).to include("100.0% (100.0% assertion, 0.0% crash) over 1 mutants")
+    expect(unknown).to include("100.0% over 1 mutants")
+    expect(unknown).not_to include("(100.0% assertion")
+  end
+
   it "lists each mutant with its operator, replacement and location" do
     expect(html).to include("comparison", "&gt;", "==", "person.rb", "line 2")
   end
