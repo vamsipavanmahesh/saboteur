@@ -47,7 +47,10 @@ module Saboteur
       def after_boot
         unless defined?(::Rails.env)
           raise Error,
-                "rails: true but Rails did not load (add config/environment to require)"
+                "rails: true but Rails did not load (add config/environment to require - for an engine, " \
+                "its dummy app's environment, such as test/dummy/config/environment.rb; only a dynamically " \
+                "created dummy app has no environment file, and there you require the helper that calls " \
+                "setup instead, such as DummyApp.setup in spec/rails_helper)"
         end
         raise Error, "rails integration refuses to run: Rails.env is #{::Rails.env}" unless ::Rails.env.test?
 
@@ -198,27 +201,26 @@ module Saboteur
           disconnect
           drop_postgres(db, name)
         when /sqlite/
-          ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{name}#{suffix}") }
+          target = sqlite_absolute(name)
+          ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{target}#{suffix}") }
         end
       end
 
       # A relative sqlite path means something only to Rails: 7.1+ resolves
       # it against Rails.root, not the process working directory. Resolve
       # the source the same way, checkpoint so a live WAL database holds
-      # every committed write in its main file, then copy. A missing source
-      # is an error, not a skip: otherwise the worker starts from a fresh
-      # empty database and silently tests nothing.
+      # every committed write in its main file, then snapshot it through
+      # the backup API. A missing source is an error, not a skip: otherwise
+      # the worker starts from a fresh empty database and silently tests
+      # nothing.
       def copy_sqlite(db, name)
         source = sqlite_absolute(db.database)
         unless File.exist?(source)
           raise Error, "test database #{source} does not exist; run the test suite once to create it"
         end
 
-        checkpoint_sqlite(db)
-        target = sqlite_absolute(name)
-        ["", "-wal", "-shm"].each do |suffix|
-          FileUtils.cp("#{source}#{suffix}", "#{target}#{suffix}") if File.exist?("#{source}#{suffix}")
-        end
+        checkpoint_sqlite(source)
+        backup_sqlite(source, sqlite_absolute(name))
       end
 
       def sqlite_absolute(database)
@@ -228,15 +230,50 @@ module Saboteur
         File.expand_path(database, ::Rails.root)
       end
 
-      # Through a connection class of saboteur's own, so the app's
-      # connections never point at the database being checkpointed.
-      def checkpoint_sqlite(db)
-        admin = maintenance_record
+      # wal_checkpoint(TRUNCATE) reports instead of raising: [busy, frames
+      # in the WAL, frames checkpointed]. A busy reader or an incomplete
+      # pass leaves committed writes outside the main file, and copying on
+      # would silently miss them - fail closed instead. Through a
+      # connection of saboteur's own, so the app's connections never point
+      # at the database being checkpointed.
+      def checkpoint_sqlite(source)
+        with_sqlite(source) do |database|
+          busy, frames, checkpointed = database.execute("PRAGMA wal_checkpoint(TRUNCATE)").first
+          return if busy.zero? && frames == checkpointed
+
+          raise Error, "could not checkpoint #{source} before copying it " \
+                       "(busy: #{busy}, frames: #{frames}, checkpointed: #{checkpointed}); " \
+                       "close the connections holding it and run again"
+        end
+      end
+
+      # A byte copy of main + WAL + SHM is no snapshot: a write landing
+      # between the file copies leaves the set malformed. The backup API
+      # copies a consistent image and restarts when the source changes
+      # under it. The target starts clean so stale sidecars from an
+      # earlier byte copy cannot shadow the fresh image.
+      def backup_sqlite(source, target)
+        ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{target}#{suffix}") }
+        with_sqlite(source, readonly: true) do |src|
+          with_sqlite(target) do |dst|
+            backup = SQLite3::Backup.new(dst, "main", src, "main")
+            begin
+              backup.step(-1)
+            ensure
+              backup.finish
+            end
+          end
+        end
+      end
+
+      def with_sqlite(path, **)
+        require "sqlite3"
+
+        database = SQLite3::Database.new(path, **)
         begin
-          admin.establish_connection(db.configuration_hash)
-          admin.connection_pool.with_connection { |connection| connection.execute("PRAGMA wal_checkpoint(TRUNCATE)") }
+          yield database
         ensure
-          admin.remove_connection
+          database.close
         end
       end
 
