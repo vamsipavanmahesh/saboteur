@@ -188,6 +188,15 @@ Survivors accepted on the ignore list are listed separately with their
 reason, and `survivorsTruncated` and `acceptedTruncated` count what the bound
 left out; the full data stays in the schema's `files` section.
 
+In diff mode (`--since`), a mutant is reported at the line where its statement
+starts. A statement that spans several lines can start a line or two above the
+line that changed. Under each survivor the terminal therefore prints
+`changed line: path:N`, the changed line or lines (the first three) the mutant
+touches, and each finding carries them as `changedLines`. Use `changedLines`,
+not `line`, to put a note on a changed line of the pull-request diff. A
+whole-body mutant of a method whose only change is its signature touches no
+changed line and prints none.
+
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `--threshold`; 1 survivors, or the score is below `--threshold` or missing;
 2 bad configuration or a missing source or test; 3 the tool failed (with
