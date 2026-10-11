@@ -320,6 +320,23 @@ No speed, type-safety or real-fault detection improvement is claimed. See
 [the literal operator rationale](docs/literal-operators.md) for fault evidence
 and limits, including string encoding/frozen-value behavior.
 
+## Hash and keyword pair removal
+
+Builtin removes one key/value association from a hash literal or keyword list.
+`Model.includes(:a, :b, c: :d)` becomes `Model.includes(:a, :b )`, so a nested
+preload guard can be exercised without deleting the whole statement. A sole
+hash pair becomes `{}`. Operator and source name: `pair_removal`.
+
+Both parenthesized and command calls are supported. Splats stay intact; pairs
+containing heredocs, parameter defaults, arid statements and nested definitions
+are skipped. Token-based separator edits preserve comments and blocks. Nested
+hash values and callable bodies are visited. Removing a required keyword can
+still crash; the regression uses a preload-like receiver, not an ActiveRecord
+SQL benchmark. These fine proposals follow earlier builtin proposals and use
+the usual validation, deduplication, order and `max_mutants_per_method` cap.
+More proposals can change scores and cap coverage. See
+[the validation notes](docs/pair-removal.md) for snapshot changes.
+
 ## 🔌 Extending
 
 Public API, stable across minor versions:
@@ -354,7 +371,7 @@ on number of operators and CI extras, and it supports Minitest.
 | Runs on the Postgres app | yes | no |
 | Time per mutant, hashie | 0.008 s | 0.092 s |
 | Peak memory, hashie (summed process RSS) | 595 MB | 471 MB |
-| Choice of operators, CI features | fixed set, fewer | 20 operators, baseline, HTML, GitHub Action |
+| Choice of operators, CI features | fixed set, fewer | 21 operators, baseline, HTML, GitHub Action |
 
 Full results, method and limitations:
 [benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
