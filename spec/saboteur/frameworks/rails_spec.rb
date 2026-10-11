@@ -144,11 +144,44 @@ RSpec.describe Saboteur::Frameworks::Rails do
       end
     end
 
-    it "drops each worker copy through the maintenance connection" do
+    it "drops every copy prepare_workers made, through the maintenance connection" do
       stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
-      rails.cleanup_workers(3)
+      rails.prepare_workers(3)
+      log.clear
+      rails.cleanup_workers
       expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed,
                          [:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur3"', :removed])
+    end
+
+    it "drops only the copies a failed prepare actually made" do
+      db = fake_pool(:writing).db_config
+      base = fake_base(db)
+      stub_const("ActiveRecord::Base", base)
+      allow(rails).to receive(:copy_database).and_wrap_original do |original, config, name|
+        original.call(config, name)
+        raise "disk full" if name.end_with?("saboteur3")
+      end
+      expect { rails.prepare_workers(3) }.to raise_error("disk full")
+      log.clear
+      rails.cleanup_workers
+      expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed])
+    end
+
+    it "keeps dropping after a failed drop and reports every failure at the end" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.prepare_workers(3)
+      log.clear
+      allow(rails).to receive(:drop_database) do |db, name|
+        raise "server closed the connection" if name.end_with?("saboteur2")
+
+        ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{name}#{suffix}") } if db.adapter =~ /sqlite/
+        log << "dropped #{name}"
+      end
+      expect { rails.cleanup_workers }.to raise_error(
+        Saboteur::Error, /could not drop worker database copies: app_test_saboteur2: server closed the connection/
+      )
+      expect(log).to include("dropped app_test_saboteur3")
+      expect { rails.cleanup_workers }.not_to raise_error
     end
 
     it "removes SQLite copies, including WAL and SHM files" do
@@ -156,16 +189,17 @@ RSpec.describe Saboteur::Frameworks::Rails do
         db = Struct.new(:database, :configuration_hash, :adapter)
                    .new(File.join(dir, "test.sqlite3"), { adapter: "sqlite3" }, "sqlite3")
         stub_const("ActiveRecord::Base", fake_base(db))
-        copy = File.join(dir, "test_saboteur2.sqlite3")
-        ["", "-wal", "-shm"].each { |suffix| File.write("#{copy}#{suffix}", "x") }
-        rails.cleanup_workers(2)
-        expect(Dir.children(dir)).to be_empty
+        ["", "-wal", "-shm"].each { |suffix| File.write("#{db.database}#{suffix}", "x") }
+        rails.prepare_workers(2)
+        rails.cleanup_workers
+        expect(Dir.children(dir).sort).to eq(["test.sqlite3", "test.sqlite3-shm", "test.sqlite3-wal"])
       end
     end
 
-    it "does nothing for a single worker" do
+    it "does nothing when prepare_workers made no copies" do
       stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
-      rails.cleanup_workers(1)
+      rails.prepare_workers(1)
+      rails.cleanup_workers
       expect(log).to be_empty
     end
   end
