@@ -70,17 +70,27 @@ module Saboteur
 
     def write(relative, content, mode: nil)
       path = File.join(@root, relative)
-      existed = File.exist?(path)
+      existed = present?(path)
       return Result.new(:skipped, relative) if existed && !@force
 
+      # Replace a symlink itself (even a dangling one) rather than writing
+      # through it to wherever it points.
+      File.delete(path) if File.symlink?(path)
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, content)
       File.chmod(mode, path) if mode
       Result.new(existed ? :overwritten : :created, relative)
     end
 
+    # A dangling symlink does not "exist" but is not free to write either.
+    def present?(path)
+      File.exist?(path) || File.symlink?(path)
+    end
+
     def gitignore
       path = File.join(@root, ".gitignore")
+      return Result.new(:skipped, ".gitignore") if File.symlink?(path) && !File.exist?(path)
+
       current = File.file?(path) ? File.read(path) : ""
       return Result.new(:unchanged, ".gitignore") if current.lines.map(&:strip).include?(IGNORE_ENTRY)
 
