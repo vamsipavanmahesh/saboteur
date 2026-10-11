@@ -73,3 +73,11 @@ excludes `cache_dir`, `json_report` and `html_report`; overlap checks still insp
 them. Restore accepts only normalized relative inventory paths or normalized
 `external:/absolute` paths, known kinds, and present entries with a SHA-256 hash
 (missing/unreadable entries must have no hash).
+
+Duplicate explicit paths merge their required flags with OR. A required boot/hook/
+source role cannot become optional by being listed again as an extra file. Roles
+use the lexically first non-extra role when several apply. Identity mappings reject
+Symbol/String collisions after key normalization and reject non-JSON values and
+non-finite numbers. Restored issues must be sorted unique strings; a complete
+snapshot cannot contain unreadable entries even if its issues list was altered.
+Fixed manifests are protected from report-output overlap too.
