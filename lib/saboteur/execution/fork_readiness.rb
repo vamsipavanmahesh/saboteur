@@ -21,7 +21,7 @@ module Saboteur
         return warmup_heap if Process.respond_to?(:warmup)
         return compact_heap if GC.respond_to?(:compact)
 
-        full_gc
+        full_collection
       end
 
       def self.warmup_heap
@@ -36,11 +36,11 @@ module Saboteur
       end
       private_class_method :compact_heap
 
-      def self.full_gc
+      def self.full_collection
         GC.start(full_mark: true, immediate_sweep: true)
         nil
       end
-      private_class_method :full_gc
+      private_class_method :full_collection
     end
   end
 end
