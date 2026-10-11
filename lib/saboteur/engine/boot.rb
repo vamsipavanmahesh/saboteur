@@ -62,6 +62,7 @@ module Saboteur
         @rails = rails = Frameworks::Rails.new(@config, @hooks) if @config["rails"]
         rails&.before_boot
         @hooks.run(:before_boot)
+        add_spec_to_load_path if @config["rails"]
         @config["require"].each { |file| require File.expand_path(file, @root) }
         integration = Integration.fetch(@config["integration"]).new(@config)
         integration.setup
@@ -71,6 +72,14 @@ module Saboteur
       end
 
       private
+
+      # rspec puts spec/ on the load path, so a boot file under spec/ (a
+      # dummy app's rails_helper, say) can require its siblings. Match
+      # that, or the same require list fails to load.
+      def add_spec_to_load_path
+        path = File.join(@root, "spec")
+        $LOAD_PATH.unshift(path) unless $LOAD_PATH.include?(path)
+      end
 
       def load_hooks
         Saboteur.current_hooks = @hooks
