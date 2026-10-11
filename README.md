@@ -57,7 +57,10 @@ unchanged. It cannot see a change in a method this one calls, so run without
 it now and then (and in CI on the main branch).
 
 Output: counts per status, the score, timing, and a unified diff for every
-survivor. The JSON report goes to `.saboteur/report.json`.
+survivor. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
+report (one file, no scripts, no network) to `.saboteur/report.html`. Change
+the paths with `--json` / `--html` or `json_report` / `html_report` in
+`.saboteur.yml`.
 
 Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 2 bad configuration, 3 the tool failed.
