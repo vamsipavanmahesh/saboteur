@@ -303,6 +303,23 @@ name in reports is `filter_replacement`.
 See [the operator rationale](docs/filter-operators.md) for the Ruby fault used
 to choose this family and the limits of that evidence.
 
+## Literal mutations
+
+Builtin now swaps `true` / `false` literals and replaces nonempty static strings
+with `""`. These test boolean choices and the difference between meaningful
+text and empty input. Operator names are `literal_boolean` and `literal_string`;
+the source name is `literal_replacement`.
+
+Only method bodies are visited. Default arguments, arid statements, nested
+definitions, empty strings, heredocs, interpolation, word/symbol lists, symbols,
+regexes and command strings are unchanged. Quoted and static percent strings
+are supported. The new proposals follow the earlier built-in operators; the
+normal duplicate check and per-method cap still apply. Old digests and order
+remain stable for unchanged subjects, but more mutants can change a run's score.
+No speed, type-safety or real-fault detection improvement is claimed. See
+[the literal operator rationale](docs/literal-operators.md) for fault evidence
+and limits, including string encoding/frozen-value behavior.
+
 ## 🔌 Extending
 
 Public API, stable across minor versions:
