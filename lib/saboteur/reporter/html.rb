@@ -126,11 +126,27 @@ module Saboteur
       def mutant_row(mutant, names, result)
         start = mutant[:location][:start]
         tests = Array(mutant[:killedBy]).map { |id| names.fetch(id) }.join(", ")
-        notes = [mutant[:statusReason], tests.empty? ? nil : "killed by #{tests}"].compact.join("; ")
+        notes = [mutant[:statusReason], tests.empty? ? nil : "killed by #{tests}",
+                 passing_tests_note(mutant, names, result)].compact.join("; ")
         "<tr><td class=\"fit\">line #{start[:line]}, column #{start[:column]}</td><td>#{row_status(mutant,
                                                                                                    result)}</td>" \
           "<td>#{escape(mutant[:mutatorName])}</td><td class=\"wide\">#{change(mutant, result)}</td>" \
           "<td class=\"fit\"><code>#{escape(mutant[:id])}</code></td><td class=\"wide\">#{escape(notes)}</td></tr>"
+      end
+
+      # A survivor's covering tests all passed with the mutant applied, or, for
+      # a reused verdict, in the earlier run it came from.
+      def passing_tests_note(mutant, names, result)
+        return unless mutant[:status] == "Survived"
+
+        passed = Array(mutant[:coveredBy]).map { |id| names.fetch(id) }
+        return if passed.empty?
+
+        shown = passed.first(Terminal::MAX_PASSING_TESTS).join(", ")
+        more = passed.size - Terminal::MAX_PASSING_TESTS
+        extra = more.positive? ? " (+#{more} more)" : ""
+        when_passed = result.reused? ? "passed in an earlier run" : "passed"
+        "covered by #{passed.size} test#{'s' if passed.size > 1} that #{when_passed}: #{shown}#{extra}"
       end
 
       def row_status(mutant, result)
