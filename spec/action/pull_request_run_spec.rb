@@ -26,8 +26,11 @@ RSpec.describe "action/run-saboteur" do
   def prepare_repository(shallow: false)
     run_git("init", "-q", "-b", "feature")
     run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "base")
-    run_git("update-ref", "refs/remotes/origin/main", "HEAD")
-    File.write(File.join(workspace, ".git", "shallow"), "#{`git -C #{workspace} rev-parse HEAD`.strip}\n") if shallow
+    @base_sha = `git -C #{workspace} rev-parse HEAD`.strip
+    run_git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "pr merge")
+    run_git("update-ref", "refs/pull/7/merge", "HEAD")
+    head = `git -C #{workspace} rev-parse HEAD`.strip
+    File.write(File.join(workspace, ".git", "shallow"), "#{head}\n") if shallow
   end
 
   # report: an array of statuses, or [status, reason] pairs, a raw String
@@ -75,13 +78,27 @@ RSpec.describe "action/run-saboteur" do
       File.write(File.join(workspace, ".saboteur", "report.json"), stale_report)
     end
     defaults = {
-      "SABOTEUR_EVENT_NAME" => "pull_request", "SABOTEUR_BASE_REF" => "main",
+      "SABOTEUR_EVENT_NAME" => "pull_request", "SABOTEUR_BASE_SHA" => @base_sha,
+      "GITHUB_REF" => "refs/pull/7/merge",
       "SABOTEUR_COMMAND" => write_stand_in_command(exit_status, report, log_text),
       "SABOTEUR_ARGUMENTS" => "", "SABOTEUR_FAIL_ON_SURVIVORS" => "false",
       "SABOTEUR_REPORT_PATH" => ".saboteur/report.json",
       "GITHUB_OUTPUT" => github_output, "GITHUB_STEP_SUMMARY" => step_summary
     }
-    defaults["PATH"] = path if path
+    bin = File.join(workspace, "git-bin")
+    FileUtils.mkdir_p(bin)
+    real_git = ENV.fetch("PATH").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, "git") }.find { |candidate| File.executable?(candidate) }
+    shim = File.join(bin, "git")
+    File.write(shim, <<~SH)
+      #!/usr/bin/env bash
+      case "$*" in
+        "fetch --no-tags --depth=1 origin "*) [ "${GIT_SHIM_FAIL_BASE:-}" != 1 ] && exit 0 ;;
+        "fetch --no-tags --deepen=100 origin "*) [ "${GIT_SHIM_FAIL_DEEPEN:-}" != 1 ] && exit 0 ;;
+      esac
+      exec "#{real_git}" "$@"
+    SH
+    File.chmod(0o755, shim)
+    defaults["PATH"] = [bin, path || ENV.fetch("PATH")].join(File::PATH_SEPARATOR)
     stdout, status = Open3.capture2e(defaults.merge(environment), "bash", script, chdir: workspace)
     [stdout, status.exitstatus]
   end
@@ -95,18 +112,18 @@ RSpec.describe "action/run-saboteur" do
   end
 
   describe "diff mode on a pull request" do
-    it "runs against the base ref from origin" do
+    it "runs against the exact base SHA from the pull_request event" do
       _, status = run_action
       expect(status).to eq(0)
-      expect(invocation).to include("run --since origin/main --json .saboteur/report.json")
+      expect(invocation).to include("run --since #{@base_sha} --json .saboteur/report.json")
     end
 
     it "passes extra arguments to saboteur after run" do
       run_action({ "SABOTEUR_ARGUMENTS" => "--jobs 2 --seed 7" })
-      expect(invocation).to start_with("run --jobs 2 --seed 7 --since origin/main")
+      expect(invocation).to start_with("run --jobs 2 --seed 7 --since #{@base_sha}")
     end
 
-    it "does nothing on a push event, even with a base ref" do
+    it "does nothing on a push event, even with a base SHA" do
       output, status = run_action({ "SABOTEUR_EVENT_NAME" => "push" })
       expect(status).to eq(0)
       expect(output).to include("::notice")
@@ -114,9 +131,31 @@ RSpec.describe "action/run-saboteur" do
       expect(outputs).to include("ran" => "false")
     end
 
-    it "does nothing without a base ref" do
-      _, status = run_action({ "SABOTEUR_BASE_REF" => "" })
-      expect(status).to eq(0)
+    it "fails closed when the event base SHA is missing" do
+      output, status = run_action({ "SABOTEUR_BASE_SHA" => "" })
+      expect(status).to eq(2)
+      expect(output).to include("did not provide its base SHA")
+      expect(File.exist?(invocation_log)).to be(false)
+    end
+
+    it "rejects a malformed event base SHA before running saboteur" do
+      output, status = run_action({ "SABOTEUR_BASE_SHA" => "main" })
+      expect(status).to eq(2)
+      expect(output).to include("40-character base SHA")
+      expect(File.exist?(invocation_log)).to be(false)
+    end
+
+    it "rejects a non-PR ref rather than deepening an arbitrary ref" do
+      output, status = run_action({ "GITHUB_REF" => "refs/heads/main" })
+      expect(status).to eq(2)
+      expect(output).to include("cannot deepen the pull request checkout safely")
+      expect(File.exist?(invocation_log)).to be(false)
+    end
+
+    it "fails closed when the base commit cannot be fetched" do
+      output, status = run_action({ "SABOTEUR_BASE_SHA" => "b" * 40, "GIT_SHIM_FAIL_BASE" => "1" })
+      expect(status).to eq(2)
+      expect(output).to include("could not fetch the pull request's exact base SHA")
       expect(File.exist?(invocation_log)).to be(false)
     end
   end
@@ -328,31 +367,23 @@ RSpec.describe "action/run-saboteur" do
       expect(status).to eq(0)
     end
 
-    it "refuses a base ref with shell metacharacters" do
-      output, status = run_action({ "SABOTEUR_BASE_REF" => "main; echo pwned" })
-      expect(status).to eq(2)
-      expect(output).to include("::error").and include("base-ref")
-      expect(File.exist?(invocation_log)).to be(false)
-    end
-
     it "refuses a report path with a newline" do
       output, status = run_action({ "SABOTEUR_REPORT_PATH" => "a.json\nran=true" })
       expect(status).to eq(2)
       expect(output).to include("report-path")
     end
 
-    it "explains a missing base ref" do
-      output, status = run_action({ "SABOTEUR_BASE_REF" => "release" })
+    it "fails closed when the merge ref cannot be deepened to a merge base" do
+      prepare_repository(shallow: true)
+      unrelated_sha, status = Open3.capture2("git", "-C", workspace, "-c", "user.name=t", "-c", "user.email=t@example.com",
+                                            "commit-tree", `git -C #{workspace} rev-parse HEAD^{tree}`.strip, "-m", "unrelated")
+      raise "could not create unrelated test commit" unless status.success?
+      output, status = run_action({ "SABOTEUR_BASE_SHA" => unrelated_sha.strip, "GIT_SHIM_FAIL_DEEPEN" => "1" })
       expect(status).to eq(2)
-      expect(output).to include("fetch-depth: 0")
+      expect(output).to include("could not deepen pull request history")
+      expect(File.exist?(invocation_log)).to be(false)
     end
 
-    it "explains a shallow checkout" do
-      prepare_repository(shallow: true)
-      output, status = run_action
-      expect(status).to eq(2)
-      expect(output).to include("shallow").and include("fetch-depth: 0")
-    end
   end
 
   describe "the job summary" do
