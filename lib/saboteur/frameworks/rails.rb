@@ -111,14 +111,14 @@ module Saboteur
       # with counters. The coverage recorder clears the counts before the
       # suite runs, so load-time hits are never credited to a test.
       def eager_load_with_coverage_running
-        resumed = false
-        if Coverage.state == :suspended
-          Coverage.resume
-          resumed = true
+        return ::Rails.application.eager_load! unless Coverage.state == :suspended
+
+        Coverage.resume
+        begin
+          ::Rails.application.eager_load!
+        ensure
+          Coverage.suspend
         end
-        ::Rails.application.eager_load!
-      ensure
-        Coverage.suspend if resumed
       end
 
       def check_databases
