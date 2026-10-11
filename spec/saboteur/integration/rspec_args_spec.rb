@@ -1,37 +1,30 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "tmpdir"
+require "rspec/core"
 
-RSpec.describe Saboteur::Integration::RSpec, "#rspec_args" do
-  around do |example|
-    Dir.mktmpdir do |dir|
-      @root = File.realpath(dir)
-      FileUtils.mkdir_p(File.join(@root, "spec"))
-      FileUtils.touch(File.join(@root, "spec", "a_spec.rb"))
-      FileUtils.touch(File.join(@root, "spec", "b_spec.rb"))
-      example.run
-    end
+RSpec.describe Saboteur::Integration::RSpec, "#configuration_options" do
+  def options(**values)
+    config = Saboteur::Config.new(values.transform_keys(&:to_s), root: Dir.pwd)
+    described_class.new(config).configuration_options.options
   end
 
-  def args(**values)
-    described_class.new(Saboteur::Config.new(values.transform_keys(&:to_s), root: @root)).rspec_args
+  it "runs the paths in rspec_args when no tests are named" do
+    expect(options(rspec_args: ["spec/a_spec.rb"])[:files_or_directories_to_run]).to eq(["spec/a_spec.rb"])
   end
 
-  it "adds the default spec path when no path is configured" do
-    expect(args(rspec_args: ["--color"])).to eq(["--color", "spec"])
+  it "replaces only the files to run, keeping option values such as --require paths" do
+    selected = options(rspec_args: ["--require", "spec/spec_helper.rb", "spec"], tests: ["spec/a_spec.rb:3"])
+    expect(selected[:files_or_directories_to_run]).to eq(["spec/a_spec.rb:3"])
+    expect(selected[:requires]).to include("spec/spec_helper.rb")
   end
 
-  it "replaces configured spec paths with the explicit tests and keeps the options" do
-    expect(args(rspec_args: ["--color", "spec"], tests: ["spec/a_spec.rb", "spec/b_spec.rb"]))
-      .to eq(["--color", "spec/a_spec.rb", "spec/b_spec.rb"])
+  it "defaults to spec when nothing is configured" do
+    expect(options[:files_or_directories_to_run]).to eq(["spec"])
   end
 
-  it "also replaces a spec path written with a line number" do
-    expect(args(rspec_args: ["spec/a_spec.rb:3"], tests: ["spec/b_spec.rb"])).to eq(["spec/b_spec.rb"])
-  end
-
-  it "leaves rspec_args alone without explicit tests" do
-    expect(args(rspec_args: ["spec/a_spec.rb"])).to eq(["spec/a_spec.rb"])
+  it "makes the explicit tests part of the coverage-map and verdict inputs" do
+    expect(Saboteur::Engine::CoverageStore::CACHE_INPUTS).to include("tests")
+    expect(Saboteur::Engine::VERDICT_INPUTS).to include("tests")
   end
 end
