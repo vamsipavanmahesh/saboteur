@@ -11,14 +11,9 @@ permissions:
 jobs:
   test:
     name: Ruby ${{ matrix.ruby }} / ${{ matrix.os }}
-    # macOS cells run on the maintainer's self-hosted Mac for pushes and same-repo PRs;
-    # fork PRs are routed to GitHub-hosted macOS by this expression. This is routing, not
-    # a security boundary: a fork PR runs its own copy of this file. The boundary is the
-    # repo's "require approval for all external contributors" setting plus a standing rule:
-    # a fork run is approved only after checking that the exact-SHA workflow graph (all
-    # workflow files, new or changed, including reusable workflow refs) cannot request
-    # self-hosted labels.
-    runs-on: ${{ (matrix.os == 'macos-latest' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","macOS","ARM64"]') || matrix.os }}
+    # TEMPORARY: all cells on GitHub-hosted runners (parallel) for the 0.3.0 release window.
+    # Revert to the self-hosted Mac routing from #36 after the release.
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
