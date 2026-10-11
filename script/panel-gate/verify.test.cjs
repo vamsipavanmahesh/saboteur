@@ -141,7 +141,7 @@ function eventAPI() {
   api.comments = current;
   api.records = records;
   api.call = async (path, method, data) => {
-    if (method === 'POST' && data.context.startsWith('panel/revoked/')) {
+    if (method === 'POST' && (data.context.startsWith('panel/revoked/') || data.context.startsWith('panel/revocation-intent/'))) {
       const record = {...data, created_at: epoch}; records.push(record); api.statuses.push(data); return record;
     }
     return call(path, method, data);
@@ -162,9 +162,9 @@ for (const action of ['deleted', 'edited']) {
       const api = eventAPI();
       api.comments.push({...comments()[0], id: 10});
       await revokeEvent(api, deletion(marker({head: stale ? BASE : HEAD, verdict: 'CHANGES_REQUIRED', blockers: ['bug']}), action));
-      assert.equal(api.records.length, 1);
-      assert.equal(api.records[0].context, 'panel/revoked/pr-1');
-      assert.equal(api.records[0].description, 'principal:10');
+      assert.equal(api.records.length, 2);
+      assert.equal(api.records[1].context, 'panel/revoked/pr-1');
+      assert.equal(api.records[1].description, 'principal:10');
       const cutoff = await revocations(api, 1, HEAD);
       assert.throws(() => panel(api.comments, HEAD, cutoff));
       assert.deepEqual(await revocations(api, 1, BASE), cutoff);
@@ -187,7 +187,7 @@ test('malformed marker edit revokes all lenses; untrusted event cannot revoke', 
   assert.deepEqual(Object.keys(await revocations(api, 1, HEAD)), ['principal', 'architect', 'qa']);
   event.comment.user.id = 666;
   await revokeEvent(api, event);
-  assert.equal(api.records.length, 3);
+  assert.equal(api.records.length, 2);
 });
 test('revocation ledger failure cannot publish success', async () => {
   const api = fakeAPI(), pages = api.pages.bind(api);
@@ -203,7 +203,7 @@ for (const fault of ['newRun', 'newAttemptGreen', 'jobFailed', 'jobReplaced', 'n
     const api = fakeAPI(), pages = api.pages.bind(api), call = api.call.bind(api);
     let runLists = 0, ledgerReads = 0;
     api.pages = async path => {
-      if (path === `commits/${policy.revocationAnchor}/statuses` && ++ledgerReads > 1) {
+      if (path === `commits/${policy.revocationAnchor}/statuses` && ++ledgerReads > 2) {
         if (fault === 'ledgerError') throw new Error('ledger unavailable');
         if (fault === 'newRevocation') return [{context: 'panel/revoked/pr-1', description: 'principal:10', created_at: '2026-10-12T00:00:00Z'}];
       }
@@ -240,7 +240,7 @@ test('revocation write/read errors revoke current head before stopping event han
   for (const fault of ['comments', 'write']) {
     const api = eventAPI(), call = api.call.bind(api), pages = api.pages.bind(api);
     api.call = async (path, method, data) => {
-      if (fault === 'write' && method === 'POST' && data.context.startsWith('panel/revoked/')) throw new Error('ledger write error');
+      if (fault === 'write' && method === 'POST' && (data.context.startsWith('panel/revoked/') || data.context.startsWith('panel/revocation-intent/'))) throw new Error('ledger write error');
       return call(path, method, data);
     };
     api.pages = async path => {
@@ -248,8 +248,7 @@ test('revocation write/read errors revoke current head before stopping event han
       return pages(path);
     };
     await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE}))));
-    assert.equal(api.statuses[0].context, policy.context);
-    assert.equal(api.statuses[0].state, 'failure');
+    assert(api.statuses.some(s => s.context === policy.context && s.state === 'failure'));
   }
 });
 test('multiple revocations retain highest ID and epoch regardless of API order', async () => {
@@ -262,4 +261,66 @@ test('invalid ledger record fails closed, never silently drops revocation', asyn
   const api = eventAPI(); api.records.push({context: 'panel/revoked/pr-1', description: 'principal:10'});
   await assert.rejects(() => verify(api, 1), /invalid revocation record/);
   assert.equal(api.statuses.at(-1).state, 'failure');
+});
+
+test('failed revocation ledger write remains blocking after API recovery and subsequent sweeps', async () => {
+  const api = eventAPI(), call = api.call.bind(api), pages = api.pages.bind(api);
+  const headRecords = [];
+  let fail = true;
+  api.call = async (path, method, data) => {
+    if (method === 'POST' && (data.context.startsWith('panel/revoked/') || data.context.startsWith('panel/revocation-intent/')) && fail) throw new Error('ledger transient failure');
+    if (method === 'POST' && path === `statuses/${HEAD}`) headRecords.push({...data, created_at: '2026-10-12T00:00:00Z'});
+    return call(path, method, data);
+  };
+  api.pages = async path => path === `commits/${HEAD}/statuses` ? headRecords : pages(path);
+  await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE, verdict: 'CHANGES_REQUIRED', blockers: ['bug']}))));
+  fail = false;
+  await assert.rejects(() => verify(api, 1));
+  await assert.rejects(() => verify(api, 1));
+  assert(!api.statuses.some(s => s.state === 'success'));
+});
+
+for (const fault of ['comments', 'refinement', 'headLatch']) {
+  for (const malformed of [false, true]) {
+    test(`durable intent survives ${fault} failure (${malformed ? 'all lenses' : 'one lens'}) across subsequent sweeps`, async () => {
+      const api = eventAPI(), call = api.call.bind(api), pages = api.pages.bind(api);
+      let failing = true;
+      api.call = async (path, method, data) => {
+        if (failing && method === 'POST' && ((fault === 'refinement' && data.context.startsWith('panel/revoked/')) ||
+          (fault === 'headLatch' && data.context === policy.context))) throw new Error('transient write failure');
+        return call(path, method, data);
+      };
+      api.pages = async path => {
+        if (failing && fault === 'comments' && path === 'issues/1/comments') throw new Error('transient comments failure');
+        return pages(path);
+      };
+      const event = deletion(marker({head: BASE}));
+      if (malformed) event.comment.body = '```panel-verdict malformed';
+      await assert.rejects(() => revokeEvent(api, event));
+      failing = false;
+      await assert.rejects(() => verify(api, 1));
+      await assert.rejects(() => verify(api, 1));
+      const revoked = await revocations(api, 1, BASE);
+      assert.equal(Object.keys(revoked).length, malformed ? 3 : 1);
+      assert(!api.statuses.some(s => s.state === 'success'));
+      // Full recovery is possible using new attestations, not clearing history.
+      api.comments.push(...comments().map((c, i) => ({...c, id: i + 20,
+        created_at: '2026-10-13T00:00:01Z', updated_at: '2026-10-13T00:00:01Z'})));
+      await verify(api, 1);
+      assert.equal(api.statuses.at(-1).state, 'success');
+    });
+  }
+}
+test('head-only latch is promoted with original epoch and stays sticky despite pending/failure history', async () => {
+  const api = eventAPI(), call = api.call.bind(api), pages = api.pages.bind(api);
+  const records = [{state: 'failure', context: policy.context, description: 'revoked-pr-1:all:1', created_at: '2026-10-12T00:00:00Z'}];
+  api.pages = async path => path === `commits/${HEAD}/statuses` ? records : pages(path);
+  api.call = async (path, method, data) => {
+    if (method === 'POST' && path === `statuses/${HEAD}`) records.push({...data, created_at: '2026-10-12T00:00:00Z'});
+    return call(path, method, data);
+  };
+  await assert.rejects(() => verify(api, 1));
+  await assert.rejects(() => verify(api, 1));
+  assert.equal(api.records.length, 1);
+  assert.deepEqual(Object.keys(await revocations(api, 1, BASE)), ['principal', 'architect', 'qa']);
 });
