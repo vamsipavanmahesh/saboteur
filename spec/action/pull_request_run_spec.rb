@@ -229,6 +229,7 @@ RSpec.describe "action/run-saboteur" do
     end
 
     it "fails closed for complete unrelated histories" do
+      prepare_repository
       tree = `git -C #{workspace} rev-parse HEAD^{tree}`.strip
       unrelated_sha, status = Open3.capture2("git", "-C", workspace, "-c", "user.name=t", "-c", "user.email=t@example.com",
                                             "commit-tree", tree, "-m", "unrelated")
