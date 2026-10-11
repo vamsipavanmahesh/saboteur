@@ -6,7 +6,8 @@ require_relative "../saboteur"
 
 module Saboteur
   class CLI
-    USAGE = "Usage: saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N]"
+    USAGE = "Usage: saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] " \
+            "[--jobs N] [--seed N] [--id DIGEST]"
 
     EXIT_OK = 0
     EXIT_SURVIVORS = 1
@@ -50,7 +51,9 @@ module Saboteur
       parser.parse!(@argv)
       raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
 
-      report = Engine.new(config, err: @err).call
+      arguments = { err: @err }
+      arguments[:digest] = options[:id] if options[:id]
+      report = Engine.new(config, **arguments).call
       @err.puts
       Reporter::Terminal.new(@out).call(report)
       write_json(report)
@@ -79,12 +82,13 @@ module Saboteur
     end
 
     def overrides
-      options.except(:config)
+      options.except(:config, :id)
     end
 
     def parser
       OptionParser.new do |opts|
         opts.banner = USAGE
+        opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
         opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
         opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
         opts.on("--timeout-factor N", Float, "Multiple of baseline runtime (default 3)") { |v| set(:timeout_factor, v) }
