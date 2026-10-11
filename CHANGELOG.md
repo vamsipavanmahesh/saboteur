@@ -6,6 +6,10 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A survivor lists the first five tests that covered its line and still passed
+  with the mutant applied, in the terminal and the HTML page.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added
