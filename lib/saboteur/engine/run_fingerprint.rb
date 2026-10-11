@@ -220,9 +220,22 @@ module Saboteur
       end
 
       # Fixtures, schema dumps and database config. A pattern with no match is
-      # fine; a listed file that vanishes later shows up as "removed".
-      def data_files(_issues)
-        DataInputs.files(@root, extra: @config["fingerprint_extra"])
+      # fine; a listed file that vanishes later shows up as "removed". Like Ruby
+      # files, data reached through a symlink (the file or a directory above it)
+      # is an undeclared boundary: its real path could be an output or lie outside
+      # the project, so the snapshot is incomplete instead of guessing.
+      def data_files(issues)
+        DataInputs.files(@root, extra: @config["fingerprint_extra"]).reject do |path|
+          next false unless symlinked?(path)
+
+          issues << "symlink input: #{display_path(path)}".freeze
+          true
+        end
+      end
+
+      def symlinked?(path)
+        current = @root
+        path.delete_prefix("#{@root}/").split("/").any? { |part| File.symlink?(current = File.join(current, part)) }
       end
 
       def merged_required_files
