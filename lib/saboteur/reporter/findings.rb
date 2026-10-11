@@ -76,7 +76,15 @@ module Saboteur
             edits: entries,
             coarse: result.mutation.coarse
           }
+          entry = with_changed_lines(report, result, entry)
           result.ignored ? entry.merge(reason: result.ignored) : entry
+        end
+
+        # In diff mode, the changed lines the mutant touches. line above is where
+        # the mutated statement starts, which can be above the changed line.
+        def with_changed_lines(report, result, entry)
+          lines = report.changed_lines_for(result)
+          lines.empty? ? entry : entry.merge(changedLines: lines)
         end
 
         # Subject#apply applies edits in start-byte order; findings use the
