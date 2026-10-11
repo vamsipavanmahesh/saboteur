@@ -119,9 +119,9 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     expect(run_args.first).to eq([subject_under_test])
   end
 
-  it "does not prepare when no subjects are selected" do
+  it "does not prepare when no subjects are selected, but still cleans up at the run boundary" do
     events = []
     run_engine(jobs: 4, events: events, subjects: [])
-    expect(events).to be_empty
+    expect(events).to eq(%i[rails_cleaned])
   end
 end
