@@ -79,6 +79,42 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect { guard.call }.to raise_error(Saboteur::Error, /child did not report/)
   end
 
+  # A signaled child (the OOM killer, say) can leave an empty log, which
+  # looks like a suite failure; name the signal and hint the likely cause.
+  it "names the signal and hints the cause when the child dies by signal" do
+    _, status = Process.waitpid2(Process.fork do
+      Process.kill("KILL", Process.pid)
+      sleep
+    end)
+    allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
+    expect { guard.call }.to raise_error(Saboteur::Error, /killed by SIGKILL - possible OOM, check memory/)
+  end
+
+  it "names other signals without the OOM hint" do
+    _, status = Process.waitpid2(Process.fork do
+      # A supervised child traps TERM; a real OOM-style kill arrives with
+      # the default disposition.
+      trap("TERM", "DEFAULT")
+      Process.kill("TERM", Process.pid)
+      sleep
+    end)
+    allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
+    error = nil
+    begin
+      guard.call
+    rescue Saboteur::Error => e
+      error = e
+    end
+    expect(error.message).to include("killed by SIGTERM")
+    expect(error.message).not_to include("OOM")
+  end
+
+  it "reports a plain non-zero exit without a signal hint" do
+    _, status = Process.waitpid2(Process.fork { exit!(1) })
+    allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
+    expect { guard.call }.to raise_error(Saboteur::Error, /exited with status 1/)
+  end
+
   it "accepts a successful child exit with valid payload" do
     _, status = Process.waitpid2(Process.fork { exit!(0) })
     allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
