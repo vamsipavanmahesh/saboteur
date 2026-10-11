@@ -48,7 +48,6 @@ module Saboteur
     private
 
     def check_run(number, expected)
-      @hooks.run(:before_fork, nil)
       Tempfile.create("saboteur-baseline") do |log|
         result = @supervisor.run(timeout: @config["baseline_timeout"]) { |writer| record(writer, log.path) }
         data = read_result(result, number)
@@ -59,6 +58,10 @@ module Saboteur
       end
     rescue JSON::ParserError
       raise Error, "baseline run #{number} returned an invalid result"
+    rescue StandardError => e
+      raise e if e.is_a?(Error)
+
+      raise Error, "baseline check failed: #{e.class}: #{e.message}; check suite hooks and setup"
     end
 
     def read_result(result, number)
@@ -83,6 +86,18 @@ module Saboteur
       raise Error, "baseline run #{number} did not execute every requested test; check filters and suite hooks"
     end
 
+    def failure_detail
+      return nil unless defined?(::RSpec)
+
+      ::RSpec.world.all_examples.filter_map do |example|
+        exception = example.execution_result.exception
+        next unless exception
+
+        message = exception.message.to_s.lines.map(&:strip).find { |line| !line.empty? }.to_s[0, 200]
+        "#{example.id}: #{example.full_description.to_s[0, 200]}: #{message}"
+      end.first(5).join("; ")
+    end
+
     def record(writer, log_path)
       $stdout.reopen(log_path, "w")
       $stderr.reopen($stdout)
@@ -91,7 +106,7 @@ module Saboteur
       ::RSpec.configuration.order = "rand:#{@config['seed']}" if defined?(::RSpec)
       sequence = TestSequence.new
       passed = @integration.run_all(sequence)
-      writer.write(JSON.generate(passed: passed, executed: sequence.executed))
+      writer.write(JSON.generate(passed: passed, executed: sequence.executed, error: failure_detail))
     rescue Exception => e # rubocop:disable Lint/RescueException
       writer.write(JSON.generate(passed: false, error: "#{e.class}: #{e.message}"))
     ensure
