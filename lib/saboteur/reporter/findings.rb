@@ -55,20 +55,25 @@ module Saboteur
         end
 
         def tie_break(report, result)
-          [path(report, result), line(result), result.digest]
+          [path(report, result), first_line(result), result.digest]
+        end
+
+        def first_line(result)
+          result.subject.line_of(result.mutation.edits.map(&:start_byte).min)
         end
 
         def finding(report, result)
+          entries = edit_entries(result)
           entry = {
             digest: result.digest,
             path: path(report, result),
-            line: line(result),
-            endLine: end_line(result),
+            line: entries.map { |edit| edit[:line] }.min,
+            endLine: entries.map { |edit| edit[:endLine] }.max,
             subject: result.subject.id,
             operator: result.mutation.operator,
             original: joined_texts(result) { |edit| original_text(result, edit) },
             replacement: joined_texts(result, &:replacement),
-            edits: edit_entries(result),
+            edits: entries,
             coarse: result.mutation.coarse
           }
           result.ignored ? entry.merge(reason: result.ignored) : entry
@@ -111,20 +116,6 @@ module Saboteur
 
         def path(report, result)
           result.subject.file.delete_prefix("#{report.root}/")
-        end
-
-        def line(result)
-          result.subject.line_of(result.mutation.edits.map(&:start_byte).min)
-        end
-
-        # The line the last edit's final byte sits on; an edit that ends on a
-        # line boundary belongs to the line above. The range spans every edit,
-        # wherever the mutation source ordered them.
-        def end_line(result)
-          edits = result.mutation.edits
-          last_byte = edits.map(&:end_byte).max - 1
-          first_byte = edits.map(&:start_byte).min
-          result.subject.line_of([last_byte, first_byte].max)
         end
       end
     end
