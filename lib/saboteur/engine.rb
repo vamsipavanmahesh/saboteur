@@ -143,10 +143,17 @@ module Saboteur
       end
     end
 
+    # Threads do not survive fork, so name them: with the name the owner
+    # gave the thread, else the first frame of its backtrace, so the user
+    # can tell whether they matter (a connection pool reaper, Sidekiq, an
+    # SDK's background flusher).
     def warn_about_threads
-      others = Thread.list.size - 1
-      @diagnostics.warn("#{others} other thread(s) alive at fork time; they do not run in children") if
-        others.positive?
+      others = Thread.list - [Thread.current]
+      return if others.empty?
+
+      names = others.map { |thread| thread.name || thread.backtrace&.first || "unknown" }
+      @diagnostics.warn("#{others.size} other thread(s) alive at fork time; they do not run in children: " \
+                        "#{names.join(', ')}")
     end
 
     def monotonic
