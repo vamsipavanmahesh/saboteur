@@ -24,6 +24,39 @@ RSpec.describe Saboteur::Reporter::Html do
     %w[Killed Survived NoCoverage].each { |status| expect(html).to include(status) }
   end
 
+  it "says how much of the score came from assertions and how much from crashes" do
+    page = described_class.build(report_of(result_for(:killed, kill_cause: "assertion"),
+                                           result_for(:killed, replacement: "<", kill_cause: "TypeError")))
+    expect(page).to include("50.0% assertion, 50.0% crash")
+  end
+
+  it "shows the score without whole-body mutants" do
+    page = described_class.build(report_of(result_for(:killed, coarse: true, kill_cause: "TypeError"),
+                                           result_for(:survived, replacement: "<", kill_cause: nil),
+                                           result_for(:killed, replacement: "<=", kill_cause: "assertion")))
+    expect(page).to include("Without whole-body mutants (body_nil, body_true, body_false, body_raise): 50.0%")
+  end
+
+  it "names timeouts and kills with no recorded cause, so the parts add up" do
+    page = described_class.build(report_of(result_for(:killed, kill_cause: "assertion"),
+                                           result_for(:timeout, replacement: "<"),
+                                           result_for(:killed, replacement: "<=")))
+    expect(page).to include("33.3% assertion, 0.0% crash, 33.3% timeout, 33.3% cause not recorded")
+  end
+
+  it "shows the whole-body line even when no kill has a recorded cause" do
+    page = described_class.build(report_of(result_for(:killed, coarse: true),
+                                           result_for(:killed, replacement: "<")))
+    expect(page).to include("Without whole-body mutants", "Whole-body mutants alone: 100.0% over 1")
+    expect(page).not_to include("A crash shows")
+  end
+
+  it "shows the whole-body line for a run of timeouts only" do
+    page = described_class.build(report_of(result_for(:timeout, coarse: true),
+                                           result_for(:timeout, replacement: "<")))
+    expect(page).to include("Without whole-body mutants", "100.0%")
+  end
+
   it "lists each mutant with its operator, replacement and location" do
     expect(html).to include("comparison", "&gt;", "==", "person.rb", "line 2")
   end
