@@ -48,9 +48,10 @@ module Saboteur
       config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
       selection = SubjectSelection.new(config, @diagnostics)
       subjects = selection.select(files)
-      return replay_subject(subjects) if @replay
+      scope = selection.changed_lines && DiffScope.new(selection.changed_lines)
+      return replay_subject(subjects, scope) if @replay
 
-      [subjects, selection.changed_lines && DiffScope.new(selection.changed_lines)]
+      [subjects, scope]
     end
 
     def mutate(subjects, files, integration, scope)
@@ -111,9 +112,9 @@ module Saboteur
       end
     end
 
-    def replay_subject(subjects)
+    def replay_subject(subjects, scope)
       candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
-      subject, candidate = @replay.select(subjects, candidates)
+      subject, candidate = @replay.select(subjects, candidates, scope: scope)
       @replay_candidate = [candidate]
       [[subject], nil]
     end
