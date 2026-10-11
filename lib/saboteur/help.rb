@@ -24,7 +24,8 @@ module Saboteur
         description: "Builds a per-test coverage map, makes small changes to your methods, runs only the " \
                      "tests that cover each change, and reports survivors (changes no test noticed). Source files or " \
                      "directories after run replace include and exclude; --test limits the specs that run; " \
-                     "--threshold PERCENT makes the score the exit code.",
+                     "--threshold PERCENT replaces the survivor check: exit 0 when the score is at or above PERCENT, " \
+                     "exit 1 when it is below.",
         takes_options: true,
         examples: [
           ["Pull request: only methods changed since the target branch", "saboteur run --since origin/main"],
@@ -54,9 +55,11 @@ module Saboteur
     ].freeze
 
     EXIT_CODE_MEANINGS = {
-      0 => "Success. No unignored survivors.",
-      1 => "At least one mutant survived and is not on the ignore list, or with --threshold the score is " \
-           "below it or missing.",
+      0 => "Success. Without --threshold: no unignored survivors. With --threshold: the score is at or above " \
+           "it, even if mutants survived.",
+      1 => "Without --threshold: at least one mutant survived and is not on the ignore list. With --threshold " \
+           "(survivors alone no longer fail the run): the score is below it, or no mutant was tested so " \
+           "there is no score.",
       2 => "Usage or configuration error: fix the command or .saboteur.yml. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
       3 => "Tool error: saboteur could not finish, or every executed mutant errored. With --threshold, " \
