@@ -208,7 +208,10 @@ mutant. The JSON report carries both splits under `saboteur.scores`
 (`all` and `withoutWholeBodyMutants`), and the HTML page prints them under
 the score. The JSON also records why the run exited the way it did under
 `saboteur.exitCause` (`ok`, `survivors`, `belowThreshold`,
-`errorMajority`, `incompleteUnderThreshold`).
+`errorMajority`, `incompleteUnderThreshold`). In `--agent` mode the cause
+follows the agent verdict, so the report and the process exit classify the
+run the same way: `ok` for clean, `survivors` for survivors, and otherwise
+`errorMajority` when most mutants errored or `incomplete`.
 
 For code-review surfaces, the JSON report also carries a `saboteur.findings`
 section: a bounded, deterministically ordered list of survivors, coarse
@@ -262,6 +265,7 @@ max_processes: 64
 max_mutants_per_method: 100  # positive integer; raise it for a broader run
 ignore_file: .saboteur-ignore.yml
 seed: 1                     # Ruby's random seed in every test run
+fingerprint_extra: []       # extra globs whose contents invalidate caches, e.g. [data/*.csv]
 ```
 
 ### Rails apps
@@ -281,6 +285,15 @@ generator is planned; until then this block is the supported setup.
 saboteur puts the app's `spec/` directory on the load path before
 processing `require`, matching rspec, so a boot file like a dummy app's
 `spec/rails_helper.rb` can require its siblings.
+
+With `jobs` above 1 on SQLite, each extra worker gets a copy of the test
+database made through SQLite's backup API, so the copy is a consistent
+snapshot. A relative `database:` path resolves against `Rails.root`, the
+same as Rails 7.1+ does, for the copy and for its cleanup. The copy
+checkpoints the source first (`PRAGMA wal_checkpoint(TRUNCATE)`) and
+refuses to run when a reader keeps the WAL busy, because copying on
+would silently miss committed rows. A source file that does not exist is
+an error, not a skipped copy.
 
 For a Rails engine, point `require` at the dummy app's environment -
 `test/dummy/config/environment.rb`, usually loaded for you by
@@ -302,6 +315,11 @@ drop that fails is reported as a warning and never changes the run's
 outcome. A copy left behind - by a failed drop or a killed run - is
 reclaimed by the next run, whose prepare starts from
 `DROP DATABASE IF EXISTS`. MySQL is not supported for `jobs` above 1.
+
+Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
+`db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
+cache fingerprint automatically. Use `fingerprint_extra` for any other file your
+tests read.
 
 ### Skipped subjects and the mutant cap
 
