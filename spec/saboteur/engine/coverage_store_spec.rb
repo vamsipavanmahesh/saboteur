@@ -152,6 +152,18 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(cache_files).to be_empty
   end
 
+  # With --test the user narrowed the suite on purpose, and the chosen specs
+  # may not touch the selected sources: an empty map is a legitimate "no
+  # coverage" outcome there, not a broken setup.
+  it "accepts an empty map when explicit tests narrowed the suite" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect(store(tests: ["spec/stage_spec.rb"]).fetch([file]).tests).to eq(["t1"])
+  end
+
   it "accepts a map with no lines when nothing is included" do
     empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
     result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
