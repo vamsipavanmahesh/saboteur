@@ -6,6 +6,11 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Fine `pair_removal` mutants for hash literals and keyword lists, including
+  sole associations. Preserve splats, blocks and comments; skip heredoc pairs,
+  defaults and excluded scopes. Existing validation and per-method caps apply.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added
