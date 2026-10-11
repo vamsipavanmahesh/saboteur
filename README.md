@@ -63,7 +63,9 @@ the paths with `--json` / `--html` or `json_report` / `html_report` in
 `.saboteur.yml`; set either to `null` to turn that report off. The two paths
 must differ. The HTML page shows the covered mutation score
 `(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage
-out; the JSON report counts NoCoverage as undetected.
+out and keeps survivors accepted on the ignore list in the denominator. A tool
+that reads the JSON report may show a different score, because the schema counts
+NoCoverage as undetected.
 
 Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 2 bad configuration, 3 the tool failed.
