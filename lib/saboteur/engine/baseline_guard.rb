@@ -34,7 +34,7 @@ module Saboteur
           end
           executed = data["executed"]
           refuse(number, "executed tests do not match the loaded suite") unless
-            executed.is_a?(Array) && executed.sort == expected.sort
+            executed.sort == expected.sort
           refuse(number, "test order changed between baseline checks") if previous && executed != previous
           previous = executed
         end
