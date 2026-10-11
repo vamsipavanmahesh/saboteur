@@ -94,7 +94,10 @@ module Saboteur
       # Runs the block in a forked child with a pipe writer; the child exits
       # when the block returns. Returns a Result. cpu_seconds bounds every
       # descendant's CPU time (default: twice the deadline, at least 10 s).
-      def run(timeout:, cpu_seconds: nil, &block)
+      # on_tick is called from the parent's wait loop after the fork, about
+      # every poll, so callers can report progress without a thread alive
+      # at fork time.
+      def run(timeout:, cpu_seconds: nil, on_tick: nil, &block)
         depth = ENV.fetch(CHILD_ENV, "0").to_i
         raise Error, "refusing to fork: saboteur children nested #{depth} deep (limit #{MAX_DEPTH})" if
           depth >= MAX_DEPTH
@@ -107,7 +110,7 @@ module Saboteur
         supervisor = Process.pid
         pid = fork { child(reader, writer, supervisor, cpu_seconds, depth + 1, &block) }
         writer.close
-        contain(pid, reader, started, timeout)
+        contain(pid, reader, started, timeout, on_tick)
       ensure
         reader&.close unless reader&.closed?
       end
@@ -168,11 +171,11 @@ module Saboteur
 
       # --- parent ---------------------------------------------------------
 
-      def contain(pid, reader, started, timeout)
+      def contain(pid, reader, started, timeout, on_tick)
         tree = ProcessTree.new(pid)
         self.class.live[pid] = tree
         own_group(pid)
-        payload, stop, detail = watch(tree, reader, started + timeout)
+        payload, stop, detail = watch(tree, reader, started + timeout, on_tick)
         exit_status = stop == :timeout ? terminate(pid) : nil
         leftover_pids = tree.kill_all - [pid]
         exit_status ||= reap(pid)
@@ -185,13 +188,15 @@ module Saboteur
 
       # Reads until EOF, polling the tree's size and memory. Returns
       # [payload, stop, detail].
-      def watch(tree, reader, deadline)
+      def watch(tree, reader, deadline, on_tick)
         payload = +""
         next_poll = monotonic + POLL_INTERVAL
         tree.live_members
         loop do
           now = monotonic
           return [payload, :timeout, "exceeded deadline"] if now >= deadline
+
+          on_tick&.call
 
           if now >= next_poll
             stop = over_limit(tree)
