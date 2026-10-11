@@ -146,7 +146,7 @@ module Saboteur
         more = passed.size - Terminal::MAX_PASSING_TESTS
         extra = more.positive? ? " (+#{more} more)" : ""
         when_passed = result.reused? ? "passed in an earlier run" : "passed"
-        "covered by #{passed.size} test#{'s' if passed.size > 1} that #{when_passed}: #{shown}#{extra}"
+        "covered by #{passed.size} #{passed.one? ? 'test' : 'tests'} that #{when_passed}: #{shown}#{extra}"
       end
 
       def row_status(mutant, result)
