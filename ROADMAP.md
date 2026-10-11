@@ -304,6 +304,31 @@ Exit criteria: a compatibility table in the docs, backed by runs, not guesses.
 
 Exit criteria: no known correctness bugs, and an API we are willing to keep.
 
+## Rails track
+
+Rails and RSpec teams are the first audience. The positioning: the easiest
+trustworthy pull request test-quality check for Rails and RSpec, not the tool
+with the most operators. The install generator, Rails doctor and cache
+fingerprint fixes are in flight as the first priority; the rest follows.
+
+- P1: measure cold and warm CI overhead on real Rails apps. Why: the cost of
+  the job is app boot, database setup, coverage and mutants, and buyers need a
+  measured number, not a guess.
+- P1: independent Rails and Postgres install evidence from an outside project
+  on Linux CI. Why: "works on two apps" is not a compatibility claim.
+- P1: Rails auto-detect config defaults (Gemfile.lock and `config/environment.rb`
+  present). Why: a Rails user should not need to know the boot file or globs.
+- P1: DSL-aware subject discovery for validations, scopes and associations.
+  Why: discovery is `def`-only, so a lot of Rails behaviour is never mutated.
+- P1: database hardening: detect an open fixture transaction before fork, and
+  namespace worker databases per run. Why: today a committed write or a second
+  run at the same time can corrupt results silently.
+- P2: legacy baseline and ratchet UX, and reviewer-friendly output. Why: a team
+  with many old survivors will not adopt a tool that fails on day one.
+- P2: tested CI templates for SQLite and Postgres, and a Rails config bridge
+  (`config.saboteur`, lighter than a second settings system). Why: copy-paste
+  CI that works is the main way Rails tools spread.
+
 ## Outreach
 
 Work that runs alongside the milestones:
