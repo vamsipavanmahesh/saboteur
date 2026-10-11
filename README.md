@@ -100,6 +100,7 @@ bundle exec saboteur run --incremental            # reuse verdicts whose inputs 
 bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
 bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
 bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
+bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
 ```
 
 Positional operands name the sources to mutate: Ruby files, or directories
@@ -127,6 +128,11 @@ workflow recommendation, not a CLI default: plain `run` still checks the whole
 configured project. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
+
+`--id` runs exactly one current mutant with its coverage-selected tests, bypassing
+per-method caps, coarse gating, ignore suppression and incremental verdict reuse.
+It still honors `--subject` and `--since` changed-line selection. See the
+[replay guide](docs/guides/replay.md) for digest format, checks and limits.
 
 Every test run starts from the same random seed (1 by default), so tests that
 use `rand` see the same values in each mutant's run and in the check that
