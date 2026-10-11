@@ -119,4 +119,19 @@ RSpec.describe Saboteur::Config, "details" do
   it "has no path for a setting that is off" do
     expect(described_class.new({ "json_report" => nil }, root: @root).path("json_report")).to be_nil
   end
+
+  it "rejects one path for both reports" do
+    expect { described_class.new({ "json_report" => "out/r", "html_report" => "out/r" }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, %r{json_report and html_report both point to .*out/r})
+  end
+
+  it "rejects the default JSON path used as the HTML path" do
+    expect { described_class.new({ "html_report" => ".saboteur/report.json" }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /give each report its own path/)
+  end
+
+  it "allows both reports to be off, or one of them" do
+    expect { described_class.new({ "json_report" => nil, "html_report" => nil }, root: @root) }.not_to raise_error
+    expect { described_class.new({ "html_report" => nil }, root: @root) }.not_to raise_error
+  end
 end
