@@ -32,6 +32,17 @@ module Saboteur
         ]
       ),
       Command.new(
+        name: "doctor",
+        summary: "Check the environment and run the baseline twice, without mutating anything",
+        description: "Boots the target like a run, checks runtime, coverage and boot files, then runs your " \
+                     "suite twice in the same order with one seed and reports whether both runs passed. " \
+                     "Options: --config PATH (default .saboteur.yml) and --seed N (default 1). " \
+                     "Exit 0 when healthy, 2 for a usage or configuration error, 3 when a check fails.",
+        takes_options: false,
+        examples: [["Check the setup before the first run", "saboteur doctor"],
+                   ["Use another config file and seed", "saboteur doctor --config ci.yml --seed 7"]]
+      ),
+      Command.new(
         name: "version",
         summary: "Print the installed version",
         description: "Prints the version number and nothing else.",
