@@ -64,7 +64,7 @@ module Saboteur
 
           # Display values are clipped; the commands under next use the exact values or are left out.
           def provenance_hash(provenance)
-            { ref: clip_value(provenance.ref, 120), seed: provenance.seed, head: clip_value(provenance.head, 40),
+            { ref: clip_value(provenance.ref, 120), seed: provenance.seed, head: clip_value(provenance.head, 64),
               workingTree: provenance.working_tree, changedFiles: provenance.changed_files,
               mode: provenance.mode, selection: selection_hash(provenance) }
           end
