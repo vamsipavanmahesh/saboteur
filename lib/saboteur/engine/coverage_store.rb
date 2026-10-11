@@ -52,11 +52,15 @@ module Saboteur
                        "Run through the saboteur executable and disable SimpleCov for the run."
         end
 
-        @diagnostics.inform("building coverage map (runs the whole suite once)")
+        scope = @config["tests"].empty? ? "the whole suite" : "the selected specs"
+        @diagnostics.inform("building coverage map (runs #{scope} once)")
         # The suite child forked next inherits this heap; pack it first, to
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
-        result = @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, files) }
+        heartbeat = @diagnostics.progress_heartbeat("building coverage map")
+        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
+          record(writer, files)
+        end
         raise Error, "coverage map build stopped: #{result.detail}" if result.stopped_by
         raise Error, "coverage map build failed: #{died(result.exit_status)}" if result.payload.empty?
 

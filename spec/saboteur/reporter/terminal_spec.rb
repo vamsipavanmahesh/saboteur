@@ -45,6 +45,50 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "crash kills by operator: comparison 2 of 3")
   end
 
+  it "lists the tests that covered a survivor's line and still passed, top 5" do
+    tests = (1..7).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    text = render(report_of(result_for(:survived, covered_by: tests)))
+    expect(text).to include("7 tests covered this line and still passed",
+                            "  ./spec/person_spec.rb[1:1]", "  ./spec/person_spec.rb[1:5]",
+                            "... 2 more in the JSON report (coveredBy)")
+    expect(text).not_to include("person_spec.rb[1:6]")
+  end
+
+  it "lists exactly five covering tests with no 'more' line, and six with one" do
+    five = (1..5).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    expect(render(report_of(result_for(:survived, covered_by: five)))).to include("5 tests covered", "[1:5]")
+      .and(satisfy { |text| !text.include?("more in the JSON report (coveredBy)") })
+    six = render(report_of(result_for(:survived, covered_by: five + ["./spec/person_spec.rb[1:6]"])))
+    expect(six).to include("6 tests covered", "... 1 more in the JSON report (coveredBy)")
+    expect(six).not_to include("[1:6]\n")
+  end
+
+  it "says tests for two covering tests and test for one" do
+    two = render(report_of(result_for(:survived, covered_by: ["./a_spec.rb[1:1]", "./a_spec.rb[1:2]"])))
+    expect(two).to include("2 tests covered this line")
+    expect(two).not_to include("2 test covered")
+  end
+
+  it "says a reused survivor's tests passed in an earlier run" do
+    text = render(report_of(result_for(:survived, reused: true, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).to include("1 test covered this line and passed in an earlier run (--incremental)")
+  end
+
+  it "says test, not tests, for one covering test" do
+    text = render(report_of(result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).to include("1 test covered this line and still passed")
+    expect(text).not_to include("more in the JSON report (coveredBy)")
+  end
+
+  it "prints no passing-test list for a survivor with no recorded covering tests" do
+    expect(render(report_of(result_for(:survived)))).not_to include("still passed")
+  end
+
+  it "does not list covering tests for a killed mutant" do
+    text = render(report_of(result_for(:killed, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).not_to include("still passed")
+  end
+
   it "shows one survivor per line in review mode, and says how many more the JSON holds" do
     survivors = [result_for(:survived, replacement: ">"), result_for(:survived, replacement: "<=")]
     report = Saboteur::Report.new(results: survivors, subjects: [person_subject], wall_time: 1.0,
@@ -93,6 +137,58 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
   def review(*results)
     Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.0,
                          root: File.dirname(person_subject.file), review: true)
+  end
+
+  def review_with_changes(changed_lines, *results)
+    scope = Saboteur::Engine::DiffScope.new({ person_subject.file => Set.new(changed_lines) })
+    Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.0,
+                         root: File.dirname(person_subject.file), review: true, diff_scope: scope)
+  end
+
+  it "names the changed line a survivor touches in diff mode" do
+    text = render(review_with_changes([2], result_for(:survived)))
+    expect(text).to include("changed line: person.rb:2")
+  end
+
+  def multi_line_report(changed)
+    subject = subjects_in("class K\n  def m(a)\n    a +\n      1 +\n      2 +\n      3 +\n      4\n  end\nend\n").first
+    start = subject.file_source.index("a +")
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: start,
+                                              end_byte: subject.file_source.index("4") + 1, replacement: "0")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(mutation.edits))
+    scope = Saboteur::Engine::DiffScope.new({ subject.file => Set.new(changed) })
+    [Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0,
+                          root: File.dirname(subject.file), review: true, diff_scope: scope),
+     File.basename(subject.file)]
+  end
+
+  it "caps the changed lines it names at three and counts the rest" do
+    report, name = multi_line_report([3, 4, 5, 6, 7])
+    expect(render(report)).to include("changed lines: #{name}:3, #{name}:4, #{name}:5 (+2 more)")
+  end
+
+  it "names exactly three changed lines with no 'more' note, and four with '+1 more'" do
+    report, name = multi_line_report([3, 4, 5])
+    expect(render(report)).to include("changed lines: #{name}:3, #{name}:4, #{name}:5\n")
+    four, = multi_line_report([3, 4, 5, 6])
+    expect(render(four)).to include("#{name}:5 (+1 more)\n")
+  end
+
+  it "says 'changed lines' for two lines and 'changed line' for one" do
+    two, name = multi_line_report([3, 4])
+    expect(render(two)).to include("changed lines: #{name}:3, #{name}:4\n")
+    one, = multi_line_report([4])
+    expect(render(one)).to include("changed line: #{name}:4\n")
+  end
+
+  it "prints no changed line outside diff mode" do
+    expect(render(report_of(result_for(:survived)))).not_to include("changed line")
+  end
+
+  it "prints no changed line for a mutant that touches none" do
+    expect(render(review_with_changes([1], result_for(:survived)))).not_to include("changed line")
   end
 
   it "reports invalid mutations and reused verdicts only when there are some" do

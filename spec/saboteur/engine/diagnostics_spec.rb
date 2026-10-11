@@ -23,3 +23,35 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     expect(err.string).to eq("saboteur: building\n")
   end
 end
+
+RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat" do
+  let(:err) { StringIO.new }
+  let(:diagnostics) { described_class.new(err) }
+
+  # The supervisor's wait loop drives tick, so no thread is ever alive at
+  # fork time.
+  it "prints elapsed time only once the interval passed" do
+    heartbeat = diagnostics.progress_heartbeat("long phase", interval: 0.05)
+    heartbeat.tick
+    expect(err.string).to eq("")
+    sleep 0.06
+    heartbeat.tick
+    expect(err.string).to match(/long phase: 0 s elapsed/)
+    heartbeat.tick
+    expect(err.string.lines.size).to eq(1)
+    sleep 0.06
+    heartbeat.tick
+    expect(err.string.lines.size).to eq(2)
+  end
+
+  # The gate is inclusive: an elapsed time of exactly the interval prints.
+  it "prints when exactly the interval has elapsed" do
+    allow(Process).to receive(:clock_gettime).and_call_original
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0, 100.0, 130.0)
+    heartbeat = diagnostics.progress_heartbeat("long phase", interval: 30)
+    heartbeat.tick
+    expect(err.string).to eq("")
+    heartbeat.tick
+    expect(err.string).to match(/long phase: 30 s elapsed/)
+  end
+end

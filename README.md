@@ -35,7 +35,9 @@ Every run with selected subjects runs the entire unchanged suite twice in fresh
 supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
 a cache miss. Both baseline passes must be green, complete and in the same
-RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Each suite pass
+RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Long phases
+print their elapsed time about every 30 seconds, and each phase's log holds
+the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
 need a rerun before they describe this extra fixed cost.
@@ -175,7 +177,14 @@ unchanged. It cannot see a change in a method this one calls, so run without
 it now and then (and in CI on the main branch).
 
 Output: counts per status, the score, timing, and a unified diff for every
-survivor. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
+survivor. Under each diff the terminal lists the tests that covered that line
+and still passed with the mutant applied (the first five, likeliest killers
+first; the rest are under `coveredBy` in the JSON report). The missing
+check may belong in one of them. Line coverage can overstate which tests
+exercise a line, so treat the list as a lead. A survivor reused with
+`--incremental` was not run again, and the list says its tests passed in an
+earlier run. The HTML page shows the same list in the
+survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `json_report` / `html_report` in
 `.saboteur.yml`; set either to `null` to turn that report off. The two paths
@@ -195,6 +204,15 @@ needs, plus one entry per edit for mutants that edit more than one spot.
 Survivors accepted on the ignore list are listed separately with their
 reason, and `survivorsTruncated` and `acceptedTruncated` count what the bound
 left out; the full data stays in the schema's `files` section.
+
+In diff mode (`--since`), a mutant is reported at the line where its statement
+starts. A statement that spans several lines can start a line or two above the
+line that changed. Under each survivor the terminal therefore prints
+`changed line: path:N`, the changed line or lines (the first three) the mutant
+touches, and each finding carries them as `changedLines`. Use `changedLines`,
+not `line`, to put a note on a changed line of the pull-request diff. A
+whole-body mutant of a method whose only change is its signature touches no
+changed line and prints none.
 
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `--threshold`; 1 survivors, or the score is below `--threshold` or missing;
@@ -243,6 +261,10 @@ jobs: 4                           # optional; the default is 1
 
 Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
 generator is planned; until then this block is the supported setup.
+
+saboteur puts the app's `spec/` directory on the load path before
+processing `require`, matching rspec, so a boot file like a dummy app's
+`spec/rails_helper.rb` can require its siblings.
 
 Bootsnap needs no extra setting: bytecode from its compile cache carries no
 coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
