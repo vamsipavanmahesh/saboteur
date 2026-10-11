@@ -94,4 +94,28 @@ RSpec.describe Saboteur::Report, "score without whole-body mutants" do
     expect(report.fine_score_breakdown).to equal(report.fine_score_breakdown)
     expect(report.coarse_score_breakdown).to equal(report.coarse_score_breakdown)
   end
+  describe "#majority_errored?" do
+    it "is true when more than half of the executed mutants errored" do
+      expect(report_of(result_for(:killed), result_for(:error), result_for(:error)).majority_errored?).to be(true)
+    end
+
+    it "is false at exactly half" do
+      expect(report_of(result_for(:killed), result_for(:error)).majority_errored?).to be(false)
+    end
+
+    it "is false with nothing executed" do
+      expect(report_of(result_for(:skipped, reason: "no coverage")).majority_errored?).to be(false)
+    end
+
+    it "does not count skipped mutants in either side of the fraction" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error),
+                         result_for(:skipped, reason: "no coverage"), result_for(:skipped, reason: "no coverage"))
+      expect(report.majority_errored?).to be(true)
+    end
+
+    it "does not count resource-limited mutants as errors" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:resource_limit, reason: "memory cap"))
+      expect(report.majority_errored?).to be(false)
+    end
+  end
 end
