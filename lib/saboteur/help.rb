@@ -12,10 +12,24 @@ module Saboteur
   # own line, command and key rows start with two spaces. Option lines come from
   # the CLI's own option parser, so a new option shows up here without an edit.
   class Help
-    Command = Data.define(:name, :summary, :description, :takes_options, :examples)
+    Command = Data.define(:name, :summary, :description, :takes_options, :exit_codes, :examples)
 
     PURPOSE = "mutation testing for Ruby and RSpec"
     DOCUMENTATION = "https://github.com/vamsipavanmahesh/saboteur"
+
+    EXIT_CODE_MEANINGS = {
+      0 => "Success. No unignored survivors.",
+      1 => "At least one mutant survived and is not on the ignore list.",
+      2 => "Usage or configuration error: fix the command or .saboteur.yml. A replay --id that matches no " \
+           "mutant is only found after the target has booted.",
+      3 => "Tool error: saboteur could not finish, or every executed mutant errored."
+    }.freeze
+
+    DOCTOR_EXIT_CODE_MEANINGS = {
+      0 => "Healthy: the environment checks passed and the baseline passed twice in the same order.",
+      2 => "Usage or configuration error: fix the command or .saboteur.yml.",
+      3 => "A check failed: the target did not boot, or the baseline failed or changed between runs."
+    }.freeze
 
     COMMANDS = [
       Command.new(
@@ -24,6 +38,7 @@ module Saboteur
         description: "Builds a per-test coverage map, makes small changes to your methods, runs only the " \
                      "tests that cover each change, and reports survivors (changes no test noticed).",
         takes_options: true,
+        exit_codes: EXIT_CODE_MEANINGS,
         examples: [
           ["Pull request: only methods changed since the target branch", "saboteur run --since origin/main"],
           ["Whole project, four workers, repeatable seed", "saboteur run --jobs 4 --seed 42"],
@@ -36,9 +51,9 @@ module Saboteur
         summary: "Check the environment and run the baseline twice, without mutating anything",
         description: "Boots the target like a run, checks runtime, coverage and boot files, then runs your " \
                      "suite twice in the same order with one seed and reports whether both runs passed. " \
-                     "Options: --config PATH (default .saboteur.yml) and --seed N (default 1). " \
-                     "Exit 0 when healthy, 2 for a usage or configuration error, 3 when a check fails.",
-        takes_options: false,
+                     "It never mutates anything.",
+        takes_options: true,
+        exit_codes: DOCTOR_EXIT_CODE_MEANINGS,
         examples: [["Check the setup before the first run", "saboteur doctor"],
                    ["Use another config file and seed", "saboteur doctor --config ci.yml --seed 7"]]
       ),
@@ -47,6 +62,7 @@ module Saboteur
         summary: "Print the installed version",
         description: "Prints the version number and nothing else.",
         takes_options: false,
+        exit_codes: nil,
         examples: [["Print the version", "saboteur version"]]
       ),
       Command.new(
@@ -55,17 +71,10 @@ module Saboteur
         description: "Without an argument, prints every command, option, config key and exit code. " \
                      "With a command name, prints that command's usage, options and examples.",
         takes_options: false,
+        exit_codes: nil,
         examples: [["Show everything", "saboteur help"], ["Show one command", "saboteur help run"]]
       )
     ].freeze
-
-    EXIT_CODE_MEANINGS = {
-      0 => "Success. No unignored survivors.",
-      1 => "At least one mutant survived and is not on the ignore list.",
-      2 => "Usage or configuration error: fix the command or .saboteur.yml. A replay --id that matches no " \
-           "mutant is only found after the target has booted.",
-      3 => "Tool error: saboteur could not finish, or every executed mutant errored."
-    }.freeze
 
     FILES = [
       [".saboteur.yml", "Settings. Command line options override it."],
@@ -75,6 +84,7 @@ module Saboteur
       [".saboteur/", "Cache: coverage map and incremental verdicts. Safe to delete."]
     ].freeze
 
+    # option_lines: the option lines of each command's parser, keyed by command name.
     def initialize(option_lines:, commands: COMMANDS)
       @option_lines = option_lines
       @commands = commands
@@ -82,7 +92,8 @@ module Saboteur
 
     def overview
       [title, usage_section, commands_section, options_section(run_command), examples_section(all_examples),
-       exit_codes_section, config_section, files_section, "Documentation: #{DOCUMENTATION}\n"].join("\n")
+       exit_codes_section(run_command.exit_codes), config_section, files_section,
+       "Documentation: #{DOCUMENTATION}\n"].join("\n")
     end
 
     # Details for one command, or nil when there is no such command.
@@ -93,7 +104,7 @@ module Saboteur
       sections = ["saboteur #{found.name} - #{found.summary}\n", "#{found.description}\n", command_usage(found)]
       sections << options_section(found) if found.takes_options
       sections << examples_section(found.examples)
-      sections << exit_codes_section if found.takes_options
+      sections << exit_codes_section(found.exit_codes) if found.exit_codes
       sections.join("\n")
     end
 
@@ -104,7 +115,7 @@ module Saboteur
     private
 
     def run_command
-      @commands.find(&:takes_options)
+      @commands.find { |command| command.name == "run" }
     end
 
     def title
@@ -130,7 +141,7 @@ module Saboteur
     end
 
     def options_section(command)
-      "OPTIONS (saboteur #{command.name})\n#{@option_lines.map(&:rstrip).join("\n")}\n"
+      "OPTIONS (saboteur #{command.name})\n#{@option_lines.fetch(command.name).map(&:rstrip).join("\n")}\n"
     end
 
     def all_examples
@@ -141,8 +152,8 @@ module Saboteur
       "EXAMPLES\n#{examples.map { |note, line| "  # #{note}\n  #{line}" }.join("\n")}\n"
     end
 
-    def exit_codes_section
-      rows = EXIT_CODE_MEANINGS.map { |code, meaning| "  #{code}  #{meaning}" }
+    def exit_codes_section(codes)
+      rows = codes.map { |code, meaning| "  #{code}  #{meaning}" }
       "EXIT CODES\n#{rows.join("\n")}\n"
     end
 
