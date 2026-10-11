@@ -1,0 +1,80 @@
+name: saboteur mutation testing
+description: >-
+  Runs saboteur in diff mode on a pull request, so only the methods the pull
+  request changed are mutated. Advisory by default.
+author: Vamsi Pavan Mahesh Gunturu
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  base-ref:
+    description: >-
+      Branch the pull request targets. Defaults to the pull request's base
+      branch. Empty outside pull requests, where the action does nothing.
+    required: false
+    default: ${{ github.base_ref }}
+  command:
+    description: How to start saboteur. The project's Gemfile must include saboteur.
+    required: false
+    default: bundle exec saboteur
+  arguments:
+    description: Extra saboteur arguments, separated by spaces, for example "--jobs 2".
+    required: false
+    default: ""
+  fail-on-survivors:
+    description: >-
+      Set to "true" to fail the step when a mutant survives. The default,
+      "false", only reports. A saboteur usage or tool error always fails the step.
+    required: false
+    default: "false"
+  cache:
+    description: Set to "false" to skip caching saboteur's coverage map.
+    required: false
+    default: "true"
+  report-path:
+    description: Where saboteur writes its JSON report.
+    required: false
+    default: .saboteur/report.json
+
+outputs:
+  ran:
+    description: '"true" when saboteur ran, "false" when the action had nothing to do or stopped early.'
+    value: ${{ steps.run.outputs.ran }}
+  exit-code:
+    description: "saboteur's exit code: 0 clean, 1 survivors, 2 usage error, 3 tool error."
+    value: ${{ steps.run.outputs.exit-code }}
+  score:
+    description: 'Mutation score as a percentage, or "n/a" when no mutants were scored.'
+    value: ${{ steps.run.outputs.score }}
+  killed:
+    description: Number of killed mutants.
+    value: ${{ steps.run.outputs.killed }}
+  survivors:
+    description: Number of survived mutants, including ignored ones.
+    value: ${{ steps.run.outputs.survivors }}
+  report-path:
+    description: Path of the JSON report.
+    value: ${{ steps.run.outputs.report-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Restore the coverage map
+      if: inputs.cache == 'true' && inputs.base-ref != ''
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: .saboteur
+        key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', '.saboteur.yml') }}-${{ github.sha }}
+        restore-keys: |
+          saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', '.saboteur.yml') }}-
+    - name: Mutate the changed methods
+      id: run
+      shell: bash
+      env:
+        SABOTEUR_BASE_REF: ${{ inputs.base-ref }}
+        SABOTEUR_COMMAND: ${{ inputs.command }}
+        SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
+        SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
+        SABOTEUR_REPORT_PATH: ${{ inputs.report-path }}
+      run: bash "${{ github.action_path }}/action/run-saboteur"
