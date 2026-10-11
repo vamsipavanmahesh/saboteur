@@ -99,22 +99,34 @@ module Saboteur
     def parser
       OptionParser.new do |opts|
         opts.banner = USAGE
-        opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
-        opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
-        opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
-        opts.on("--timeout-factor N", Float, "Multiple of baseline runtime (default 3)") { |v| set(:timeout_factor, v) }
-        opts.on("--jobs N", Integer, "Concurrent workers (default 1)") { |v| set(:jobs, v) }
-        opts.on("--seed N", Integer, "Seed for Ruby's random numbers in every test run (default 1)") do |v|
-          set(:seed, v)
-        end
-        opts.on("--config PATH", "Config file (default .saboteur.yml)") { |v| set(:config, v) }
-        opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
-        opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
-        opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
-        opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
-        opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
-        opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
+        define_selection_options(opts)
+        define_execution_options(opts)
+        define_output_options(opts)
       end
+    end
+
+    def define_selection_options(opts)
+      opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
+      opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
+      opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
+    end
+
+    def define_execution_options(opts)
+      opts.on("--timeout-factor N", Float, "Multiple of baseline runtime (default 3)") { |v| set(:timeout_factor, v) }
+      opts.on("--jobs N", Integer, "Concurrent workers (default 1)") { |v| set(:jobs, v) }
+      opts.on("--seed N", Integer, "Seed for Ruby's random numbers in every test run (default 1)") do |v|
+        set(:seed, v)
+      end
+      opts.on("--config PATH", "Config file (default .saboteur.yml)") { |v| set(:config, v) }
+      opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
+      opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
+      opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
+      opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
+    end
+
+    def define_output_options(opts)
+      opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
+      opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
     end
 
     def add_subject(expr)
