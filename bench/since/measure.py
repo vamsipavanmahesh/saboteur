@@ -29,14 +29,20 @@ def run(mode, pair, base, output):
                'bench/since/workload.yml', '--json', str(report_path)]
     if mode == 'diff':
         command += ['--since', base]
+    report_path.unlink(missing_ok=True)
     started = time.monotonic()
     with (output / f'{name}.log').open('w') as log:
         result = subprocess.run(command, stdout=log, stderr=log, check=False)
     elapsed = time.monotonic() - started
     if result.returncode not in (0, 1):
         raise ValueError(f'{name}: tool/config error, exit {result.returncode}')
+    if not report_path.is_file():
+        raise ValueError(f'{name}: fresh report was not written')
     report = json.loads(report_path.read_text())
     statuses = verdicts(report)
+    invalid = set(statuses.values()) - {'Killed', 'Survived', 'NoCoverage', 'Ignored'}
+    if invalid:
+        raise ValueError(f'{name}: invalid benchmark verdict: {sorted(invalid)}')
     return {'mode': mode, 'pair': pair, 'command': command, 'exit': result.returncode,
             'wall_seconds': elapsed, 'mutants': len(statuses),
             'statuses': dict(collections.Counter(statuses.values()))}, statuses
