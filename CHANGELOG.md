@@ -11,6 +11,11 @@ All notable changes are documented here. The format follows
   style and no script or network use, written to `.saboteur/report.html`.
   Change the path with `--html PATH` or `html_report:`. It shows the score,
   per-file mutants, survivors, warnings and skipped subjects.
+- `saboteur run SOURCE... --test TEST...`: mutate the named source files and
+  run only the named spec files or directories. Positional sources replace
+  `include` and `exclude`; `--test` replaces the spec paths in `rspec_args`.
+- `--threshold PERCENT` (and `threshold:` in `.saboteur.yml`): exit 1 when the
+  score is below PERCENT. The score decides the exit code instead of survivors.
 
 ## [0.2.0] - 2026-10-10
 
