@@ -104,4 +104,4 @@ RSpec.describe "rails integration with an in-memory sqlite database" do
       expect(Dir.exist?(snapshot_dir)).to be(false)
     end
   end
-  end
+end
