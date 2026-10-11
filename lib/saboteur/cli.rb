@@ -3,6 +3,7 @@
 
 require "optparse"
 require_relative "../saboteur"
+require_relative "reporter/replay"
 
 module Saboteur
   class CLI
@@ -56,6 +57,7 @@ module Saboteur
       report = Engine.new(config, **arguments).call
       @err.puts
       Reporter::Terminal.new(@out).call(report)
+      Reporter::Replay.new(@out).call(report) if options[:id]
       write_json(report)
       exit_code(report)
     rescue ConfigError => e
