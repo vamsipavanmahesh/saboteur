@@ -134,3 +134,12 @@
   mutation: 460c99badd064fe9
   reason: 'equivalent: File.expand_path ignores the root for an absolute path,
     so dropping the early return changes nothing'
+- subject: Saboteur::Frameworks::Rails#backup_sqlite
+  mutation: 7cfcb49b442dd8f8
+  reason: 'equivalent: any negative page count steps through every remaining
+    page'
+- subject: Saboteur::Frameworks::Rails#with_sqlite
+  mutation: 843c81e64fce006d
+  reason: 'equivalent here: sqlite3 is always loaded before this runs - the
+    covering spec requires it, and a Rails app with a sqlite adapter has it
+    loaded'
