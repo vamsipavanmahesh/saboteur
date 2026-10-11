@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "pathname"
+require "sqlite3"
 require "tmpdir"
 
 RSpec.describe Saboteur::Frameworks::Rails do
@@ -76,6 +78,15 @@ RSpec.describe Saboteur::Frameworks::Rails do
 
     # A stand-in for ActiveRecord::Base that logs which class connects where
     # and what SQL runs.
+    # A stand-in for SQLite3::Backup that reports canned step statuses;
+    # statuses past the list repeat the last one.
+    def fake_backup(statuses)
+      instance_double(SQLite3::Backup).tap do |backup|
+        allow(backup).to receive(:step).and_return(*statuses)
+        allow(backup).to receive(:finish)
+      end
+    end
+
     def fake_connection(calls, template_sessions)
       connection = Object.new
       connection.define_singleton_method(:quote_table_name) { |name| %("#{name}") }
@@ -104,6 +115,289 @@ RSpec.describe Saboteur::Frameworks::Rails do
           Object.new.tap { |c| c.define_singleton_method(:configs_for) { |**| [db] } }
         end
       end
+    end
+
+    # Rails 7.1+ resolves a relative sqlite path against Rails.root, not
+    # the process working directory; create AND cleanup must use the same
+    # resolution, or a run from another working directory leaks its copies
+    # (and can delete a same-named file under the working directory).
+    it "creates and drops the copy under Rails.root, whatever the working directory" do
+      Dir.mktmpdir do |dir|
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new("db/test.sqlite3", { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        rails_root = Module.new
+        rails_root.define_singleton_method(:root) { Pathname.new(dir) }
+        stub_const("Rails", rails_root)
+        FileUtils.mkdir_p(File.join(dir, "db"))
+        source = File.join(dir, "db", "test.sqlite3")
+        SQLite3::Database.new(source) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        target = File.join(dir, "db", "test_saboteur2.sqlite3")
+        Dir.chdir("/") do
+          rails.prepare_workers(2)
+          expect(File).to exist(target)
+          rails.cleanup_workers
+          expect(File).not_to exist(target)
+        end
+      end
+    end
+
+    # A missing source must not become a silent skip: the worker would get
+    # a fresh empty database and test nothing.
+    it "raises when the sqlite source file does not exist" do
+      Dir.mktmpdir do |dir|
+        missing = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(missing, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /#{Regexp.escape(missing)}/)
+      end
+    end
+
+    # Real SQLite, in WAL mode. wal_checkpoint(TRUNCATE) reports a busy
+    # reader instead of raising; copying on would silently miss the
+    # committed rows still outside the main file, so the copy refuses.
+    it "refuses to copy while a reader keeps the WAL busy" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        writer = SQLite3::Database.new(path)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("CREATE TABLE t (i)")
+        writer.execute("INSERT INTO t VALUES (1)")
+        reader = SQLite3::Database.new(path)
+        reader.execute("BEGIN")
+        reader.execute("SELECT * FROM t")
+        writer.execute("INSERT INTO t VALUES (2)")
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not checkpoint/)
+        reader.execute("ROLLBACK")
+        reader.close
+        writer.close
+      end
+    end
+
+    # The backup API snapshots a consistent image, WAL contents included;
+    # a byte copy of main + WAL + SHM can catch a write between the file
+    # copies and come out malformed.
+    it "snapshots rows still living in the WAL into the copy" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        writer = SQLite3::Database.new(path)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("CREATE TABLE t (i)")
+        writer.execute("INSERT INTO t VALUES (1)")
+        rails.prepare_workers(2)
+        target = File.join(dir, "test_saboteur2.sqlite3")
+        copy = SQLite3::Database.new(target)
+        expect(copy.execute("SELECT COUNT(*) FROM t").first).to eq([1])
+        copy.close
+        writer.close
+      end
+    end
+
+    # Stale -wal/-shm sidecars from an earlier byte copy would shadow the
+    # fresh snapshot, so the target starts clean. SQLite discards invalid
+    # sidecars itself on open, so pin the removal calls directly.
+    it "removes the target and any stale sidecars before snapshotting" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        allow(FileUtils).to receive(:rm_f).and_call_original
+        rails.prepare_workers(2)
+        target = File.join(dir, "test_saboteur2.sqlite3")
+        expect(FileUtils).to have_received(:rm_f).with(target)
+        expect(FileUtils).to have_received(:rm_f).with("#{target}-wal")
+        expect(FileUtils).to have_received(:rm_f).with("#{target}-shm")
+      end
+    end
+
+    # Stale -wal/-shm sidecars from an earlier byte copy would shadow the
+    # fresh snapshot, so the target starts clean.
+    it "removes stale WAL and SHM sidecars the snapshot does not replace" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) do |sqlite|
+          sqlite.execute("CREATE TABLE t (i)")
+          sqlite.execute("INSERT INTO t VALUES (1)")
+        end
+        target = File.join(dir, "test_saboteur2.sqlite3")
+        File.write("#{target}-wal", "stale")
+        File.write("#{target}-shm", "stale")
+        rails.prepare_workers(2)
+        expect(File).not_to exist("#{target}-wal")
+        expect(File).not_to exist("#{target}-shm")
+        copy = SQLite3::Database.new(target)
+        expect(copy.execute("SELECT COUNT(*) FROM t").first).to eq([1])
+        copy.close
+      end
+    end
+
+    # A checkpoint that reports frames left behind without a busy flag
+    # still failed to finish; both halves of the fail-closed check matter.
+    it "refuses to copy when the checkpoint leaves frames behind" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        connection = double("connection")
+        allow(connection).to receive(:execute).with("PRAGMA wal_checkpoint(TRUNCATE)").and_return([[0, 4, 3]])
+        allow(rails).to receive(:with_sqlite).and_yield(connection)
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not checkpoint/)
+      end
+    end
+
+    it "refuses to copy when the checkpoint is busy even with no frames left" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        connection = double("connection")
+        allow(connection).to receive(:execute).with("PRAGMA wal_checkpoint(TRUNCATE)").and_return([[1, 0, 0]])
+        allow(rails).to receive(:with_sqlite).and_yield(connection)
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not checkpoint/)
+      end
+    end
+
+    # Without finish the backup handle is never released; pin that the
+    # copy ends through it.
+    it "finishes the backup after stepping every page" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        finished = false
+        allow(SQLite3::Backup).to receive(:new).and_wrap_original do |original, *args|
+          original.call(*args).tap do |backup|
+            allow(backup).to receive(:finish).and_wrap_original do |finish|
+              finished = true
+              finish.call
+            end
+          end
+        end
+        rails.prepare_workers(2)
+        expect(finished).to be(true)
+      end
+    end
+
+    # A real exclusive lock from another connection makes SQLite report
+    # the lock instead of raising through ActiveRecord; the copy must fail
+    # closed, here at the checkpoint.
+    it "refuses to copy while another connection holds the source exclusively" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        locker = SQLite3::Database.new(path)
+        locker.execute("BEGIN EXCLUSIVE")
+        locker.execute("INSERT INTO t VALUES (1)")
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not checkpoint/)
+        locker.execute("ROLLBACK")
+        locker.close
+      end
+    end
+
+    # Backup#step returns raw SQLite status codes instead of raising, so a
+    # busy target must be retried and a hard status must fail the copy.
+    it "retries a busy backup step and copies once it completes" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        statuses = [5, 5]
+        fake = fake_backup(statuses + [101])
+        allow(SQLite3::Backup).to receive(:new).and_return(fake)
+        rails.prepare_workers(2)
+        expect(fake).to have_received(:step).exactly(3).times
+      end
+    end
+
+    it "fails the copy when the backup step reports an error status" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        fake = fake_backup([10])
+        allow(SQLite3::Backup).to receive(:new).and_return(fake)
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not copy.*status 10/)
+        expect(fake).to have_received(:finish)
+      end
+    end
+
+    it "fails the copy when the backup step stays busy" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        fake = fake_backup([5])
+        allow(SQLite3::Backup).to receive(:new).and_return(fake)
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not copy.*still busy/)
+        expect(fake).to have_received(:finish)
+      end
+    end
+
+    # Real lock, real backup: a source locked exclusively makes step report
+    # BUSY or LOCKED through the binding until the retries run out. The
+    # checkpoint gate is stubbed here; its own locked case is covered above.
+    it "fails the copy when the source stays locked through the backup" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        locker = SQLite3::Database.new(path)
+        locker.execute("BEGIN EXCLUSIVE")
+        locker.execute("INSERT INTO t VALUES (1)")
+        allow(rails).to receive(:checkpoint_sqlite)
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not copy/)
+        locker.execute("ROLLBACK")
+        locker.close
+      end
+    end
+
+    # A writable source handle would copy identically but could write to
+    # the database under test; the snapshot must open it read-only.
+    it "opens the source read-only for the snapshot" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        allow(SQLite3::Database).to receive(:new).and_call_original
+        rails.prepare_workers(2)
+        expect(SQLite3::Database).to have_received(:new).with(path, readonly: true)
+      end
+    end
+
+    it "resolves only relative sqlite paths, and only with Rails present" do
+      expect(rails.send(:sqlite_absolute, "/data/test.sqlite3")).to eq("/data/test.sqlite3")
+      expect(rails.send(:sqlite_absolute, "db/test.sqlite3")).to eq("db/test.sqlite3")
     end
 
     # Copying runs CREATE DATABASE from the maintenance database. Doing that
@@ -251,10 +545,23 @@ RSpec.describe Saboteur::Frameworks::Rails do
         db = Struct.new(:database, :configuration_hash, :adapter)
                    .new(File.join(dir, "test.sqlite3"), { adapter: "sqlite3" }, "sqlite3")
         stub_const("ActiveRecord::Base", fake_base(db))
-        ["", "-wal", "-shm"].each { |suffix| File.write("#{db.database}#{suffix}", "x") }
+        writer = SQLite3::Database.new(db.database)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("CREATE TABLE t (i)")
         rails.prepare_workers(2)
+        expect(Dir.children(dir)).to include("test_saboteur2.sqlite3")
+        # Give the copy real sidecars of its own, so the drop has to
+        # remove them rather than pass on their absence.
+        copy = SQLite3::Database.new(File.join(dir, "test_saboteur2.sqlite3"))
+        copy.execute("PRAGMA journal_mode=WAL")
+        copy.execute("INSERT INTO t VALUES (1)")
+        expect(Dir.children(dir)).to include("test_saboteur2.sqlite3-wal")
         rails.cleanup_workers
-        expect(Dir.children(dir).sort).to eq(["test.sqlite3", "test.sqlite3-shm", "test.sqlite3-wal"])
+        expect(Dir.children(dir)).not_to include("test_saboteur2.sqlite3", "test_saboteur2.sqlite3-wal",
+                                                 "test_saboteur2.sqlite3-shm")
+        expect(Dir.children(dir)).to include("test.sqlite3")
+        copy.close
+        writer.close
       end
     end
 
