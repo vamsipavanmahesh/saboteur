@@ -15,9 +15,13 @@ module Saboteur
     class Rails
       LOCAL_HOSTS = ["localhost", "127.0.0.1", "::1", "[::1]"].freeze
 
+      # How many blocking session names the template-copy error lists.
+      MAX_BLOCKER_NAMES = 5
+
       def initialize(config, hooks)
         @config = config
         @hooks = hooks
+        @worker_copies = []
       end
 
       def before_boot
@@ -64,14 +68,47 @@ module Saboteur
       end
 
       # Parent, before workers start: one copy of each test database per
-      # extra worker, made from the prepared test database.
+      # extra worker, made from the prepared test database. Every attempted
+      # copy is tracked before it runs, so cleanup_workers drops them all,
+      # including the partial set when a copy failed.
       def prepare_workers(jobs)
         return unless defined?(::ActiveRecord::Base) && jobs > 1
 
+        @worker_copies = []
         test_configs.each do |db|
-          (1...jobs).each { |number| copy_database(db, self.class.worker_database(db.database, number)) }
+          (1...jobs).each do |number|
+            name = self.class.worker_database(db.database, number)
+            # Track the target before the copy, not after it: an attempt
+            # that created the database and then failed (a post-CREATE
+            # error, a partial SQLite copy) must still be dropped at the
+            # end of the run. Dropping is idempotent (DROP IF EXISTS,
+            # rm -f), so tracking a copy that never happened costs nothing.
+            @worker_copies << [db, name]
+            copy_database(db, name)
+          end
         end
         disconnect
+      end
+
+      # Parent, after the run: drop every copy prepare_workers made, so runs
+      # do not collect one database per worker. Every copy is attempted even
+      # when a drop fails; the failures are reported together at the end.
+      def cleanup_workers
+        return if @worker_copies.empty?
+
+        failures = @worker_copies.filter_map do |db, name|
+          drop_database(db, name)
+          nil
+        rescue StandardError => e
+          "#{name}: #{e.message}"
+        end
+        @worker_copies = []
+        begin
+          disconnect
+        rescue StandardError => e
+          failures << "disconnect: #{e.message}"
+        end
+        raise Error, "could not drop worker database copies: #{failures.join('; ')}" if failures.any?
       end
 
       # Worker: point every connection pool (primary, and any cache, queue or
@@ -155,18 +192,57 @@ module Saboteur
         end
       end
 
-      # Through a connection class of saboteur's own, so the app's
-      # connections never point at the maintenance database.
+      # The mirror of copy_database. Adapters copy_database rejects never get
+      # copies, so there is nothing to drop for them.
+      def drop_database(db, name)
+        case db.adapter
+        when /postg/
+          disconnect
+          drop_postgres(db, name)
+        when /sqlite/
+          ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{name}#{suffix}") }
+        end
+      end
+
       def copy_postgres(db, name)
-        admin = maintenance_record
-        admin.establish_connection(db.configuration_hash.merge(database: "postgres"))
-        admin.connection_pool.with_connection do |connection|
+        with_maintenance_connection(db) do |connection|
           connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
+          refuse_busy_template(connection, db.database)
           connection.execute("CREATE DATABASE #{connection.quote_table_name(name)} " \
                              "TEMPLATE #{connection.quote_table_name(db.database)}")
         end
+      end
+
+      def drop_postgres(db, name)
+        with_maintenance_connection(db) do |connection|
+          connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
+        end
+      end
+
+      # Through a connection class of saboteur's own, so the app's
+      # connections never point at the maintenance database.
+      def with_maintenance_connection(db, &)
+        admin = maintenance_record
+        admin.establish_connection(db.configuration_hash.merge(database: "postgres"))
+        admin.connection_pool.with_connection(&)
       ensure
         admin&.remove_connection
+      end
+
+      # Postgres refuses CREATE DATABASE ... TEMPLATE while any other session
+      # is connected to the template, so name the blockers instead of dying
+      # mid-run with the raw error. Never terminates other sessions.
+      def refuse_busy_template(connection, database)
+        blockers = connection.select_values(<<~SQL)
+          SELECT application_name FROM pg_stat_activity
+          WHERE datname = #{connection.quote(database)} AND pid <> pg_backend_pid()
+        SQL
+        return if blockers.empty?
+
+        names = blockers.map { |app| app.to_s.empty? ? "unnamed" : app }.first(MAX_BLOCKER_NAMES)
+        raise Error, "cannot copy the test database #{database}: #{blockers.size} other session(s) connected " \
+                     "(#{names.join(', ')})#{', ...' if blockers.size > names.size}. " \
+                     "Stop other test runs, consoles or Spring, then run saboteur again."
       end
 
       # ActiveRecord names a connection's owner by class name, so the class
