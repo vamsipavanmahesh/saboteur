@@ -22,42 +22,65 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     Saboteur::Selection::CoverageMap.new(lines: { subject_under_test.file => { 2 => ["t1"] } }, tests: ["t1"])
   end
   let(:integration) { instance_double(Saboteur::Integration::RSpec, test_files: []) }
-  let(:boot) { instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil) }
-  let(:selection) do
-    instance_double(Saboteur::Engine::SubjectSelection, select: [subject_under_test], changed_lines: nil)
-  end
-  let(:store) { instance_double(Saboteur::Engine::CoverageStore, fetch: map) }
 
-  # Runs the engine with the world stubbed away, recording when the heap is
-  # prepared relative to the distribution of work. jobs: serial or parallel.
-  def run_engine(jobs:, events:)
-    stub_boot_phase
-    stub_test_phase(events)
-    described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: StringIO.new).call
+  # Runs the engine with the world stubbed away, recording the order of the
+  # run's phases. Returns the candidate lists the engine retained and the
+  # arguments Distribution received, so the specs can prove they are the
+  # same object.
+  def run_engine(jobs:, events:, subjects: [subject_under_test])
+    box = {}
+    stub_boot_phase(events, subjects)
+    stub_test_phase(events, box)
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: StringIO.new)
+    record_candidate_lists(engine, events, box)
+    engine.call
+    [box[:lists], box[:run_args]]
   end
 
-  def stub_boot_phase
+  def record_candidate_lists(engine, events, box)
+    allow(engine).to receive(:candidate_lists).and_wrap_original do |original, *args|
+      box[:lists] = original.call(*args)
+      events << :candidates_retained
+      box[:lists]
+    end
+  end
+
+  def stub_boot_phase(events, subjects)
+    rails = instance_double(Saboteur::Frameworks::Rails)
+    allow(rails).to receive(:prepare_workers) { events << :rails_prepared }
+    boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, select: subjects, changed_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 
-  def stub_test_phase(events)
+  def stub_test_phase(events, box)
+    store = instance_double(Saboteur::Engine::CoverageStore)
+    allow(store).to receive(:fetch) { events << :map_retained and map }
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap) { events << :prepare }
     distribution = instance_double(Saboteur::Engine::Distribution)
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
-    allow(distribution).to receive(:run) { events << :distribute and [] }
+    allow(distribution).to receive(:run) { |*args| box[:run_args] = args and events << :distribute and [] }
   end
 
-  it "prepares once, before work is distributed, on the parallel path" do
+  it "prepares after the map and candidates are retained, before distribution, on the parallel path" do
     events = []
-    run_engine(jobs: 4, events: events)
-    expect(events).to eq(%i[prepare distribute])
+    lists, run_args = run_engine(jobs: 4, events: events)
+    expect(events).to eq(%i[map_retained rails_prepared candidates_retained prepare distribute])
+    expect(run_args.last).to equal(lists)
   end
 
-  it "prepares once, before work is distributed, on the serial path" do
+  it "prepares after the map and candidates are retained, before distribution, on the serial path" do
     events = []
-    run_engine(jobs: 1, events: events)
-    expect(events).to eq(%i[prepare distribute])
+    lists, run_args = run_engine(jobs: 1, events: events)
+    expect(events).to eq(%i[map_retained rails_prepared candidates_retained prepare distribute])
+    expect(run_args.last).to equal(lists)
+  end
+
+  it "does not prepare when no subjects are selected" do
+    events = []
+    run_engine(jobs: 4, events: events, subjects: [])
+    expect(events).to be_empty
   end
 end
