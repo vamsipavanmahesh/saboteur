@@ -3,6 +3,7 @@
 
 require "coverage"
 require "fileutils"
+require "pathname"
 
 module Saboteur
   module Frameworks
@@ -17,6 +18,15 @@ module Saboteur
 
       # How many blocking session names the template-copy error lists.
       MAX_BLOCKER_NAMES = 5
+
+      # sqlite3-ruby's Backup#step returns raw SQLite status codes instead
+      # of raising, and finish discards its own: without an explicit check
+      # a partial destination would pass as a copy.
+      SQLITE_DONE = 101
+      SQLITE_BUSY = 5
+      SQLITE_LOCKED = 6
+      BACKUP_ATTEMPTS = 5
+      BACKUP_RETRY_DELAY = 0.05
 
       def initialize(config, hooks)
         @config = config
@@ -186,10 +196,7 @@ module Saboteur
           disconnect
           copy_postgres(db, name)
         when /sqlite/
-          # A database in WAL mode keeps recent writes in -wal/-shm files.
-          ["", "-wal", "-shm"].each do |suffix|
-            FileUtils.cp("#{db.database}#{suffix}", "#{name}#{suffix}") if File.exist?("#{db.database}#{suffix}")
-          end
+          copy_sqlite(db, name)
         else
           raise Error, "--jobs > 1 with Rails needs Postgres or SQLite (got #{db.adapter})"
         end
@@ -203,10 +210,102 @@ module Saboteur
           disconnect
           drop_postgres(db, name)
         when /sqlite/
-          ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{name}#{suffix}") }
+          target = sqlite_absolute(name)
+          ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{target}#{suffix}") }
         end
       end
 
+      # A relative sqlite path means something only to Rails: 7.1+ resolves
+      # it against Rails.root, not the process working directory. Resolve
+      # the source the same way, checkpoint so a live WAL database holds
+      # every committed write in its main file, then snapshot it through
+      # the backup API. A missing source is an error, not a skip: otherwise
+      # the worker starts from a fresh empty database and silently tests
+      # nothing.
+      def copy_sqlite(db, name)
+        source = sqlite_absolute(db.database)
+        unless File.exist?(source)
+          raise Error, "test database #{source} does not exist; run the test suite once to create it"
+        end
+
+        checkpoint_sqlite(source)
+        backup_sqlite(source, sqlite_absolute(name))
+      end
+
+      def sqlite_absolute(database)
+        return database if Pathname.new(database).absolute?
+        return database unless defined?(::Rails)
+
+        File.expand_path(database, ::Rails.root)
+      end
+
+      # wal_checkpoint(TRUNCATE) reports instead of raising: [busy, frames
+      # in the WAL, frames checkpointed]. A busy reader or an incomplete
+      # pass leaves committed writes outside the main file, and copying on
+      # would silently miss them - fail closed instead. Through a
+      # connection of saboteur's own, so the app's connections never point
+      # at the database being checkpointed.
+      def checkpoint_sqlite(source)
+        with_sqlite(source) do |database|
+          busy, frames, checkpointed = database.execute("PRAGMA wal_checkpoint(TRUNCATE)").first
+          return if busy.zero? && frames == checkpointed
+
+          raise Error, "could not checkpoint #{source} before copying it " \
+                       "(busy: #{busy}, frames: #{frames}, checkpointed: #{checkpointed}); " \
+                       "close the connections holding it and run again"
+        end
+      rescue SQLite3::BusyException => e
+        raise Error, "could not checkpoint #{source} before copying it (#{e.message}); " \
+                     "close the connections holding it and run again"
+      end
+
+      # A byte copy of main + WAL + SHM is no snapshot: a write landing
+      # between the file copies leaves the set malformed. The backup API
+      # copies a consistent image and restarts when the source changes
+      # under it. The target starts clean so stale sidecars from an
+      # earlier byte copy cannot shadow the fresh image.
+      def backup_sqlite(source, target)
+        ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{target}#{suffix}") }
+        with_sqlite(source, readonly: true) do |src|
+          with_sqlite(target) do |dst|
+            backup = SQLite3::Backup.new(dst, "main", src, "main")
+            begin
+              step_backup(backup, target)
+            ensure
+              backup.finish
+            end
+          end
+        end
+      end
+
+      # BUSY and LOCKED earn a bounded retry; DONE means the target holds
+      # every page; anything else fails the copy.
+      def step_backup(backup, target)
+        BACKUP_ATTEMPTS.times do
+          case (status = backup.step(-1))
+          when SQLITE_DONE then return
+          when SQLITE_BUSY, SQLITE_LOCKED
+            sleep(BACKUP_RETRY_DELAY)
+          else
+            raise Error, "could not copy the database to #{target}: sqlite backup failed with status #{status}"
+          end
+        end
+        raise Error, "could not copy the database to #{target}: still busy after #{BACKUP_ATTEMPTS} attempts"
+      end
+
+      def with_sqlite(path, **)
+        require "sqlite3"
+
+        database = SQLite3::Database.new(path, **)
+        begin
+          yield database
+        ensure
+          database.close
+        end
+      end
+
+      # Through a connection class of saboteur's own, so the app's
+      # connections never point at the maintenance database.
       def copy_postgres(db, name)
         with_maintenance_connection(db) do |connection|
           connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
