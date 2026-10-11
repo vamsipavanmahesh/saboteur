@@ -18,6 +18,10 @@ module Saboteur
     EXIT_SURVIVORS = 1
     EXIT_USAGE = 2
     EXIT_TOOL = 3
+    # Errored mutants (a crash, a neutral check that failed) are outside
+    # the score, so a run whose mutants mostly errored tested almost
+    # nothing - it must not pass the gate.
+    MAX_ERROR_FRACTION = 0.5
 
     class UsageError < ConfigError; end
 
@@ -143,12 +147,23 @@ module Saboteur
     end
 
     def exit_code(report)
-      executed = report.executed
-      return EXIT_TOOL if executed.any? && executed.all? { |result| result.status == :error }
+      return EXIT_TOOL if mostly_errored?(report)
 
       return EXIT_TOOL if incomplete_under_threshold?(report)
 
       failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
+    end
+
+    def mostly_errored?(report)
+      executed = report.executed
+      return false if executed.empty?
+
+      errors = executed.count { |result| result.status == :error }
+      return false unless errors.fdiv(executed.size) > MAX_ERROR_FRACTION
+
+      @err.puts("saboteur: #{errors} of #{executed.size} mutants errored, so the run tested almost nothing; " \
+                "fix the errors and run again")
+      true
     end
 
     # With --threshold the score decides; without it any unignored survivor does.
