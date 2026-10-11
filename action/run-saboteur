@@ -10,6 +10,8 @@
 #   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" also fails on an incomplete run
 #   SABOTEUR_REPORT_PATH        where saboteur writes its JSON report
 #   SABOTEUR_CACHE              "true" or "false"; "false" also passes --no-cache to saboteur
+# GITHUB_SERVER_URL, GITHUB_REPOSITORY and GITHUB_RUN_ID locate this run, so
+# the summary can link the report artifact; outside GitHub the link is left out.
 # Exit codes of saboteur: 0 clean, 1 survivors, 2 usage error, 3 tool error.
 # This script exits 2 for input it refuses, and 3 when saboteur's result cannot be trusted.
 set -uo pipefail
@@ -30,6 +32,41 @@ stop_with_error() {
   echo "::error::$1"
   write_output ran false
   exit "${2:-2}"
+}
+
+# A workflow command cannot hold %, CR or LF; a property value cannot hold :
+# or , on top of that. The report carries source text, which can be anything.
+escape_data() {
+  local text="$1"
+  text="${text//%/%25}"
+  text="${text//$'\r'/%0D}"
+  text="${text//$'\n'/%0A}"
+  printf '%s' "$text"
+}
+
+escape_property() {
+  local text
+  text="$(escape_data "$1")"
+  text="${text//:/%3A}"
+  text="${text//,/%2C}"
+  printf '%s' "$text"
+}
+
+# Inline code in the summary; a text holding a backtick needs a wider span.
+code_span() {
+  case "$1" in
+    *'`'*) printf '`` %s ``' "$1" ;;
+    *) printf '`%s`' "$1" ;;
+  esac
+}
+
+# Source text can span lines; the summary list shows one line per survivor.
+one_line() {
+  local text="$1"
+  text="${text//$'\r\n'/⏎}"
+  text="${text//$'\n'/⏎}"
+  text="${text//$'\r'/⏎}"
+  printf '%s' "$text"
 }
 
 if [ "$event_name" != "pull_request" ] || [ -z "$base_ref" ]; then
@@ -146,6 +183,48 @@ write_output errors "$errors"
 write_output incomplete "$incomplete"
 write_output report-path "$report_path"
 
+# Each surviving mutant becomes a note on the diff, and the same bounded list
+# lands in the summary below. Both come from the report's saboteur.findings
+# section, which saboteur 0.3.0 and later write; an older report only gets
+# the counts and warnings. The gem bounds the list, so the step stays under
+# GitHub's limit of 10 annotations of one kind.
+run_url=""
+if [ -n "${GITHUB_RUN_ID:-}" ]; then
+  run_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-unknown}/actions/runs/$GITHUB_RUN_ID"
+fi
+artifact_ref="this run's \`saboteur-report\` artifact"
+[ -n "$run_url" ] && artifact_ref="this run's [\`saboteur-report\` artifact]($run_url)"
+
+findings_file="$(mktemp)"
+findings_count=0
+findings_truncated=0
+if [ "$report_valid" = "true" ] && jq -e '
+     .saboteur.findings | type == "object" and (.survivors | type == "array")
+       and (.survivorsTruncated | type == "number")' "$report_path" >/dev/null 2>&1; then
+  findings_count="$(jq -r '.saboteur.findings.survivors | length' "$report_path")"
+  findings_truncated="$(jq -r '.saboteur.findings.survivorsTruncated' "$report_path")"
+  # Every field is base64: @tsv would turn a newline inside source text
+  # into a literal backslash-n and silently change the note's text.
+  while IFS=$'\t' read -r path line end_line operator subject original replacement digest; do
+    path="$(printf '%s' "$path" | base64 -d)"
+    line="$(printf '%s' "$line" | base64 -d)"
+    end_line="$(printf '%s' "$end_line" | base64 -d)"
+    operator="$(printf '%s' "$operator" | base64 -d)"
+    subject="$(printf '%s' "$subject" | base64 -d)"
+    original="$(printf '%s' "$original" | base64 -d)"
+    replacement="$(printf '%s' "$replacement" | base64 -d)"
+    digest="$(printf '%s' "$digest" | base64 -d)"
+    line="${line//[^0-9]/}"
+    end_line="${end_line//[^0-9]/}"
+    echo "::warning file=$(escape_property "$path"),line=${line:-1},endLine=${end_line:-${line:-1}},title=$(escape_property "Mutant survived: $operator")::$(escape_data "$subject"): $(escape_data "$original") became $(escape_data "$replacement") ($digest). Add a test that fails for this mutant, or accept it in .saboteur-ignore.yml with a reason."
+    printf -- '- %s:%s %s: %s became %s in %s (%s)\n' \
+      "$(code_span "$(one_line "$path")")" "${line:-1}" \
+      "$(code_span "$(one_line "$operator")")" \
+      "$(code_span "$(one_line "$original")")" "$(code_span "$(one_line "$replacement")")" \
+      "$(code_span "$(one_line "$subject")")" "$(code_span "$(one_line "$digest")")" >>"$findings_file"
+  done < <(jq -r '.saboteur.findings.survivors[] | [.path, (.line | tostring), (.endLine | tostring), .operator, .subject, .original, .replacement, .digest] | map(@base64) | @tsv' "$report_path")
+fi
+
 # A code fence one backtick longer than any run of backticks in the log, so
 # the log cannot close the fence and inject markdown.
 fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > longest) longest = RLENGTH; $0 = substr($0, RSTART + RLENGTH) } } END { s = ""; for (i = 0; i <= longest; i++) s = s "`"; print s }' "$log_file")"
@@ -162,6 +241,18 @@ fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > lo
     echo "Not scored: $uncovered with no coverage or ignored, $errors errored or hit a resource limit."
   fi
   [ "$incomplete" = "true" ] && echo && echo "**Incomplete run:** $errors mutants errored or hit a resource limit, so the score covers fewer mutants than were generated."
+  if [ "$findings_count" -gt 0 ]; then
+    echo "### Surviving mutants, most actionable first"
+    echo
+    cat "$findings_file"
+    echo
+    if [ "$findings_truncated" -gt 0 ]; then
+      echo "Showing the first $findings_count of $((findings_count + findings_truncated)) surviving mutants (coarse mutants first: a surviving coarse mutant says no test pins the method's behavior). The rest are in the full JSON report, kept as $artifact_ref."
+    else
+      echo "The full data behind these notes is kept as $artifact_ref."
+    fi
+    echo
+  fi
   echo
   echo '<details><summary>saboteur output</summary>'
   echo
@@ -170,7 +261,7 @@ fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > lo
   echo "$fence"
   echo '</details>'
 } >>"$step_summary"
-rm -f "$log_file"
+rm -f "$log_file" "$findings_file"
 
 if [ "$saboteur_status" -le 1 ] && [ "$report_valid" != "true" ]; then
   exit 3
