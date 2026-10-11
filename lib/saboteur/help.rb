@@ -53,8 +53,7 @@ module Saboteur
           ["Replay one mutant by the digest printed next to a survivor", "saboteur run --id 1a2b3c4d5e6f7a8b"],
           ["Mutate named files against named specs, skipping the whole-suite coverage run",
            "saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb"],
-          ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"],
-          ["AI agent: bounded JSON summary and strict exit codes", "saboteur run --agent --since origin/main"]
+          ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"]
         ]
       ),
       Command.new(
@@ -84,21 +83,8 @@ module Saboteur
         takes_options: false,
         exit_codes: nil,
         examples: [["Show everything", "saboteur help"], ["Show one command", "saboteur help run"]]
-      ),
-      Command.new(
-        name: "agent-skill",
-        summary: "Print instructions for AI coding agents to paste into AGENTS.md or CLAUDE.md",
-        description: "Prints a short Markdown block that tells an agent when to run saboteur, how to read " \
-                     "`saboteur run --agent`, and how to handle survivors.",
-        takes_options: false,
-        exit_codes: nil,
-        examples: [["Add the agent instructions to your repo", "saboteur agent-skill >> AGENTS.md"]]
       )
     ].freeze
-
-    AGENT_EXIT_CODES = "  With --agent the codes are stricter: 0 only when the run was complete and clean; " \
-                       "1 survivors to review;\n  2 usage or config error; 3 incomplete (no coverage, caps, errors, " \
-                       "nothing selected) or tool failure."
 
     FILES = [
       [".saboteur.yml", "Settings. Command line options override it."],
@@ -183,8 +169,7 @@ module Saboteur
     def exit_codes_section(codes, command_name = nil)
       rows = codes.map { |code, meaning| "  #{code}  #{meaning}" }
       title = command_name ? "EXIT CODES (saboteur #{command_name})" : "EXIT CODES"
-      note = codes.equal?(EXIT_CODE_MEANINGS) ? "#{AGENT_EXIT_CODES}\n" : ""
-      "#{title}\n#{rows.join("\n")}\n#{note}"
+      "#{title}\n#{rows.join("\n")}\n"
     end
 
     def config_section
