@@ -11,7 +11,10 @@ permissions:
 jobs:
   test:
     name: Ruby ${{ matrix.ruby }} / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    # macOS cells run on the maintainer's self-hosted Mac, but only for pushes and
+    # same-repo PRs. Fork PRs never get the self-hosted runner; they fall back to
+    # GitHub-hosted macOS.
+    runs-on: ${{ (matrix.os == 'macos-latest' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","macOS","ARM64"]') || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
