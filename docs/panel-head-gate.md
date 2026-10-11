@@ -109,10 +109,9 @@ Skipped/neutral jobs do not pass.
 DCO is also checked from commit metadata, with exact author-matching trailer
 lines; the existing policy exempts merge commits.
 
-Current main must be an ancestor of head. After another PR merges, update/rebase
-this PR, rerun all checks, and re-review that new SHA. This gives a conservative
-serialized integration policy without pretending API PR base objects record
-which historical merge candidate a run tested.
+The head may trail main: up-to-date enforcement is relaxed for large merge
+trains. Protected files are compared against the merge base, and the panel
+markers, CI, DCO and policy checks still apply to the exact head SHA.
 
 ## Limits that settings and workflow code do not remove
 

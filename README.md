@@ -39,6 +39,12 @@ RSpec order at the run seed. A failure exits 3, stops mutation and names the log
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
 need a rerun before they describe this extra fixed cost.
+A whole-suite coverage build that records no lines for any included file
+means the setup hid the app from Coverage (Bootsnap's compile cache is the
+common cause), so the run fails with exit 3 instead of testing nothing, and
+the empty map is not cached. With `--test` an empty map instead stays a
+legitimate "no coverage" outcome, because the chosen specs may not touch the
+selected sources.
 Two passes detect observed instability, not every possible flaky test. See
 [baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
 
@@ -236,6 +242,21 @@ jobs: 4                           # optional; the default is 1
 
 Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
 generator is planned; until then this block is the supported setup.
+
+Bootsnap needs no extra setting: bytecode from its compile cache carries no
+coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
+own process when the variable is not already set (Bootsnap treats any set
+value as off) and runs the eager load with Coverage active. App code is seen
+by Coverage with the app unchanged.
+
+With `jobs: 4` (or more), each extra worker gets a copy of every test
+database, named `<database>_saboteur2` and up, made with
+`CREATE DATABASE ... TEMPLATE` on Postgres or a file copy on SQLite.
+saboteur drops the copies when the run ends, on a best-effort basis: a
+drop that fails is reported as a warning and never changes the run's
+outcome. A copy left behind - by a failed drop or a killed run - is
+reclaimed by the next run, whose prepare starts from
+`DROP DATABASE IF EXISTS`. MySQL is not supported for `jobs` above 1.
 
 Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
 `db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
