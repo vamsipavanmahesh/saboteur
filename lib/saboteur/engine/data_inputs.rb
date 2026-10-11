@@ -22,6 +22,16 @@ module Saboteur
         config/credentials/*.yml.enc
       ].freeze
 
+      # True when the absolute path is one of the declared inputs, whether or
+      # not the file exists yet. A run must never write there.
+      def self.match?(root, path, extra: [])
+        return false unless path.start_with?("#{root}/")
+
+        relative = path.delete_prefix("#{root}/")
+        flags = File::FNM_PATHNAME | File::FNM_DOTMATCH | File::FNM_EXTGLOB
+        (GLOBS + extra).any? { |pattern| File.fnmatch?(pattern, relative, flags) }
+      end
+
       # Sorted absolute paths of regular files (symlinks followed) under root.
       def self.files(root, extra: [])
         (GLOBS + extra).flat_map { |pattern| Dir.glob(pattern, File::FNM_DOTMATCH, base: root) }
