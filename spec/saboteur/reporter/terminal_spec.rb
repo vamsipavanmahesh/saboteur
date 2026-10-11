@@ -71,6 +71,23 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "whole-body mutants alone 100.0 % (1)")
   end
 
+  it "prints no whole-body line when the run has only whole-body mutants" do
+    text = render(report_of(result_for(:killed, coarse: true, kill_cause: "assertion"),
+                            result_for(:survived, coarse: true, replacement: "==")))
+    expect(text).not_to include("without whole-body mutants")
+  end
+
+  it "prints no whole-body line when the run has only fine mutants" do
+    text = render(report_of(result_for(:killed, kill_cause: "assertion"),
+                            result_for(:survived, replacement: "==")))
+    expect(text).not_to include("without whole-body mutants")
+  end
+
+  it "prints no whole-body line when the only whole-body mutant errored" do
+    text = render(report_of(result_for(:error, coarse: true), result_for(:killed, kill_cause: "assertion")))
+    expect(text).not_to include("without whole-body mutants")
+  end
+
   it "leaves the split out when no kill has a recorded cause" do
     expect(render(report_of(result_for(:killed)))).to include("score 100.0 % (killed+timeout)")
   end
