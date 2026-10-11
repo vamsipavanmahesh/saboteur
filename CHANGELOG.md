@@ -7,6 +7,10 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Self-contained HTML report (`Saboteur::Reporter::Html`): one file with inline
+  style and no script or network use, written to `.saboteur/report.html`.
+  Change the path with `--html PATH` or `html_report:`. It shows the score,
+  per-file mutants, survivors, warnings and skipped subjects.
 - A GitHub Action (`uses: vamsipavanmahesh/saboteur`) that runs diff mode on pull
   requests. Advisory by default, with a job summary, outputs and a cached
   coverage map. See `docs/github-action.md`.
