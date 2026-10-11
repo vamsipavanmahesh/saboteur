@@ -3,6 +3,7 @@
 
 require "optparse"
 require_relative "../saboteur"
+require_relative "doctor"
 
 module Saboteur
   class CLI
@@ -27,6 +28,7 @@ module Saboteur
     def call
       case @argv.shift
       when "run" then run
+      when "doctor" then doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       else usage_error
       end
@@ -61,6 +63,28 @@ module Saboteur
     rescue Error => e
       @err.puts("saboteur: #{e.message}")
       EXIT_TOOL
+    end
+
+    def doctor
+      doctor_parser.parse!(@argv)
+      raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
+
+      Doctor.new(config, out: @out).call
+      EXIT_OK
+    rescue ConfigError => e
+      @err.puts("saboteur: #{e.message}")
+      EXIT_USAGE
+    rescue Error => e
+      @err.puts("saboteur: #{e.message}")
+      EXIT_TOOL
+    end
+
+    def doctor_parser
+      OptionParser.new do |opts|
+        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N]"
+        opts.on("--config PATH", "Config file (default .saboteur.yml)") { |value| set(:config, value) }
+        opts.on("--seed N", Integer, "Seed for the two baseline runs (default 1)") { |value| set(:seed, value) }
+      end
     end
 
     def write_json(report)
