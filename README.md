@@ -39,6 +39,12 @@ RSpec order at the run seed. A failure exits 3, stops mutation and names the log
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
 need a rerun before they describe this extra fixed cost.
+A whole-suite coverage build that records no lines for any included file
+means the setup hid the app from Coverage (Bootsnap's compile cache is the
+common cause), so the run fails with exit 3 instead of testing nothing, and
+the empty map is not cached. With `--test` an empty map instead stays a
+legitimate "no coverage" outcome, because the chosen specs may not touch the
+selected sources.
 Two passes detect observed instability, not every possible flaky test. See
 [baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
 
