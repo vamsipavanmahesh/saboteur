@@ -139,6 +139,58 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
                          root: File.dirname(person_subject.file), review: true)
   end
 
+  def review_with_changes(changed_lines, *results)
+    scope = Saboteur::Engine::DiffScope.new({ person_subject.file => Set.new(changed_lines) })
+    Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.0,
+                         root: File.dirname(person_subject.file), review: true, diff_scope: scope)
+  end
+
+  it "names the changed line a survivor touches in diff mode" do
+    text = render(review_with_changes([2], result_for(:survived)))
+    expect(text).to include("changed line: person.rb:2")
+  end
+
+  def multi_line_report(changed)
+    subject = subjects_in("class K\n  def m(a)\n    a +\n      1 +\n      2 +\n      3 +\n      4\n  end\nend\n").first
+    start = subject.file_source.index("a +")
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: start,
+                                              end_byte: subject.file_source.index("4") + 1, replacement: "0")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(mutation.edits))
+    scope = Saboteur::Engine::DiffScope.new({ subject.file => Set.new(changed) })
+    [Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0,
+                          root: File.dirname(subject.file), review: true, diff_scope: scope),
+     File.basename(subject.file)]
+  end
+
+  it "caps the changed lines it names at three and counts the rest" do
+    report, name = multi_line_report([3, 4, 5, 6, 7])
+    expect(render(report)).to include("changed lines: #{name}:3, #{name}:4, #{name}:5 (+2 more)")
+  end
+
+  it "names exactly three changed lines with no 'more' note, and four with '+1 more'" do
+    report, name = multi_line_report([3, 4, 5])
+    expect(render(report)).to include("changed lines: #{name}:3, #{name}:4, #{name}:5\n")
+    four, = multi_line_report([3, 4, 5, 6])
+    expect(render(four)).to include("#{name}:5 (+1 more)\n")
+  end
+
+  it "says 'changed lines' for two lines and 'changed line' for one" do
+    two, name = multi_line_report([3, 4])
+    expect(render(two)).to include("changed lines: #{name}:3, #{name}:4\n")
+    one, = multi_line_report([4])
+    expect(render(one)).to include("changed line: #{name}:4\n")
+  end
+
+  it "prints no changed line outside diff mode" do
+    expect(render(report_of(result_for(:survived)))).not_to include("changed line")
+  end
+
+  it "prints no changed line for a mutant that touches none" do
+    expect(render(review_with_changes([1], result_for(:survived)))).not_to include("changed line")
+  end
+
   it "reports invalid mutations and reused verdicts only when there are some" do
     quiet = render(report_of(result_for(:killed)))
     expect(quiet).not_to include("invalid mutations", "reused")
