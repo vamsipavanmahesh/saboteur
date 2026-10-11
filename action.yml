@@ -11,7 +11,8 @@ inputs:
   base-ref:
     description: >-
       Branch the pull request targets. Defaults to the pull request's base
-      branch. Empty outside pull requests, where the action does nothing.
+      branch. The action only runs on pull_request events and does nothing on
+      any other event, even when this is set.
     required: false
     default: ${{ github.base_ref }}
   command:
@@ -19,17 +20,23 @@ inputs:
     required: false
     default: bundle exec saboteur
   arguments:
-    description: Extra saboteur arguments, separated by spaces, for example "--jobs 2".
+    description: >-
+      Extra saboteur arguments, split on whitespace (shell quoting is not
+      supported), for example "--jobs 2". --since and --json belong to the
+      action and are rejected here.
     required: false
     default: ""
   fail-on-survivors:
     description: >-
-      Set to "true" to fail the step when a mutant survives. The default,
-      "false", only reports. A saboteur usage or tool error always fails the step.
+      "true" or "false" (anything else fails the step). "true" fails the step
+      when a mutant survives or the run is incomplete. The default, "false",
+      only reports. A saboteur usage or tool error, or a missing or unreadable
+      report, always fails the step.
     required: false
     default: "false"
   cache:
-    description: Set to "false" to skip caching saboteur's coverage map.
+    description: >-
+      "true" or "false". Set to "false" to skip caching saboteur's coverage map.
     required: false
     default: "true"
   report-path:
@@ -45,14 +52,31 @@ outputs:
     description: "saboteur's exit code: 0 clean, 1 survivors, 2 usage error, 3 tool error."
     value: ${{ steps.run.outputs.exit-code }}
   score:
-    description: 'Mutation score as a percentage, or "n/a" when no mutants were scored.'
+    description: >-
+      Covered score as a percentage: (killed + timeout) / (killed + timeout +
+      survived). "n/a" when no mutant was scored.
     value: ${{ steps.run.outputs.score }}
   killed:
     description: Number of killed mutants.
     value: ${{ steps.run.outputs.killed }}
   survivors:
-    description: Number of survived mutants, including ignored ones.
+    description: Number of survived mutants not accepted by the ignore list.
     value: ${{ steps.run.outputs.survivors }}
+  accepted-survivors:
+    description: Number of survived mutants accepted by .saboteur-ignore.yml.
+    value: ${{ steps.run.outputs.accepted-survivors }}
+  timeouts:
+    description: Number of mutants that timed out (counted as kills in the score).
+    value: ${{ steps.run.outputs.timeouts }}
+  errors:
+    description: Number of mutants that errored or hit a resource limit. They are not scored.
+    value: ${{ steps.run.outputs.errors }}
+  incomplete:
+    description: '"true" when some mutants errored or hit a resource limit.'
+    value: ${{ steps.run.outputs.incomplete }}
+  report-valid:
+    description: '"true" when this run wrote a report the action could read.'
+    value: ${{ steps.run.outputs.report-valid }}
   report-path:
     description: Path of the JSON report.
     value: ${{ steps.run.outputs.report-path }}
@@ -61,10 +85,10 @@ runs:
   using: composite
   steps:
     - name: Restore the coverage map
-      if: inputs.cache == 'true' && inputs.base-ref != ''
+      if: inputs.cache == 'true' && github.event_name == 'pull_request'
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
-        path: .saboteur
+        path: .saboteur/coverage-*.json
         key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', '.saboteur.yml') }}-${{ github.sha }}
         restore-keys: |
           saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', '.saboteur.yml') }}-
@@ -72,6 +96,7 @@ runs:
       id: run
       shell: bash
       env:
+        SABOTEUR_EVENT_NAME: ${{ github.event_name }}
         SABOTEUR_BASE_REF: ${{ inputs.base-ref }}
         SABOTEUR_COMMAND: ${{ inputs.command }}
         SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
