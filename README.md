@@ -57,7 +57,9 @@ bundle exec saboteur run --subject 'YourClass#your_method'
 ```
 
 Outside a Bundler project, `gem install saboteur` installs the same executable.
-Rails apps need their boot file in `require:`; see Configuration below.
+Rails apps need a Rails block in `.saboteur.yml` (boot file, `app/**/*.rb`,
+`rails: true`); see [Rails apps](#rails-apps) below. The defaults are for plain
+gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
 
 Start with one method. You get counts per status, a score, timing, and a
 unified diff for every survivor, so you can read the exact change your tests
@@ -182,6 +184,20 @@ max_mutants_per_method: 100  # positive integer; raise it for a broader run
 ignore_file: .saboteur-ignore.yml
 seed: 1                     # Ruby's random seed in every test run
 ```
+
+### Rails apps
+
+The defaults target a plain gem, so a Rails app needs this in `.saboteur.yml`:
+
+```yaml
+include: [app/**/*.rb]
+require: [./config/environment]   # boots the app
+rails: true                       # reconnects ActiveRecord after fork, per-worker databases
+jobs: 4                           # optional; the default is 1
+```
+
+Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
+generator is planned; until then this block is the supported setup.
 
 ### Skipped subjects and the mutant cap
 
