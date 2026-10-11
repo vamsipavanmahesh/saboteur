@@ -10,6 +10,8 @@
 #   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" also fails on an incomplete run
 #   SABOTEUR_REPORT_PATH        where saboteur writes its JSON report
 #   SABOTEUR_CACHE              "true" or "false"; "false" also passes --no-cache to saboteur
+# GITHUB_SERVER_URL, GITHUB_REPOSITORY and GITHUB_RUN_ID locate this run, so
+# the summary can link the report artifact; outside GitHub the link is left out.
 # Exit codes of saboteur: 0 clean, 1 survivors, 2 usage error, 3 tool error.
 # This script exits 2 for input it refuses, and 3 when saboteur's result cannot be trusted.
 set -uo pipefail
@@ -30,6 +32,61 @@ stop_with_error() {
   echo "::error::$1"
   write_output ran false
   exit "${2:-2}"
+}
+
+# A workflow command cannot hold %, CR or LF; a property value cannot hold :
+# or , on top of that. The report carries source text, which can be anything.
+escape_data() {
+  local text="$1"
+  text="${text//%/%25}"
+  text="${text//$'\r'/%0D}"
+  text="${text//$'\n'/%0A}"
+  printf '%s' "$text"
+}
+
+escape_property() {
+  local text
+  text="$(escape_data "$1")"
+  text="${text//:/%3A}"
+  text="${text//,/%2C}"
+  printf '%s' "$text"
+}
+
+# Inline code in the summary. The span is one backtick wider than the
+# longest run of backticks in the text, so no source text can close it;
+# a text holding backticks is padded, which CommonMark strips again.
+code_span() {
+  local text="$1"
+  local longest ticks
+  if [ -z "$text" ]; then
+    printf '(empty)'
+    return
+  fi
+  longest="$(printf '%s' "$text" | awk 'BEGIN { l = 0 } { while (match($0, /`+/)) { if (RLENGTH > l) l = RLENGTH; $0 = substr($0, RSTART + RLENGTH) } } END { print l }')"
+  ticks="$(printf '%*s' "$((longest + 1))" '' | tr ' ' '`')"
+  if [ "$longest" -gt 0 ]; then
+    printf '%s %s %s' "$ticks" "$text" "$ticks"
+  else
+    printf '%s%s%s' "$ticks" "$text" "$ticks"
+  fi
+}
+
+# Source text can span lines; the summary list shows one line per survivor.
+one_line() {
+  local text="$1"
+  text="${text//$'\r\n'/⏎}"
+  text="${text//$'\n'/⏎}"
+  text="${text//$'\r'/⏎}"
+  printf '%s' "$text"
+}
+
+# Base64 field transport. Capturing the decoded text would strip trailing
+# newlines out of the source text, so the value lands in a named variable
+# and a sentinel keeps the newlines in place.
+decode_field() {
+  local decoded
+  decoded="$(printf '%s' "$1" | base64 -d && printf 'x')"
+  printf -v "$2" '%s' "${decoded%x}"
 }
 
 if [ "$event_name" != "pull_request" ] || [ -z "$base_ref" ]; then
@@ -146,6 +203,141 @@ write_output errors "$errors"
 write_output incomplete "$incomplete"
 write_output report-path "$report_path"
 
+# Each surviving mutant becomes a note on the diff, and the same bounded list
+# lands in the summary below. Both come from the report's saboteur.findings
+# section, which saboteur 0.3.0 and later write; an older report only gets
+# the counts and warnings. The gem bounds the list, so the step stays under
+# GitHub's limit of 10 annotations of one kind.
+run_url=""
+if [ -n "${GITHUB_RUN_ID:-}" ]; then
+  run_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-unknown}/actions/runs/$GITHUB_RUN_ID"
+fi
+artifact_name="${SABOTEUR_ARTIFACT_NAME:-saboteur-report}"
+artifact_ref="this run's \`$artifact_name\` artifact"
+[ -n "$run_url" ] && artifact_ref="this run's [\`$artifact_name\` artifact]($run_url)"
+
+findings_file="$(mktemp)"
+accepted_file="$(mktemp)"
+findings_count=0
+findings_truncated=0
+accepted_count=0
+accepted_truncated=0
+if [ "$report_valid" = "true" ]; then
+  # Findings are only consumed when every field carries its schema type;
+  # anything else is rejected in jq and diagnosed, never coerced. The
+  # digest charset check is what keeps a tampered report from injecting a
+  # workflow command through the annotation.
+  findings_filter='
+    def valid_survivor:
+      type == "object"
+      and (.path | type == "string" and length > 0 and (startswith("/") | not) and (contains("..") | not))
+      and (.line | type == "number" and floor == . and . >= 1)
+      and (.endLine | type == "number" and floor == .)
+      and (.endLine >= .line)
+      and (.operator | type == "string") and (.subject | type == "string")
+      and (.original | type == "string") and (.replacement | type == "string")
+      and (.digest | type == "string" and test("^[A-Za-z0-9_-]+$"));
+    def valid_accepted:
+      type == "object"
+      and (.path | type == "string" and length > 0 and (startswith("/") | not) and (contains("..") | not))
+      and (.line | type == "number" and floor == . and . >= 1)
+      and (.operator | type == "string") and (.subject | type == "string")
+      and (.reason | type == "string")
+      and (.digest | type == "string" and test("^[A-Za-z0-9_-]+$"));
+    .saboteur.findings'
+  # The findings section carries the notes. A report without one (an older
+  # saboteur) is a supported fallback; a present section that cannot be read
+  # is diagnosed instead of silently treated as "no findings".
+  findings_gate="$findings_filter
+    | type == \"object\" and .version == 1 and (.survivors | type == \"array\")
+      and (.survivorsTruncated | type == \"number\" and floor == . and . >= 0)
+      and (.accepted | type == \"array\")
+      and (.acceptedTruncated | type == \"number\" and floor == . and . >= 0)"
+  if jq -e '.saboteur.findings != null' "$report_path" >/dev/null 2>&1 && ! jq -e "$findings_gate" "$report_path" >/dev/null 2>&1; then
+    echo "::warning::saboteur: the report has a findings section, but it is not version 1 findings data, so no annotations were written. The counts above still stand."
+  fi
+  if jq -e "$findings_gate" "$report_path" >/dev/null 2>&1; then
+    # The action enforces the annotation bound itself instead of trusting
+    # the report: GitHub shows at most 10 annotations of one kind per step.
+    # The counters describe what is actually emitted: valid shown findings,
+    # findings dropped for failing the schema, and what the bound left out.
+    read -r findings_count findings_skipped findings_truncated             accepted_count accepted_skipped accepted_truncated <<<"$(jq -r "$findings_filter
+      | [ ([.survivors[:10][] | select(valid_survivor)] | length),
+          ((.survivors[:10] | length) - ([.survivors[:10][] | select(valid_survivor)] | length)),
+          ((.survivors | length) - (.survivors[:10] | length) + .survivorsTruncated),
+          ([.accepted[:10][] | select(valid_accepted)] | length),
+          ((.accepted[:10] | length) - ([.accepted[:10][] | select(valid_accepted)] | length)),
+          ((.accepted | length) - (.accepted[:10] | length) + .acceptedTruncated) ]
+      | @tsv" "$report_path")"
+    if [ "$findings_skipped" -gt 0 ] || [ "$accepted_skipped" -gt 0 ]; then
+      echo "::warning::saboteur: skipped $((findings_skipped + accepted_skipped)) findings whose fields did not match the findings schema; they are not annotated or listed."
+    fi
+    # Every field is base64 on its own line: tab separation would collapse
+    # an empty field (a pure insertion has no original text) and shift the
+    # rest. jq runs to a file first, so a broken finding stream is diagnosed
+    # instead of being consumed partway.
+    findings_lines="$(mktemp)"
+    if ! jq -r "$findings_filter | .survivors[:10][] | select(valid_survivor)
+        | [.path, (.line | tostring), (.endLine | tostring), .operator, .subject,
+           .original, .replacement, .digest][] | @base64" "$report_path" >"$findings_lines"; then
+      echo "::warning::saboteur: the findings could not be read from the report, so no annotations were written."
+      : >"$findings_lines"
+    fi
+    while IFS= read -r path; do
+      IFS= read -r line
+      IFS= read -r end_line
+      IFS= read -r operator
+      IFS= read -r subject
+      IFS= read -r original
+      IFS= read -r replacement
+      IFS= read -r digest || break
+      decode_field "$path" path
+      decode_field "$line" line
+      decode_field "$end_line" end_line
+      decode_field "$operator" operator
+      decode_field "$subject" subject
+      decode_field "$original" original
+      decode_field "$replacement" replacement
+      decode_field "$digest" digest
+      echo "::warning file=$(escape_property "$path"),line=${line},endLine=${end_line},title=$(escape_property "Mutant survived: $operator")::$(escape_data "$subject"): $(escape_data "$original") became $(escape_data "$replacement") ($digest). Add a test that fails for this mutant, or accept it in .saboteur-ignore.yml with a reason."
+      printf -- '- %s:%s %s: %s became %s in %s (%s)\n' \
+        "$(code_span "$(one_line "$path")")" "$line" \
+        "$(code_span "$(one_line "$operator")")" \
+        "$(code_span "$(one_line "$original")")" "$(code_span "$(one_line "$replacement")")" \
+        "$(code_span "$(one_line "$subject")")" "$(code_span "$(one_line "$digest")")" >>"$findings_file"
+    done < "$findings_lines"
+    rm -f "$findings_lines"
+    # Accepted survivors get no notes - the team already reviewed them - but
+    # the summary lists them apart, with the reason from the ignore list.
+    if [ "$accepted_count" -gt 0 ]; then
+      accepted_lines="$(mktemp)"
+      if ! jq -r "$findings_filter | .accepted[:10][] | select(valid_accepted)
+          | [.path, (.line | tostring), .operator, .subject, .reason, .digest][] | @base64"           "$report_path" >"$accepted_lines"; then
+        echo "::warning::saboteur: the accepted findings could not be read from the report."
+        : >"$accepted_lines"
+      fi
+      while IFS= read -r path; do
+        IFS= read -r line
+        IFS= read -r operator
+        IFS= read -r subject
+        IFS= read -r reason
+        IFS= read -r digest || break
+        decode_field "$path" path
+        decode_field "$line" line
+        decode_field "$operator" operator
+        decode_field "$subject" subject
+        decode_field "$reason" reason
+        decode_field "$digest" digest
+        printf -- '- %s:%s %s in %s - accepted: %s (%s)\n' \
+          "$(code_span "$(one_line "$path")")" "$line" \
+          "$(code_span "$(one_line "$operator")")" "$(code_span "$(one_line "$subject")")" \
+          "$(code_span "$(one_line "$reason")")" "$(code_span "$(one_line "$digest")")" >>"$accepted_file"
+      done < "$accepted_lines"
+      rm -f "$accepted_lines"
+    fi
+  fi
+fi
+
 # A code fence one backtick longer than any run of backticks in the log, so
 # the log cannot close the fence and inject markdown.
 fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > longest) longest = RLENGTH; $0 = substr($0, RSTART + RLENGTH) } } END { s = ""; for (i = 0; i <= longest; i++) s = s "`"; print s }' "$log_file")"
@@ -162,6 +354,29 @@ fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > lo
     echo "Not scored: $uncovered with no coverage or ignored, $errors errored or hit a resource limit."
   fi
   [ "$incomplete" = "true" ] && echo && echo "**Incomplete run:** $errors mutants errored or hit a resource limit, so the score covers fewer mutants than were generated."
+  if [ "$findings_count" -gt 0 ]; then
+    echo "### Surviving mutants, coarse mutants first"
+    echo
+    cat "$findings_file"
+    echo
+    if [ "$findings_truncated" -gt 0 ]; then
+      echo "Showing the first $findings_count of $((findings_count + findings_truncated)) surviving mutants (coarse mutants first: a surviving coarse mutant hints that no test pins the method's behavior). The rest are in the full JSON report, kept as $artifact_ref."
+    else
+      echo "The full data behind these notes is kept as $artifact_ref."
+    fi
+    [ "$findings_skipped" -gt 0 ] && echo "$findings_skipped of the findings were skipped because their fields did not match the findings schema."
+    echo
+  fi
+  if [ "$accepted_count" -gt 0 ]; then
+    echo "### Accepted survivors (on the ignore list)"
+    echo
+    cat "$accepted_file"
+    echo
+    if [ "$accepted_truncated" -gt 0 ]; then
+      echo "And $accepted_truncated more accepted survivors, in the full JSON report kept as $artifact_ref."
+      echo
+    fi
+  fi
   echo
   echo '<details><summary>saboteur output</summary>'
   echo
@@ -170,7 +385,7 @@ fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > lo
   echo "$fence"
   echo '</details>'
 } >>"$step_summary"
-rm -f "$log_file"
+rm -f "$log_file" "$findings_file" "$accepted_file"
 
 if [ "$saboteur_status" -le 1 ] && [ "$report_valid" != "true" ]; then
   exit 3
