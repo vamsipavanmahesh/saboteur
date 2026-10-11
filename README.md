@@ -78,9 +78,29 @@ timeout_factor: 3           # per-mutant deadline = factor x its tests' recorded
 timeout_min: 5
 max_memory_mb: 2048         # memory growth cap per mutant process tree
 max_processes: 64
+max_mutants_per_method: 100  # positive integer; raise it for a broader run
 ignore_file: .saboteur-ignore.yml
 seed: 1                     # Ruby's random seed in every test run
 ```
+
+Subjects with no test coverage are skipped before mutation sources run. They
+remain in the subject count, are listed as skipped subjects in terminal output,
+and appear under `skippedSubjects` in JSON. They are not invented mutants and
+do not enter saboteur's mutation score. Stryker dashboards may ignore the
+extra `skippedSubjects` field and calculate scores from mutant entries alone.
+Removing previously generated `NoCoverage` mutants can therefore raise a
+dashboard's score even when test detection has not improved. Subject skips
+are visible in saboteur's terminal and JSON, not necessarily in dashboards. Changes inside a covered method that no test
+reaches still produce mutant-level "no coverage" results.
+
+Each covered method keeps at most `max_mutants_per_method` valid, distinct
+mutants (100 by default). Coarse mutants come first, then fine mutants in configured mutation-source order and each source's
+proposal order. The cap keeps a prefix of that order, so earlier sources can
+use the entire limit within a method. Later methods have their own limit. In diff mode, changed-line selection happens before the cap. A warning
+names each capped method and the number omitted; JSON keeps these warnings
+under `warnings`. The score describes this
+selected subset, not every possible mutation. Raise the limit to examine more
+mutants; the limit does not bound how many proposals a custom source creates.
 
 ### Ignoring a survivor
 

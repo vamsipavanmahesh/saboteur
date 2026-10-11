@@ -5,7 +5,7 @@ require "fileutils"
 require "json"
 
 module Saboteur
-  # One run, as a pipeline: boot the target, select subjects, fetch the
+  # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
   # coverage map, then schedule each subject's mutants. The parts live in
   # engine/; this class only wires them together.
   class Engine
@@ -20,6 +20,7 @@ module Saboteur
       @hooks = Hooks.new
       @diagnostics = Diagnostics.new(err)
       @root = File.realpath(config.root)
+      @skipped_subjects = {}
     end
 
     def call
@@ -35,7 +36,7 @@ module Saboteur
       @diagnostics.warnings.concat(ignore_list.apply(results))
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
-                 review: !scope.nil?, seed: config["seed"])
+                 review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects)
     end
 
     private
@@ -55,14 +56,18 @@ module Saboteur
       warn_about_threads
       cache = result_cache
       scheduler = scheduler_for(map, integration, cache)
+      lists = candidate_lists(subjects, scope, map)
+      work = subjects.zip(lists).reject { |_, list| list.empty? }
+      return [] if work.empty?
+
+      runnable_subjects, runnable_lists = work.transpose
       @rails&.prepare_workers(config["jobs"])
-      lists = candidate_lists(subjects, scope)
       # The execution phase forks next: the worker batch, or one child per
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
       results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                                 cache: cache, on_start: method(:start_worker)).run(subjects, lists)
+                                 cache: cache, on_start: method(:start_worker)).run(runnable_subjects, runnable_lists)
       cache&.save
       results
     end
@@ -90,11 +95,12 @@ module Saboteur
     end
 
     # Each subject's candidates, narrowed to changed lines in diff mode.
-    def candidate_lists(subjects, scope)
+    def candidate_lists(subjects, scope, map)
       candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
-      subjects.map do |subject|
-        list = candidates.for(subject)
-        scope ? scope.restrict(subject, list) : list
+      selection = CandidateSelection.new(candidates: candidates, map: map,
+                                         limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
+      subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
+        @skipped_subjects = selection.skipped_subjects
       end
     end
 
@@ -130,6 +136,7 @@ require_relative "engine/subject_selection"
 require_relative "engine/suite_files"
 require_relative "engine/coverage_store"
 require_relative "engine/candidates"
+require_relative "engine/candidate_selection"
 require_relative "engine/diff_scope"
 require_relative "engine/result_cache"
 require_relative "engine/verdict_check"

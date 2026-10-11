@@ -21,6 +21,7 @@ module Saboteur
       "coverage_timeout" => 3600.0,
       "max_memory_mb" => 2048,
       "max_processes" => 64,
+      "max_mutants_per_method" => 100,
       "jobs" => 1,
       "ignore_file" => ".saboteur-ignore.yml",
       "sources" => ["builtin"],
@@ -37,7 +38,7 @@ module Saboteur
       "seed" => 1
     }.freeze
 
-    INTEGER_KEYS = %w[jobs max_memory_mb max_processes seed].freeze
+    INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed].freeze
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
     LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects].freeze
 
@@ -115,8 +116,14 @@ module Saboteur
       raise ConfigError, "invalid config value: #{e.message}"
     end
 
+    def validate_mutant_limit!
+      raise ConfigError, "max_mutants_per_method must be > 0" unless self["max_mutants_per_method"].positive?
+    end
+
     def validate!
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
+
+      validate_mutant_limit!
       raise ConfigError, "seed must be >= 0" if self["seed"].negative?
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?

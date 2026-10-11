@@ -53,6 +53,15 @@ RSpec.describe Saboteur::Config do
     expect { described_class.new({ "reeval" => "eval" }) }.to raise_error(Saboteur::Error, /reeval/)
   end
 
+  it "defaults the per-method mutant limit to 100 and coerces configured integers" do
+    expect(described_class.new["max_mutants_per_method"]).to eq(100)
+    expect(described_class.new({ "max_mutants_per_method" => "7" })["max_mutants_per_method"]).to eq(7)
+    [0, -1, "many"].each do |limit|
+      expect { described_class.new({ "max_mutants_per_method" => limit }) }
+        .to raise_error(Saboteur::ConfigError)
+    end
+  end
+
   it "reports YAML errors with the file name" do
     write(".saboteur.yml", "include: [\n")
     expect { described_class.load(root: @root) }.to raise_error(Saboteur::Error, /\.saboteur\.yml/)

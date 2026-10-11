@@ -19,7 +19,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     subjects_in("class HeapTarget\n  def m\n    1\n  end\nend\n", name: "heap_target.rb").first
   end
   let(:map) do
-    Saboteur::Selection::CoverageMap.new(lines: { subject_under_test.file => { 2 => ["t1"] } }, tests: ["t1"])
+    Saboteur::Selection::CoverageMap.new(lines: { subject_under_test.file => { 3 => ["t1"] } }, tests: ["t1"])
   end
   let(:integration) { instance_double(Saboteur::Integration::RSpec, test_files: []) }
 
@@ -27,13 +27,15 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   # run's phases. Returns the candidate lists the engine retained and the
   # arguments Distribution received, so the specs can prove they are the
   # same object.
-  def run_engine(jobs:, events:, subjects: [subject_under_test])
+  def run_engine(jobs:, events:, subjects: [subject_under_test], rails: true)
     box = {}
-    stub_boot_phase(events, subjects)
+    stub_boot_phase(events, subjects, rails: rails)
     stub_test_phase(events, box)
     engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: StringIO.new)
     record_candidate_lists(engine, events, box)
-    engine.call
+    report = engine.call
+    expect(report.subjects).to eq(subjects)
+    expect(report.skipped_subjects).to eq({}) if subjects.empty?
     [box[:lists], box[:run_args]]
   end
 
@@ -45,9 +47,10 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     end
   end
 
-  def stub_boot_phase(events, subjects)
-    rails = instance_double(Saboteur::Frameworks::Rails)
-    allow(rails).to receive(:prepare_workers) { events << :rails_prepared }
+  def stub_boot_phase(events, subjects, rails:)
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+    rails = rails ? instance_double(Saboteur::Frameworks::Rails) : nil
+    allow(rails).to receive(:prepare_workers) { events << :rails_prepared } if rails
     boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
     selection = instance_double(Saboteur::Engine::SubjectSelection, select: subjects, changed_lines: nil)
@@ -67,15 +70,31 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   it "prepares after the map and candidates are retained, before distribution, on the parallel path" do
     events = []
     lists, run_args = run_engine(jobs: 4, events: events)
-    expect(events).to eq(%i[map_retained rails_prepared candidates_retained prepare distribute])
-    expect(run_args.last).to equal(lists)
+    expect(events).to eq(%i[map_retained candidates_retained rails_prepared prepare distribute])
+    expect(run_args.last).to eq(lists)
   end
 
   it "prepares after the map and candidates are retained, before distribution, on the serial path" do
     events = []
     lists, run_args = run_engine(jobs: 1, events: events)
-    expect(events).to eq(%i[map_retained rails_prepared candidates_retained prepare distribute])
-    expect(run_args.last).to equal(lists)
+    expect(events).to eq(%i[map_retained candidates_retained rails_prepared prepare distribute])
+    expect(run_args.last).to eq(lists)
+  end
+
+  it "dispatches only nonempty aligned subject lists and preserves report subject order" do
+    uncovered = subjects_in("class Missing\n  def m\n    2\n  end\nend\n").first
+    events = []
+    lists, run_args = run_engine(jobs: 4, events: events, subjects: [uncovered, subject_under_test])
+    expect(lists.first).to be_empty
+    expect(run_args.first).to eq([subject_under_test])
+    expect(run_args.last).to eq([lists.last])
+  end
+
+  it "runs covered work without a Rails adapter" do
+    events = []
+    _, run_args = run_engine(jobs: 1, events: events, rails: false)
+    expect(events).to eq(%i[map_retained candidates_retained prepare distribute])
+    expect(run_args.first).to eq([subject_under_test])
   end
 
   it "does not prepare when no subjects are selected" do
