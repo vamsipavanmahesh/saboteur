@@ -22,7 +22,9 @@ compare assertion values or vary seeds. Suite filters still come from rspec_args
 
 Doctor does not change methods, write reports, modify ignore files or write
 coverage/verdict caches. Temporary suite-output logs are removed after each
-check. Normal target boot files, hooks and tests still run and may change their
+check. Failures include up to five failing example IDs and first-line messages.
+Mutation-specific before_fork and around_mutant hooks do not run for baselines;
+process-wide after_fork hooks still run in each child. Normal target boot files, hooks and tests still run and may change their
 own databases/files/services. Only use it on a suite safe to run twice.
 
 The timeout is baseline_timeout (default 300 seconds) per pass. Normal memory
