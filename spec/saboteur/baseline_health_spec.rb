@@ -70,7 +70,8 @@ RSpec.describe Saboteur::BaselineHealth, "bad child evidence" do
 
   def check(payload:, exit_status: nil, leftover_pids: [])
     result = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
-                                                                      payload: payload, exit_status: exit_status, leftover_pids: leftover_pids)
+                                                                      payload: payload, exit_status: exit_status,
+                                                                      leftover_pids: leftover_pids)
     allow(supervisor).to receive(:run).and_return(result)
     described_class.new(Saboteur::Config.new, integration: integration, supervisor: supervisor).call
   end
