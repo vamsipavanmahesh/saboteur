@@ -49,6 +49,7 @@ RSpec.describe "action/run-saboteur" do
     File.write(File.join(workspace, "report-to-write.json"), report_json(report)) if report
     File.write(File.join(workspace, "log-text"), log_text)
     path = File.join(workspace, "stand-in-saboteur")
+    copy_report = report ? 'mkdir -p "$(dirname "$report_path")"; cp report-to-write.json "$report_path"' : ":"
     File.write(path, <<~SH)
       #!/usr/bin/env bash
       echo "$@" >> "#{invocation_log}"
@@ -57,7 +58,7 @@ RSpec.describe "action/run-saboteur" do
         if [ "$1" = "--json" ]; then report_path="$2"; fi
         shift
       done
-      #{report ? "mkdir -p \"$(dirname \"$report_path\")\"; cp report-to-write.json \"$report_path\"" : ':'}
+      #{copy_report}
       cat "#{File.join(workspace, 'log-text')}"
       exit #{exit_status}
     SH
