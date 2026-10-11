@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="assets/logo.png" alt="saboteur logo: a ninja beetle with a ruby shell carrying a lit bomb" width="200">
+</p>
+
 # saboteur
 
-**Mutation testing for Ruby and RSpec, built for pull requests.**
+**Mutation testing for Ruby and RSpec, built for pull requests.** 🧨
 
 [![CI](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml/badge.svg)](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml)
 [![Gem Version](https://img.shields.io/gem/v/saboteur)](https://rubygems.org/gems/saboteur)
@@ -24,7 +28,7 @@ Never heard of mutation testing? It asks "if I broke this, would a test
 fail?" for many small breakages and lists the ones nobody noticed. Read the
 [design notes](docs/design.md) when you want the details.
 
-## Try it in a minute
+## 🚀 Try it in a minute
 
 Add saboteur to the test group of your project's Gemfile (Ruby 3.3+, RSpec):
 
@@ -44,9 +48,9 @@ Start with one method. You get counts per status, a score, timing, and a
 unified diff for every survivor, so you can read the exact change your tests
 missed. The JSON report lands in `.saboteur/report.json`.
 
-Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
+📋 Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
 
-## Why it is built the way it is
+## 🧠 Why it is built the way it is
 
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
@@ -84,7 +88,7 @@ starts.
 **It is open.** The report is JSON in the Stryker mutation-testing-report
 schema, and you can add your own mutants through a small public interface.
 
-## Usage
+## 🛠️ Usage
 
 ```sh
 bundle exec saboteur run                          # whole project
@@ -118,7 +122,7 @@ now and then (and in CI on the main branch).
 Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 2 bad configuration, 3 the tool failed.
 
-## Configuration
+## ⚙️ Configuration
 
 `.saboteur.yml` in the project root; CLI flags override it. Keep the shared
 config usable for whole-project runs and pass `--since` in the pull-request
@@ -178,7 +182,7 @@ An entry without a reason is rejected.
 saboteur needs Ruby's `Coverage` for itself. Disable SimpleCov for the run
 (most projects already guard it with an environment variable).
 
-## Extending
+## 🔌 Extending
 
 Public API, stable across minor versions:
 
@@ -190,7 +194,7 @@ Public API, stable across minor versions:
 - `Saboteur.hook(:before_boot | :after_boot | :before_fork | :after_fork |
   :around_mutant)` in files listed under `hooks:`.
 
-## Where it has run
+## 🌍 Where it has run
 
 An early release (0.2.0). Tested on the RSpec suites of plain gems
 (dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
@@ -198,7 +202,7 @@ human-essentials on Postgres (4,080 mutants, 6 workers) and lobsters on SQLite,
 both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
 design. Results: [docs/validation](docs/validation).
 
-## How it compares
+## ⚖️ How it compares
 
 A small, non-exhaustive comparison with [mutineer](https://github.com/davidteren/mutineer)
 1.6.0 on four RSpec projects (two libraries, two Rails apps). Each configuration
@@ -221,7 +225,7 @@ per-process RSS, which counts shared pages more than once, and it was measured
 before the fork-memory work. Read it as history, not a ranking of physical
 memory.
 
-## Where it is going
+## 🗺️ Where it is going
 
 [ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
 team workflow (GitHub Action, baseline, HTML report), then 1.0. saboteur stays
@@ -230,7 +234,7 @@ details are in [docs/design.md](docs/design.md), prior art in
 [docs/prior-art.md](docs/prior-art.md), and the project checklist in
 [docs/status.md](docs/status.md).
 
-## Contributing
+## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
 
