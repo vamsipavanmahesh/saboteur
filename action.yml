@@ -105,11 +105,12 @@ runs:
         SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
         SABOTEUR_REPORT_PATH: ${{ inputs.report-path }}
         SABOTEUR_CACHE: ${{ inputs.cache }}
+        SABOTEUR_ARTIFACT_NAME: saboteur-report-${{ github.job }}
       run: bash "${{ github.action_path }}/action/run-saboteur"
     - name: Keep the JSON report
-      if: github.event_name == 'pull_request'
+      if: always() && github.event_name == 'pull_request'
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
-        name: saboteur-report
+        name: saboteur-report-${{ github.job }}
         path: ${{ inputs.report-path }}
         if-no-files-found: ignore
