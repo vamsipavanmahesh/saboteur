@@ -3,6 +3,7 @@
 
 require_relative "findings"
 require_relative "agent_incomplete"
+require_relative "agent_clipping"
 
 module Saboteur
   module Reporter
@@ -11,6 +12,8 @@ module Saboteur
       # provenance, a few findings and the next commands.
       module Summary
         class << self
+          include Clipping
+
           # Public entry first; the helpers below are private.
           def build(report, provenance, shown, snippet_limit)
             incomplete = Incomplete.reasons(report)
@@ -64,7 +67,8 @@ module Saboteur
 
           # Display values are clipped; the commands under next use the exact values or are left out.
           def provenance_hash(provenance)
-            { ref: clip_value(provenance.ref, 120), seed: provenance.seed, head: clip_value(provenance.head, 64),
+            { ref: clip_value(provenance.ref, 120), seed: bounded_number(provenance.seed),
+              head: clip_value(provenance.head, 64),
               workingTree: provenance.working_tree, changedFiles: provenance.changed_files,
               mode: provenance.mode, selection: selection_hash(provenance) }
           end
@@ -73,14 +77,8 @@ module Saboteur
             %i[subjects tests sources].to_h do |key|
               list = provenance.public_send(key)
               [key, { count: list.size, first: list.first(3).map { |entry| clip_value(entry, 120) } }]
-            end.merge(config: clip_value(provenance.config_path, 120), digest: provenance.digest)
-          end
-
-          def clip_value(value, limit)
-            return nil if value.nil?
-
-            text = value.to_s
-            text.length > limit ? "#{text[0, limit]}..." : text
+            end.merge(config: clip_value(provenance.config_path, 120), digest: provenance.digest,
+                      settings: provenance.settings.transform_values { |value| clip_value(value, 120) })
           end
 
           def findings(report, shown, snippet_limit)
@@ -100,12 +98,6 @@ module Saboteur
                             original: clip(finding[:original], snippet_limit),
                             replacement: clip(finding[:replacement], snippet_limit))
             end
-          end
-
-          def clip(text, limit)
-            return "" if limit.zero?
-
-            text.length > limit ? "#{text[0, limit]}..." : text
           end
 
           def warnings(report)
