@@ -1,13 +1,18 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+# Set is autoloaded on Ruby 3.2+, but older Rubies need this explicit require.
+# rubocop:disable-next Lint/RedundantRequireStatement
+require "set"
+
 module TrivialEquivalence
   # Finds calls through which running code can observe its own location or
-  # its own instructions. Relaxed (line-blind) proof is refused for source
+  # its own instructions. A relaxed (line-blind) match is refused for source
   # that contains any of them. The list is a conservative denylist, not a
-  # proof that other code cannot observe lines. In particular an ordinary
+  # guarantee that other code cannot observe lines. In particular an ordinary
   # raise exposes line numbers through backtraces, and relaxed mode accepts
-  # that exposure; the measurement counts the wrong skips it causes.
+  # that exposure. Only a suite run on matched mutants could show a cost, and
+  # this spike had no relaxed matches to run.
   class ReflectionScan
     REFLECTIVE_CALLS = %i[
       caller caller_locations backtrace backtrace_locations __LINE__ __FILE__ __dir__ __method__ __callee__
