@@ -1,0 +1,7 @@
+# Same source files and tests in both modes. No incremental verdict reuse.
+include: [lib/saboteur/reporter/terminal.rb]
+rspec_args: [spec/saboteur]
+seed: 1
+jobs: 1
+cache: false
+incremental: false

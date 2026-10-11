@@ -1,0 +1,246 @@
+{
+  "environment": {
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.35",
+    "ruby": "ruby 3.3.9 (2025-07-24 revision f5c772fc7c) [x86_64-linux]",
+    "head": "d2b7abb336eae53ec8cd5a71c111f9daef66218a",
+    "base": "1b520657a7b0241592590dce31f77aa3c2247c7b",
+    "merge_base": "1b520657a7b0241592590dce31f77aa3c2247c7b"
+  },
+  "measurements": [
+    {
+      "mode": "full",
+      "pair": 1,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-1-full.json"
+      ],
+      "exit": 1,
+      "wall_seconds": 19.471379817999946,
+      "mutants": 139,
+      "statuses": {
+        "Killed": 127,
+        "Survived": 11,
+        "NoCoverage": 1
+      }
+    },
+    {
+      "mode": "diff",
+      "pair": 1,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-1-diff.json",
+        "--since",
+        "1b52065"
+      ],
+      "exit": 1,
+      "wall_seconds": 15.841700172000003,
+      "mutants": 7,
+      "statuses": {
+        "Killed": 6,
+        "Survived": 1
+      }
+    },
+    {
+      "mode": "diff",
+      "pair": 2,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-2-diff.json",
+        "--since",
+        "1b52065"
+      ],
+      "exit": 1,
+      "wall_seconds": 12.861765013000024,
+      "mutants": 7,
+      "statuses": {
+        "Killed": 6,
+        "Survived": 1
+      }
+    },
+    {
+      "mode": "full",
+      "pair": 2,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-2-full.json"
+      ],
+      "exit": 1,
+      "wall_seconds": 16.71038689300002,
+      "mutants": 139,
+      "statuses": {
+        "Killed": 127,
+        "Survived": 11,
+        "NoCoverage": 1
+      }
+    },
+    {
+      "mode": "full",
+      "pair": 3,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-3-full.json"
+      ],
+      "exit": 1,
+      "wall_seconds": 16.15678739599997,
+      "mutants": 139,
+      "statuses": {
+        "Killed": 127,
+        "Survived": 11,
+        "NoCoverage": 1
+      }
+    },
+    {
+      "mode": "diff",
+      "pair": 3,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-3-diff.json",
+        "--since",
+        "1b52065"
+      ],
+      "exit": 1,
+      "wall_seconds": 12.74448862700001,
+      "mutants": 7,
+      "statuses": {
+        "Killed": 6,
+        "Survived": 1
+      }
+    },
+    {
+      "mode": "diff",
+      "pair": 4,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-4-diff.json",
+        "--since",
+        "1b52065"
+      ],
+      "exit": 1,
+      "wall_seconds": 12.779443484000012,
+      "mutants": 7,
+      "statuses": {
+        "Killed": 6,
+        "Survived": 1
+      }
+    },
+    {
+      "mode": "full",
+      "pair": 4,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-4-full.json"
+      ],
+      "exit": 1,
+      "wall_seconds": 16.685742774999994,
+      "mutants": 139,
+      "statuses": {
+        "Killed": 127,
+        "Survived": 11,
+        "NoCoverage": 1
+      }
+    },
+    {
+      "mode": "full",
+      "pair": 5,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-5-full.json"
+      ],
+      "exit": 1,
+      "wall_seconds": 16.28812064699997,
+      "mutants": 139,
+      "statuses": {
+        "Killed": 127,
+        "Survived": 11,
+        "NoCoverage": 1
+      }
+    },
+    {
+      "mode": "diff",
+      "pair": 5,
+      "command": [
+        "bundle",
+        "exec",
+        "ruby",
+        "exe/saboteur",
+        "run",
+        "--config",
+        "bench/since/workload.yml",
+        "--json",
+        "bench/since/results/pair-5-diff.json",
+        "--since",
+        "1b52065"
+      ],
+      "exit": 1,
+      "wall_seconds": 15.713529977999997,
+      "mutants": 7,
+      "statuses": {
+        "Killed": 6,
+        "Survived": 1
+      }
+    }
+  ]
+}
