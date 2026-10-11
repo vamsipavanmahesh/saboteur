@@ -5,7 +5,7 @@ require "fileutils"
 require "json"
 
 module Saboteur
-  # One run, as a pipeline: boot the target, select subjects, fetch the
+  # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
   # coverage map, then schedule each subject's mutants. The parts live in
   # engine/; this class only wires them together.
   class Engine
@@ -56,14 +56,18 @@ module Saboteur
       warn_about_threads
       cache = result_cache
       scheduler = scheduler_for(map, integration, cache)
-      @rails&.prepare_workers(config["jobs"])
       lists = candidate_lists(subjects, scope, map)
+      work = subjects.zip(lists).reject { |_, list| list.empty? }
+      return [] if work.empty?
+
+      runnable_subjects, runnable_lists = work.transpose
+      @rails&.prepare_workers(config["jobs"])
       # The execution phase forks next: the worker batch, or one child per
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
       results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                                 cache: cache, on_start: method(:start_worker)).run(subjects, lists)
+                                 cache: cache, on_start: method(:start_worker)).run(runnable_subjects, runnable_lists)
       cache&.save
       results
     end
