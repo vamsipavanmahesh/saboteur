@@ -4,6 +4,7 @@
 require "coverage"
 require "fileutils"
 require "pathname"
+require "tmpdir"
 
 module Saboteur
   module Frameworks
@@ -32,6 +33,7 @@ module Saboteur
         @config = config
         @hooks = hooks
         @worker_copies = []
+        @memory_snapshots = {}
       end
 
       def before_boot
@@ -66,6 +68,7 @@ module Saboteur
         check_databases
         eager_load_with_coverage_running
         disconnect
+        snapshot_memory_databases
         @hooks.register(:before_fork) { |_mutation| disconnect }
         @hooks.register(:after_fork) { reconnect }
       end
@@ -111,7 +114,7 @@ module Saboteur
       # do not collect one database per worker. Every copy is attempted even
       # when a drop fails; the failures are reported together at the end.
       def cleanup_workers
-        return if @worker_copies.empty?
+        return if @worker_copies.empty? && @memory_snapshot_dir.nil?
 
         failures = @worker_copies.filter_map do |db, name|
           drop_database(db, name)
@@ -120,6 +123,11 @@ module Saboteur
           "#{name}: #{e.message}"
         end
         @worker_copies = []
+        if @memory_snapshot_dir
+          FileUtils.rm_rf(@memory_snapshot_dir)
+          @memory_snapshot_dir = nil
+          @memory_snapshots = {}
+        end
         begin
           disconnect
         rescue StandardError => e
@@ -139,7 +147,7 @@ module Saboteur
           config = pool.pool_config
           db = pool.db_config
           # An in-memory SQLite database would be discarded by
-          # re-establishing: the worker keeps the inherited connection.
+          # re-establishing: the worker keeps its own connection.
           next if self.class.memory_database?(db)
 
           handler.establish_connection(db.configuration_hash.merge(database: self.class.worker_database(db.database,
@@ -147,6 +155,7 @@ module Saboteur
                                        owner_name: self.class.owner_of(config), role: config.role,
                                        shard: config.shard)
         end
+        restore_memory_databases
       end
 
       def self.owner_of(pool_config)
@@ -384,6 +393,58 @@ module Saboteur
       # checks out a fresh connection of its own on first use.
       def reconnect
         disconnect
+        restore_memory_databases
+      end
+
+      # Parent, once the app booted: an in-memory SQLite database survives
+      # only inside its own connection, and a forked child cannot keep it -
+      # ActiveRecord discards inherited pools and the sqlite3 gem closes
+      # writable handles in the child, so the next access there opens an
+      # empty database. Snapshot each in-memory database to a file the
+      # children can restore from.
+      def snapshot_memory_databases
+        return unless defined?(::ActiveRecord::Base)
+
+        pools = ::ActiveRecord::Base.connection_handler.connection_pool_list(:all)
+        memory_pools = pools.select { |pool| self.class.memory_database?(pool.db_config) }
+        return if memory_pools.empty?
+
+        @memory_snapshot_dir = Dir.mktmpdir("saboteur-memory-")
+        memory_pools.each_with_index do |pool, index|
+          path = File.join(@memory_snapshot_dir, "#{index}.sqlite3")
+          pool.with_connection do |connection|
+            file = SQLite3::Database.new(path)
+            begin
+              step_backup(SQLite3::Backup.new(file, "main", connection.raw_connection, "main"), path)
+            ensure
+              file.close
+            end
+          end
+          @memory_snapshots[pool.db_config] = path
+        end
+      end
+
+      # Child: load the parent's snapshot into this process's own fresh
+      # in-memory database. The backup overwrites the destination, so
+      # restoring more than once is harmless.
+      def restore_memory_databases
+        return unless defined?(::ActiveRecord::Base)
+        return if @memory_snapshots.empty?
+
+        ::ActiveRecord::Base.connection_handler.connection_pool_list(:all).each do |pool|
+          snapshot = @memory_snapshots[pool.db_config]
+          next unless snapshot
+
+          pool.with_connection do |connection|
+            source = SQLite3::Database.new(snapshot, readonly: true)
+            begin
+              step_backup(SQLite3::Backup.new(connection.raw_connection, "main", source, "main"),
+                          pool.db_config.database)
+            ensure
+              source.close
+            end
+          end
+        end
       end
     end
   end
