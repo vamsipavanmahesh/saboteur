@@ -32,8 +32,7 @@ module Saboteur
 
         issues = restore_issues(fields.fetch(:issues))
         validate_snapshot_identity(fields, inventory, issues)
-        frozen_fields = fields.transform_values { |value| value.is_a?(String) ? value.dup.freeze : value }
-        Snapshot.new(**frozen_fields, inventory: inventory, issues: issues)
+        Snapshot.new(**fields, inventory: inventory, issues: issues)
       rescue KeyError, TypeError, NoMethodError => e
         raise ArgumentError, "invalid fingerprint snapshot: #{e.class}"
       end
@@ -73,7 +72,7 @@ module Saboteur
         values = canonical_mapping(entry).transform_keys(&:to_sym)
         raise ArgumentError, "invalid fingerprint entry" unless valid_entry?(values)
 
-        Entry.new(**values.transform_values { |value| value.is_a?(String) ? value.dup.freeze : value })
+        Entry.new(**values)
       end
 
       def self.valid_entry?(values)
@@ -86,13 +85,16 @@ module Saboteur
       end
 
       def self.valid_path?(path)
-        return false unless path.is_a?(String) && !path.empty? && !path.include?("\0") && !path.include?("\\")
+        unless path.is_a?(String) && !path.empty? && !path.include?("\0") &&
+               !path.include?("\\") && !path.end_with?("/")
+          return false
+        end
 
         candidate = path.delete_prefix("external:")
         absolute = path.start_with?("external:")
         return false unless candidate.start_with?("/") == absolute
 
-        segments = candidate.split("/", -1)
+        segments = candidate.split("/")
         segments.shift if absolute
         segments.none? { |part| part.empty? || %w[. ..].include?(part) }
       end
@@ -172,8 +174,6 @@ module Saboteur
         return File.realpath(expanded) if File.exist?(expanded)
 
         parent = File.dirname(expanded)
-        return expanded if parent == expanded
-
         File.join(canonical_path(parent), File.basename(expanded))
       end
 
@@ -250,7 +250,7 @@ module Saboteur
           @config[key].map { |file| [resolve(file), key == "hooks" ? "hook" : "boot", true] }
         end
         paths += @config["sources"].reject { |entry| entry == "builtin" }.map do |entry|
-          [resolve(entry.split(":", 2).first), "source_plugin", true]
+          [resolve(entry.partition(":").first), "source_plugin", true]
         end
         paths + @extra_files.map { |path, needed| [path, "extra", needed] }
       end
