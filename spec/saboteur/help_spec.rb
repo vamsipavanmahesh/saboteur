@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "yaml"
 
 # The help text is the map an AI agent reads instead of the docs. These specs
 # keep it complete: a new option, command, config key or exit code that is not
@@ -34,8 +35,16 @@ RSpec.describe Saboteur::Help do
     end
   end
 
-  it "lists every config key with its default" do
-    Saboteur::Config::DEFAULTS.each_key { |key| expect(overview).to match(/^  #{key}: /) }
+  it "lists every config key with its exact default, as YAML that loads back to the same value" do
+    Saboteur::Config::DEFAULTS.each do |key, default|
+      line = overview.lines.find { |candidate| candidate.start_with?("  #{key}: ") }
+      expect(line).not_to be_nil
+      expect(YAML.safe_load(line.delete_prefix("  #{key}: "))).to eq(default)
+    end
+  end
+
+  it "does not promise that nothing runs for a usage or configuration error" do
+    expect(overview).not_to include("Nothing was run")
   end
 
   it "lists every exit code" do
