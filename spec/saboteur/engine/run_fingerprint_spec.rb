@@ -163,3 +163,40 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "canonical boundaries" do
     end
   end
 end
+
+RSpec.describe Saboteur::Engine::RunFingerprint, "strict input contracts" do
+  it "never lets optional extras override required hooks" do
+    Dir.mktmpdir do |root|
+      config = Saboteur::Config.new({ "hooks" => ["missing.rb"] }, root: root)
+      snapshot = described_class.new(config: config,
+                                     extra_files: [{ path: "missing.rb", required: false }]).snapshot
+      expect(snapshot.complete).to be(false)
+      expect(snapshot.inventory.find { |entry| entry.path == "missing.rb" }.kind).to eq("hook")
+    end
+  end
+
+  it "refuses output aliases for fixed manifests" do
+    Dir.mktmpdir do |root|
+      config = Saboteur::Config.new({ "json_report" => "Gemfile" }, root: root)
+      expect(described_class.new(config: config).snapshot.issues).to include("output overlaps input: Gemfile")
+    end
+  end
+
+  it "rejects normalized key collisions and non-JSON runtime identities" do
+    [{ x: 1, "x" => 2 }, { x: Object.new }, { x: Float::INFINITY }].each do |identity|
+      expect { described_class.canonical_value(identity) }.to raise_error(ArgumentError)
+    end
+  end
+
+  it "rejects unsorted issue records and complete snapshots containing unreadable entries" do
+    Dir.mktmpdir do |root|
+      original = described_class.new(config: Saboteur::Config.new({}, root: root)).snapshot.to_h
+      expect { described_class.restore_snapshot(original.merge(complete: false, issues: %w[z a])) }
+        .to raise_error(ArgumentError)
+      inventory = original[:inventory].map(&:dup)
+      inventory.first.merge!(state: "unreadable", sha256: nil)
+      modified = original.merge(inventory: inventory)
+      expect { described_class.restore_snapshot(modified) }.to raise_error(ArgumentError)
+    end
+  end
+end
