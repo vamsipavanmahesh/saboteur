@@ -13,6 +13,10 @@ module Saboteur
       module Commands
         MAX_BYTES = 1024
 
+        # Options typed on the command line that change how a run behaves.
+        SETTING_FLAGS = { reeval: "--reeval", integration: "--integration", jobs: "--jobs",
+                          timeout_factor: "--timeout-factor", json_report: "--json", html_report: "--html" }.freeze
+
         class << self
           # Run the same selection again: ref, subjects, sources, tests, config,
           # cache mode and replay digest, with the recorded seed.
@@ -42,6 +46,9 @@ module Saboteur
             words.push("--since", provenance.ref) if provenance.ref
             provenance.subjects.each { |subject| words.push("--subject", subject) }
             provenance.tests.each { |test| words.push("--test", test) }
+            SETTING_FLAGS.each do |key, flag|
+              words.push(flag, provenance.settings[key].to_s) if provenance.settings.key?(key)
+            end
             words << "--no-cache" if provenance.cache == false
             words << "--incremental" if provenance.incremental
             words.push("--id", provenance.digest) if provenance.digest && !replay
