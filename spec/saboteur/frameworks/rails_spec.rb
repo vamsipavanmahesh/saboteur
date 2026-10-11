@@ -78,6 +78,15 @@ RSpec.describe Saboteur::Frameworks::Rails do
 
     # A stand-in for ActiveRecord::Base that logs which class connects where
     # and what SQL runs.
+    # A stand-in for SQLite3::Backup that reports canned step statuses;
+    # statuses past the list repeat the last one.
+    def fake_backup(statuses)
+      instance_double(SQLite3::Backup).tap do |backup|
+        allow(backup).to receive(:step).and_return(*statuses)
+        allow(backup).to receive(:finish)
+      end
+    end
+
     def fake_connection(calls, template_sessions)
       connection = Object.new
       connection.define_singleton_method(:quote_table_name) { |name| %("#{name}") }
@@ -275,10 +284,99 @@ RSpec.describe Saboteur::Frameworks::Rails do
         SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
         finished = false
         allow(SQLite3::Backup).to receive(:new).and_wrap_original do |original, *args|
-          original.call(*args).tap { |backup| allow(backup).to receive(:finish) { finished = true } }
+          original.call(*args).tap do |backup|
+            allow(backup).to receive(:finish).and_wrap_original do |finish|
+              finished = true
+              finish.call
+            end
+          end
         end
         rails.prepare_workers(2)
         expect(finished).to be(true)
+      end
+    end
+
+    # A real exclusive lock from another connection makes SQLite report
+    # the lock instead of raising through ActiveRecord; the copy must fail
+    # closed, here at the checkpoint.
+    it "refuses to copy while another connection holds the source exclusively" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        locker = SQLite3::Database.new(path)
+        locker.execute("BEGIN EXCLUSIVE")
+        locker.execute("INSERT INTO t VALUES (1)")
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not checkpoint/)
+        locker.execute("ROLLBACK")
+        locker.close
+      end
+    end
+
+    # Backup#step returns raw SQLite status codes instead of raising, so a
+    # busy target must be retried and a hard status must fail the copy.
+    it "retries a busy backup step and copies once it completes" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        statuses = [5, 5]
+        fake = fake_backup(statuses + [101])
+        allow(SQLite3::Backup).to receive(:new).and_return(fake)
+        rails.prepare_workers(2)
+        expect(fake).to have_received(:step).exactly(3).times
+      end
+    end
+
+    it "fails the copy when the backup step reports an error status" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        fake = fake_backup([10])
+        allow(SQLite3::Backup).to receive(:new).and_return(fake)
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not copy.*status 10/)
+        expect(fake).to have_received(:finish)
+      end
+    end
+
+    it "fails the copy when the backup step stays busy" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        fake = fake_backup([5])
+        allow(SQLite3::Backup).to receive(:new).and_return(fake)
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not copy.*still busy/)
+        expect(fake).to have_received(:finish)
+      end
+    end
+
+    # Real lock, real backup: a source locked exclusively makes step report
+    # BUSY or LOCKED through the binding until the retries run out. The
+    # checkpoint gate is stubbed here; its own locked case is covered above.
+    it "fails the copy when the source stays locked through the backup" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "test.sqlite3")
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(path, { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        SQLite3::Database.new(path) { |sqlite| sqlite.execute("CREATE TABLE t (i)") }
+        locker = SQLite3::Database.new(path)
+        locker.execute("BEGIN EXCLUSIVE")
+        locker.execute("INSERT INTO t VALUES (1)")
+        allow(rails).to receive(:checkpoint_sqlite)
+        expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /could not copy/)
+        locker.execute("ROLLBACK")
+        locker.close
       end
     end
 
