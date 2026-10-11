@@ -244,3 +244,44 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "evidence key schema" do
     end
   end
 end
+
+RSpec.describe Saboteur::Engine::RunFingerprint, "Rails data inputs" do
+  around do |example|
+    Dir.mktmpdir do |root|
+      @root = File.realpath(root)
+      FileUtils.mkdir_p(File.join(@root, "spec/fixtures"))
+      example.run
+    end
+  end
+
+  let(:config) { Saboteur::Config.new({}, root: @root) }
+  let(:fingerprint) { described_class.new(config: config, runtime_identity: { ruby: "test" }) }
+
+  it "records fixtures as data entries and detects an edit" do
+    path = File.join(@root, "spec/fixtures/users.yml")
+    File.write(path, "a: 1\n")
+    snapshot = fingerprint.snapshot
+    expect(snapshot.inventory.find { |e| e.path == "spec/fixtures/users.yml" }.kind).to eq("data")
+    File.write(path, "a: 2\n")
+    expect(fingerprint.verify(snapshot).changes.map(&:path)).to include("spec/fixtures/users.yml")
+  end
+
+  it "detects a schema dump edit and a deleted fixture" do
+    FileUtils.mkdir_p(File.join(@root, "db"))
+    File.write(File.join(@root, "db/structure.sql"), "1")
+    File.write(File.join(@root, "spec/fixtures/a.yml"), "1")
+    snapshot = fingerprint.snapshot
+    File.write(File.join(@root, "db/structure.sql"), "2")
+    File.delete(File.join(@root, "spec/fixtures/a.yml"))
+    changes = fingerprint.verify(snapshot).changes
+    expect(changes.map(&:path)).to include("db/structure.sql", "spec/fixtures/a.yml")
+    expect(changes.map(&:reason)).to include("removed")
+  end
+
+  it "round-trips a snapshot containing data entries" do
+    File.write(File.join(@root, "spec/fixtures/a.yml"), "1")
+    snapshot = fingerprint.snapshot
+    restored = described_class.restore_snapshot(JSON.parse(JSON.generate(snapshot.to_h)))
+    expect(restored.digest).to eq(snapshot.digest)
+  end
+end
