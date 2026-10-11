@@ -69,6 +69,35 @@ RSpec.describe Saboteur::CLI do
       expect(run_with(report_of(survivor))).to eq(0)
     end
 
+    it "is 1 when the score is below --threshold, even with ignored survivors" do
+      report = report_of(result_for(:killed), result_for(:survived))
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "60", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
+    end
+
+    it "is 0 when the score meets --threshold exactly, despite survivors" do
+      report = report_of(result_for(:killed), result_for(:survived))
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+    end
+
+    it "is 0 when the score is above --threshold, and 1 just above a score of 50 %" do
+      report = report_of(result_for(:killed), result_for(:survived))
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      json = File.join(Dir.mktmpdir, "r.json")
+      expect(cli("run", "--threshold", "40", "--json", json).call).to eq(0)
+      expect(cli("run", "--threshold", "50.3", "--json", json).call).to eq(1)
+    end
+
+    it "is 0 under --threshold when nothing was tested" do
+      engine = instance_double(Saboteur::Engine, call: report_of(result_for(:skipped, reason: "no coverage")))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "90", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+    end
+
     it "is 3 when every executed mutant errored" do
       expect(run_with(report_of(result_for(:error), result_for(:skipped, reason: "no coverage")))).to eq(3)
     end
@@ -86,13 +115,6 @@ RSpec.describe Saboteur::CLI, "details" do
   it "prints only the usage line for an unknown command" do
     cli("explode").call
     expect(err.string).to eq("#{described_class::USAGE}\n")
-  end
-
-  it "refuses stray arguments with exit 2" do
-    allow(Saboteur::Engine).to receive(:new)
-    expect(cli("run", "extra").call).to eq(2)
-    expect(err.string).to include("unexpected arguments: extra")
-    expect(Saboteur::Engine).not_to have_received(:new)
   end
 
   it "parses --config, --integration and --incremental" do
@@ -154,5 +176,39 @@ RSpec.describe Saboteur::CLI, "details" do
     allow(Saboteur::Engine).to receive(:new)
       .and_return(instance_double(Saboteur::Engine, call: report_of(result_for(:skipped, reason: "no coverage"))))
     expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+  end
+end
+
+RSpec.describe Saboteur::CLI, "explicit files" do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+
+  def cli(*argv)
+    described_class.new(argv, out:, err:)
+  end
+
+  before { allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop") }
+
+  it "takes positional sources as the files to mutate, replacing include and exclude" do
+    command = cli("run", "lib/a.rb", "lib/b.rb", "--test", "spec/a_spec.rb", "--test", "spec/b_spec.rb")
+    expect(command.call).to eq(3)
+    expect(command.options).to eq(include: %w[lib/a.rb lib/b.rb], exclude: [],
+                                  tests: %w[spec/a_spec.rb spec/b_spec.rb])
+  end
+
+  it "refuses --test without a source, with exit 2" do
+    expect(cli("run", "--test", "spec/a_spec.rb").call).to eq(2)
+    expect(err.string).to include("--test needs at least one source file")
+  end
+
+  it "parses --threshold as a number" do
+    command = cli("run", "--threshold", "92.5")
+    command.call
+    expect(command.options).to eq(threshold: 92.5)
+  end
+
+  it "rejects a --threshold outside 0 to 100 with exit 2" do
+    expect(cli("run", "--threshold", "101").call).to eq(2)
+    expect(err.string).to include("threshold must be between 0 and 100")
   end
 end
