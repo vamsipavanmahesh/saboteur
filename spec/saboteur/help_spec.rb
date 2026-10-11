@@ -75,6 +75,23 @@ RSpec.describe Saboteur::Help do
     expect(help.command("version")).not_to include("--since")
   end
 
+  it "gives a command without options a bare usage line and no exit codes section" do
+    text = help.command("version")
+    expect(text).to include("USAGE\n  saboteur version\n")
+    expect(text).not_to include("[options]")
+    expect(text).not_to include("EXIT CODES")
+  end
+
+  it "gives a command with options an [options] usage line and an exit codes section" do
+    text = help.command("run")
+    expect(text).to include("USAGE\n  saboteur run [options]\n")
+    expect(text).to include("EXIT CODES\n  0  ")
+  end
+
+  it "sets the usage text as the option parser's banner" do
+    expect(cli.parser.banner).to eq(Saboteur::CLI::USAGE)
+  end
+
   it "returns nil for a command it does not know" do
     expect(help.command("explode")).to be_nil
   end
