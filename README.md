@@ -210,7 +210,7 @@ name in reports is `filter_replacement`.
 See [the operator rationale](docs/filter-operators.md) for the Ruby fault used
 to choose this family and the limits of that evidence.
 
-## Extending
+## 🔌 Extending
 
 Public API, stable across minor versions:
 
