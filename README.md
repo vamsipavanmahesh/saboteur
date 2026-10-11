@@ -258,7 +258,7 @@ jobs: 4                           # optional; the default is 1
 bin/saboteur doctor
 ```
 
-Doctor boots your app, checks the config, test database and migrations, and runs
+Doctor boots your app, checks the config and the test database host, and runs
 your suite twice before any mutation. Fix whatever it reports first. Turn
 SimpleCov off for the run if you use it.
 
