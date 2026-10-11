@@ -81,6 +81,7 @@ RSpec.describe Saboteur::CLI do
       engine = instance_double(Saboteur::Engine, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      expect(err.string).not_to include("incomplete")
     end
 
     it "is 0 when the score is above --threshold, and 1 just above a score of 50 %" do
@@ -92,10 +93,42 @@ RSpec.describe Saboteur::CLI do
       expect(cli("run", "--threshold", "50.3", "--json", json).call).to eq(1)
     end
 
-    it "is 0 under --threshold when nothing was tested" do
+    it "is 1 under --threshold when nothing was tested, and says why" do
       engine = instance_double(Saboteur::Engine, call: report_of(result_for(:skipped, reason: "no coverage")))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
-      expect(cli("run", "--threshold", "90", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+      expect(cli("run", "--threshold", "0", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
+      expect(err.string).to include("no mutant was tested, so there is no score")
+    end
+
+    it "is 1 under --threshold for a run with no mutants at all" do
+      engine = instance_double(Saboteur::Engine, call: report_of)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "90", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(1)
+    end
+
+    it "is 3 under --threshold when some mutants errored, even with a passing score" do
+      report = report_of(result_for(:killed), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
+      expect(err.string).to include("1 mutant(s) errored or hit a resource limit, so the score is incomplete")
+    end
+
+    it "is 3 under --threshold when a mutant hit a resource limit" do
+      report = report_of(result_for(:killed), result_for(:resource_limit))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
+    end
+
+    it "ignores errors for the exit code when no threshold is set" do
+      report = report_of(result_for(:killed), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+    end
+
+    it "keeps exit 3 over the threshold when every executed mutant errored" do
+      engine = instance_double(Saboteur::Engine, call: report_of(result_for(:error)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "0", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
     end
 
     it "is 3 when every executed mutant errored" do
@@ -183,6 +216,17 @@ RSpec.describe Saboteur::CLI, "explicit files" do
   let(:out) { StringIO.new }
   let(:err) { StringIO.new }
 
+  around do |example|
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        FileUtils.mkdir_p(%w[lib/sub spec])
+        %w[lib/a.rb lib/b.rb spec/a_spec.rb spec/b_spec.rb].each { |file| FileUtils.touch(file) }
+        FileUtils.touch("lib/notes.txt")
+        example.run
+      end
+    end
+  end
+
   def cli(*argv)
     described_class.new(argv, out:, err:)
   end
@@ -196,9 +240,42 @@ RSpec.describe Saboteur::CLI, "explicit files" do
                                   tests: %w[spec/a_spec.rb spec/b_spec.rb])
   end
 
+  it "turns a source directory into a pattern over its Ruby files" do
+    command = cli("run", "lib/sub/", "lib")
+    command.call
+    expect(command.options[:include]).to eq(%w[lib/sub/**/*.rb lib/**/*.rb])
+  end
+
+  it "accepts a test with a line or id selector when its file exists" do
+    command = cli("run", "lib/a.rb", "--test", "spec/a_spec.rb:12", "--test", "spec/b_spec.rb[1:2]")
+    expect(command.call).to eq(3)
+    expect(command.options[:tests]).to eq(%w[spec/a_spec.rb:12 spec/b_spec.rb[1:2]])
+  end
+
   it "refuses --test without a source, with exit 2" do
     expect(cli("run", "--test", "spec/a_spec.rb").call).to eq(2)
     expect(err.string).to include("--test needs at least one source file")
+  end
+
+  it "refuses a source that does not exist, with exit 2 and no run" do
+    expect(cli("run", "lib/typo.rb").call).to eq(2)
+    expect(err.string).to include("source file not found: lib/typo.rb")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  it "refuses a source that is not a Ruby file" do
+    expect(cli("run", "lib/notes.txt").call).to eq(2)
+    expect(err.string).to include("source is not a Ruby file: lib/notes.txt")
+  end
+
+  it "reports a missing non-Ruby source as not found" do
+    expect(cli("run", "lib/missing.txt").call).to eq(2)
+    expect(err.string).to include("source file not found: lib/missing.txt")
+  end
+
+  it "refuses a test file that does not exist" do
+    expect(cli("run", "lib/a.rb", "--test", "spec/typo_spec.rb:3").call).to eq(2)
+    expect(err.string).to include("test file not found: spec/typo_spec.rb:3")
   end
 
   it "parses --threshold as a number" do
