@@ -249,6 +249,10 @@ jobs: 4                           # optional; the default is 1
 Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
 generator is planned; until then this block is the supported setup.
 
+saboteur puts the app's `spec/` directory on the load path before
+processing `require`, matching rspec, so a boot file like a dummy app's
+`spec/rails_helper.rb` can require its siblings.
+
 For a Rails engine, point `require` at the dummy app's environment -
 `test/dummy/config/environment.rb`, usually loaded for you by
 `spec/rails_helper.rb`. Only a dynamically created dummy app has no

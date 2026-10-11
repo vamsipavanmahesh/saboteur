@@ -158,11 +158,18 @@ RSpec.describe Saboteur::Frameworks::Rails do
 
     # Same stand-in as #prepare_workers: logs which class connects where and
     # what SQL runs.
+    def fake_connection(calls)
+      Object.new.tap do |connection|
+        connection.define_singleton_method(:quote_table_name) { |name| %("#{name}") }
+        connection.define_singleton_method(:quote) { |value| "'#{value}'" }
+        connection.define_singleton_method(:execute) { |sql| calls << sql }
+        connection.define_singleton_method(:select_values) { |_sql| [] }
+      end
+    end
+
     def fake_base(db)
       calls = log
-      connection = Object.new
-      connection.define_singleton_method(:quote_table_name) { |name| %("#{name}") }
-      connection.define_singleton_method(:execute) { |sql| calls << sql }
+      connection = fake_connection(calls)
       pool = Object.new
       pool.define_singleton_method(:with_connection) { |&block| block.call(connection) }
       Class.new.tap do |base|
