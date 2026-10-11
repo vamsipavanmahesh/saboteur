@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "reporter/diff"
+require_relative "score"
 
 module Saboteur
   # resource_limit: the mutant's process tree hit the memory or process cap.
@@ -57,6 +58,11 @@ module Saboteur
     # the like. Such kills say the code broke, not that a test verified it.
     def crash_kill?
       status == :killed && !kill_cause.nil? && kill_cause != "assertion"
+    end
+
+    # Killed because a test's check failed: the test looked at a value.
+    def assertion_kill?
+      status == :killed && kill_cause == "assertion"
     end
 
     # Taken from an earlier run (--incremental) instead of run again.
@@ -115,10 +121,23 @@ module Saboteur
 
     # (killed + timeout) / (killed + survived + timeout); nil with nothing tested.
     def score
-      c = counts
-      detected = c[:killed] + c[:timeout]
-      tested = detected + c[:survived]
-      tested.zero? ? nil : detected.fdiv(tested)
+      score_breakdown.value
+    end
+
+    # The score with its split into assertion kills and crash kills.
+    def score_breakdown
+      @score_breakdown ||= Score.of(results)
+    end
+
+    # The same breakdown without the whole-method mutants (body_nil,
+    # body_raise and the like). Almost any test that runs the method kills
+    # those, so they flatter the score.
+    def fine_score_breakdown
+      @fine_score_breakdown ||= Score.of(results.reject { |result| result.mutation.coarse })
+    end
+
+    def coarse_score_breakdown
+      @coarse_score_breakdown ||= Score.of(results.select { |result| result.mutation.coarse })
     end
 
     def survivors
