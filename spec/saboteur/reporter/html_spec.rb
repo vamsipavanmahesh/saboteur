@@ -24,6 +24,24 @@ RSpec.describe Saboteur::Reporter::Html do
     %w[Killed Survived NoCoverage].each { |status| expect(html).to include(status) }
   end
 
+  it "names the passing tests that covered a survivor, top 5" do
+    tests = (1..6).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    page = described_class.build(report_of(result_for(:survived, covered_by: tests)))
+    expect(page).to include("covered by 6 tests that passed: ./spec/person_spec.rb[1:1]", "(+1 more)")
+    expect(page).not_to include("person_spec.rb[1:6],")
+  end
+
+  it "says a reused survivor's tests passed in an earlier run" do
+    page = described_class.build(report_of(result_for(:survived, reused: true,
+                                                                 covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(page).to include("covered by 1 test that passed in an earlier run: ./spec/person_spec.rb[1:1]")
+  end
+
+  it "does not call a killed mutant's covering tests passing" do
+    page = described_class.build(report_of(result_for(:killed, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(page).not_to include("that passed")
+  end
+
   it "lists each mutant with its operator, replacement and location" do
     expect(html).to include("comparison", "&gt;", "==", "person.rb", "line 2")
   end
