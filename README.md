@@ -101,16 +101,21 @@ bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_s
 bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
 ```
 
-Positional files name the sources to mutate; they replace `include` and
-`exclude`. `--test` (repeatable, spec files or directories, needs at least one
-source) replaces the spec paths in `rspec_args`, so the coverage map is built
-from only those specs and each mutant runs only the ones among them that cover
-it. Options in `rspec_args` such as `--require` stay.
+Positional operands name the sources to mutate: Ruby files, or directories
+(all their `.rb` files). Each must exist; a typo or a non-Ruby file exits 2
+before anything runs. They replace `include` and `exclude`. `--test`
+(repeatable; spec files or directories, with an optional `:LINE` or `[1:2]`
+selector; needs at least one source) replaces only the files RSpec runs. Other
+`rspec_args` and `.rspec` options such as `--require` stay. The coverage map
+is built from only those specs, each mutant runs only the ones that cover it,
+and the selection is part of the coverage and `--incremental` cache keys.
 
-`--threshold PERCENT` (0 to 100, or `threshold:` in `.saboteur.yml`) is for CI:
-the run exits 1 when the score is below PERCENT and 0 when it is at or above,
-even with survivors. A run that tested nothing has no score and passes. Without
-a threshold, any unignored survivor exits 1.
+`--threshold PERCENT` (0 to 100, or `threshold:` in `.saboteur.yml`) is for CI.
+The run exits 1 when the score is below PERCENT and 0 when it is at or above,
+even with survivors. It fails closed: a run that tested no mutant has no score
+and exits 1, and a run where any mutant errored or hit a resource limit exits 3,
+because the score covers only part of the run. Without a threshold, any
+unignored survivor exits 1.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
@@ -144,8 +149,9 @@ that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
-`--threshold`; 1 survivors, or the score is below `--threshold`;
-2 bad configuration, 3 the tool failed.
+`--threshold`; 1 survivors, or the score is below `--threshold` or missing;
+2 bad configuration or a missing source or test; 3 the tool failed (with
+`--threshold`, also any errored or resource-limited mutant).
 
 ## ⚙️ Configuration
 
