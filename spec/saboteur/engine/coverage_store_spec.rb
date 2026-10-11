@@ -179,4 +179,13 @@ RSpec.describe Saboteur::Engine::CoverageStore, "heap preparation" do
     store(recording_supervisor(events, map.to_json)).fetch([file])
     expect(events).to be_empty
   end
+  # A run that cannot build coverage must fail before any preparation.
+  it "does not prepare when the coverage precondition is unmet" do
+    allow(Coverage).to receive(:state).and_return(:running)
+    events = []
+    allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap) { events << :prepare }
+    expect { store(recording_supervisor(events, map.to_json)).fetch([file]) }
+      .to raise_error(Saboteur::Error, /must set it up/)
+    expect(events).to be_empty
+  end
 end
