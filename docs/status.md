@@ -69,7 +69,7 @@ go through the watchdog, one at a time (see "Safety rules").
 1. Publishing: name `saboteur` free on rubygems as of 2026-10-09. The
    maintainer publishes it under their own name (MIT, 2026-10-10) at
    github.com/vamsipavanmahesh/saboteur, with a README thank-you to Glomo for
-   the AI tokens. 0.1.0 and 0.2.0 tagged on GitHub 2026-10-10; RubyGems push
+   the AI tokens. 0.1.0 and 0.2.0 tagged on GitHub 2026-10-10, 0.3.0 on 2026-10-11; RubyGems push
    is the maintainer's (MFA); the
    maintainer publishes, not the agent.
 
