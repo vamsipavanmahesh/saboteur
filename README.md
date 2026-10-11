@@ -236,6 +236,12 @@ jobs: 4                           # optional; the default is 1
 Run with `RAILS_ENV=test` and turn SimpleCov off for the run. An install
 generator is planned; until then this block is the supported setup.
 
+With `jobs: 4` (or more), each extra worker gets a copy of every test
+database, named `<database>_saboteur2` and up, made with
+`CREATE DATABASE ... TEMPLATE` on Postgres or a file copy on SQLite. The
+copies exist only for the run: saboteur drops them at the end, however the
+run ends. MySQL is not supported for `jobs` above 1.
+
 ### Skipped subjects and the mutant cap
 
 Subjects with no test coverage are skipped before mutation sources run. They
