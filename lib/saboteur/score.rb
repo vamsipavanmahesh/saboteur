@@ -54,11 +54,22 @@ module Saboteur
       share(timeouts)
     end
 
-    # False when no kill has a recorded cause (for example verdicts reused
-    # from a run made before causes were recorded): a split would then say
-    # nothing.
+    # False when no kill has a recorded cause: a split would then say
+    # nothing. A cause is missing for verdicts reused from a run made before
+    # causes were recorded, for a test that called exit, and for a failure
+    # outside any example (suite level).
     def split_known?
       assertion_kills.positive? || crash_kills.positive?
+    end
+
+    # [[label, share]]: assertion and crash always, then timeout and
+    # "cause not recorded" only when there are some, so the parts add up to
+    # value.
+    def parts
+      list = [["assertion", assertion_share], ["crash", crash_share]]
+      list << ["timeout", timeout_share] if timeouts.positive?
+      list << ["cause not recorded", unclassified_share] if unclassified_kills.positive?
+      list
     end
 
     def to_h
