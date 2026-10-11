@@ -49,8 +49,10 @@ code. This manual example fetches full history so Git can establish a real merge
 base. If a merge base is unavailable, the command fails rather than widening
 the scan. The ready-made action can start shallow and deepens only the PR merge
 ref as needed.
-This repository's [CI workflow](../.github/workflows/ci.yml) already follows
-this pattern with `bundle exec exe/saboteur` for the local executable.
+For the ready-made action, checkout must match the event's `github.sha`; the
+action checks this before using history. This repository's dogfood CI calls the
+local action with `uses: ./` and is not an example of the manual `BASE_SHA`
+workflow above.
 Do not run untrusted pull-request code with secrets or privileged credentials.
 
 ## Configuration
@@ -58,8 +60,6 @@ Do not run untrusted pull-request code with secrets or privileged credentials.
 Keep shared `.saboteur.yml` settings such as `include`, `exclude`, `require`
 and `rspec_args`. Pass `--since` only in the PR job, so a main-branch audit
 can use the same config without a diff filter. CLI flags override YAML.
-
-For a dedicated PR-only config, this is also supported:
 
 For a dedicated PR-only config, `since` can be set to the exact 40-character
 base commit SHA from the event payload. Do not put a moving branch name in a
