@@ -252,7 +252,7 @@
    "matched_but_killed": 0,
    "reasons": {
     "different": 3932,
-    "compile_failed": 12
+    "mutated_compile_failed": 12
    }
   },
   "relaxed": {
@@ -262,7 +262,7 @@
    "reasons": {
     "different": 2248,
     "reflection": 1684,
-    "compile_failed": 12
+    "mutated_compile_failed": 12
    }
   },
   "executed_mutants": 0,
