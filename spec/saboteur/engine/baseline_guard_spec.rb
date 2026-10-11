@@ -109,6 +109,27 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect(error.message).not_to include("OOM")
   end
 
+  # The advertised case: an OOM kill mid-run leaves nothing on the pipe,
+  # so the signal classification must come before the empty-payload check.
+  it "names the signal even when the killed child wrote nothing" do
+    _, status = Process.waitpid2(Process.fork do
+      Process.kill("KILL", Process.pid)
+      sleep
+    end)
+    allow(supervisor).to receive(:run).and_return(response(payload: "").with(exit_status: status))
+    expect { guard.call }.to raise_error(Saboteur::Error, /killed by SIGKILL - possible OOM, check memory/)
+  end
+
+  it "names a non-KILL signal even when the killed child wrote nothing" do
+    _, status = Process.waitpid2(Process.fork do
+      trap("TERM", "DEFAULT")
+      Process.kill("TERM", Process.pid)
+      sleep
+    end)
+    allow(supervisor).to receive(:run).and_return(response(payload: "").with(exit_status: status))
+    expect { guard.call }.to raise_error(Saboteur::Error, /killed by SIGTERM/)
+  end
+
   it "reports a plain non-zero exit without a signal hint" do
     _, status = Process.waitpid2(Process.fork { exit!(1) })
     allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
@@ -155,10 +176,10 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       expect { guard.call }.to raise_error(Saboteur::Error, /invalid.*Fix/m)
     end
     _, status = Process.waitpid2(Process.fork { exit!(1) })
-    [response.with(exit_status: status), response.with(leftover_pids: [123])].each do |result|
-      allow(supervisor).to receive(:run).and_return(result)
-      expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1.*Fix/m)
-    end
+    allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
+    expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1.*Fix/m)
+    allow(supervisor).to receive(:run).and_return(response.with(leftover_pids: [123]))
+    expect { guard.call }.to raise_error(Saboteur::Error, /the suite left child processes behind/)
   end
 
   it "refuses supervision stops, missing payloads, malformed payloads and adapter errors" do
