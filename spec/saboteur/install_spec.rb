@@ -138,4 +138,43 @@ RSpec.describe Saboteur::Install do
       expect(File.read(target)).to eq("log/*\n")
     end
   end
+
+  describe "exact results and modes" do
+    let(:outside) { Dir.mktmpdir }
+
+    after { FileUtils.remove_entry(outside) }
+
+    it "gives the binstub mode 0755 exactly" do
+      install
+      expect(File.stat(File.join(@root, "bin/saboteur")).mode & 0o777).to eq(0o755)
+    end
+
+    it "hints at the Gemfile even when there is no Gemfile at all" do
+      expect(described_class.new(root: @root).gemfile_hint).to eq(described_class::GEMFILE_HINT)
+    end
+
+    it "overwrites a dangling symlink under force and reports it as overwritten" do
+      File.symlink(File.join(outside, "missing.yml"), File.join(@root, ".saboteur.yml"))
+      expect(install(force: true).first.status).to eq(:overwritten)
+      expect(File.symlink?(File.join(@root, ".saboteur.yml"))).to be(false)
+      expect(File.exist?(File.join(outside, "missing.yml"))).to be(false)
+    end
+
+    it "names .gitignore in its skipped and unchanged results" do
+      File.write(File.join(@root, ".gitignore"), ".saboteur/\n")
+      expect(install.last).to eq(described_class::Result.new(:unchanged, ".gitignore"))
+      FileUtils.rm(File.join(@root, ".gitignore"))
+      File.symlink(File.join(outside, "gone"), File.join(@root, ".gitignore"))
+      expect(install.last).to eq(described_class::Result.new(:skipped, ".gitignore"))
+    end
+
+    it "replaces a live .gitignore symlink that already lists the entry, without duplicating it" do
+      target = File.join(outside, "ignore")
+      File.write(target, "log/*\n.saboteur/\n")
+      File.symlink(target, File.join(@root, ".gitignore"))
+      expect(install(force: true).last).to eq(described_class::Result.new(:overwritten, ".gitignore"))
+      expect(File.symlink?(File.join(@root, ".gitignore"))).to be(false)
+      expect(read(".gitignore")).to eq("log/*\n.saboteur/\n")
+    end
+  end
 end
