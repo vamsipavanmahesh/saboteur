@@ -1,0 +1,85 @@
+{
+  "hashie_lib_sample400": {
+    "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; compile options {:coverage_enabled=>true, :debug_frozen_string_literal=>false, :debug_level=>0, :frozen_string_literal=>false, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
+    "project": "/tmp/hashie_run",
+    "files": 41,
+    "mutants": 1645,
+    "strict": {
+      "proven": 0,
+      "proven_checked_by_suite": 0,
+      "wrong_skips": 0,
+      "reasons": {
+        "different": 1645
+      }
+    },
+    "relaxed": {
+      "proven": 0,
+      "proven_checked_by_suite": 0,
+      "wrong_skips": 0,
+      "reasons": {
+        "reflection": 1251,
+        "different": 394
+      }
+    },
+    "by_operator_proven_relaxed": {},
+    "executed_mutants": 400,
+    "survivors_among_executed": 66,
+    "executed_all": false
+  },
+  "saboteur_lib_static": {
+    "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; compile options {:coverage_enabled=>true, :debug_frozen_string_literal=>false, :debug_level=>0, :frozen_string_literal=>false, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
+    "project": "/tmp/saboteur",
+    "files": 43,
+    "mutants": 3589,
+    "strict": {
+      "proven": 0,
+      "proven_checked_by_suite": 0,
+      "wrong_skips": 0,
+      "reasons": {
+        "different": 3589
+      }
+    },
+    "relaxed": {
+      "proven": 0,
+      "proven_checked_by_suite": 0,
+      "wrong_skips": 0,
+      "reasons": {
+        "different": 2221,
+        "reflection": 1368
+      }
+    },
+    "by_operator_proven_relaxed": {},
+    "executed_mutants": 0,
+    "survivors_among_executed": 0,
+    "executed_all": false
+  },
+  "lobsters_models_lib_static": {
+    "compiler": "ruby 3.3.6 (2024-11-05 revision 75015d4c1f) [x86_64-linux]; compile options {:coverage_enabled=>true, :debug_frozen_string_literal=>false, :debug_level=>0, :frozen_string_literal=>false, :inline_const_cache=>true, :instructions_unification=>false, :operands_unification=>true, :peephole_optimization=>true, :specialized_instruction=>true, :tailcall_optimization=>false}",
+    "project": "/tmp/lobsters",
+    "files": 49,
+    "mutants": 3944,
+    "strict": {
+      "proven": 0,
+      "proven_checked_by_suite": 0,
+      "wrong_skips": 0,
+      "reasons": {
+        "different": 3932,
+        "compile_failed": 12
+      }
+    },
+    "relaxed": {
+      "proven": 0,
+      "proven_checked_by_suite": 0,
+      "wrong_skips": 0,
+      "reasons": {
+        "different": 2248,
+        "reflection": 1684,
+        "compile_failed": 12
+      }
+    },
+    "by_operator_proven_relaxed": {},
+    "executed_mutants": 0,
+    "survivors_among_executed": 0,
+    "executed_all": false
+  }
+}
