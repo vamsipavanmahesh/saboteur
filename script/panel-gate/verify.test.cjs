@@ -80,9 +80,9 @@ function fakeAPI(change = {}) {
       throw new Error('unexpected call ' + path);
     },
     async pages(path) {
-      if (path.startsWith('commits/')) return [];
+      if (path.startsWith('commits/') || path === 'issues/1/events' || path === 'issues/2/events') return [];
       if (path === 'issues/1/comments') return change.noQA ? comments().slice(0, 2) : comments();
-      if (path === 'pulls/1/commits') return [{sha: HEAD, parents: [{}], commit: {
+      if (path === 'pulls/1/commits' || path === 'pulls/2/commits') return [{sha: HEAD, parents: [{}], commit: {
         author: {name: 'Name', email: 'name@example.org'}, message: 'Signed-off-by: Name <name@example.org>'}}];
       if (path.startsWith('actions/runs?')) return change.wrongRun ? runs.map(r => ({...r, head_sha: BASE})) : runs;
       const id = Number(path.split('/')[2]);
@@ -323,4 +323,55 @@ test('head-only latch is promoted with original epoch and stays sticky despite p
   await assert.rejects(() => verify(api, 1));
   assert.equal(api.records.length, 1);
   assert.deepEqual(Object.keys(await revocations(api, 1, BASE)), ['principal', 'architect', 'qa']);
+});
+
+for (const mode of ['forceRevert', 'fastForward']) {
+  test(`head-only latch cannot be hidden by ${mode} before anchor recovery`, async () => {
+    const api = eventAPI(), call = api.call.bind(api), pages = api.pages.bind(api);
+    const C = 'c'.repeat(40);
+    let moved = false, failAnchor = true;
+    const headARecords = [];
+    api.call = async (path, method, data) => {
+      if (method === 'POST' && path === `statuses/${policy.revocationAnchor}` && failAnchor) throw new Error('anchor unavailable');
+      if (method === 'POST' && path === `statuses/${HEAD}`) headARecords.push({...data, created_at: '2026-10-12T00:00:00Z'});
+      const result = await call(path, method, data);
+      if (moved && path === 'pulls/1') return {...result, head: {sha: C}};
+      if (moved && path.startsWith('actions/runs/')) return {...result, head_sha: C};
+      return result;
+    };
+    api.pages = async path => {
+      if (path === `commits/${HEAD}/statuses`) return headARecords;
+      if (path === `commits/${C}/statuses`) return [];
+      if (path === 'issues/1/events') return moved && mode === 'forceRevert' ?
+        [{event: 'head_ref_force_pushed', created_at: '2026-10-12T00:00:01Z'}] : [];
+      const result = await pages(path);
+      if (moved && path === 'pulls/1/commits') return mode === 'fastForward' ? [...result, {...result[0], sha: C}] : [{...result[0], sha: C}];
+      if (moved && path.startsWith('actions/runs?')) return result.map(r => ({...r, head_sha: C}));
+      if (moved && path.includes('/jobs')) return result.map(j => ({...j, head_sha: C}));
+      return result;
+    };
+    await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE}))));
+    moved = true; failAnchor = false;
+    api.comments.splice(0, api.comments.length, ...comments().map(c => ({...c, body: body(marker({lens: parse(c.body).lens, head: C}))})));
+    await assert.rejects(() => verify(api, 1));
+    assert(!api.statuses.some(s => s.state === 'success'));
+    api.comments.push(...comments().map((c, i) => ({...c, id: i + 20, created_at: '2026-10-13T00:00:00Z',
+      updated_at: '2026-10-13T00:00:00Z', body: body(marker({lens: parse(c.body).lens, head: C}))})));
+    await verify(api, 1);
+    assert.equal(api.statuses.at(-1).state, 'success');
+  });
+}
+test('force-push event read failure and invalid epoch fail closed', async () => {
+  for (const invalid of [false, true]) {
+    const api = fakeAPI(), pages = api.pages.bind(api);
+    api.pages = async path => {
+      if (path === 'issues/1/events') {
+        if (!invalid) throw new Error('events unavailable');
+        return [{event: 'head_ref_force_pushed', created_at: 'bad'}];
+      }
+      return pages(path);
+    };
+    await assert.rejects(() => verify(api, 1));
+    assert.equal(api.statuses.at(-1).state, 'failure');
+  }
 });
