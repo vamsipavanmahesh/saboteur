@@ -10,19 +10,25 @@ module Saboteur
       def setup
         require "rspec/core"
         ::RSpec::Core::Runner.disable_autorun!
-        options = ::RSpec::Core::ConfigurationOptions.new(rspec_args)
-        @runner = ::RSpec::Core::Runner.new(options)
+        @runner = ::RSpec::Core::Runner.new(configuration_options)
         @runner.setup($stderr, $stdout)
         raise Error, "rspec quit while loading spec files" if world.wants_to_quit
       end
 
       # RSpec only adds its default "spec" path when $0 is `rspec`.
-      # Explicit tests replace the spec paths in rspec_args; its options stay.
       def rspec_args
         args = Array(config.fetch("rspec_args", []))
-        explicit = Array(config.fetch("tests", []))
-        args = args.reject { |arg| spec_path?(arg) } + explicit if explicit.any?
         args.any? { |arg| !arg.start_with?("-") } ? args : args + ["spec"]
+      end
+
+      # RSpec's own parser reads rspec_args and .rspec, so option values such
+      # as `--require path` stay intact. Explicit tests then replace only the
+      # files and directories to run.
+      def configuration_options
+        ::RSpec::Core::ConfigurationOptions.new(rspec_args).tap do |options|
+          explicit = Array(config.fetch("tests", []))
+          options.options[:files_or_directories_to_run] = explicit if explicit.any?
+        end
       end
 
       def all_tests
@@ -55,10 +61,6 @@ module Saboteur
       end
 
       private
-
-      def spec_path?(arg)
-        !arg.start_with?("-") && File.exist?(File.expand_path(arg.sub(/:\d+\z/, ""), config.root))
-      end
 
       def world
         ::RSpec.world
