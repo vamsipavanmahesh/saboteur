@@ -90,6 +90,10 @@ module Saboteur
 
   # Everything one run produced.
   class Report
+    # More than half of the executed mutants errored: the run tested
+    # almost nothing and must not pass a gate.
+    MAX_ERROR_FRACTION = 0.5
+
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :root, :seed, :skipped_subjects
 
     # REVIEW: diff mode; the terminal then shows one survivor per line.
@@ -117,6 +121,16 @@ module Saboteur
 
     def rejected_kills
       results.count(&:rejected_kill?)
+    end
+
+    # Errored mutants (a crash, a neutral check that failed) are outside
+    # the score, so a run whose executed mutants mostly errored tested
+    # almost nothing. Skipped mutants never ran: they are neither the
+    # numerator nor the denominator.
+    def majority_errored?
+      return false if executed.empty?
+
+      executed.count { |result| result.status == :error }.fdiv(executed.size) > MAX_ERROR_FRACTION
     end
 
     def review?

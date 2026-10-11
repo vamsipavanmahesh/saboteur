@@ -93,4 +93,13 @@ RSpec.describe Saboteur::Reporter::Stryker do
       expect(JSON.parse(File.read(path))["schemaVersion"]).to eq("2")
     end
   end
+  it "records the run's exit cause when the CLI supplies one" do
+    document = described_class.build(report, exit_cause: "errorMajority")
+    expect(document.fetch(:saboteur).fetch(:exitCause)).to eq("errorMajority")
+  end
+
+  it "omits the exit cause when none is supplied" do
+    document = described_class.build(report)
+    expect(document.fetch(:saboteur)).not_to have_key(:exitCause)
+  end
 end

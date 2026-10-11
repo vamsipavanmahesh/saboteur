@@ -134,6 +134,158 @@ RSpec.describe Saboteur::CLI do
     it "is 3 when every executed mutant errored" do
       expect(run_with(report_of(result_for(:error), result_for(:skipped, reason: "no coverage")))).to eq(3)
     end
+
+    # Errored mutants are outside the score, so a mostly-errored run tested
+    # almost nothing; it must not go green even without a threshold.
+    it "is 3 when most executed mutants errored, and says why" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      expect(run_with(report)).to eq(3)
+      expect(err.string).to include("2 of 3 mutants errored")
+    end
+
+    it "still passes when at most half of the executed mutants errored" do
+      report = report_of(result_for(:killed), result_for(:error))
+      expect(run_with(report)).to eq(0)
+    end
+
+    # Skipped mutants never ran, so they are neither numerator nor
+    # denominator: 2 errors of 3 executed is a majority even with skips.
+    it "does not let skipped mutants dilute the error fraction" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error),
+                         result_for(:skipped, reason: "no coverage"), result_for(:skipped, reason: "no coverage"))
+      expect(run_with(report)).to eq(3)
+      expect(err.string).to include("2 of 3 mutants errored")
+    end
+
+    # The majority rule fires before the survivor gate: a run that tested
+    # almost nothing fails as a tool error, not as survivors.
+    it "is 3, not 1, with survivors when most executed mutants errored" do
+      report = report_of(result_for(:survived), result_for(:error), result_for(:error), result_for(:error))
+      expect(run_with(report)).to eq(3)
+    end
+
+    it "writes the majority-error cause into the JSON report" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--json", json).call).to eq(3)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("errorMajority")
+    end
+
+    # A fresh majority JSON plus a failing later stage used to pass the
+    # harness's acceptance: the report is the completion evidence, so it
+    # must not exist when reporting did not complete.
+    it "writes no JSON report when a later reporting stage fails" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      dir = Dir.mktmpdir
+      json = File.join(dir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow_any_instance_of(Saboteur::Reporter::Html).to receive(:call).and_raise(Saboteur::Error, "no html")
+      expect(cli("run", "--json", json, "--html", File.join(dir, "r.html")).call).to eq(3)
+      expect(File).not_to exist(json)
+    end
+
+    # Agent mode shares the publish rule: the payload build and render are
+    # fallible stages too, so the JSON is written only after them.
+    it "writes no JSON report in agent mode when the payload build fails" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      dir = Dir.mktmpdir
+      json = File.join(dir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_raise(Saboteur::Error, "no payload")
+      expect(cli("run", "--agent", "--json", json).call).to eq(3)
+      expect(File).not_to exist(json)
+    end
+
+    # The recorded cause is the agent-mode classification: survivors exit 1
+    # even when most mutants errored, and the JSON must say the same.
+    it "records survivors as the cause in agent mode when survivors gate the exit" do
+      report = report_of(result_for(:survived), result_for(:error), result_for(:error), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
+    end
+
+    it "records the majority-error cause in agent mode when it decides the exit" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json).call).to eq(3)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("errorMajority")
+    end
+
+    it "records an incomplete cause in agent mode when a minority errored" do
+      report = report_of(result_for(:killed), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json).call).to eq(3)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("incomplete")
+    end
+
+    # Agent mode prints exactly one payload on stdout: any announcement or
+    # a missing print breaks the parse, and the reports it names exist.
+    it "prints only the payload and writes both reports in agent mode" do
+      report = report_of(result_for(:killed))
+      dir = Dir.mktmpdir
+      json = File.join(dir, "r.json")
+      html = File.join(dir, "r.html")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json, "--html", html).call).to eq(0)
+      expect(JSON.parse(out.string)["status"]).to eq("complete")
+      expect(File).to exist(json)
+      expect(File.read(html)).to start_with("<!DOCTYPE html>")
+    end
+
+    it "records ok as the cause in agent mode when the run is clean" do
+      report = report_of(result_for(:killed))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--agent", "--json", json).call).to eq(0)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("ok")
+    end
+
+    it "writes ok into the JSON report when nothing failed" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report_of(result_for(:killed)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--json", json).call).to eq(0)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("ok")
+    end
+
+    it "writes survivors into the JSON report when the survivor gate fails" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report_of(result_for(:survived)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
+    end
+
+    it "writes belowThreshold into the JSON report when the score misses the threshold" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      report = report_of(result_for(:killed), result_for(:survived))
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "90", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("belowThreshold")
+    end
+
+    it "writes the incomplete-under-threshold cause into the JSON report" do
+      report = report_of(result_for(:killed), result_for(:error))
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--threshold", "50", "--json", json).call).to eq(3)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("incompleteUnderThreshold")
+    end
   end
 end
 

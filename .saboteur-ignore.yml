@@ -143,3 +143,7 @@
   reason: 'equivalent here: sqlite3 is always loaded before this runs - the
     covering spec requires it, and a Rails app with a sqlite adapter has it
     loaded'
+- subject: Saboteur::Report#majority_errored?
+  mutation: 6b4e7009a196f437
+  reason: 'equivalent: with nothing executed the count is 0 and 0.fdiv(0) is
+    NaN, which is not > 0.5 either'

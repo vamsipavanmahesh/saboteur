@@ -18,7 +18,6 @@ module Saboteur
     EXIT_SURVIVORS = 1
     EXIT_USAGE = 2
     EXIT_TOOL = 3
-
     class UsageError < ConfigError; end
 
     attr_reader :options
@@ -137,9 +136,14 @@ module Saboteur
       @err.puts
       Reporter::Terminal.new(@out).call(report)
       Reporter::Replay.new(@out).call(report) if options[:id]
-      write_json(report)
+      code = exit_code(report)
+      # The JSON carries the exit cause an outer harness trusts, so it is
+      # the completion evidence for the whole run: write it only after
+      # every other fallible reporting stage, or a late failure would
+      # leave a fresh, misleading report behind.
       write_html(report)
-      exit_code(report)
+      write_json(report, exit_cause(report, code))
+      code
     end
 
     def doctor
@@ -161,10 +165,14 @@ module Saboteur
     def agent_run(arguments)
       tree = WorkingTree.new(config.root, ignored: output_paths).state
       report = stdout_on_stderr { Engine.new(config, **arguments).call }
-      write_json(report, announce: false)
-      write_html(report, announce: false)
       payload = Reporter::Agent.call(report, agent_provenance(report, tree))
-      @out.print(Reporter::Agent.render(payload))
+      rendered = Reporter::Agent.render(payload)
+      # Same publish order as text_run: the JSON is the completion
+      # evidence, so it is written only after every other fallible stage,
+      # including the agent payload itself.
+      write_html(report, announce: false)
+      write_json(report, agent_exit_cause(report, payload), announce: false)
+      @out.print(rendered)
       Reporter::Agent.exit_code(payload)
     end
 
@@ -205,11 +213,11 @@ module Saboteur
       @sources&.any? ? "files" : "full"
     end
 
-    def write_json(report, announce: true)
+    def write_json(report, cause, announce: true)
       path = config.path("json_report")
       return unless path
 
-      Reporter::Stryker.new(path).call(report)
+      Reporter::Stryker.new(path).call(report, exit_cause: cause)
       @out.puts "\nJSON report: #{path}" if announce
     end
 
@@ -222,12 +230,43 @@ module Saboteur
     end
 
     def exit_code(report)
-      executed = report.executed
-      return EXIT_TOOL if executed.any? && executed.all? { |result| result.status == :error }
+      return EXIT_TOOL if mostly_errored?(report)
 
       return EXIT_TOOL if incomplete_under_threshold?(report)
 
       failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
+    end
+
+    def mostly_errored?(report)
+      return false unless report.majority_errored?
+
+      executed = report.executed
+      errors = executed.count { |result| result.status == :error }
+      @err.puts("saboteur: #{errors} of #{executed.size} mutants errored, so the run tested almost nothing; " \
+                "fix the errors and run again")
+      true
+    end
+
+    # Agent mode: the recorded cause is the payload's own verdict, so the
+    # JSON and the process exit classify the run the same way. An
+    # incomplete run that mostly errored keeps its distinct cause, so the
+    # harness rule means the same thing in both modes.
+    def agent_exit_cause(report, payload)
+      case payload[:verdict]
+      when "clean" then "ok"
+      when "survivors" then "survivors"
+      else report.majority_errored? ? "errorMajority" : "incomplete"
+      end
+    end
+
+    # Why the run exits the way it does, recorded in the JSON report so an
+    # outer harness can tell "most mutants errored" from the other exit 3s.
+    def exit_cause(report, code)
+      case code
+      when EXIT_OK then "ok"
+      when EXIT_SURVIVORS then config["threshold"].nil? ? "survivors" : "belowThreshold"
+      else report.majority_errored? ? "errorMajority" : "incompleteUnderThreshold"
+      end
     end
 
     # With --threshold the score decides; without it any unignored survivor does.
