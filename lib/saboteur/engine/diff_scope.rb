@@ -20,6 +20,14 @@ module Saboteur
         end
       end
 
+      # The changed lines a mutant touches, sorted. A statement that spans
+      # several lines is mutated as one piece and reported at its first line,
+      # which can sit above the line that changed; this names the changed line.
+      def changed_lines_for(subject, mutation)
+        changed = @changed_lines.fetch(subject.file, Set.new)
+        mutation.edits.flat_map { |edit| edited_lines(subject, edit).to_a }.uniq.select { changed.include?(_1) }.sort
+      end
+
       private
 
       def edited_lines(subject, edit)
