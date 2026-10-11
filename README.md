@@ -238,11 +238,12 @@ generator is planned; until then this block is the supported setup.
 
 With `jobs: 4` (or more), each extra worker gets a copy of every test
 database, named `<database>_saboteur2` and up, made with
-`CREATE DATABASE ... TEMPLATE` on Postgres or a file copy on SQLite. The
-copies exist only for the run: saboteur drops them when the run finishes or
-fails, and prepares them with `DROP DATABASE IF EXISTS`, so a copy left
-behind by a killed run is reclaimed on the next run. MySQL is not supported
-for `jobs` above 1.
+`CREATE DATABASE ... TEMPLATE` on Postgres or a file copy on SQLite.
+saboteur drops the copies when the run ends, on a best-effort basis: a
+drop that fails is reported as a warning and never changes the run's
+outcome. A copy left behind - by a failed drop or a killed run - is
+reclaimed by the next run, whose prepare starts from
+`DROP DATABASE IF EXISTS`. MySQL is not supported for `jobs` above 1.
 
 ### Skipped subjects and the mutant cap
 
