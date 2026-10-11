@@ -57,11 +57,44 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect { guard.call }.to raise_error(Saboteur::Error, /no tests.*Check/m)
   end
 
+  it "refuses malformed result fields and an unsuccessful exit or leftover children" do
+    malformed = ["[]", "null", JSON.generate(passed: "yes", failed: [], executed: ["t1"]),
+                 JSON.generate(passed: true, failed: nil, executed: ["t1"]),
+                 JSON.generate(passed: true, failed: [], executed: [nil])]
+    malformed.each do |payload|
+      allow(supervisor).to receive(:run).and_return(response(payload: payload))
+      expect { guard.call }.to raise_error(Saboteur::Error, /invalid.*Fix/m)
+    end
+    _, status = Process.waitpid2(Process.fork { exit!(1) })
+    [response.with(exit_status: status), response.with(leftover_pids: [123])].each do |result|
+      allow(supervisor).to receive(:run).and_return(result)
+      expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1.*Fix/m)
+    end
+  end
+
   it "refuses supervision stops, missing payloads, malformed payloads and adapter errors" do
     [response(stopped: :timeout), response(payload: ""), response(payload: "{"),
      response(error: "boot failed")].each do |result|
       allow(supervisor).to receive(:run).and_return(result)
       expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1.*log.*Fix/m)
+    end
+  end
+end
+
+RSpec.describe Saboteur::Engine::BaselineGuard, "mutation hook compatibility" do
+  it "does not pass nil to mutation-specific before_fork callbacks" do
+    Dir.mktmpdir do |root|
+      hooks = Saboteur::Hooks.new
+      hooks.register(:before_fork, &:edits)
+      adapter = double("adapter", all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "a.rb")])
+      supervisor = instance_double(Saboteur::Execution::Supervisor)
+      payload = JSON.generate(passed: true, failed: [], executed: ["t1"])
+      outcome = Saboteur::Execution::Supervisor::Result.new(payload: payload, exit_status: nil, stopped_by: nil,
+                                                            detail: nil, runtime: 0.1, leftover_pids: [])
+      allow(supervisor).to receive(:run).and_return(outcome)
+      guard = described_class.new(config: Saboteur::Config.new({}, root: root), integration: adapter, hooks: hooks,
+                                  supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new))
+      expect { guard.call }.not_to raise_error
     end
   end
 end
