@@ -93,6 +93,30 @@ RSpec.describe Saboteur::Reporter::Findings do
     expect(digests).to eq([one.digest, two.digest].sort)
   end
 
+  it "orders two survivors in one file by line, before the digest tie-break" do
+    source = "class Pair\n  def call\n    alpha +\n      beta\n  end\nend\n"
+    subject = project("pair.rb" => source).last.first
+    at = subject.file_source.index("alpha")
+    beta_at = subject.file_source.index("beta")
+    make = lambda do |start, finish, replacement|
+      edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: start, end_byte: finish,
+                                                replacement:)
+      mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "rename",
+                                                        edits: [edit])
+      Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                 mutated_source: subject.apply(mutation.edits))
+    end
+    earlier = make.call(at, at + 5, "gamma")
+    later = make.call(beta_at, beta_at + 4, "delta")
+    root = File.dirname(subject.file)
+    report = Saboteur::Report.new(results: [later, earlier], subjects: [subject], wall_time: 1.0,
+                                  root:, seed: 1)
+    findings = build(report).fetch("survivors")
+    expect(findings.map { |f| f["line"] }).to eq([3, 4])
+    # The spec only pins the order when the line decides it.
+    expect([earlier.digest, later.digest]).not_to eq([earlier.digest, later.digest].sort)
+  end
+
   it "joins a multi-edit mutant's texts like the Stryker report does, with one location per edit" do
     source = <<~RUBY
       class Pair
@@ -208,6 +232,29 @@ RSpec.describe Saboteur::Reporter::Findings do
     finding = only(build(report).fetch("survivors"))
     expect(finding.values_at("line", "endLine", "original", "replacement"))
       .to eq([3, 3, "", "raise "])
+  end
+
+  it "ranges a mixed mutant past a zero-width insertion that starts a later line" do
+    source = "class Pair\n  def call\n    alpha + beta\n\n  end\nend\n"
+    subject = project("pair.rb" => source).last.first
+    at = subject.file_source.index("alpha")
+    later = subject.file_source.index("  end")
+    edits = [
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: later, end_byte: later,
+                                         replacement: "raise; "),
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 5,
+                                         replacement: "gamma")
+    ]
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "mixed",
+                                                      edits:)
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(mutation.edits))
+    root = File.dirname(subject.file)
+    report = Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0, root:, seed: 1)
+    finding = only(build(report).fetch("survivors"))
+    # The insertion sits at the start of line 5, so the range reaches line 5.
+    expect(finding.values_at("line", "endLine")).to eq([3, 5])
+    expect(finding.fetch("edits").map { |e| [e["line"], e["endLine"]] }).to eq([[3, 3], [5, 5]])
   end
 
   it "keeps an edit that ends on a line boundary on the line above" do
