@@ -62,3 +62,16 @@ RSpec.describe Saboteur::MutantResult do
     expect(diff).to include("--- a/person.rb", "-  def adult?; @age >= 18; end", "+  def adult?; @age > 18; end")
   end
 end
+
+RSpec.describe Saboteur::Report, "score without whole-body mutants" do
+  let(:report) do
+    report_of(result_for(:killed, coarse: true, kill_cause: "NoMethodError"),
+              result_for(:killed, replacement: "<", kill_cause: "assertion"),
+              result_for(:survived, replacement: "=="))
+  end
+
+  it "scores the fine mutants apart from the whole-body ones" do
+    expect([report.score, report.fine_score_breakdown.value, report.coarse_score_breakdown.value])
+      .to eq([2.0 / 3, 0.5, 1.0])
+  end
+end
