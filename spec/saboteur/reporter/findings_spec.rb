@@ -56,6 +56,14 @@ RSpec.describe Saboteur::Reporter::Findings do
     )
   end
 
+  it "names the changed lines a survivor touches in diff mode, and omits the key otherwise" do
+    scope = Saboteur::Engine::DiffScope.new({ person_subject.file => Set.new([2]) })
+    review = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), review: true, diff_scope: scope)
+    expect(only(build(review).fetch("survivors"))).to include("changedLines" => [2])
+    expect(only(build(report_of(result_for(:survived))).fetch("survivors"))).not_to have_key("changedLines")
+  end
+
   it "lists survivors accepted on the ignore list apart, with their reason" do
     survivor = result_for(:survived)
     survivor.ignored = "equivalent"
