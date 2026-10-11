@@ -6,6 +6,10 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `saboteur doctor [--config PATH] [--seed N]`: environment checks and two fresh
+  unchanged-suite checks, without mutation reports or coverage/verdict cache writes.
+
 ## [0.2.0] - 2026-10-10
 
 ### Added
