@@ -87,6 +87,18 @@ RSpec.describe Saboteur::MutationSource::LiteralReplacement do
     expect(source.mutations_for(subject)).to be_empty
   end
 
+  it "leaves block and lambda parameter defaults untouched while visiting their bodies" do
+    ["input.map { |value = true| [value, false] }",
+     '->(value = "token") { [value, false] }',
+     'lambda { |value: "token"| [value, false] }',
+     '->(value: "token") { [value, false] }'].each do |body|
+      mutations = found_for(body)
+      expect(mutations.size).to eq(1), body
+      expect(mutations.first.first).to eq("literal_boolean")
+      expect(mutations.first.last).to include(body.sub("false]", "true]"))
+    end
+  end
+
   it "stops at nested definitions and singleton classes" do
     ["def inner; true; end", 'class << input; def inner; "token"; end; end'].each do |body|
       expect(found_for(body)).to be_empty, body
