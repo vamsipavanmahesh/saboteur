@@ -6,6 +6,26 @@ module Saboteur
     # What a run has to say besides results: warnings for the report, the
     # count of mutations dropped for not parsing, and progress marks.
     class Diagnostics
+      # See progress_heartbeat. Time-gated itself, so the supervisor can
+      # call tick on every poll.
+      class ProgressHeartbeat
+        def initialize(diagnostics, label, interval: 30)
+          @diagnostics = diagnostics
+          @label = label
+          @interval = interval
+          @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          @last_print = @started
+        end
+
+        def tick
+          now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          return if now - @last_print < @interval
+
+          @last_print = now
+          @diagnostics.inform("#{@label}: #{(now - @started).round} s elapsed")
+        end
+      end
+
       MARKS = { killed: ".", survived: "S", timeout: "T", resource_limit: "L", error: "E" }.freeze
 
       attr_reader :warnings, :invalid_mutations
@@ -28,21 +48,12 @@ module Saboteur
         @err.puts("saboteur: #{message}")
       end
 
-      # Prints "<label>: N s elapsed" about every interval seconds while the
-      # block runs, so a long phase does not look stuck. The heartbeat thread
-      # is always stopped before the caller continues, so it never leaks
-      # into a fork.
-      def with_progress_heartbeat(label, interval: 30, &block)
-        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        heartbeat = Thread.new do
-          loop do
-            sleep interval
-            inform("#{label}: #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round} s elapsed")
-          end
-        end
-        block.call
-      ensure
-        heartbeat&.kill
+      # A heartbeat for a long phase: the supervisor's wait loop calls tick
+      # in the parent after the fork, so no extra thread is ever alive at
+      # fork time. Prints "<label>: N s elapsed" about every interval
+      # seconds, so a long phase does not look stuck.
+      def progress_heartbeat(label, interval: 30)
+        ProgressHeartbeat.new(self, label, interval: interval)
       end
 
       def progress(result)
