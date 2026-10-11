@@ -28,6 +28,23 @@ module Saboteur
         @err.puts("saboteur: #{message}")
       end
 
+      # Prints "<label>: N s elapsed" about every interval seconds while the
+      # block runs, so a long phase does not look stuck. The heartbeat thread
+      # is always stopped before the caller continues, so it never leaks
+      # into a fork.
+      def with_progress_heartbeat(label, interval: 30, &block)
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        heartbeat = Thread.new do
+          loop do
+            sleep interval
+            inform("#{label}: #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round} s elapsed")
+          end
+        end
+        block.call
+      ensure
+        heartbeat&.kill
+      end
+
       def progress(result)
         @err.print(MARKS.fetch(result.status, "?"))
         @err.flush
