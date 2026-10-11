@@ -51,6 +51,16 @@ module Saboteur
         execute(Listener.new(recorder))
       end
 
+      def run_baseline(seed:)
+        configuration.order = "rand:#{seed}"
+        configuration.fail_fast = false
+        listener = Listener.new
+        passed = execute(listener)
+        RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
+                      executed_ids: listener.executed, runtime: listener.runtime,
+                      failure_classes: listener.failure_classes, failure_messages: listener.failure_messages)
+      end
+
       private
 
       def world
