@@ -25,3 +25,10 @@ RSpec.describe "reporting skipped subjects" do
                                             line: 2, reason: "no coverage" }])
   end
 end
+
+RSpec.describe Saboteur::Reporter::Stryker, "candidate selection warnings" do
+  it "keeps omitted-count warnings in machine-readable output" do
+    report = report_of(warnings: ["K#m: omitted 3 mutant(s) above max_mutants_per_method (2)"])
+    expect(described_class.build(report)[:warnings]).to eq(report.warnings)
+  end
+end
