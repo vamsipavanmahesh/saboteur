@@ -33,7 +33,7 @@ module Saboteur
 
     def boot_target(hooks)
       Engine::Boot.new(@config, hooks).load_target
-    rescue LoadError, StandardError => e
+    rescue LoadError, SyntaxError, SystemExit, StandardError => e
       raise Error, "target boot failed: #{e.class}: #{e.message}; check require files, hooks and rspec_args"
     end
 
