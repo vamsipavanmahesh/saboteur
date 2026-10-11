@@ -1,63 +1,103 @@
 # saboteur
 
-Mutation testing for Ruby 3.3+.
+**Mutation testing for Ruby and RSpec that is fast enough to run on every pull request.**
 
-saboteur makes small deliberate changes to your methods (mutants), runs only
-the tests that execute each change, and reports the changes no test notices
-(survivors). Each survivor points at a missing test or at code that does not
-matter.
+[![CI](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml/badge.svg)](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml)
+[![Gem Version](https://img.shields.io/gem/v/saboteur)](https://rubygems.org/gems/saboteur)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Status: an early release (0.2.0). Tested on the RSpec suites of plain gems
-(dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
-human-essentials on Postgres (4,080 mutants, 6 workers) and lobsters on
-SQLite, both on macOS. Not yet tried on MySQL or older Rails versions. RSpec
-only, by design.
+Your suite is green and coverage says 95%. That tells you the tests *ran* your
+code. It does not tell you they would *notice* if the code were wrong.
 
-## What makes it different
+saboteur finds out. It makes small deliberate changes to your methods (flips a
+`<` to `<=`, swaps `+` for `-`, replaces a body with `nil`), runs the tests that
+cover each change, and reports every change your suite let through. Each of
+those survivors is either a missing test or code that does not matter.
 
-- **Tests picked per mutant by line coverage.** Each mutant runs only the
-  tests that executed the changed statement. A change no test reaches is
-  reported as "no coverage", not as a survivor.
-- **Likeliest killers first.** Tests that killed earlier mutants of the same
-  method run first, then the fastest; the first failure stops the run.
-- **Coarse first.** Each method's body is first replaced with `nil` and with
-  `raise`. If a test suite does not notice that, saboteur reports it and
-  skips the fine-grained mutants for that method.
-- **Diff mode.** `--since origin/main` mutates only methods changed on a branch.
-- **Safe to run.** Every mutant runs in a supervised child; anything it
-  starts is tracked and killed, with deadline, memory and process caps.
-- **Open report format.** JSON in the Stryker mutation-testing-report schema.
-- **Pluggable mutation sources.** Add your own mutants by file and byte range.
+```
+$ bundle exec saboteur run --since origin/main
+```
+
+Never heard of mutation testing? It is the fastest way to ask "if I broke this,
+would a test fail?" and get a list of answers. Read the
+[design notes](docs/design.md) when you want the details.
+
+## Try it in a minute
+
+```sh
+gem install saboteur          # or: gem "saboteur", group: :test  in your Gemfile
+cd your-project               # a Ruby 3.3+ project with an RSpec suite
+bundle exec saboteur run --subject 'YourClass#your_method'
+```
+
+Start with one method. You get counts per status, a score, timing, and a
+unified diff for every survivor, so you can read the exact change your tests
+missed. The JSON report lands in `.saboteur/report.json`.
+
+Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
+
+## Why it is built the way it is
+
+**It only runs tests that can matter.** Each mutant runs only the tests whose
+line coverage touched the changed statement. Tests that killed earlier mutants
+of the same method go first, then the fastest, and the first failure stops the
+run. A change no test reaches is reported as "no coverage", not as a survivor.
+
+**It does not waste time on dead ends.** Each method's body is first replaced
+with `nil` and with `raise`. If your suite does not notice that, saboteur says
+so and skips the fine-grained mutants for that method. Subjects with no tests
+are skipped before any mutants are generated, and each method is capped at
+`max_mutants_per_method` mutants (100 by default).
+
+**It stays light on memory.** Workers are forked from a warmed, compacted
+heap, so they share more pages with their parent and copy less. The change is
+[`ForkReadiness`](lib/saboteur/execution/fork_readiness.rb).
+
+**It fits a pull request.** `--since origin/main` mutates only the methods your
+branch changed. On one real change in saboteur's own history, that took a file
+from 139 mutants to 7, and median wall time fell 22.9%. The time saving is
+smaller than the mutant count because building the coverage map is a fixed
+cost, and this is one file, not a Rails app. The full method, raw timings and
+caveats are in [bench/since](bench/since/README.md).
+
+**You can trust a kill.** After a method's mutants run, saboteur re-runs the
+killing tests against the *unchanged* method. If they fail there too, the kill
+was fake and becomes an error. In our comparison on lobsters, 0 of 20 checked
+kills were fake. Every mutant runs in a supervised child with deadline, memory
+and process caps, and anything it starts is tracked and killed.
+
+**It is open.** The report is JSON in the Stryker mutation-testing-report
+schema, and you can add your own mutants through a small public interface.
 
 ## Usage
 
 ```sh
-bundle exec saboteur run --since origin/main      # default workflow for pull requests
-bundle exec saboteur run                          # whole-project audit (main branch)
+bundle exec saboteur run                          # whole project
+bundle exec saboteur run --since origin/main      # methods changed on this branch
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
 bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
 ```
 
-For pull requests, start with `--since` against the target branch. This is a
-workflow recommendation, not a new CLI default: plain `run` still checks the
-whole configured project. See [the pull-request guide](docs/pull-requests.md)
-for checkout history, configuration and limits. Keep whole-project runs on
-main: diff mode does not check every method affected by a dependency change.
+Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
+`--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
+`--json PATH`, `--no-cache` (rebuild the coverage map).
 
-Every test run starts from the same random seed (1 by default), so tests
-that use `rand` see the same values in each mutant's run and in the check
-that confirms a kill. The report prints the seed; pass it to `--seed` to
-repeat a run.
+For pull requests, start with `--since` against your target branch, and keep
+whole-project runs on main: diff mode does not check every method affected by a
+dependency change. [The pull-request guide](docs/pull-requests.md) covers
+checkout history, a GitHub Actions example, configuration and limits.
+
+Every test run starts from the same random seed (1 by default), so tests that
+use `rand` see the same values in each mutant's run and in the check that
+confirms a kill. The report prints the seed; pass it to `--seed` to repeat a
+run.
 
 `--incremental` reuses an earlier verdict only while the method, the mutant,
 its covering tests and their files, the lockfile and the config are all
-unchanged. It cannot see a change in a method this one calls, so run without
-it now and then (and in CI on the main branch).
-
-Output: counts per status, the score, timing, and a unified diff for every
-survivor. The JSON report goes to `.saboteur/report.json`.
+unchanged. It cannot see a change in a method this one calls, so run without it
+now and then (and in CI on the main branch).
 
 Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
 2 bad configuration, 3 the tool failed.
@@ -83,22 +123,24 @@ ignore_file: .saboteur-ignore.yml
 seed: 1                     # Ruby's random seed in every test run
 ```
 
+### Skipped subjects and the mutant cap
+
 Subjects with no test coverage are skipped before mutation sources run. They
 remain in the subject count, are listed as skipped subjects in terminal output,
-and appear under `skippedSubjects` in JSON. They are not invented mutants and
-do not enter saboteur's mutation score. Stryker dashboards may ignore the
-extra `skippedSubjects` field and calculate scores from mutant entries alone.
-Removing previously generated `NoCoverage` mutants can therefore raise a
-dashboard's score even when test detection has not improved. Subject skips
-are visible in saboteur's terminal and JSON, not necessarily in dashboards. Changes inside a covered method that no test
-reaches still produce mutant-level "no coverage" results.
+and appear under `skippedSubjects` in JSON. They are not invented mutants and do
+not enter saboteur's mutation score. Stryker dashboards may ignore the extra
+`skippedSubjects` field and calculate scores from mutant entries alone, so
+removing previously generated `NoCoverage` mutants can raise a dashboard's score
+even when test detection has not improved. Changes inside a covered method that
+no test reaches still produce mutant-level "no coverage" results.
 
 Each covered method keeps at most `max_mutants_per_method` valid, distinct
-mutants (100 by default). Coarse mutants come first, then fine mutants in configured mutation-source order and each source's
-proposal order. The cap keeps a prefix of that order, so earlier sources can
-use the entire limit within a method. Later methods have their own limit. In diff mode, changed-line selection happens before the cap. A warning
-names each capped method and the number omitted; JSON keeps these warnings
-under `warnings`. The score describes this
+mutants (100 by default). Coarse mutants come first, then fine mutants in
+configured mutation-source order and each source's proposal order. The cap keeps
+a prefix of that order, so earlier sources can use the entire limit within a
+method. Later methods have their own limit. In diff mode, changed-line selection
+happens before the cap. A warning names each capped method and the number
+omitted; JSON keeps these warnings under `warnings`. The score describes this
 selected subset, not every possible mutation. Raise the limit to examine more
 mutants; the limit does not bound how many proposals a custom source creates.
 
@@ -127,22 +169,25 @@ Public API, stable across minor versions:
 - `Saboteur::MutationSource::Base#mutations_for(subject)` returning
   `Saboteur::MutationSource::Mutation` objects made of `Edit`s (file, byte
   range, replacement). Register with `sources: [builtin, path.rb:ClassName]`.
-- `Saboteur::Integration::Base` for other test frameworks (RSpec is the
-  only one that ships).
+- `Saboteur::Integration::Base` for other test frameworks (RSpec is the only one
+  that ships).
 - `Saboteur.hook(:before_boot | :after_boot | :before_fork | :after_fork |
   :around_mutant)` in files listed under `hooks:`.
 
-## How it works
+## Where it has run
 
-See [docs/design.md](docs/design.md). Validation results are in
-[docs/validation](docs/validation), research in [docs/research](docs/research),
-and the project checklist in [docs/status.md](docs/status.md).
+An early release (0.2.0). Tested on the RSpec suites of plain gems
+(dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
+human-essentials on Postgres (4,080 mutants, 6 workers) and lobsters on SQLite,
+both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
+design. Results: [docs/validation](docs/validation).
 
-## Benchmark
+## How it compares
 
 A small, non-exhaustive comparison with [mutineer](https://github.com/davidteren/mutineer)
 1.6.0 on four RSpec projects (two libraries, two Rails apps). Each configuration
-ran once on sampled files, so treat the numbers as indicative.
+ran once on sampled files, so treat the numbers as indicative. mutineer is ahead
+on peak memory, number of operators and CI extras, and it supports Minitest.
 
 | Metric | saboteur | mutineer |
 |---|---|---|
@@ -155,11 +200,16 @@ ran once on sampled files, so treat the numbers as indicative.
 
 Full results, method and limitations:
 [benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
-Scripts and raw data: [bench/vs-mutineer](bench/vs-mutineer).
+Scripts and raw data: [bench/vs-mutineer](bench/vs-mutineer). The table's memory
+row was measured before the fork-memory work.
 
-## Requirements
+## Where it is going
 
-Ruby 3.3 or newer on Linux or macOS (it needs `fork`).
+[ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
+team workflow (GitHub Action, baseline, HTML report), Minitest, then 1.0. Design
+details are in [docs/design.md](docs/design.md), prior art in
+[docs/prior-art.md](docs/prior-art.md), and the project checklist in
+[docs/status.md](docs/status.md).
 
 ## Contributing
 
