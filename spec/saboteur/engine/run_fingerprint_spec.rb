@@ -124,3 +124,42 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "evidence contract" do
     end
   end
 end
+
+RSpec.describe Saboteur::Engine::RunFingerprint, "canonical boundaries" do
+  it "uses the same root through checkout aliases and still detects unsafe cache overlap" do
+    Dir.mktmpdir do |directory|
+      root = File.join(directory, "project")
+      FileUtils.mkdir_p(File.join(root, ".saboteur"))
+      File.write(File.join(root, ".saboteur/generated.rb"), "1")
+      alias_path = File.join(directory, "alias")
+      File.symlink(root, alias_path)
+      direct = described_class.new(config: Saboteur::Config.new({}, root: root)).snapshot
+      aliased = described_class.new(config: Saboteur::Config.new({}, root: alias_path)).snapshot
+      expect(aliased).to eq(direct)
+      bad = described_class.new(config: Saboteur::Config.new({ "cache_dir" => "lib" }, root: alias_path)).snapshot
+      expect(bad.complete).to be(false)
+    end
+  end
+
+  it "keeps output and cache locations out of settings identity" do
+    Dir.mktmpdir do |root|
+      first = described_class.new(config: Saboteur::Config.new({}, root: root)).snapshot
+      config = Saboteur::Config.new({ "cache_dir" => "other-cache", "json_report" => "other.json" }, root: root)
+      second = described_class.new(config: config).snapshot
+      expect(first.settings_digest).to eq(second.settings_digest)
+      expect(first.digest).to eq(second.digest)
+    end
+  end
+
+  it "rejects invalid entry paths, kinds and state/hash combinations" do
+    digest = "a" * 64
+    [{ path: "../app.rb", kind: "ruby", state: "present", sha256: digest },
+     { path: "/app.rb", kind: "ruby", state: "present", sha256: digest },
+     { path: "a//b.rb", kind: "ruby", state: "present", sha256: digest },
+     { path: "app.rb", kind: "unknown", state: "present", sha256: digest },
+     { path: "app.rb", kind: "ruby", state: "present", sha256: nil },
+     { path: "app.rb", kind: "ruby", state: "missing", sha256: digest }].each do |entry|
+      expect { described_class.restore_entry(entry) }.to raise_error(ArgumentError)
+    end
+  end
+end
