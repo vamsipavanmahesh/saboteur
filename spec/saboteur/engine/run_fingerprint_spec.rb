@@ -200,3 +200,47 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "strict input contracts" do
     end
   end
 end
+
+RSpec.describe Saboteur::Engine::RunFingerprint, "artifact completeness" do
+  it "refuses report directories and descendant source cache directories" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "lib/generated"))
+      File.write(File.join(root, "lib/generated/app.rb"), "1")
+      [{ "json_report" => "lib" }, { "html_report" => "lib" }, { "cache_dir" => "lib/generated" }].each do |settings|
+        snapshot = described_class.new(config: Saboteur::Config.new(settings, root: root)).snapshot
+        expect(snapshot.complete).to be(false)
+      end
+    end
+  end
+
+  it "rejects a distinct explicit checkout root" do
+    Dir.mktmpdir do |root|
+      Dir.mktmpdir do |other|
+        expect { described_class.new(config: Saboteur::Config.new({}, root: root), root: other) }
+          .to raise_error(ArgumentError, /root differs/)
+      end
+    end
+  end
+
+  it "rejects a rehashed complete snapshot with a missing required extra" do
+    Dir.mktmpdir do |root|
+      snapshot = described_class.new(config: Saboteur::Config.new({}, root: root), extra_files: ["missing"]).snapshot
+      expect { described_class.restore_snapshot(snapshot.to_h.merge(complete: true, issues: [])) }
+        .to raise_error(ArgumentError, /invalid complete/)
+    end
+  end
+end
+
+RSpec.describe Saboteur::Engine::RunFingerprint, "evidence key schema" do
+  it "rejects normalized duplicate keys and extra snapshot fields" do
+    Dir.mktmpdir do |root|
+      fields = described_class.new(config: Saboteur::Config.new({}, root: root)).snapshot.to_h
+      expect { described_class.restore_snapshot(fields.merge("digest" => fields[:digest])) }
+        .to raise_error(ArgumentError)
+      expect { described_class.restore_snapshot(fields.merge(unknown: 1)) }.to raise_error(ArgumentError)
+      entry = fields[:inventory].first
+      expect { described_class.restore_entry(entry.merge("path" => entry[:path])) }.to raise_error(ArgumentError)
+      expect { described_class.restore_entry(entry.merge(kind: "hook", required: false)) }.to raise_error(ArgumentError)
+    end
+  end
+end
