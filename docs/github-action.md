@@ -3,7 +3,8 @@
 saboteur ships a ready-made GitHub Action. On a pull request it runs diff
 mode (`saboteur run --since origin/<base branch>`), so only the methods the
 pull request changed are mutated. It is advisory by default: survivors show up
-as a warning and in the job summary, and the check stays green.
+as notes on the diff, as a warning and in the job summary, and the check stays
+green.
 
 ## Use it
 
@@ -37,6 +38,21 @@ The action does not set up Ruby or install gems. Your project's own setup
 (Ruby version, database, boot files) stays in your workflow, where you can see
 it. The action needs `fetch-depth: 0` on checkout; it stops with a message
 that says so when the checkout is shallow or the base branch is missing.
+
+## What lands on the pull request
+
+Each surviving mutant becomes a file/line annotation on the diff: the subject,
+the operator, the original text and what saboteur replaced it with. The job
+summary lists the same survivors, most actionable first (coarse mutants, then
+file, line and digest). The JSON report is uploaded as the run's
+`saboteur-report` artifact, and the summary links it.
+
+Both read the report's `saboteur.findings` section, written by saboteur 0.3.0
+and later, which bounds the list (10, GitHub's own per-step annotation limit)
+and counts what it left out. With an older saboteur the action still reports
+the counts, the score and a warning, but there are no per-survivor notes.
+Accepted survivors (on `.saboteur-ignore.yml`) get no note; they are counted
+in the `accepted-survivors` output and the summary's score line.
 
 ## Inputs
 
