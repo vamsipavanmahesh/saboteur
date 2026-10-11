@@ -45,6 +45,50 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "crash kills by operator: comparison 2 of 3")
   end
 
+  it "lists the tests that covered a survivor's line and still passed, top 5" do
+    tests = (1..7).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    text = render(report_of(result_for(:survived, covered_by: tests)))
+    expect(text).to include("7 tests covered this line and still passed",
+                            "  ./spec/person_spec.rb[1:1]", "  ./spec/person_spec.rb[1:5]",
+                            "... 2 more in the JSON report (coveredBy)")
+    expect(text).not_to include("person_spec.rb[1:6]")
+  end
+
+  it "lists exactly five covering tests with no 'more' line, and six with one" do
+    five = (1..5).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    expect(render(report_of(result_for(:survived, covered_by: five)))).to include("5 tests covered", "[1:5]")
+      .and(satisfy { |text| !text.include?("more in the JSON report (coveredBy)") })
+    six = render(report_of(result_for(:survived, covered_by: five + ["./spec/person_spec.rb[1:6]"])))
+    expect(six).to include("6 tests covered", "... 1 more in the JSON report (coveredBy)")
+    expect(six).not_to include("[1:6]\n")
+  end
+
+  it "says tests for two covering tests and test for one" do
+    two = render(report_of(result_for(:survived, covered_by: ["./a_spec.rb[1:1]", "./a_spec.rb[1:2]"])))
+    expect(two).to include("2 tests covered this line")
+    expect(two).not_to include("2 test covered")
+  end
+
+  it "says a reused survivor's tests passed in an earlier run" do
+    text = render(report_of(result_for(:survived, reused: true, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).to include("1 test covered this line and passed in an earlier run (--incremental)")
+  end
+
+  it "says test, not tests, for one covering test" do
+    text = render(report_of(result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).to include("1 test covered this line and still passed")
+    expect(text).not_to include("more in the JSON report (coveredBy)")
+  end
+
+  it "prints no passing-test list for a survivor with no recorded covering tests" do
+    expect(render(report_of(result_for(:survived)))).not_to include("still passed")
+  end
+
+  it "does not list covering tests for a killed mutant" do
+    text = render(report_of(result_for(:killed, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(text).not_to include("still passed")
+  end
+
   it "splits the score into assertion and crash shares" do
     text = render(report_of(result_for(:killed, kill_cause: "assertion"),
                             result_for(:killed, replacement: "<", kill_cause: "NoMethodError")))
