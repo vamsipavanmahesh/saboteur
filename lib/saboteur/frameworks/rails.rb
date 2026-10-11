@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "coverage"
 require "fileutils"
 
 module Saboteur
@@ -27,6 +28,15 @@ module Saboteur
         # on macOS that goes through XPC, which crashes a forked process. The
         # databases are local only (check_databases), so it buys nothing.
         ENV["PGGSSENCMODE"] ||= "disable"
+
+        # Bytecode from Bootsnap's compile cache carries no coverage counters,
+        # so a file served from the cache never appears in Coverage.result.
+        # Turn the cache off for this process before config/boot loads
+        # Bootsnap; the load-path cache still works. Bootsnap checks
+        # DISABLE_<feature> by presence, so a value the user set disables the
+        # cache too. Files loaded during the eager load are also covered by
+        # eager_load_with_coverage_running.
+        ENV["DISABLE_BOOTSNAP_COMPILE_CACHE"] ||= "1"
       end
 
       def after_boot
@@ -37,7 +47,7 @@ module Saboteur
         raise Error, "rails integration refuses to run: Rails.env is #{::Rails.env}" unless ::Rails.env.test?
 
         check_databases
-        ::Rails.application.eager_load!
+        eager_load_with_coverage_running
         disconnect
         @hooks.register(:before_fork) { |_mutation| disconnect }
         @hooks.register(:after_fork) { reconnect }
@@ -92,6 +102,24 @@ module Saboteur
       end
 
       private
+
+      # Bootsnap before 1.25 skips its bytecode cache only while Coverage is
+      # running (1.25 and later skip it whenever Coverage is set up, suspended
+      # or not), and Coverage is suspended while the app boots (exe/saboteur
+      # sets it up suspended). Cached bytecode carries no coverage counters.
+      # Resume Coverage just for the eager load, so every app file compiles
+      # with counters. The coverage recorder clears the counts before the
+      # suite runs, so load-time hits are never credited to a test.
+      def eager_load_with_coverage_running
+        return ::Rails.application.eager_load! unless Coverage.state == :suspended
+
+        Coverage.resume
+        begin
+          ::Rails.application.eager_load!
+        ensure
+          Coverage.suspend
+        end
+      end
 
       def check_databases
         return unless defined?(::ActiveRecord::Base)
