@@ -33,3 +33,15 @@ RSpec.describe Saboteur::Replay do
       .to raise_error(Saboteur::ConfigError, /16 lowercase hexadecimal/)
   end
 end
+
+RSpec.describe Saboteur::Replay, "diff scope" do
+  it "does not resolve a fine digest outside the changed lines" do
+    subject = person_subject
+    mutation = comparison_mutation
+    digest = mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+    candidates = instance_double(Saboteur::Engine::Candidates, for: [[mutation, subject.apply(mutation.edits)]])
+    scope = Saboteur::Engine::DiffScope.new(subject.file => Set[999])
+    expect { described_class.new(digest: digest).select([subject], candidates, scope: scope) }
+      .to raise_error(Saboteur::ConfigError, /not found/)
+  end
+end
