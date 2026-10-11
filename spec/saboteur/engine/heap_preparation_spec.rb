@@ -57,7 +57,14 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 
+  def stub_baseline_phase(events)
+    baseline = instance_double(Saboteur::Engine::BaselineGuard)
+    allow(baseline).to receive(:call) { events << :baseline_checked }
+    allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
+  end
+
   def stub_test_phase(events, box)
+    stub_baseline_phase(events)
     store = instance_double(Saboteur::Engine::CoverageStore)
     allow(store).to receive(:fetch) { events << :map_retained and map }
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
@@ -70,14 +77,14 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   it "prepares after the map and candidates are retained, before distribution, on the parallel path" do
     events = []
     lists, run_args = run_engine(jobs: 4, events: events)
-    expect(events).to eq(%i[map_retained candidates_retained rails_prepared prepare distribute])
+    expect(events).to eq(%i[baseline_checked map_retained candidates_retained rails_prepared prepare distribute])
     expect(run_args.last).to eq(lists)
   end
 
   it "prepares after the map and candidates are retained, before distribution, on the serial path" do
     events = []
     lists, run_args = run_engine(jobs: 1, events: events)
-    expect(events).to eq(%i[map_retained candidates_retained rails_prepared prepare distribute])
+    expect(events).to eq(%i[baseline_checked map_retained candidates_retained rails_prepared prepare distribute])
     expect(run_args.last).to eq(lists)
   end
 
@@ -93,7 +100,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   it "runs covered work without a Rails adapter" do
     events = []
     _, run_args = run_engine(jobs: 1, events: events, rails: false)
-    expect(events).to eq(%i[map_retained candidates_retained prepare distribute])
+    expect(events).to eq(%i[baseline_checked map_retained candidates_retained prepare distribute])
     expect(run_args.first).to eq([subject_under_test])
   end
 
