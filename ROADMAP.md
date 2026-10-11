@@ -353,3 +353,17 @@ AGENTS.md).
 
 Open a pull request. Milestones are reordered only with a reason that appears
 in the description. When a milestone ships, move it to the changelog.
+
+## Research
+
+Two research tracks sit beside the milestones. They are listed in priority
+order.
+
+1. **Track B: dependency-aware incremental mutation.** A complete
+   input-fingerprint invalidation model, evaluated by replaying project
+   history against naive caching. The paper target is the Mutation workshop,
+   then ICST or ISSTA. It builds on the ResultCache design.
+2. **Track A: an equivalent-mutant benchmark for MRI Ruby.** A labelled
+   benchmark of equivalent and duplicate mutants across real projects, and a
+   validated, guarded detector. It measures where YARV bytecode filtering
+   works and where it fails.
