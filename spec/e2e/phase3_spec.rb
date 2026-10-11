@@ -134,5 +134,12 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(File).to exist(File.join(dir, "flag.json"))
       expect(File).not_to exist(File.join(dir, "custom.json"))
     end
+
+    it "writes valid JSON and an HTML report together, and keeps the survivor exit code" do
+      run = saboteur(dir)
+      expect(run.status).to eq(1), run.err
+      expect(JSON.parse(File.read(File.join(dir, ".saboteur", "report.json")))["schemaVersion"]).to eq("2")
+      expect(File.read(File.join(dir, ".saboteur", "report.html"))).to include("Covered mutation score", "Survived")
+    end
   end
 end
