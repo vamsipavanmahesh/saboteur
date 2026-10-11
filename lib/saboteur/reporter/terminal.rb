@@ -14,6 +14,7 @@ module Saboteur
 
       def call(report)
         summary(report)
+        skipped_subjects(report)
         warnings(report)
         errors(report)
         survivors(report)
@@ -78,6 +79,15 @@ module Saboteur
           "#{operator} #{count} of #{results.size}" if count.positive?
         end
         parts.join(", ")
+      end
+
+      def skipped_subjects(report)
+        report.skipped_subjects.values.tally.each do |reason, count|
+          @out.puts "skipped subjects: #{reason}: #{count}"
+        end
+        report.skipped_subjects.each do |subject, reason|
+          @out.puts "  #{subject.id} #{relative(subject.file, report.root)}:#{subject.start_line}: #{reason}"
+        end
       end
 
       def warnings(report)
