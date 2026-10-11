@@ -23,3 +23,23 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     expect(err.string).to eq("saboteur: building\n")
   end
 end
+
+RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat" do
+  let(:err) { StringIO.new }
+  let(:diagnostics) { described_class.new(err) }
+
+  it "prints elapsed time about every interval while the block runs" do
+    diagnostics.with_progress_heartbeat("long phase", interval: 0.01) { sleep 0.05 }
+    expect(err.string).to match(/long phase: 0 s elapsed/)
+    expect(err.string.lines.size).to be >= 2
+  end
+
+  it "stops the heartbeat when the block raises" do
+    expect do
+      diagnostics.with_progress_heartbeat("long phase", interval: 0.01) { raise "boom" }
+    end.to raise_error("boom")
+    lines = err.string.lines.size
+    sleep 0.05
+    expect(err.string.lines.size).to eq(lines)
+  end
+end
