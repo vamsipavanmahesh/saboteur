@@ -38,7 +38,7 @@ Names follow Uncle Bob's Clean Code conventions:
 ## Review
 
 - A pull request opens with the first push. Open it as a draft while the work is in progress. No branch sits on origin without a pull request.
-- The adversarial review panel posts its review as comments on the open pull request.
+- Adversarial panel reviewers analyze the open pull request in parallel and post their comments on it in one coordinated batch per pull request.
 - The author resolves those comments with fixes as new commits, then the panel re-reviews.
 - Merge only when the panel and the author agree and CI is green.
 
