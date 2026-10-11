@@ -19,7 +19,7 @@ RSpec.describe Saboteur::Install do
   it "creates the config, the binstub and the gitignore entry" do
     results = install
     expect(results.map { |r| [r.status, r.path] }).to eq([[:created, ".saboteur.yml"], [:created, "bin/saboteur"],
-                                       [:appended, ".gitignore"]])
+                                                          [:appended, ".gitignore"]])
     expect(read(".gitignore")).to eq(".saboteur/\n")
   end
 
