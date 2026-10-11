@@ -109,7 +109,7 @@ runs:
         SABOTEUR_ARTIFACT_NAME: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}
       run: bash "${{ github.action_path }}/action/run-saboteur"
     # Only a report this run produced and could trust is kept: an early
-    # failure (bad inputs, missing base ref, no jq) leaves report-valid unset,
+    # failure (bad inputs, missing base SHA, no jq) leaves report-valid unset,
     # so a stale file restored from a cache is never published. A survivor or
     # incomplete failure still uploads, because the summary promises it.
     - name: Keep the JSON report
