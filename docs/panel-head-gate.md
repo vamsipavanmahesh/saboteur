@@ -64,6 +64,16 @@ Editing/deleting a malformed marker requires
 fresh comments for all lenses. Do not edit/delete review history; publish a new
 superseding verdict. Tombstones remain even if the deleted marker is restored.
 
+Before reading comments for a high-water refinement, the event handler writes
+one atomic PR-scoped revocation intent (one lens, or all lenses for malformed
+markers) to the fixed anchor, plus a redundant current-head failure latch.
+Either record blocks old approvals by its server creation epoch. A failed
+refinement or comments read cannot erase the intent. Before posting pending,
+verification promotes a head-only latch to the fixed anchor with its original
+epoch; promotion failure fails closed. Fresh attestations clear the condition,
+not the stored history. This prevents later sweeps from treating a transient
+ledger failure or partial malformed-marker write as a clean approval.
+
 ## Trust and execution boundary
 
 `panel-gate.yml` runs trusted main code on issue-comment events, CI/DCO workflow
@@ -117,6 +127,12 @@ which historical merge candidate a run tested.
   The fixed ledger anchor must remain unchanged across normal policy updates;
   replacing it requires an explicit migration, not clearing review history.
   Status-history pagination limits and ledger API failures fail closed.
+  Redundant intent/head latches tolerate one failed storage write, not total
+  write failure. Retry a failed revocation event after API recovery. If only
+  the head latch persisted, recover it before any head rewrite/force-push; an
+  abandoned head can otherwise hide that fallback. No comments-only sweep can
+  recover a deleted event that never reached either durable write. Queue overflow
+  remains a delivery-loss boundary, not a solved durable queue problem.
 - An administrator can change rules/settings. Other write-capable workflows or
   credentials could spoof the same commit-status context. Requiring all 13
   native GitHub Actions checks helps, but Actions source binding does not
@@ -220,7 +236,9 @@ wrong run head, changed policy, stale main and a head change during verification
 Regression tests cover low-ID edited blockers, stale-head edits/deletions through
 the event handler, cross-head/PR-scoped persistence, same-second cutoffs, reruns
 becoming pending, newer runs/green attempts, failing/replaced jobs, new revocations
-and ledger failures during the final recheck. CI oracle path changes fail closed.
+and ledger failures during the final recheck. Failed write/read regressions
+invoke verification on later recovered-API sweeps, including all-lens malformed
+revocations, original-epoch latch promotion and fresh-attestation recovery. CI oracle path changes fail closed.
 
 ## Sources
 
