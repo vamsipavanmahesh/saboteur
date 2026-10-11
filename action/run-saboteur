@@ -9,6 +9,7 @@
 #   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on whitespace (no shell quoting)
 #   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" also fails on an incomplete run
 #   SABOTEUR_REPORT_PATH        where saboteur writes its JSON report
+#   SABOTEUR_CACHE              "true" or "false"; "false" also passes --no-cache to saboteur
 # Exit codes of saboteur: 0 clean, 1 survivors, 2 usage error, 3 tool error.
 # This script exits 2 for input it refuses, and 3 when saboteur's result cannot be trusted.
 set -uo pipefail
@@ -19,6 +20,7 @@ command_line="${SABOTEUR_COMMAND:-bundle exec saboteur}"
 extra_arguments="${SABOTEUR_ARGUMENTS:-}"
 fail_on_survivors="${SABOTEUR_FAIL_ON_SURVIVORS:-false}"
 report_path="${SABOTEUR_REPORT_PATH:-.saboteur/report.json}"
+use_cache="${SABOTEUR_CACHE:-true}"
 github_output="${GITHUB_OUTPUT:-/dev/null}"
 step_summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
@@ -41,12 +43,17 @@ case "$fail_on_survivors" in
   *) stop_with_error "saboteur: fail-on-survivors must be exactly \"true\" or \"false\", not \"$fail_on_survivors\"." ;;
 esac
 
+case "$use_cache" in
+  true | false) ;;
+  *) stop_with_error "saboteur: cache must be exactly \"true\" or \"false\", not \"$use_cache\"." ;;
+esac
+
 if ! [[ "$base_ref" =~ ^[A-Za-z0-9._/-]+$ ]]; then
   stop_with_error "saboteur: base-ref contains characters a branch name should not have. Pass the pull request's base branch name."
 fi
 
-if ! [[ "$report_path" =~ ^[A-Za-z0-9._/-]+$ ]]; then
-  stop_with_error "saboteur: report-path may only contain letters, digits, dot, underscore, slash and dash."
+if ! [[ "$report_path" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]]; then
+  stop_with_error "saboteur: report-path may only contain letters, digits, dot, underscore, slash and dash, and may not start with a dash."
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -59,6 +66,9 @@ read -r -a argument_words <<<"$extra_arguments"
 # The action owns --since and --json. saboteur accepts unambiguous prefixes
 # of long options, so a word such as --js would also reach them.
 for word in ${argument_words[@]+"${argument_words[@]}"}; do
+  if [ "$word" = "--" ]; then
+    stop_with_error "saboteur: 'arguments' may not contain a bare --, because the action's --since and --json come after it."
+  fi
   option_name="${word%%=*}"
   if [[ "$option_name" == --* ]] && { [[ "--since" == "$option_name"* ]] || [[ "--json" == "$option_name"* ]]; }; then
     stop_with_error "saboteur: 'arguments' may not contain $option_name. The action sets --since from base-ref and --json from report-path."
@@ -75,26 +85,41 @@ fi
 
 # A report left by an earlier run (for example a restored cache) must never
 # stand in for this run's report.
-rm -f "$report_path"
+if ! rm -f -- "$report_path" || [ -e "$report_path" ]; then
+  stop_with_error "saboteur: could not remove the old report at $report_path, so this run's result could not be told apart from it." 3
+fi
+
+cache_arguments=()
+[ "$use_cache" = "false" ] && cache_arguments=(--no-cache)
 
 log_file="$(mktemp)"
-"${command_words[@]}" run ${argument_words[@]+"${argument_words[@]}"} --since "origin/$base_ref" --json "$report_path" 2>&1 | tee "$log_file"
+"${command_words[@]}" run ${cache_arguments[@]+"${cache_arguments[@]}"} ${argument_words[@]+"${argument_words[@]}"} --since "origin/$base_ref" --json "$report_path" 2>&1 | tee "$log_file"
 saboteur_status="${PIPESTATUS[0]}"
 
 killed=0 timed_out=0 survivors=0 accepted=0 errors=0 uncovered=0 score="n/a" report_valid=false
 if [ "$saboteur_status" -le 1 ]; then
   if [ ! -f "$report_path" ]; then
     echo "::error::saboteur exited with $saboteur_status but wrote no report at $report_path, so the result cannot be trusted."
-  elif ! counts="$(jq -er '
-        [.files[].mutants[] | {status, accepted: ((.statusReason // "") | startswith("ignored:"))}]
-        | if all(.[]; .status | IN("Killed", "Timeout", "Survived", "NoCoverage", "Ignored", "RuntimeError"))
-          then [ (map(select(.status == "Killed")) | length),
-                 (map(select(.status == "Timeout")) | length),
-                 (map(select(.status == "Survived" and (.accepted | not))) | length),
-                 (map(select(.status == "Survived" and .accepted)) | length),
-                 (map(select(.status == "RuntimeError")) | length),
-                 (map(select(.status == "NoCoverage" or .status == "Ignored")) | length) ] | @tsv
-          else error("unknown mutant status") end' "$report_path" 2>&1)"; then
+  elif ! counts="$(jq -es -r '
+        def known: IN("Killed", "Timeout", "Survived", "NoCoverage", "Ignored", "RuntimeError");
+        if length != 1 then error("the report must hold exactly one JSON document")
+        else .[0] as $report
+          | if ($report | type) != "object" or $report.schemaVersion != "2" or ($report.files | type) != "object"
+            then error("the report is not a schemaVersion 2 report with a files object")
+            else [ $report.files[]
+                   | if type == "object" and (.mutants | type) == "array" then .mutants[]
+                     else error("a file entry has no mutants array") end
+                   | if type == "object" and (.status | type) == "string" and (.status | known)
+                     then {status, accepted: ((.statusReason // "" | tostring) | startswith("ignored:"))}
+                     else error("unknown mutant status") end ]
+                 | [ (map(select(.status == "Killed")) | length),
+                     (map(select(.status == "Timeout")) | length),
+                     (map(select(.status == "Survived" and (.accepted | not))) | length),
+                     (map(select(.status == "Survived" and .accepted)) | length),
+                     (map(select(.status == "RuntimeError")) | length),
+                     (map(select(.status == "NoCoverage" or .status == "Ignored")) | length) ] | @tsv
+            end
+        end' "$report_path" 2>&1)"; then
     echo "::error::saboteur wrote a report at $report_path that could not be read ($counts), so the result cannot be trusted."
   else
     report_valid=true
