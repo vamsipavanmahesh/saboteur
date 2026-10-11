@@ -71,3 +71,101 @@ RSpec.describe "doctor diagnostics", :e2e do
     expect(err).to include("no tests")
   end
 end
+
+RSpec.describe "doctor failure detail", :e2e do
+  def diagnose(dir)
+    Open3.capture3({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
+                   RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE,
+                   "doctor", chdir: dir)
+  end
+
+  it "names a failing example and its assertion message before removing temporary output" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "spec", "bad_spec.rb"), <<~RUBY)
+      RSpec.describe("diagnostic") do
+        it("has a useful failure") { raise "specific assertion detail" }
+      end
+    RUBY
+    _, err, status = diagnose(dir)
+    expect(status.exitstatus).to eq(3)
+    expect(err).to include("has a useful failure", "specific assertion detail", "bad_spec.rb")
+  end
+
+  it "reports syntax errors as a tool error without leaking a backtrace" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "syntax.rb"), "def broken(\n")
+    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "require: [syntax.rb]" }
+    _, err, status = diagnose(dir)
+    expect(status.exitstatus).to eq(3)
+    expect(err).to include("target boot failed: SyntaxError")
+    expect(err).not_to include("from ")
+  end
+
+  it "reports an explicit boot exit rather than accepting its status" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "exit.rb"), "exit 0\n")
+    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "require: [exit.rb]" }
+    _, err, status = diagnose(dir)
+    expect(status.exitstatus).to eq(3)
+    expect(err).to include("target boot failed: SystemExit")
+  end
+end
+
+RSpec.describe "doctor read-only and hook boundaries", :e2e do
+  def check_doctor(dir)
+    Open3.capture3({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
+                   RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE,
+                   "doctor", "--seed", "42", chdir: dir)
+  end
+
+  it "does not call mutation-specific before_fork callbacks" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "hooks.rb"),
+               'Saboteur.hook(:before_fork) { |mutation| mutation.edits.each { raise "should not run" } }')
+    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "hooks: [hooks.rb]" }
+    _, err, status = check_doctor(dir)
+    expect(status.exitstatus).to eq(0), err
+  end
+
+  it "turns a failing after_fork hook into a plain tool error" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "hooks.rb"), 'Saboteur.hook(:after_fork) { raise "hook detail" }')
+    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "hooks: [hooks.rb]" }
+    _, err, status = check_doctor(dir)
+    expect(status.exitstatus).to eq(3)
+    expect(err).to include("hook detail")
+    expect(err).not_to include("from ")
+  end
+
+  it "leaves existing report and cache bytes unchanged" do
+    dir = copy_fixture("people")
+    cache = File.join(dir, ".saboteur")
+    Dir.mkdir(cache)
+    files = %w[report.json results.json coverage-old.json].map { |name| File.join(cache, name) }
+    files.each { |path| File.binwrite(path, "saved\x00bytes\n") }
+    before = files.to_h { |path| [path, File.binread(path)] }
+    _, err, status = check_doctor(dir)
+    expect(status.exitstatus).to eq(0), err
+    expect(files.to_h { |path| [path, File.binread(path)] }).to eq(before)
+    expect(Dir.children(cache).sort).to eq(files.map { |path| File.basename(path) }.sort)
+  end
+
+  it "rejects real instability between two freshly forked seeded runs" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "spec", "flaky_spec.rb"), <<~RUBY)
+      RSpec.describe("two process instability") do
+        it("changes on the second child") do
+          path = File.expand_path("../pass-marker", __dir__)
+          if File.exist?(path)
+            raise "second seeded pass failed"
+          else
+            File.write(path, "first")
+          end
+        end
+      end
+    RUBY
+    _, err, status = check_doctor(dir)
+    expect(status.exitstatus).to eq(3)
+    expect(err).to include("baseline run 2 failed", "second seeded pass failed")
+  end
+end
