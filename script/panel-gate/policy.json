@@ -42,6 +42,11 @@
     "script/panel-gate/policy.json",
     "script/panel-gate/verify.cjs",
     "script/panel-gate/verify.test.cjs",
-    ".saboteur-ignore.yml"
-  ]
+    ".saboteur-ignore.yml",
+    "action.yml",
+    "action/run-saboteur",
+    "integration",
+    ".saboteur.yml"
+  ],
+  "revocationAnchor": "91f4017ef7398eb761ddc1efd26c1239c3dbfa6a"
 }
