@@ -69,6 +69,7 @@ summary lists them apart with the reason from the ignore list.
 | `fail-on-survivors` | `false` | `true` or `false`; any other value fails the step. `true` fails the step when a mutant survives, and also when the run is incomplete (see below). |
 | `cache` | `true` | `true` or `false`; any other value fails the step. `false` skips restoring the cached coverage map and also passes `--no-cache` to saboteur, so the map is rebuilt. |
 | `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only, and it may not start with `-`. |
+| `artifact-name` | `saboteur-report-<job>-<matrix leg>` | Name of the uploaded report artifact. Set it when one job uses this action more than once: upload-artifact rejects a second upload under one name. |
 
 The action runs only on `pull_request` events. On any other event, such as
 `push`, it prints a notice and does nothing, even if `base-ref` is set. It does
