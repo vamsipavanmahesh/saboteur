@@ -13,6 +13,7 @@ module Saboteur
         options = ::RSpec::Core::ConfigurationOptions.new(rspec_args)
         @runner = ::RSpec::Core::Runner.new(options)
         @runner.setup($stderr, $stdout)
+        configuration.order = "rand:#{config.fetch('seed', 1)}"
         raise Error, "rspec quit while loading spec files" if world.wants_to_quit
       end
 
@@ -47,6 +48,7 @@ module Saboteur
       end
 
       def run_all(recorder)
+        configuration.order = "rand:#{config.fetch('seed', 1)}"
         configuration.fail_fast = false
         execute(Listener.new(recorder))
       end
