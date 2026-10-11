@@ -9,6 +9,8 @@ RSpec.describe Saboteur::Engine, "uncovered subjects" do
   [1, 2].each do |jobs|
     it "keeps uncovered subjects in the report without invoking sources (#{jobs} workers)" do
       allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+      baseline = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+      allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
       integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
       rails = instance_double(Saboteur::Frameworks::Rails)
       expect(rails).not_to receive(:prepare_workers)
