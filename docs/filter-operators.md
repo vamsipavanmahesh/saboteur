@@ -26,7 +26,7 @@ four replacements fails the same output assertion. No Oxidized code was copied.
 - Edit only the method-name bytes. Preserve `&.`, the block and its formatting.
 - Keep the existing arid-statement and nested-definition boundaries.
 - Append the new source's proposals after the old built-in proposals, keeping
-  old digests and relative order. The candidate pipeline still re-parses and
+  old digests and relative order for unchanged subjects. The candidate pipeline still re-parses and
   de-duplicates them, and applies the same coarse-first rules and mutant cap.
 
 The source uses `MutationSource::Base`; builtin composes it. The engine does
