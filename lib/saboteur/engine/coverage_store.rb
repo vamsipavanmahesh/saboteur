@@ -53,6 +53,9 @@ module Saboteur
         end
 
         @diagnostics.inform("building coverage map (runs the whole suite once)")
+        # The suite child forked next inherits this heap; pack it first, to
+        # reduce later copying of shared pages.
+        Execution::ForkReadiness.prepare_heap
         result = @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, files) }
         raise Error, "coverage map build stopped: #{result.detail}" if result.stopped_by
         raise Error, "coverage map build failed: #{died(result.exit_status)}" if result.payload.empty?
