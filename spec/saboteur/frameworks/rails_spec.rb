@@ -127,6 +127,22 @@ RSpec.describe Saboteur::Frameworks::Rails do
       )
       expect(log).not_to include('CREATE DATABASE "app_test_saboteur2" TEMPLATE "app_test"')
     end
+
+    # pg_stat_activity.application_name can be NULL (older servers, some
+    # drivers) as well as empty.
+    it "treats a NULL application name as unnamed" do
+      stub_const("ActiveRecord::Base",
+                 fake_base(fake_pool(:writing).db_config, template_sessions: [nil]))
+      expect { rails.prepare_workers(2) }.to raise_error(Saboteur::Error, /1 other session.*unnamed/)
+    end
+
+    it "bounds the number of session names in the error" do
+      stub_const("ActiveRecord::Base",
+                 fake_base(fake_pool(:writing).db_config, template_sessions: %w[a b c d e f g]))
+      expect { rails.prepare_workers(2) }.to raise_error(
+        Saboteur::Error, /7 other session.*connected \(a, b, c, d, e\), \.\.\./
+      )
+    end
   end
 
   describe "#before_boot" do
