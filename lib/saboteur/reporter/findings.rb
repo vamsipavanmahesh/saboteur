@@ -15,10 +15,11 @@ module Saboteur
       # GitHub shows at most 10 annotations of one kind per step.
       LIMIT = 10
 
-      # Published ordering, most actionable first: a coarse mutant replaces
-      # the whole method body, so a surviving one says no test pins the
-      # method's behavior at all. Ties break by file, line and digest, so the
-      # same report always lists the same findings in the same order.
+      # Published ordering, coarse survivors first: a surviving coarse mutant
+      # replaced the whole method body, which hints that no test pins the
+      # method's behavior - though it can also be a re-evaluation limit or an
+      # equivalent mutant, so this is a heuristic, not a guarantee. Ties break
+      # by file, line and digest, so one report always reads the same way.
       ORDERING = "coarse survivors first, then file, line and digest"
 
       class << self
@@ -67,15 +68,36 @@ module Saboteur
             operator: result.mutation.operator,
             original: joined_texts(result) { |edit| original_text(result, edit) },
             replacement: joined_texts(result, &:replacement),
+            edits: edit_entries(result),
             coarse: result.mutation.coarse
           }
           result.ignored ? entry.merge(reason: result.ignored) : entry
         end
 
+        # Subject#apply applies edits in start-byte order; findings use the
+        # same order, so an unsorted edit list from a custom mutation source
+        # still gets a sane range and one entry per edit.
+        def sorted_edits(result)
+          result.mutation.edits.sort_by(&:start_byte)
+        end
+
         # Stryker joins a multi-edit mutant's replacements the same way, so
         # both reports describe one mutant with one text.
         def joined_texts(result, &pick)
-          result.mutation.edits.map { |edit| safe_text(pick.call(edit)) }.join(" | ")
+          sorted_edits(result).map { |edit| safe_text(pick.call(edit)) }.join(" | ")
+        end
+
+        # One entry per edit, so a multi-edit finding can point each joined
+        # text at its own spot on the diff.
+        def edit_entries(result)
+          sorted_edits(result).map do |edit|
+            {
+              line: result.subject.line_of(edit.start_byte),
+              endLine: result.subject.line_of([edit.end_byte - 1, edit.start_byte].max),
+              original: safe_text(original_text(result, edit)),
+              replacement: safe_text(edit.replacement)
+            }
+          end
         end
 
         def original_text(result, edit)
@@ -92,14 +114,17 @@ module Saboteur
         end
 
         def line(result)
-          result.subject.line_of(result.mutation.edits.first.start_byte)
+          result.subject.line_of(result.mutation.edits.map(&:start_byte).min)
         end
 
         # The line the last edit's final byte sits on; an edit that ends on a
-        # line boundary belongs to the line above.
+        # line boundary belongs to the line above. The range spans every edit,
+        # wherever the mutation source ordered them.
         def end_line(result)
-          last = result.mutation.edits.last
-          result.subject.line_of([last.end_byte - 1, last.start_byte].max)
+          edits = result.mutation.edits
+          last_byte = edits.map(&:end_byte).max - 1
+          first_byte = edits.map(&:start_byte).min
+          result.subject.line_of([last_byte, first_byte].max)
         end
       end
     end
