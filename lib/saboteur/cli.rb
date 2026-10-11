@@ -101,8 +101,12 @@ module Saboteur
       Reporter::Terminal.new(@out).call(report)
       Reporter::Replay.new(@out).call(report) if options[:id]
       code = exit_code(report)
-      write_json(report, code)
+      # The JSON carries the exit cause an outer harness trusts, so it is
+      # the completion evidence for the whole run: write it only after
+      # every other fallible reporting stage, or a late failure would
+      # leave a fresh, misleading report behind.
       write_html(report)
+      write_json(report, code)
       code
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
