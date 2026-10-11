@@ -279,6 +279,15 @@ saboteur puts the app's `spec/` directory on the load path before
 processing `require`, matching rspec, so a boot file like a dummy app's
 `spec/rails_helper.rb` can require its siblings.
 
+With `jobs` above 1 on SQLite, each extra worker gets a copy of the test
+database made through SQLite's backup API, so the copy is a consistent
+snapshot. A relative `database:` path resolves against `Rails.root`, the
+same as Rails 7.1+ does, for the copy and for its cleanup. The copy
+checkpoints the source first (`PRAGMA wal_checkpoint(TRUNCATE)`) and
+refuses to run when a reader keeps the WAL busy, because copying on
+would silently miss committed rows. A source file that does not exist is
+an error, not a skipped copy.
+
 For a Rails engine, point `require` at the dummy app's environment -
 `test/dummy/config/environment.rb`, usually loaded for you by
 `spec/rails_helper.rb`. Only a dynamically created dummy app has no

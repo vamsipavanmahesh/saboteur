@@ -130,3 +130,16 @@
   mutation: bd07c16b6d849639
   reason: 'equivalent: git quotes a whole path, so a path that starts with a quote
     also ends with one'
+- subject: Saboteur::Frameworks::Rails#sqlite_absolute
+  mutation: 460c99badd064fe9
+  reason: 'equivalent: File.expand_path ignores the root for an absolute path,
+    so dropping the early return changes nothing'
+- subject: Saboteur::Frameworks::Rails#step_backup
+  mutation: df42644a6903198b
+  reason: 'equivalent: any negative page count steps through every remaining
+    page'
+- subject: Saboteur::Frameworks::Rails#with_sqlite
+  mutation: 843c81e64fce006d
+  reason: 'equivalent here: sqlite3 is always loaded before this runs - the
+    covering spec requires it, and a Rails app with a sqlite adapter has it
+    loaded'
