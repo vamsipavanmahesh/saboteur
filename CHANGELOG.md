@@ -6,6 +6,12 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The score is split into assertion kills and crash kills, in the terminal,
+  the JSON report (`saboteur.scores`) and the HTML page. A second score leaves
+  out whole-method mutants (`body_nil`, `body_raise`). The headline score and
+  `--threshold` are unchanged.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added
