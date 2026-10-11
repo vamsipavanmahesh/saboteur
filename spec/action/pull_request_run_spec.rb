@@ -522,6 +522,16 @@ RSpec.describe "action/run-saboteur" do
       expect(upload.fetch("with").fetch("name")).to include("github.job").and include("strategy.job-index")
     end
 
+    it "lets a repeated invocation pick its own artifact name, and tells the summary the same one" do
+      action = YAML.safe_load_file(File.join(__dir__, "..", "..", "action.yml"))
+      expect(action.fetch("inputs").fetch("artifact-name")).to include("required" => false)
+      upload = action.fetch("runs").fetch("steps").find { |step| step["uses"].to_s.include?("upload-artifact") }
+      run_step = action.fetch("runs").fetch("steps").find { |step| step["id"] == "run" }
+      summary_name = run_step.fetch("env").fetch("SABOTEUR_ARTIFACT_NAME")
+      expect(summary_name).to eq(upload.fetch("with").fetch("name"))
+      expect(summary_name).to include("inputs.artifact-name")
+    end
+
     it "keeps working when the findings section is malformed" do
       report = JSON.generate(schemaVersion: "2", files: { "lib/a.rb" => { mutants: mutants_from(%w[Survived]) } },
                              saboteur: { findings: "not an object" })
