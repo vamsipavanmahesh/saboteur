@@ -24,22 +24,31 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
   let(:rails) { instance_double(Saboteur::Frameworks::Rails, prepare_workers: nil, cleanup_workers: nil) }
   let(:err) { StringIO.new }
 
-  def run_engine(events, run_error: nil, prepare_error: nil, cleanup_error: nil, rails: self.rails)
-    stub_boot_phase(rails)
-    stub_test_phase(events, run_error, prepare_error, cleanup_error)
+  def run_engine(events, run_error: nil, prepare_error: nil, cleanup_error: nil, rails: self.rails,
+                 subjects: [subject_under_test], boot_error: nil, baseline_error: nil)
+    stub_boot_phase(rails, subjects, boot_error)
+    stub_test_phase(events, run_error, prepare_error, cleanup_error, baseline_error)
     described_class.new(Saboteur::Config.new({ "jobs" => 2 }, root: @root), err: err).call
   end
 
-  def stub_boot_phase(rails)
+  def stub_boot_phase(rails, subjects, boot_error)
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
-    boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
+    boot = instance_double(Saboteur::Engine::Boot, rails: rails)
+    if boot_error
+      # A boot that raises partway through has already built the Rails
+      # profile (Boot assigns it before after_boot), so it stays reachable
+      # for cleanup.
+      allow(boot).to receive(:load_target).and_raise(boot_error)
+    else
+      allow(boot).to receive(:load_target).and_return(integration)
+    end
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-    selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject_under_test], changed_lines: nil)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, select: subjects, changed_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 
-  def stub_test_phase(events, run_error, prepare_error, cleanup_error)
-    stub_baseline_and_store
+  def stub_test_phase(events, run_error, prepare_error, cleanup_error, baseline_error)
+    stub_baseline_and_store(baseline_error)
     stub_distribution(events, run_error)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
     if prepare_error
@@ -54,8 +63,13 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
     end
   end
 
-  def stub_baseline_and_store
-    baseline = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+  def stub_baseline_and_store(baseline_error)
+    baseline = instance_double(Saboteur::Engine::BaselineGuard)
+    if baseline_error
+      allow(baseline).to receive(:call).and_raise(baseline_error)
+    else
+      allow(baseline).to receive(:call)
+    end
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
     store = instance_double(Saboteur::Engine::CoverageStore)
     allow(store).to receive(:fetch).and_return(map)
@@ -76,6 +90,30 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
     events = []
     run_engine(events)
     expect(events).to eq(%i[prepare distribute cleanup])
+  end
+
+  # No subjects: mutate never runs, so only the Engine.call boundary can
+  # release what the boot snapshotted.
+  it "drops the worker databases when nothing needs mutating" do
+    events = []
+    run_engine(events, subjects: [])
+    expect(events).to eq(%i[cleanup])
+  end
+
+  # The baseline fails before prepare_workers: only the Engine.call
+  # boundary can release what the boot snapshotted.
+  it "drops the worker databases when the baseline run fails" do
+    events = []
+    expect { run_engine(events, baseline_error: "baseline failed") }.to raise_error("baseline failed")
+    expect(events).to eq(%i[cleanup])
+  end
+
+  # A boot that raised partway through: load_target never returned, but
+  # the snapshots it took still go.
+  it "drops the worker databases a boot that raised partway through already made" do
+    events = []
+    expect { run_engine(events, boot_error: "boot exploded") }.to raise_error("boot exploded")
+    expect(events).to eq(%i[cleanup])
   end
 
   it "drops the worker databases even when the run raises" do
