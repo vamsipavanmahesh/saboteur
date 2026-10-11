@@ -6,13 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-11
+
 ### Added
 - Fine `literal_boolean` and `literal_string` mutants: true/false swaps and
   nonempty static string replacement with `""`. Body-only traversal excludes
   arid/nested scopes, interpolation, heredocs and non-string text literals.
   New proposals can change scores and per-method-cap coverage.
-
-### Added
 - `saboteur run --id DIGEST`: replay one exact current mutant with selected tests,
   independent of caps, coarse gating, ignore suppression and incremental reuse.
   Prints the mutation diff and selected test ids for every replay result.
