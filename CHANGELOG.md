@@ -10,7 +10,8 @@ All notable changes are documented here. The format follows
 - `saboteur run --agent` (`--format agent`): one bounded JSON summary (under 8 KiB) on stdout
   with status, verdict, provenance, the first three findings and the commands for full
   detail. Exit 0 means a complete, clean run only: 1 survivors, 2 usage or config error,
-  3 incomplete or failed. `--threshold` cannot be combined with it. `saboteur agent-skill`
+  3 incomplete or failed. `--threshold` cannot be combined with it. The next commands are shell-escaped and keep the
+  full selection; the working-tree state is read before the run; target output stays on stderr. `saboteur agent-skill`
   prints an AGENTS.md block for coding agents (also in `docs/agent-skill.md`). Classic
   exit codes are unchanged.
 
