@@ -90,7 +90,7 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "unsafe inputs" do
       File.write(path, "1")
       fingerprint = described_class.new(config: Saboteur::Config.new({}, root: root))
       previous = fingerprint.snapshot
-      allow(Digest::SHA256).to receive(:file).with(path).and_raise(Errno::EACCES)
+      allow(Digest::SHA256).to receive(:file).with(File.realpath(path)).and_raise(Errno::EACCES)
       current = fingerprint.snapshot
       expect(current.complete).to be(false)
       expect(fingerprint.verify(previous).unchanged).to be(false)
