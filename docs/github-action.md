@@ -42,23 +42,49 @@ that says so when the checkout is shallow or the base branch is missing.
 
 | Input | Default | Meaning |
 | --- | --- | --- |
-| `base-ref` | the pull request's base branch | Branch to diff against. Empty outside pull requests, where the action does nothing. |
+| `base-ref` | the pull request's base branch | Branch to diff against. |
 | `command` | `bundle exec saboteur` | How to start saboteur. |
-| `arguments` | empty | Extra arguments, separated by spaces, such as `--jobs 2`. |
-| `fail-on-survivors` | `false` | `true` fails the step when a mutant survives. |
-| `cache` | `true` | Caches `.saboteur`, which holds the coverage map. |
-| `report-path` | `.saboteur/report.json` | Where the JSON report is written. |
+| `arguments` | empty | Extra saboteur arguments, such as `--jobs 2`. Split on whitespace; shell quoting is not supported, so a value with a space cannot be passed. `--since` and `--json` belong to the action and are rejected here, including shortened forms like `--js`. |
+| `fail-on-survivors` | `false` | `true` or `false`; any other value fails the step. `true` fails the step when a mutant survives, and also when the run is incomplete (see below). |
+| `cache` | `true` | `true` or `false`. Caches saboteur's coverage map files. |
+| `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only. |
 
-A saboteur usage error (exit 2) or tool error (exit 3) always fails the step,
-even in advisory mode. A broken setup that reports green would be worse than
-a red check.
+The action runs only on `pull_request` events. On any other event, such as
+`push`, it prints a notice and does nothing, even if `base-ref` is set. It does
+not support `pull_request_target`, which would run with privileges.
+
+## What fails the step
+
+- A saboteur usage error (exit 2) or tool error (exit 3), always, even in
+  advisory mode. A broken setup that reports green would be worse than a red
+  check.
+- A run where saboteur exits 0 or 1 but this run's report is missing, is not
+  valid JSON, or holds a status the action does not know. The action deletes
+  any old report before the run, so a report restored from a cache is never
+  mistaken for this run's result. The step fails with exit code 3.
+- Survivors, only with `fail-on-survivors: "true"`.
+- An incomplete run, only with `fail-on-survivors: "true"`. A run is
+  incomplete when some mutants errored or hit a resource limit. Those mutants
+  are not scored. In advisory mode the step stays green and the summary and
+  the `incomplete` output say so.
 
 ## Outputs
 
-`ran`, `exit-code`, `score`, `killed`, `survivors` and `report-path`. The score
-is a percentage with one decimal, or `n/a` when no mutants were scored. A
-pull request that changes no covered methods has nothing to mutate; that says
-nothing about the whole project's test quality.
+`ran`, `exit-code`, `report-valid`, `score`, `killed`, `timeouts`, `survivors`,
+`accepted-survivors`, `errors`, `incomplete` and `report-path`.
+
+`score` is the covered score, as a percentage with one decimal:
+(killed + timeout) / (killed + timeout + survived), over mutants that ran. It
+is saboteur's own score. Mutants with no coverage, ignored mutants, errors and
+resource limits are not in it. Survivors accepted through
+`.saboteur-ignore.yml` still count as survived in the score, and are reported
+in `accepted-survivors`, not `survivors`. The score is `n/a` when no mutant was
+scored. That can mean the pull request changed no covered methods, or that
+every mutant errored or had no coverage. Read `errors` and the summary to tell
+which.
+
+A pull request is also limited by what diff mode selects, and by the
+`max_mutants_per_method` cap. The score says nothing about the whole project.
 
 ## Going from advisory to enforced
 
@@ -69,13 +95,20 @@ nothing about the whole project's test quality.
 
 ## Caching
 
-The action caches the `.saboteur` directory. The coverage map in it is keyed by
-a hash of the files it was built from, so a stale map is never reused: it is
-rebuilt. Building the map runs your whole suite once, which is the fixed cost of
-a run. The cache key uses `Gemfile.lock` and `.saboteur.yml`, and the cache
-falls back to the newest earlier entry for the same key prefix. Set
-`cache: "false"` to turn it off. Verdict reuse (`--incremental`) is not
-enabled by default; pass it in `arguments` if you want it.
+The action caches the coverage map files (`.saboteur/coverage-*.json`) and
+nothing else: not reports, logs or `--incremental` verdicts. The coverage map
+name contains a hash of the files it was built from, so changing a listed input
+(source files, spec files, `.saboteur.yml` settings) leads to a rebuild. The
+hash cannot see everything: an environment variable, a database fixture or the
+Ruby version can change coverage without changing a listed file. If a run
+looks wrong, set `cache: "false"` to rebuild from scratch. Building the map
+runs your whole suite once, which is the fixed cost of a run.
+
+The cache key uses the runner OS, `Gemfile.lock` and `.saboteur.yml`, plus the
+commit. A run restores the newest earlier entry with the same prefix. If you
+change `cache_dir` in `.saboteur.yml`, the action does not cache your new
+directory. Verdict reuse (`--incremental`) is not on by default and is not
+cached.
 
 ## What it does not do yet
 
@@ -84,6 +117,9 @@ enabled by default; pass it in `arguments` if you want it.
   action keeps to a read-only token and writes a job summary and a workflow
   warning. A comment can be added later as a separate step in a workflow that
   you trust, reading the JSON report. It must not run the pull request's code.
+- **No installation check in another repository yet.** The dogfood job runs
+  the action on this repository only. Treat `@main` as a preview until a
+  release has been tried on an outside project.
 - **No baseline file.** There is no way yet to accept today's survivors and
   fail only on new ones. See the [roadmap](../ROADMAP.md).
 
@@ -96,5 +132,6 @@ own release cadence or a Marketplace listing, it can move to its own
 repository without changing the inputs above.
 
 The logic is tested by `spec/action/pull_request_run_spec.rb`, which runs the
-script against a stand-in saboteur command. This repository's `dogfood` CI
+script against a stand-in saboteur command, including missing, stale and
+malformed reports. This repository's `dogfood` CI
 job uses the action (`uses: ./`) on its own pull requests.
