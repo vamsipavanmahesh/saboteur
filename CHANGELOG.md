@@ -6,6 +6,11 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A GitHub Action (`uses: vamsipavanmahesh/saboteur`) that runs diff mode on pull
+  requests. Advisory by default, with a job summary, outputs and a cached
+  coverage map. See `docs/github-action.md`.
+
 ## [0.2.0] - 2026-10-10
 
 ### Added
