@@ -36,7 +36,9 @@ inputs:
     default: "false"
   cache:
     description: >-
-      "true" or "false". Set to "false" to skip caching saboteur's coverage map.
+      "true" or "false" (anything else fails the step). "false" skips restoring
+      the cached coverage map and passes --no-cache to saboteur, so the map is
+      rebuilt.
     required: false
     default: "true"
   report-path:
@@ -102,4 +104,5 @@ runs:
         SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
         SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
         SABOTEUR_REPORT_PATH: ${{ inputs.report-path }}
+        SABOTEUR_CACHE: ${{ inputs.cache }}
       run: bash "${{ github.action_path }}/action/run-saboteur"
