@@ -51,6 +51,7 @@ module Saboteur
         reused = report.results.count(&:reused?)
         @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
           reused.positive?
+        @out.puts "kills rejected by unchanged-method check: #{report.rejected_kills}"
         kill_causes(report)
       end
 

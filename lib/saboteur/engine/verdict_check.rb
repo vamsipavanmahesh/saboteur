@@ -63,12 +63,14 @@ module Saboteur
       end
 
       def checked(result, failing_runs, failing)
+        return result if result.reused?
+
         if named_kill?(result) && failing_runs.key?(sequence(result))
           why = failing_runs[sequence(result)]
           result.as_error("killing test #{result.killed_by.first} also fails with the method unchanged" \
-                          "#{": #{why}" if why}")
+                          "#{": #{why}" if why}", rejected_kill: true)
         elsif failing.include?(result)
-          result.as_error("tests also fail with the method unchanged")
+          result.as_error("tests also fail with the method unchanged", rejected_kill: true)
         else
           result
         end

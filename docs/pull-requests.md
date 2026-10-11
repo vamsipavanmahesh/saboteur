@@ -15,6 +15,9 @@ configured project. Neither the CLI default nor the public API changes.
 
 ## GitHub Actions
 
+For a ready-made step, use [the saboteur GitHub Action](github-action.md). The
+example below shows the same thing written out by hand.
+
 This example runs only on pull requests. Adapt the Ruby version, boot files,
 database setup and SimpleCov guard to your project before using it.
 
