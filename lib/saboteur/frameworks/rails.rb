@@ -64,6 +64,17 @@ module Saboteur
         disconnect
       end
 
+      # Parent, after the run (however it ended): drop every copy
+      # prepare_workers made, so runs do not collect one database per worker.
+      def cleanup_workers(jobs)
+        return unless defined?(::ActiveRecord::Base) && jobs > 1
+
+        test_configs.each do |db|
+          (1...jobs).each { |number| drop_database(db, self.class.worker_database(db.database, number)) }
+        end
+        disconnect
+      end
+
       # Worker: point every connection pool (primary, and any cache, queue or
       # connects_to databases, for every role and shard) at this worker's
       # copy of its database.
@@ -127,16 +138,38 @@ module Saboteur
         end
       end
 
-      # Through a connection class of saboteur's own, so the app's
-      # connections never point at the maintenance database.
+      # The mirror of copy_database. Adapters copy_database rejects never get
+      # copies, so there is nothing to drop for them.
+      def drop_database(db, name)
+        case db.adapter
+        when /postg/
+          disconnect
+          drop_postgres(db, name)
+        when /sqlite/
+          ["", "-wal", "-shm"].each { |suffix| FileUtils.rm_f("#{name}#{suffix}") }
+        end
+      end
+
       def copy_postgres(db, name)
-        admin = maintenance_record
-        admin.establish_connection(db.configuration_hash.merge(database: "postgres"))
-        admin.connection_pool.with_connection do |connection|
+        with_maintenance_connection(db) do |connection|
           connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
           connection.execute("CREATE DATABASE #{connection.quote_table_name(name)} " \
                              "TEMPLATE #{connection.quote_table_name(db.database)}")
         end
+      end
+
+      def drop_postgres(db, name)
+        with_maintenance_connection(db) do |connection|
+          connection.execute("DROP DATABASE IF EXISTS #{connection.quote_table_name(name)}")
+        end
+      end
+
+      # Through a connection class of saboteur's own, so the app's
+      # connections never point at the maintenance database.
+      def with_maintenance_connection(db, &)
+        admin = maintenance_record
+        admin.establish_connection(db.configuration_hash.merge(database: "postgres"))
+        admin.connection_pool.with_connection(&)
       ensure
         admin&.remove_connection
       end
