@@ -59,14 +59,14 @@ module Saboteur
       def run_all(recorder)
         configuration.order = "rand:#{config.fetch('seed', 1)}"
         configuration.fail_fast = false
-        execute(Listener.new(recorder))
+        execute(Listener.new(recorder), log_phase: true)
       end
 
       def run_baseline(seed:)
         configuration.order = "rand:#{seed}"
         configuration.fail_fast = false
         listener = Listener.new
-        passed = execute(listener)
+        passed = execute(listener, log_phase: true)
         RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
                       executed_ids: listener.executed, runtime: listener.runtime,
                       failure_classes: listener.failure_classes, failure_messages: listener.failure_messages)
@@ -104,17 +104,55 @@ module Saboteur
         world.example_groups.flat_map(&:descendants).each(&:reset_memoized)
       end
 
-      def execute(listener)
+      # log_phase is for the baseline and coverage children, whose $stdout is
+      # redirected to the phase's log: progress and failure detail land in
+      # that log, so a failed phase can be diagnosed from it. Mutant runs
+      # stay quiet.
+      def execute(listener, log_phase: false)
         reporter = ::RSpec::Core::Reporter.new(configuration)
         reporter.register_listener(listener, *Listener::EVENTS)
         groups = world.ordered_example_groups.select { |group| group.descendant_filtered_examples.any? }
         count = world.example_count(groups)
+        if log_phase
+          logger = PhaseLogger.new($stdout, total: count)
+          reporter.register_listener(logger, *PhaseLogger::EVENTS)
+        end
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         passed = reporter.report(count) do |r|
           configuration.with_suite_hooks { groups.map { |group| group.run(r) }.all? }
         end
         listener.runtime = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
         passed && !world.non_example_failure
+      end
+
+      # Progress and failure detail for a phase log. Every 25 finished
+      # examples is enough to see movement on a tail; failures print RSpec's
+      # full formatted detail, and the run ends with RSpec's totals line.
+      class PhaseLogger
+        EVENTS = %i[example_finished dump_failures dump_summary].freeze
+
+        PROGRESS_EVERY = 25
+
+        def initialize(out, total:)
+          @out = out
+          @total = total
+          @executed = 0
+        end
+
+        def example_finished(_notification)
+          @executed += 1
+          return unless @executed == @total || (@executed % PROGRESS_EVERY).zero?
+
+          @out.puts("#{@executed}/#{@total} examples finished")
+        end
+
+        def dump_failures(notification)
+          @out.puts(notification.fully_formatted_failed_examples)
+        end
+
+        def dump_summary(notification)
+          @out.puts(notification.totals_line)
+        end
       end
 
       class Listener
