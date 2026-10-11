@@ -44,6 +44,16 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect([result.payload, result.stopped_by, result.exit_status.exitstatus]).to eq(["hello", nil, 0])
   end
 
+  it "calls on_tick from the parent's wait loop while the child runs" do
+    ticks = 0
+    result = supervisor.run(timeout: 5, on_tick: -> { ticks += 1 }) do |writer|
+      sleep 1.2
+      writer.write("hello")
+    end
+    expect(result.payload).to eq("hello")
+    expect(ticks).to be >= 1
+  end
+
   it "records nesting depth in the child" do
     nested = supervisor.run(timeout: 5) do |writer|
       writer.write(described_class.new.run(timeout: 5) { |inner| inner.write(ENV.fetch(described_class::CHILD_ENV)) }
