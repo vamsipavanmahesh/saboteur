@@ -12,7 +12,8 @@ module Saboteur
       TEXT_NODES = [Prism::InterpolatedStringNode, Prism::SymbolNode, Prism::InterpolatedSymbolNode,
                     Prism::RegularExpressionNode, Prism::InterpolatedRegularExpressionNode,
                     Prism::XStringNode, Prism::InterpolatedXStringNode].freeze
-      BOUNDARIES = (SCOPE_NODES + TEXT_NODES).freeze
+      PARAMETER_NODES = [Prism::ParametersNode, Prism::BlockParametersNode].freeze
+      BOUNDARIES = (SCOPE_NODES + TEXT_NODES + PARAMETER_NODES).freeze
 
       # Base inherits Object's empty initializer; there is no parent state to set.
       def initialize(arid: []) # rubocop:disable Lint/MissingSuper
