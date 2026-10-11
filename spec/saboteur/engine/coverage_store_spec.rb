@@ -129,3 +129,54 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(uncached).to have_received(:build)
   end
 end
+
+RSpec.describe Saboteur::Engine::CoverageStore, "heap preparation" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:file) { File.join(@root, "a.rb").tap { |path| File.write(path, "1\n") } }
+  let(:integration) { instance_double(Saboteur::Integration::RSpec, test_files: []) }
+  let(:map) { Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"]) }
+
+  def store(supervisor)
+    config = Saboteur::Config.new({ "coverage_timeout" => 60 }, root: @root)
+    described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new))
+  end
+
+  def recording_supervisor(events, payload)
+    Class.new do
+      define_method(:run) do |**|
+        events << :fork
+        Saboteur::Execution::Supervisor::Result.new(payload: payload, exit_status: nil, stopped_by: nil,
+                                                    detail: nil, runtime: 0.0, leftover_pids: [])
+      end
+    end.new
+  end
+
+  # The coverage child inherits the parent's heap, so the store must prepare
+  # that heap before the fork, not after.
+  it "prepares the heap once, before forking the coverage child" do
+    events = []
+    allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap) { events << :prepare }
+    # fetch's coverage guard expects the saboteur executable's setup.
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    store(recording_supervisor(events, map.to_json)).fetch([file])
+    expect(events).to eq(%i[prepare fork])
+  end
+
+  # A cached map means no child forks, so there is nothing to prepare for.
+  it "does not prepare on a cache hit" do
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    events = []
+    store(recording_supervisor(events, map.to_json)).fetch([file])
+    events.clear
+    allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap) { events << :prepare }
+    store(recording_supervisor(events, map.to_json)).fetch([file])
+    expect(events).to be_empty
+  end
+end
