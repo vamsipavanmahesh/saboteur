@@ -129,7 +129,7 @@ module Saboteur
       # examples is enough to see movement on a tail; failures print RSpec's
       # full formatted detail, and the run ends with RSpec's totals line.
       class PhaseLogger
-        EVENTS = %i[example_finished dump_failures dump_summary].freeze
+        EVENTS = %i[example_finished message dump_failures dump_summary].freeze
 
         PROGRESS_EVERY = 25
 
@@ -144,6 +144,12 @@ module Saboteur
           return unless @executed == @total || (@executed % PROGRESS_EVERY).zero?
 
           @out.puts("#{@executed}/#{@total} examples finished")
+        end
+
+        # A failure outside any example (a suite hook, a load error) arrives
+        # as a message, never in dump_failures.
+        def message(notification)
+          @out.puts(notification.message)
         end
 
         def dump_failures(notification)
