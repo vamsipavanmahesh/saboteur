@@ -39,7 +39,7 @@ contains it is published. `@main` follows development.
 The action does not set up Ruby or install gems. Your project's own setup
 (Ruby version, database, boot files) stays in your workflow, where you can see
 it. The action reads the base SHA from `github.event.pull_request.base.sha`;
-there is no user-settable base branch or SHA. It fetches that exact commit if
+there is no user-settable base branch or SHA. It verifies `HEAD` matches `github.sha`, fetches that exact base commit if
 needed, then deepens only the PR merge ref in bounded increments (up to 2,000
 commits) until Git can prove a merge base. If it cannot, the action stops before starting saboteur
 and prints instructions. It never substitutes a moving branch tip or widens
