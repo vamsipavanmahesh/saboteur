@@ -43,16 +43,21 @@ that says so when the checkout is shallow or the base branch is missing.
 
 Each surviving mutant becomes a file/line annotation on the diff: the subject,
 the operator, the original text and what saboteur replaced it with. The job
-summary lists the same survivors, most actionable first (coarse mutants, then
-file, line and digest). The JSON report is uploaded as the run's
-`saboteur-report` artifact, and the summary links it.
+summary lists the same survivors, coarse mutants first (a surviving coarse
+mutant hints that no test pins the method's behavior), then file, line and
+digest. The JSON report is uploaded as the run's `saboteur-report-<job>`
+artifact on every pull request run, even a failed one, and the summary links
+it.
 
 Both read the report's `saboteur.findings` section, written by saboteur 0.3.0
 and later, which bounds the list (10, GitHub's own per-step annotation limit)
 and counts what it left out. With an older saboteur the action still reports
 the counts, the score and a warning, but there are no per-survivor notes.
 Accepted survivors (on `.saboteur-ignore.yml`) get no note; they are counted
-in the `accepted-survivors` output and the summary's score line.
+in the `accepted-survivors` output and the summary's score line, and the
+summary lists them apart with the reason from the ignore list. A matrix
+workflow should give each leg a distinct job name, so the per-job artifact
+names do not collide.
 
 ## Inputs
 
