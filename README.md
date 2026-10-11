@@ -134,7 +134,9 @@ The run exits 1 when the score is below PERCENT and 0 when it is at or above,
 even with survivors. It fails closed: a run that tested no mutant has no score
 and exits 1, and a run where any mutant errored or hit a resource limit exits 3,
 because the score covers only part of the run. Without a threshold, any
-unignored survivor exits 1.
+unignored survivor exits 1. Either way, a run where more than half of the
+executed mutants errored exits 3: errored mutants are outside the score,
+so such a run tested almost nothing.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
