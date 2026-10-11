@@ -38,8 +38,14 @@ module Saboteur
           rejectedKills: report.rejected_kills,
           warnings: report.warnings,
           framework: { name: "saboteur", version: VERSION },
-          saboteur: { findings: Findings.build(report) }
+          saboteur: { findings: Findings.build(report), scores: scores(report) }
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
+      end
+
+      # Score with its assertion and crash shares, for all mutants and without
+      # the whole-body ones (body_nil, body_true, body_false, body_raise).
+      def self.scores(report)
+        { all: report.score_breakdown.to_h, withoutWholeBodyMutants: report.fine_score_breakdown.to_h }
       end
 
       def self.skipped_subjects(report)
