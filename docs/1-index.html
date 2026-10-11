@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>saboteur - mutation testing for Ruby</title>
+<meta name="description" content="saboteur breaks your Ruby code in small ways and shows you which changes your tests do not notice. It runs only the tests that cover each change.">
+<meta property="og:title" content="saboteur - mutation testing for Ruby">
+<meta property="og:description" content="Find the tests that do not test anything. Fast, safe, no fake kills.">
+<style>
+:root{--bg:#fff;--surface:#f6f7f9;--text:#1d2125;--muted:#5d6670;--line:#e3e6ea;--accent:#c2371f;--accent-2:#2f6fdb;
+--good:#1f8a4c;--good-bg:#e3f4e9;--bad:#c4372f;--bad-bg:#fbe7e5;--tie:#6b7280;--tie-bg:#eef0f2;--code-bg:#14171a;--code-text:#e8eaed;--note-bg:#fff7e0;--note-line:#e8b931}
+@media(prefers-color-scheme:dark){:root{--bg:#101316;--surface:#181c20;--text:#e8eaed;--muted:#a0a8b1;--line:#2c3238;--accent:#ff6a4d;--accent-2:#6b9cf0;
+--good:#4cc27d;--good-bg:#17331f;--bad:#f0746b;--bad-bg:#3a1c1a;--tie:#9aa2ab;--tie-bg:#24292e;--code-bg:#0a0c0e;--note-bg:#2e2812;--note-line:#c99d22}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--accent-2)}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+nav{border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2}
+nav .wrap{display:flex;align-items:center;gap:20px;height:56px;overflow-x:auto;white-space:nowrap}
+nav .brand{font-weight:700;color:var(--text);text-decoration:none;margin-right:auto}
+nav .brand span{color:var(--accent)}
+nav a{color:var(--muted);text-decoration:none;font-size:.95rem}
+nav a:hover{color:var(--text)}
+.hero{padding:72px 0 48px}
+.hero h1{font-size:clamp(2.2rem,6vw,3.6rem);line-height:1.08;margin:0 0 20px;letter-spacing:-.02em}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p.lead{font-size:1.2rem;color:var(--muted);max-width:640px;margin:0 0 28px}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-block;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600;border:1px solid var(--line);color:var(--text)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+pre{background:var(--code-bg);color:var(--code-text);padding:16px 18px;border-radius:10px;overflow-x:auto;font:.9rem/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;margin:14px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:4px}
+pre code{background:none;padding:0;font-size:inherit}
+.c{color:#8b949e}.rm{color:#f0746b}.ad{color:#4cc27d}
+section{padding:48px 0;border-top:1px solid var(--line)}
+h2{font-size:1.7rem;margin:0 0 8px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 28px;max-width:680px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
+.card h3{margin:0 0 6px;font-size:1.05rem}
+.card p{margin:0;color:var(--muted);font-size:.97rem}
+.steps{counter-reset:s;display:grid;gap:16px}
+.step{display:grid;grid-template-columns:40px 1fr;gap:14px}
+.step::before{counter-increment:s;content:counter(s);width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
+.step h3{margin:0 0 4px;font-size:1.05rem}.step p{margin:0;color:var(--muted)}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+.tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.85rem;font-weight:600;white-space:nowrap}
+.win{background:var(--good-bg);color:var(--good)}.lose{background:var(--bad-bg);color:var(--bad)}.tie{background:var(--tie-bg);color:var(--tie)}
+.note{background:var(--note-bg);border-left:4px solid var(--note-line);padding:12px 16px;border-radius:6px;margin:20px 0;font-size:.97rem}
+.slot{border:2px dashed var(--line);border-radius:12px;padding:20px;color:var(--muted)}
+.slot strong{color:var(--text)}
+footer{border-top:1px solid var(--line);padding:32px 0 56px;color:var(--muted);font-size:.93rem}
+footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+<a class="brand" href="#top">sabo<span>teur</span></a>
+<a href="#how">How it works</a><a href="#why">Why saboteur</a><a href="#start">Quickstart</a><a href="#compare">Compare</a><a href="#bench">Benchmarks</a>
+<a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap">
+<h1>Your tests pass.<br><em>Do they test anything?</em></h1>
+<p class="lead">saboteur changes your Ruby code in small ways, one change at a time. If your tests still pass, saboteur shows you the exact change they missed. It runs only the tests that touch each change, so it is fast, and it never counts a broken test as a catch.</p>
+<div class="btns"><a class="btn primary" href="#start">Get started</a><a class="btn" href="https://github.com/vamsipavanmahesh/saboteur">View on GitHub</a></div>
+<pre><code>gem install saboteur
+bundle exec saboteur run --since origin/main</code></pre>
+</div></header>
+
+<section id="how"><div class="wrap">
+<h2>How it works</h2>
+<p class="sub">Line coverage tells you which code ran. It does not tell you if a test would notice when that code breaks. Mutation testing does.</p>
+<div class="steps">
+<div class="step"><div><h3>Change</h3><p>saboteur finds your methods and makes one small change per mutant: flip a <code>&lt;</code>, swap <code>&amp;&amp;</code> for <code>||</code>, delete a line, empty the whole method.</p></div></div>
+<div class="step"><div><h3>Run only the tests that matter</h3><p>A per-test coverage map tells saboteur which tests ran the changed line. Only those run, likeliest killers first. The first failure stops the run.</p></div></div>
+<div class="step"><div><h3>Check the kill</h3><p>Every kill is run again on the unchanged code. If that test fails there too, it is not a kill. This removes fake kills.</p></div></div>
+<div class="step"><div><h3>Read the survivors</h3><p>You get a score and a diff for each survivor. A survivor means a missing test, or code that does not matter.</p></div></div>
+</div>
+<pre><code><span class="c"># Billing::Invoice#total  - survived</span>
+<span class="rm">-   return 0 if quantity &gt;= 10</span>
+<span class="ad">+   return 0 if quantity &gt; 10</span>
+<span class="c"># No test uses quantity = 10. Add one.</span></code></pre>
+</div></section>
+
+<section id="why"><div class="wrap">
+<h2>Why saboteur</h2>
+<p class="sub">Built for real Rails suites, not only small gems.</p>
+<div class="grid">
+<div class="card"><h3>Picks tests per mutant</h3><p>Only the tests that executed the changed statement run. A change no test reaches is reported as "no coverage", not as a survivor.</p></div>
+<div class="card"><h3>No fake kills</h3><p>A kill must fail on the mutant and pass on the original. In the benchmark, 0 of 20 checked kills on lobsters were fake.</p></div>
+<div class="card"><h3>Coarse first</h3><p>Each method body is replaced with <code>nil</code> and with <code>raise</code> first. If your tests miss that, saboteur says so and skips the small changes for that method. Less noise.</p></div>
+<div class="card"><h3>Diff mode</h3><p><code>--since origin/main</code> changes only the methods you edited on this branch. Quick enough for a pull request.</p></div>
+<div class="card"><h3>Rails and parallel</h3><p>Run with <code>--jobs N</code> workers. Each worker gets its own database copy. Tested on a Rails 8.1 app on Postgres with 6 workers, with the same verdicts as 1 worker.</p></div>
+<div class="card"><h3>Safe to run</h3><p>Each mutant runs in a watched child process. Everything it starts is tracked and killed. There are limits on time, memory and process count.</p></div>
+<div class="card"><h3>Open report</h3><p>JSON in the Stryker mutation-testing-report format, so existing viewers can open it.</p></div>
+<div class="card"><h3>Repeatable</h3><p>Every test run starts from the same random seed. Pass <code>--seed</code> to repeat a run.</p></div>
+<div class="card"><h3>Extendable</h3><p>Add your own mutations by file and byte range, add hooks around each mutant, or write an adapter for another test framework.</p></div>
+</div>
+</div></section>
+
+<section id="start"><div class="wrap">
+<h2>Quickstart</h2>
+<p class="sub">Needs Ruby 3.3 or newer on Linux or macOS. RSpec only, by design.</p>
+<h3>1. Install</h3>
+<pre><code>gem install saboteur
+<span class="c"># or in your Gemfile</span>
+gem "saboteur", group: :test</code></pre>
+<h3>2. Turn off SimpleCov for the run</h3>
+<p>saboteur needs Ruby's <code>Coverage</code> for itself. Most projects already guard SimpleCov with an environment variable.</p>
+<h3>3. Run it</h3>
+<pre><code>bundle exec saboteur run                          <span class="c"># whole project</span>
+bundle exec saboteur run --since origin/main      <span class="c"># methods changed on this branch</span>
+bundle exec saboteur run --subject 'Billing::Invoice#total'
+bundle exec saboteur run --subject Billing        <span class="c"># a namespace</span>
+bundle exec saboteur run --incremental            <span class="c"># reuse verdicts that did not change</span>
+bundle exec saboteur run --jobs 6                 <span class="c"># parallel workers</span></code></pre>
+<h3>4. Configure (optional)</h3>
+<pre><code><span class="c"># .saboteur.yml</span>
+include: [lib/**/*.rb]
+exclude: [lib/my_gem/version.rb]
+timeout_factor: 3        # deadline = 3 x the tests' recorded time
+max_memory_mb: 2048      # memory growth cap per mutant
+max_processes: 64
+seed: 1</code></pre>
+<h3>5. Accept a survivor with a reason</h3>
+<pre><code><span class="c"># .saboteur-ignore.yml</span>
+- subject: "Billing::Invoice#total"
+  mutation: "1a2b3c4d5e6f7a8b"
+  reason: "equivalent: amounts are always whole cents"</code></pre>
+<p>An entry without a reason is rejected. Exit codes: <code>0</code> no survivors, <code>1</code> survivors, <code>2</code> bad configuration, <code>3</code> the tool failed. The JSON report goes to <code>.saboteur/report.json</code>.</p>
+</div></section>
+
+<section id="compare"><div class="wrap">
+<h2>saboteur and mutineer, side by side</h2>
+<p class="sub"><a href="https://github.com/davidteren/mutineer">mutineer</a> is another Ruby mutation testing tool. We compared the two on real projects. Here is the honest picture, including where mutineer is ahead.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Area</th><th>saboteur</th><th>mutineer</th><th></th></tr></thead>
+<tbody>
+<tr><td>Fake kills (lobsters)</td><td>0 of 20 checked</td><td>8 of 8 checked</td><td><span class="tag win">saboteur</span></td></tr>
+<tr><td>Rails app, parallel</td><td>6 workers, same verdicts as 1</td><td>1 worker only</td><td><span class="tag win">saboteur</span></td></tr>
+<tr><td>Postgres Rails app</td><td>Runs</td><td>Does not run</td><td><span class="tag win">saboteur</span></td></tr>
+<tr><td>Time per mutant (hashie)</td><td>0.008 s</td><td>0.092 s</td><td><span class="tag win">saboteur</span></td></tr>
+<tr><td>Peak memory (hashie)</td><td>595 MB</td><td>471 MB</td><td><span class="tag lose">mutineer</span> <em>(being worked on)</em></td></tr>
+<tr><td>Operators and CI extras</td><td>Fixed set, fewer</td><td>20 operators, baseline, HTML, GitHub Action</td><td><span class="tag lose">mutineer</span></td></tr>
+<tr><td>Test frameworks</td><td>RSpec</td><td>RSpec and Minitest</td><td><span class="tag lose">mutineer</span></td></tr>
+<tr><td>Ruby version</td><td>3.3+</td><td>3.4+</td><td><span class="tag tie">saboteur is wider</span></td></tr>
+</tbody></table></div>
+<div class="note">Each configuration ran once on sampled files, so read these numbers as a guide, not a verdict. Full method and limits are on the <a href="benchmark/">benchmark page</a>. Findings about mutineer are from our runs of version 1.6.0.</div>
+</div></section>
+
+<section id="bench"><div class="wrap">
+<h2>Benchmarks</h2>
+<p class="sub">Numbers you can rerun yourself.</p>
+<div class="slot">
+<strong>Final memory and speed numbers: coming.</strong> We are cutting saboteur's memory use now. The before and after results, with the commands to repeat them, will be added here when the work lands. Until then, the table above is the latest measured data.
+<!-- SLOT: replace this block with final benchmark numbers from the performance PR. Do not fill in unmeasured values. -->
+</div>
+<p>Scripts and raw data: <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>. Full write-up: <a href="benchmark/">benchmark page</a>.</p>
+</div></section>
+
+<footer><div class="wrap">
+<p><strong>saboteur</strong> &middot; MIT licensed &middot; Copyright 2026 Vamsi Pavan Mahesh Gunturu</p>
+<p><a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/design.md">Design</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CHANGELOG.md">Changelog</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CONTRIBUTING.md">Contribute</a> &middot; <a href="https://rubygems.org/gems/saboteur">RubyGems</a></p>
+</div></footer>
+</body>
+</html>
