@@ -486,6 +486,13 @@ RSpec.describe Saboteur::Frameworks::Rails do
             .new(":memory:", { adapter: "sqlite3", database: ":memory:" }, "sqlite3")
     end
 
+    def fake_backup(statuses)
+      instance_double(SQLite3::Backup).tap do |backup|
+        allow(backup).to receive(:step).and_return(*statuses)
+        allow(backup).to receive(:finish)
+      end
+    end
+
     def base_with(pools)
       handler = Object.new
       handler.define_singleton_method(:connection_pool_list) { |*| pools }
@@ -564,6 +571,111 @@ RSpec.describe Saboteur::Frameworks::Rails do
       rails.instance_variable_set(:@memory_snapshots, { memory_db => "x" })
       hide_const("ActiveRecord")
       expect { rails.send(:restore_memory_databases) }.not_to raise_error
+    end
+
+    # SQLite wants exactly one finish per backup, success or failure.
+    it "finishes the snapshot backup even when the step fails" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      fake = fake_backup([10])
+      allow(SQLite3::Backup).to receive(:new).and_return(fake)
+      expect { rails.send(:snapshot_memory_databases) }.to raise_error(Saboteur::Error, /could not copy/)
+      expect(fake).to have_received(:finish)
+    end
+
+    it "finishes the restore backup even when the step fails" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      db = memory_db
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, db)]))
+      rails.send(:snapshot_memory_databases)
+      child_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(child_sqlite, db)]))
+      fake = fake_backup([5])
+      allow(SQLite3::Backup).to receive(:new).and_return(fake)
+      expect { rails.send(:restore_memory_databases) }.to raise_error(Saboteur::Error, /could not copy/)
+      expect(fake).to have_received(:finish)
+    end
+
+    # A close that fails on the way out must not hide the step's error.
+    it "lets the step error through when closing the snapshot file also fails" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      allow(SQLite3::Backup).to receive(:new).and_return(fake_backup([10]))
+      file = instance_double(SQLite3::Database)
+      allow(file).to receive(:close).and_raise(SQLite3::Exception, "close boom")
+      allow(SQLite3::Database).to receive(:new).and_return(file)
+      expect { rails.send(:snapshot_memory_databases) }.to raise_error(Saboteur::Error, /could not copy/)
+    end
+
+    it "closes the snapshot file after the backup" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      file = instance_double(SQLite3::Database, close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(file)
+      allow(SQLite3::Backup).to receive(:new).and_return(fake_backup([101]))
+      rails.send(:snapshot_memory_databases)
+      expect(file).to have_received(:close)
+    end
+
+    it "closes the snapshot source after restoring" do
+      parent_sqlite = SQLite3::Database.new(":memory:")
+      parent_sqlite.execute("CREATE TABLE t (i)")
+      db = memory_db
+      stub_const("ActiveRecord::Base", base_with([memory_pool(parent_sqlite, db)]))
+      rails.send(:snapshot_memory_databases)
+      child_sqlite = SQLite3::Database.new(":memory:")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(child_sqlite, db)]))
+      source = instance_double(SQLite3::Database, close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(source)
+      allow(SQLite3::Backup).to receive(:new).and_return(fake_backup([101]))
+      rails.send(:restore_memory_databases)
+      expect(source).to have_received(:close)
+    end
+
+    # On the success path a close failure is the only error, so it surfaces.
+    it "raises a close failure when nothing else went wrong" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      file = instance_double(SQLite3::Database)
+      allow(file).to receive(:close).and_raise(SQLite3::Exception, "close boom")
+      allow(SQLite3::Database).to receive(:new).and_return(file)
+      allow(SQLite3::Backup).to receive(:new).and_return(fake_backup([101]))
+      expect { rails.send(:snapshot_memory_databases) }.to raise_error(SQLite3::Exception, "close boom")
+    end
+
+    it "registers an at_exit cleanup that removes the snapshots only in the owner process" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      captured = nil
+      allow(rails).to receive(:at_exit) { |&block| captured = block }
+      rails.send(:snapshot_memory_databases)
+      dir = rails.instance_variable_get(:@memory_snapshot_dir)
+      captured.call
+      expect(Dir.exist?(dir)).to be(false)
+    end
+
+    it "leaves the snapshots to other processes" do
+      sqlite = SQLite3::Database.new(":memory:")
+      sqlite.execute("CREATE TABLE t (i)")
+      stub_const("ActiveRecord::Base", base_with([memory_pool(sqlite, memory_db)]))
+      rails.send(:snapshot_memory_databases)
+      dir = rails.instance_variable_get(:@memory_snapshot_dir)
+      rails.send(:cleanup_memory_snapshots, Process.pid + 1)
+      expect(Dir.exist?(dir)).to be(true)
+      rails.send(:cleanup_memory_snapshots, Process.pid)
+      expect(Dir.exist?(dir)).to be(false)
+    end
+
+    it "does not remove anything when no snapshot directory exists" do
+      allow(FileUtils).to receive(:rm_rf).and_call_original
+      expect { rails.send(:cleanup_memory_snapshots, Process.pid) }.not_to raise_error
+      expect(FileUtils).not_to have_received(:rm_rf)
     end
 
     it "restores on reconnect and when a worker starts" do
