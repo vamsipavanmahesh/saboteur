@@ -42,9 +42,10 @@ module Saboteur
       end
 
       def details(report)
-        score = report.score
-        @out.puts "score #{score ? format('%.1f %%', score * 100) : 'n/a'} " \
+        breakdown = report.score_breakdown
+        @out.puts "score #{percent(breakdown.value)}#{score_split(breakdown)} " \
                   "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded"
+        whole_body_score(report)
         mean = report.mean_runtime
         @out.puts "mean time per executed mutant #{format('%.3f', mean)} s" if mean
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
@@ -55,6 +56,31 @@ module Saboteur
           reused.positive?
         @out.puts "kills rejected by unchanged-method check: #{report.rejected_kills}"
         kill_causes(report)
+      end
+
+      # " (assertion 50.0 %, crash 50.0 %)": how much of the score is a failed
+      # check and how much is a crash. Timeouts and kills with no recorded
+      # cause are named only when there are some, so the parts add up.
+      def score_split(breakdown)
+        return "" unless breakdown.split_known?
+
+        " (#{breakdown.parts.map { |label, share| "#{label} #{percent(share)}" }.join(', ')})"
+      end
+
+      # Whole-body mutants (body_nil, body_true, body_false, body_raise) are
+      # killed by almost any test that runs the method, so they get their own
+      # line.
+      def whole_body_score(report)
+        whole = report.coarse_score_breakdown
+        fine = report.fine_score_breakdown
+        return if whole.tested.zero? || fine.tested.zero?
+
+        @out.puts "score without whole-body mutants #{percent(fine.value)}#{score_split(fine)} " \
+                  "(#{fine.tested} mutants); whole-body mutants alone #{percent(whole.value)} (#{whole.tested})"
+      end
+
+      def percent(share)
+        share ? format("%.1f %%", share * 100) : "n/a"
       end
 
       # How many kills came from a failed check and how many from a crash, and

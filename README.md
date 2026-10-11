@@ -192,6 +192,20 @@ out and keeps survivors accepted on the ignore list in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
+The score is split by how the mutant was killed. A crash kill (a `NoMethodError`,
+a `TypeError`, a parse error) shows the code ran and broke, not that a test
+checked a value. The terminal prints
+`score 100.0 % (assertion 50.0 %, crash 50.0 %)`: each share is a part of
+tested mutants, so the parts add up to the score. Timeouts and kills with no
+recorded cause (a verdict reused from an older run, a test that called `exit`,
+a failure outside any example) are named when there are some. Whole-body
+mutants (`body_nil`, `body_true`, `body_false`, `body_raise`) are killed by
+almost any test that runs the method, so a second line scores the run without
+them, and shows them alone. The headline score and `--threshold` still count every
+mutant. The JSON report carries both splits under `saboteur.scores`
+(`all` and `withoutWholeBodyMutants`), and the HTML page prints them under
+the score.
+
 For code-review surfaces, the JSON report also carries a `saboteur.findings`
 section: a bounded, deterministically ordered list of survivors, coarse
 mutants first (a surviving coarse mutant hints that no test pins the method's
