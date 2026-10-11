@@ -36,12 +36,16 @@ module Saboteur
       "since" => nil,
       "cache" => true,
       "incremental" => false,
-      "seed" => 1
+      "seed" => 1,
+      "tests" => [],
+      "threshold" => nil
     }.freeze
 
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed].freeze
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
-    LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects].freeze
+    THRESHOLD_RANGE = (0.0..100.0)
+
+    LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects tests].freeze
 
     attr_reader :root
 
@@ -114,6 +118,7 @@ module Saboteur
       INTEGER_KEYS.each { |key| @values[key] = Integer(@values[key]) }
       FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) }
       LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
+      @values["threshold"] = Float(@values["threshold"]) unless @values["threshold"].nil?
     rescue ArgumentError, TypeError => e
       raise ConfigError, "invalid config value: #{e.message}"
     end
@@ -129,17 +134,30 @@ module Saboteur
       raise ConfigError, "json_report and html_report both point to #{json}; give each report its own path"
     end
 
+    def validate_threshold!
+      threshold = self["threshold"]
+      return if threshold.nil? || THRESHOLD_RANGE.cover?(threshold)
+
+      raise ConfigError, "threshold must be between 0 and 100"
+    end
+
+    def validate_reeval!
+      raise ConfigError, "reeval must be one of: #{Execution::Reevaluator::STRATEGIES.join(', ')}" unless
+        Execution::Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
+    end
+
     def validate!
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
 
       validate_mutant_limit!
+      validate_threshold!
       raise ConfigError, "seed must be >= 0" if self["seed"].negative?
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
       raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
-      raise ConfigError, "reeval must be one of: #{Execution::Reevaluator::STRATEGIES.join(', ')}" unless
-        Execution::Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
+
+      validate_reeval!
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
     rescue RegexpError => e

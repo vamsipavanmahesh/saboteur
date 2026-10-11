@@ -10,8 +10,7 @@ module Saboteur
       def setup
         require "rspec/core"
         ::RSpec::Core::Runner.disable_autorun!
-        options = ::RSpec::Core::ConfigurationOptions.new(rspec_args)
-        @runner = ::RSpec::Core::Runner.new(options)
+        @runner = ::RSpec::Core::Runner.new(configuration_options)
         @runner.setup($stderr, $stdout)
         configuration.order = "rand:#{config.fetch('seed', 1)}"
         raise Error, "rspec quit while loading spec files" if world.wants_to_quit
@@ -21,6 +20,16 @@ module Saboteur
       def rspec_args
         args = Array(config.fetch("rspec_args", []))
         args.any? { |arg| !arg.start_with?("-") } ? args : args + ["spec"]
+      end
+
+      # RSpec's own parser reads rspec_args and .rspec, so option values such
+      # as `--require path` stay intact. Explicit tests then replace only the
+      # files and directories to run.
+      def configuration_options
+        ::RSpec::Core::ConfigurationOptions.new(rspec_args).tap do |options|
+          explicit = Array(config.fetch("tests", []))
+          options.options[:files_or_directories_to_run] = explicit if explicit.any?
+        end
       end
 
       def all_tests

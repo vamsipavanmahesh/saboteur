@@ -115,8 +115,26 @@ bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
 bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
 bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
+bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
+bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
 bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
 ```
+
+Positional operands name the sources to mutate: Ruby files, or directories
+(all their `.rb` files). Each must exist; a typo or a non-Ruby file exits 2
+before anything runs. They replace `include` and `exclude`. `--test`
+(repeatable; spec files or directories, with an optional `:LINE` or `[1:2]`
+selector; needs at least one source) replaces only the files RSpec runs. Other
+`rspec_args` and `.rspec` options such as `--require` stay. The coverage map
+is built from only those specs, each mutant runs only the ones that cover it,
+and the selection is part of the coverage and `--incremental` cache keys.
+
+`--threshold PERCENT` (0 to 100, or `threshold:` in `.saboteur.yml`) is for CI.
+The run exits 1 when the score is below PERCENT and 0 when it is at or above,
+even with survivors. It fails closed: a run that tested no mutant has no score
+and exits 1, and a run where any mutant errored or hit a resource limit exits 3,
+because the score covers only part of the run. Without a threshold, any
+unignored survivor exits 1.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
@@ -159,8 +177,21 @@ out and keeps survivors accepted on the ignore list in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
-Exit codes: 0 no survivors (or all on the ignore list), 1 survivors,
-2 bad configuration, 3 the tool failed.
+For code-review surfaces, the JSON report also carries a `saboteur.findings`
+section: a bounded, deterministically ordered list of survivors, coarse
+mutants first (a surviving coarse mutant hints that no test pins the method's
+behavior - it can also be a re-evaluation limit or an equivalent mutant),
+then file, line and digest. Each finding holds the file, line, digest,
+subject, operator, original and replacement a note on a pull-request diff
+needs, plus one entry per edit for mutants that edit more than one spot.
+Survivors accepted on the ignore list are listed separately with their
+reason, and `survivorsTruncated` and `acceptedTruncated` count what the bound
+left out; the full data stays in the schema's `files` section.
+
+Exit codes: 0 no survivors (or all on the ignore list), or the score meets
+`--threshold`; 1 survivors, or the score is below `--threshold` or missing;
+2 bad configuration or a missing source or test; 3 the tool failed (with
+`--threshold`, also any errored or resource-limited mutant).
 
 ### Rejected kills
 
@@ -363,3 +394,4 @@ Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build s
 ## License
 
 MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
+

@@ -136,6 +136,31 @@ RSpec.describe Saboteur::Help do
     expect(cli.parser.banner).to eq(Saboteur::CLI::USAGE)
   end
 
+  describe "--threshold exit semantics" do
+    let(:exit_rows) { overview[/^EXIT CODES\n(.*?)\n\n/m, 1].gsub("\n    ", " ") }
+
+    def row(code)
+      exit_rows.lines.find { |line| line.start_with?("  #{code}  ") }
+    end
+
+    it "says exit 0 allows survivors when the score meets the threshold" do
+      expect(row(0)).to include("Without --threshold: no unignored survivors")
+      expect(row(0)).to include("With --threshold: the score is at or above it, even if mutants survived")
+    end
+
+    it "says --threshold replaces the survivor gate for exit 1, and a missing score fails" do
+      expect(row(1)).to include("Without --threshold: at least one mutant survived")
+      expect(row(1)).to include("survivors alone no longer fail the run")
+      expect(row(1)).to include("below it, or no mutant was tested")
+    end
+
+    it "describes --threshold as a pass/fail gate, not as the exit code itself" do
+      description = described_class::COMMANDS.first.description
+      expect(description).to include("replaces the survivor check")
+      expect(description).not_to include("makes the score the exit code")
+    end
+  end
+
   it "returns nil for a command it does not know" do
     expect(help.command("explode")).to be_nil
   end
