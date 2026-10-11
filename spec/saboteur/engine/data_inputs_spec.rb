@@ -41,4 +41,15 @@ RSpec.describe Saboteur::Engine::DataInputs do
     FileUtils.mkdir_p(File.join(@root, "spec/fixtures/empty_dir"))
     expect(described_class.files(@root)).to eq([])
   end
+
+  describe ".match?" do
+    it "matches declared inputs whether or not they exist, and nothing else" do
+      expect(described_class.match?(@root, File.join(@root, "db/structure.sql"))).to be(true)
+      expect(described_class.match?(@root, File.join(@root, "test/fixtures/a/b.yml"))).to be(true)
+      expect(described_class.match?(@root, File.join(@root, "data/x.csv"), extra: ["data/*.csv"])).to be(true)
+      expect(described_class.match?(@root, File.join(@root, "data/x.csv"))).to be(false)
+      expect(described_class.match?(@root, File.join(@root, "app/models/user.rb"))).to be(false)
+      expect(described_class.match?(@root, "/elsewhere/db/structure.sql")).to be(false)
+    end
+  end
 end
