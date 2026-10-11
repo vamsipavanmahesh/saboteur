@@ -134,6 +134,19 @@ RSpec.describe Saboteur::CLI do
     it "is 3 when every executed mutant errored" do
       expect(run_with(report_of(result_for(:error), result_for(:skipped, reason: "no coverage")))).to eq(3)
     end
+
+    # Errored mutants are outside the score, so a mostly-errored run tested
+    # almost nothing; it must not go green even without a threshold.
+    it "is 3 when most executed mutants errored, and says why" do
+      report = report_of(result_for(:killed), result_for(:error), result_for(:error))
+      expect(run_with(report)).to eq(3)
+      expect(err.string).to include("2 of 3 mutants errored")
+    end
+
+    it "still passes when at most half of the executed mutants errored" do
+      report = report_of(result_for(:killed), result_for(:error))
+      expect(run_with(report)).to eq(0)
+    end
   end
 end
 
