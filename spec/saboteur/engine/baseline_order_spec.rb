@@ -5,6 +5,7 @@ require "stringio"
 
 RSpec.describe Saboteur::Engine, "baseline refusal" do
   it "stops before coverage lookup, candidate generation and worker preparation" do
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     Dir.mktmpdir do |root|
       integration = instance_double(Saboteur::Integration::RSpec)
       rails = instance_double(Saboteur::Frameworks::Rails)
