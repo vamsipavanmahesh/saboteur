@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+
+RSpec.describe Saboteur::WorkingTree do
+  let(:root) { File.realpath(Dir.mktmpdir("saboteur-tree-")) }
+
+  after { FileUtils.remove_entry(root) }
+
+  def git(*args)
+    Open3.capture2e("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: root)
+  end
+
+  def write(path, text = "x = 1\n")
+    FileUtils.mkdir_p(File.dirname(File.join(root, path)))
+    File.write(File.join(root, path), text)
+  end
+
+  def commit_one_file
+    write("lib/a.rb")
+    git("init", "-q")
+    git("add", ".")
+    git("commit", "-q", "-m", "first")
+  end
+
+  it "is unknown outside a git repository" do
+    state = described_class.new(root).state
+    expect(state).to eq(described_class::UNKNOWN)
+    expect(state.label).to eq("unknown")
+  end
+
+  it "records the full SHA and a clean tree" do
+    commit_one_file
+    state = described_class.new(root).state
+    expect(state.head).to eq(git("rev-parse", "HEAD").first.strip)
+    expect([state.dirty, state.changed_files, state.label]).to eq([false, 0, "clean"])
+  end
+
+  it "counts a changed tracked file" do
+    commit_one_file
+    write("lib/a.rb", "x = 2\n")
+    state = described_class.new(root).state
+    expect([state.dirty, state.changed_files, state.label]).to eq([true, 1, "dirty"])
+  end
+
+  it "counts each untracked file, also inside new directories" do
+    commit_one_file
+    write("lib/new/b.rb")
+    write("lib/new/deep/c.rb")
+    expect(described_class.new(root).state.changed_files).to eq(2)
+  end
+
+  it "leaves out the ignored paths" do
+    commit_one_file
+    write(".saboteur/report.json", "{}")
+    write("reports/out.html", "<html>")
+    write("lib/new.rb")
+    expect(described_class.new(root, ignored: [".saboteur", "reports/out.html"]).state.changed_files).to eq(1)
+    expect(described_class.new(root).state.changed_files).to eq(3)
+  end
+
+  it "is unknown when git cannot read the head, or cannot read the status" do
+    ok = ["abc\n", instance_double(Process::Status, success?: true)]
+    bad = ["fatal\n", instance_double(Process::Status, success?: false)]
+    allow(Open3).to receive(:capture2e).and_return(bad, ok)
+    expect(described_class.new(root).state).to eq(described_class::UNKNOWN)
+    allow(Open3).to receive(:capture2e).and_return(ok, bad)
+    expect(described_class.new(root).state).to eq(described_class::UNKNOWN)
+  end
+
+  it "is unknown when git cannot be started" do
+    allow(Open3).to receive(:capture2e).and_raise(Errno::ENOENT)
+    expect(described_class.new(root).state).to eq(described_class::UNKNOWN)
+  end
+end
