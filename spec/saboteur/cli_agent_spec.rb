@@ -189,6 +189,21 @@ RSpec.describe Saboteur::CLI, "agent mode" do
       expect(JSON.parse(out)["provenance"]).to include("workingTree" => "dirty", "changedFiles" => 1)
     end
 
+    it "records the full commit SHA of the tree the run started on" do
+      dir = repository
+      out, = agent_process(dir, "run", "--agent")
+      full_sha = git(dir, "rev-parse", "HEAD").first.strip
+      expect(JSON.parse(out)["provenance"]["head"]).to eq(full_sha).and match(/\A\h{40,64}\z/)
+    end
+
+    it "counts every untracked file, also inside new directories" do
+      dir = repository
+      FileUtils.mkdir_p(File.join(dir, "lib", "fresh", "deep"))
+      %w[lib/fresh/a.rb lib/fresh/b.rb lib/fresh/deep/c.rb].each { |path| File.write(File.join(dir, path), "z = 3\n") }
+      out, = agent_process(dir, "run", "--agent")
+      expect(JSON.parse(out)["provenance"]).to include("workingTree" => "dirty", "changedFiles" => 3)
+    end
+
     it "takes the ref from the effective config and keeps the selection in the rerun command" do
       dir = repository(since: "HEAD")
       File.write(File.join(dir, "spec_a.rb"), "")
