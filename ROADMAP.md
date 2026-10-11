@@ -71,7 +71,8 @@ Speed is the first reason teams give up on mutation testing.
   Rails app.
 - **Shipped:** `--since` restricts fine mutants to the changed lines and keeps
   the coarse mutants of each changed method (`Engine::DiffScope`).
-  **Planned:** measure it on a real branch history, and evaluate an optional
+  **Planned:** extend the existing selected-file measurement in
+  `bench/since` to branch histories of the validation projects, and evaluate an optional
   method-wide scope next to it. A change in one line can break a test that
   only exercises the rest of the method, so the wider scope may find
   survivors the line scope misses. Ship it only if the measurement shows a
@@ -176,8 +177,9 @@ take is the method, not the numbers: collect feedback, then suppress by rule.
   versions and compile options it tests. One rule is fixed now: a mutant is
   skipped only when equivalence is proven, and any doubt means the mutant
   runs. The spike ends with the measured hit rate and a count of wrong skips
-  against a run with no skipping. Until then, the cheap cases (a changed
-  literal the method never reads) stay as safe pattern checks.
+  against a run with no skipping. Separately, conservative safe-pattern checks (for
+  example a changed literal the method never reads) can be evaluated as
+  proven pattern checks of their own.
 - **Research: redundant mutants.** A fail-fast run records only the first
   killing test, so two mutants with the same first killer are not proven
   redundant. The experiment needs its own harness: a sampled run with
@@ -286,7 +288,8 @@ Work that runs alongside the milestones:
 - Anything that needs a hosted service to run. saboteur stays a local tool.
 - Language-model generation of mutants or language-model equivalence checks
   in the core. The reason is the mission: a result must repeat for the same
-  code and seed, and a model call does not. Meta's system generates few,
+  code and seed, and the core must not rely on an external model's
+  repeatability. Meta's system generates few,
   targeted mutants with a model and reports that engineers accepted 73% of
   the tests it produced
   ([Foster et al., 2025](https://arxiv.org/html/2501.12862)). Its equivalence
