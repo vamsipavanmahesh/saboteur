@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "tmpdir"
+
 RSpec.describe Saboteur::Frameworks::Rails do
   describe ".worker_database" do
     # Names of their own, so a developer's parallel_tests databases
@@ -105,6 +107,66 @@ RSpec.describe Saboteur::Frameworks::Rails do
       rails.prepare_workers(2)
       expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"',
                          'CREATE DATABASE "app_test_saboteur2" TEMPLATE "app_test"', :removed])
+    end
+  end
+
+  describe "#cleanup_workers" do
+    let(:rails) { described_class.new(Saboteur::Config.new({}), Saboteur::Hooks.new) }
+    let(:log) { [] }
+
+    after do
+      described_class.send(:remove_const, :MaintenanceRecord) if described_class.const_defined?(:MaintenanceRecord,
+                                                                                                false)
+    end
+
+    # Same stand-in as #prepare_workers: logs which class connects where and
+    # what SQL runs.
+    def fake_base(db)
+      calls = log
+      connection = Object.new
+      connection.define_singleton_method(:quote_table_name) { |name| %("#{name}") }
+      connection.define_singleton_method(:execute) { |sql| calls << sql }
+      pool = Object.new
+      pool.define_singleton_method(:with_connection) { |&block| block.call(connection) }
+      Class.new.tap do |base|
+        base.singleton_class.attr_accessor(:abstract_class)
+        base.define_singleton_method(:establish_connection) do |config|
+          calls << [equal?(base) ? :app : :maintenance, config[:database]]
+        end
+        base.define_singleton_method(:connection_pool) { pool }
+        base.define_singleton_method(:remove_connection) { calls << :removed }
+        handler = Object.new
+        handler.define_singleton_method(:connection_pool_list) { |_role| [] }
+        base.define_singleton_method(:connection_handler) { handler }
+        base.define_singleton_method(:configurations) do
+          Object.new.tap { |c| c.define_singleton_method(:configs_for) { |**| [db] } }
+        end
+      end
+    end
+
+    it "drops each worker copy through the maintenance connection" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.cleanup_workers(3)
+      expect(log).to eq([[:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur2"', :removed,
+                         [:maintenance, "postgres"], 'DROP DATABASE IF EXISTS "app_test_saboteur3"', :removed])
+    end
+
+    it "removes SQLite copies, including WAL and SHM files" do
+      Dir.mktmpdir do |dir|
+        db = Struct.new(:database, :configuration_hash, :adapter)
+                   .new(File.join(dir, "test.sqlite3"), { adapter: "sqlite3" }, "sqlite3")
+        stub_const("ActiveRecord::Base", fake_base(db))
+        copy = File.join(dir, "test_saboteur2.sqlite3")
+        ["", "-wal", "-shm"].each { |suffix| File.write("#{copy}#{suffix}", "x") }
+        rails.cleanup_workers(2)
+        expect(Dir.children(dir)).to be_empty
+      end
+    end
+
+    it "does nothing for a single worker" do
+      stub_const("ActiveRecord::Base", fake_base(fake_pool(:writing).db_config))
+      rails.cleanup_workers(1)
+      expect(log).to be_empty
     end
   end
 
