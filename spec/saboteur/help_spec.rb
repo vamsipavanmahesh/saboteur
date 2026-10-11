@@ -14,7 +14,8 @@ RSpec.describe Saboteur::Help do
 
   it "has the sections an agent looks for, in a fixed order" do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
-    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "EXAMPLES", "EXIT CODES",
+    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur doctor)", "EXAMPLES",
+                           "EXIT CODES (saboteur run)", "EXIT CODES (saboteur doctor)",
                            "CONFIG FILE (.saboteur.yml)", "FILES"])
   end
 
@@ -27,6 +28,25 @@ RSpec.describe Saboteur::Help do
       (switch.long + switch.short).each { |flag| expect(overview).to include(flag) }
       switch.desc.each { |description| expect(overview).to include(description) }
     end
+  end
+
+  it "lists every switch of the doctor parser with its description" do
+    cli.doctor_parser.top.list.each do |switch|
+      (switch.long + switch.short).each { |flag| expect(overview).to include(flag) }
+      switch.desc.each { |description| expect(overview).to include(description) }
+    end
+  end
+
+  it "has an options section and an exit codes section for every command that takes options" do
+    described_class::COMMANDS.select(&:takes_options).each do |command|
+      expect(overview).to include("OPTIONS (saboteur #{command.name})")
+      expect(overview).to include("EXIT CODES (saboteur #{command.name})")
+    end
+  end
+
+  it "lists the doctor exit codes under the doctor heading" do
+    section = overview[/^EXIT CODES \(saboteur doctor\)\n(.*?)\n\n/m, 1]
+    expect(section.lines.map(&:strip)).to eq(described_class::DOCTOR_EXIT_CODE_MEANINGS.map { |c, m| "#{c}  #{m}" })
   end
 
   it "lists every command" do
