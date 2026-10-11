@@ -69,9 +69,10 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
       - name: Mutate methods changed in this pull request
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: bundle exec exe/saboteur run --since "origin/$BASE_REF"
+        uses: ./
+        with:
+          command: bundle exec exe/saboteur
+          fail-on-survivors: "true"
       - name: Keep the report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
