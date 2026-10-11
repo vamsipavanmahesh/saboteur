@@ -84,27 +84,34 @@ module Saboteur
         HTML
       end
 
-      # Assertion and crash shares of the score, and the score without the
-      # whole-method mutants, which almost any test that runs the method kills.
+      # How the score splits into assertion and crash kills, and the score
+      # without the whole-body mutants, which almost any test that runs the
+      # method kills. Each part shows only when it has something to say.
       def score_split(report)
         breakdown = report.score_breakdown
-        return "" unless breakdown.split_known?
-
-        lines = ["<p>Of the tested mutants, #{score_text(breakdown.assertion_share)} were killed by a failed " \
-                 "assertion and #{score_text(breakdown.crash_share)} by a crash. A crash shows the code ran and " \
-                 "broke, not that a test checked a value.</p>"]
-        lines << whole_method_line(report)
+        lines = []
+        lines << kill_split_line(breakdown) if breakdown.split_known?
+        lines << whole_body_line(report)
         lines.compact.join("\n")
       end
 
-      def whole_method_line(report)
+      def kill_split_line(breakdown)
+        "<p>Of the tested mutants: #{parts_text(breakdown)}. A crash shows the code ran and broke, " \
+          "not that a test checked a value.</p>"
+      end
+
+      def parts_text(breakdown)
+        breakdown.parts.map { |label, share| "#{score_text(share)} #{label}" }.join(", ")
+      end
+
+      def whole_body_line(report)
         whole = report.coarse_score_breakdown
         fine = report.fine_score_breakdown
         return if whole.tested.zero? || fine.tested.zero?
 
-        "<p>Without whole-method mutants (body_nil, body_raise): #{score_text(fine.value)} " \
-          "(assertion #{score_text(fine.assertion_share)}, crash #{score_text(fine.crash_share)}) " \
-          "over #{fine.tested} mutants. Whole-method mutants alone: #{score_text(whole.value)} " \
+        split = fine.split_known? ? " (#{parts_text(fine)})" : ""
+        "<p>Without whole-body mutants (body_nil, body_true, body_false, body_raise): #{score_text(fine.value)}" \
+          "#{split} over #{fine.tested} mutants. Whole-body mutants alone: #{score_text(whole.value)} " \
           "over #{whole.tested}.</p>"
       end
 
