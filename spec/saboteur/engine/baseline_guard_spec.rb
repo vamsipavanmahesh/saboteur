@@ -22,6 +22,42 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
                                                 detail: "deadline", runtime: 0.1, leftover_pids: [])
   end
 
+  it "runs child setup hooks and seeds random values while recording a full result" do
+    hooks = Saboteur::Hooks.new
+    expect(hooks).to receive(:run).with(:after_fork)
+    result = Saboteur::Integration::RunResult.new(passed: true, failed_ids: [], executed_ids: ["t1"], runtime: 0.1)
+    expect(integration).to receive(:run_baseline).with(seed: 42).and_return(result)
+    recorded = described_class.new(config: config, integration: integration, hooks: hooks,
+                                   supervisor: supervisor, diagnostics: nil)
+    writer = StringIO.new
+    expect(FileUtils).to receive(:mkdir_p).with(File.join(@root, ".saboteur")).and_call_original
+    expect($stdout).to receive(:reopen).with(File.join(@root, ".saboteur/baseline-1.log"), "w")
+    expect($stdout).to receive(:sync=).with(true)
+    expect($stderr).to receive(:reopen).with($stdout)
+    recorded.send(:record, writer, 1)
+    expect(JSON.parse(writer.string)["executed"]).to eq(["t1"])
+    expect(rand).to eq(Random.new(42).rand)
+  end
+
+  it "retains hook/diagnostic collaborators and prepares before each supervised child" do
+    diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+    expect(diagnostics).to receive(:inform).with("checking the unchanged suite twice (seed 42)")
+    expect(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap).twice
+    allow(supervisor).to receive(:run).and_return(response)
+    checked = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                  supervisor: supervisor, diagnostics: diagnostics)
+    checked.call
+    expect(checked.send(:log_path, 1)).to eq(File.join(@root, ".saboteur/baseline-1.log"))
+  end
+
+  it "refuses inconsistent pass/failure fields and invalid executed fields" do
+    [response(passed: true, failed: ["t1"]), response(passed: false, failed: []),
+     response(payload: JSON.generate(passed: true, failed: [], executed: nil))].each do |outcome|
+      allow(supervisor).to receive(:run).and_return(outcome)
+      expect { guard.call }.to raise_error(Saboteur::Error)
+    end
+  end
+
   it "runs two independent supervised checks with the configured suite deadline" do
     expect(supervisor).to receive(:run).with(timeout: config["coverage_timeout"]).twice.and_return(response)
     expect(guard.call).to be_nil
@@ -36,6 +72,23 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
   it "refuses a second run that fails after the first passed" do
     allow(supervisor).to receive(:run).and_return(response, response(passed: false, failed: ["t1"]))
     expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 2 failed/m)
+  end
+
+  it "rejects a missing payload independently of other error cases" do
+    allow(supervisor).to receive(:run).and_return(response(payload: ""))
+    expect { guard.call }.to raise_error(Saboteur::Error, /child did not report/)
+  end
+
+  it "accepts a successful child exit with valid payload" do
+    _, status = Process.waitpid2(Process.fork { exit!(0) })
+    allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
+    expect { guard.call }.not_to raise_error
+  end
+
+  it "refuses a non-array execution list independently" do
+    allow(supervisor).to receive(:run).and_return(response(payload: JSON.generate(passed: true, failed: [],
+                                                                                  executed: nil)))
+    expect { guard.call }.to raise_error(Saboteur::Error)
   end
 
   it "refuses a green result that omitted tests" do
