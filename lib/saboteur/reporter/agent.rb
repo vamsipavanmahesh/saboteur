@@ -3,6 +3,7 @@
 
 require "json"
 require_relative "agent_summary"
+require_relative "agent_commands"
 
 module Saboteur
   module Reporter
@@ -28,7 +29,10 @@ module Saboteur
       EXIT_INVOCATION = 2
       EXIT_INCOMPLETE = 3
 
-      Provenance = Data.define(:ref, :seed, :head, :working_tree, :mode, :json_report)
+      # Where a verdict comes from: the exact selection and the state of the working
+      # source before the run started. subjects, tests and sources are arrays.
+      Provenance = Data.define(:ref, :seed, :head, :working_tree, :changed_files, :mode, :json_report, :subjects,
+                               :tests, :sources, :config_path, :digest, :cache, :incremental)
 
       class << self
         def call(report, provenance)
@@ -59,7 +63,14 @@ module Saboteur
               return payload if render(payload).bytesize <= BYTE_BUDGET
             end
           end
-          Summary.build(report, provenance, 0, 0).merge(warnings: [])
+          minimal(report, provenance)
+        end
+
+        # The last resort: fixed keys and short clipped values, so it always fits.
+        def minimal(report, provenance)
+          small = Summary.build(report, provenance, 0, 0)
+          small.merge(warnings: [], next: {}, provenance: small[:provenance].slice(:seed, :workingTree, :mode),
+                      incomplete: small[:incomplete].map { |reason| reason.slice(:reason, :count) })
         end
       end
     end
