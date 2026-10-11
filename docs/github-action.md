@@ -1,15 +1,18 @@
 # GitHub Action
 
 saboteur ships a ready-made GitHub Action. On a pull request it runs diff
-mode (`saboteur run --since origin/<base branch>`), so only the methods the
-pull request changed are mutated. It is advisory by default: survivors show up
-as a warning and in the job summary, and the check stays green.
+mode against the exact base commit recorded in that pull request event. The
+action uses the real merge base between that commit and the PR checkout, so a
+later move of the target branch cannot widen or shift the mutation scope. It is
+advisory by default: survivors show up as a warning and in the job summary, and
+the check stays green.
 
 ## Use it
 
 Add saboteur to your Gemfile, then add this workflow. It follows the security
-guidance in [the pull-request guide](pull-requests.md): read-only token, full
-history, and no secrets.
+guidance in [the pull-request guide](pull-requests.md): read-only token and no
+secrets. It starts with the normal shallow PR checkout and fetches additional
+PR history only as needed to prove a merge base.
 
 ```yaml
 name: Mutation testing
@@ -22,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: "3.3"
@@ -35,14 +38,17 @@ contains it is published. `@main` follows development.
 
 The action does not set up Ruby or install gems. Your project's own setup
 (Ruby version, database, boot files) stays in your workflow, where you can see
-it. The action needs `fetch-depth: 0` on checkout; it stops with a message
-that says so when the checkout is shallow or the base branch is missing.
+it. The action reads the base SHA from `github.event.pull_request.base.sha`;
+there is no user-settable base branch or SHA. It fetches that exact commit if
+needed, then deepens only the PR merge ref in bounded increments (up to 2,000
+commits) until Git can prove a merge base. If it cannot, the action stops before starting saboteur
+and prints instructions. It never substitutes a moving branch tip or widens
+the scan. The PR job remains `pull_request`, not `pull_request_target`.
 
 ## Inputs
 
 | Input | Default | Meaning |
 | --- | --- | --- |
-| `base-ref` | the pull request's base branch | Branch to diff against. |
 | `command` | `bundle exec saboteur` | How to start saboteur. |
 | `arguments` | empty | Extra saboteur arguments, such as `--jobs 2`. Split on whitespace; shell quoting is not supported, so a value with a space cannot be passed. `--since` and `--json` belong to the action and are rejected here, including shortened forms like `--js`, and a bare `--` is rejected. |
 | `fail-on-survivors` | `false` | `true` or `false`; any other value fails the step. `true` fails the step when a mutant survives, and also when the run is incomplete (see below). |
@@ -50,8 +56,8 @@ that says so when the checkout is shallow or the base branch is missing.
 | `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only, and it may not start with `-`. |
 
 The action runs only on `pull_request` events. On any other event, such as
-`push`, it prints a notice and does nothing, even if `base-ref` is set. It does
-not support `pull_request_target`, which would run with privileges.
+`push`, it prints a notice and does nothing. It does not support
+`pull_request_target`, which would run with privileges.
 
 ## What fails the step
 
