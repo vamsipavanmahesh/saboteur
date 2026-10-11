@@ -18,19 +18,29 @@ module Saboteur
       # itself first) but does not promise old-generation promotion. Without
       # either, a full collection is the best that Ruby can do.
       def self.prepare_heap
-        if Process.respond_to?(:warmup)
-          Process.warmup
-          return
-        end
+        return warmup_heap if Process.respond_to?(:warmup)
+        return compact_heap if GC.respond_to?(:compact)
 
-        if GC.respond_to?(:compact)
-          GC.compact
-          return
-        end
+        full_gc
+      end
 
+      def self.warmup_heap
+        Process.warmup
+        nil
+      end
+      private_class_method :warmup_heap
+
+      def self.compact_heap
+        GC.compact
+        nil
+      end
+      private_class_method :compact_heap
+
+      def self.full_gc
         GC.start(full_mark: true, immediate_sweep: true)
         nil
       end
+      private_class_method :full_gc
     end
   end
 end
