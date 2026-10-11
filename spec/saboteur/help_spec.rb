@@ -137,7 +137,7 @@ RSpec.describe Saboteur::Help do
   end
 
   describe "--threshold exit semantics" do
-    let(:exit_rows) { overview[/^EXIT CODES\n(.*?)\n\n/m, 1].gsub("\n    ", " ") }
+    let(:exit_rows) { overview[/^EXIT CODES \(saboteur run\)\n(.*?)\n\n/m, 1].gsub("\n    ", " ") }
 
     def row(code)
       exit_rows.lines.find { |line| line.start_with?("  #{code}  ") }
