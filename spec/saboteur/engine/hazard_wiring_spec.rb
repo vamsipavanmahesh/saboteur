@@ -20,6 +20,14 @@ RSpec.describe Saboteur::Engine, "hazard guard wiring (issue #102)" do
                                        replacement: "x")
   end
 
+  def unguarded_hazard_digest(subject)
+    diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+    sources = Saboteur::Engine::Candidates.build_sources(Saboteur::Config.new)
+    candidates = Saboteur::Engine::Candidates.new(sources, diagnostics, hazard_guard: nil)
+    mutation, = candidates.for(subject).find { |m, _| m.operator == "literal_string" }
+    mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+  end
+
   it "builds a guard from the config hazard list by default" do
     expect(engine.send(:hazard_guard)).to be_a(Saboteur::MutationSource::HazardGuard)
   end
@@ -38,6 +46,26 @@ RSpec.describe Saboteur::Engine, "hazard guard wiring (issue #102)" do
 
   it "disables the guard only with allow_hazardous" do
     expect(engine("allow_hazardous" => true).send(:hazard_guard)).to be_nil
+  end
+
+  # An old report, or one written under --allow-hazardous, can name a
+  # hazardous digest; replaying it without the opt-in must be refused.
+  it "refuses to replay a hazardous digest: the engine wires the guard into replay" do
+    subject = rm_rf_subject
+    digest = unguarded_hazard_digest(subject)
+    replay_engine = described_class.new(Saboteur::Config.new, err: err, digest: digest)
+    expect { replay_engine.send(:replay_subject, [subject], nil) }
+      .to raise_error(Saboteur::ConfigError, /not found/)
+  end
+
+  it "resolves the same hazardous digest once replay runs with allow_hazardous" do
+    subject = rm_rf_subject
+    digest = unguarded_hazard_digest(subject)
+    replay_engine = described_class.new(Saboteur::Config.new({ "allow_hazardous" => true }), err: err, digest: digest)
+    selected, scope = replay_engine.send(:replay_subject, [subject], nil)
+    expect([selected, scope]).to eq([[subject], nil])
+    mutation, = replay_engine.instance_variable_get(:@replay_candidate).first
+    expect(mutation.operator).to eq("literal_string")
   end
 
   it "checks the canary after each subject with the most recent mutant's digest" do
