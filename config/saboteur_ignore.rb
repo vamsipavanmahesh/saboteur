@@ -242,4 +242,104 @@ Saboteur.ignore do |i|
   i.mutation "a1c0d420583dc184",
              subject: "Saboteur::IgnoreList.unknown_directive_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
+
+  i.mutation "e378487a3478079b",
+             subject: "Saboteur::CLI#define_execution_options",
+             reason: "user-facing copy: the option description string has no behavioural contract; the flag itself is spec'd (cli_spec parses --allow-hazardous into overrides)"
+
+  i.mutation "d9c188cb0ab4fa17",
+             subject: "Saboteur::CLI#define_execution_options",
+             reason: "user-facing copy: dropping the description argument leaves the flag working; behaviour is spec'd in cli_spec"
+
+  i.mutation "be3a6b88d34ee36d",
+             subject: "Saboteur::Engine#mutate",
+             reason: "wiring verified end-to-end: spec/e2e/hazard_guard_spec.rb runs saboteur in a subprocess, so in-process coverage cannot see it; without after_subject the --allow-hazardous canary e2e fails"
+
+  i.mutation "7bd25c7494417d00",
+             subject: "Saboteur::Engine#mutate",
+             reason: "same wiring pair as be3a6b88d34ee36d (on_start/after_subject kwargs): verified by the subprocess e2e, invisible to in-process coverage"
+
+  i.mutation "4f2d5208a11e0752",
+             subject: "Saboteur::Engine#mutate",
+             reason: "same wiring pair as be3a6b88d34ee36d (Distribution kwargs): verified by the subprocess e2e, invisible to in-process coverage"
+
+  i.mutation "d5d83ae928db4190",
+             subject: "Saboteur::Engine#candidate_lists",
+             reason: "wiring verified end-to-end: without hazard_guard the danger-fixture e2e wipes its copy and fails; subprocess runs are invisible to in-process coverage"
+
+  i.mutation "2966994dab481097",
+             subject: "Saboteur::Engine#replay_subject",
+             reason: "replay can only name a digest from a previous report; with the guard on, hazardous mutants never reach a report, and with --allow-hazardous the guard is nil either way"
+
+  i.mutation "c70f0387b96a8ae2",
+             subject: "Saboteur::Engine#replay_subject",
+             reason: "same replay-path argument as 2966994dab481097"
+
+  i.mutation "258bbe12774e5b49",
+             subject: "Saboteur::Engine#replay_subject",
+             reason: "same replay-path argument as 2966994dab481097"
+
+  i.mutation "9e0c7ce08f5408e6",
+             subject: "Saboteur::Engine::Distribution#run",
+             reason: "equivalent: jobs is validated >= 1, so <= and == agree on every reachable value"
+
+  i.mutation "266e4305edcac0b1",
+             subject: "Saboteur::Engine::Canary#inventory",
+             reason: "equivalent: forcing the git branch still reaches walk_files through the ls-files failure fallback in a non-repository, yielding the same inventory"
+
+  i.mutation "9bbfe3d7a6763928",
+             subject: "Saboteur::Engine::Canary#git?",
+             reason: "equivalent: with the condition forced true, a tree without .git still falls back to walk_files when git ls-files fails"
+
+  i.mutation "92187871045409ad",
+             subject: "Saboteur::Engine::Canary#git?",
+             reason: "equivalent: replacing the git binary probe with the directory check only differs when git is absent, and saboteur requires git for diffs and baselines"
+
+  i.mutation "6ba9cb656ccf49db",
+             subject: "Saboteur::Engine::Canary#git?",
+             reason: "equivalent: a tree without .git still reaches walk_files through the ls-files failure fallback, so || picks the same inventory"
+
+  i.mutation "27639ba1ebb81ed5",
+             subject: "Saboteur::Engine::Canary#git?",
+             reason: "equivalent: both operands are pure booleans here, and a non-repository still falls back to walk_files, so the result is unchanged"
+
+  i.mutation "4398bed4d0083a82",
+             subject: "Saboteur::Engine::Canary#git_tracked_files",
+             reason: "equivalent: a broken symlink is excluded by both predicates, and snapshot and inventory apply the same filter, so no false or missed trip results"
+
+  i.mutation "88f243e1da309823",
+             subject: "Saboteur::Engine::Canary#git_tracked_files",
+             reason: "equivalent: File.exist? and File.symlink? are pure predicates, so | returns the same boolean as ||"
+
+  i.mutation "1f53c644ec72fd38",
+             subject: "Saboteur::Engine::Canary#git_tracked_files",
+             reason: "equivalent: File.exist? and File.symlink? are pure predicates, so | returns the same boolean as ||"
+
+  i.mutation "26e8ccdb462f67ea",
+             subject: "Saboteur::Engine::Canary#walk_files",
+             reason: "equivalent: walk_files only yields regular files and .git is a directory in a normal tree, so the == operand never fires; .git presence is watched by the separate marker"
+
+  i.mutation "4fce376bc3a2613c",
+             subject: "Saboteur::Engine::Canary#walk_files",
+             reason: "equivalent: walk_files only yields regular files and .git is a directory in a normal tree, so dropping the == operand changes nothing; .git presence is watched by the separate marker"
+
+  i.mutation "d68346ea9d02b690",
+             subject: "Saboteur::Engine::Canary#walk_files",
+             reason: "equivalent: the reject operands are pure predicates, so | returns the same boolean as ||"
+
+  i.mutation "a2b6f9588ceded25",
+             subject: "Saboteur::Engine::Canary#cache_path?",
+             reason: "equivalent: the cache path is a directory, so its entries are caught by the start_with? operand and the == operand can only fire on a file named exactly like it"
+
+  i.mutation "6341a5361b0922b9",
+             subject: "Saboteur::Engine::Canary#cache_path?",
+             reason: "equivalent: the cache path is a directory, so dropping the == operand still rejects every cache entry via start_with?"
+
+  i.mutation "02dc2cc5078ca348",
+             subject: "Saboteur::MutationSource::HazardGuard#partition",
+             reason: "equivalent: with no hazard spans the fall-through partition keeps every candidate as well, since hazardous_edit? finds no span to intersect; the guard clause is only a fast path"
+
+  i.mutation "b6a1b99a25c80aac",
+             subject: "Saboteur::MutationSource::HazardGuard#hazard_spans",
+             reason: "equivalent: the stack is seeded with the subject node and extended with compact_child_nodes, which never contains nil, so the nil guard never fires"
 end
