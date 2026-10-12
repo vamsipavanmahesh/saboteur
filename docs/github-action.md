@@ -63,7 +63,7 @@ Both read the report's `saboteur.findings` section, written by saboteur 0.3.0
 and later, which bounds the list (10, GitHub's own per-step annotation limit)
 and counts what it left out. With an older saboteur the action still reports
 the counts, the score and a warning, but there are no per-survivor notes.
-Accepted survivors (on `.saboteur-ignore.yml`) get no note; they are counted
+Accepted survivors (on `config/saboteur_ignore.rb`) get no note; they are counted
 in the `accepted-survivors` output and the summary's score line, and the
 summary lists them apart with the reason from the ignore list.
 
@@ -109,7 +109,7 @@ The action runs only on `pull_request` events. On any other event, such as
 (killed + timeout) / (killed + timeout + survived), over mutants that ran. It
 is saboteur's own score. Mutants with no coverage, ignored mutants, errors and
 resource limits are not in it. Survivors accepted through
-`.saboteur-ignore.yml` still count as survived in the score, and are reported
+`config/saboteur_ignore.rb` still count as survived in the score, and are reported
 in `accepted-survivors`, not `survivors`. The score is `n/a` when no mutant was
 scored. That can mean the pull request changed no covered methods, or that
 every mutant errored or had no coverage. Read `errors` and the summary to tell
@@ -121,7 +121,7 @@ A pull request is also limited by what diff mode selects, and by the
 ## Going from advisory to enforced
 
 1. Run in advisory mode for a while and read the job summaries.
-2. Add `.saboteur-ignore.yml` entries (each with a reason) for survivors you
+2. Add `config/saboteur_ignore.rb` entries (each with a reason) for survivors you
    accept.
 3. Set `fail-on-survivors: "true"`. saboteur's own CI does this.
 
@@ -130,16 +130,16 @@ A pull request is also limited by what diff mode selects, and by the
 The action caches the coverage map files (`.saboteur/coverage-*.json`) and
 nothing else: not reports, logs or `--incremental` verdicts. The coverage map
 name contains a hash of the files it was built from, so changing a listed input
-(source files, spec files, `.saboteur.yml` settings) leads to a rebuild. The
+(source files, spec files, `config/saboteur.rb` settings) leads to a rebuild. The
 hash cannot see everything: an environment variable, a database fixture or the
 Ruby version can change coverage without changing a listed file. If a run
 looks wrong, set `cache: "false"`. That skips the restore and passes
 `--no-cache`, which makes saboteur rebuild the map. Building the map runs your
 whole suite once, which is the fixed cost of a run.
 
-The cache key uses the runner OS, `Gemfile.lock` and `.saboteur.yml`, plus the
+The cache key uses the runner OS, `Gemfile.lock` and `config/saboteur.rb`, plus the
 commit. A run restores the newest earlier entry with the same prefix. If you
-change `cache_dir` in `.saboteur.yml`, the action does not cache your new
+change `cache_dir` in `config/saboteur.rb`, the action does not cache your new
 directory. Verdict reuse (`--incremental`) is not on by default and is not
 cached.
 
@@ -169,4 +169,3 @@ script against a stand-in saboteur command, including real shallow-fetch and
 merge-base cases, annotation escaping, artifact handling, and malformed
 reports. The repository's dogfood workflow uses the action on its own pull
 requests.
-
