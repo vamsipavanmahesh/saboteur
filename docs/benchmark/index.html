@@ -83,8 +83,8 @@
 <p class="byline">2026-10-10 &middot; saboteur 0.1.0 (commit 2b6ec02 engine) vs mutineer 1.6.0 &middot; by Vamsi Pavan Mahesh Gunturu</p>
 
 <div class="note">
-  <strong>This is not an exhaustive benchmark.</strong> Each configuration ran once, on sampled files from four
-  projects, on one macOS machine. Every number is indicative, not a statistical result. The scripts and raw data
+  <strong>This is not an exhaustive benchmark.</strong> In Results 1-5, each configuration ran once, on sampled files from four
+  projects, on one macOS machine. Result 6 is separate: 30 paired runs on a Linux sandbox. Everything here was measured before the coarse-gate removal and is historical. Every number is indicative, not a statistical result. The scripts and raw data
   are in <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>,
   so anyone can rerun or extend it.
 </div>
@@ -130,11 +130,11 @@ saboteur by design and is not scored.</p>
   <dt>Mutant</dt><dd>One such change, for example <code>a &lt; b</code> changed to <code>a &lt;= b</code>, or one line removed.</dd>
   <dt>Killed (caught)</dt><dd>At least one test failed with the mutant in place. The tests noticed.</dd>
   <dt>Survived (missed)</dt><dd>Every test still passed with the mutant in place. This points to a gap in the tests.</dd>
-  <dt>Fake kill</dt><dd>A mutant reported as killed when no test actually fails because of it. The failure came from something else, such as a crash or leftover test data. A fake kill hides a real gap.</dd>
+  <dt>Fake kill</dt><dd>A mutant reported as killed when the same tests also fail without the mutant. The failure came from something else, such as leftover test data. A crash can also be a legitimate kill when the mutant causes it. A fake kill hides a real gap.</dd>
   <dt>No coverage</dt><dd>No test runs the changed line, so the mutant is not tested at all.</dd>
-  <dt>Timeout</dt><dd>The tests ran past the time limit, often because of an endless loop. Neither caught nor missed.</dd>
+  <dt>Timeout</dt><dd>The tests ran past the time limit, often because of an endless loop. The current saboteur counts a timeout as detected in the score.</dd>
   <dt>Error</dt><dd>The tool could not reach a clean verdict. saboteur also uses this when a killing test fails even without the mutant.</dd>
-  <dt>Mutation score</dt><dd>Killed divided by killed plus survived. Comparable only between runs with the same set of mutants.</dd>
+  <dt>Mutation score</dt><dd>Current saboteur: (killed + timeout) / (killed + survived + timeout). The scores on this page come from the measured version and may use a different definition. Comparable only between runs with the same set of mutants.</dd>
   <dt>Operator</dt><dd>A kind of change a tool makes, for example removing a statement or flipping a comparison.</dd>
   <dt>Defaults, matched</dt><dd>Defaults: each tool's own change types. Matched: the closest common set, so both tools test similar changes.</dd>
   <dt>Worker</dt><dd>One parallel process running mutants.</dd>
@@ -213,7 +213,7 @@ cold caches.</p>
   </tbody>
 </table>
 </div>
-<p>The saboteur memory figures in this table were measured before the fork-memory work. Result 6 below has the paired before and after on hashie.</p>
+<p>These rows are historical (measured versions, summed process RSS, which counts shared pages more than once), not a current ranking. The saboteur memory figures in this table were measured before the fork-memory work. Result 6 below has the paired before and after on hashie.</p>
 <p>One mutineer run is unexplained: hashie with 1 worker took 2,640 s, against 34.9 s with 6 workers. It needs a
 repeat and is left out of the verdict. CI cost is small for both: at GitHub's $0.006 per minute for a standard
 Linux runner (<a href="https://docs.github.com/en/billing/reference/actions-runner-pricing">source</a>), each run
@@ -264,7 +264,7 @@ type can produce.</p>
 </table>
 </div>
 <p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers. Swap was not measured.</p>
-<p>Wall time on uncontended runs: 30-36s for both variants at every job level (no regression; per-cell minimums 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6, PR first). The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
+<p>Wall time on uncontended runs, per-cell minimums, baseline vs PR: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6 (no regression). The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
 <h3>Environment and method</h3>
 <ul>
   <li>Candidate: saboteur at d2b7abb336eae53ec8cd5a71c111f9daef66218a (merge of PR #4, "Pack the heap at fork boundaries"). Baseline: 32c0f21bdcbc059ac5938ae7630eb117442cd5fc, the first code-change ancestor; 32c0f21..d2b7abb^ is doc-only (AGENTS.md, docs/status.md).</li>
@@ -277,6 +277,7 @@ type can produce.</p>
 <p>The sandbox shares CPU with other tenants. Starvation windows show in the sampler cadence (healthy 0.3s per sample; starved over 1s per sample). Runs flagged contended (wall inflated, memory peaks unaffected): hashie-j2-baseline-1 (83s, borderline cadence 0.94s), hashie-j6-baseline-1 (273s), hashie-j1-candidate-2 (279s), hashie-j2-candidate-2 (261s), hashie-j6-candidate-2 (251s), hashie-j1-baseline-3 (292s), hashie-j1-candidate-3 (282s), hashie-j2-candidate-3 (275s), hashie-j6-candidate-3 (267s), hashie-j2-candidate-4 (580s), hashie-j6-candidate-4 (571s), hashie-j1-baseline-5 (594s), hashie-j1-candidate-5 (288s), hashie-j2-candidate-5 (268s), hashie-j6-candidate-5 (264s). Contended windows hit baseline and candidate slots both (order-bound, not variant-bound). Wall analysis uses clean runs and per-cell minimums; PSS and RSS peaks are valid in all windows.</p>
 
 <h2>Features compared</h2>
+<p class="legend">Capabilities at the measured versions (saboteur as measured, mutineer 1.6.0), historical, not current. Some rows have changed since; for example saboteur now has <code>--threshold</code>, an HTML report and a GitHub Action.</p>
 <div class="table-wrap">
 <table>
   <thead><tr><th>Feature</th><th>saboteur</th><th>mutineer</th></tr></thead>
@@ -298,6 +299,7 @@ type can produce.</p>
 </div>
 
 <h2>Where mutineer won</h2>
+<p class="legend">At the measured versions. Not a statement about current releases.</p>
 <ol>
   <li>Lower peak memory in every pair measured.</li>
   <li>20 change types with a switch to choose them; saboteur has one fixed set.</li>
@@ -309,11 +311,11 @@ type can produce.</p>
 
 <h2>Limitations</h2>
 <ul>
-  <li>One run per configuration: no ranges and no repeatability numbers.</li>
+  <li>Results 1-5: one run per configuration, so no ranges and no repeatability numbers. Result 6 has 5 pairs per job level.</li>
   <li>Rails apps were sampled: 3 lobsters models and 1 human-essentials model.</li>
   <li>mutineer's fake kills were checked on 8 identical mutants, not a random sample, because its report names no killing test.</li>
   <li>Only 3 real bugs, none detectable by either tool; 10 missed mutants per tool for usefulness.</li>
-  <li>macOS only; mutineer's Postgres failures may not occur on Linux.</li>
+  <li>Results 1-5 ran on macOS only; mutineer's Postgres failures may not occur on Linux.</li>
   <li>Not measured: time to first missed mutant, diff-mode timing, database connections left after runs.</li>
   <li>The author of this benchmark is also the author of saboteur.</li>
 </ul>
