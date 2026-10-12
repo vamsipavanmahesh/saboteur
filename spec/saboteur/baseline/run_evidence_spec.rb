@@ -48,6 +48,34 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
     expect(captured.fetch("candidates")).to be_frozen
   end
 
+  it "retains and blocks typed discovery failure independently of valid generated work" do
+    evidence.plan([subject], [[[mutation, subject.apply(mutation.edits)]]])
+    failure = Saboteur::Engine::Diagnostics::DiscoveryFailure.new(
+      file: File.join(@root, "broken.rb"), reason: "invalid_file_syntax"
+    )
+    captured = evidence.finish(results: [result], stable_suite: true, skipped_subjects: {},
+                               generation_events: [], omissions: [], discovery_failures: [failure])
+    expect(captured.fetch("complete")).to be(false)
+    expect(captured.fetch("issues")).to eq(["generation:discovery:invalid_file_syntax:broken.rb"])
+    expect(captured.fetch("discovery_failures")).to eq([
+                                                         { "file" => failure.file, "reason" => "invalid_file_syntax" }
+                                                       ])
+  end
+
+  it "copies the subject list before caller-owned subject names can change" do
+    name = +"Probe#value"
+    allow(subject).to receive(:id).and_return(name)
+    evidence.plan([subject], [[[mutation, subject.apply(mutation.edits)]]])
+    name.replace("changed")
+    expect(evidence.instance_variable_get(:@subjects)).to eq([["probe.rb", "Probe#value"]])
+    expect(evidence.instance_variable_get(:@planned).first.fetch("identity")[2]).to eq("Probe#value")
+    name.replace("Probe#value")
+    captured = evidence.finish(results: [result], stable_suite: true, skipped_subjects: {},
+                               generation_events: [], omissions: [])
+    expect(captured.fetch("subjects")).to eq([["probe.rb", "Probe#value"]])
+    expect(captured.fetch("planned").first.fetch("identity")[2]).to eq("Probe#value")
+  end
+
   it "retains a first invalid event even when the same text later records duplicate" do
     events = %w[invalid_syntax duplicate].map do |reason|
       Saboteur::Engine::Diagnostics::GenerationEvent.new(file: subject.file, subject: subject.id,
@@ -59,6 +87,20 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
     expect(captured.fetch("generation_events").map do |event|
       event.fetch("reason")
     end).to eq(%w[invalid_syntax duplicate])
+  end
+
+  it "blocks empty generation and invalid subject syntax rather than safe dropping them" do
+    %w[empty_generation invalid_subject_syntax].each do |reason|
+      fresh = described_class.new(config: config)
+      fresh.plan([subject], [[[mutation, subject.apply(mutation.edits)]]])
+      event = Saboteur::Engine::Diagnostics::GenerationEvent.new(
+        file: subject.file, subject: subject.id, source: "builtin", operator: nil, reason: reason
+      )
+      captured = fresh.finish(results: [result], stable_suite: true, skipped_subjects: {},
+                              generation_events: [event], omissions: [])
+      expect(captured.fetch("complete")).to be(false)
+      expect(captured.fetch("issues")).to include("generation:#{reason}:Probe#value")
+    end
   end
 
   it "blocks missing results, cap omissions, skips, reused verdicts and unstable suite evidence" do
