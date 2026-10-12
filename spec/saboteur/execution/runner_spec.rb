@@ -24,16 +24,19 @@ RSpec.describe Saboteur::Execution::Runner do
   # The "method text" doubles as an instruction for the fake integration, so
   # each example can make the child pass, fail, hang or crash.
   let(:reevaluator) do
+    dir = tmpdir
     Class.new do
-      attr_reader :mode
-
-      def call(_subject, text)
+      define_method(:call) do |_subject, text, prefix: nil|
+        # Runs in the forked child, so observable effects go to the tmpdir.
+        File.write(File.join(dir, "prefix"), prefix.to_s)
         raise "boom while evaluating" if text == "raise_on_eval"
 
         Process.kill("KILL", Process.pid) if text == "die_on_eval"
 
         @mode = text
       end
+
+      define_method(:mode) { @mode }
     end.new
   end
 
@@ -86,6 +89,30 @@ RSpec.describe Saboteur::Execution::Runner do
   end
 
   it "reports survived when every requested test ran and passed" do
+    expect(run_mode("pass").status).to eq(:survived)
+  end
+
+  it "forwards the eval prefix to the re-evaluator" do
+    runner.run(subject: subject_stub, text: "pass", test_ids: ["t1"], timeout: 5, eval_prefix: "sig { void }")
+    expect(File.read(File.join(tmpdir, "prefix"))).to eq("sig { void }")
+  end
+
+  it "marks a survivor unreachable when a captured Method still calls the original def" do
+    edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: "Stub#run", operator: "comparison",
+                                                      edits: [edit])
+    allow(Saboteur::Execution::StaleCaptures).to receive(:scan).and_return(["f.rb:3"])
+    outcome = runner.run(subject: subject_stub, text: "pass", test_ids: %w[t1 t2], timeout: 5,
+                         mutation: mutation)
+    expect([outcome.status, outcome.message])
+      .to eq([:unreachable,
+              "a Method object captured before re-evaluation still calls the original " \
+              "(captured definition at f.rb:3)"])
+  end
+
+  it "does not overturn a kill or a neutral check with a stale capture" do
+    allow(Saboteur::Execution::StaleCaptures).to receive(:scan).and_return(["f.rb:3"])
+    expect(run_mode("fail").status).to eq(:killed)
     expect(run_mode("pass").status).to eq(:survived)
   end
 
