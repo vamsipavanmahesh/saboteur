@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "stringio"
+require "tmpdir"
+
+RSpec.describe Saboteur::Engine, "baseline evidence capture" do
+  it "rejects reuse, diff and replay before target boot" do
+    [{ "since" => "main" }, { "incremental" => true }].each do |settings|
+      config = Saboteur::Config.new(settings)
+      expect { described_class.new(config, capture_evidence: true) }.to raise_error(Saboteur::ConfigError, /fresh/)
+    end
+    expect do
+      described_class.new(Saboteur::Config.new, capture_evidence: true, digest: "a" * 16)
+    end.to raise_error(Saboteur::ConfigError, /fresh/)
+  end
+
+  it "plans every selected candidate before distribution and reconciles the fresh result" do
+    Dir.mktmpdir do |root|
+      file = File.join(root, "probe.rb")
+      File.write(file, "class Probe; def value; 1; end; end")
+      subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+      source = Saboteur::MutationSource::Builtin.new
+      candidate = source.mutations_for(subject).first
+      result = Saboteur::MutantResult.new(subject: subject, mutation: candidate, status: :survived,
+                                          mutated_source: subject.apply(candidate.edits))
+      allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+      integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
+      boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+      allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+      allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+      allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
+      map = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
+      store = instance_double(Saboteur::Engine::CoverageStore, fetch: map)
+      allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
+      allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
+        .and_return([[candidate, subject.apply(candidate.edits)]])
+      distribution = instance_double(Saboteur::Engine::Distribution)
+      allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
+      expect(distribution).to receive(:run).and_return([result])
+      allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
+
+      report = described_class.new(Saboteur::Config.new({}, root: root), capture_evidence: true,
+                                                                         err: StringIO.new).call
+
+      expect(report.run_evidence.fetch("complete")).to be(true)
+      expect(report.run_evidence.fetch("planned").map { |entry| entry.fetch("id") })
+        .to eq(report.run_evidence.fetch("candidates").map { |entry| entry.fetch("id") })
+      expect(report.run_evidence.fetch("candidates").first.fetch("status")).to eq("survived")
+    end
+  end
+
+  it "captures input identity before target boot and refuses changed inputs after boot" do
+    Dir.mktmpdir do |root|
+      allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+      boot = instance_double(Saboteur::Engine::Boot, rails: nil)
+      allow(boot).to receive(:load_target) do
+        File.write(File.join(root, "loaded.rb"), "new input")
+        instance_double(Saboteur::Integration::RSpec)
+      end
+      allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)
+      allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+
+      report = described_class.new(Saboteur::Config.new({}, root: root), capture_evidence: true,
+                                                                         err: StringIO.new).call
+
+      expect(report.run_evidence.fetch("complete")).to be(false)
+      expect(report.run_evidence.fetch("issues")).to include("inputs_unverified", "empty_candidates",
+                                                             "unchanged_suite_incomplete")
+    end
+  end
+end
