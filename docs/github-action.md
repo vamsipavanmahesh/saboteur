@@ -169,3 +169,4 @@ script against a stand-in saboteur command, including real shallow-fetch and
 merge-base cases, annotation escaping, artifact handling, and malformed
 reports. The repository's dogfood workflow uses the action on its own pull
 requests.
+
