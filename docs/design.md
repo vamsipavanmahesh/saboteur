@@ -26,7 +26,7 @@ config + CLI
        baseline: fork, re-eval UNCHANGED, run selected tests, time it
          fail -> skipped (baseline failure)
        coarse mutants (body -> nil, body -> raise)
-         any survives -> report it, skip fine mutants for this subject
+         report every verdict; continue to all eligible fine mutants
        fine mutants
          each: fork -> re-eval mutated def -> run selected tests -> status
   -> reporters: terminal, Stryker JSON; ignore list applied; exit code
