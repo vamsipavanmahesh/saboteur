@@ -12,10 +12,12 @@ module Saboteur
       def initialize(files)
         @files = Set.new(files.map { |file| CoverageMap.canonical(file) })
         @canonical = Hash.new { |hash, path| hash[path] = CoverageMap.canonical(path) }
-        @lines = Hash.new { |hash, file| hash[file] = Hash.new { |by_line, line| by_line[line] = [] } }
+        @lines = hit_table
+        @methods = hit_table
         @tests = []
-        @tests_by_file = Hash.new { |hash, file| hash[file] = [] }
-        @outside = Hash.new { |hash, file| hash[file] = Set.new }
+        @tests_by_file = per_file { [] }
+        @outside = per_file { Set.new }
+        @outside_methods = per_file { Set.new }
         @durations = {}
       end
 
@@ -27,13 +29,17 @@ module Saboteur
       def test_started(id, test_file)
         @tests << id
         @tests_by_file[test_file] << id
-        each_hit_line { |file, line| @outside[test_file] << [file, line] }
+        each_hit do |file, line, kind|
+          kind == :line ? @outside[test_file] << [file, line] : @outside_methods[test_file] << [file, line]
+        end
         @started_at = monotonic
       end
 
       def test_finished(id)
         @durations[id] = monotonic - @started_at if @started_at
-        each_hit_line { |file, line| @lines[file][line] << id }
+        each_hit do |file, line, kind|
+          kind == :line ? @lines[file][line] << id : @methods[file][line] << id
+        end
       end
 
       def result(build_seconds: nil)
@@ -41,11 +47,25 @@ module Saboteur
           ids = @tests_by_file[test_file]
           hits.each { |file, line| @lines[file][line] |= ids }
         end
+        @outside_methods.each do |test_file, hits|
+          ids = @tests_by_file[test_file]
+          hits.each { |file, line| @methods[file][line] |= ids }
+        end
         lines = @lines.transform_values { |by_line| by_line.transform_values(&:uniq) }
-        CoverageMap.new(lines: lines, tests: @tests, build_seconds: build_seconds, durations: @durations)
+        methods = @methods.transform_values { |by_line| by_line.transform_values(&:uniq) }
+        CoverageMap.new(lines: lines, tests: @tests, build_seconds: build_seconds, durations: @durations,
+                        methods: methods)
       end
 
       private
+
+      def hit_table
+        Hash.new { |hash, file| hash[file] = Hash.new { |by_line, line| by_line[line] = [] } }
+      end
+
+      def per_file(&block)
+        Hash.new { |hash, file| hash[file] = block.call }
+      end
 
       def monotonic
         Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -53,7 +73,7 @@ module Saboteur
 
       # Coverage is suspended while the delta is processed, so the recorder's
       # own work (and anything it calls) is never attributed to a test.
-      def each_hit_line
+      def each_hit
         snapshot = Coverage.result(stop: false, clear: true)
         suspended = Coverage.running?
         Coverage.suspend if suspended
@@ -61,8 +81,14 @@ module Saboteur
           file = @canonical[path]
           next unless @files.include?(file)
 
-          # Lines mode (set up by the executable); nil marks a line with no code.
-          data[:lines].each_with_index { |count, index| yield file, index + 1 if count&.positive? }
+          # Lines mode (set up by the executable); nil marks a line with no
+          # code. Methods mode keys are [owner, name, start_line, ...]; an
+          # endless def's body never counts a line hit, but its calls count
+          # here (issue #107).
+          data[:lines].each_with_index { |count, index| yield file, index + 1, :line if count&.positive? }
+          data[:methods]&.each do |(_owner, _name, start_line, *), count|
+            yield file, start_line, :method if count.positive?
+          end
         end
       ensure
         Coverage.resume if suspended

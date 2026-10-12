@@ -5,7 +5,7 @@
 # Line coverage must be set up before any target code loads, so it happens
 # first. It stays suspended (no counting) except while the coverage map is built.
 require "coverage"
-Coverage.setup(lines: true) if Coverage.state == :idle
+Coverage.setup(lines: true, methods: true) if Coverage.state == :idle
 
 require "saboteur/cli"
 
