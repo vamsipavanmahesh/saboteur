@@ -90,3 +90,23 @@ module ReevalTargets
     end
   end
 end
+
+module ReevalTargets
+  module PrivateCopies
+    module_function
+
+    def hidden
+      :original
+    end
+    private_class_method :hidden
+
+    def protected_copy
+      :original
+    end
+    singleton_class.send(:protected, :protected_copy)
+
+    def public_contract
+      [hidden, protected_copy]
+    end
+  end
+end
