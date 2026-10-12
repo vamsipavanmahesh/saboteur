@@ -31,7 +31,7 @@ fail?" for many small breakages and lists the ones nobody noticed. Read the
 
 ### The unchanged suite is checked first
 
-Every run with selected subjects runs the entire unchanged suite twice in fresh
+Every run with selected subjects runs the loaded unchanged suite twice (the specs chosen with `--test`, if given) in fresh
 supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
 a cache miss. Both baseline passes must be green, complete and in the same
@@ -93,7 +93,7 @@ fine mutants after coarse survivors can increase run time and change scores.
 **It prepares memory before it forks.** Before workers fork, saboteur warms and
 compacts the Ruby heap ([`ForkReadiness`](lib/saboteur/execution/fork_readiness.rb)),
 which is meant to let workers share more pages with their parent and copy less.
-The physical-memory benefit is not yet established by a published benchmark.
+Observed on the pinned hashie workload (paired runs, below): about 17-18% lower peak PSS at 2 and 6 workers. Not a general guarantee.
 
 **It is aimed at pull requests.** `--since origin/main` mutates only the methods
 your branch changed: fine-grained mutants on the changed lines, plus the
@@ -568,9 +568,8 @@ touch less memory, it keeps more of it shared between workers after fork, which
 is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers on a
 2 GB sandbox. Swap was not measured.
 
-Wall time on uncontended runs: 30-36s for both variants at every job level (no
-regression; per-cell minimums 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s
-vs 32s at jobs=6, PR first). The shared sandbox had multi-minute CPU-starvation
+Wall time on uncontended runs, per-cell minimums, baseline vs PR: 48s vs 49s at
+jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6 (no regression). The shared sandbox had multi-minute CPU-starvation
 windows during this session (walls up to 594s); affected runs are flagged via
 sampler cadence and excluded from wall analysis. Absolute times are specific to
 this 2-core sandbox. Environment, method and the contention log are on the
