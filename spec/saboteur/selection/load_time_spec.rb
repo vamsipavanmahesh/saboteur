@@ -71,7 +71,7 @@ RSpec.describe "load-time coverage" do
     %w[methods load_lines].each do |field|
       legacy = document.reject { |key, _| key == field }
       expect { Saboteur::Selection::CoverageMap.from_json(JSON.generate(legacy)) }
-        .to raise_error(Saboteur::Error, /format 4 is not 5/)
+        .to raise_error(Saboteur::Error, /format 4 is not 6/)
     end
   end
   it "accepts a combined cache with no method hits field as an empty methods table" do
@@ -81,5 +81,12 @@ RSpec.describe "load-time coverage" do
     restored = Saboteur::Selection::CoverageMap.from_json(JSON.generate(document))
     expect(restored.methods).to eq({})
     expect(restored.load_lines).to eq(target.file => [3])
+  end
+  it "counts load-only evidence as nonempty without inventing test coverage" do
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [], load_lines: { target.file => [3] })
+    expect(map.empty?).to be(false)
+    expect(map.tests_for(target)).to eq([])
+    expect(Saboteur::Selection::CoverageMap.new(lines: {}, tests: [], load_lines: { target.file => [] }).empty?)
+      .to be(true)
   end
 end
