@@ -247,8 +247,17 @@ module Saboteur
         next unless wanted.include?(file)
 
         lines = data[:lines].each_with_index.filter_map { |count, index| index + 1 if count&.positive? }
+        lines -= uncalled_shared_lines(data)
         hits[file] = lines unless lines.empty?
       end
+    end
+
+    # A one-line or endless definition executes its def line even when its
+    # body is never called. Only boot method counters prove body execution.
+    def uncalled_shared_lines(data)
+      shared = data.fetch(:methods, {}).select { |(_owner, _name, first, _column, last, *), _| first == last }
+      calls = shared.group_by { |(_owner, _name, first, *), _count| first }
+      calls.filter_map { |line, entries| line if entries.none? { |_key, count| count.positive? } }
     end
 
     # Loads the target and stops coverage, returning what the rest of the
