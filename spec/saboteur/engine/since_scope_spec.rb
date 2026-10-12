@@ -55,23 +55,24 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
   it "warns about the unscoped suite before the baseline passes start" do
     report = run_engine("since" => "origin/main")
     expect(err.string).to include(
-      "no base coverage map; running the full suite 3 times (3 spec files). " \
-      "Pass --test or provide a map to scope it."
+      "running the loaded suite unscoped: two baseline passes; coverage may add a pass (3 spec files). " \
+      "Pass --test to scope it."
     )
-    expect(err.string.index("no base coverage map")).to be < err.string.index("checking the unchanged suite")
+    expect(err.string.index("running the loaded suite unscoped"))
+      .to be < err.string.index("checking the unchanged suite")
     expect(report.warnings).to include(
-      "no base coverage map; running the full suite 3 times (3 spec files). " \
-      "Pass --test or provide a map to scope it."
+      "running the loaded suite unscoped: two baseline passes; coverage may add a pass (3 spec files). " \
+      "Pass --test to scope it."
     )
   end
 
   it "says nothing when --test scopes the specs" do
     run_engine("since" => "origin/main", "tests" => ["a_spec.rb"])
-    expect(err.string).not_to include("no base coverage map")
+    expect(err.string).not_to include("running the loaded suite unscoped")
   end
 
   it "says nothing without --since" do
     run_engine({})
-    expect(err.string).not_to include("no base coverage map")
+    expect(err.string).not_to include("running the loaded suite unscoped")
   end
 end
