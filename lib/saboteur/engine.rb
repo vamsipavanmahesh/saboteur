@@ -178,8 +178,8 @@ module Saboteur
       return if others.empty?
 
       names = others.map { |thread| thread.name || thread.backtrace&.first || "unknown" }
-      @diagnostics.warn("#{others.size} other thread(s) alive at fork time; they do not run in children: " \
-                        "#{names.join(', ')}")
+      list = names.join(", ")
+      @diagnostics.warn("#{others.size} other thread(s) alive at fork time; they do not run in children: #{list}")
     end
 
     def monotonic
