@@ -159,11 +159,13 @@ detect it is a test that would be a copy of the implementation.
 
 Accepting a survivor:
 
-```yaml
-# .saboteur-ignore.yml
-- subject: "Billing::Invoice#total"
-  mutation: "1a2b3c4d5e6f7a8b"
-  reason: "equivalent: amounts are always whole cents"
+```ruby
+# config/saboteur_ignore.rb
+Saboteur.ignore do |i|
+  i.mutation "1a2b3c4d5e6f7a8b",
+             subject: "Billing::Invoice#total",
+             reason: "equivalent: amounts are always whole cents"
+end
 ```
 
 An entry without a reason is rejected. Make the reason specific enough that a
@@ -232,7 +234,7 @@ is there:
    main gives you a score trend without blocking anyone. Set the same config
    each time so the numbers are comparable.
 4. **Triage once, record the decisions.** Put accepted survivors in
-   `.saboteur-ignore.yml` with reasons, so every later run starts from the
+   `config/saboteur_ignore.rb` with reasons, so every later run starts from the
    decisions you already made.
 5. **Then enforce on PRs.** Once PR summaries have been quiet for a while, set
    `fail-on-survivors: "true"`. saboteur's own CI does this. Because PR runs
