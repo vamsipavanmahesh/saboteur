@@ -48,7 +48,7 @@ RSpec.describe "replay bypasses", :e2e do
     expect(File.binread(path)).to eq(before)
   end
 
-  it "runs a normally gated fine mutant and does not suppress an accepted survivor" do
+  it "runs a fine mutant after a coarse survivor and does not suppress an accepted survivor" do
     File.open(File.join(dir, "lib", "people.rb"), "a") do |file|
       file.puts "class Loose; def value; 123; end; end"
     end
@@ -59,7 +59,8 @@ RSpec.describe "replay bypasses", :e2e do
       end
     RUBY
     original = saboteur(dir, "--subject", "Loose#value")
-    mutant = mutants(original).find { |item| item["statusReason"] == "coarse mutant survived" }
+    expect(original.json).not_to be_nil, original.err
+    mutant = mutants(original).find { |item| !item["mutatorName"].start_with?("body_") && item["status"] == "Survived" }
     expect(mutant).not_to be_nil
     File.write(File.join(dir, ".saboteur-ignore.yml"), <<~YAML)
       - subject: Loose#value
@@ -77,6 +78,7 @@ RSpec.describe "replay bypasses", :e2e do
     original = saboteur(dir, "--subject", "People::Person#adult?")
     mutant = mutants(original).find { |item| item["status"] == "Killed" }
     replay = saboteur(dir, "--id", mutant.fetch("id"))
+    expect(replay.status).not_to eq(2), replay.err
     expect(replay.out).to include(mutant.fetch("id"), "Replay:", "--- a/lib/people.rb", "Selected tests:")
     test_names(original, mutant.fetch("coveredBy")).each { |name| expect(replay.out).to include(name) }
   end
