@@ -26,10 +26,11 @@ module Saboteur
         list = scope.restrict(subject, list) if scope
         omitted = list.size - @limit
         if omitted.positive?
+          @diagnostics.record_omission(subject, count: omitted, limit: @limit)
           @diagnostics.warn("#{subject.id}: omitted #{omitted} mutant(s) above max_mutants_per_method (#{@limit})")
         end
         list.first(@limit)
       end
     end
   end
-end
+  end
