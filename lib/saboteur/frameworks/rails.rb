@@ -9,7 +9,7 @@ require "tmpdir"
 
 module Saboteur
   module Frameworks
-    # Opt-in Rails support (`rails: true` in .saboteur.yml).
+    # Opt-in Rails support (`c.rails = true` in config/saboteur.rb).
     #
     # Refuses to run unless RAILS_ENV is test and every configured database is
     # local, eager loads the app so every subject's owner is defined before
