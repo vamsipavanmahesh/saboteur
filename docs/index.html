@@ -6,7 +6,7 @@
 <title>saboteur - mutation testing for Ruby</title>
 <meta name="description" content="saboteur breaks your Ruby code in small ways and shows you which changes your tests do not notice. It runs only the tests that cover each change.">
 <meta property="og:title" content="saboteur - mutation testing for Ruby">
-<meta property="og:description" content="Find the tests that do not test anything. Fast, safe, no fake kills.">
+<meta property="og:description" content="Find the tests that do not test anything. Fast, safe, with every kill re-checked.">
 <style>
 :root{--bg:#fff;--surface:#f6f7f9;--text:#1d2125;--muted:#5d6670;--line:#e3e6ea;--accent:#c2371f;--accent-2:#2f6fdb;
 --good:#1f8a4c;--good-bg:#e3f4e9;--bad:#c4372f;--bad-bg:#fbe7e5;--tie:#6b7280;--tie-bg:#eef0f2;--code-bg:#14171a;--code-text:#e8eaed;--note-bg:#fff7e0;--note-line:#e8b931}
@@ -83,7 +83,7 @@ bundle exec saboteur run --since origin/main</code></pre>
 <div class="steps">
 <div class="step"><div><h3>Change</h3><p>saboteur finds your methods and makes one small change per mutant: flip a <code>&lt;</code>, swap <code>&amp;&amp;</code> for <code>||</code>, delete a line, empty the whole method.</p></div></div>
 <div class="step"><div><h3>Run only the tests that matter</h3><p>A per-test coverage map tells saboteur which tests ran the changed line. Only those run, likeliest killers first. The first failure stops the run.</p></div></div>
-<div class="step"><div><h3>Check the kill</h3><p>Every kill is run again on the unchanged code. If that test fails there too, it is not a kill. This removes fake kills.</p></div></div>
+<div class="step"><div><h3>Check the kill</h3><p>Every kill is run again on the unchanged code. If that test fails there too, it is not a kill. A kill that also fails on the original is not credited.</p></div></div>
 <div class="step"><div><h3>Read the survivors</h3><p>You get a score and a diff for each survivor. A survivor means a missing test, or code that does not matter.</p></div></div>
 </div>
 <pre><code><span class="c"># Billing::Invoice#total  - survived</span>
@@ -97,9 +97,9 @@ bundle exec saboteur run --since origin/main</code></pre>
 <p class="sub">Built for real Rails suites, not only small gems.</p>
 <div class="grid">
 <div class="card"><h3>Picks tests per mutant</h3><p>Only the tests that executed the changed statement run. A change no test reaches is reported as "no coverage", not as a survivor.</p></div>
-<div class="card"><h3>No fake kills</h3><p>A kill must fail on the mutant and pass on the original. In one benchmark, 0 of 20 randomly sampled kills on lobsters were fake.</p></div>
-<div class="card"><h3>Coarse first</h3><p>Each method body is replaced with <code>nil</code> and with <code>raise</code> first. If your tests miss that, saboteur says so and skips the small changes for that method. Less noise.</p></div>
-<div class="card"><h3>Diff mode</h3><p><code>--since origin/main</code> changes only the methods you edited on this branch. Quick enough for a pull request.</p></div>
+<div class="card"><h3>Kills are re-checked</h3><p>A kill must fail on the mutant and pass on the original. In one benchmark, 0 of 20 randomly sampled kills on lobsters were fake.</p></div>
+<div class="card"><h3>Coarse first</h3><p>Each method body is replaced with <code>nil</code> and with <code>raise</code> first, then the smaller changes run for every method. A whole-body survivor does not hide a smaller one.</p></div>
+<div class="card"><h3>Diff mode</h3><p><code>--since origin/main</code> changes only the methods you edited on this branch. On one real change in saboteur's own history it took a file from 139 mutants to 7, and median wall time fell 22.9% (measured before the gate removal; one file, not a general speed claim).</p></div>
 <div class="card"><h3>Rails and parallel</h3><p>Run with <code>--jobs N</code> workers. Each worker gets its own database copy. Tested on a Rails 8.1 app on Postgres with 6 workers, with the same verdicts as 1 worker.</p></div>
 <div class="card"><h3>Safe to run</h3><p>Each mutant runs in a watched child process. Everything it starts is tracked and killed. There are limits on time, memory and process count.</p></div>
 <div class="card"><h3>Open report</h3><p>JSON in the Stryker mutation-testing-report format, so existing viewers can open it.</p></div>
@@ -150,11 +150,11 @@ jobs: 4                  # optional, default is 1</code></pre>
 
 <section id="compare"><div class="wrap">
 <h2>saboteur and mutineer, side by side</h2>
-<p class="sub"><a href="https://github.com/davidteren/mutineer">mutineer</a> is another Ruby mutation testing tool. We compared the two on real projects. Here is the honest picture, including where mutineer is ahead.</p>
+<p class="sub"><a href="https://github.com/davidteren/mutineer">mutineer</a> is another Ruby mutation testing tool. We compared the two on real projects. Here is the honest picture, including where mutineer is ahead. These numbers were measured at 2b6ec02, before the coarse-survivor gate was removed and before the newer operators. They are historical, and a rerun is pending.</p>
 <div class="table-wrap"><table>
 <thead><tr><th>Area</th><th>saboteur</th><th>mutineer</th><th></th></tr></thead>
 <tbody>
-<tr><td>Fake kills (lobsters)</td><td>0 of 20 sampled at random</td><td>8 of 8 hand-checked</td><td><span class="tag win">saboteur</span></td></tr>
+<tr><td>Fake kills (lobsters)</td><td>0 of 20 sampled at random</td><td>8 of 8 hand-checked</td><td><span class="tag">sample check</span></td></tr>
 <tr><td>Rails app, parallel</td><td>6 workers, same verdicts as 1</td><td>1 worker only</td><td><span class="tag win">saboteur</span></td></tr>
 <tr><td>Postgres Rails app</td><td>Runs</td><td>Does not run</td><td><span class="tag win">saboteur</span></td></tr>
 <tr><td>Time per mutant (hashie)</td><td>0.008 s</td><td>0.092 s</td><td><span class="tag win">saboteur</span></td></tr>
