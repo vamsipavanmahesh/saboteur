@@ -246,4 +246,8 @@ Saboteur.ignore do |i|
   i.mutation "7a02dc533bc53157",
              subject: "Saboteur::Selection::CoverageMap.from_json",
              reason: "equivalent: the FORMAT 4 writer always emits a methods key (to_json encodes methods unconditionally), so the missing-key fallback never fires"
+
+  i.mutation "2775afca28a11bfe",
+             subject: "Saboteur::Selection::CoverageMap#sort_test_ids",
+             reason: "equivalent: ids come from by_method/by_line values, which store indices into tests, so order.fetch always hits and the default is unreachable"
 end
