@@ -60,8 +60,6 @@ module Saboteur
         stack = [root]
         until stack.empty?
           node = stack.pop
-          next if node.nil?
-
           if hazardous?(node)
             spans << [node.location.start_offset, node.location.end_offset, node.slice]
             next
