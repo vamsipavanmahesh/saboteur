@@ -76,11 +76,43 @@ module Saboteur
           <p class="note">Covered mutation score = #{SCORE_FORMULA}. NoCoverage, errors, resource limits and skipped
           mutants are not counted. Survivors accepted on the ignore list stay in the denominator. It covers only the subjects of this run, not the whole project. A tool that reads the
           Stryker JSON may show a different score, because the schema counts NoCoverage as undetected.</p>
+          #{score_split(report)}
           <p class="note">Wide tables scroll sideways.</p>
           <p>#{counts.map { |status, count| "#{status_label(status)} #{count}" }.join(' ')}</p>
           <p>Survivors: #{report.unignored_survivors.size} to fix, #{report.survivors.size - report.unignored_survivors.size}
           accepted on the ignore list (still shown as Survived, with the reason).</p>
         HTML
+      end
+
+      # How the score splits into assertion and crash kills, and the score
+      # without the whole-body mutants, which almost any test that runs the
+      # method kills. Each part shows only when it has something to say.
+      def score_split(report)
+        breakdown = report.score_breakdown
+        lines = []
+        lines << kill_split_line(breakdown) if breakdown.split_known?
+        lines << whole_body_line(report)
+        lines.compact.join("\n")
+      end
+
+      def kill_split_line(breakdown)
+        "<p>Of the tested mutants: #{parts_text(breakdown)}. A crash shows the code ran and broke, " \
+          "not that a test checked a value.</p>"
+      end
+
+      def parts_text(breakdown)
+        breakdown.parts.map { |label, share| "#{score_text(share)} #{label}" }.join(", ")
+      end
+
+      def whole_body_line(report)
+        whole = report.coarse_score_breakdown
+        fine = report.fine_score_breakdown
+        return if whole.tested.zero? || fine.tested.zero?
+
+        split = fine.split_known? ? " (#{parts_text(fine)})" : ""
+        "<p>Without whole-body mutants (body_nil, body_true, body_false, body_raise): #{score_text(fine.value)}" \
+          "#{split} over #{fine.tested} mutants. Whole-body mutants alone: #{score_text(whole.value)} " \
+          "over #{whole.tested}.</p>"
       end
 
       def score_text(score)
@@ -126,11 +158,27 @@ module Saboteur
       def mutant_row(mutant, names, result)
         start = mutant[:location][:start]
         tests = Array(mutant[:killedBy]).map { |id| names.fetch(id) }.join(", ")
-        notes = [mutant[:statusReason], tests.empty? ? nil : "killed by #{tests}"].compact.join("; ")
+        notes = [mutant[:statusReason], tests.empty? ? nil : "killed by #{tests}",
+                 passing_tests_note(mutant, names, result)].compact.join("; ")
         "<tr><td class=\"fit\">line #{start[:line]}, column #{start[:column]}</td><td>#{row_status(mutant,
                                                                                                    result)}</td>" \
           "<td>#{escape(mutant[:mutatorName])}</td><td class=\"wide\">#{change(mutant, result)}</td>" \
           "<td class=\"fit\"><code>#{escape(mutant[:id])}</code></td><td class=\"wide\">#{escape(notes)}</td></tr>"
+      end
+
+      # A survivor's covering tests all passed with the mutant applied, or, for
+      # a reused verdict, in the earlier run it came from.
+      def passing_tests_note(mutant, names, result)
+        return unless mutant[:status] == "Survived"
+
+        passed = Array(mutant[:coveredBy]).map { |id| names.fetch(id) }
+        return if passed.empty?
+
+        shown = passed.first(Terminal::MAX_PASSING_TESTS).join(", ")
+        more = passed.size - Terminal::MAX_PASSING_TESTS
+        extra = more.positive? ? " (+#{more} more)" : ""
+        when_passed = result.reused? ? "passed in an earlier run" : "passed"
+        "covered by #{passed.size} #{passed.one? ? 'test' : 'tests'} that #{when_passed}: #{shown}#{extra}"
       end
 
       def row_status(mutant, result)

@@ -65,6 +65,11 @@ function dco(commits) {
     demand(commit.commit.message.split(/\r?\n/).includes(line), `missing author signoff: ${commit.sha}`);
   }
 }
+// GitHub answers quota exhaustion with 403/429. It is reported on its own so the gate stops
+// instead of spending more calls (even a failure status write) against a spent token.
+class RateLimitError extends Error {
+  constructor(message) { super(message); this.name = 'RateLimitError'; }
+}
 class API {
   constructor(repo, token) { this.repo = repo; this.token = token; }
   async call(path, method = 'GET', data) {
@@ -73,6 +78,22 @@ class API {
         'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'},
       ...(data ? {body: JSON.stringify(data)} : {})
     });
+    if (!response.ok) {
+      const header = name => response.headers?.get(name);
+      const detail = await response.text().then(text => { try { return JSON.parse(text).message; } catch { return text; } }, () => '');
+      // Only real exhaustion evidence counts: 429, no calls remaining, a retry-after header, or the
+      // secondary-limit wording. A bare 403 (permissions, SSO) stays an ordinary failure, so the
+      // gate still writes its fail-closed status.
+      const exhausted = response.status === 429 || header('x-ratelimit-remaining') === '0' ||
+        header('retry-after') != null || (response.status === 403 && /rate limit|abuse/i.test(String(detail)));
+      if (exhausted) {
+        const reset = Number(header('x-ratelimit-reset'));
+        const resetAt = Number.isFinite(reset) && reset > 0 ? new Date(reset * 1000).toISOString() : 'unknown';
+        throw new RateLimitError(`GitHub API ${response.status} (rate limit): ${path}; ` +
+          `remaining ${header('x-ratelimit-remaining') ?? 'unknown'}, resets ${resetAt}; ` +
+          `${String(detail || 'no message').slice(0, 200)}; stopped without writing statuses`);
+      }
+    }
     demand(response.ok, `GitHub API ${response.status}: ${path}`);
     return response.status === 204 ? null : response.json();
   }
@@ -122,9 +143,11 @@ async function prRevocationSources(api, number, head) {
   }
   return {records, forceEpoch};
 }
-async function recoverRevocations(api, number, head) {
+const readLedger = api => api.pages(`commits/${policy.revocationAnchor}/statuses`);
+// `known` carries facts already read in this sweep: the shared anchor ledger and this PR's sources.
+async function recoverRevocations(api, number, head, known = {}) {
   const [ledger, sources] = await Promise.all([
-    api.pages(`commits/${policy.revocationAnchor}/statuses`), prRevocationSources(api, number, head)
+    known.ledger ?? readLedger(api), known.sources ?? prRevocationSources(api, number, head)
   ]);
   const records = sources.records;
   // Promote head-only latches before any pending/success can replace the display.
@@ -143,9 +166,9 @@ async function recoverRevocations(api, number, head) {
     if (!ledger.some(r => r.context === ledgerContext(number) && r.description === description)) ledger.push(saved);
   }
 }
-async function revocations(api, number, head) {
+async function revocations(api, number, head, known = {}) {
   const [ledger, sources] = await Promise.all([
-    api.pages(`commits/${policy.revocationAnchor}/statuses`), prRevocationSources(api, number, head)
+    known.ledger ?? readLedger(api), known.sources ?? prRevocationSources(api, number, head)
   ]);
   const revoked = {};
   if (sources.forceEpoch) {
@@ -187,7 +210,11 @@ async function revokeEvent(api, event) {
     api.call(`statuses/${pr.head.sha}`, 'POST', {state: 'failure', context: policy.context,
       description: `revoked-pr-${number}:${description}`})
   ]);
-  if (writes.some(w => w.status === 'rejected')) throw new Error('revocation latch write failed; retry event after API recovery');
+  const rejected = writes.filter(w => w.status === 'rejected').map(w => w.reason);
+  // A spent quota keeps its own error so the log shows the reset time; the latches were still attempted.
+  const quota = rejected.find(reason => reason instanceof RateLimitError);
+  if (quota) throw quota;
+  if (rejected.length) throw new Error(`revocation latch write failed; retry event after API recovery: ${rejected.map(r => r?.message).join(' | ')}`);
   const comments = await api.pages(`issues/${number}/comments`);
   const highWater = Math.max(event.comment.id, ...comments.map(c => c.id));
   demand(Number.isSafeInteger(highWater) && highWater > 0, 'invalid comment high-water ID');
@@ -215,7 +242,7 @@ async function workflows(api, number, head) {
   }
   return checked;
 }
-async function verify(api, number) {
+async function verify(api, number, sweep = {}) {
   const pr = await api.call(`pulls/${number}`);
   demand(pr.state === 'open' && !pr.draft && pr.base.ref === policy.baseBranch, 'not an open ready main PR');
   const head = pr.head.sha, base = pr.base.sha;
@@ -225,19 +252,25 @@ async function verify(api, number) {
     target_url: `https://github.com/${api.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   });
   try {
-    await recoverRevocations(api, number, head);
+    // One read of the anchor ledger per sweep and one read of this PR's sources, shared by the
+    // recovery and the first decision. The final re-check below always reads live.
+    sweep.ledger ??= readLedger(api).catch(error => { delete sweep.ledger; throw error; });
+    const known = {ledger: await sweep.ledger, sources: await prRevocationSources(api, number, head)};
+    await recoverRevocations(api, number, head, known);
     await status('pending', 'Checking current head panel, CI, DCO and policy');
-    const currentBase = await api.call(`git/ref/heads/${policy.baseBranch}`);
-    demand(currentBase.object.sha === base, 'main moved during validation');
+    // Up-to-date enforcement is intentionally relaxed: the head may trail main. Protected
+    // files are compared against the merge base, so edits made on main are not blamed on the PR.
     const compare = await api.call(`compare/${base}...${head}`);
-    demand(compare.status === 'ahead' && compare.merge_base_commit.sha === base, 'update branch against current main and retest');
+    demand(compare.status === 'ahead' || compare.status === 'diverged', 'head is not ahead of its base');
+    const mergeBase = compare.merge_base_commit.sha;
+    demand(SHA.test(mergeBase), 'bad merge base SHA');
     // Compare exact bytes via Git objects. Missing files on both sides are OK at bootstrap.
     for (const path of policy.protectedFiles) {
       async function blob(ref) {
         try { return await api.call(`contents/${path}?ref=${ref}`); }
         catch (error) { if (error.message.startsWith('GitHub API 404:')) return null; throw error; }
       }
-      const [before, after] = await Promise.all([blob(base), blob(head)]);
+      const [before, after] = await Promise.all([blob(mergeBase), blob(head)]);
       function identity(item) {
         if (Array.isArray(item)) return JSON.stringify(item.map(x => [x.name, x.sha, x.type]).sort());
         return item?.sha ?? null;
@@ -245,51 +278,72 @@ async function verify(api, number) {
       demand(identity(before) === identity(after), `protected policy changed: ${path}`);
     }
     const comments = await api.pages(`issues/${number}/comments`);
-    const revoked = await revocations(api, number, head);
+    const revoked = await revocations(api, number, head, known);
     panel(comments, head, revoked);
     dco(await api.pages(`pulls/${number}/commits`));
     const checkedRuns = await workflows(api, number, head);
     // Repeat the whole selection, latest attempt and job inspection, not just PR facts.
     // Recheck live facts immediately before publishing. New head never inherits success.
-    const [lastPR, lastBase, lastComments, lastRevoked, lastRuns] = await Promise.all([
-      api.call(`pulls/${number}`), api.call(`git/ref/heads/${policy.baseBranch}`), api.pages(`issues/${number}/comments`),
+    const [lastPR, lastComments, lastRevoked, lastRuns] = await Promise.all([
+      api.call(`pulls/${number}`), api.pages(`issues/${number}/comments`),
       revocations(api, number, head), workflows(api, number, head)
     ]);
     demand(JSON.stringify(lastRuns) === JSON.stringify(checkedRuns), 'CI runs/attempts/jobs changed during verification');
     demand(lastPR.state === 'open' && !lastPR.draft && lastPR.head.sha === head &&
-      lastPR.base.sha === base && lastPR.base.ref === policy.baseBranch && lastBase.object.sha === base, 'PR/main changed during verification');
+      lastPR.base.ref === policy.baseBranch, 'PR changed during verification');
     demand(JSON.stringify(lastRevoked) === JSON.stringify(revoked), 'revocations changed during verification');
     panel(lastComments, head, lastRevoked);
     await status('success', '3 exact-head lens approvals; 13 green jobs; DCO; unchanged gate policy');
   } catch (error) {
-    await status('failure', error.message);
+    if (error instanceof RateLimitError) throw error;
+    // A failed failure-write must not hide the reason the decision failed.
+    try { await status('failure', error.message); } catch (writeError) {
+      if (writeError instanceof RateLimitError) throw writeError;
+      throw new Error(`${error.message} (and the failure status could not be written: ${writeError.message})`);
+    }
     throw error;
   }
+}
+// Which open PRs an event can change. A comment, a dispatch and a CI run concern named PRs only;
+// a push to main can change every PR's merge base, so it sweeps them all.
+async function targets(api, name, event) {
+  const eligible = p => p.base.ref === policy.baseBranch && !p.draft;
+  if (name === 'issue_comment' || name === 'workflow_dispatch') {
+    const number = name === 'issue_comment' ? event.issue.number : Number(event.inputs.pr_number);
+    demand(Number.isSafeInteger(number) && number > 0, 'invalid PR number');
+    const pr = await api.call(`pulls/${number}`);
+    return pr.state === 'open' && eligible(pr) ? [number] : [];
+  }
+  const open = (await api.pages('pulls?state=open')).filter(eligible);
+  if (name !== 'workflow_run') return open.map(p => p.number);
+  // pull_requests can be empty for runs from forks, so the run's head SHA matches too.
+  const run = event.workflow_run, named = new Set((run.pull_requests || []).map(p => p.number));
+  return open.filter(p => named.has(p.number) || p.head.sha === run.head_sha).map(p => p.number);
 }
 async function main() {
   demand(process.env.GITHUB_REF === `refs/heads/${policy.baseBranch}`, 'run verifier only from trusted main');
   const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const api = new API(process.env.GITHUB_REPOSITORY, process.env.GITHUB_TOKEN);
   const name = process.env.GITHUB_EVENT_NAME;
-  // Every wake sweeps all open main PRs. queue:max reduces pending-event loss,
+  // Each wake verifies only the PRs its event can change (see targets); a push to main sweeps all.
+  // queue:max reduces pending-event loss,
   // but overflow/lost delivery before ledger persistence cannot be recovered.
   const allowed = ['issue_comment', 'workflow_dispatch', 'workflow_run', 'push'];
   demand(allowed.includes(name), 'unsupported event');
   if (name === 'workflow_run' && event.workflow_run.event !== 'pull_request') return;
   if (name === 'issue_comment' && !event.issue.pull_request) return;
-  if (name === 'workflow_dispatch') {
-    const number = Number(event.inputs.pr_number);
-    demand(Number.isSafeInteger(number) && number > 0, 'invalid PR number');
-  }
   if (name === 'issue_comment') await revokeEvent(api, event);
-  const numbers = (await api.pages('pulls?state=open')).filter(p =>
-    p.base.ref === policy.baseBranch && !p.draft).map(p => p.number);
+  const numbers = await targets(api, name, event);
   let failed = false;
+  const sweep = {};
   for (const number of numbers) {
-    try { await verify(api, number); }
-    catch (error) { failed = true; console.error(`PR #${number}: ${error.message}`); }
+    try { await verify(api, number, sweep); }
+    catch (error) {
+      failed = true; console.error(`PR #${number}: ${error.message}`);
+      if (error instanceof RateLimitError) { console.error('Stopping the sweep: the token is out of quota.'); break; }
+    }
   }
   if (failed) process.exitCode = 1;
 }
-module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, API};
+module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, targets, API, RateLimitError};
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });

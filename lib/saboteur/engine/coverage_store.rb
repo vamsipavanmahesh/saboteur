@@ -27,9 +27,9 @@ module Saboteur
       def fetch(files)
         path = File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}.json")
         cached = @config["cache"] ? Selection::CoverageMap.load(path) : nil
-        return cached if cached
+        return refuse_empty_map(cached, files) if cached
 
-        map = build(files)
+        map = refuse_empty_map(build(files), files)
         map.save(path)
         map
       end
@@ -52,11 +52,15 @@ module Saboteur
                        "Run through the saboteur executable and disable SimpleCov for the run."
         end
 
-        @diagnostics.inform("building coverage map (runs the whole suite once)")
+        scope = @config["tests"].empty? ? "the whole suite" : "the selected specs"
+        @diagnostics.inform("building coverage map (runs #{scope} once)")
         # The suite child forked next inherits this heap; pack it first, to
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
-        result = @supervisor.run(timeout: @config["coverage_timeout"]) { |writer| record(writer, files) }
+        heartbeat = @diagnostics.progress_heartbeat("building coverage map")
+        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
+          record(writer, files)
+        end
         raise Error, "coverage map build stopped: #{result.detail}" if result.stopped_by
         raise Error, "coverage map build failed: #{died(result.exit_status)}" if result.payload.empty?
 
@@ -64,6 +68,29 @@ module Saboteur
         raise Error, "coverage map build failed: #{data['error']}" if data["error"]
 
         Selection::CoverageMap.from_json(result.payload)
+      end
+
+      # A whole-suite build that records no line in any included file fails
+      # the run (exit 3): usually the setup hid the app from Coverage
+      # (Bootsnap's compile cache is the default Rails case); it can also
+      # mean no test in the suite exercises any included file. Either way a
+      # run on this map would test nothing, and exit 0 would lie. With
+      # explicit tests (--test) an empty map is a legitimate outcome
+      # instead: the user narrowed the suite to specs that may not touch
+      # these sources, so the map passes with a warning. Applies to a cached
+      # map too, so a map cached before this check cannot keep a run green,
+      # and the guard runs before saving, so an empty map is never cached.
+      def refuse_empty_map(map, files)
+        return map if files.empty? || map.lines.any? { |_file, by_line| by_line.any? }
+
+        if @config["tests"].empty?
+          raise Error, "Coverage recorded no lines in #{files.size} included files during a whole-suite " \
+                       "build. Is Bootsnap's compile cache on? If not, no test may exercise these files. " \
+                       "Run `saboteur doctor`."
+        end
+        @diagnostics.warn("Coverage recorded no lines in #{files.size} included files; " \
+                          "the selected specs may not exercise them.")
+        map
       end
 
       def died(status)

@@ -145,7 +145,7 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
   end
 end
 
-RSpec.describe Saboteur::Engine::Scheduler, "coarse stop" do
+RSpec.describe Saboteur::Engine::Scheduler, "coarse-first execution" do
   let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
 
   def results_for(source)
@@ -161,9 +161,10 @@ RSpec.describe Saboteur::Engine::Scheduler, "coarse stop" do
     scheduler.call(subject, candidates.for(subject))
   end
 
-  it "skips fine mutants when a coarse mutant survives in a plain method" do
-    reasons = results_for("class K\n  def m(a)\n    b = a + 1\n    b * 2\n  end\nend\n").map(&:reason)
-    expect(reasons).to include("coarse mutant survived")
+  it "runs fine mutants when a coarse mutant survives in a plain method" do
+    results = results_for("class K\n  def m(a)\n    b = a + 1\n    b * 2\n  end\nend\n")
+    expect(results.reject { |result| result.mutation.coarse }).not_to be_empty
+    expect(results).to all(have_attributes(status: :survived))
   end
 
   it "still runs fine mutants when the method has a rescue: the rescue may return what fine mutants expose" do

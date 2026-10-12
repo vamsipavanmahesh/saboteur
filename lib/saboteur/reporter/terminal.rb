@@ -7,6 +7,8 @@ module Saboteur
     # errors, then a unified diff for each survivor.
     class Terminal
       MAX_ERRORS = 10
+      MAX_PASSING_TESTS = 5
+      MAX_CHANGED_LINES = 3
 
       def initialize(out)
         @out = out
@@ -40,9 +42,10 @@ module Saboteur
       end
 
       def details(report)
-        score = report.score
-        @out.puts "score #{score ? format('%.1f %%', score * 100) : 'n/a'} " \
+        breakdown = report.score_breakdown
+        @out.puts "score #{percent(breakdown.value)}#{score_split(breakdown)} " \
                   "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded"
+        whole_body_score(report)
         mean = report.mean_runtime
         @out.puts "mean time per executed mutant #{format('%.3f', mean)} s" if mean
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
@@ -53,6 +56,31 @@ module Saboteur
           reused.positive?
         @out.puts "kills rejected by unchanged-method check: #{report.rejected_kills}"
         kill_causes(report)
+      end
+
+      # " (assertion 50.0 %, crash 50.0 %)": how much of the score is a failed
+      # check and how much is a crash. Timeouts and kills with no recorded
+      # cause are named only when there are some, so the parts add up.
+      def score_split(breakdown)
+        return "" unless breakdown.split_known?
+
+        " (#{breakdown.parts.map { |label, share| "#{label} #{percent(share)}" }.join(', ')})"
+      end
+
+      # Whole-body mutants (body_nil, body_true, body_false, body_raise) are
+      # killed by almost any test that runs the method, so they get their own
+      # line.
+      def whole_body_score(report)
+        whole = report.coarse_score_breakdown
+        fine = report.fine_score_breakdown
+        return if whole.tested.zero? || fine.tested.zero?
+
+        @out.puts "score without whole-body mutants #{percent(fine.value)}#{score_split(fine)} " \
+                  "(#{fine.tested} mutants); whole-body mutants alone #{percent(whole.value)} (#{whole.tested})"
+      end
+
+      def percent(share)
+        share ? format("%.1f %%", share * 100) : "n/a"
       end
 
       # How many kills came from a failed check and how many from a crash, and
@@ -114,10 +142,45 @@ module Saboteur
         shown(report).each do |result, hidden|
           location = "#{relative(result.subject.file, report.root)}:#{result.subject.start_line}"
           @out.puts "\n#{result.subject.id} #{result.mutation.operator} #{result.digest} #{location}"
+          changed_lines(report, result)
           @out.puts "ignored: #{result.ignored}" if result.ignored
           @out.puts result.diff(root: report.root)
+          passing_tests(result)
           @out.puts "#{hidden} more survivor#{'s' if hidden > 1} on this line in the JSON report" if hidden.positive?
         end
+      end
+
+      # The tests that ran with the mutant applied and still passed: the
+      # missing assertion belongs in one of them. They are listed likeliest
+      # killers first, the order the run used. Line coverage can overstate which
+      # tests exercise the line, so the list is a lead, not proof.
+      def passing_tests(result)
+        tests = result.covered_by
+        return if tests.empty?
+
+        @out.puts "#{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and #{passed_phrase(result)} " \
+                  "(the missing check may belong in one of them):"
+        tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "  #{name}" }
+        more = tests.size - MAX_PASSING_TESTS
+        @out.puts "  ... #{more} more in the JSON report (coveredBy)" if more.positive?
+      end
+
+      # A reused verdict was not run again: its tests passed in the earlier run.
+      def passed_phrase(result)
+        result.reused? ? "passed in an earlier run (--incremental)" : "still passed"
+      end
+
+      # In diff mode: the changed lines this mutant touches. The location above
+      # is where the mutated statement starts, which can be a line or two above
+      # the line that changed.
+      def changed_lines(report, result)
+        lines = report.changed_lines_for(result)
+        return if lines.empty?
+
+        path = relative(result.subject.file, report.root)
+        shown = lines.first(MAX_CHANGED_LINES).map { |line| "#{path}:#{line}" }.join(", ")
+        more = lines.size - MAX_CHANGED_LINES
+        @out.puts "changed #{lines.one? ? 'line' : 'lines'}: #{shown}#{" (+#{more} more)" if more.positive?}"
       end
 
       # [[result, how many more on the same line]]. In review mode survivors

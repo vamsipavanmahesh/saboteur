@@ -15,6 +15,9 @@ RSpec.describe Saboteur::Engine, "uncovered subjects" do
       rails = instance_double(Saboteur::Frameworks::Rails)
       expect(rails).not_to receive(:prepare_workers)
       expect(rails).not_to receive(:start_worker)
+      # No runnable work still reaches the Engine.call boundary, which
+      # releases whatever the boot already snapshotted.
+      expect(rails).to receive(:cleanup_workers)
       expect(Saboteur::Engine::Distribution).not_to receive(:new)
       expect(Saboteur::Execution::WorkerPool).not_to receive(:new)
       expect(Saboteur::Execution::ForkReadiness).not_to receive(:prepare_heap)

@@ -38,6 +38,7 @@ module Saboteur
       "incremental" => false,
       "seed" => 1,
       "tests" => [],
+      "fingerprint_extra" => [],
       "threshold" => nil
     }.freeze
 
@@ -45,7 +46,8 @@ module Saboteur
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
     THRESHOLD_RANGE = (0.0..100.0)
 
-    LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects tests].freeze
+    LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects tests
+                   fingerprint_extra].freeze
 
     attr_reader :root
 

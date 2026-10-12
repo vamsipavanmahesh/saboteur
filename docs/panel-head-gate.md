@@ -109,10 +109,9 @@ Skipped/neutral jobs do not pass.
 DCO is also checked from commit metadata, with exact author-matching trailer
 lines; the existing policy exempts merge commits.
 
-Current main must be an ancestor of head. After another PR merges, update/rebase
-this PR, rerun all checks, and re-review that new SHA. This gives a conservative
-serialized integration policy without pretending API PR base objects record
-which historical merge candidate a run tested.
+The head may trail main: up-to-date enforcement is relaxed for large merge
+trains. Protected files are compared against the merge base, and the panel
+markers, CI, DCO and policy checks still apply to the exact head SHA.
 
 ## Limits that settings and workflow code do not remove
 
@@ -120,8 +119,10 @@ which historical merge candidate a run tested.
   cryptographic or three-person attestation. Same-account lenses share trust.
 - GitHub comment/rerun events and status updates are asynchronous. A prior
   success can remain visible until revocation is processed. Concurrency is
-  serialized with `queue: max` (up to 100 pending runs), and every wake sweeps
-  all open main PRs. Queue overflow cancels additional runs. The default
+  serialized with `queue: max` (up to 100 pending runs), and every wake verifies
+  only the PRs its event can change (a comment: its PR; a CI run: the PRs it names
+  or whose head it ran; a dispatch: its input PR) and a push to main sweeps all
+  open main PRs. Queue overflow cancels additional runs. The default
   single pending slot is deliberately not used: it replaces older queued events.
   An edit/deletion event lost before its tombstone is written
   cannot be recovered from the comments API. Never delete verdicts; supersede
@@ -161,8 +162,8 @@ which historical merge candidate a run tested.
    full-green CI/DCO procedure. A gate existing only on a PR branch is not live.
 2. Verify main contains these exact files. Open an ordinary non-policy-change
    PR and publish three canonical markers, then run CI/DCO. In Actions, run
-   `Panel head gate` **from main**, with that PR number. Manual dispatch sweeps
-   all open main PRs; the input is validated for operator clarity.
+   `Panel head gate` **from main**, with that PR number. Manual dispatch verifies
+   only that PR; the input is validated for operator clarity.
 3. Confirm `panel/head-gate` is successful on that PR head and references the
    trusted main workflow run. Inspect the log and all 13 native checks.
 4. Apply the main ruleset below. Test it with stale SHA, CHANGES_REQUIRED,
@@ -265,3 +266,15 @@ and fresh comments after the recovery/force-push floor must pass. CI oracle path
 Concurrency queue behavior: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency
 
 Force-push issue-event schema: https://docs.github.com/en/rest/using-the-rest-api/issue-event-types?apiVersion=2022-11-28
+
+## Quota exhaustion
+
+The verifier reads many API pages per PR, so events are scoped to the PRs they can
+change and the anchor ledger is read once per sweep. If the token's quota is spent
+(HTTP 429, `x-ratelimit-remaining: 0`, a `retry-after` header or GitHub's secondary
+limit message) the job fails with a message naming the reset time, the sweep stops, and
+no failure status is written (it would fail too); the previous status stays until the
+quota resets. Wait for the reset, then re-run one PR with the manual dispatch. A plain
+403 (permissions, SSO) is not treated as quota: the gate still writes its fail-closed
+failure status. For an edited or deleted verdict the latches are still attempted first,
+and a quota error is rethrown with its reset time.

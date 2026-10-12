@@ -24,6 +24,117 @@ RSpec.describe Saboteur::Reporter::Html do
     %w[Killed Survived NoCoverage].each { |status| expect(html).to include(status) }
   end
 
+  it "names the passing tests that covered a survivor, top 5" do
+    tests = (1..6).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    page = described_class.build(report_of(result_for(:survived, covered_by: tests)))
+    expect(page).to include("covered by 6 tests that passed: ./spec/person_spec.rb[1:1]", "(+1 more)")
+    expect(page).not_to include("person_spec.rb[1:6],")
+  end
+
+  it "says a reused survivor's tests passed in an earlier run" do
+    page = described_class.build(report_of(result_for(:survived, reused: true,
+                                                                 covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(page).to include("covered by 1 test that passed in an earlier run: ./spec/person_spec.rb[1:1]")
+  end
+
+  it "separates the passing-test note from other notes with a semicolon" do
+    survivor = result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])
+    survivor.ignored = "equivalent"
+    page = described_class.build(report_of(survivor))
+    expect(page).to include("ignored: equivalent; covered by 1 test that passed: ./spec/person_spec.rb[1:1]")
+  end
+
+  it "joins the passing tests with a comma and a space" do
+    tests = ["./spec/person_spec.rb[1:1]", "./spec/person_spec.rb[1:2]"]
+    page = described_class.build(report_of(result_for(:survived, covered_by: tests)))
+    expect(page).to include("covered by 2 tests that passed: ./spec/person_spec.rb[1:1], ./spec/person_spec.rb[1:2]<")
+  end
+
+  it "adds no passing-test note to a survivor with no covering tests" do
+    page = described_class.build(report_of(result_for(:survived)))
+    expect(page).not_to include("covered by")
+  end
+
+  it "shows exactly five covering tests with no 'more' note, and six with '+1 more'" do
+    five = (1..5).map { |n| "./spec/person_spec.rb[1:#{n}]" }
+    exact = described_class.build(report_of(result_for(:survived, covered_by: five)))
+    expect(exact).to include("covered by 5 tests that passed", "[1:5]")
+    expect(exact).not_to include("more)")
+    six = described_class.build(report_of(result_for(:survived, covered_by: five + ["./spec/person_spec.rb[1:6]"])))
+    expect(six).to include("covered by 6 tests that passed", "[1:5] (+1 more)")
+  end
+
+  it "says test for one covering test and tests for two" do
+    one = described_class.build(report_of(result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(one).to include("covered by 1 test that passed")
+  end
+
+  it "does not call a killed mutant's covering tests passing" do
+    page = described_class.build(report_of(result_for(:killed, covered_by: ["./spec/person_spec.rb[1:1]"])))
+    expect(page).not_to include("that passed")
+  end
+
+  it "says how much of the score came from assertions and how much from crashes" do
+    page = described_class.build(report_of(result_for(:killed, kill_cause: "assertion"),
+                                           result_for(:killed, replacement: "<", kill_cause: "TypeError")))
+    expect(page).to include("50.0% assertion, 50.0% crash")
+  end
+
+  it "shows the score without whole-body mutants" do
+    page = described_class.build(report_of(result_for(:killed, coarse: true, kill_cause: "TypeError"),
+                                           result_for(:survived, replacement: "<", kill_cause: nil),
+                                           result_for(:killed, replacement: "<=", kill_cause: "assertion")))
+    expect(page).to include("Without whole-body mutants (body_nil, body_true, body_false, body_raise): 50.0%")
+  end
+
+  it "names timeouts and kills with no recorded cause, so the parts add up" do
+    page = described_class.build(report_of(result_for(:killed, kill_cause: "assertion"),
+                                           result_for(:timeout, replacement: "<"),
+                                           result_for(:killed, replacement: "<=")))
+    expect(page).to include("33.3% assertion, 0.0% crash, 33.3% timeout, 33.3% cause not recorded")
+  end
+
+  it "shows the whole-body line even when no kill has a recorded cause" do
+    page = described_class.build(report_of(result_for(:killed, coarse: true),
+                                           result_for(:killed, replacement: "<")))
+    expect(page).to include("Without whole-body mutants", "Whole-body mutants alone: 100.0% over 1")
+    expect(page).not_to include("A crash shows")
+  end
+
+  it "shows the whole-body line for a run of timeouts only" do
+    page = described_class.build(report_of(result_for(:timeout, coarse: true),
+                                           result_for(:timeout, replacement: "<")))
+    expect(page).to include("Without whole-body mutants", "100.0%")
+  end
+
+  it "puts the kill split and the whole-body line in separate paragraphs" do
+    page = described_class.build(report_of(result_for(:killed, coarse: true, kill_cause: "TypeError"),
+                                           result_for(:killed, replacement: "<", kill_cause: "assertion")))
+    expect(page).to match(%r{not that a test checked a value\.</p>\n<p>Without whole-body mutants})
+  end
+
+  it "shows no whole-body line when the run has only whole-body mutants" do
+    page = described_class.build(report_of(result_for(:killed, coarse: true, kill_cause: "assertion"),
+                                           result_for(:survived, coarse: true, replacement: "==")))
+    expect(page).not_to include("Without whole-body mutants")
+  end
+
+  it "shows no whole-body line when the run has only fine mutants" do
+    page = described_class.build(report_of(result_for(:killed, kill_cause: "assertion"),
+                                           result_for(:survived, replacement: "==")))
+    expect(page).not_to include("Without whole-body mutants")
+  end
+
+  it "splits the fine score only when some fine kill has a recorded cause" do
+    known = described_class.build(report_of(result_for(:killed, coarse: true),
+                                            result_for(:killed, replacement: "<", kill_cause: "assertion")))
+    unknown = described_class.build(report_of(result_for(:killed, coarse: true, kill_cause: "TypeError"),
+                                              result_for(:killed, replacement: "<")))
+    expect(known).to include("100.0% (100.0% assertion, 0.0% crash) over 1 mutants")
+    expect(unknown).to include("100.0% over 1 mutants")
+    expect(unknown).not_to include("(100.0% assertion")
+  end
+
   it "lists each mutant with its operator, replacement and location" do
     expect(html).to include("comparison", "&gt;", "==", "person.rb", "line 2")
   end
