@@ -7,11 +7,6 @@ require "tmpdir"
 # The ignore list's warnings (an ignored survivor that disappeared, say)
 # must reach the report, or the user never hears about stale entries.
 RSpec.describe Saboteur::Engine, "ignore list warnings" do
-  before do
-    # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
-  end
-
   it "carries the ignore list's warnings into the report" do
     Dir.mktmpdir do |root|
       allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
