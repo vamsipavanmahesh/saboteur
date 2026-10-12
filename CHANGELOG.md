@@ -29,6 +29,10 @@ All notable changes are documented here. The format follows
   full selection; the working-tree state is read before the run; target output stays on stderr. `saboteur agent-skill`
   prints an AGENTS.md block for coding agents (also in `docs/agent-skill.md`). Classic
   exit codes are unchanged.
+- Fine `argument_removal` mutants: remove one ordinary argument from a
+  parenthesized call while preserving keywords and blocks. Token-based comma
+  edits respect comments and strings. Existing candidate validation, order and
+  per-method caps apply. Unparenthesized calls and heredoc arguments are skipped.
 
 ## [0.3.0] - 2026-10-11
 

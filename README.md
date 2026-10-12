@@ -448,6 +448,29 @@ No speed, type-safety or real-fault detection improvement is claimed. See
 [the literal operator rationale](docs/literal-operators.md) for fault evidence
 and limits, including string encoding/frozen-value behavior.
 
+## Argument removal
+
+Builtin removes one ordinary positional argument from a parenthesized call.
+For `Model.includes(:a, :b, c: :d)`, the two proposals remove `:a` or `:b`,
+without deleting the statement or changing `c: :d`. This lets a preload check
+exercise missing associations instead of only a missing return value.
+The operator and source name is `argument_removal`.
+
+Only parenthesized calls are supported in this first version. Keyword hashes,
+splats, argument forwarding, bracket indexing/assignment syntax and arguments containing
+heredocs are unchanged. Explicit hash arguments count as positional arguments.
+Blocks and keyword pairs remain intact; separators come from Prism tokens,
+so commas inside strings or comments are not mistaken for separators.
+Arid statements, parameter defaults and nested definitions are skipped.
+
+These fine proposals follow existing builtin proposals, with the same validation,
+deduplication and `max_mutants_per_method` cap. Earlier digests and relative order
+stay unchanged for unchanged subjects. Extra proposals can change scores or be
+omitted by the cap. Removing an argument can still raise an arity error; no
+non-crashing guarantee is made. The regression uses a small preload-like receiver
+and checks the missing associations, not an ActiveRecord SQL benchmark. See
+[the validation notes](docs/argument-removal.md) for the pinned snapshot migration.
+
 ## 🔌 Extending
 
 Public API, stable across minor versions:
@@ -482,7 +505,7 @@ on number of operators and CI extras, and it supports Minitest.
 | Runs on the Postgres app | yes | no |
 | Time per mutant, hashie | 0.008 s | 0.092 s |
 | Peak memory, hashie (summed process RSS) | 595 MB | 471 MB |
-| Choice of operators, CI features | fixed set, fewer | 20 operators, baseline, HTML, GitHub Action |
+| Choice of operators, CI features | fixed set, fewer | 21 operators, baseline, HTML, GitHub Action |
 
 Full results, method and limitations:
 [benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
