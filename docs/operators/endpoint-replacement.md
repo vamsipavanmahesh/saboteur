@@ -66,3 +66,10 @@ Commands: `script/integration-target NAME /tmp/endpoint-targets --reeval
 STRATEGY` for both targets and both strategies. This is inventory validation,
 not a speed claim or measured real-fault detection benchmark. macOS inventory
 still needs CI validation; it is not inferred from these Linux runs.
+
+The three dry-inflector additions are `last` to `first` at
+`lib/dry/inflector.rb:105`, `:137`, and `:303`. Their digest IDs are
+`819274872375e0bd`, `a9839ff8b24aa373`, `3eb1ed4e5c584e62`.
+Both strategies report `Killed`, reason `assertion`, killed by test IDs
+899, 465 and 490 respectively (seed 1). Thus the old snapshots' only count
+mismatch is killed +3; errors, survivors, timeouts and skips remain unchanged.
