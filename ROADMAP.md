@@ -24,13 +24,11 @@ Already shipped:
 - Stryker-schema JSON report and a pluggable mutation source API.
 - RSpec only, by design. Validated on four gems and two Rails 8.1 apps.
 
-Performance work on memory use around `fork` is in flight as a separate pull
-request.
-
 Known gaps, taken from our own benchmark against
 [mutineer](https://github.com/davidteren/mutineer) (MIT): fewer operators, no
-baseline file, no HTML report. A ready-made GitHub Action now exists, but it
-is advisory and does not post a pull request comment yet.
+baseline file. A self-contained HTML report and a ready-made GitHub Action
+now exist, but the Action is advisory and does not post a pull request
+comment yet.
 
 ## Design rules
 
