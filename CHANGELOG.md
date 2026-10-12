@@ -19,6 +19,25 @@ All notable changes are documented here. The format follows
   writes `config/saboteur.rb` (never overwriting without `--force`);
   `config/saboteur_ignore.rb` and `config/saboteur_custom_map.rb` are optional
   and created by hand when needed.
+- A run in which more than half of the executed mutants errored now exits 3
+  (the tool failed). Before, only a run where every executed mutant errored
+  did. Errored mutants are outside the score, so such a run tested almost
+  nothing. This applies with and without `--threshold`. The JSON report records the reason under
+  `saboteur.exitCause` (`ok`, `survivors`, `belowThreshold`, `errorMajority`,
+  `incompleteUnderThreshold`; in `--agent` mode `ok`, `survivors`,
+  `errorMajority` or `incomplete`).
+- A whole-suite coverage build that records no lines for any included file
+  now exits 3 and the empty map is not cached, instead of testing nothing.
+  With `--test`, an empty map stays a legitimate "no coverage" outcome.
+- Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
+  `db/schema.rb` and `config/*.yml` are part of the coverage and verdict
+  cache fingerprint, so a changed fixture or schema invalidates cached
+  results. The new `fingerprint_extra` setting adds other globs whose
+  contents should invalidate caches, for example `data/*.csv`.
+- The baseline and coverage phases show progress and write real logs, so a
+  slow or failing phase can be diagnosed from the output.
+- When the baseline child is killed by a signal, the message names it
+  (`SIGKILL` adds a possible-OOM hint) instead of reporting a bare failure.
 
 ### Removed
 - The coarse-survivor gate: a surviving whole-body mutant no longer skips the
@@ -28,8 +47,32 @@ All notable changes are documented here. The format follows
 - Mutations inside private `module_function` helpers are preserved when the
   method is re-evaluated; they previously reverted and reported as false
   survivors.
+- Rails apps that test against in-memory SQLite (`:memory:`) no longer fail
+  in forked workers with "Could not find table": saboteur never disconnects,
+  renames or copies an in-memory pool. Each in-memory database is
+  snapshotted to a temporary file after boot, and every forked child
+  restores the snapshot into its own fresh database.
+- With a Rails app under Bootsnap, Coverage no longer sees an empty map:
+  saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its own process when
+  the variable is unset, because bytecode from Bootsnap's compile cache
+  carries no coverage counters.
+- A relative SQLite `database:` path resolves against `Rails.root` (as Rails
+  7.1+ does) for the per-worker copy and its cleanup. The copy uses SQLite's
+  backup API after a WAL checkpoint, refuses to run when a reader keeps the
+  WAL busy, and a missing source file is an error rather than a skipped copy.
+- Per-worker database copies (`jobs` above 1) are dropped when the run ends,
+  best effort: a failed drop is a warning and never changes the outcome. A
+  copy left by a killed run is reclaimed by the next run. A failed copy
+  names the sessions blocking it.
+- For `rails: true`, the app's `spec/` directory is on the load path before
+  `require` is processed, as with rspec, so a boot file such as a dummy app's
+  `spec/rails_helper.rb` can require its siblings.
+- When Rails did not load, the error points engine users at the dummy app's
+  environment file or helper (`DummyApp.setup` in `spec/rails_helper.rb`).
 
 ### Added
+- `rails generate saboteur:install` and a Rails quickstart in the README. The
+  generator writes `config/saboteur.rb` and never overwrites without `--force`.
 - The warning about threads alive when a worker forks names those threads,
   falling back to their backtraces for unnamed ones.
 - `--test` no longer requires source operands when `--since` is given: the
@@ -122,11 +165,6 @@ All notable changes are documented here. The format follows
   Ruby's random numbers with it, so runs repeat; the report prints the seed.
 
 ### Fixed
-- Rails apps whose test database is in-memory SQLite (`:memory:`) no longer
-  lose their schema: saboteur never disconnects, renames or copies an
-  in-memory pool. Each in-memory database is snapshotted to a temporary
-  file after boot, and every forked child restores the snapshot into its
-  own fresh database.
 - Linux: killed orphans adopted by the supervisor are reaped reliably, so no
   zombies are left behind (first run on Linux CI).
 - The README status line describes what has actually been tested.
