@@ -13,6 +13,7 @@ RSpec.describe Saboteur::Doctor do
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     allow(Coverage).to receive(:state).and_return(:suspended)
     allow(Coverage).to receive(:supported?).with(:lines).and_return(true)
+    allow(Coverage).to receive(:supported?).with(:methods).and_return(true)
   end
 
   it "boots once, checks coverage before and after boot, and reports two baseline runs" do
@@ -207,7 +208,12 @@ RSpec.describe Saboteur::Doctor do
     expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /Coverage must be suspended/)
     allow(Coverage).to receive(:state).and_return(:suspended)
     allow(Coverage).to receive(:supported?).and_return(false)
-    expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /line support/)
+    expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /line and method support/)
+  end
+
+  it "requires method coverage support too, for endless defs (issue #107)" do
+    allow(Coverage).to receive(:supported?).with(:methods).and_return(false)
+    expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /line and method support/)
   end
 
   it "checks both require and hook files and warns about unmatched include patterns" do
