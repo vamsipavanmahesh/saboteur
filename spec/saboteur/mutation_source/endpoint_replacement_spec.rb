@@ -27,7 +27,8 @@ RSpec.describe Saboteur::MutationSource::EndpointReplacement do
   end
 
   it "does not guess at bare calls, argument-bearing collection slices or block APIs" do
-    ["first", "last", "items.first(2)", "items.last(1)", "items.first { true }", "items.fetch(0)",
+    ["first", "last", "items.each { true }", "items.size", "items.first(2)", "items.last(1)", "items.first { true }",
+     "items.fetch(0)",
      "items.public_send(:first)"].each do |body|
       expect(source.mutations_for(subject_for(body))).to be_empty, body
     end
@@ -49,6 +50,11 @@ RSpec.describe Saboteur::MutationSource::EndpointReplacement do
      "class << items; def x; self.last; end; end"].each do |body|
       expect(source.mutations_for(subject_for(body))).to be_empty
     end
+  end
+
+  it "accepts an empty method body without visiting a node" do
+    subject = double("subject", node: double("definition", body: nil))
+    expect(source.mutations_for(subject)).to be_empty
   end
 
   it "stops at class and module scope nodes" do
