@@ -74,3 +74,14 @@ or finishing the original workload/manual-audit plan is separate research, not
 unfinished product suppression. Prefer better tests and explicit survivor
 acceptance until a pattern has a documented semantic boundary, independent
 adjudication and a nonzero useful matched population.
+
+## Source notes
+
+- Ruby 3.4 operators documentation: logical operators short-circuit and return
+  the last evaluated expression, not necessarily a boolean:
+  https://docs.ruby-lang.org/en/3.4/syntax/operators_rdoc.html
+- Binding documentation: local variables can be read and changed reflectively:
+  https://ruby-doc.org/3.4/Binding.html
+- Ruby control-expression documentation: predicates may have side effects and
+  modifier/normal forms can differ by parse-order binding:
+  https://ruby-doc.org/3.4/syntax/control_expressions_rdoc.html
