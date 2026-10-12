@@ -8,7 +8,7 @@ module Saboteur
   module Generators
     # rails generate saboteur:install [--force]
     class InstallGenerator < Rails::Generators::Base
-      desc "Writes .saboteur.yml, bin/saboteur and a .gitignore entry for a Rails + RSpec app."
+      desc "Writes config/saboteur.rb, bin/saboteur and a .gitignore entry for a Rails + RSpec app."
 
       def install_saboteur
         installer = Saboteur::Install.new(root: destination_root, force: options[:force])
