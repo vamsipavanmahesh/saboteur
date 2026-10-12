@@ -20,4 +20,11 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
     expect(run.err).to include("canary")
     expect(run.err).to match(/[0-9a-f]{16}/)
   end
+
+  it "fails fast in parallel: the canary trips on result arrival, not after the batch" do
+    run = saboteur(dir, "--allow-hazardous", "--jobs", "2")
+    expect(run.status).to eq(3)
+    expect(run.err).to include("canary")
+    expect(run.err).to match(/[0-9a-f]{16}/)
+  end
 end
