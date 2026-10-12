@@ -36,7 +36,10 @@ RSpec.describe Saboteur::Baseline::Evidence do
 
   it "refuses forged complete flags with omitted, undiscovered, invalid or unexecuted work" do
     %w[omissions discovery_failures].each do |field|
-      expect { described_class.new(document.merge(field => [{}])) }.to raise_error(Saboteur::ConfigError)
+      expect do
+        described_class.new(document.merge(field => [{}]))
+      end.to raise_error(Saboteur::ConfigError,
+                         /omitted or undiscovered work/)
     end
     %w[invalid_syntax invalid_subject_syntax empty_generation unknown].each do |reason|
       event = { "file" => "probe.rb", "subject" => "Probe#value", "source" => "builtin",
@@ -62,6 +65,10 @@ RSpec.describe Saboteur::Baseline::Evidence do
     changed = Marshal.load(Marshal.dump(document))
     changed["compatibility"]["runtime"]["patchlevel"] += 1
     expect { described_class.new(changed) }.to raise_error(Saboteur::ConfigError, /settings/)
+  end
+
+  def identity_digest(value)
+    Digest::SHA256.hexdigest(JSON.generate(Saboteur::Engine::RunFingerprint.canonical_value(value)))
   end
 
   def rebuilt(changed)
@@ -103,7 +110,7 @@ RSpec.describe Saboteur::Baseline::Evidence do
     expect { described_class.new(document.merge("planned" => nil)) }
       .to raise_error(Saboteur::ConfigError, /plan/)
     expect { described_class.new(document.merge("planned" => [document["planned"].first.merge("extra" => true)])) }
-      .to raise_error(Saboteur::ConfigError, /fields/)
+      .to raise_error(Saboteur::ConfigError, /baseline evidence fields/)
     expect { described_class.new(document.merge("candidates" => nil)) }
       .to raise_error(Saboteur::ConfigError, /candidates/)
   end
@@ -115,16 +122,64 @@ RSpec.describe Saboteur::Baseline::Evidence do
     expect { described_class.new(document.merge("snapshot" => snapshot)) }
       .to raise_error(Saboteur::ConfigError, /fingerprint/)
     expect { described_class.new(document.merge("compatibility" => document["compatibility"].merge("extra" => true))) }
-      .to raise_error(Saboteur::ConfigError, /fields/)
+      .to raise_error(Saboteur::ConfigError, /baseline evidence fields/)
+  end
+
+  it "rejects extra compatibility keys even when their snapshot hashes are internally consistent" do
+    %w[config runtime].each do |field|
+      changed = Marshal.load(Marshal.dump(document))
+      changed["compatibility"][field]["unknown"] = true
+      if field == "runtime"
+        changed = rebuilt(changed)
+      else
+        snapshot = changed["snapshot"]
+        snapshot["settings_digest"] = identity_digest(changed["compatibility"]["config"])
+        inputs = { format: 1, files: snapshot["inventory"], settings: snapshot["settings_digest"],
+                   runtime: snapshot["runtime_digest"] }
+        snapshot["digest"] = identity_digest(inputs)
+      end
+      expect { described_class.new(changed) }.to raise_error(Saboteur::ConfigError, /baseline evidence fields/)
+    end
+    changed = document.merge("compatibility" => document["compatibility"].merge("other" => true))
+    expect { described_class.new(changed) }.to raise_error(Saboteur::ConfigError, /baseline evidence fields/)
+    expect { described_class.new(document.merge("planned" => [])) }
+      .to raise_error(Saboteur::ConfigError, /empty candidate plan/)
+  end
+
+  it "binds nonempty custom plugin inventory exactly while excluding ordinary source files" do
+    original = document
+    plugin = File.join(@root, "plugin.rb")
+    File.write(plugin, "class Plugin; end")
+    changed = Marshal.load(Marshal.dump(original))
+    changed["compatibility"]["config"]["sources"] = ["plugin.rb:Plugin"]
+    changed["compatibility"]["generator"]["sources"] = ["plugin.rb:Plugin"]
+    changed = rebuilt(changed)
+    changed["compatibility"]["generator"]["plugins"] = changed["snapshot"]["inventory"].select do |entry|
+      entry["kind"] == "source_plugin"
+    end
+    expect(changed["compatibility"]["generator"]["plugins"].size).to eq(1)
+    expect(described_class.new(changed).manifest(reasons: "reviewed")["metadata"]["generator"])
+      .to eq(changed["compatibility"]["generator"])
+    changed["compatibility"]["generator"]["plugins"] = []
+    expect { described_class.new(changed) }.to raise_error(Saboteur::ConfigError, /generator/)
+  end
+
+  it "refuses extra generator fields with an explicit evidence boundary error" do
+    changed = Marshal.load(Marshal.dump(document))
+    changed["compatibility"]["generator"]["extra"] = true
+    expect { described_class.new(changed) }.to raise_error(Saboteur::ConfigError, /baseline evidence fields/)
   end
 
   it "rejects missing extra or inconsistent plans and corrupted snapshots" do
     [[], document["planned"] * 2, [document["planned"].first.merge("context" => "b" * 64)]].each do |plan|
-      expect { described_class.new(document.merge("planned" => plan)) }.to raise_error(Saboteur::ConfigError)
+      expect { described_class.new(document.merge("planned" => plan)) }
+        .to raise_error(Saboteur::ConfigError, /plan/)
     end
     snapshot = document["snapshot"].merge("digest" => "a" * 64)
     expect { described_class.new(document.merge("snapshot" => snapshot)) }.to raise_error(Saboteur::ConfigError)
-    expect { described_class.new(document.merge("complete" => false)) }.to raise_error(Saboteur::ConfigError)
-    expect { described_class.new(document.merge("extra" => true)) }.to raise_error(Saboteur::ConfigError)
+    expect { described_class.new(document.merge("complete" => false)) }
+      .to raise_error(Saboteur::ConfigError, /incomplete/)
+    expect { described_class.new(document.merge("extra" => true)) }
+      .to raise_error(Saboteur::ConfigError, /baseline evidence fields/)
   end
 end
