@@ -91,25 +91,26 @@
 
 <p class="lead">saboteur and mutineer are two open-source tools that measure how good a Ruby project's tests are.
 We ran both on the same four RSpec projects and checked their answers against ground truth. saboteur came out
-ahead on trust, Rails support and speed; mutineer came out ahead on memory, choice of change types and CI
+ahead on Rails support and speed, and its kill-checking sample found no fake kills (a sample check, not a ranking); mutineer came out ahead on memory, choice of change types and CI
 features.</p>
 
 <h2>Verdict</h2>
-<p class="finding">saboteur wins 5 of 9 metrics, mutineer wins 2, and 2 are ties. The largest difference is trust:
-on a Rails app, mutineer counted changes as caught when no test catches them.</p>
+<p class="finding">saboteur wins 3 of 7 ranked metrics, mutineer wins 2, and 2 are ties. The two trust rows are sample checks and are not ranked. The most notable finding is:
+on lobsters, 8 of mutineer's kills that we hand-checked were not caught by any test. That is a check of 8 identical mutants, not a measure of either tool's overall accuracy.</p>
 
 <div class="totals">
-  <span class="pill win">saboteur 5</span>
+  <span class="pill win">saboteur 3</span>
   <span class="pill lose">mutineer 2</span>
   <span class="pill tie">ties 2</span>
+  <span class="pill tie">not ranked 2</span>
 </div>
 
 <div class="table-wrap">
 <table class="score">
   <thead><tr><th>Metric</th><th>saboteur</th><th>mutineer</th></tr></thead>
   <tbody>
-    <tr><td>Fake kills (lobsters)</td><td><div class="cell win">0 of 20 sampled at random</div></td><td><div class="cell lose">8 of 8 hand-checked</div></td></tr>
-    <tr><td>Score on lobsters</td><td><div class="cell win">77.9%, accurate</div></td><td><div class="cell lose">100%, inflated</div></td></tr>
+    <tr><td>Fake kills (lobsters)</td><td><div class="cell tie">0 of 20 sampled at random</div></td><td><div class="cell tie">8 of 8 hand-checked</div></td></tr>
+    <tr><td>Score on lobsters</td><td><div class="cell tie">77.9%; 20 sampled kills held up</div></td><td><div class="cell tie">100%; 8 hand-checked kills were fake</div></td></tr>
     <tr><td>Rails app, 6 workers</td><td><div class="cell win">Yes, same verdicts</div></td><td><div class="cell lose">No, 1 worker only</div></td></tr>
     <tr><td>Runs on Postgres app</td><td><div class="cell win">Yes</div></td><td><div class="cell lose">No, failed 5 times</div></td></tr>
     <tr><td>Time per mutant, hashie</td><td><div class="cell win">0.008 s</div></td><td><div class="cell lose">0.092 s</div></td></tr>
