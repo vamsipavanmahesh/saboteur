@@ -330,3 +330,23 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     expect(render(report).scan("Two#m arithmetic").size).to eq(2)
   end
 end
+
+RSpec.describe Saboteur::Reporter::Terminal, "hazard suppressions (issue #102)" do
+  let(:out) { StringIO.new }
+
+  def render(report)
+    described_class.new(out).call(report)
+    out.string
+  end
+
+  it "prints the suppressed count when positive" do
+    report = report_of(result_for(:killed, runtime: 0.1))
+    report_with = Saboteur::Report.new(results: report.results, subjects: report.subjects,
+                                       wall_time: 1.0, root: Dir.pwd, seed: 1, hazard_suppressions: 3)
+    expect(render(report_with)).to include("hazardous mutations suppressed: 3")
+  end
+
+  it "stays quiet when nothing was suppressed" do
+    expect(render(report_of(result_for(:killed, runtime: 0.1)))).not_to include("hazardous mutations suppressed")
+  end
+end
