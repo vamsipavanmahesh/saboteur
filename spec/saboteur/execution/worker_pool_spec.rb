@@ -25,6 +25,29 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect(monotonic - started).to be < 0.9
   end
 
+  it "reports each result on arrival, before the worker gets more work" do
+    arrivals = []
+    pool = described_class.new(jobs: 2, on_result: ->(item, row) { arrivals << [item, row["square"]] })
+    results = pool.map([1, 2, 3]) { |n| { "square" => n * n } }
+    expect(results.map { |r| r["square"] }).to eq([1, 4, 9])
+    expect(arrivals.sort).to eq([[0, 1], [1, 4], [2, 9]])
+  end
+
+  it "stops handing out work when the arrival callback raises" do
+    Dir.mktmpdir do |dir|
+      log = File.join(dir, "ran")
+      pool = described_class.new(jobs: 2, on_result: ->(_item, _row) { raise Saboteur::CanaryTripped, "trip" })
+      expect do
+        pool.map([0.01, 0.01, 0.01, 0.01]) do |seconds|
+          sleep seconds
+          File.open(log, "a") { |f| f.puts(seconds) }
+          {}
+        end
+      end.to raise_error(Saboteur::CanaryTripped, "trip")
+      expect(File.read(log).split.size).to be < 4
+    end
+  end
+
   it "numbers its workers the way Rails parallel test databases expect" do
     numbers = described_class.new(jobs: 2).map([0.1, 0.1]) do |seconds|
       sleep seconds
