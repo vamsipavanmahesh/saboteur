@@ -38,6 +38,16 @@ module E2EHelpers
     run.json.fetch("files").values.flat_map { |file| file.fetch("mutants") }
   end
 
+  # What a failed exit-code expectation should print: stderr plus every mutant
+  # the score could not count, so a resource-limit flake names its mutant.
+  def unscored(run)
+    return run.err unless run.json
+
+    odd = mutants(run).reject { |m| %w[Killed Survived].include?(m["status"]) }
+    details = odd.map { |m| m.slice("id", "status", "operator", "line").compact }
+    "#{run.err}\nunscored mutants: #{details.inspect}"
+  end
+
   # Full test names for the short ids a mutant's killedBy/coveredBy holds.
   def test_names(run, ids)
     names = run.json.fetch("testFiles").values.flat_map { |file| file.fetch("tests") }.to_h { |t| [t["id"], t["name"]] }
