@@ -233,17 +233,13 @@ module Saboteur
       @diagnostics.warn("#{others.size} other thread(s) alive at fork time; they do not run in children: #{list}")
     end
 
-    # The executable counts from process start so the coverage child can
-    # tell load-time execution apart from test coverage. Counting stops
-    # here, right after the app and spec files loaded: counters keep their
-    # load-time hits for the child to inherit, and the baseline and mutant
     # The lines that ran while the app and spec files loaded: the executable
     # counts from its first line, so this snapshot holds the whole boot.
     # Read here, in the parent: a forked child does not inherit Coverage
     # counters. They become the map's load lines, which tell ran-at-load
     # mutants apart from uncovered ones.
     def capture_load_lines(files)
-      return {} unless Coverage.respond_to?(:state) && Coverage.state == :suspended
+      return {} unless Coverage.state == :suspended
 
       wanted = files.to_set { |file| Selection::CoverageMap.canonical(file) }
       Coverage.result(stop: false, clear: false).each_with_object({}) do |(path, data), hits|
@@ -255,11 +251,6 @@ module Saboteur
       end
     end
 
-    # children pay no coverage overhead. CoverageStore refuses to build
-    # unless the state is suspended, which this also guarantees. Outside the
-    # executable (embedded runs, specs) coverage may not be running at all.
-    # Stops counting (children pay no coverage overhead) and returns the
-    # load lines captured up to here; see capture_load_lines.
     # Loads the target and stops coverage, returning what the rest of the
     # run needs from that boot.
     def boot_target(boot)
@@ -269,7 +260,7 @@ module Saboteur
     end
 
     def suspend_coverage(files)
-      Coverage.suspend if Coverage.respond_to?(:state) && Coverage.state == :running
+      Coverage.suspend if Coverage.state == :running
       capture_load_lines(files)
     end
 
