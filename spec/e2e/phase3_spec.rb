@@ -50,6 +50,26 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.status).to eq(3)
       expect(run.err).to include("git merge-base failed")
     end
+
+    it "runs with --test alone, since the diff already names the sources" do
+      path = File.join(dir, "lib", "people.rb")
+      File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
+      run = saboteur(dir, "--since", "HEAD", "--test", "spec/person_spec.rb")
+      expect(run.status).to be_between(0, 1)
+      expect(run.err).not_to include("--test needs at least one source file")
+      expect(run.err).not_to include("no base coverage map")
+      # The baseline and coverage passes ran the chosen spec, not the suite.
+      expect(run.err).to include("building coverage map (runs the selected specs once)")
+    end
+
+    it "warns before an unscoped --since run that the whole suite runs three times" do
+      path = File.join(dir, "lib", "people.rb")
+      File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
+      run = saboteur(dir, "--since", "HEAD")
+      expect(run.err).to include("no base coverage map; running the full suite 3 times (3 spec files). " \
+                                 "Pass --test or provide a map to scope it.")
+      expect(run.err.index("no base coverage map")).to be < run.err.index("checking the unchanged suite")
+    end
   end
 
   describe "--jobs" do
