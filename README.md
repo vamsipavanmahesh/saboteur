@@ -98,7 +98,7 @@ The physical-memory benefit is not yet established by a published benchmark.
 **It is aimed at pull requests.** `--since origin/main` mutates only the methods
 your branch changed: fine-grained mutants on the changed lines, plus the
 whole-body mutants of those methods. On one real change in saboteur's own history, that took a file
-from 139 mutants to 7, and median wall time fell 22.9%. The time saving is
+from 139 mutants to 7, and median wall time fell 22.9% (measured at d2b7abb, before the coarse-survivor gate was removed; a rerun is pending). The time saving is
 smaller than the mutant count because building the coverage map is a fixed
 cost, and this is one file, not a Rails app, so it is not a general speed
 claim. The full method, raw timings and
@@ -106,8 +106,8 @@ caveats are in [bench/since](bench/since/README.md).
 
 **It checks its own kills.** After a method's mutants run, saboteur re-runs the
 killing tests against the *unchanged* method. If they fail there too, the kill
-is not credited and becomes an error. In our comparison on lobsters, 0 of 20
-checked kills were fake. Every mutant runs in a supervised child with deadline,
+is not credited and becomes an error. In one comparison on lobsters, 0 of 20
+randomly sampled kills were fake. Every mutant runs in a supervised child with deadline,
 memory and process limits, and saboteur tracks and kills the processes it
 starts.
 
@@ -163,7 +163,7 @@ mutation reports or coverage/verdict caches. Target boot files and tests still
 run, so their normal side effects remain. See the [doctor guide](docs/guides/doctor.md).
 
 `--id` runs exactly one current mutant with its coverage-selected tests, bypassing
-per-method caps, coarse gating, ignore suppression and incremental verdict reuse.
+per-method caps, ignore suppression and incremental verdict reuse.
 It still honors `--subject` and `--since` changed-line selection. See the
 [replay guide](docs/guides/replay.md) for digest format, checks and limits.
 
@@ -506,7 +506,8 @@ Public API, stable across minor versions:
 
 An early release (0.3.0). Tested on the RSpec suites of plain gems
 (dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
-human-essentials on Postgres (4,080 mutants, 6 workers) and lobsters on SQLite,
+human-essentials on Postgres (4,080 mutants, 6 workers; the 2026-10-10 run, before
+the baseline check and the coarse-gate removal) and lobsters on SQLite,
 both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
 design. Results: [docs/validation](docs/validation).
 
@@ -514,12 +515,15 @@ design. Results: [docs/validation](docs/validation).
 
 A small, non-exhaustive comparison with [mutineer](https://github.com/davidteren/mutineer)
 1.6.0 on four RSpec projects (two libraries, two Rails apps). Each configuration
-ran once on sampled files, so treat the numbers as indicative. mutineer is ahead
+ran once on sampled files, so treat the numbers as indicative. The table was
+measured at 2b6ec02, before the literal, filter and argument operators and
+before the coarse-survivor gate was removed, so mutant counts and times will
+change; a rerun is pending. mutineer is ahead
 on number of operators and CI extras, and it supports Minitest.
 
 | Metric | saboteur | mutineer |
 |---|---|---|
-| Fake kills (lobsters) | 0 of 20 checked | 8 of 8 checked |
+| Fake kills (lobsters) | 0 of 20 sampled at random | 8 of 8 hand-checked (identical mutants, not a random sample) |
 | Rails app with 6 workers | yes, same verdicts as 1 worker | 1 worker only |
 | Runs on the Postgres app | yes | no |
 | Time per mutant, hashie | 0.008 s | 0.092 s |
@@ -550,8 +554,8 @@ variants, as before.
 
 Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not
 touch less memory, it keeps more of it shared between workers after fork, which
-is what PSS measures. On machines running many parallel workers this is the
-difference that keeps the box out of swap.
+is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers on a
+2 GB sandbox. Swap was not measured.
 
 Wall time on uncontended runs: 30-36s for both variants at every job level (no
 regression; per-cell minimums 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s
@@ -567,7 +571,7 @@ this 2-core sandbox. Environment, method and the contention log are on the
 team workflow (GitHub Action, baseline, HTML report), then 1.0. saboteur stays
 RSpec-only. Design
 details are in [docs/design.md](docs/design.md), prior art in
-[docs/prior-art.md](docs/prior-art.md), and the project checklist in
+[docs/prior-art.md](docs/prior-art.md), and project status in
 [docs/status.md](docs/status.md).
 
 ## 🤝 Contributing
