@@ -106,14 +106,16 @@ RSpec.describe Saboteur::ConfigFile do
       end
     RUBY
     expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(Saboteur::ConfigError) { |error|
-      expect(error.message).to include("saboteur.rb:2", "'jobs'", "before the app boots")
+      expect(error.message).to include("saboteur.rb:2", "before the app boots")
+      expect(error.message).to match(/[`']jobs'/)
     }
   end
 
   it "wraps a NoMethodError whose receiver is not the settings" do
     path = write_config("Saboteur.configure { |c| c.jobs = [].bogus }\n")
     expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(Saboteur::ConfigError) { |error|
-      expect(error.message).to include("saboteur.rb:1", "'bogus'", "before the app boots")
+      expect(error.message).to include("saboteur.rb:1", "before the app boots")
+      expect(error.message).to match(/[`']bogus'/)
     }
   end
 
@@ -146,7 +148,8 @@ RSpec.describe Saboteur::ConfigFile do
   it "wraps a NoMethodError from an assignment on a non-settings receiver" do
     path = write_config("[].bogus = 1\n")
     expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(Saboteur::ConfigError) { |error|
-      expect(error.message).to include("saboteur.rb:1", "'bogus='", "before the app boots")
+      expect(error.message).to include("saboteur.rb:1", "before the app boots")
+      expect(error.message).to match(/[`']bogus='/)
     }
   end
 
