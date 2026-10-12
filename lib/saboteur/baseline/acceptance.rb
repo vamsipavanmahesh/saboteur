@@ -16,8 +16,8 @@ module Saboteur
       MAX_BYTES = 20 * 1024 * 1024
 
       def initialize(directory:, protected_paths:, verify:, require_evidence: false)
-        @directory = File.expand_path(directory)
-        @protected = protected_paths.map { |path| File.expand_path(path) }
+        @directory = artifact_path(directory)
+        @protected = protected_paths.map { |path| Identity.canonical_path(path) }
         @verify = verify
         @require_evidence = require_evidence
       end
@@ -59,7 +59,7 @@ module Saboteur
       private
 
       def paths(proposal, destination)
-        list = [proposal, destination].map { |path| File.expand_path(path) }
+        list = [proposal, destination].map { |path| artifact_path(path) }
         aliases = list.first == list.last || File.identical?(*list)
         raise ConfigError, "baseline proposal and destination alias" if aliases
 
@@ -69,6 +69,11 @@ module Saboteur
 
         (list + [@directory]).each { |path| safe_path(path) }
         list
+      end
+
+      def artifact_path(path)
+        expanded = File.expand_path(path)
+        File.join(Identity.canonical_path(File.dirname(expanded)), File.basename(expanded))
       end
 
       def safe_path(path)
@@ -113,12 +118,20 @@ module Saboteur
           raise ConfigError, "baseline evidence fields"
         end
 
+        validate_nested_document(record.fetch("document"))
         record
       rescue JSON::ParserError => e
         raise ConfigError, "baseline evidence JSON: #{e.message}"
       end
 
+      def validate_nested_document(document)
+        return if document.is_a?(Hash) && document["accepted"].is_a?(Array) && document["accepted"].all?(Hash)
+
+        raise ConfigError, "baseline proposal document or acceptance shape"
+      end
+
       def validate_execution(document, execution)
+        validate_nested_document(document)
         raise ConfigError, "baseline execution evidence missing" if @require_evidence && !execution
         return unless execution
 
