@@ -72,6 +72,7 @@ module Saboteur
     end
 
     def mutate(subjects, files, integration, scope)
+      warn_about_unscoped_suite(integration)
       check_baseline(integration)
       map = CoverageStore.new(config: config, integration: integration, hooks: hooks,
                               supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics).fetch(files)
@@ -98,6 +99,18 @@ module Saboteur
     def inform_about_run(subjects, map)
       @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
       warn_about_threads
+    end
+
+    # A --since run without --test or a base coverage map still runs the
+    # whole suite: two baseline passes and one coverage-map pass. Say so
+    # before those hours pass, with the way to scope it.
+    def warn_about_unscoped_suite(integration)
+      return unless config["since"] && config["tests"].empty?
+
+      message = "no base coverage map; running the full suite 3 times " \
+                "(#{integration.test_files.size} spec files). Pass --test or provide a map to scope it."
+      @diagnostics.warn(message)
+      @diagnostics.inform(message)
     end
 
     def check_baseline(integration)
