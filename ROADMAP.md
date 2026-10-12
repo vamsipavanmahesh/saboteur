@@ -153,8 +153,9 @@ take is the method, not the numbers: collect feedback, then suppress by rule.
   additive fields first, and a field changes meaning only across a major
   version.
 - **Planned: safer incremental reuse.** `ResultCache` states its known hole:
-  a change in a method that the mutated method calls is not seen. Before
-  `--incremental` is recommended for a required check, invalidate verdicts
+  a change in another file that the mutated method uses (a called method, a
+  constant defined elsewhere) is not seen. Before `--incremental` is recommended
+  for a required check, invalidate verdicts
   conservatively when relevant inputs change: a called method or helper, the
   config, the lockfile, the saboteur version. Each rule needs a regression
   spec. PIT documents the same class of risk for its history file

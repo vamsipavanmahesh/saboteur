@@ -11,13 +11,16 @@ module Saboteur
     # Stryker's history files.
     #
     # A verdict is reused only while everything it was computed from is the
-    # same: the method's source, the mutant, the set of covering tests, the
-    # content of those tests' files, the lockfile, the run's inputs (config,
-    # saboteur version). Only killed, survived and timeout are stored;
+    # same: the method's source, the whole file the method lives in (so a
+    # constant or helper changed elsewhere in that file is seen), the mutant,
+    # the set of covering tests, the content of those tests' files, the
+    # lockfile, the run's inputs (config, saboteur version). Only killed, survived
+    # and timeout are stored;
     # errors and skips always run again.
     #
-    # Known hole, the reason this is opt-in: a change in a method this one
-    # calls is not seen, so a stored verdict may be stale after it.
+    # Known hole, the reason this is opt-in: a change in another file that
+    # this method uses (a method it calls, a constant defined elsewhere) is
+    # not seen, so a stored verdict may be stale after it.
     class ResultCache
       FORMAT = 1
       STORED = %i[killed survived timeout].freeze
@@ -75,6 +78,8 @@ module Saboteur
       def fingerprint(subject, tests)
         digest = Digest::SHA256.new
         digest << VERSION << "\0" << @inputs << "\0" << @suite_digest << "\0" << subject.source << "\0"
+        # A hex digest has a fixed width, so it needs no separator after it.
+        digest << Digest::SHA256.hexdigest(subject.file_source)
         tests.sort.each { |test| digest << test << "\0" << file_digest(test_file(test)) << "\0" }
         LOCKFILES.each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
         digest.hexdigest

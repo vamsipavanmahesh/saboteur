@@ -198,10 +198,12 @@ use `rand` see the same values in each mutant's run and in the check that
 confirms a kill. The report prints the seed; pass it to `--seed` to repeat a
 run.
 
-`--incremental` reuses an earlier verdict only while the method, the mutant,
-its covering tests and their files, the lockfile and the config are all
-unchanged. It cannot see a change in a method this one calls, so run without
-it now and then (and in CI on the main branch).
+`--incremental` reuses an earlier verdict only while the method, the whole
+file it lives in, the mutant, its covering tests and their files, the lockfile
+and the config are all unchanged. So a constant or helper changed in the same
+file is seen. It cannot see a change in another file that the method uses (a
+method it calls, a constant defined elsewhere), so run without it now and then
+(and in CI on the main branch).
 
 Output: counts per status, the score, timing, and a unified diff for every
 survivor. Under each diff the terminal lists the tests that covered that line
