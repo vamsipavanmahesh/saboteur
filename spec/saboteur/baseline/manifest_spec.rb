@@ -41,6 +41,7 @@ RSpec.describe Saboteur::Baseline::Manifest do
   it "rejects unknown formats, wrong types, unknown fields and missing metadata" do
     refuse(document.merge("format" => 2), /format/)
     refuse(document.merge("identity_version" => 2), /identity/)
+    refuse(document.except("identity_version"), /manifest fields/)
     refuse(document.merge("extra" => true), /fields/)
     refuse(document.merge("candidates" => nil), /candidates/)
     refuse(document.merge("metadata" => metadata.except("config")), /metadata/)
