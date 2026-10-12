@@ -22,9 +22,10 @@ module Saboteur
         end
       end
 
-      def initialize(sources, diagnostics)
+      def initialize(sources, diagnostics, hazard_guard: nil)
         @sources = sources
         @diagnostics = diagnostics
+        @hazard_guard = hazard_guard
       end
 
       def for(subject)
@@ -37,10 +38,21 @@ module Saboteur
         list = @sources.flat_map { |source| proposals(source, subject) }.filter_map do |mutation|
           candidate(subject, mutation, seen)
         end
+        list = suppress_hazards(list, subject)
         list.sort_by.with_index { |(mutation, _), index| [mutation.coarse ? 0 : 1, index] }
       end
 
       private
+
+      # The hazard guard (issue #102) refuses mutants that would leave a
+      # destructive call running with altered inputs; each refusal is counted.
+      def suppress_hazards(list, subject)
+        return list unless @hazard_guard
+
+        kept, suppressed = @hazard_guard.partition(list, subject)
+        suppressed.each { |(mutation, _)| @diagnostics.record_hazard_suppression(subject, mutation) }
+        kept
+      end
 
       def proposals(source, subject)
         proposals = source.mutations_for(subject)
@@ -82,4 +94,4 @@ module Saboteur
       end
     end
   end
-end
+  end
