@@ -108,4 +108,10 @@ RSpec.describe Saboteur::SubjectFinder do
                               "SepTarget#m")
     expect(separated.sig_source).to be_nil
   end
+  it "does not attach unrelated calls, blockless sigs or another receiver's sig" do
+    ["other { void }", "sig", "Other.sig { void }"].each do |call|
+      target = subject_named("class SigReject\n  #{call}\n  def m\n  end\nend\n", "SigReject#m")
+      expect(target.sig_source).to be_nil
+    end
+  end
 end
