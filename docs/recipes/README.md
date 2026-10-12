@@ -3,9 +3,10 @@
 How to run saboteur on suites that use common test tools. Each recipe is a
 few lines in a hooks file listed in `config/saboteur.rb`:
 
-```yaml
-hooks:
-  - spec/saboteur_hooks.rb
+```ruby
+Saboteur.configure do |c|
+  c.hooks = ["spec/saboteur_hooks.rb"]
+end
 ```
 
 Inside a mutant child, `ENV["SABOTEUR_CHILD"]` is set. Use it to change test
@@ -18,7 +19,7 @@ parent opened before the fork (database sockets, Redis connections, HTTP
 keep-alive connections, file locks) is shared by every child unless you
 close it. Close it in `before_fork` or reopen it in `after_fork`.
 
-The Rails profile (`rails: true`) already does this for Active Record.
+The Rails profile (`c.rails = true`) already does this for Active Record.
 
 ## VCR: never record during a run
 
