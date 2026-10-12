@@ -6,7 +6,7 @@ module Saboteur
     # Selects a bounded list for each covered subject before workers fork.
     # Subject skips are not mutants and do not enter the mutation score.
     class CandidateSelection
-      attr_reader :skipped_subjects
+      attr_reader :skipped_subjects, :selected
 
       def initialize(candidates:, map:, limit:, diagnostics:)
         @candidates = candidates
@@ -14,12 +14,13 @@ module Saboteur
         @limit = limit
         @diagnostics = diagnostics
         @skipped_subjects = {}
+        @selected = {}
       end
 
       def for(subject, scope: nil)
         if @map.tests_for(subject).empty?
           @skipped_subjects[subject] = "no coverage"
-          return []
+          return @selected[subject] = []
         end
 
         list = @candidates.for(subject)
@@ -29,8 +30,8 @@ module Saboteur
           @diagnostics.record_omission(subject, count: omitted, limit: @limit)
           @diagnostics.warn("#{subject.id}: omitted #{omitted} mutant(s) above max_mutants_per_method (#{@limit})")
         end
-        list.first(@limit)
+        @selected[subject] = list.first(@limit)
       end
     end
   end
-end
+  end
