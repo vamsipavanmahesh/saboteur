@@ -40,6 +40,9 @@ module Saboteur
 
     module_function
 
+    # The collector is process-global on purpose: the config file calls the
+    # top-level Saboteur.configure, which must reach the load in progress.
+    # Loads are therefore serialized - never load two config files at once.
     def load(path)
       @settings = Settings.new
       Kernel.load(path)
@@ -47,9 +50,11 @@ module Saboteur
     rescue ConfigError => e
       raise ConfigError, "#{path}:#{e.message}"
     rescue NoMethodError => e
-      raise unless e.receiver.is_a?(Settings) && e.name.to_s.end_with?("=")
+      raise ConfigError, unknown_setting_message(path, e) if e.receiver.is_a?(Settings) && e.name.to_s.end_with?("=")
 
-      raise ConfigError, unknown_setting_message(path, e)
+      # A typo'd method call, not a setting: same treatment as a bare
+      # constant, or the raw NoMethodError points at our internals.
+      raise ConfigError, name_error_message(path, e)
     rescue SyntaxError, LoadError => e
       raise ConfigError, "#{path}: #{e.message.lines.first.to_s.chomp}"
     rescue NameError => e
