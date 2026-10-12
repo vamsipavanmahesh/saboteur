@@ -79,7 +79,7 @@ module Saboteur
         Protocol.emit(writer, "captures", site: stale.first, stale: stale.size) if stale.any?
         Protocol.emit(writer, "started")
         Kernel.srand(@seed)
-        emit_result(writer, job)
+        emit_result(writer, job, stale.any?)
       rescue Exception => e # rubocop:disable Lint/RescueException
         Protocol.emit(writer, "error", message: "#{e.class}: #{e.message}", backtrace: e.backtrace&.first(5))
         exit!(1)
@@ -93,13 +93,31 @@ module Saboteur
         []
       end
 
-      def emit_result(writer, job)
-        result = @hooks.around(job.mutation) { run_tests(job.test_ids) }
+      def emit_result(writer, job, has_captures)
+        method = replacement_method(job) if has_captures && job.mutation
+        called = method ? false : nil
+        trace = TracePoint.new(:call) { called = true } if method
+        result = if trace
+                   trace.enable(target: method) { @hooks.around(job.mutation) { run_tests(job.test_ids) } }
+                 else
+                   @hooks.around(job.mutation) { run_tests(job.test_ids) }
+                 end
         if result.nil?
           Protocol.emit(writer, "error", message: "around_mutant hook did not run the tests")
         else
-          Protocol.emit(writer, "result", **result)
+          Protocol.emit(writer, "result", **result, replacement_called: called)
         end
+      end
+
+      # Targeted tracing distinguishes the new Ruby body from an old Method
+      # capture, even though both have the same owner, name and source line.
+      def replacement_method(job)
+        owner = @reevaluator.resolve_owner(job.subject)
+        target = job.subject.singleton ? owner.singleton_class : owner
+        method = target.instance_method(job.subject.name)
+        Wrapper.original_def(method) || method
+      rescue StandardError
+        nil
       end
 
       # What `ps` shows for this child: which method, and which mutant.
@@ -181,7 +199,7 @@ module Saboteur
       def classify_events(result, events, runtime, job)
         outcome = classify_result(result, runtime, job.test_ids)
         captures = events.find { |event| event["event"] == "captures" }
-        return unreachable(outcome, captures) if unobservable?(outcome, captures, job)
+        return unreachable(outcome, captures) if unobservable?(outcome, captures, job, result["replacement_called"])
 
         outcome
       end
@@ -189,8 +207,8 @@ module Saboteur
       # Only mutant runs convert: the verdict check re-evaluates the
       # unchanged method, and a stale capture there must not overturn a real
       # kill.
-      def unobservable?(outcome, captures, job)
-        captures && job.mutation && outcome.status == :survived
+      def unobservable?(outcome, captures, job, replacement_called)
+        captures && job.mutation && outcome.status == :survived && replacement_called == false
       end
 
       # A survivor that no test could have observed: a Method object
