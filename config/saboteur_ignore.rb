@@ -267,17 +267,8 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine#candidate_lists",
              reason: "wiring verified end-to-end: without hazard_guard the danger-fixture e2e wipes its copy and fails; subprocess runs are invisible to in-process coverage"
 
-  i.mutation "2966994dab481097",
-             subject: "Saboteur::Engine#replay_subject",
-             reason: "replay can only name a digest from a previous report; with the guard on, hazardous mutants never reach a report, and with --allow-hazardous the guard is nil either way"
 
-  i.mutation "c70f0387b96a8ae2",
-             subject: "Saboteur::Engine#replay_subject",
-             reason: "same replay-path argument as 2966994dab481097"
 
-  i.mutation "258bbe12774e5b49",
-             subject: "Saboteur::Engine#replay_subject",
-             reason: "same replay-path argument as 2966994dab481097"
 
   i.mutation "9e0c7ce08f5408e6",
              subject: "Saboteur::Engine::Distribution#run",
