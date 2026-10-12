@@ -26,6 +26,11 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(map.tests_for_lines(file, [99])).to eq([])
   end
 
+  it "sorts tests without a recorded duration last instead of failing" do
+    partial = described_class.new(lines: map.lines, tests: map.tests, durations: { "t2" => 0.01 })
+    expect(partial.tests_for(subject_under_test)).to eq(%w[t2 t1 t3])
+  end
+
   it "ignores the def line of a multi-line method (it runs at load time)" do
     expect(map.tests_for(subject_under_test)).not_to include("load")
   end
@@ -135,6 +140,21 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       recorder.test_started("t1", "/spec/a_spec.rb")
       recorder.test_finished("t1")
       expect(recorder.result.durations["t1"]).to be_a(Float).and(be >= 0)
+    end
+
+    it "carries the build time onto the map" do
+      results.push({}, {})
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result(build_seconds: 12.5).build_seconds).to eq(12.5)
+    end
+
+    it "ignores method keys with zero hits" do
+      key = ["A", :m, 2, 2, 2, 10]
+      results.push({}, { file => { lines: [], methods: { key => 0 } } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.methods).to eq({})
     end
 
     it "records how long each test took" do
