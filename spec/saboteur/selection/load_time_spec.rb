@@ -53,4 +53,33 @@ RSpec.describe "load-time coverage" do
     expect(JSON.parse(map.to_json)["durations"]).to eq([nil])
     expect(Saboteur::Selection::CoverageMap.from_json(map.to_json).recorded_runtime(["t1"])).to be_nil
   end
+  it "keeps method coverage when attaching load lines and round-tripping the combined map" do
+    endless = subjects_in("class CombinedProbe\n  def value = 7\nend\n").first
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"], methods: { endless.file => { 2 => ["t1"] } })
+    combined = map.with_load_lines(endless.file => [2])
+    restored = Saboteur::Selection::CoverageMap.from_json(combined.to_json)
+    expect(restored.methods).to eq(map.methods)
+    expect(restored.load_lines).to eq(endless.file => [2])
+    expect(restored.tests_for(endless)).to eq(["t1"])
+    expect(restored.tests_for_edit(endless, [2])).to eq(["t1"])
+  end
+
+  it "rejects either old format-four cache shape" do
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
+    document = JSON.parse(map.to_json)
+    document["format"] = 4
+    %w[methods load_lines].each do |field|
+      legacy = document.reject { |key, _| key == field }
+      expect { Saboteur::Selection::CoverageMap.from_json(JSON.generate(legacy)) }
+        .to raise_error(Saboteur::Error, /format 4 is not 5/)
+    end
+  end
+  it "accepts a combined cache with no method hits field as an empty methods table" do
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [], load_lines: { target.file => [3] })
+    document = JSON.parse(map.to_json)
+    document.delete("methods")
+    restored = Saboteur::Selection::CoverageMap.from_json(JSON.generate(document))
+    expect(restored.methods).to eq({})
+    expect(restored.load_lines).to eq(target.file => [3])
+  end
 end
