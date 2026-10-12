@@ -43,6 +43,21 @@ RSpec.describe "opt-in baseline commands", :e2e do
     checked = JSON.parse(out)
     expect(checked.fetch("state")).to eq("clean")
     expect(checked.fetch("categories").fetch("accepted")).not_to be_empty
+    baseline_path = File.join(dir, "baseline.json")
+    previous = Digest::SHA256.file(baseline_path).hexdigest
+    out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "replacement.json",
+                               "--previous", previous)
+    expect(status.exitstatus).to eq(0), out + err
+    replacement = File.join(dir, "replacement.json")
+    revised = JSON.parse(File.read(replacement))
+    revised.fetch("document").fetch("accepted").each { |entry| entry["reason"] = "reviewed replacement" }
+    File.write(replacement, JSON.generate(revised))
+    out, err, status = command(dir, "accept", "--baseline", "baseline.json", "--proposal", "replacement.json")
+    expect(status.exitstatus).to eq(2), out + err
+    expect(Digest::SHA256.file(baseline_path).hexdigest).to eq(previous)
+    out, err, status = command(dir, "accept", "--baseline", "baseline.json", "--proposal", "replacement.json",
+                               "--previous", previous)
+    expect(status.exitstatus).to eq(0), out + err
     source = File.join(dir, "lib", "probe.rb")
     File.write(source, File.read(source).sub("    1", "    2"))
     out, err, status = command(dir, "check", "--baseline", "baseline.json")
