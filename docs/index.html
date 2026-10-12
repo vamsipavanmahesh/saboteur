@@ -145,10 +145,12 @@ Saboteur.configure do |c|
 end</code></pre>
 <p>Run with <code>RAILS_ENV=test</code>.</p>
 <h3>5. Accept a survivor with a reason</h3>
-<pre><code><span class="c"># .saboteur-ignore.yml</span>
-- subject: "Billing::Invoice#total"
-  mutation: "1a2b3c4d5e6f7a8b"
-  reason: "equivalent: amounts are always whole cents"</code></pre>
+<pre><code><span class="c"># config/saboteur_ignore.rb</span>
+Saboteur.ignore do |i|
+  i.mutation "1a2b3c4d5e6f7a8b",
+             subject: "Billing::Invoice#total",
+             reason: "equivalent: amounts are always whole cents"
+end</code></pre>
 <p>An entry without a reason is rejected. Exit codes: <code>0</code> no survivors, <code>1</code> survivors, <code>2</code> bad configuration, <code>3</code> the tool failed. The JSON report goes to <code>.saboteur/report.json</code>.</p>
 </div></section>
 
