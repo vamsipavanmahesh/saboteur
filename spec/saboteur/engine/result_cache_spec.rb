@@ -63,6 +63,34 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expect(cache.lookup(edited, comparison_mutation, tests)).to be_nil
   end
 
+  # Same method text and same relative mutant; only a constant elsewhere in
+  # the file differs, and the method reads that constant.
+  def subject_with_cap(value)
+    source = ReportHelpers::PERSON.sub("class Person", "CAP = #{value}\nclass Person")
+    subjects_in(source, name: "person.rb").first
+  end
+
+  def comparison_mutation_in(subject)
+    at = subject.file_source.index(">=")
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 2, replacement: ">")
+    Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison", edits: [edit],
+                                           coarse: false)
+  end
+
+  it "forgets it when the file outside the method changes (a constant the method reads)" do
+    first = subject_with_cap(100)
+    mutation = comparison_mutation_in(first)
+    store = cache
+    store.record(Saboteur::MutantResult.new(subject: first, mutation:, status: :killed,
+                                            mutated_source: first.apply(mutation.edits),
+                                            killed_by: tests.first(1), covered_by: tests,
+                                            kill_cause: "assertion", runtime: 0.2))
+    store.save
+    edited = subject_with_cap(500)
+    expect(edited.source).to eq(first.source)
+    expect(cache.lookup(edited, comparison_mutation_in(edited), tests)).to be_nil
+  end
+
   it "forgets it when the suite's shared files change (support, helpers)" do
     store = described_class.new(path: path, root: @root, inputs: "config-1", suite_digest: "support-1")
     store.record(killed)
