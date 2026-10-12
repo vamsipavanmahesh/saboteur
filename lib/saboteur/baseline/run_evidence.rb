@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require_relative "identity"
+require_relative "completeness"
+require_relative "../engine/run_fingerprint"
+
+module Saboteur
+  module Baseline
+    # Fresh, pre-boot file identity and exact planned/result reconciliation.
+    # This does not attest external database, network or environment state.
+    class RunEvidence
+      SAFE_DROPS = %w[unchanged duplicate].freeze
+      OUTPUT_SETTINGS = %w[cache_dir json_report html_report].freeze
+
+      def initialize(config:, extra_files: [])
+        @config = config
+        @root = File.realpath(config.root)
+        @fingerprint = Engine::RunFingerprint.new(config: config, extra_files: extra_files)
+        @snapshot = @fingerprint.snapshot
+      end
+
+      def plan(subjects, lists)
+        raise ConfigError, "baseline plan already recorded" if @planned
+        raise ConfigError, "baseline candidate lists differ from subjects" unless subjects.size == lists.size
+
+        @subjects = Engine::RunFingerprint.canonical_value(subjects.map do |subject|
+          [relative(subject.file), subject.id]
+        end)
+        @planned = Engine::RunFingerprint.canonical_value(subjects.zip(lists).flat_map do |subject, candidates|
+          candidates.map { |mutation, _| Identity.new(subject: subject, mutation: mutation, root: @root).entry }
+        end)
+      end
+
+      def finish(results:, stable_suite:, skipped_subjects:, generation_events:, omissions:, discovery_failures: [])
+        raise ConfigError, "baseline plan missing" unless @planned
+
+        observed = results.map { |result| outcome(result) }
+        generation = generation_events.map { |event| event.to_h.transform_keys(&:to_s) }
+        discovery = discovery_failures.map { |failure| failure.to_h.transform_keys(&:to_s) }
+        errors = generation_issues(generation, results) + context_issues(observed) + discovery.map do |failure|
+          "discovery:#{failure.fetch('reason')}:#{relative(failure.fetch('file'))}"
+        end
+        completeness = assess(observed, stable_suite, skipped_subjects, omissions, errors)
+        document = { "compatibility" => compatibility, "snapshot" => @snapshot.to_h, "subjects" => @subjects,
+                     "candidates" => observed, "planned" => @planned,
+                     "complete" => completeness.complete?, "issues" => completeness.issues,
+                     "generation_events" => generation, "omissions" => omissions.map(&:to_h),
+                     "discovery_failures" => discovery }
+        Engine::RunFingerprint.canonical_value(document)
+      end
+
+      private
+
+      def generation_issues(generation, results)
+        errors = generation.reject { |event| SAFE_DROPS.include?(event.fetch("reason")) }.map do |event|
+          [event.fetch("reason"), event.fetch("subject"), event["operator"]].compact.join(":")
+        end
+        errors + results.select(&:reused?).map { |result| "reused:#{result.subject.id}" }
+      end
+
+      def context_issues(observed)
+        planned = @planned.to_h { |entry| [entry.fetch("id"), entry.fetch("context")] }
+        observed.filter_map do |entry|
+          id = entry.fetch("id")
+          "changed_context:#{id}" if planned.key?(id) && planned.fetch(id) != entry.fetch("context")
+        end
+      end
+
+      def assess(observed, stable_suite, skipped_subjects, omissions, errors)
+        skipped = skipped_subjects.map { |subject, reason| "#{subject.id}:#{reason}" }
+        Completeness.new(planned: @planned.map { |entry| entry.fetch("id") }, results: observed,
+                         subjects: @subjects, stable_suite: stable_suite,
+                         stable_inputs: @fingerprint.verify(@snapshot).unchanged, skipped_subjects: skipped,
+                         omitted: omissions.map { |entry| "#{entry.subject}:#{entry.count}" },
+                         generation_issues: errors)
+      end
+
+      def compatibility
+        { "generator" => { "saboteur" => VERSION, "sources" => @config["sources"],
+                           "plugins" => @snapshot.inventory.select do |entry|
+                             entry.kind == "source_plugin"
+                           end.map(&:to_h) },
+          "runtime" => Engine::RunFingerprint.runtime_identity,
+          "config" => @config.to_h.except(*OUTPUT_SETTINGS),
+          "scope" => { "include" => @config["include"], "exclude" => @config["exclude"],
+                       "subjects" => @config["subjects"] } }
+      end
+
+      def outcome(result)
+        Identity.new(subject: result.subject, mutation: result.mutation, root: @root).entry.merge(
+          "status" => result.status.to_s, "kill_cause" => result.kill_cause
+        )
+      end
+
+      def relative(file)
+        path = Identity.canonical_path(file)
+        raise ConfigError, "baseline subject outside project root" unless path.start_with?("#{@root}/")
+
+        path.delete_prefix("#{@root}/")
+      end
+    end
+  end
+end

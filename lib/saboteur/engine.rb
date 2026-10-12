@@ -4,6 +4,7 @@
 require "fileutils"
 require "json"
 require_relative "replay"
+require_relative "baseline/run_evidence"
 
 module Saboteur
   # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
@@ -16,18 +17,26 @@ module Saboteur
 
     attr_reader :config, :hooks
 
-    def initialize(config, err: $stderr, digest: nil)
+    def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [])
       @config = config
       @hooks = Hooks.new
       @diagnostics = Diagnostics.new(err)
       @root = File.realpath(config.root)
       @skipped_subjects = {}
       @replay = Replay.new(digest: digest) if digest
+      if capture_evidence && (digest || config["since"] || config["incremental"])
+        raise ConfigError, "baseline evidence requires fresh whole-scope execution: no since, replay or incremental"
+      end
+
+      @capture_evidence = capture_evidence
+      @evidence_files = evidence_files
+      @stable_suite = false
     end
 
     def call
       Boot.refuse_recursion!
       started = monotonic
+      @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
       @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
       boot = Boot.new(config, hooks)
@@ -73,7 +82,16 @@ module Saboteur
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
-                 omissions: @diagnostics.omissions)
+                 omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects))
+    end
+
+    def complete_evidence(results, subjects)
+      return nil unless @run_evidence
+
+      @run_evidence.plan(subjects, subjects.map { [] }) unless @evidence_planned
+      @run_evidence.finish(results: results, stable_suite: @stable_suite, skipped_subjects: @skipped_subjects,
+                           generation_events: @diagnostics.generation_events, omissions: @diagnostics.omissions,
+                           discovery_failures: @diagnostics.discovery_failures)
     end
 
     # The subjects to mutate and, in diff mode, the scope of changed lines.
@@ -132,6 +150,7 @@ module Saboteur
     def check_baseline(integration)
       BaselineGuard.new(config: config, integration: integration, hooks: hooks,
                         supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics).call
+      @stable_suite = true
     end
 
     def scheduler_for(map, integration, cache)
@@ -174,6 +193,10 @@ module Saboteur
                                          limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
       subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
         @skipped_subjects = selection.skipped_subjects
+        if @run_evidence
+          @run_evidence.plan(subjects, subjects.map { |subject| selection.selected.fetch(subject) })
+          @evidence_planned = true
+        end
       end
     end
 

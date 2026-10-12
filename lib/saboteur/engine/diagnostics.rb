@@ -30,8 +30,9 @@ module Saboteur
 
       GenerationEvent = Data.define(:file, :subject, :source, :operator, :reason)
       Omission = Data.define(:subject, :count, :limit)
+      DiscoveryFailure = Data.define(:file, :reason)
 
-      attr_reader :warnings, :invalid_mutations, :generation_events, :omissions
+      attr_reader :warnings, :invalid_mutations, :generation_events, :omissions, :discovery_failures
 
       def initialize(err)
         @err = err
@@ -39,6 +40,7 @@ module Saboteur
         @invalid_mutations = 0
         @generation_events = []
         @omissions = []
+        @discovery_failures = []
       end
 
       def warn(message)
@@ -54,6 +56,10 @@ module Saboteur
           value.nil? ? nil : value.to_s.dup.freeze
         end
         @generation_events << GenerationEvent.new(*values)
+      end
+
+      def record_discovery_failure(file, reason:)
+        @discovery_failures << DiscoveryFailure.new(file: file.to_s.dup.freeze, reason: reason.to_s.dup.freeze)
       end
 
       def record_omission(subject, count:, limit:)
