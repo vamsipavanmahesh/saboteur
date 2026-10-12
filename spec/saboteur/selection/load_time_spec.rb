@@ -71,7 +71,7 @@ RSpec.describe "load-time coverage" do
     %w[methods load_lines].each do |field|
       legacy = document.reject { |key, _| key == field }
       expect { Saboteur::Selection::CoverageMap.from_json(JSON.generate(legacy)) }
-        .to raise_error(Saboteur::Error, /format 4 is not 6/)
+        .to raise_error(Saboteur::Error, /format 4 is not 7/)
     end
   end
   it "accepts a combined cache with no method hits field as an empty methods table" do
