@@ -51,23 +51,23 @@ module Saboteur
         end
         refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
         # Before the payload checks: a child killed by a signal (the OOM
-        # killer, say) writes nothing, and the signal is the explanation.
-        if result.exit_status.is_a?(Process::Status) && !result.exit_status.success?
-          refuse(number, unsuccessful_exit(result.exit_status))
-        end
+        # killer, say) writes nothing, and the signal is the explanation. A
+        # child the supervisor itself killed after it had reported is not a
+        # failure: its payload is checked below.
+        refuse(number, unsuccessful_exit(result.exit_status, result.memory_pressure)) if result.child_failed?
         refuse(number, "the child did not report a result") if result.payload.empty?
         refuse(number, "the suite left child processes behind") if result.leftover_pids.any?
         parse_result(number, result.payload)
       end
 
       # A signaled child (the OOM killer, say) can leave an empty log,
-      # which reads like a suite failure; name the signal and hint the
-      # likely cause instead.
-      def unsuccessful_exit(status)
+      # which reads like a suite failure; name the signal. The OOM hint is
+      # printed only when the supervisor saw the process tree's memory grow.
+      def unsuccessful_exit(status, memory_pressure)
         return "the child exited with status #{status.exitstatus}" unless status.signaled?
 
         signal = "SIG#{Signal.signame(status.termsig)}"
-        hint = signal == "SIGKILL" ? " - possible OOM, check memory" : ""
+        hint = signal == "SIGKILL" && memory_pressure ? " - possible OOM, check memory" : ""
         "the child was killed by #{signal}#{hint}"
       end
 

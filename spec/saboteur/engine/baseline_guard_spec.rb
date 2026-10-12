@@ -90,8 +90,51 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       Process.kill("KILL", Process.pid)
       sleep
     end)
-    allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
+    allow(supervisor).to receive(:run).and_return(response.with(exit_status: status, memory_pressure: true))
     expect { guard.call }.to raise_error(Saboteur::Error, /killed by SIGKILL - possible OOM, check memory/)
+  end
+
+  def sigkill_status
+    _, status = Process.waitpid2(Process.fork do
+      Process.kill("KILL", Process.pid)
+      sleep
+    end)
+    status
+  end
+
+  it "does not hint at an OOM when no memory pressure was seen" do
+    allow(supervisor).to receive(:run).and_return(response.with(exit_status: sigkill_status))
+    expect { guard.call }.to raise_error(Saboteur::Error) { |error|
+      expect(error.message).to include("killed by SIGKILL")
+      expect(error.message).not_to include("OOM")
+    }
+  end
+
+  # The supervisor kills a child that closed its pipe but kept running. The
+  # child already delivered a complete green result, so the check passes.
+  it "accepts a complete payload when only the supervisor's own kill fired" do
+    killed_after_report = response.with(exit_status: sigkill_status, supervisor_killed: true)
+    allow(supervisor).to receive(:run).and_return(killed_after_report)
+    expect(guard.call).to be_nil
+  end
+
+  it "still refuses a failing payload when the supervisor's own kill fired" do
+    outcome = response(passed: false, failed: ["t1"]).with(exit_status: sigkill_status, supervisor_killed: true)
+    allow(supervisor).to receive(:run).and_return(outcome)
+    expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1 failed/)
+  end
+
+  it "does not hint at an OOM for a non-KILL signal even under memory pressure" do
+    _, status = Process.waitpid2(Process.fork do
+      trap("TERM", "DEFAULT")
+      Process.kill("TERM", Process.pid)
+      sleep
+    end)
+    allow(supervisor).to receive(:run).and_return(response.with(exit_status: status, memory_pressure: true))
+    expect { guard.call }.to raise_error(Saboteur::Error) { |error|
+      expect(error.message).to include("killed by SIGTERM")
+      expect(error.message).not_to include("OOM")
+    }
   end
 
   it "names other signals without the OOM hint" do
@@ -120,7 +163,8 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       Process.kill("KILL", Process.pid)
       sleep
     end)
-    allow(supervisor).to receive(:run).and_return(response(payload: "").with(exit_status: status))
+    empty_and_killed = response(payload: "").with(exit_status: status, memory_pressure: true)
+    allow(supervisor).to receive(:run).and_return(empty_and_killed)
     expect { guard.call }.to raise_error(Saboteur::Error, /killed by SIGKILL - possible OOM, check memory/)
   end
 
