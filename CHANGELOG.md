@@ -11,8 +11,9 @@ All notable changes are documented here. The format follows
   changed files are the sources, so `saboteur run --since origin/main --test
   spec/billing_spec.rb` scopes a pull-request run to chosen specs. A `--since`
   run without `--test` now warns before it starts that the two baseline passes
-  and the coverage-map pass run the whole suite (with the spec-file count and
-  how to scope them), instead of going quiet for hours on a large app.
+  run the loaded suite (a cold coverage cache adds one more pass), with the
+  spec-file count and how to scope them, instead of going quiet for hours on a
+  large app.
 - An integration target can declare a known error profile
   (`allow_error_fraction` per strategy in integration/targets.yml): the
   majority-error exit is accepted only when the run's own fresh report
