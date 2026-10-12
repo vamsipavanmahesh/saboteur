@@ -4,24 +4,27 @@
 require "fileutils"
 
 module Saboteur
-  # Writes the Rails starter files: .saboteur.yml, bin/saboteur and a
+  # Writes the Rails starter files: config/saboteur.rb, bin/saboteur and a
   # .gitignore entry. Plain Ruby so it runs and tests without Rails; the
   # `rails generate saboteur:install` generator is a thin wrapper over it.
   # Existing files are never overwritten unless force is set.
   class Install
-    CONFIG = <<~YAML
+    CONFIG = <<~RUBY
       # saboteur configuration for a Rails + RSpec app. CLI flags override this file.
-      include: [app/**/*.rb]
-      # Empty base classes: nothing useful to mutate.
-      exclude:
-        - app/models/application_record.rb
-        - app/controllers/application_controller.rb
-        - app/jobs/application_job.rb
-        - app/mailers/application_mailer.rb
-      require: [./config/environment]   # boots the app before specs load
-      rails: true                       # reconnect ActiveRecord after fork, per-worker databases
-      jobs: 4                           # parallel workers; use 1 if your specs share external state
-    YAML
+      Saboteur.configure do |c|
+        c.include = ["app/**/*.rb"]
+        # Empty base classes: nothing useful to mutate.
+        c.exclude = [
+          "app/models/application_record.rb",
+          "app/controllers/application_controller.rb",
+          "app/jobs/application_job.rb",
+          "app/mailers/application_mailer.rb",
+        ]
+        c.require = ["./config/environment"] # boots the app before specs load
+        c.rails = true                       # reconnect ActiveRecord after fork, per-worker databases
+        c.jobs = 4                           # parallel workers; use 1 if your specs share external state
+      end
+    RUBY
 
     BIN = <<~RUBY
       #!/usr/bin/env ruby
@@ -55,7 +58,7 @@ module Saboteur
 
     # Returns the list of Results (:created, :overwritten, :skipped, :appended, :unchanged).
     def call
-      [write(".saboteur.yml", CONFIG), write("bin/saboteur", BIN, mode: 0o755), gitignore]
+      [write("config/saboteur.rb", CONFIG), write("bin/saboteur", BIN, mode: 0o755), gitignore]
     end
 
     # Printed after install; the Gemfile is never edited.
