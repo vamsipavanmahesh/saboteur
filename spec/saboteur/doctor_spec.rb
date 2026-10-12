@@ -29,7 +29,79 @@ RSpec.describe Saboteur::Doctor do
     expect(doctor.call).to be(true)
     expect(out.string).to include("Ruby:", "Coverage: suspended", "Integration: rspec (loaded)", "Rails: disabled",
                                   "Baseline: 2 tests passed twice in the same order with seed 1", "does not prove",
-                                  "SimpleCov: not loaded")
+                                  "SimpleCov: not loaded", "Custom map: none (optional)")
+  end
+
+  it "reports the loaded map and warns about duplicate keys" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "app", "models"))
+      File.write(File.join(root, "app", "models", "dup.rb"), "# app\n")
+      File.write(File.join(root, "app", "models", "dup_b.rb"), "# app\n")
+      FileUtils.mkdir_p(File.join(root, "spec", "models"))
+      File.write(File.join(root, "spec", "models", "dup_spec.rb"), "# spec\n")
+      File.write(File.join(root, "spec", "models", "dup_b_spec.rb"), "# spec\n")
+      FileUtils.mkdir_p(File.join(root, "config"))
+      File.write(File.join(root, "config", "saboteur_custom_map.rb"), <<~RUBY)
+        SABOTEUR_CUSTOM_MAP = {
+          "app/models/dup.rb" => ["spec/models/dup_spec.rb"],
+          "app/models/dup.rb" => ["spec/models/dup_b_spec.rb"],
+          "app/models/dup_b.rb" => ["spec/models/dup_b_spec.rb"],
+          "app/models/dup_b.rb" => ["spec/models/dup_spec.rb"],
+        }.freeze
+      RUBY
+      config = Saboteur::Config.new({}, root: File.realpath(root))
+      doctor = described_class.new(config, out: out)
+      allow(Saboteur::Engine::Boot).to receive(:new).and_return(instance_double(Saboteur::Engine::Boot,
+                                                                                load_target: nil))
+      allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth,
+                                                                                  call: ["a"]))
+      doctor.call
+      expect(out.string).to include(
+        "Warning: custom map keys written twice, Ruby keeps the last: app/models/dup.rb, app/models/dup_b.rb",
+        "Custom map: 2 entries (loaded)"
+      )
+    end
+  end
+
+  it "fails on stale map keys and names them" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "spec", "models"))
+      File.write(File.join(root, "spec", "models", "gone_spec.rb"), "# spec\n")
+      FileUtils.mkdir_p(File.join(root, "config"))
+      File.write(File.join(root, "config", "saboteur_custom_map.rb"),
+                 "SABOTEUR_CUSTOM_MAP = { \"app/models/gone.rb\" => [\"spec/models/gone_spec.rb\"], " \
+                 "\"app/models/gone_b.rb\" => [\"spec/models/gone_spec.rb\"] }.freeze\n")
+      config = Saboteur::Config.new({}, root: File.realpath(root))
+      doctor = described_class.new(config, out: out)
+      allow(Saboteur::Engine::Boot).to receive(:new).and_return(instance_double(Saboteur::Engine::Boot,
+                                                                                load_target: nil))
+      allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth,
+                                                                                  call: ["a"]))
+      expect { doctor.call }.to raise_error(Saboteur::ConfigError) { |error|
+        expect(error.message).to include("stale keys matching no file: app/models/gone.rb, app/models/gone_b.rb")
+      }
+    end
+  end
+
+  it "loads a clean map without warnings" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "app", "models"))
+      File.write(File.join(root, "app", "models", "user.rb"), "# app\n")
+      FileUtils.mkdir_p(File.join(root, "spec", "models"))
+      File.write(File.join(root, "spec", "models", "user_spec.rb"), "# spec\n")
+      FileUtils.mkdir_p(File.join(root, "config"))
+      File.write(File.join(root, "config", "saboteur_custom_map.rb"),
+                 "SABOTEUR_CUSTOM_MAP = { \"app/models/user.rb\" => [\"spec/models/user_spec.rb\"] }.freeze\n")
+      config = Saboteur::Config.new({}, root: File.realpath(root))
+      doctor = described_class.new(config, out: out)
+      allow(Saboteur::Engine::Boot).to receive(:new).and_return(instance_double(Saboteur::Engine::Boot,
+                                                                                load_target: nil))
+      allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth,
+                                                                                  call: ["a"]))
+      doctor.call
+      expect(out.string).to include("Custom map: 1 entries (loaded)")
+      expect(out.string).not_to include("written twice")
+    end
   end
 
   it "reports enabled Rails and present SimpleCov" do
