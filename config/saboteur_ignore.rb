@@ -242,4 +242,8 @@ Saboteur.ignore do |i|
   i.mutation "a1c0d420583dc184",
              subject: "Saboteur::IgnoreList.unknown_directive_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
+
+  i.mutation "7a02dc533bc53157",
+             subject: "Saboteur::Selection::CoverageMap.from_json",
+             reason: "equivalent: the FORMAT 4 writer always emits a methods key (to_json encodes methods unconditionally), so the missing-key fallback never fires"
 end
