@@ -60,7 +60,7 @@ module Saboteur
     def custom_map_warnings(map)
       path = config.path("custom_map")
       warnings = map.stale_keys.map { |key| "stale custom map key #{key}: matches no file" }
-      return warnings unless File.file?(path)
+      return warnings unless path && File.file?(path)
 
       warnings + map.duplicate_keys(path).map { |key| "duplicate custom map key #{key}: Ruby keeps the last" }
     end
