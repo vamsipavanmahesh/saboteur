@@ -104,6 +104,83 @@ RSpec.describe Saboteur::Doctor do
     end
   end
 
+  it "does not mark valid ignore subjects unmatched because of a subject filter" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "lib"))
+      File.write(File.join(root, "lib", "probe.rb"), "class Probe; def valid; true; end; end")
+      config = Saboteur::Config.new({ "subjects" => ["Other"] }, root: root)
+      ignores = Saboteur::IgnoreList.new([Saboteur::IgnoreList::Entry.new(subject: "Probe#valid",
+                                                                          mutation: "a", reason: "accepted")])
+      allow(Saboteur::IgnoreList).to receive(:load).with(config.path("ignore_file")).and_return(ignores)
+
+      described_class.new(config, out: out).send(:check_ignore_subjects)
+
+      expect(out.string).to be_empty
+    end
+  end
+
+  it "reports an incomplete ignore check instead of unmatched subjects when source parsing fails" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "lib"))
+      File.write(File.join(root, "lib", "probe.rb"), "class Probe; def valid;")
+      config = Saboteur::Config.new({}, root: root)
+      ignores = Saboteur::IgnoreList.new([Saboteur::IgnoreList::Entry.new(subject: "Probe#valid",
+                                                                          mutation: "a", reason: "accepted")])
+      allow(Saboteur::IgnoreList).to receive(:load).with(config.path("ignore_file")).and_return(ignores)
+
+      described_class.new(config, out: out).send(:check_ignore_subjects)
+
+      expect(out.string).to include("ignore subject check incomplete")
+      expect(out.string).not_to include("matches no discovered subject")
+    end
+  end
+
+  it "drives the full call and reports a duplicated unmatched subject once with exact guidance" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "config"))
+      File.write(File.join(root, "config", "saboteur_ignore.rb"), <<~RUBY)
+        Saboteur.ignore do |i|
+          i.mutation "a", subject: "Gone#method", reason: "accepted"
+          i.mutation "b", subject: "Gone#method", reason: "accepted"
+        end
+      RUBY
+      config = Saboteur::Config.new({}, root: root)
+      allow(Saboteur::Engine::Boot).to receive(:new).and_return(instance_double(Saboteur::Engine::Boot,
+                                                                                load_target: nil))
+      allow(Saboteur::BaselineHealth).to receive(:new).and_return(instance_double(Saboteur::BaselineHealth,
+                                                                                  call: ["a"]))
+
+      expect(described_class.new(config, out: out).call).to be(true)
+
+      warnings = out.string.lines.grep(/Warning: ignore subject/)
+      expect(warnings).to eq(["Warning: ignore subject Gone#method matches no discovered subject in included files; " \
+                              "check include/exclude settings and the exact Class#method or Class.method form\n"])
+    end
+  end
+
+  it "does not parse sources or print ignore warnings when the ignore list is empty" do
+    allow(Saboteur::IgnoreList).to receive(:load).and_return(Saboteur::IgnoreList.new([]))
+    expect(Saboteur::SubjectFinder).not_to receive(:new)
+    expect(config).not_to receive(:included_files)
+
+    doctor.send(:check_ignore_subjects)
+
+    expect(out.string).to be_empty
+  end
+
+  it "reports a malformed ignore file as a config error before target boot" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "config"))
+      path = File.join(root, "config", "saboteur_ignore.rb")
+      File.write(path, 'Saboteur.ignore { |i| i.mutation "a", subject: "Gone#method" }')
+      config = Saboteur::Config.new({}, root: root)
+      expect(Saboteur::Engine::Boot).not_to receive(:new)
+
+      expect { described_class.new(config, out: out).call }.to raise_error(Saboteur::ConfigError, /missing reason/)
+      expect(File.read(path)).to include('subject: "Gone#method"')
+    end
+  end
+
   it "reports enabled Rails and present SimpleCov" do
     stub_const("SimpleCov", Module.new)
     allow(config).to receive(:[]).and_call_original

@@ -16,6 +16,39 @@ RSpec.describe "doctor", :e2e do
     expect(File).not_to exist(File.join(dir, ".saboteur"))
   end
 
+  it "warns about wrong-form ignore subjects without changing the ignore file" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "lib", "ignore_probe.rb"), <<~RUBY)
+      module IgnoreProbe
+        module_function
+        def helper
+          true
+        end
+        def self.other
+          true
+        end
+      end
+    RUBY
+    path = File.join(dir, "config", "saboteur_ignore.rb")
+    contents = <<~RUBY
+      Saboteur.ignore do |i|
+        i.mutation "a", subject: "IgnoreProbe.helper", reason: "wrong form"
+        i.mutation "b", subject: "IgnoreProbe#other", reason: "wrong form"
+        i.mutation "c", subject: "IgnoreProbe#helper", reason: "valid form"
+        i.mutation "d", subject: "IgnoreProbe.other", reason: "valid form"
+      end
+    RUBY
+    File.write(path, contents)
+
+    out, err, status = doctor(dir)
+
+    expect(status.exitstatus).to eq(0), err
+    expect(out).to include("Warning: ignore subject IgnoreProbe.helper matches no discovered subject",
+                           "Warning: ignore subject IgnoreProbe#other matches no discovered subject")
+    expect(out).not_to include("ignore subject IgnoreProbe#helper", "ignore subject IgnoreProbe.other")
+    expect(File.read(path)).to eq(contents)
+  end
+
   it "fails plainly when the unchanged suite is red" do
     dir = copy_fixture("people")
     File.write(File.join(dir, "spec", "failure_spec.rb"),

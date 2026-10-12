@@ -18,6 +18,7 @@ module Saboteur
       check_coverage
       check_boot_files
       check_custom_map
+      check_ignore_subjects
       hooks = Hooks.new
       integration = boot_target(hooks)
       @out.puts "Integration: #{@config['integration']} (loaded)"
@@ -56,6 +57,25 @@ module Saboteur
 
       raise Error, "Coverage must be suspended with line support before boot; use the saboteur executable, " \
                    "disable SimpleCov and remove other Coverage.start calls"
+    end
+
+    # Match against all included source definitions, not the current diff or
+    # selected tests. A limited run must not make a valid ignore look stale.
+    def check_ignore_subjects
+      ignores = IgnoreList.load(@config.path("ignore_file"))
+      return if ignores.entries.empty?
+
+      finder = SubjectFinder.new
+      parsed = @config.included_files.map { |file| finder.call(file) }
+      if parsed.any? { |result| result.errors.any? }
+        @out.puts "Warning: ignore subject check incomplete: an included file does not parse"
+        return
+      end
+      subjects = parsed.flat_map(&:subjects).to_set(&:id)
+      ignores.entries.map(&:subject).uniq.reject { |subject| subjects.include?(subject) }.each do |subject|
+        @out.puts "Warning: ignore subject #{subject} matches no discovered subject in included files; " \
+                  "check include/exclude settings and the exact Class#method or Class.method form"
+      end
     end
 
     def check_custom_map
