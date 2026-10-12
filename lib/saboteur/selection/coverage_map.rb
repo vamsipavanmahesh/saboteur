@@ -16,7 +16,7 @@ module Saboteur
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
     class CoverageMap
-      FORMAT = 5
+      FORMAT = 6
 
       RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
 
@@ -74,10 +74,10 @@ module Saboteur
         tests_for(subject)
       end
 
-      # True when the build recorded nothing at all: no line hits and no
-      # method calls in any included file.
+      # True when neither boot nor tests recorded included code. Load-only
+      # evidence is valid, even though it supplies no judged mutation score.
       def empty?
-        [lines, methods].all? { |hits| hits.none? { |_file, by_line| by_line.any? } }
+        [lines, methods, load_lines].all? { |hits| hits.none? { |_file, values| values.any? } }
       end
 
       # Tests that executed any of the lines, fastest first (suite order breaks
