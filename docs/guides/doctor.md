@@ -2,7 +2,7 @@
 
 ```sh
 bundle exec saboteur doctor --seed 42
-bundle exec saboteur doctor --config config/saboteur.yml --seed 42
+bundle exec saboteur doctor --config config/saboteur.rb --seed 42
 ```
 
 Doctor checks Ruby 3.3+ and fork support, suspended line coverage, configured
