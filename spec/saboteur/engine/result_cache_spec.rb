@@ -63,10 +63,10 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expect(cache.lookup(edited, comparison_mutation, tests)).to be_nil
   end
 
-  # Same method text and same relative mutant; only a constant elsewhere in
-  # the file differs, and the method reads that constant.
+  # The method reads CAP, defined above the class. Changing CAP changes the
+  # file but not the method text, and the mutant (>= to >) is the same.
   def subject_with_cap(value)
-    source = ReportHelpers::PERSON.sub("class Person", "CAP = #{value}\nclass Person")
+    source = "CAP = #{value}\nclass Person\n  def adult?; @age >= CAP; end\nend\n"
     subjects_in(source, name: "person.rb").first
   end
 
