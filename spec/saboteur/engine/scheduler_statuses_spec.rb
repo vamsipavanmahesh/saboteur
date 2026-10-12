@@ -91,4 +91,42 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
   ensure
     Object.send(:remove_method, :sig) if Object.method_defined?(:sig)
   end
+  it "marks a wholly load-only subject ran at load and keeps edited-line boundaries" do
+    subject = subjects_in("class WholeLoad\n  def m(a)\n    a + 1\n    a * 2\n  end\nend\n").first
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [], load_lines: { subject.file => [3] })
+    scheduler = scheduler_for(map)
+    allow(scheduler).to receive(:load_problem).and_return([nil, nil])
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                      edits: [edit_around(subject, "+")])
+    expect(scheduler.call(subject, [[mutation, subject.source]]).first.status).to eq(:ran_at_load)
+    plan = described_class::Plan.new(subject: subject)
+    other = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                   edits: [edit_around(subject, "*")])
+    expect(scheduler.send(:uncoverable, plan, other, subject.source).status).to eq(:skipped)
+  end
+
+  it "does not attach sig text or warn for an ordinary method" do
+    subject = subject_named("class PlainPrefix\n  sig { void }\n  def m; end\nend\n", "PlainPrefix#m")
+    plan = described_class::Plan.new(subject: subject, wrapper: nil)
+    expect(scheduler_for(nil).send(:eval_prefix, plan)).to be_nil
+    expect(diagnostics.warnings).to be_empty
+  end
+
+  it "passes a sig to the unchanged timeout calibration run" do
+    subject = subject_named("class TimeoutSig\n  sig { void }\n  def m; end\nend\n", "TimeoutSig#m")
+    plan = described_class::Plan.new(subject: subject, wrapper: :sorbet, slowdown: 1.0)
+    scheduler = scheduler_for(nil)
+    expect(runner).to receive(:run).with(subject: subject, text: subject.source, test_ids: ["t1"],
+                                         timeout: 300.0, eval_prefix: "sig { void }")
+                                   .and_return(outcome(:killed))
+    scheduler.send(:calibrate, plan, nil, subject.source, ["t1"], 5)
+  end
+  it "warns only once when a wrapped method has no adjacent sig" do
+    subject = subjects_in("class NoSigPrefix\n  def m; end\nend\n").first
+    plan = described_class::Plan.new(subject: subject, wrapper: :sorbet)
+    scheduler = scheduler_for(nil)
+    2.times { expect(scheduler.send(:eval_prefix, plan)).to be_nil }
+    expect(diagnostics.warnings.size).to eq(1)
+    expect(diagnostics.warnings.first).to include("NoSigPrefix#m: sorbet sig not found")
+  end
 end
