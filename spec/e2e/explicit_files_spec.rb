@@ -52,9 +52,9 @@ RSpec.describe "saboteur run with explicit files and a threshold (end to end)", 
 
   it "fails --threshold 100 while a mutant survives, and passes a score above a lower threshold" do
     failing = saboteur(dir, "lib/people.rb", "--test", "spec/person_spec.rb", "--threshold", "100")
-    expect(failing.status).to eq(1), failing.err
+    expect(failing.status).to eq(1), unscored(failing)
     passing = saboteur(dir, "lib/people.rb", "--test", "spec/person_spec.rb", "--threshold", "1")
-    expect(passing.status).to eq(0), passing.err
+    expect(passing.status).to eq(0), unscored(passing)
     expect(passing.out).to include("survived")
   end
 
