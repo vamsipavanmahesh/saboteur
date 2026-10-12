@@ -306,6 +306,18 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Canary#walk_files",
              reason: "equivalent: the reject operands are pure predicates, so | returns the same boolean as ||"
 
+  i.mutation "2689f9db0bec4712",
+             subject: "Saboteur::Engine::Distribution#decode",
+             reason: "equivalent: encode always writes rejected_kill, so the fetch default never fires for same-version workers"
+
+  i.mutation "e26320eab32dc139",
+             subject: "Saboteur::Engine::Distribution#decode",
+             reason: "equivalent: encode always writes rejected_kill, so fetch with and without the default reads the same present key"
+
+  i.mutation "efe71ae606835faa",
+             subject: "Saboteur::MutationSource::HazardGuard#hazard_spans",
+             reason: "equivalent: descending into a hazardous call only records spans nested inside the outer one, and an edit covering the outer span covers them too, so kept/suppressed outcomes are unchanged"
+
 
 
 
