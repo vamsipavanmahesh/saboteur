@@ -133,7 +133,8 @@ Positional operands name the sources to mutate: Ruby files, or directories
 (all their `.rb` files). Each must exist; a typo or a non-Ruby file exits 2
 before anything runs. They replace `include` and `exclude`. `--test`
 (repeatable; spec files or directories, with an optional `:LINE` or `[1:2]`
-selector; needs at least one source) replaces only the files RSpec runs. Other
+selector; needs at least one source, unless `--since` is given - the changed
+files are the sources) replaces only the files RSpec runs. Other
 `rspec_args` and `.rspec` options such as `--require` stay. The coverage map
 is built from only those specs, each mutant runs only the ones that cover it,
 and the selection is part of the coverage and `--incremental` cache keys.
@@ -153,7 +154,11 @@ Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
-configured project. Keep whole-project runs on main: diff mode does not check every method affected by a
+configured project. To scope the specs as well, pass them with `--test` and no
+source operands: `bundle exec saboteur run --since origin/main --test spec/billing_spec.rb`.
+Without `--test`, the run warns before it starts that the two baseline passes
+run the loaded suite (a cold coverage cache adds one more pass), and how to
+scope them. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 

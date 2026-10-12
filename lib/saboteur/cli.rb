@@ -302,8 +302,14 @@ module Saboteur
     # replace the configured include and exclude patterns. Each must exist,
     # so a typo is an error and not a run over zero subjects.
     def use_explicit_sources
-      raise UsageError, "--test needs at least one source file" if options[:tests] && @argv.empty?
-      return if @argv.empty?
+      if @argv.empty?
+        raise UsageError, "--test needs at least one source file" if options[:tests] && !config["since"]
+
+        # With --since the changed files are the sources, so --test may
+        # stand alone; the files must still exist.
+        options[:tests]&.each { |test| require_existing_test(test) }
+        return
+      end
 
       @sources = @argv.dup
       options[:include] = @argv.map { |source| source_pattern(source) }

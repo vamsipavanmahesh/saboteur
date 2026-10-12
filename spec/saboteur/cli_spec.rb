@@ -469,6 +469,27 @@ RSpec.describe Saboteur::CLI, "explicit files" do
     expect(err.string).to include("--test needs at least one source file")
   end
 
+  # A pull-request run: --since already names the sources (the changed
+  # files), so listing them again only repeats the diff.
+  it "accepts --test without a source when --since scopes the run" do
+    command = cli("run", "--since", "origin/main", "--test", "spec/a_spec.rb")
+    expect(command.call).to eq(3)
+    expect(command.options[:tests]).to eq(%w[spec/a_spec.rb])
+    expect(command.options[:include]).to be_nil
+  end
+
+  it "accepts --test without a source when since comes from the config file" do
+    File.write(".saboteur.yml", "since: origin/main")
+    command = cli("run", "--test", "spec/a_spec.rb")
+    expect(command.call).to eq(3)
+    expect(command.options[:tests]).to eq(%w[spec/a_spec.rb])
+  end
+
+  it "still refuses a missing test file when --since scopes the run" do
+    expect(cli("run", "--since", "origin/main", "--test", "spec/nope_spec.rb").call).to eq(2)
+    expect(err.string).to include("test file not found: spec/nope_spec.rb")
+  end
+
   it "refuses a source that does not exist, with exit 2 and no run" do
     expect(cli("run", "lib/typo.rb").call).to eq(2)
     expect(err.string).to include("source file not found: lib/typo.rb")
