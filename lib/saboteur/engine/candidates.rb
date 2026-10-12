@@ -28,10 +28,13 @@ module Saboteur
       end
 
       def for(subject)
-        return [] unless parses?(subject.source)
+        unless parses?(subject.source)
+          @diagnostics.record_generation(subject, source: "subject", reason: "invalid_subject_syntax")
+          return []
+        end
 
         seen = Set[subject.source]
-        list = @sources.flat_map { |source| source.mutations_for(subject) }.filter_map do |mutation|
+        list = @sources.flat_map { |source| proposals(source, subject) }.filter_map do |mutation|
           candidate(subject, mutation, seen)
         end
         list.sort_by.with_index { |(mutation, _), index| [mutation.coarse ? 0 : 1, index] }
@@ -39,20 +42,34 @@ module Saboteur
 
       private
 
+      def proposals(source, subject)
+        proposals = source.mutations_for(subject)
+        if proposals.empty?
+          @diagnostics.record_generation(subject, source: source.name || "anonymous", reason: "empty_generation")
+        end
+        proposals
+      end
+
+      def record_drop(subject, mutation, reason)
+        @diagnostics.record_generation(subject, source: mutation.source, operator: mutation.operator, reason: reason)
+        nil
+      end
+
       def candidate(subject, mutation, seen)
         text = subject.apply(mutation.edits)
-        return if seen.include?(text)
+        return record_drop(subject, mutation, "unchanged") if text == subject.source
+        return record_drop(subject, mutation, "duplicate") if seen.include?(text)
 
         seen << text
         unless parses?(text)
           @diagnostics.count_invalid_mutation
-          return
+          return record_drop(subject, mutation, "invalid_syntax")
         end
 
         [mutation, text]
       rescue ArgumentError => e
         @diagnostics.warn("#{subject.id}: dropped #{mutation.source} mutation: #{e.message}")
-        nil
+        record_drop(subject, mutation, "invalid_edit")
       end
 
       def parses?(text)
@@ -60,4 +77,4 @@ module Saboteur
       end
     end
   end
-end
+  end
