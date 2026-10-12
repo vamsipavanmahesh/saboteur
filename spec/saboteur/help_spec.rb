@@ -14,8 +14,10 @@ RSpec.describe Saboteur::Help do
 
   it "has the sections an agent looks for, in a fixed order" do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
-    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur doctor)", "EXAMPLES",
+    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur doctor)",
+                           "OPTIONS (saboteur baseline)", "EXAMPLES",
                            "EXIT CODES (saboteur run)", "EXIT CODES (saboteur doctor)",
+                           "EXIT CODES (saboteur baseline)",
                            "CONFIG FILE (config/saboteur.rb)", "FILES"])
   end
 
