@@ -211,6 +211,11 @@ RSpec.describe Saboteur::Doctor do
     expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /line and method support/)
   end
 
+  it "requires line support even when method support is present" do
+    allow(Coverage).to receive(:supported?).with(:lines).and_return(false)
+    expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /line and method support/)
+  end
+
   it "requires method coverage support too, for endless defs (issue #107)" do
     allow(Coverage).to receive(:supported?).with(:methods).and_return(false)
     expect { doctor.send(:check_coverage) }.to raise_error(Saboteur::Error, /line and method support/)
