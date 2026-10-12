@@ -94,7 +94,7 @@ module Saboteur
       end
 
       def relative(file)
-        path = File.expand_path(file)
+        path = Identity.canonical_path(file)
         raise ConfigError, "baseline subject outside project root" unless path.start_with?("#{@root}/")
 
         path.delete_prefix("#{@root}/")
