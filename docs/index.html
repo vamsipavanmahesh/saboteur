@@ -98,7 +98,7 @@ bundle exec saboteur run --since origin/main</code></pre>
 <div class="grid">
 <div class="card"><h3>Picks tests per mutant</h3><p>Only the tests that executed the changed statement run. A change no test reaches is reported as "no coverage", not as a survivor.</p></div>
 <div class="card"><h3>Kills are re-checked</h3><p>A kill must fail on the mutant and pass on the original. In one benchmark, 0 of 20 randomly sampled kills on lobsters were fake.</p></div>
-<div class="card"><h3>Coarse first</h3><p>Each method body is replaced first (with <code>nil</code> and <code>raise</code>, or <code>true</code> and <code>false</code> for predicates; some shapes, such as methods that rescue or only log, get none), then the smaller eligible changes run for each covered method, within the per-method cap and any <code>--since</code> scope. A whole-body survivor does not hide a smaller one.</p></div>
+<div class="card"><h3>Coarse first</h3><p>Each method body is replaced first: with <code>nil</code> (<code>true</code> and <code>false</code> for predicate methods ending in <code>?</code>) unless the body is empty or only logs, and with <code>raise</code> unless a catch-all rescue would absorb it. A log-only body can still get <code>raise</code>; a body with a catch-all rescue can still get the <code>nil</code> or <code>true</code>/<code>false</code> replacements. Then the smaller eligible changes run for each covered method, within the per-method cap and any <code>--since</code> scope. A whole-body survivor does not hide a smaller one.</p></div>
 <div class="card"><h3>Diff mode</h3><p><code>--since origin/main</code> changes only the methods you edited on this branch. On one real change in saboteur's own history it took a file from 139 mutants to 7, and median wall time fell 22.9% (measured before the gate removal; one file, not a general speed claim).</p></div>
 <div class="card"><h3>Rails and parallel</h3><p>Run with <code>--jobs N</code> workers. Each worker gets its own database copy. Tested on a Rails 8.1 app on Postgres with 6 workers, with the same verdicts as 1 worker.</p></div>
 <div class="card"><h3>Safe to run</h3><p>Each mutant runs in a watched child process. Everything it starts is tracked and killed. There are limits on time, memory and process count.</p></div>
@@ -125,7 +125,7 @@ bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        <span class="c"># a namespace</span>
 bundle exec saboteur run --incremental            <span class="c"># reuse verdicts that did not change</span>
 bundle exec saboteur run --jobs 6                 <span class="c"># parallel workers</span></code></pre>
-<p>Every run with selected subjects first runs the unchanged suite twice, even when the coverage cache is warm. <code>--since</code> alone narrows which methods are mutated, not which specs are loaded, so those two baseline passes still run the loaded suite. Pass specs with <code>--test</code> and no source operands to scope them too. Without <code>--test</code>, the run warns before it starts.</p>
+<p>Every run with selected subjects first runs the unchanged suite twice, even when the coverage cache is warm. <code>--since</code> alone narrows which methods are mutated, not which specs are loaded, so those two baseline passes still run the loaded suite. Pass specs with <code>--test</code> and no source operands to scope them too. With <code>--since</code> and selected subjects but no <code>--test</code>, the run warns before it starts.</p>
 <h3>4. Configure (optional)</h3>
 <pre><code><span class="c"># config/saboteur.rb</span>
 Saboteur.configure do |c|
@@ -153,7 +153,7 @@ Saboteur.ignore do |i|
              subject: "Billing::Invoice#total",
              reason: "equivalent: amounts are always whole cents"
 end</code></pre>
-<p>An entry without a reason is rejected. Exit codes for <code>saboteur run</code>: <code>0</code> no unignored survivors (survivors on the ignore list do not fail the run), or with <code>--threshold</code> the score is at or above it even if mutants survived; <code>1</code> an unignored survivor, or with <code>--threshold</code> the score is below it or missing; <code>2</code> bad configuration or a missing source or test; <code>3</code> the tool failed, or more than half of the executed mutants errored (with <code>--threshold</code>, any errored or resource-limited mutant). <code>saboteur run --agent</code> is strict: it prints one JSON verdict and exits <code>0</code> clean, <code>1</code> unignored survivors, <code>3</code> incomplete. The JSON report goes to <code>.saboteur/report.json</code>.</p>
+<p>An entry without a reason is rejected. Exit codes for <code>saboteur run</code>: <code>0</code> no unignored survivors (survivors on the ignore list do not fail the run), or with <code>--threshold</code> the score is at or above it even if mutants survived; <code>1</code> an unignored survivor, or with <code>--threshold</code> the score is below it or missing; <code>2</code> bad configuration or a missing source or test; <code>3</code> the tool failed, or more than half of the executed mutants errored (with <code>--threshold</code>, any errored or resource-limited mutant). <code>saboteur run --agent</code> is strict: it prints one JSON verdict and exits <code>0</code> clean, <code>1</code> unignored survivors, <code>2</code> invalid invocation, <code>3</code> incomplete. The JSON report goes to <code>.saboteur/report.json</code>.</p>
 </div></section>
 
 <section id="compare"><div class="wrap">
@@ -190,7 +190,7 @@ end</code></pre>
 </table>
 </div>
 <p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers. Swap was not measured.</p>
-<p>Wall time on uncontended runs, per-cell minimums, baseline vs PR: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6 (no regression). The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
+<p>Wall time on uncontended runs: 30-36s for both variants at every job level. Per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6. These are noisy per-cell minima from historical runs and do not show a direction either way. The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
 <p>Scripts and raw data: <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>. Full write-up, environment and contention log: <a href="benchmark/">benchmark page</a>.</p>
 </div></section>
 
