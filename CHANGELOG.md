@@ -13,10 +13,23 @@ All notable changes are documented here. The format follows
   (`Saboteur.ignore do |i| i.mutation "<digest>", subject:, reason: end`,
   reason still mandatory). A legacy YAML file stops the run with a pointer to
   the new file instead of being read. Unknown settings fail with the line
-  number and a did-you-mean suggestion. `saboteur init` and the Rails
-  generator write the Ruby file.
+  number and a did-you-mean suggestion. `rails generate saboteur:install`
+  writes `config/saboteur.rb` (never overwriting without `--force`);
+  `config/saboteur_ignore.rb` and `config/saboteur_custom_map.rb` are optional
+  and created by hand when needed.
+
+### Removed
+- The coarse-survivor gate: a surviving whole-body mutant no longer skips the
+  method's fine mutants; every eligible fine mutant runs.
+
+### Fixed
+- Mutations inside private `module_function` helpers are preserved when the
+  method is re-evaluated; they previously reverted and reported as false
+  survivors.
 
 ### Added
+- The warning about threads alive when a worker forks names those threads,
+  falling back to their backtraces for unnamed ones.
 - `--test` no longer requires source operands when `--since` is given: the
   changed files are the sources, so `saboteur run --since origin/main --test
   spec/billing_spec.rb` scopes a pull-request run to chosen specs. A `--since`
