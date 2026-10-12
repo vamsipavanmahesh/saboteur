@@ -55,7 +55,12 @@ RSpec order at the run seed. A failure exits 3, stops mutation and names the log
 print their elapsed time about every 30 seconds, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
-budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
+budget is four times `max_memory_mb`, as for coverage). A suite child that has
+already reported its result gets up to 5 seconds to finish exiting; if it is
+still running then, saboteur stops it and keeps the result, so a slow exit is
+not reported as a failure. A child killed by `SIGKILL` is called a possible
+out-of-memory kill only when the process tree was seen growing toward the
+memory limit. Older benchmark numbers
 need a rerun before they describe this extra fixed cost.
 A whole-suite coverage build that records no lines for any included file
 means the setup hid the app from Coverage (Bootsnap's compile cache is the
