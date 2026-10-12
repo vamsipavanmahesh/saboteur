@@ -3,9 +3,13 @@
 # frozen_string_literal: true
 
 # Line coverage must be set up before any target code loads, so it happens
-# first. It stays suspended (no counting) except while the coverage map is built.
+# first. For `run` it also counts from here: what executes while the app and
+# spec files load is how ran-at-load mutants are told apart from uncovered
+# ones. The engine suspends counting right after boot and reads the
+# counters as the map's load lines (a forked child would not inherit them).
 require "coverage"
 Coverage.setup(lines: true) if Coverage.state == :idle
+Coverage.resume if ARGV.first == "run" && Coverage.state == :suspended
 
 require "saboteur/cli"
 
