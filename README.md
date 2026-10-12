@@ -224,8 +224,9 @@ report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
 `config/saboteur.rb`; set either to `nil` to turn that report off. The two paths
 must differ. The HTML page shows the covered mutation score
-`(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage
-out and keeps survivors accepted on the ignore list in the denominator. A tool
+`(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage,
+RanAtLoad and Unreachable out and keeps survivors accepted on the ignore list
+in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
@@ -403,6 +404,29 @@ Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
 `db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
 cache fingerprint automatically. Use `fingerprint_extra` for any other file your
 tests read.
+
+### Load-time code, captured methods and Sorbet signatures
+
+Code that runs while the target boots, before tests run, cannot be checked by
+replacing a method later. saboteur reports these changes as `ran_at_load` rather
+than survivors. Calls from test setup, including RSpec `before(:all)`, are still
+checked. Load-time detection follows the `ran_at_load` idea in
+[mutineer #187](https://github.com/davidteren/mutineer/pull/187).
+
+A saved `Method` or `UnboundMethod` can keep calling the old definition after
+saboteur replaces it. When tests pass without calling the replacement and a
+saved method still points to the old definition, the result is `unreachable`.
+The reason names the old definition's source location. A lambda that looks up
+the method when it runs is still checked normally.
+
+Both statuses are listed separately in terminal output and excluded from the
+mutation score. Stryker JSON reports them as `Ignored`, with the explanation in
+`statusReason`; they are not entries on your survivor ignore list.
+
+Methods wrapped by `sorbet-runtime` signatures are checked rather than skipped
+as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
+changed method so the replacement keeps its signature wrapper. Other wrappers
+are still reported as unloadable when the loaded definition cannot be matched.
 
 ### Skipped subjects and the mutant cap
 
