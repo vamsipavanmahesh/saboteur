@@ -97,8 +97,8 @@ module Saboteur
       end
 
       # A raise that the method's own rescue catches is absorbed by design. It
-      # would survive, and a surviving coarse mutant stops every fine mutant
-      # of the method, so it is not generated.
+      # is not generated: rejecting that exception is not the rescue contract.
+      # Fine mutants still run regardless of the coarse verdicts.
       def rescues_everything?(body)
         clause = body.is_a?(Prism::BeginNode) ? body.rescue_clause : nil
         while clause
