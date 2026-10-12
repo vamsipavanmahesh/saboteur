@@ -190,7 +190,7 @@ end</code></pre>
 </table>
 </div>
 <p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers. Swap was not measured.</p>
-<p>Wall time on uncontended runs: 30-36s for both variants at every job level. Per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6. These are noisy per-cell minima from historical runs and do not show a direction either way. The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
+<p>Wall time on uncontended runs, per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6. These are noisy per-cell minima from historical runs and do not show a direction either way. The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
 <p>Scripts and raw data: <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>. Full write-up, environment and contention log: <a href="benchmark/">benchmark page</a>.</p>
 </div></section>
 
