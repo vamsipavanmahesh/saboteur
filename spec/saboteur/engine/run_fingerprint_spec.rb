@@ -142,6 +142,78 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "canonical boundaries" do
     end
   end
 
+  it "refuses a cache containing an external input declared through a parent alias" do
+    Dir.mktmpdir do |directory|
+      root = File.join(directory, "project")
+      external = File.join(directory, "external")
+      alias_path = File.join(directory, "external_alias")
+      FileUtils.mkdir_p([root, external])
+      File.symlink(external, alias_path)
+      File.write(File.join(external, "input.txt"), "input")
+      input = File.join(alias_path, "input.txt")
+      config = Saboteur::Config.new({ "cache_dir" => external }, root: root)
+
+      snapshot = described_class.new(config: config, extra_files: [input]).snapshot
+
+      expect(snapshot.complete).to be(false)
+      expect(snapshot.issues).to include("cache directory overlaps inputs: external:#{File.realpath(external)}")
+      expect(snapshot.inventory.map(&:path)).to include("external:#{input}")
+    end
+  end
+
+  it "refuses a report replacing an external input declared through a parent alias" do
+    Dir.mktmpdir do |directory|
+      root = File.join(directory, "project")
+      external = File.join(directory, "external")
+      alias_path = File.join(directory, "external_alias")
+      FileUtils.mkdir_p([root, external])
+      File.symlink(external, alias_path)
+      File.write(File.join(external, "input.json"), "input")
+      input = File.join(alias_path, "input.json")
+      output = File.join(external, "input.json")
+      config = Saboteur::Config.new({ "json_report" => output }, root: root)
+
+      snapshot = described_class.new(config: config, extra_files: [input]).snapshot
+
+      expect(snapshot.complete).to be(false)
+      expect(snapshot.issues).to include("output overlaps input: external:#{File.realpath(output)}")
+    end
+  end
+
+  it "refuses a cache containing an absent optional external input under an alias" do
+    Dir.mktmpdir do |directory|
+      root = File.join(directory, "project")
+      external = File.join(directory, "external")
+      alias_path = File.join(directory, "external_alias")
+      FileUtils.mkdir_p([root, external])
+      File.symlink(external, alias_path)
+      input = File.join(alias_path, "not-created", "input.txt")
+      config = Saboteur::Config.new({ "cache_dir" => external }, root: root)
+
+      snapshot = described_class.new(config: config, extra_files: [{ path: input, required: false }]).snapshot
+
+      expect(snapshot.complete).to be(false)
+      expect(snapshot.issues).to include("cache directory overlaps inputs: external:#{File.realpath(external)}")
+    end
+  end
+
+  it "allows an unrelated external cache next to an aliased input" do
+    Dir.mktmpdir do |directory|
+      root = File.join(directory, "project")
+      external = File.join(directory, "external")
+      alias_path = File.join(directory, "external_alias")
+      FileUtils.mkdir_p([root, external])
+      File.symlink(external, alias_path)
+      File.write(File.join(external, "input.txt"), "input")
+      config = Saboteur::Config.new({ "cache_dir" => "#{external}-cache" }, root: root)
+
+      snapshot = described_class.new(config: config, extra_files: [File.join(alias_path, "input.txt")]).snapshot
+
+      expect(snapshot.complete).to be(true)
+      expect(snapshot.issues).to be_empty
+    end
+  end
+
   it "keeps output and cache locations out of settings identity" do
     Dir.mktmpdir do |root|
       first = described_class.new(config: Saboteur::Config.new({}, root: root)).snapshot
