@@ -295,51 +295,18 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Canary#git?",
              reason: "equivalent: replacing the git binary probe with the directory check only differs when git is absent, and saboteur requires git for diffs and baselines"
 
-  i.mutation "6ba9cb656ccf49db",
-             subject: "Saboteur::Engine::Canary#git?",
-             reason: "equivalent: a tree without .git still reaches walk_files through the ls-files failure fallback, so || picks the same inventory"
 
-  i.mutation "27639ba1ebb81ed5",
-             subject: "Saboteur::Engine::Canary#git?",
-             reason: "equivalent: both operands are pure booleans here, and a non-repository still falls back to walk_files, so the result is unchanged"
 
-  i.mutation "4398bed4d0083a82",
-             subject: "Saboteur::Engine::Canary#git_tracked_files",
-             reason: "equivalent: a broken symlink is excluded by both predicates, and snapshot and inventory apply the same filter, so no false or missed trip results"
 
-  i.mutation "88f243e1da309823",
-             subject: "Saboteur::Engine::Canary#git_tracked_files",
-             reason: "equivalent: File.exist? and File.symlink? are pure predicates, so | returns the same boolean as ||"
 
-  i.mutation "1f53c644ec72fd38",
-             subject: "Saboteur::Engine::Canary#git_tracked_files",
-             reason: "equivalent: File.exist? and File.symlink? are pure predicates, so | returns the same boolean as ||"
 
-  i.mutation "26e8ccdb462f67ea",
-             subject: "Saboteur::Engine::Canary#walk_files",
-             reason: "equivalent: walk_files only yields regular files and .git is a directory in a normal tree, so the == operand never fires; .git presence is watched by the separate marker"
 
-  i.mutation "4fce376bc3a2613c",
-             subject: "Saboteur::Engine::Canary#walk_files",
-             reason: "equivalent: walk_files only yields regular files and .git is a directory in a normal tree, so dropping the == operand changes nothing; .git presence is watched by the separate marker"
 
   i.mutation "d68346ea9d02b690",
              subject: "Saboteur::Engine::Canary#walk_files",
              reason: "equivalent: the reject operands are pure predicates, so | returns the same boolean as ||"
 
-  i.mutation "a2b6f9588ceded25",
-             subject: "Saboteur::Engine::Canary#cache_path?",
-             reason: "equivalent: the cache path is a directory, so its entries are caught by the start_with? operand and the == operand can only fire on a file named exactly like it"
 
-  i.mutation "6341a5361b0922b9",
-             subject: "Saboteur::Engine::Canary#cache_path?",
-             reason: "equivalent: the cache path is a directory, so dropping the == operand still rejects every cache entry via start_with?"
 
-  i.mutation "02dc2cc5078ca348",
-             subject: "Saboteur::MutationSource::HazardGuard#partition",
-             reason: "equivalent: with no hazard spans the fall-through partition keeps every candidate as well, since hazardous_edit? finds no span to intersect; the guard clause is only a fast path"
 
-  i.mutation "b6a1b99a25c80aac",
-             subject: "Saboteur::MutationSource::HazardGuard#hazard_spans",
-             reason: "equivalent: the stack is seeded with the subject node and extended with compact_child_nodes, which never contains nil, so the nil guard never fires"
 end
