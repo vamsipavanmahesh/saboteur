@@ -7,11 +7,10 @@ module Saboteur
     # unit of work parallel workers will share out.
     #
     # Order of business: skip what cannot be run (refinements, not loaded,
-    # shadowed, no covering test); coarse mutants; fine mutants only if no
-    # coarse mutant survived; then check every kill and timeout against the
-    # unchanged method (VerdictCheck). Each mutant runs only the tests that
-    # executed its edit, likeliest killers first, with a timeout from those
-    # tests' recorded durations.
+    # shadowed, no covering test); coarse mutants; all eligible fine mutants;
+    # then check every kill and timeout against the unchanged method
+    # (VerdictCheck). Each mutant runs only the tests that executed its edit,
+    # likeliest killers first, with a timeout from their recorded durations.
     class Scheduler
       # A subject to run, with what its mutants need. killers counts the
       # tests that killed earlier mutants of this subject; slowdown is how
@@ -45,7 +44,7 @@ module Saboteur
         reused = all_reused(plan, candidates)
         return reused if reused
 
-        results = run_candidates(plan, candidates) do |mutation, text|
+        results = run_candidates(candidates) do |mutation, text|
           reuse(plan, mutation, text) || execute(plan, mutation, text)
         end
         checked(subject, results)
@@ -86,21 +85,13 @@ module Saboteur
         return nil unless @cache
 
         catch(:must_run) do
-          run_candidates(plan, candidates) { |mutation, text| reuse(plan, mutation, text) || throw(:must_run) }
+          run_candidates(candidates) { |mutation, text| reuse(plan, mutation, text) || throw(:must_run) }
         end
       end
 
-      def run_candidates(plan, candidates, &run_one)
+      def run_candidates(candidates, &run_one)
         coarse, fine = candidates.partition { |mutation, _| mutation.coarse }
         results = coarse.map { |mutation, text| run_one.call(mutation, text) }
-        # A surviving coarse mutant means nothing checks the body, so the fine
-        # mutants would only add noise. Not so when a rescue or else can
-        # return a value of its own: fine mutants that make the body raise
-        # can still be caught.
-        if results.any?(&:survived?) && !plan.subject.recovers?
-          return results + skip_all(fine, plan.subject, "coarse mutant survived", covered_by: plan.tests)
-        end
-
         results + fine.map { |mutation, text| run_one.call(mutation, text) }
       end
 

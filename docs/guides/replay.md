@@ -15,8 +15,7 @@ changed-line restriction for fine mutants and retains coarse mutants. Prefixes, 
 digests are errors (exit 2). Changed source or mutation-source config can make an
 old digest unavailable.
 
-Replay bypasses the per-method cap, coarse-survivor gating, incremental verdict
-reuse and the ignore list. It runs that mutant with its coverage-selected tests,
+Replay bypasses the per-method cap, incremental verdict reuse and the ignore list. It runs that mutant with its coverage-selected tests,
 using the normal timeout and unchanged-method verdict checks. A coverage build
 may run the whole suite first; those baseline checks are not extra mutants.
 Test ordering starts from the coverage map rather than earlier mutants' killer

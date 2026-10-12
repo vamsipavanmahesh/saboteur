@@ -81,12 +81,14 @@ line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
 run. A change no test reaches is reported as "no coverage", not as a survivor.
 
-**It does not waste time on dead ends.** Each method first gets whole-body
-mutants (`nil` and `raise`, or `true`/`false` for predicates; a few methods,
-such as some that rescue or log, get none). If your suite does not notice
-that, saboteur says so and skips the fine-grained mutants for that method. Subjects with no tests
-are skipped before any mutants are generated, and each method is capped at
-`max_mutants_per_method` mutants (100 by default).
+**It runs coarse mutants first, then fine mutants.** Each method first gets
+whole-body mutants (`nil` and `raise`, or `true`/`false` for predicates; a few
+methods, such as some that rescue or log, get none). Fine-grained mutants run
+regardless of the coarse verdict, including a survivor or a reused verdict.
+Deleting a body unnoticed does not prove its smaller changes are harmless.
+Subjects with no tests are skipped before any mutants are generated, and each
+method is capped at `max_mutants_per_method` mutants (100 by default). Running
+fine mutants after coarse survivors can increase run time and change scores.
 
 **It prepares memory before it forks.** Before workers fork, saboteur warms and
 compacts the Ruby heap ([`ForkReadiness`](lib/saboteur/execution/fork_readiness.rb)),
