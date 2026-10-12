@@ -85,13 +85,6 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     let(:results) { [] }
 
     before do
-      # Keep mocked counters off the real API used by an outer dogfood recorder.
-      fake_coverage = Module.new
-      fake_coverage.define_singleton_method(:result) { |**| {} }
-      fake_coverage.define_singleton_method(:running?) { false }
-      fake_coverage.define_singleton_method(:suspend) { nil }
-      fake_coverage.define_singleton_method(:resume) { nil }
-      stub_const("Coverage", fake_coverage)
       queue = results
       allow(Coverage).to receive(:result).with(stop: false, clear: true) { queue.shift || {} }
       # Never touch the real Coverage: when saboteur measures its own suite,
