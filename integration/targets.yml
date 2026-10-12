@@ -15,8 +15,8 @@ dry-inflector:
   config: integration/configs/dry-inflector.yml
   schedule: pr
   expect:
-    class_eval: { killed: 517, survived: 23, timeout: 0, error: 9, skipped: 0 }
-    nesting: { killed: 525, survived: 24, timeout: 0, error: 0, skipped: 0 }
+    class_eval: { killed: 519, survived: 23, timeout: 0, error: 9, skipped: 0 }
+    nesting: { killed: 527, survived: 24, timeout: 0, error: 0, skipped: 0 }
 tty-color:
   repo: https://github.com/piotrmurach/tty-color.git
   commit: e2410967c13e0d3e2297456db22495cb246b22f5
@@ -24,10 +24,10 @@ tty-color:
   config: integration/configs/tty-color.yml
   schedule: pr
   expect:
-    # class_eval: killed + error is 147 after argument removal. Their split
+    # class_eval: killed + error is 149 after argument and pair removal. Their split
     # can vary by run (historical baseline 59/68 to 69/58), so only the sum
     # is checked. Cause open: docs/status.md.
-    class_eval: { killed+error: 147, survived: 9, timeout: 0, skipped: 4 }
+    class_eval: { killed+error: 149, survived: 11, timeout: 0, skipped: 4 }
     # macOS literal expansion has not been measured. Keep the historical
     # baseline here until a macOS run supplies a replacement snapshot.
     nesting: { killed: 118, survived: 16, timeout: 0, error: 0, skipped: 2 }
@@ -35,7 +35,7 @@ tty-color:
   # terminal?) take different paths in tty-color's own tests on Linux CI.
   expect_on:
     linux:
-      nesting: { killed: 134, survived: 22, skipped: 4 }
+      nesting: { killed: 136, survived: 24, skipped: 4 }
   # class_eval: spec/unit/mode_spec.rb[1:3] kills most Mode mutants with a
   # test that also fails with the method unchanged ("uninitialized constant
   # TTY::Color::Mode::NoValue"), so over half the mutants error on every
