@@ -28,10 +28,11 @@ RSpec.describe Saboteur::CLI, "agent mode in this process" do
     Open3.capture2e("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: root)
   end
 
-  def repository(config: "{}\n")
+  def repository(config: "")
     FileUtils.mkdir_p(File.join(root, "lib"))
     File.write(File.join(root, "lib", "a.rb"), "class A; end\n")
-    File.write(File.join(root, ".saboteur.yml"), config)
+    FileUtils.mkdir_p(File.join(root, "config"))
+    File.write(File.join(root, "config", "saboteur.rb"), config)
     git("init", "-q")
     git("add", ".")
     git("commit", "-q", "-m", "first")
@@ -53,7 +54,7 @@ RSpec.describe Saboteur::CLI, "agent mode in this process" do
     end
 
     it "takes the ref and the diff mode from the effective config" do
-      File.write(File.join(root, ".saboteur.yml"), "since: HEAD\n")
+      File.write(File.join(root, "config", "saboteur.rb"), "Saboteur.configure { |c| c.since = \"HEAD\" }\n")
       git("commit", "-q", "-am", "config")
       provenance = run_in_repository("run", "--agent")["provenance"]
       expect(provenance).to include("mode" => "diff", "ref" => "HEAD")
