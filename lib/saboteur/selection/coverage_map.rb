@@ -42,8 +42,6 @@ module Saboteur
         tests_for_lines(subject.file, subject.coverage_lines)
       end
 
-      # True when the code on these lines ran while the app loaded and no
-      # test ever ran it. A line a test later hit is ordinary coverage, so
       # A copy with the parent's load lines attached: the forked build child
       # cannot inherit the parent's Coverage counters, so the engine reads
       # them after boot and the store merges them into the built map here.
@@ -52,7 +50,7 @@ module Saboteur
                        load_lines: load_lines)
       end
 
-      # lines and load_lines may overlap; the test wins.
+      # True when a requested line ran at load but no test later hit it.
       def ran_at_load?(file, line_numbers)
         at_load = load_lines[CoverageMap.canonical(file)]
         return false unless at_load
