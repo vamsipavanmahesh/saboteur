@@ -131,7 +131,13 @@ module Saboteur
         drain(worker, results)
         retire(worker, workers)
         reason = worker.last_words || "worker #{worker.number} died#{how(worker.status)}"
-        results[worker.current] = { "error" => "#{reason}, running this item" } if worker.current
+        if worker.current
+          # The synthetic error row takes the same arrival path as a normal
+          # result, so the canary still trips when the dead worker damaged
+          # the tree before dying (issue #102).
+          results[worker.current] = { "error" => "#{reason}, running this item" }
+          @on_result&.call(worker.current, results[worker.current])
+        end
         give_up(reason) if worker.done.zero?
         return if queue.empty?
 
