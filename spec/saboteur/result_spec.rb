@@ -11,7 +11,8 @@ RSpec.describe Saboteur::Report do
   end
 
   it "counts every status separately" do
-    expect(report.counts).to eq(killed: 2, survived: 1, timeout: 1, resource_limit: 0, error: 1, skipped: 1)
+    expect(report.counts).to eq(killed: 2, survived: 1, timeout: 1, resource_limit: 0, error: 1,
+                                skipped: 1, ran_at_load: 0, unreachable: 0)
   end
 
   it "scores (killed + timeout) / (killed + survived + timeout), leaving errors and skips out" do
