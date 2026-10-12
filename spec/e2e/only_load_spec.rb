@@ -11,7 +11,9 @@ RSpec.describe "only load-time method calls", :e2e do
       "BootValues.called" => Saboteur::Selection::CoverageMap::RAN_AT_LOAD,
       "BootValues.uncalled" => "no coverage",
       "BootValues.endless_called" => Saboteur::Selection::CoverageMap::RAN_AT_LOAD,
-      "BootValues.endless_uncalled" => "no coverage"
+      "BootValues.endless_uncalled" => "no coverage",
+      "BootValues.shared_called" => "no coverage",
+      "BootValues.shared_uncalled" => "no coverage"
     )
   end
 
