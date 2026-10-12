@@ -24,6 +24,17 @@ RSpec.describe Saboteur::Reporter::Terminal do
     )
   end
 
+  it "lists ran-at-load and unreachable mutants apart, out of the score" do
+    text = render(report_of(result_for(:killed),
+                            result_for(:ran_at_load, reason: Saboteur::Selection::CoverageMap::RAN_AT_LOAD),
+                            result_for(:unreachable, reason: "a captured Method still calls the original")))
+    expect(text).to include(
+      "killed 1  survived 0  timeout 0  resource limit 0  error 0  skipped 0  ran at load 1  unreachable 1",
+      "Ran at load (out of the score):", "Unreachable (out of the score):",
+      "hint: ran at load:", "score 100.0 %"
+    )
+  end
+
   it "lists errors separately and does not call them killed" do
     text = render(report_of(result_for(:error, reason: "child killed by signal 9 during tests")))
     expect(text).to include("killed 0", "error 1", "Errors (not counted as killed):", "signal 9")
