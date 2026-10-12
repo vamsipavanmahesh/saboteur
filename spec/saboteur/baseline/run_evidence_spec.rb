@@ -48,6 +48,28 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
     expect(captured.fetch("candidates")).to be_frozen
   end
 
+  it "normalizes symlinked checkout paths for subjects, edits and missing discovery files" do
+    subject
+    Dir.mktmpdir do |parent|
+      link = File.join(parent, "checkout")
+      File.symlink(@root, link)
+      linked = Saboteur::SubjectFinder.new.call(File.join(link, "probe.rb")).subjects.first
+      linked_mutation = mutation.with(subject_id: linked.id)
+      fresh = described_class.new(config: Saboteur::Config.new({}, root: link))
+      fresh.plan([linked], [[[linked_mutation, subject.apply(mutation.edits)]]])
+      linked_result = Saboteur::MutantResult.new(subject: linked, mutation: linked_mutation,
+                                                 status: :survived, mutated_source: subject.apply(mutation.edits))
+      failure = Saboteur::Engine::Diagnostics::DiscoveryFailure.new(
+        file: File.join(link, "missing.rb"), reason: "invalid_file_syntax"
+      )
+      captured = fresh.finish(results: [linked_result], stable_suite: true, skipped_subjects: {},
+                              generation_events: [], omissions: [], discovery_failures: [failure])
+      expect(captured.fetch("subjects")).to eq([["probe.rb", "Probe#value"]])
+      expect(captured.fetch("planned").first.fetch("identity")[1]).to eq("probe.rb")
+      expect(captured.fetch("issues")).to eq(["generation:discovery:invalid_file_syntax:missing.rb"])
+    end
+  end
+
   it "retains and blocks typed discovery failure independently of valid generated work" do
     evidence.plan([subject], [[[mutation, subject.apply(mutation.edits)]]])
     failure = Saboteur::Engine::Diagnostics::DiscoveryFailure.new(
