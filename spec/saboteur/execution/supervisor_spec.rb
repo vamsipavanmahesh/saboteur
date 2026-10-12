@@ -44,6 +44,48 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect([result.payload, result.stopped_by, result.exit_status.exitstatus]).to eq(["hello", nil, 0])
   end
 
+  # The child closes its pipe (EOF) a moment before it finishes exiting, as a
+  # real suite does when at_exit handlers run. The supervisor must wait for
+  # that exit instead of SIGKILLing a child that already reported.
+  it "lets a child that already delivered its result finish exiting" do
+    result = supervisor.run(timeout: 5) do |writer|
+      writer.write("done")
+      writer.close
+      sleep 0.3
+    end
+    expect(result.payload).to eq("done")
+    expect(result.exit_status).to be_success
+    expect(result.supervisor_killed).to be(false)
+  end
+
+  it "keeps the payload and reports its own kill when the child never exits after EOF" do
+    stub_const("#{described_class}::POST_EOF_GRACE", 0.3)
+    result = supervisor.run(timeout: 10) do |writer|
+      writer.write("done")
+      writer.close
+      sleep 30
+    end
+    expect(result.payload).to eq("done")
+    expect(result.supervisor_killed).to be(true)
+    expect(result.exit_status.termsig).to eq(Signal.list.fetch("KILL"))
+  end
+
+  it "does not mark a child that died by itself as killed by the supervisor" do
+    result = supervisor.run(timeout: 5) do |writer|
+      writer.write("partial")
+      writer.close
+      Process.kill("KILL", Process.pid)
+      sleep
+    end
+    expect(result.supervisor_killed).to be(false)
+    expect(result.exit_status.termsig).to eq(Signal.list.fetch("KILL"))
+  end
+
+  it "reports memory pressure only when the tree grew toward the limit" do
+    quiet = supervisor.run(timeout: 5) { |writer| writer.write("ok") }
+    expect(quiet.memory_pressure).to be(false)
+  end
+
   it "calls on_tick from the parent's wait loop while the child runs" do
     ticks = 0
     result = supervisor.run(timeout: 5, on_tick: -> { ticks += 1 }) do |writer|
