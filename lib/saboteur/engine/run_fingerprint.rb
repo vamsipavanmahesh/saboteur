@@ -181,6 +181,8 @@ module Saboteur
       def output_overlap_issues
         paths = required_files.map(&:first) + MANIFESTS.map { |name| File.join(@root, name) } +
                 DataInputs.files(@root, extra: @config["fingerprint_extra"])
+        # Compare physical boundaries without changing declared inventory identities.
+        paths = paths.map { |path| canonical_path(path) }.uniq
         outputs = %w[json_report html_report].filter_map { |key| @config.fetch(key) }
                                              .map { |path| canonical_path(path) }
         issues = outputs.filter_map do |path|

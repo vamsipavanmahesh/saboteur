@@ -29,6 +29,10 @@ fail?" for many small breakages and lists the ones nobody noticed. Read the
 [design notes](docs/design.md) when you want the details. For adopting it on a team, see the
 [best practices guide](docs/best-practices.md).
 
+Declared external inputs are checked against cache and report paths using their
+physical paths, including aliased parent directories. An overlap makes the run
+fingerprint incomplete, so it cannot authorize cache reuse.
+
 ### The unchanged suite is checked first
 
 Every run with selected subjects runs the loaded unchanged suite twice (the specs chosen with `--test`, if given) in fresh
