@@ -86,6 +86,107 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect(quiet.memory_pressure).to be(false)
   end
 
+  # The grace wait ends with the child "still running", then the child ends
+  # on its own before the supervisor acts. Its real cause of death must
+  # survive: stubbing the wait makes the window deterministic.
+  context "when the child ends by itself right after the grace wait gave up" do
+    before do
+      allow(supervisor).to receive(:await_exit) do |*|
+        sleep 0.8
+        [nil, nil, nil, true]
+      end
+    end
+
+    it "keeps a non-zero exit and does not blame the supervisor" do
+      result = supervisor.run(timeout: 10) do |writer|
+        writer.write("done")
+        writer.close
+        sleep 0.2
+        exit!(7)
+      end
+      expect(result.exit_status.exitstatus).to eq(7)
+      expect(result.supervisor_killed).to be(false)
+      expect(result.child_failed?).to be(true)
+    end
+
+    it "keeps an external SIGKILL and does not blame the supervisor" do
+      result = supervisor.run(timeout: 10) do |writer|
+        writer.write("done")
+        writer.close
+        sleep 0.2
+        Process.kill("KILL", Process.pid)
+        sleep
+      end
+      expect(result.exit_status.termsig).to eq(Signal.list.fetch("KILL"))
+      expect(result.supervisor_killed).to be(false)
+      expect(result.child_failed?).to be(true)
+    end
+
+    it "blames the supervisor only for a child it saw alive and then killed" do
+      result = supervisor.run(timeout: 10) do |writer|
+        writer.write("done")
+        writer.close
+        sleep 30
+      end
+      expect(result.supervisor_killed).to be(true)
+      expect(result.child_failed?).to be(false)
+    end
+  end
+
+  context "while waiting for a child that already reported" do
+    let(:limits) { described_class::Limits.new(max_memory_mb: 2048, max_processes: 3) }
+
+    it "still enforces the process cap and reports the stop" do
+      stub_const("#{described_class}::POST_EOF_GRACE", 10)
+      result = supervisor.run(timeout: 20) do |writer|
+        writer.write("done")
+        writer.close
+        pids = Array.new(8) { fork { sleep 30 } }
+        File.write(pid_file("forks"), pids.join(","))
+        sleep 30
+      end
+      expect(result.payload).to eq("done")
+      expect(result.stopped_by).to eq(:processes)
+      expect(result.runtime).to be < 8
+    end
+
+    it "keeps calling on_tick" do
+      stub_const("#{described_class}::POST_EOF_GRACE", 1.5)
+      ticks = 0
+      supervisor.run(timeout: 20, on_tick: -> { ticks += 1 }) do |writer|
+        writer.write("done")
+        writer.close
+        sleep 30
+      end
+      expect(ticks).to be >= 1
+    end
+
+    it "still reports a timeout that falls inside the grace window" do
+      stub_const("#{described_class}::POST_EOF_GRACE", 30)
+      result = supervisor.run(timeout: 1) do |writer|
+        writer.write("done")
+        writer.close
+        sleep 30
+      end
+      expect(result.stopped_by).to eq(:timeout)
+    end
+
+    it "kills and reaps the child when on_tick raises during the grace window" do
+      stub_const("#{described_class}::POST_EOF_GRACE", 10)
+      pid_path = pid_file("child")
+      on_tick = -> { raise Errno::EPIPE, "broken pipe" if File.exist?(pid_path) }
+      expect do
+        supervisor.run(timeout: 30, on_tick: on_tick) do |writer|
+          writer.write("done")
+          writer.close
+          File.write(pid_path, Process.pid)
+          sleep 30
+        end
+      end.to raise_error(Errno::EPIPE)
+      expect(dead_within?(File.read(pid_path).to_i, 5)).to be(true)
+    end
+  end
+
   it "calls on_tick from the parent's wait loop while the child runs" do
     ticks = 0
     result = supervisor.run(timeout: 5, on_tick: -> { ticks += 1 }) do |writer|
