@@ -90,8 +90,12 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     expect(engine.send(:capture_load_lines, [file])).to eq(file => [1, 3, 4])
   end
 
-  it "does not discard a shared line if any method defined there ran" do
+  it "discards an ambiguous shared line when a sibling method was never called" do
     data = { methods: { [Object, :unused, 1, 0, 1, 10] => 0, [Object, :used, 1, 12, 1, 20] => 1 } }
+    expect(engine.send(:uncalled_shared_lines, data)).to eq([1])
+  end
+  it "retains a shared line only when every method defined there was called" do
+    data = { methods: { [Object, :first, 1, 0, 1, 10] => 1, [Object, :second, 1, 12, 1, 20] => 2 } }
     expect(engine.send(:uncalled_shared_lines, data)).to eq([])
   end
 end
