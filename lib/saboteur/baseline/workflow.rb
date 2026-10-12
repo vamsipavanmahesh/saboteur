@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require_relative "acceptance"
+require_relative "comparison"
+require_relative "../engine"
+
+module Saboteur
+  module Baseline
+    # Opt-in orchestration: every check/proposal runs fresh; acceptance only
+    # edits reasons after verifying private execution evidence and current inputs.
+    class Workflow
+      def initialize(config:, err: $stderr)
+        @config = config
+        @err = err
+        @root = File.realpath(config.root)
+        raise ConfigError, "baseline requires fresh whole or subject scope" if config["since"] || config["incremental"]
+        raise ConfigError, "baseline cannot use a score threshold" if config["threshold"]
+      end
+
+      def check(path:)
+        baseline = load_manifest(path)
+        report = Engine.new(@config, err: @err, capture_evidence: true, evidence_files: [path]).call
+        current = report.run_evidence
+        Evidence.new(current) if current["complete"] == true
+        # An incomplete producer report is useful for diagnosis, never acceptance.
+        comparison = Comparison.new(baseline: { "compatibility" => baseline.compatibility,
+                                                "accepted" => baseline.accepted.values }, current: current)
+        { "state" => comparison.state, "exit_code" => comparison.exit_code,
+          "categories" => comparison.categories, "issues" => comparison.issues }
+      end
+
+      def propose(proposal:, destination:, previous: nil)
+        guard_artifacts(proposal, destination)
+        report = Engine.new(@config, err: @err, capture_evidence: true).call
+        captured = Evidence.new(report.run_evidence)
+        store(captured.document.fetch("snapshot")).propose(document: captured.manifest,
+                                                           evidence: captured.document, proposal: proposal,
+                                                           destination: destination, previous: previous)
+        { "state" => "proposal", "proposal" => File.expand_path(proposal),
+          "destination" => File.expand_path(destination),
+          "survivors" => captured.manifest.fetch("accepted").size }
+      end
+
+      def accept(proposal:, destination:, previous: nil)
+        guard_artifacts(proposal, destination)
+        # The store reads and binds the private record; verifier uses its recorded snapshot.
+        accepted = store(nil).accept(proposal: proposal, destination: destination, previous: previous)
+        { "state" => "accepted", "destination" => accepted }
+      end
+
+      private
+
+      def load_manifest(path)
+        raise ConfigError, "baseline file too large" if File.size(path) > Acceptance::MAX_BYTES
+
+        manifest = Manifest.new(JSON.parse(File.read(path)))
+        Engine::RunFingerprint.restore_snapshot(manifest.to_h.fetch("metadata").fetch("snapshot"))
+        manifest
+      rescue SystemCallError, JSON::ParserError, ArgumentError => e
+        raise ConfigError, "baseline file: #{e.message}"
+      end
+
+      def store(snapshot)
+        captured = snapshot && Engine::RunFingerprint.restore_snapshot(snapshot)
+        protected = input_paths(captured || Engine::RunFingerprint.new(config: @config).snapshot)
+        verifier = lambda do |metadata|
+          saved = Engine::RunFingerprint.restore_snapshot(metadata.fetch("snapshot"))
+          extras = saved.inventory.select { |entry| entry.kind == "extra" }.map do |entry|
+            { path: input_path(entry.path), required: entry.required }
+          end
+          Engine::RunFingerprint.new(config: @config, extra_files: extras).verify(saved).unchanged
+        end
+        Acceptance.new(directory: File.join(@config.path("cache_dir"), "baseline-evidence"),
+                       protected_paths: protected, verify: verifier, require_evidence: true)
+      end
+
+      def input_paths(snapshot)
+        snapshot.inventory.map { |entry| input_path(entry.path) }
+      end
+
+      def input_path(path)
+        path.start_with?("external:") ? path.delete_prefix("external:") : File.join(@root, path)
+      end
+
+      def guard_artifacts(*paths)
+        paths.each do |path|
+          expanded = Identity.canonical_path(path)
+          next unless expanded.end_with?(".rb") || Engine::DataInputs.match?(@root, expanded,
+                                                                             extra: @config["fingerprint_extra"]) ||
+                      Engine::RunFingerprint::MANIFESTS.any? { |name| expanded == File.join(@root, name) }
+
+          raise ConfigError, "baseline artifact overlaps project input: #{path}"
+        end
+      end
+    end
+  end
+end
