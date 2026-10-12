@@ -396,24 +396,26 @@ One interface (`Saboteur::Integration::Base`): `setup`, `all_tests`,
 
 ## 10. Config, CLI, output
 
-`.saboteur.yml`, overridden by CLI flags:
+`config/saboteur.rb`, overridden by CLI flags:
 
-```yaml
-integration: rspec
-require: [./config/environment]   # boot files
-include: [lib/**/*.rb, app/**/*.rb]
-exclude: [lib/**/version.rb]
-arid: ['\A(puts|pp|p|print|warn)\b', '\blogger\.']
-timeout_factor: 3
-timeout_min: 5
-jobs: 1
-ignore_file: .saboteur-ignore.yml
-sources: [builtin]                 # or path.rb:ClassName for external sources
-reeval: nesting                    # or class_eval (see 6.1)
-max_memory_mb: 2048                # growth cap per mutant process tree
-max_processes: 64                  # process cap per mutant tree
-coverage_timeout: 3600             # seconds for the coverage-map build
-baseline_timeout: 300              # seconds for each verdict-check run
+```ruby
+Saboteur.configure do |c|
+  c.integration = "rspec"
+  c.require = ["./config/environment"]   # boot files
+  c.include = ["lib/**/*.rb", "app/**/*.rb"]
+  c.exclude = ["lib/**/version.rb"]
+  c.arid = ['\\A(puts|pp|p|print|warn)\\b', '\\blogger\\.']
+  c.timeout_factor = 3
+  c.timeout_min = 5
+  c.jobs = 1
+  c.ignore_file = "config/saboteur_ignore.rb"
+  c.sources = ["builtin"]                # or "path.rb:ClassName" for external sources
+  c.reeval = "class_eval"                # or "nesting" (see 6.1)
+  c.max_memory_mb = 2048                 # growth cap per mutant process tree
+  c.max_processes = 64                   # process cap per mutant tree
+  c.coverage_timeout = 3600              # seconds for the coverage-map build
+  c.baseline_timeout = 300               # seconds for each verdict-check run
+end
 ```
 
 This is a sample, not the full key list. `saboteur help` prints every command,
