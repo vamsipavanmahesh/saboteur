@@ -92,6 +92,92 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
     end
   end
 
+  it "rejects missing, repeated and dimensionally inconsistent plans" do
+    expect do
+      evidence.finish(results: [], stable_suite: true, skipped_subjects: {}, generation_events: [], omissions: [])
+    end.to raise_error(Saboteur::ConfigError, "baseline plan missing")
+    expect { evidence.plan([subject], []) }.to raise_error(Saboteur::ConfigError,
+                                                           "baseline candidate lists differ from subjects")
+    evidence.plan([subject], [[]])
+    expect { evidence.plan([subject], [[]]) }.to raise_error(Saboteur::ConfigError, "baseline plan already recorded")
+  end
+
+  it "pins compatibility, planned identity and outcome fields without hiding report destinations" do
+    captured = finish
+    metadata = captured.fetch("compatibility")
+    expect(metadata.keys).to contain_exactly("generator", "runtime", "config", "scope")
+    expect(metadata.fetch("generator")).to eq("saboteur" => Saboteur::VERSION, "sources" => ["builtin"],
+                                              "plugins" => [])
+    expect(metadata.fetch("runtime")).to eq(Saboteur::Engine::RunFingerprint.canonical_value(
+                                              Saboteur::Engine::RunFingerprint.runtime_identity
+                                            ))
+    expect(metadata.fetch("config")).to eq(Saboteur::Engine::RunFingerprint.canonical_value(
+                                             config.to_h.except("cache_dir", "json_report", "html_report")
+                                           ))
+    expect(metadata.fetch("scope")).to eq("include" => config["include"], "exclude" => config["exclude"],
+                                          "subjects" => config["subjects"])
+    identity = Saboteur::Baseline::Identity.new(subject: subject, mutation: mutation, root: @root).entry
+    expect(captured.fetch("subjects")).to eq([["probe.rb", "Probe#value"]])
+    expect(captured.fetch("planned")).to eq([identity])
+    expect(captured.fetch("candidates")).to eq([identity.merge("status" => "survived", "kill_cause" => nil)])
+    expect(captured.fetch("snapshot").keys).to contain_exactly("format_version", "digest", "inventory",
+                                                               "settings_digest", "runtime_digest",
+                                                               "complete", "issues")
+    expect(captured.fetch("generation_events")).to be_empty
+    expect(captured.fetch("omissions")).to be_empty
+  end
+
+  it "tracks an explicit external evidence input and detects its edits" do
+    subject
+    Dir.mktmpdir do |outside|
+      path = File.join(outside, "data.txt")
+      File.write(path, "before")
+      fresh = described_class.new(config: config, extra_files: [path])
+      fresh.plan([subject], [[[mutation, subject.apply(mutation.edits)]]])
+      File.write(path, "after")
+      captured = fresh.finish(results: [result], stable_suite: true, skipped_subjects: {},
+                              generation_events: [], omissions: [])
+      expect(captured.fetch("issues")).to include("inputs_unverified")
+    end
+  end
+
+  it "rejects a selected subject outside the checkout" do
+    outside = subjects_in("class Outside; def value; 1; end; end").first
+    expect { evidence.plan([outside], [[]]) }.to raise_error(Saboteur::ConfigError,
+                                                             "baseline subject outside project root")
+  end
+
+  it "blocks changed subject context even when the local mutation identity remains equal" do
+    evidence.plan([subject], [[[mutation, subject.apply(mutation.edits)]]])
+    allow(subject).to receive(:source).and_return("changed subject context")
+    captured = evidence.finish(results: [result], stable_suite: true, skipped_subjects: {},
+                               generation_events: [], omissions: [])
+    id = captured.fetch("planned").first.fetch("id")
+    expect(captured.fetch("issues")).to include("generation:changed_context:#{id}")
+    expect(captured.fetch("complete")).to be(false)
+  end
+
+  it "pins the external generator input hash as compatibility, not ordinary Ruby files" do
+    subject
+    plugin = File.join(@root, "plugin.rb")
+    File.write(plugin, "class Plugin; end")
+    custom_config = Saboteur::Config.new({ "sources" => ["plugin.rb:Plugin"] }, root: @root)
+    fresh = described_class.new(config: custom_config)
+    fresh.plan([subject], [[[mutation, subject.apply(mutation.edits)]]])
+    captured = fresh.finish(results: [result], stable_suite: true, skipped_subjects: {},
+                            generation_events: [], omissions: [])
+    expected = { "path" => "plugin.rb", "kind" => "source_plugin", "state" => "present",
+                 "sha256" => Digest::SHA256.file(plugin).hexdigest, "required" => true }
+    expect(captured.fetch("compatibility").fetch("generator").fetch("plugins")).to eq([expected])
+  end
+
+  it "reports an unexpected result without requiring it to have a planned context" do
+    evidence.plan([subject], [[]])
+    captured = evidence.finish(results: [result], stable_suite: true, skipped_subjects: {},
+                               generation_events: [], omissions: [])
+    expect(captured.fetch("issues").any? { |issue| issue.start_with?("unexpected_result:") }).to be(true)
+  end
+
   it "blocks input changes after capture" do
     evidence
     File.write(File.join(@root, "new.rb"), "changed")
