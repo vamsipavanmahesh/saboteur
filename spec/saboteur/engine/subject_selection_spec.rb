@@ -69,6 +69,16 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(select([changed, untouched], since: "HEAD").map(&:id)).to eq(["Shop::Cart#total"])
   end
 
+  it "records discovery failure only for the malformed member of a mixed file set" do
+    broken = write("broken.rb", "class X; def ( ; end")
+    valid = write("cart.rb", source)
+    expect(select([broken, valid]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
+    expect(diagnostics.discovery_failures.map(&:to_h)).to eq([
+                                                               { file: broken, reason: "invalid_file_syntax" }
+                                                             ])
+    expect(diagnostics.warnings.size).to eq(1)
+  end
+
   it "reports only the first parse error of a file" do
     select([write("broken.rb", "class X\n  def (\n  def )\nend\n")])
     expect(diagnostics.warnings.size).to eq(1)
