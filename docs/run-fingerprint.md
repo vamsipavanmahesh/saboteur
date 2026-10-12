@@ -55,7 +55,7 @@ Inputs must stay immutable throughout loading and execution. Snapshot-then-verif
 detects observed drift, not a transaction over the application filesystem.
 
 For optional absent config files, `extra_files` accepts
-`{ path: ".saboteur.yml", required: false }`. The missing marker is hashed and
+`{ path: "config/saboteur_custom_map.rb", required: false }`. The missing marker is hashed and
 its later creation changes identity. A plain path remains required. Serialize with
 `Snapshot#to_h` (JSON-safe nested entries), and reconstruct with
 `RunFingerprint.restore_snapshot(JSON.parse(bytes))`. Restore validates types,
