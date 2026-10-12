@@ -39,6 +39,33 @@ RSpec.describe Saboteur::MutationSource::HazardGuard do
     expect(suppressed).not_to be_empty
   end
 
+  it "keeps mutants on benign explicit-receiver calls that share a hazard name" do
+    kept, suppressed, = partition('    helper.system("make clean")')
+    expect(suppressed).to be_empty
+    expect(kept).to include("literal_string")
+  end
+
+  it "keeps mutants on Kernel calls outside the hazard list" do
+    kept, suppressed, = partition('    Kernel.puts("make clean")')
+    expect(suppressed).to be_empty
+    expect(kept).to include("literal_string")
+  end
+
+  it "does not treat an interpolated open with a dynamic first part as a pipe spawn" do
+    _kept, suppressed, = partition(%{    open("#{name}|ls")})
+    expect(suppressed).to be_empty
+  end
+
+  it "keeps every mutant on a clean subject, even one whose replacement does not parse alone" do
+    subject = subjects_in("class K\n  def m\n    1 + 2\n  end\nend\n").first
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: subject.file_source.index("1"),
+                                              end_byte: subject.file_source.index("1") + 1, replacement: " | ")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
+    kept, suppressed = described_class.new.partition([[mutation, nil]], subject)
+    expect(suppressed).to be_empty
+    expect(kept).to eq([[mutation, nil]])
+  end
+
   it "treats backticks/%x literals as hazardous spans" do
     source = "class K\n  def m\n    `ls -la`\n  end\nend\n"
     subject = subjects_in(source).first
