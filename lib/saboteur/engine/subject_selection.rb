@@ -34,6 +34,7 @@ module Saboteur
         finder = SubjectFinder.new
         files.flat_map do |file|
           parsed = finder.call(file)
+          @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax") unless parsed.errors.empty?
           parsed.errors.first(1).each do |message|
             @diagnostics.warn("#{file.delete_prefix("#{@root}/")} does not parse: #{message}")
           end
