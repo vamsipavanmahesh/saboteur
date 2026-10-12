@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require_relative "workflow"
+
+module Saboteur
+  module Baseline
+    module Command
+      def baseline_parser
+        OptionParser.new do |opts|
+          opts.banner = "Usage: saboteur baseline check|propose|accept --baseline PATH [--proposal PATH]"
+          opts.on("--baseline PATH", "Accepted baseline destination") { |value| @baseline_path = value }
+          opts.on("--proposal PATH", "Editable proposal path (propose/accept)") { |value| @proposal_path = value }
+          opts.on("--previous SHA256", "Reviewed current destination hash for replacement") do |value|
+            @previous = value
+          end
+          opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |value| set(:config, value) }
+          opts.on("--subject EXPR", "Whole subject filter; repeatable") { |value| add_subject(value) }
+          opts.on("--seed N", Integer, "Repeatable run seed") { |value| set(:seed, value) }
+        end
+      end
+
+      private
+
+      def baseline
+        return show_help("baseline") if help_requested?
+
+        action = @argv.shift
+        parse_baseline(action)
+        workflow = Baseline::Workflow.new(config: config, err: @err)
+        payload = stdout_on_stderr do
+          baseline_action(workflow, action)
+        end
+        @out.puts(JSON.generate(payload))
+        payload.fetch("exit_code", CLI::EXIT_OK)
+      rescue ConfigError, SystemCallError => e
+        @err.puts("saboteur: #{e.message}")
+        CLI::EXIT_USAGE
+      rescue Error => e
+        @err.puts("saboteur: #{e.message}")
+        CLI::EXIT_TOOL
+      end
+
+      def parse_baseline(action)
+        raise CLI::UsageError, "baseline expects check, propose or accept" unless %w[check propose
+                                                                                     accept].include?(action)
+
+        baseline_parser.parse!(@argv)
+        raise CLI::UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
+        raise CLI::UsageError, "--baseline PATH is required" unless @baseline_path
+        raise CLI::UsageError, "--proposal PATH is required" if action != "check" && !@proposal_path
+        if action == "check" && (@proposal_path || @previous)
+          raise CLI::UsageError,
+                "check does not use --proposal or --previous"
+        end
+        raise CLI::UsageError, "--previous needs a SHA-256" if @previous && !@previous.match?(/\A[0-9a-f]{64}\z/)
+      end
+
+      def baseline_action(workflow, action)
+        case action
+        when "check" then workflow.check(path: @baseline_path)
+        when "propose" then workflow.propose(proposal: @proposal_path, destination: @baseline_path,
+                                             previous: @previous)
+        when "accept" then workflow.accept(proposal: @proposal_path, destination: @baseline_path, previous: @previous)
+        end
+      end
+    end
+  end
+end
