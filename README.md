@@ -41,7 +41,9 @@ The internal engine can opt in to fresh baseline evidence capture. It records
 inputs before boot, planned candidate identities before scheduling and reconciled
 terminal results after execution. Caps, uncovered work, invalid or empty
 production, reused outcomes and changed inputs make that evidence incomplete.
-This is not a public baseline command or survivor acceptance feature yet.
+The public opt-in `baseline propose`, `baseline accept` and `baseline check`
+commands use this evidence to review and compare survivors. They never skip
+accepted mutants or change their scores. See [Opt-in survivor baseline](#opt-in-survivor-baseline).
 
 ### The unchanged suite is checked first
 
