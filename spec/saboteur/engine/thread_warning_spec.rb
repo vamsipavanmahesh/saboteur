@@ -4,11 +4,6 @@
 require "stringio"
 
 RSpec.describe Saboteur::Engine, "threads alive at fork time" do
-  before do
-    # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
-  end
-
   let(:err) { StringIO.new }
   let(:engine) { described_class.new(Saboteur::Config.new, err: err) }
 
