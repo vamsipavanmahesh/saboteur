@@ -15,12 +15,9 @@ module Saboteur
       # A subject to run, with what its mutants need. killers counts the
       # tests that killed earlier mutants of this subject; slowdown is how
       # much slower than recorded its tests ran in a child (see calibrate).
-      # unreachable is set when a captured Method object still calls the
-      # original: later mutants then skip forking, they cannot be observed.
       # wrapper names a known def-time wrapper (Execution::Wrapper), so the
-      # child re-evaluates it together with the def. sig_warned rates the
-      # "sig not found" notice to once per subject.
-      Plan = Struct.new(:subject, :tests, :killers, :slowdown, :unreachable, :wrapper, :sig_warned,
+      # child re-evaluates it together with the def.
+      Plan = Struct.new(:subject, :tests, :killers, :slowdown, :wrapper,
                         keyword_init: true)
 
       # Tests that killed more earlier mutants first; otherwise keep the order.
@@ -42,6 +39,10 @@ module Saboteur
 
         reason, wrapper = subject.skip_reason ? [subject.skip_reason, nil] : load_problem(subject)
         return skip_all(candidates, subject, reason) if reason
+        if wrapper == :sorbet && !subject.sig_source
+          return skip_all(candidates, subject,
+                          "sorbet sig not found next to the def; cannot preserve runtime type checks")
+        end
 
         tests = @map.tests_for(subject)
         return unloadable(candidates, subject) if tests.empty?
@@ -121,7 +122,6 @@ module Saboteur
       def execute(plan, mutation, text)
         tests = tests_for(plan, mutation)
         return uncoverable(plan, mutation, text) if tests.empty?
-        return unreachable(plan, mutation, text) if plan.unreachable
 
         outcome = run_mutant(plan, mutation, text, tests)
         note_unreachable(plan, outcome) if outcome.status == :unreachable
@@ -173,20 +173,10 @@ module Saboteur
         outcome.status == :timeout ? calibrate(plan, mutation, text, tests, timeout) : outcome
       end
 
-      # The first unreachable verdict sticks for the subject's remaining
-      # mutants and is warned about once, here.
+      # Each mutant is checked separately: changing a body can change which
+      # definition a test reaches, so one unreachable verdict cannot skip later work.
       def note_unreachable(plan, outcome)
-        plan.unreachable = outcome.message
         @diagnostics.warn("#{plan.subject.id}: #{outcome.message}")
-      end
-
-      # A mutant no test can observe, because a Method object captured
-      # before re-evaluation still calls the original. Reported once per
-      # subject (see note_unreachable); later mutants of the subject share
-      # the verdict without forking.
-      def unreachable(plan, mutation, text)
-        MutantResult.new(subject: plan.subject, mutation: mutation, status: :unreachable,
-                         mutated_source: text, reason: plan.unreachable)
       end
 
       # The text a known def-time wrapper needs re-evaluated with the def.
@@ -195,15 +185,7 @@ module Saboteur
       def eval_prefix(plan)
         return nil unless plan.wrapper == :sorbet
 
-        prefix = plan.subject.sig_source
-        return prefix if prefix
-
-        unless plan.sig_warned
-          plan.sig_warned = true
-          @diagnostics.warn("#{plan.subject.id}: sorbet sig not found next to the def; " \
-                            "re-evaluating the def alone (runtime type checks off for its mutants)")
-        end
-        nil
+        plan.subject.sig_source
       end
 
       # Recorded durations come from one warm process; a fresh child can be
@@ -223,7 +205,8 @@ module Saboteur
         longer = deadline(unchanged.runtime)
         return Execution::Runner::Outcome.new(status: :timeout, runtime: timeout) if longer <= timeout
 
-        @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: longer, mutation: mutation)
+        @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: longer, mutation: mutation,
+                    eval_prefix: eval_prefix(plan))
       end
 
       def unchanged_failed(unchanged)
