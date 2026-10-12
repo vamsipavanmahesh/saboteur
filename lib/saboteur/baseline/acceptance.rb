@@ -25,8 +25,6 @@ module Saboteur
       def propose(document:, proposal:, destination:, previous: nil, evidence: nil)
         proposal, destination = paths(proposal, destination)
         verify_previous(destination, previous)
-        document = JSON.parse(JSON.generate(document))
-        evidence = JSON.parse(JSON.generate(evidence)) if evidence
         validate_execution(document, evidence)
         validate_document(document)
         verify_inputs(document)
@@ -62,8 +60,7 @@ module Saboteur
 
       def paths(proposal, destination)
         list = [proposal, destination].map { |path| File.expand_path(path) }
-        aliases = list.first == list.last ||
-                  (File.exist?(list.first) && File.exist?(list.last) && File.identical?(*list))
+        aliases = list.first == list.last || File.identical?(*list)
         raise ConfigError, "baseline proposal and destination alias" if aliases
 
         if list.any? { |path| path == @directory || path.start_with?("#{@directory}/") }
