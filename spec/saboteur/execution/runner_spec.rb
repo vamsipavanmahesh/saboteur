@@ -97,17 +97,16 @@ RSpec.describe Saboteur::Execution::Runner do
     expect(File.read(File.join(tmpdir, "prefix"))).to eq("sig { void }")
   end
 
-  it "marks a survivor unreachable when a captured Method still calls the original def" do
+  it "keeps a survivor when replacement execution cannot be verified" do
     edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: "Stub#run", operator: "comparison",
                                                       edits: [edit])
     allow(Saboteur::Execution::StaleCaptures).to receive(:scan).and_return(["f.rb:3"])
+    allow(runner).to receive(:replacement_method).and_return(nil)
     outcome = runner.run(subject: subject_stub, text: "pass", test_ids: %w[t1 t2], timeout: 5,
                          mutation: mutation)
     expect([outcome.status, outcome.message])
-      .to eq([:unreachable,
-              "a Method object captured before re-evaluation still calls the original " \
-              "(captured definition at f.rb:3)"])
+      .to eq([:survived, nil])
   end
 
   it "does not overturn a kill or a neutral check with a stale capture" do
@@ -237,5 +236,48 @@ RSpec.describe Saboteur::Execution::Runner do
     run_mode("pass")
     run_mode("raise_on_eval")
     expect(Dir.glob(File.join(tmpdir, "child-*.log")).size).to eq(1)
+  end
+end
+
+RSpec.describe Saboteur::Execution::Runner, "replacement execution" do
+  after { Object.send(:remove_const, :ExecutionProbe) if defined?(ExecutionProbe) }
+
+  it "counts a called replacement as survived even when an unused stale capture exists" do
+    target = subjects_in("class ExecutionProbe\n  def self.value\n    1\n  end\nend\n").first
+    load target.file
+    saved = ExecutionProbe.method(:value)
+    integration = double("integration")
+    allow(integration).to receive(:run) do |ids|
+      ExecutionProbe.value
+      Saboteur::Integration::RunResult.new(passed: true, failed_ids: [], executed_ids: ids, runtime: 0.01)
+    end
+    Dir.mktmpdir do |dir|
+      runner = described_class.new(integration: integration, reevaluator: Saboteur::Execution::Reevaluator.new,
+                                   log_dir: dir)
+      mutation = Saboteur::MutationSource::Builtin.new.mutations_for(target).first
+      outcome = runner.run(subject: target, text: target.apply(mutation.edits), mutation: mutation,
+                           test_ids: ["t1"], timeout: 5)
+      expect(outcome.status).to eq(:survived)
+      expect(saved.call).to eq(1)
+    end
+  end
+
+  it "marks only the old captured definition's caller unreachable" do
+    target = subjects_in("class ExecutionProbe\n  def self.value\n    1\n  end\nend\n").first
+    load target.file
+    saved = ExecutionProbe.method(:value)
+    integration = double("integration")
+    allow(integration).to receive(:run) do |ids|
+      saved.call
+      Saboteur::Integration::RunResult.new(passed: true, failed_ids: [], executed_ids: ids, runtime: 0.01)
+    end
+    Dir.mktmpdir do |dir|
+      runner = described_class.new(integration: integration, reevaluator: Saboteur::Execution::Reevaluator.new,
+                                   log_dir: dir)
+      mutation = Saboteur::MutationSource::Builtin.new.mutations_for(target).first
+      outcome = runner.run(subject: target, text: target.apply(mutation.edits), mutation: mutation,
+                           test_ids: ["t1"], timeout: 5)
+      expect(outcome.status).to eq(:unreachable)
+    end
   end
 end
