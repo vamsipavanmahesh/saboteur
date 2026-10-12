@@ -617,3 +617,20 @@ Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build s
 MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
 
 Internal baseline capture blocks a subject with empty generation, including a subject for which the builtin source yields no candidates. Context comparison is an extra consistency check; file fingerprint verification normally also catches source drift. Neither check proves external state stability.
+
+### Opt-in survivor baseline
+
+`baseline check` runs every selected mutant fresh, then compares accepted survivors. It does not skip accepted mutants, change verdicts or change scores. Use whole configured projects or `--subject` filters; diff, replay, incremental reuse and score thresholds are refused. Caps, uncovered work, empty generation, errors, resource limits, omitted malformed files, changed inputs and missing results are incomplete, even with zero survivors.
+
+```sh
+saboteur baseline propose --baseline baseline.json --proposal proposal.json
+# Edit only document.accepted[*].reason in proposal.json. Give each survivor a review reason.
+saboteur baseline accept --baseline baseline.json --proposal proposal.json
+saboteur baseline check --baseline baseline.json
+```
+
+Proposal writes independent owner-private execution evidence under the configured cache directory. Keep that directory until acceptance; deleting it prevents acceptance. Acceptance verifies the private record and current input fingerprint before atomically publishing the manifest. For replacement, give both propose and accept `--previous SHA256`, the hash you reviewed of the current baseline bytes. Output files must not overlap project inputs or the private evidence directory. A baseline normally lives in a separate JSON file outside fixture/config input trees.
+
+Check prints one JSON object: accepted, new, changed, resolved_kills, detected_timeouts, unmatched and errors are separate categories. Exit 0 means a compatible complete clean check; 1 needs survivor review; 2 means incompatible or invalid configuration; 3 means incomplete execution or tool failure. Propose and accept exit 0 only after their file operation succeeds. Context changes require fresh review. Timeouts remain a distinct detected category, not assertion kills.
+
+Local evidence protects against edits to the public proposal except review reasons. It is not remote attestation, a signature, or protection against the account owner changing their private files. File fingerprints cannot prove external database, network or environment stability. `config/saboteur_ignore.rb` remains a separate legacy ignore mechanism; this gate compares every survivor regardless of ignore status.
