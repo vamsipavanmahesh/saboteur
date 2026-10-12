@@ -1,11 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>saboteur vs mutineer</title>
-<meta name="description" content="A small, non-exhaustive benchmark of two Ruby mutation testing tools on four RSpec projects.">
-<style>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>saboteur: Rails score rebaseline</title><meta name="description" content="Post-removal mutation scores for nine selected Rails/RSpec targets, with scope and measurement limits."><style>
   :root {
     --bg: #ffffff; --surface: #f6f7f9; --text: #1d2125; --muted: #5d6670; --line: #e3e6ea;
     --good: #1f8a4c; --good-bg: #e3f4e9; --bad: #c4372f; --bad-bg: #fbe7e5;
@@ -73,263 +66,37 @@
     dl.gloss { grid-template-columns: 1fr; }
     dl.gloss dd { margin-bottom: 8px; }
   }
-</style>
-</head>
-<body>
-<main>
 
-<h1>saboteur vs mutineer: benchmark evaluation</h1>
-<p><strong>Note:</strong> measured at 2b6ec02, before the coarse-survivor gate was removed and before the rebaseline. Counts and times are historical; a rerun is pending.</p>
-<p class="byline">2026-10-10 &middot; saboteur 0.1.0 (commit 2b6ec02 engine) vs mutineer 1.6.0 &middot; by Vamsi Pavan Mahesh Gunturu</p>
-
-<div class="note">
-  <strong>This is not an exhaustive benchmark.</strong> In Results 1-5, each configuration ran once, on sampled files from four
-  projects, on one macOS machine. Result 6 is separate: 30 paired runs on a Linux sandbox. Everything here was measured before the coarse-gate removal and is historical. Every number is indicative, not a statistical result. The scripts and raw data
-  are in <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>,
-  so anyone can rerun or extend it.
-</div>
-
-<p class="lead">saboteur and mutineer are two open-source tools that measure how good a Ruby project's tests are.
-We ran both on the same four RSpec projects and checked their answers against ground truth. saboteur came out
-ahead on Rails support and speed, and its kill-checking sample found no fake kills (a sample check, not a ranking); mutineer came out ahead on memory, choice of change types and CI
-features.</p>
-
-<h2>Verdict</h2>
-<p class="finding">saboteur wins 3 of 7 ranked metrics, mutineer wins 2, and 2 are ties. The two trust rows are sample checks and are not ranked. The most notable finding is:
-on lobsters, 8 of mutineer's kills that we hand-checked were not caught by any test. That is a check of 8 identical mutants, not a measure of either tool's overall accuracy.</p>
-
-<div class="totals">
-  <span class="pill win">saboteur 3</span>
-  <span class="pill lose">mutineer 2</span>
-  <span class="pill tie">ties 2</span>
-  <span class="pill tie">not ranked 2</span>
-</div>
-
-<div class="table-wrap">
-<table class="score">
-  <thead><tr><th>Metric</th><th>saboteur</th><th>mutineer</th></tr></thead>
-  <tbody>
-    <tr><td>Fake kills (lobsters)</td><td><div class="cell tie">0 of 20 sampled at random</div></td><td><div class="cell tie">8 of 8 hand-checked</div></td></tr>
-    <tr><td>Score on lobsters</td><td><div class="cell tie">77.9%; 20 sampled kills held up</div></td><td><div class="cell tie">100%; 8 hand-checked kills were fake</div></td></tr>
-    <tr><td>Rails app, 6 workers</td><td><div class="cell win">Yes, same verdicts</div></td><td><div class="cell lose">No, 1 worker only</div></td></tr>
-    <tr><td>Runs on Postgres app</td><td><div class="cell win">Yes</div></td><td><div class="cell lose">No, failed 5 times</div></td></tr>
-    <tr><td>Time per mutant, hashie</td><td><div class="cell win">0.008 s</div></td><td><div class="cell lose">0.092 s</div></td></tr>
-    <tr><td>Useful missed mutants</td><td><div class="cell tie">5 of 10</div></td><td><div class="cell tie">4 of 10</div></td></tr>
-    <tr><td>Real past bugs found</td><td><div class="cell tie">0 of 3</div></td><td><div class="cell tie">0 of 3</div></td></tr>
-    <tr><td>Peak memory, hashie</td><td><div class="cell lose">595 MB</div></td><td><div class="cell win">471 MB</div></td></tr>
-    <tr><td>Change types and CI features</td><td><div class="cell lose">14 fixed, few CI</div></td><td><div class="cell win">20 selectable, rich CI</div></td></tr>
-  </tbody>
-</table>
-</div>
-<p class="legend">Green: better result in the row. Red: worse. Grey: tie. Minitest support is out of scope for
-saboteur by design and is not scored.</p>
-
-<h2>Glossary</h2>
-<dl class="gloss">
-  <dt>Mutation testing</dt><dd>Checking how good tests are by making small deliberate changes to the code and seeing whether the tests notice.</dd>
-  <dt>Mutant</dt><dd>One such change, for example <code>a &lt; b</code> changed to <code>a &lt;= b</code>, or one line removed.</dd>
-  <dt>Killed (caught)</dt><dd>At least one test failed with the mutant in place. The tests noticed.</dd>
-  <dt>Survived (missed)</dt><dd>Every test still passed with the mutant in place. This points to a gap in the tests.</dd>
-  <dt>Fake kill</dt><dd>A mutant reported as killed when the same tests also fail without the mutant. The failure came from something else, such as leftover test data. A crash can also be a legitimate kill when the mutant causes it. A fake kill hides a real gap.</dd>
-  <dt>No coverage</dt><dd>No test runs the changed line, so the mutant is not tested at all.</dd>
-  <dt>Timeout</dt><dd>The tests ran past the time limit, often because of an endless loop. The current saboteur counts a timeout as detected in the score.</dd>
-  <dt>Error</dt><dd>The tool could not reach a clean verdict. saboteur also uses this when a killing test fails even without the mutant.</dd>
-  <dt>Mutation score</dt><dd>Current saboteur: (killed + timeout) / (killed + survived + timeout). The scores on this page come from the measured version and may use a different definition. Comparable only between runs with the same set of mutants.</dd>
-  <dt>Operator</dt><dd>A kind of change a tool makes, for example removing a statement or flipping a comparison.</dd>
-  <dt>Defaults, matched</dt><dd>Defaults: each tool's own change types. Matched: the closest common set, so both tools test similar changes.</dd>
-  <dt>Worker</dt><dd>One parallel process running mutants.</dd>
-  <dt>Actionable, equivalent, noise</dt><dd>Labels for missed mutants. Actionable: a test should catch it. Equivalent: the change cannot alter behaviour. Noise: it changes behaviour, but not in a way worth testing.</dd>
-</dl>
-
-<h2>Setup</h2>
-<p>Both tools ran on the same machine, the same Ruby, the same source files and the same test files, with caches
-cleared before every run. mutineer was configured as its README recommends.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th>Project</th><th>Type</th><th>Database</th><th>Tests</th><th>Mutated</th></tr></thead>
-  <tbody>
-    <tr><td>hashie</td><td>Ruby library</td><td>none</td><td>719</td><td>all 40 source files</td></tr>
-    <tr><td>addressable</td><td>Ruby library</td><td>none</td><td>1,433</td><td>template.rb</td></tr>
-    <tr><td>lobsters</td><td>Rails 8.1 app, Ruby 4.0</td><td>SQLite</td><td>899</td><td>domain.rb, origin.rb, tag.rb</td></tr>
-    <tr><td>human-essentials</td><td>Rails 8.1 app</td><td>Postgres</td><td>2,415</td><td>item.rb</td></tr>
-  </tbody>
-</table>
-</div>
-<p>Machine: Apple M3 Max, 14 cores, 36 GB, macOS 14.3. Ruby 3.4.3, and 4.0.0 for lobsters. Each project's tests
-passed 3 runs in a row before use; for human-essentials, 1 unreliable test file and 6 files that fail when run on
-their own were left out for both tools.</p>
-
-<h2>Result 1: fake kills</h2>
-<p class="finding">mutineer reported fake kills on lobsters; saboteur had none in its sample.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th></th><th>saboteur</th><th>mutineer</th></tr></thead>
-  <tbody>
-    <tr><td>Kills checked</td><td>20, picked at random</td><td>8, the mutants both tools made identically</td></tr>
-    <tr><td>Fake</td><td><span class="cell win">0</span></td><td><span class="cell lose">8</span></td></tr>
-    <tr><td>How checked</td><td>Re-ran each killing test on unchanged code: all 43 passed</td><td>Applied each mutant by hand and ran all 899 tests: all passed every time</td></tr>
-  </tbody>
-</table>
-</div>
-<p>mutineer scored 100% on the three lobsters models and named no killing test for any of its 91 kills.
-saboteur reported the same 8 mutants as missed, which is correct. saboteur also refused 3 of its own kills,
-because the killing test failed even without the mutant (leftover test data). The cause inside mutineer was not
-found.</p>
-
-<h2>Result 2: Rails apps and Postgres</h2>
-<p class="finding">saboteur ran both Rails apps, in parallel where asked; mutineer ran lobsters on one worker and
-could not run human-essentials.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th></th><th>saboteur</th><th>mutineer</th></tr></thead>
-  <tbody>
-    <tr><td>lobsters, several workers</td><td>6 workers: 125 s instead of 442 s; all 231 verdicts identical</td><td>Not possible: its parallel Rails mode supports Minitest only</td></tr>
-    <tr><td>human-essentials, item.rb</td><td>98 mutants: 85 killed, 11 survived, 520 s</td><td>Did not run after 5 tries (about 1 h 50 min)</td></tr>
-  </tbody>
-</table>
-</div>
-
-<h2>Result 3: speed and memory</h2>
-<p class="finding">saboteur ran each mutant 5 to 11 times faster on the libraries and 1.2 times faster on the Rails
-app; mutineer used less memory.</p>
-<div class="bars" role="img" aria-label="How many times faster saboteur runs each mutant">
-  <div class="bar-row"><div class="bar-label">hashie, defaults, 6 workers<small>0.008 s vs 0.092 s per mutant</small></div>
-    <div class="bar-track"><div class="bar" style="width: 88%"></div><span class="bar-value" style="left: 88%">11.4x</span></div></div>
-  <div class="bar-row"><div class="bar-label">hashie, matched types, 6 workers<small>0.008 s vs 0.060 s per mutant</small></div>
-    <div class="bar-track"><div class="bar" style="width: 58%"></div><span class="bar-value" style="left: 58%">7.5x</span></div></div>
-  <div class="bar-row"><div class="bar-label">addressable template.rb, 6 workers<small>0.018 s vs 0.090 s per mutant</small></div>
-    <div class="bar-track"><div class="bar" style="width: 38.5%"></div><span class="bar-value" style="left: 38.5%">5.0x</span></div></div>
-  <div class="bar-row"><div class="bar-label">lobsters, 3 models, 1 worker<small>2.0 s vs 2.4 s per mutant</small></div>
-    <div class="bar-track"><div class="bar" style="width: 9%"></div><span class="bar-value" style="left: 9%">1.2x</span></div></div>
-</div>
-<p class="legend">How many times faster saboteur runs each mutant than mutineer. Wall time divided by mutants run,
-cold caches.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th>Peak memory</th><th>saboteur</th><th>mutineer</th></tr></thead>
-  <tbody>
-    <tr><td>hashie, 6 workers</td><td><span class="cell lose">595 MB</span></td><td><span class="cell win">471 MB</span></td></tr>
-    <tr><td>lobsters, 1 worker</td><td><span class="cell lose">1,021 MB</span></td><td><span class="cell win">775 MB</span></td></tr>
-  </tbody>
-</table>
-</div>
-<p>These rows are historical (measured versions, summed process RSS, which counts shared pages more than once), not a current ranking. The saboteur memory figures in this table were measured before the fork-memory work. Result 6 below has the paired before and after on hashie.</p>
-<p>One mutineer run is unexplained: hashie with 1 worker took 2,640 s, against 34.9 s with 6 workers. It needs a
-repeat and is left out of the verdict. CI cost is small for both: at GitHub's $0.006 per minute for a standard
-Linux runner (<a href="https://docs.github.com/en/billing/reference/actions-runner-pricing">source</a>), each run
-here costs under $0.03 (estimate).</p>
-
-<h2>Result 4: usefulness of missed mutants</h2>
-<p class="finding">Both tools found about the same number of useful missed mutants; mutineer's misses were more
-often noise.</p>
-<p>10 missed mutants per tool from hashie were mixed with tool names hidden. Three reviewers (two Claude, one
-Grok) labelled all 20 and agreed on 14 to 18 of 20 per pair; the split items were settled by reading the code
-before unblinding.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th>Label</th><th>saboteur</th><th>mutineer</th></tr></thead>
-  <tbody>
-    <tr><td>Actionable</td><td>5</td><td>4</td></tr>
-    <tr><td>Equivalent</td><td>4</td><td>1</td></tr>
-    <tr><td>Noise</td><td><span class="cell win">1</span></td><td><span class="cell lose">5</span></td></tr>
-  </tbody>
-</table>
-</div>
-
-<h2>Result 5: real past bugs</h2>
-<p class="finding">Neither tool detected any of the 3 hashie bugs: all 3 fixes added missing code that no change
-type can produce.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th>Fix</th><th>What the fix did</th><th>saboteur</th><th>mutineer</th></tr></thead>
-  <tbody>
-    <tr><td>3988742</td><td>shallow <code>dup</code> to a deep copy</td><td>not detected</td><td>not detected</td></tr>
-    <tr><td>043aa89</td><td>new constructor arguments</td><td>not detected</td><td>not detected</td></tr>
-    <tr><td>e295a0d</td><td>a new branch</td><td>not detected</td><td>not detected</td></tr>
-  </tbody>
-</table>
-</div>
-
-<h2>Result 6: memory after the fork-sharing change (hashie)</h2>
-<p class="finding">Peak PSS dropped about 17-18% with 2 or more workers; verdicts did not change.</p>
-<p>Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with AB/BA alternation and cold caches, on a 2 vCPU / 2 GB shared sandbox. Peak memory is per-process-tree PSS from /proc/smaps_rollup sampled at 0.3s. Verdict parity: <strong>0 verdict differences in 23,700 mutant outcomes</strong> (1,580 mutants x 15 pairs); kill reasons (assertion vs crash class) vary run to run on both variants, as before.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th>jobs</th><th>peak PSS baseline (median, range)</th><th>peak PSS PR (median, range)</th><th>shared-memory delta</th></tr></thead>
-  <tbody>
-    <tr><td>1</td><td>101 MB (101-101)</td><td>100 MB (100-102)</td><td>~0 (no workers to share with)</td></tr>
-    <tr><td>2</td><td>133 MB (116-134)</td><td>109 MB (106-121)</td><td>-18%</td></tr>
-    <tr><td>6</td><td>235 MB (192-269)</td><td>196 MB (175-201)</td><td>-17%</td></tr>
-  </tbody>
-</table>
-</div>
-<p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers. Swap was not measured.</p>
-<p>Wall time on uncontended runs, per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6. These are noisy per-cell minima from historical runs and do not show a direction either way. The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
-<h3>Environment and method</h3>
-<ul>
-  <li>Candidate: saboteur at d2b7abb336eae53ec8cd5a71c111f9daef66218a (merge of PR #4, "Pack the heap at fork boundaries"). Baseline: 32c0f21bdcbc059ac5938ae7630eb117442cd5fc, the first code-change ancestor; 32c0f21..d2b7abb^ is doc-only (AGENTS.md, docs/status.md).</li>
-  <li>Target: intridea/hashie at 9c81e8340d6b69940e14d8411f34a3efd7a6aa24 (261 subjects, 719 tests, 1,580 mutants).</li>
-  <li>Hardware: shared CI sandbox, 2 vCPU (x86_64), 2 GB RAM, Ubuntu 22.04.5, Ruby 3.4.3 (+PRISM). Absolute wall times are sandbox-specific; only same-box paired ratios are meaningful.</li>
-  <li>30 runs: jobs in {1,2,6} x {baseline, candidate} x 5 pairs, AB/BA alternation (odd pairs baseline-first, even pairs candidate-first), serial under flock, cold cache (<code>rm -rf .saboteur</code>) per run.</li>
-  <li>Memory sampled every 0.3s across the whole process tree from /proc: RSS from status, PSS from smaps_rollup (falls back to RSS when unreadable). Peak over the run is reported. Wall is end-to-end run_one duration including the coverage-map build.</li>
-</ul>
-<h3>Host contention</h3>
-<p>The sandbox shares CPU with other tenants. Starvation windows show in the sampler cadence (healthy 0.3s per sample; starved over 1s per sample). Runs flagged contended (wall inflated, memory peaks unaffected): hashie-j2-baseline-1 (83s, borderline cadence 0.94s), hashie-j6-baseline-1 (273s), hashie-j1-candidate-2 (279s), hashie-j2-candidate-2 (261s), hashie-j6-candidate-2 (251s), hashie-j1-baseline-3 (292s), hashie-j1-candidate-3 (282s), hashie-j2-candidate-3 (275s), hashie-j6-candidate-3 (267s), hashie-j2-candidate-4 (580s), hashie-j6-candidate-4 (571s), hashie-j1-baseline-5 (594s), hashie-j1-candidate-5 (288s), hashie-j2-candidate-5 (268s), hashie-j6-candidate-5 (264s). Contended windows hit baseline and candidate slots both (order-bound, not variant-bound). Wall analysis uses clean runs and per-cell minimums; PSS and RSS peaks are valid in all windows.</p>
-
-<h2>Features compared</h2>
-<p class="legend">Capabilities at the measured versions (saboteur as measured, mutineer 1.6.0), historical, not current. Some rows have changed since; for example saboteur now has <code>--threshold</code>, an HTML report and a GitHub Action.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th>Feature</th><th>saboteur</th><th>mutineer</th></tr></thead>
-  <tbody>
-    <tr><td>Checks each kill on unchanged code</td><td><span class="cell win">yes</span></td><td><span class="cell lose">no</span></td></tr>
-    <tr><td>Picks single tests per mutant</td><td><span class="cell win">yes</span></td><td><span class="cell lose">whole files</span></td></tr>
-    <tr><td>Memory, process and CPU limits per mutant</td><td><span class="cell win">yes</span></td><td><span class="cell lose">time limit only</span></td></tr>
-    <tr><td>Rails in parallel, SQLite</td><td><span class="cell win">yes</span></td><td><span class="cell lose">Minitest only</span></td></tr>
-    <tr><td>Rails in parallel, Postgres</td><td><span class="cell win">yes</span></td><td><span class="cell lose">no</span></td></tr>
-    <tr><td>Diff mode (changed lines only)</td><td><span class="cell tie">yes</span></td><td><span class="cell tie">yes</span></td></tr>
-    <tr><td>Baseline (fail only on new misses)</td><td><span class="cell lose">no</span></td><td><span class="cell win">yes</span></td></tr>
-    <tr><td>Score threshold for CI</td><td><span class="cell lose">no</span></td><td><span class="cell win">yes</span></td></tr>
-    <tr><td>HTML report</td><td><span class="cell lose">no</span></td><td><span class="cell win">yes</span></td></tr>
-    <tr><td>GitHub Action</td><td><span class="cell lose">no</span></td><td><span class="cell win">yes</span></td></tr>
-    <tr><td>Choice of change types</td><td><span class="cell lose">no</span></td><td><span class="cell win">20 types</span></td></tr>
-    <tr><td>Minitest</td><td><span class="cell tie">out of scope</span></td><td><span class="cell tie">yes</span></td></tr>
-  </tbody>
-</table>
-</div>
-
-<h2>Where mutineer won</h2>
-<p class="legend">At the measured versions. Not a statement about current releases.</p>
-<ol>
-  <li>Lower peak memory in every pair measured.</li>
-  <li>20 change types with a switch to choose them; saboteur has one fixed set.</li>
-  <li>CI features: baseline, score threshold, HTML report, GitHub Action with PR annotations, inline disable comments.</li>
-  <li>A report of tests that never catch anything, and of redundant tests.</li>
-  <li>No runtime dependencies.</li>
-  <li>It refuses to score when a test file fails on its own. That blocked it on human-essentials, but it is a defensible safety rule.</li>
-</ol>
-
-<h2>Limitations</h2>
-<ul>
-  <li>Results 1-5: one run per configuration, so no ranges and no repeatability numbers. Result 6 has 5 pairs per job level.</li>
-  <li>Rails apps were sampled: 3 lobsters models and 1 human-essentials model.</li>
-  <li>mutineer's fake kills were checked on 8 identical mutants, not a random sample, because its report names no killing test.</li>
-  <li>Only 3 real bugs, none detectable by either tool; 10 missed mutants per tool for usefulness.</li>
-  <li>Results 1-5 ran on macOS only; mutineer's Postgres failures may not occur on Linux.</li>
-  <li>Not measured: time to first missed mutant, diff-mode timing, database connections left after runs.</li>
-  <li>The author of this benchmark is also the author of saboteur.</li>
-</ul>
-
-<h2>Reproduce it</h2>
-<p>Everything is in <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>:
-the target commits and setup (<code>PHASE0.md</code>, <code>PHASE1.md</code>), the scripts (<code>run_all</code>,
-<code>run_one</code>), the raw JSON results and the full report (<code>REPORT.md</code>). Issues found in mutineer
-are written up in <code>upstream-issues.md</code>.</p>
-
-<footer>
-  saboteur is MIT licensed. Thanks to <a href="https://glomo.one">Glomo</a> for providing the AI tokens used to build it.
-</footer>
-
-</main>
-</body>
-</html>
+code{overflow-wrap:anywhere} th:nth-child(2),td:nth-child(2){white-space:nowrap}</style></head><body><main>
+<p><a href="../">saboteur home</a> &middot; <a href="archive.html">Archived comparison</a></p><h1>Rails mutation-score rebaseline</h1><p class="sub">12 October 2026 &middot; Post-removal rebaseline: 9 of 10 selected Rails/RSpec targets complete. Chatwoot is pending.</p><div class="table-wrap"><table>
+<thead><tr><th>Project</th><th>Mutation score</th><th>Measured scope</th></tr></thead><tbody>
+<tr><td>paper_trail</td><td>81.3%</td><td>record_trail / widget specs</td></tr>
+<tr><td>alchemy_cms</td><td>95.9%</td><td>Attachment / attachment specs</td></tr>
+<tr><td>fat_free_crm</td><td>66.7%</td><td>Account / accounts controller specs</td></tr>
+<tr><td>doorkeeper</td><td>89.5%</td><td>Access-token and application mixins / model specs</td></tr>
+<tr><td>administrate</td><td>92.1%</td><td>Field::Base / base field specs</td></tr>
+<tr><td>solidus</td><td>80.0%</td><td>StockItem / stock-item specs</td></tr>
+<tr><td>publify</td><td>73.9%</td><td>Four sidebars and Gravatar / six specs</td></tr>
+<tr><td>mastodon</td><td>74.3%</td><td>Account / account specs</td></tr>
+<tr><td>lobsters</td><td>61.2%</td><td>Story / story specs</td></tr>
+<tr><td>chatwoot</td><td>Pending</td><td>Conversation / conversation specs; not included in the nine completed results</td></tr>
+</tbody></table></div><p>These are mutation scores for selected source files and their configured specs, not whole-app scores or a ranking of the projects. Higher scores mean the selected tests detected more of the tested changes. No-coverage work is excluded, so a high score does not establish broad coverage.</p>
+<p>The post-removal engine is pinned to <code>1154806b6c66ef03826f8c137e9d9ad4b5616ae0</code>, after the coarse-survivor gate was removed. These are measurements of that snapshot, not of every later release. Smaller eligible mutations now run even when a whole-body mutation survives. All nine rows used RSpec, seed <code>1</code>, <code>--jobs 2</code>, harness v8.4 and <code>POST_REMOVAL=1</code>. Each app ran alone on its host. No multi-seed stability claim is made. <a href="post-removal-results.csv">Download counts, Ruby versions and exact app/engine pins (CSV)</a>.</p>
+<p>Score = (killed + timeout) / (killed + survived + timeout). Assertion kills, crash kills and timeouts all contribute; errors, resource-limit stops and skips do not. A crash kill means changed code broke, not that a test asserted its return value. These completed runs had no tool errors or resource-limit stops. Mastodon has one per-mutant timeout, counted in its score.</p>
+<p>Each result is a single complete run on a selected workload. The unchanged configured suites passed before mutation, and kills were checked against unchanged code. That does not prove flaky tests are absent. No speed or memory ranking follows from these scores, and different mutation sets make cross-version score comparisons limited.</p>
+<h2>Reading the scores</h2><dl class="gloss">
+<dt>Assertion kill</dt><dd>A mutant made a test assertion fail and the unchanged code passed the check.</dd>
+<dt>Crash kill</dt><dd>A mutant caused an exception or another recorded crash. It counts as detected, but is different evidence from an assertion.</dd>
+<dt>Survivor</dt><dd>The selected tests passed. This may be a missing check, an equivalent change, flakiness or a tool limit; human review is needed.</dd>
+<dt>No coverage</dt><dd>No selected test reached the edited code. It is skipped, not credited as a kill or counted as a survivor.</dd>
+<dt>Timeout</dt><dd>The mutant exceeded its measured deadline. Current scoring counts it as detected; it is not an assertion kill.</dd>
+<dt>Incomplete</dt><dd>Errors, resource-limit stops or no tested mutants mean the run cannot be called complete, even if a partial score exists.</dd></dl>
+<h2>Kill evidence by project</h2><p>Counts, not a separate accuracy ranking. Timeouts are shown separately from assertion and crash kills.</p><div class="table-wrap"><table><thead><tr><th>Project</th><th>Tested</th><th>Assertion kills</th><th>Crash kills</th><th>Timeouts</th><th>Survivors</th></tr></thead><tbody><tr><td>paper_trail</td><td>209</td><td>60</td><td>110</td><td>0</td><td>39</td></tr><tr><td>alchemy_cms</td><td>97</td><td>51</td><td>42</td><td>0</td><td>4</td></tr><tr><td>fat_free_crm</td><td>39</td><td>11</td><td>15</td><td>0</td><td>13</td></tr><tr><td>doorkeeper</td><td>390</td><td>185</td><td>164</td><td>0</td><td>41</td></tr><tr><td>administrate</td><td>101</td><td>53</td><td>40</td><td>0</td><td>8</td></tr><tr><td>solidus</td><td>75</td><td>39</td><td>21</td><td>0</td><td>15</td></tr><tr><td>publify</td><td>46</td><td>18</td><td>16</td><td>0</td><td>12</td></tr><tr><td>mastodon</td><td>183</td><td>75</td><td>60</td><td>1</td><td>47</td></tr><tr><td>lobsters</td><td>896</td><td>308</td><td>240</td><td>0</td><td>348</td></tr></tbody></table></div><h2>Scope and caveats</h2><ul>
+<li>Skipped subjects remain outside these scores. For example, Lobsters has 33 and Mastodon has 37 uncovered methods in the selected targets.</li>
+<li>Lobsters: 548 kills, 348 survivors, 119 no-coverage mutants; 896 tested. Assertion share 34.4%, crash share 26.8%. Score without whole-body mutants: 58.5%. All 843 old digests remain present with counted verdicts unchanged; 196 formerly gate-suppressed mutations are now 41 kills, 123 survivors and 32 no-coverage outcomes. The new snapshot adds 172 digests.</li>
+<li>Paper_trail and Alchemy dependencies were freshly resolved because original locks were unavailable. Alchemy dependencies include moving branches; these reconstructions are not exact dependency replicas of the earlier run.</li>
+<li>Fat_free_crm used Ruby 4.0.2; the older environment record is ambiguous about Ruby, so its pre/post pair is not an exact runtime comparison.</li>
+<li>Solidus, Publify and Mastodon are reconstructed pre/post pairs with dependencies frozen between the two engines, not proven identical to the expired run environment. Mastodon uses a Ruby pin patch from 4.0.7 to 4.0.2 and minimal libvips 8.14.5 without optional media loaders. Media behavior is outside its selected account-spec workload.</li>
+<li>The earlier engine is f992720 for the reconstructed pairs. Some older preserved results predate that pin. Scores changed with both the removed gate and additional candidates; a lower score alone is not a regression of test verdicts.</li>
+</ul><h2>Historical measurements</h2><p>The earlier saboteur-versus-mutineer comparison and paired hashie fork-sharing experiment remain available in the <a href="archive.html">archive</a>. They are not a current competitor ranking. The competitor comparison rerun is separate and still pending; its pinned historical workload has not been changed.</p>
+<footer>Single-run selected-target evidence, recorded 12 October 2026. Chatwoot remains pending. No performance claim is made.</footer></main></body></html>
