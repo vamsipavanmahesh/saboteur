@@ -85,6 +85,26 @@ RSpec.describe Saboteur::Engine::Candidates do
     expect(diagnostics.generation_events.first.source).to eq("custom_source")
   end
 
+  it "records invalid subject syntax without asking mutation sources for proposals" do
+    allow(subject_under_test).to receive(:source).and_return("def broken(")
+    source = source_proposing("a - 1")
+    expect(source).not_to receive(:mutations_for)
+
+    expect(candidates(source)).to be_empty
+    expect(diagnostics.generation_events.map(&:reason)).to eq(["invalid_subject_syntax"])
+    expect(diagnostics.generation_events.first.source).to eq("subject")
+  end
+
+  it "retains empty generation for a duck-typed source without a name method" do
+    source = Object.new
+    def source.mutations_for(_subject)
+      []
+    end
+    candidates(source)
+
+    expect(diagnostics.generation_events.first.source).to eq("anonymous")
+  end
+
   it "retains immutable evidence snapshots on the internal report" do
     candidates(source_proposing("a +"))
     report = Saboteur::Report.new(results: [], subjects: [subject_under_test], wall_time: 0, root: "/tmp",
