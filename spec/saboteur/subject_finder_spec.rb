@@ -87,4 +87,25 @@ RSpec.describe Saboteur::SubjectFinder do
   ensure
     FileUtils.rm_rf(dir)
   end
+
+  it "attaches a sorbet sig sitting right before the def to the subject" do
+    subject = subject_named(
+      "class SigTarget\n  sig { params(a: Integer).returns(Integer) }\n  def fee(a)\n    a\n  end\nend\n",
+      "SigTarget#fee"
+    )
+    expect(subject.sig_source).to eq("sig { params(a: Integer).returns(Integer) }")
+  end
+
+  it "attaches a T.sig call the same way" do
+    subject = subject_named("class TSigTarget\n  T.sig { void }\n  def m\n  end\nend\n", "TSigTarget#m")
+    expect(subject.sig_source).to eq("T.sig { void }")
+  end
+
+  it "leaves sig_source nil without a sig, or with one that belongs to another def" do
+    plain = subject_named("class PlainTarget\n  def m\n  end\nend\n", "PlainTarget#m")
+    expect(plain.sig_source).to be_nil
+    separated = subject_named("class SepTarget\n  sig { void }\n  def other\n  end\n\n  def m\n  end\nend\n",
+                              "SepTarget#m")
+    expect(separated.sig_source).to be_nil
+  end
 end
