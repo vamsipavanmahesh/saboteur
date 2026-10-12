@@ -37,6 +37,12 @@ Internal run reports retain typed candidate-drop and cap evidence for gate
 validation. These records do not change selection, scores, exit codes or the
 public JSON format. Empty generation is unverified, not proof of equivalence.
 
+The internal engine can opt in to fresh baseline evidence capture. It records
+inputs before boot, planned candidate identities before scheduling and reconciled
+terminal results after execution. Caps, uncovered work, invalid or empty
+production, reused outcomes and changed inputs make that evidence incomplete.
+This is not a public baseline command or survivor acceptance feature yet.
+
 ### The unchanged suite is checked first
 
 Every run with selected subjects runs the loaded unchanged suite twice (the specs chosen with `--test`, if given) in fresh
