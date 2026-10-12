@@ -56,7 +56,7 @@ jobs:
         run: script/integration-target "${{ matrix.target }}" "$RUNNER_TEMP/targets" --reeval "${{ matrix.reeval }}" --check
 
   # saboteur on its own changed methods. Survivors fail the check unless they
-  # are on .saboteur-ignore.yml with a reason.
+  # are on config/saboteur_ignore.rb with a reason.
   dogfood:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
