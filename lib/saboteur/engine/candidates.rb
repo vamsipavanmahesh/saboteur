@@ -45,9 +45,14 @@ module Saboteur
       def proposals(source, subject)
         proposals = source.mutations_for(subject)
         if proposals.empty?
-          @diagnostics.record_generation(subject, source: source.name || "anonymous", reason: "empty_generation")
+          @diagnostics.record_generation(subject, source: source_name(source), reason: "empty_generation")
         end
         proposals
+      end
+
+      def source_name(source)
+        name = source.name if source.respond_to?(:name)
+        name || "anonymous"
       end
 
       def record_drop(subject, mutation, reason)
