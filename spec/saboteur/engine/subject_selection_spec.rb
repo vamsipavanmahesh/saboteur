@@ -77,5 +77,10 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
   it "warns about files that do not parse and skips them" do
     expect(select([write("broken.rb", "class X\n  def (\nend\n")])).to be_empty
     expect(diagnostics.warnings.first).to start_with("broken.rb does not parse")
+    expect(diagnostics.discovery_failures.map(&:to_h)).to eq([
+                                                               { file: File.join(@root, "broken.rb"),
+                                                                 reason: "invalid_file_syntax" }
+                                                             ])
+    expect(diagnostics.discovery_failures.first.file).to be_frozen
   end
 end
