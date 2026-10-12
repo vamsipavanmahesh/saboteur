@@ -253,11 +253,12 @@ module Saboteur
     end
 
     # A one-line or endless definition executes its def line even when its
-    # body is never called. Only boot method counters prove body execution.
+    # body is never called. If any sibling on that physical line is uncalled,
+    # discard its ambiguous line evidence rather than crediting every body.
     def uncalled_shared_lines(data)
       shared = data.fetch(:methods, {}).select { |(_owner, _name, first, _column, last, *), _| first == last }
       calls = shared.group_by { |(_owner, _name, first, *), _count| first }
-      calls.filter_map { |line, entries| line if entries.none? { |_key, count| count.positive? } }
+      calls.filter_map { |line, entries| line if entries.any? { |_key, count| count.zero? } }
     end
 
     # Loads the target and stops coverage, returning what the rest of the
