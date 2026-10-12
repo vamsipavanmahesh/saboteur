@@ -410,7 +410,7 @@ Saboteur.configure do |c|
   c.jobs = 1
   c.ignore_file = "config/saboteur_ignore.rb"
   c.sources = ["builtin"]                # or "path.rb:ClassName" for external sources
-  c.reeval = "class_eval"                # or "nesting" (see 6.1)
+  c.reeval = "nesting"                   # the default; "class_eval" is the alternative (see 6.1)
   c.max_memory_mb = 2048                 # growth cap per mutant process tree
   c.max_processes = 64                   # process cap per mutant tree
   c.coverage_timeout = 3600              # seconds for the coverage-map build
@@ -431,7 +431,8 @@ Output:
   error->RuntimeError, resource_limit->RuntimeError (statusReason "resource limit: ..."),
   skipped->Ignored (reason in `statusReason`), no coverage
   ->NoCoverage.
-- Ignore list: YAML entries `{subject, mutation (digest), reason}`; `reason`
+- Ignore list (`config/saboteur_ignore.rb`): Ruby DSL entries
+  `i.mutation "<digest>", subject:, reason:`; `reason`
   is required and the file fails to load without it. Stale entries (no
   matching mutation) are reported as warnings.
 
