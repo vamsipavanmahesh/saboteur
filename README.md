@@ -66,6 +66,28 @@ selected sources.
 Two passes detect observed instability, not every possible flaky test. See
 [baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
 
+### Hazardous calls are not mutated, and a canary watches the tree
+
+Mutants run in your checkout, so a mutant inside a destructive call could do
+real damage: a string mutation inside `FileUtils.rm_rf(File.join(Dir.pwd,
+"build"))` once turned the target into the working directory itself. The
+hazard guard refuses to generate mutants inside the receiver or arguments of
+calls like `FileUtils.rm*`/`remove_entry*`, `File.delete`/`unlink`,
+`Dir.rmdir`/`delete`/`unlink`, `rmtree`, `system`/`exec`/`spawn`, backticks
+and `%x`, `IO.popen`, any `Open3` method, and `open` with a leading `|`.
+Mutants that remove such a call entirely (whole-body and statement removals)
+still run: they cannot execute it. The summary reports how many mutants were
+suppressed. Extend or replace the list with `c.hazard` (same tag shapes:
+`"FileUtils.rm_rf"`, or a bare name like `"system"`); `--allow-hazardous`
+runs the suppressed mutants anyway.
+
+Behind the guard, a canary snapshots the tracked files (or every file, outside
+a repository) before mutating and re-checks after each method's mutants. If
+anything vanished, the run aborts with exit 3 and names the most recent
+mutant's digest. Restore the tree (for example `git checkout -- .`) before
+re-running. Run saboteur on a committed tree or a CI checkout, so a restore
+is always possible.
+
 
 ## 🚀 Try it in a minute
 
@@ -291,6 +313,7 @@ Saboteur.configure do |c|
   c.max_memory_mb = 2048         # memory growth cap per mutant process tree
   c.max_processes = 64
   c.max_mutants_per_method = 100 # positive integer; raise it for a broader run
+  c.hazard = Saboteur::MutationSource::HazardGuard::DEFAULT_HAZARD # calls whose arguments are never mutated
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
