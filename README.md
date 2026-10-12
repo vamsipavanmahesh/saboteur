@@ -416,11 +416,21 @@ checked. Load-time detection follows the `ran_at_load` idea in
 A saved `Method` or `UnboundMethod` can keep calling the old definition after
 saboteur replaces it. When tests pass without calling the replacement and a
 saved method still points to the old definition, the result is `unreachable`.
+A targeted execution check must also confirm the replacement was not called.
+Each mutant is checked separately; one unreachable result does not skip later mutants.
 The reason names the old definition's source location. A lambda that looks up
 the method when it runs is still checked normally.
 
 Coverage caches now store both per-test method hits and load-time line hits.
 Older caches are rebuilt; load-time accounting preserves endless-method coverage.
+
+One-line and endless method definitions need boot method-call counters to prove
+the body ran at load; merely defining them is not execution evidence.
+Agent mode reports ran-at-load and unreachable work as incomplete.
+
+A whole-suite map with only load-time hits is valid and reports load-only subjects
+with their ran-at-load reason, rather than failing as an empty coverage build.
+It has no mutation score when no mutant can be tested.
 
 Both statuses are listed separately in terminal output and excluded from the
 mutation score. Stryker JSON reports them as `Ignored`, with the explanation in
@@ -428,8 +438,8 @@ mutation score. Stryker JSON reports them as `Ignored`, with the explanation in
 
 Methods wrapped by `sorbet-runtime` signatures are checked rather than skipped
 as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
-changed method so the replacement keeps its signature wrapper. Other wrappers
-are still reported as unloadable when the loaded definition cannot be matched.
+changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
+preserve the loaded method semantics.
 
 ### Skipped subjects and the mutant cap
 
