@@ -64,11 +64,27 @@ RSpec.describe Saboteur::Engine::Distribution do
     subject = fixture_subject
     mutation = fixture_mutation(subject)
     scheduler = ->(_subject, _list) { raise "worker exploded" }
-    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
+    arrived = []
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil,
+                                       after_subject: ->(seen, results) { arrived << [seen.id, results.map(&:status)] })
     results = distribution.run([subject], [[[mutation, "text"]]])
     expect(results.map(&:status)).to eq([:error])
     expect(results.first.reason).to include("worker exploded")
     expect(diagnostics.warnings.join).to include("K#m: RuntimeError: worker exploded")
+    expect(arrived).to eq([["K#m", [:error]]])
+  end
+
+  it "starts the pool with the configured jobs, on_start and arrival callback" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "text")]
+    scheduler = ->(_subject, _list) { row }
+    starter = ->(_worker) {}
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil, on_start: starter,
+                                       after_subject: ->(_seen, _results) {})
+    expect(Saboteur::Execution::WorkerPool).to receive(:new)
+      .with(jobs: 2, on_start: starter, on_result: kind_of(Proc)).and_call_original
+    distribution.run([subject], [[[mutation, "text"]]])
   end
 
   it "round-trips every result field through the worker row encoding" do
