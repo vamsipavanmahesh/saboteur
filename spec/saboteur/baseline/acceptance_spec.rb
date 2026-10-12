@@ -55,6 +55,50 @@ RSpec.describe Saboteur::Baseline::Acceptance do
     expect(File.stat(@output).mode & 0o777).to eq(0o600)
   end
 
+  it "rejects malformed nested editable documents before binding without consuming private evidence" do
+    [nil, {}, { "accepted" => nil }, { "accepted" => [nil] }, { "accepted" => [1] }].each do |bad|
+      FileUtils.rm_f(@proposal)
+      edit = propose
+      evidence = File.join(@directory, "#{edit['token']}.json")
+      edit["document"] = bad
+      File.write(@proposal, JSON.generate(edit))
+      expect { store.accept(proposal: @proposal, destination: @output) }
+        .to raise_error(Saboteur::ConfigError, /document or acceptance shape/)
+      expect(File.exist?(evidence)).to be(true)
+      expect(File.exist?(@output)).to be(false)
+    end
+  end
+
+  it "allows ordinary artifacts under a symlinked checkout parent without allowing a symlink artifact" do
+    Dir.mktmpdir do |parent|
+      link = File.join(parent, "checkout")
+      File.symlink(@root, link)
+      alias_store = described_class.new(directory: File.join(link, ".saboteur", "baseline-evidence"),
+                                        protected_paths: [], verify: ->(_) { true })
+      alias_store.propose(document: document, proposal: File.join(link, "proposal.json"),
+                          destination: File.join(link, "baseline.json"))
+      edit = JSON.parse(File.read(@proposal))
+      edit["document"]["accepted"][0]["reason"] = "reviewed"
+      File.write(@proposal, JSON.generate(edit))
+      expect(alias_store.accept(proposal: File.join(link, "proposal.json"),
+                                destination: File.join(link, "baseline.json"))).to eq(@output)
+    end
+  end
+
+  it "rejects nested malformed proposal input before generating evidence" do
+    expect do
+      store.propose(document: { "accepted" => nil }, proposal: @proposal, destination: @output)
+    end.to raise_error(Saboteur::ConfigError, /document or acceptance shape/)
+    expect(File.exist?(@directory)).to be(false)
+  end
+
+  it "refuses a newly introduced symlink ancestor during the pre-write safety check" do
+    alias_directory = File.join(@root, "alias")
+    File.symlink(@root, alias_directory)
+    expect { store.send(:safe_path, File.join(alias_directory, "output.json")) }
+      .to raise_error(Saboteur::ConfigError, /symlink/)
+  end
+
   it "creates private independent evidence and accepts only reviewed reasons from the proposal" do
     edit = propose
     expect(edit).not_to have_key("execution")
@@ -191,7 +235,7 @@ RSpec.describe Saboteur::Baseline::Acceptance do
     expect(Dir.glob(File.join(@root, ".baseline-*"))).to be_empty
   end
 
-  it "never follows parent, proposal, local evidence or lock symlinks" do
+  it "never follows proposal, local evidence or lock symlinks" do
     edit = propose
     evidence = File.join(@directory, "#{edit['token']}.json")
     File.symlink(@proposal, "#{@output}.lock")
@@ -200,10 +244,6 @@ RSpec.describe Saboteur::Baseline::Acceptance do
     File.unlink(evidence)
     File.symlink(@proposal, evidence)
     expect { store.accept(proposal: @proposal, destination: @output) }.to raise_error(Saboteur::ConfigError, /symlink/)
-    parent = File.join(@root, "alias")
-    File.symlink(@root, parent)
-    expect { store.propose(document: document, proposal: File.join(parent, "new.json"), destination: @output) }
-      .to raise_error(Saboteur::ConfigError, /symlink/)
   end
 
   it "fails if either initial or replacement baseline state was wrong when proposed" do
