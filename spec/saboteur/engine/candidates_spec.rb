@@ -65,6 +65,7 @@ RSpec.describe Saboteur::Engine::Candidates do
     expect(diagnostics.generation_events.map(&:reason)).to eq(%w[unchanged duplicate invalid_syntax])
     expect(diagnostics.generation_events.map(&:subject)).to all(eq("K#m"))
     expect(diagnostics.generation_events.map(&:source)).to all(eq("builtin"))
+    expect(diagnostics.generation_events.map(&:operator)).to all(eq("test"))
     expect(diagnostics.generation_events).to all(be_frozen)
   end
 
@@ -72,6 +73,16 @@ RSpec.describe Saboteur::Engine::Candidates do
     candidates(source_proposing)
 
     expect(diagnostics.generation_events.map(&:reason)).to eq(["empty_generation"])
+    expect(diagnostics.generation_events.first.operator).to be_nil
+    expect(diagnostics.generation_events.first.source).to eq("anonymous")
+  end
+
+  it "uses a named source identity for empty generation" do
+    source = source_proposing
+    allow(source).to receive(:name).and_return("custom_source")
+    candidates(source)
+
+    expect(diagnostics.generation_events.first.source).to eq("custom_source")
   end
 
   it "retains immutable evidence snapshots on the internal report" do
