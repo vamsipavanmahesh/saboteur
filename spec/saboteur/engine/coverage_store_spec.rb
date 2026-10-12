@@ -45,6 +45,10 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(cached.ran_at_load?(file, [2])).to be(true)
   end
 
+  it "keeps the map object unchanged when there are no parent load lines" do
+    expect(store.send(:with_parent_load_lines, map)).to equal(map)
+  end
+
   it "builds once, saves, and reuses the cached map while inputs are unchanged" do
     first = store
     allow(first).to receive(:build).and_return(map)
