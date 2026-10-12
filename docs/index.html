@@ -97,7 +97,7 @@ bundle exec saboteur run --since origin/main</code></pre>
 <p class="sub">Built for real Rails suites, not only small gems.</p>
 <div class="grid">
 <div class="card"><h3>Picks tests per mutant</h3><p>Only the tests that executed the changed statement run. A change no test reaches is reported as "no coverage", not as a survivor.</p></div>
-<div class="card"><h3>No fake kills</h3><p>A kill must fail on the mutant and pass on the original. In the benchmark, 0 of 20 checked kills on lobsters were fake.</p></div>
+<div class="card"><h3>No fake kills</h3><p>A kill must fail on the mutant and pass on the original. In one benchmark, 0 of 20 randomly sampled kills on lobsters were fake.</p></div>
 <div class="card"><h3>Coarse first</h3><p>Each method body is replaced with <code>nil</code> and with <code>raise</code> first. If your tests miss that, saboteur says so and skips the small changes for that method. Less noise.</p></div>
 <div class="card"><h3>Diff mode</h3><p><code>--since origin/main</code> changes only the methods you edited on this branch. Quick enough for a pull request.</p></div>
 <div class="card"><h3>Rails and parallel</h3><p>Run with <code>--jobs N</code> workers. Each worker gets its own database copy. Tested on a Rails 8.1 app on Postgres with 6 workers, with the same verdicts as 1 worker.</p></div>
@@ -154,7 +154,7 @@ jobs: 4                  # optional, default is 1</code></pre>
 <div class="table-wrap"><table>
 <thead><tr><th>Area</th><th>saboteur</th><th>mutineer</th><th></th></tr></thead>
 <tbody>
-<tr><td>Fake kills (lobsters)</td><td>0 of 20 checked</td><td>8 of 8 checked</td><td><span class="tag win">saboteur</span></td></tr>
+<tr><td>Fake kills (lobsters)</td><td>0 of 20 sampled at random</td><td>8 of 8 hand-checked</td><td><span class="tag win">saboteur</span></td></tr>
 <tr><td>Rails app, parallel</td><td>6 workers, same verdicts as 1</td><td>1 worker only</td><td><span class="tag win">saboteur</span></td></tr>
 <tr><td>Postgres Rails app</td><td>Runs</td><td>Does not run</td><td><span class="tag win">saboteur</span></td></tr>
 <tr><td>Time per mutant (hashie)</td><td>0.008 s</td><td>0.092 s</td><td><span class="tag win">saboteur</span></td></tr>
@@ -181,7 +181,7 @@ jobs: 4                  # optional, default is 1</code></pre>
   </tbody>
 </table>
 </div>
-<p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On machines running many parallel workers this is the difference that keeps the box out of swap.</p>
+<p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers. Swap was not measured.</p>
 <p>Wall time on uncontended runs: 30-36s for both variants at every job level (no regression; per-cell minimums 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6, PR first). The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
 <p>Scripts and raw data: <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>. Full write-up, environment and contention log: <a href="benchmark/">benchmark page</a>.</p>
 </div></section>
