@@ -154,9 +154,9 @@ For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
 configured project. To scope the specs as well, pass them with `--test` and no
 source operands: `bundle exec saboteur run --since origin/main --test spec/billing_spec.rb`.
-Without `--test` (or a base coverage map), the run warns before it starts that
-the two baseline passes and the coverage-map pass run the whole suite, and how
-to scope them. Keep whole-project runs on main: diff mode does not check every method affected by a
+Without `--test`, the run warns before it starts that the two baseline passes
+run the loaded suite (a cold coverage cache adds one more pass), and how to
+scope them. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 
