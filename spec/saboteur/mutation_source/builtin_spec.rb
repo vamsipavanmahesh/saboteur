@@ -179,6 +179,13 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(ops).not_to include("pair_removal")
     end
 
+    it "wires custom arid patterns into endpoint replacement" do
+      subject = subjects_in("class K\n  def m(a)\n    track(a.first)\n    a\n  end\nend\n").first
+      expect(mutated_texts(subject).map(&:first)).to include("endpoint_replacement")
+      source = described_class.new(arid: ['\Atrack\b'])
+      expect(mutated_texts(subject, source:).map(&:first)).not_to include("endpoint_replacement")
+    end
+
     it "never mutates arid statements" do
       found = mutations("    logger.info(a + 1)\n    a > b").reject { |op, _| op.start_with?("body_") }
       expect(found.map(&:last)).to all(include("logger.info(a + 1)"))
