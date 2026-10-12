@@ -13,7 +13,7 @@ request without thinking about it. Three things decide that:
 2. **Trust.** A survivor must mean something, and a kill must be real.
 3. **Reach.** It must be easy to find, install and wire into CI.
 
-## Where we are (0.3.0)
+## Where we are (0.4.0)
 
 Already shipped:
 
