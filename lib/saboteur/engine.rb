@@ -101,14 +101,14 @@ module Saboteur
       warn_about_threads
     end
 
-    # A --since run without --test or a base coverage map still runs the
-    # whole suite: two baseline passes and one coverage-map pass. Say so
+    # A --since run without --test runs the loaded suite twice for the
+    # baselines; a cold coverage cache adds one more pass. Say so
     # before those hours pass, with the way to scope it.
     def warn_about_unscoped_suite(integration)
       return unless config["since"] && config["tests"].empty?
 
-      message = "no base coverage map; running the full suite 3 times " \
-                "(#{integration.test_files.size} spec files). Pass --test or provide a map to scope it."
+      message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
+                "(#{integration.test_files.size} spec files). Pass --test to scope it."
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end
