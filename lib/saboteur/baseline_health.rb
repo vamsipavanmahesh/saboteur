@@ -67,7 +67,7 @@ module Saboteur
     def read_result(result, number)
       raise Error, "baseline run #{number} stopped: #{result.detail}" if result.stopped_by
       raise Error, "baseline run #{number} exited without a result; check suite boot and exits" if result.payload.empty?
-      if result.exit_status.is_a?(Process::Status) && !result.exit_status.success?
+      if result.child_failed?
         raise Error, "baseline run #{number} exited unsuccessfully; fix suite cleanup and exit handlers"
       end
 
