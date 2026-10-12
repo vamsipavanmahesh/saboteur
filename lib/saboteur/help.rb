@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "json"
 require_relative "config"
 
 module Saboteur
@@ -193,9 +192,11 @@ module Saboteur
       "CONFIG FILE (config/saboteur.rb)\n#{intro}\n#{rows.join("\n")}\n"
     end
 
-    # Valid Ruby (JSON flow style), so a copied line keeps the default's meaning.
+    # Ruby literals, so a copied line loads as the same value: inspect prints
+    # nil as "nil" (JSON would print null, which is not Ruby) and quotes
+    # strings and arrays the way Ruby reads them back.
     def describe_default(value)
-      JSON.generate(value)
+      value.inspect
     end
 
     def files_section
