@@ -18,17 +18,20 @@ Non-goals for v1: JRuby/TruffleRuby/Windows (no `fork`), mutating code outside
 ```
 config + CLI
   -> boot target (parent, once)            hooks: before_boot, after_boot
-  -> load tests via integration adapter
-  -> coverage map (cached)                 file:line -> [test ids]
   -> subject finder (Prism)                def bodies in included files
-  -> [--since] filter subjects by git diff
-  -> per subject:
-       baseline: fork, re-eval UNCHANGED, run selected tests, time it
-         fail -> skipped (baseline failure)
-       coarse mutants (body -> nil, body -> raise)
-         report every verdict; continue to all eligible fine mutants
-       fine mutants
-         each: fork -> re-eval mutated def -> run selected tests -> status
+  -> subject selection / [--since] scope / [--id] resolution
+  -> if selected subjects exist:
+       BaselineGuard: two fresh whole-suite runs with the same seed
+         failure -> abort, exit 3; no mutants started or per-subject skips
+       CoverageStore.fetch (cached)         file:line -> [test ids]
+       candidate selection: coverage, diff scope, validation, deduplication, cap
+       serial or parallel distribution, per runnable subject:
+         skip load problems; select covering tests
+         coarse mutants first, then all eligible fine mutants
+           each: reuse a verdict or fork -> re-eval mutated def -> tests -> status
+           coarse verdict never suppresses fine candidates
+         check fresh kills/timeouts against the unchanged method
+       save eligible incremental verdicts
   -> reporters: terminal, Stryker JSON; ignore list applied; exit code
 ```
 
