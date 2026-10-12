@@ -419,6 +419,9 @@ saved method still points to the old definition, the result is `unreachable`.
 The reason names the old definition's source location. A lambda that looks up
 the method when it runs is still checked normally.
 
+Coverage caches now store both per-test method hits and load-time line hits.
+Older caches are rebuilt; load-time accounting preserves endless-method coverage.
+
 Both statuses are listed separately in terminal output and excluded from the
 mutation score. Stryker JSON reports them as `Ignored`, with the explanation in
 `statusReason`; they are not entries on your survivor ignore list.
