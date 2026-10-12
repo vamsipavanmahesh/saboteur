@@ -18,14 +18,24 @@ module Saboteur
         @mutation = mutation
         raise ConfigError, "baseline mutation subject differs from its subject" unless mutation.subject_id == subject.id
 
-        file = Pathname.new(File.expand_path(subject.file))
-        base = Pathname.new(File.expand_path(root))
+        file = Pathname.new(self.class.canonical_path(subject.file))
+        base = Pathname.new(self.class.canonical_path(root))
         path = file.relative_path_from(base).to_s
         raise ConfigError, "baseline subject outside project root" if path == ".." || path.start_with?("../")
 
         @tuple = immutable([VERSION, path, subject.id, mutation.source, mutation.operator, mutation.coarse, edits])
         @id = Digest::SHA256.hexdigest(JSON.generate(tuple)).freeze
         @context = Digest::SHA256.hexdigest(subject.source.b).freeze
+      end
+
+      # Resolve existing ancestors too, so a missing evidence path under a
+      # symlinked checkout has the same root identity as an existing subject.
+      def self.canonical_path(path)
+        expanded = File.expand_path(path)
+        return File.realpath(expanded) if File.exist?(expanded)
+
+        parent = File.dirname(expanded)
+        File.join(canonical_path(parent), File.basename(expanded))
       end
 
       def entry
@@ -54,7 +64,7 @@ module Saboteur
       end
 
       def validate_edit(edit, previous_end)
-        unless File.expand_path(edit.file) == File.expand_path(@subject.file) &&
+        unless self.class.canonical_path(edit.file) == self.class.canonical_path(@subject.file) &&
                edit.start_byte >= @subject.start_byte && edit.end_byte <= @subject.end_byte &&
                edit.end_byte >= edit.start_byte
           raise ConfigError, "baseline edit outside subject or in another file"
