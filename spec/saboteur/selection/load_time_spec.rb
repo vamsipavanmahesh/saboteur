@@ -24,4 +24,33 @@ RSpec.describe "load-time coverage" do
     expect(with_load.ran_at_load?(target.file, [4])).to be(true)
     expect(map.load_lines).to eq({})
   end
+  it "does not report an uncovered line as load-only just because another line ran at load" do
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [], load_lines: { target.file => [4] })
+    expect(map.ran_at_load?(target.file, [3])).to be(false)
+  end
+
+  it "preserves every field when adding load lines and when serializing" do
+    map = Saboteur::Selection::CoverageMap.new(lines: { target.file => { 3 => ["t1"] } }, tests: ["t1"],
+                                               durations: { "t1" => 0.75 }, build_seconds: 2.5)
+    copy = map.with_load_lines({ target.file => [4] })
+    restored = Saboteur::Selection::CoverageMap.from_json(copy.to_json)
+    expect(restored.lines).to eq(map.lines)
+    expect(restored.tests).to eq(map.tests)
+    expect(restored.durations).to eq(map.durations)
+    expect(restored.build_seconds).to eq(2.5)
+    expect(restored.load_lines).to eq(target.file => [4])
+    expect(JSON.parse(copy.to_json)["load_lines"]).to eq(target.file => [4])
+  end
+
+  it "loads an absent load-lines field from the current format as empty" do
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
+    document = JSON.parse(map.to_json)
+    document.delete("load_lines")
+    expect(Saboteur::Selection::CoverageMap.from_json(JSON.generate(document)).load_lines).to eq({})
+  end
+  it "serializes unknown test durations without inventing a runtime" do
+    map = Saboteur::Selection::CoverageMap.new(lines: { target.file => { 3 => ["t1"] } }, tests: ["t1"])
+    expect(JSON.parse(map.to_json)["durations"]).to eq([nil])
+    expect(Saboteur::Selection::CoverageMap.from_json(map.to_json).recorded_runtime(["t1"])).to be_nil
+  end
 end
