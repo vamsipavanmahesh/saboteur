@@ -47,6 +47,9 @@ module Saboteur
 
     attr_reader :entries
 
+    # The collector is process-global on purpose: the ignore file calls the
+    # top-level Saboteur.ignore, which must reach the load in progress.
+    # Loads are therefore serialized - never load two ignore files at once.
     def self.load(path)
       return new([]) unless path && File.file?(path)
 
@@ -56,9 +59,11 @@ module Saboteur
     rescue ConfigError => e
       raise ConfigError, "#{path}:#{e.message}"
     rescue NoMethodError => e
-      raise unless e.receiver.is_a?(Collector)
+      raise ConfigError, unknown_directive_message(path, e) if e.receiver.is_a?(Collector)
 
-      raise ConfigError, unknown_directive_message(path, e)
+      # A typo'd call outside the collector: same treatment as a bare
+      # constant, or the raw NoMethodError points at our internals.
+      raise ConfigError, name_error_message(path, e)
     rescue SyntaxError, LoadError => e
       raise ConfigError, "#{path}: #{e.message.lines.first.to_s.chomp}"
     rescue NameError => e
