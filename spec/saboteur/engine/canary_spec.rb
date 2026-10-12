@@ -24,7 +24,7 @@ RSpec.describe Saboteur::Engine::Canary do
       canary = described_class.new(dir)
       File.delete(File.join(dir, "a.rb"))
       expect { canary.check!(digest: "0123456789abcdef") }
-        .to raise_error(Saboteur::CanaryTripped, /1 file.*a\.rb.*0123456789abcdef/m)
+        .to raise_error(Saboteur::CanaryTripped, /1 watched file.*a\.rb.*0123456789abcdef/m)
     end
   end
 
@@ -105,6 +105,27 @@ RSpec.describe Saboteur::Engine::Canary do
       canary = described_class.new(dir)
       File.delete(File.join(dir, "untracked.rb"))
       expect { canary.check! }.to raise_error(Saboteur::CanaryTripped, /untracked\.rb/)
+    end
+  end
+
+  it "watches a tracked broken symlink, which never resolves on disk" do
+    in_tmpdir do |dir|
+      system("git", "-C", dir, "init", "-q") or raise "git init failed"
+      File.symlink("missing-target", File.join(dir, "dangling"))
+      system("git", "-C", dir, "add", "dangling") or raise "git add failed"
+      canary = described_class.new(dir)
+      File.delete(File.join(dir, "dangling"))
+      expect { canary.check! }.to raise_error(Saboteur::CanaryTripped, /dangling/)
+    end
+  end
+
+  it "watches a .git file once, as in a worktree checkout" do
+    in_tmpdir do |dir|
+      File.write(File.join(dir, ".git"), "gitdir: /elsewhere/repo.git")
+      File.write(File.join(dir, "a.rb"), "x")
+      canary = described_class.new(dir)
+      File.delete(File.join(dir, ".git"))
+      expect { canary.check! }.to raise_error(Saboteur::CanaryTripped, /1 watched file.*\.git/m)
     end
   end
 
