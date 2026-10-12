@@ -52,7 +52,7 @@ RSpec.describe Saboteur::MutationSource::HazardGuard do
   end
 
   it "does not treat an interpolated open with a dynamic first part as a pipe spawn" do
-    _kept, suppressed, = partition(%{    open("#{name}|ls")})
+    _kept, suppressed, = partition("    open(\"\#{name}|ls\")")
     expect(suppressed).to be_empty
   end
 
