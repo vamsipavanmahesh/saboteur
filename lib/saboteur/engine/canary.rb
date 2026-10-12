@@ -30,9 +30,11 @@ module Saboteur
         of = " of #{subject.id}" if subject
         culprit = digest ? " The most recent mutant, #{digest}#{of}, is the likely cause." : ""
         raise Saboteur::CanaryTripped,
-              "canary: #{missing.size} file(s) vanished from the working tree while mutants ran " \
-              "(first: #{missing.first}).#{culprit} Restore the tree (for example git checkout -- .) " \
-              "before re-running."
+              "canary: #{missing.size} watched file(s) vanished from the working tree while mutants ran " \
+              "(first: #{missing.first}).#{culprit} The canary watches tracked files and .git presence " \
+              "and only detects the loss after the fact; it cannot restore anything. Recover from your " \
+              "own backup, a fresh checkout, or a reclone - a deleted .git or uncommitted work is gone " \
+              "unless you have another copy."
       end
 
       private
@@ -40,7 +42,7 @@ module Saboteur
       def inventory
         files = git? ? git_tracked_files : walk_files
         files << GIT_DIR if File.exist?(File.join(@root, GIT_DIR))
-        files
+        files.uniq
       end
 
       def git?
@@ -61,11 +63,11 @@ module Saboteur
         Dir.glob(File.join(@root, "**", "*"), File::FNM_DOTMATCH)
            .select { |path| File.file?(path) }
            .map { |path| path.delete_prefix("#{@root}/") }
-           .reject { |rel| rel == GIT_DIR || rel.start_with?("#{GIT_DIR}/") || cache_path?(rel) }
+           .reject { |rel| rel.start_with?("#{GIT_DIR}/") || cache_path?(rel) }
       end
 
       def cache_path?(rel)
-        rel == @cache_dir || rel.start_with?("#{@cache_dir}/")
+        rel.start_with?("#{@cache_dir}/")
       end
     end
   end
