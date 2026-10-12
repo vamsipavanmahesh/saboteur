@@ -11,6 +11,12 @@ whether SimpleCov was loaded and its start suppressed by saboteur's normal boot.
 It does not certify a Rails/database version; successful boot and tests are the
 check. Unmatched include/exclude patterns are warnings, not failures.
 
+Ignore subjects are checked against every included source definition, not a diff
+or test subset. Unmatched names warn with the exact instance/singleton naming
+forms. A source parse failure makes that check incomplete rather than labelling
+entries unmatched. This checks subject names, not mutation digests, and never
+changes the ignore file.
+
 After normal project boot it runs the full filtered RSpec suite in two fresh
 supervised children from the same parent state. Each pass seeds Ruby random
 numbers and sets RSpec random ordering to the run seed. Both must pass, execute
