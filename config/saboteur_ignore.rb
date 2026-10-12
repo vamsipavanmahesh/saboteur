@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
   i.mutation "ada60709111b1e56",
@@ -192,9 +195,33 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CustomMap#glob_entry",
              reason: "equivalent: best is never empty, so != 1 and > 1 agree"
 
-  i.mutation "af7d1164240f82ca",
+  i.mutation "278670ade53a7881",
              subject: "Saboteur::CustomMap#resolve",
              reason: "equivalent: a spec with a backreference only validates under a Regexp key, where match is always present"
+
+  i.mutation "ac6cf2cb71251211",
+             subject: "Saboteur::IgnoreList.name_error_message",
+             reason: "equivalent: a raised error always has backtrace locations"
+
+  i.mutation "7ca498e2b9fbbacc",
+             subject: "Saboteur::IgnoreList.name_error_message",
+             reason: "equivalent: the loaded file is always in the error backtrace, so find never returns nil"
+
+  i.mutation "20e8e8fdb8ca509e",
+             subject: "Saboteur::IgnoreList.name_error_message",
+             reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
+
+  i.mutation "44d44315871fd74d",
+             subject: "Saboteur::CustomMap.name_error_message",
+             reason: "equivalent: a raised error always has backtrace_locations, so dropping the safe navigation changes nothing"
+
+  i.mutation "25c51526ec8e79ce",
+             subject: "Saboteur::CustomMap.name_error_message",
+             reason: "equivalent: the find result is always the loaded file's frame, so dropping the safe navigation changes nothing"
+
+  i.mutation "0031eaebba2ea9ab",
+             subject: "Saboteur::CustomMap.name_error_message",
+             reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
 
   i.mutation "50aeb1c93f0d6b6c",
              subject: "Saboteur::IgnoreList::Collector#mutation",
