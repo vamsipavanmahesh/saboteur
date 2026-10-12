@@ -16,21 +16,50 @@ module Saboteur
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
     class CoverageMap
-      FORMAT = 3
+      FORMAT = 4
 
-      attr_reader :lines, :tests, :build_seconds, :durations
+      attr_reader :lines, :tests, :build_seconds, :durations, :methods
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
+      # methods: { "/abs/file.rb" => { 12 => ["id1", "id2"] } } keyed by the
+      # def's first line; line coverage never counts an endless def's body,
+      # so methods carry those subjects (issue #107).
       # durations: { "id1" => seconds }
-      def initialize(lines:, tests:, build_seconds: nil, durations: {})
+      def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {})
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
         @durations = durations
+        @methods = methods
       end
 
       def tests_for(subject)
-        tests_for_lines(subject.file, subject.coverage_lines)
+        tests = tests_for_lines(subject.file, subject.coverage_lines)
+        return tests unless tests.empty?
+
+        by_method = methods[CoverageMap.canonical(subject.file)]
+        return [] unless by_method
+
+        span = subject.start_line..subject.end_line
+        ids = by_method.flat_map { |line, method_ids| span.cover?(line) ? method_ids : [] }.uniq
+        sort_test_ids(ids)
+      end
+
+      # Tests for the lines of one edit. A branch no test executes keeps its
+      # "no coverage" skip, but a subject whose lines never record at all
+      # (an endless def) falls back to its method coverage (issue #107).
+      def tests_for_edit(subject, line_numbers)
+        tests = tests_for_lines(subject.file, line_numbers)
+        return tests unless tests.empty?
+        return [] unless tests_for_lines(subject.file, subject.coverage_lines).empty?
+
+        tests_for(subject)
+      end
+
+      # True when the build recorded nothing at all: no line hits and no
+      # method calls in any included file.
+      def empty?
+        [lines, methods].all? { |hits| hits.none? { |_file, by_line| by_line.any? } }
       end
 
       # Tests that executed any of the lines, fastest first (suite order breaks
@@ -46,19 +75,18 @@ module Saboteur
         by_line = lines[CoverageMap.canonical(file)]
         return [] unless by_line
 
-        ids = line_numbers.flat_map { |line| by_line.fetch(line, []) }.uniq
-        order = test_order
-        ids.sort_by { |id| [durations.fetch(id, Float::INFINITY), order.fetch(id, Float::INFINITY)] }
+        sort_test_ids(line_numbers.flat_map { |line| by_line.fetch(line, []) }.uniq)
       end
 
       # Lines refer to tests by their index in tests, which keeps the cache
       # small for suites with long test ids.
       def to_json(*)
         index = test_order
-        encoded = lines.transform_values do |by_line|
-          by_line.to_h { |line, ids| [line.to_s, ids.map { |id| index.fetch(id) }] }
+        encode = lambda do |hits|
+          hits.transform_values { |by_line| by_line.to_h { |line, ids| [line.to_s, ids.map { |id| index.fetch(id) }] } }
         end
-        JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encoded,
+        JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encode.call(lines),
+                      methods: encode.call(methods),
                       durations: tests.map { |id| durations[id]&.round(6) })
       end
 
@@ -67,11 +95,14 @@ module Saboteur
         raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
 
         tests = data["tests"]
-        lines = data["lines"].transform_values do |by_line|
-          by_line.to_h { |line, indexes| [line.to_i, indexes.map { |i| tests.fetch(i) }] }
+        decode = lambda do |hits|
+          hits.transform_values do |by_line|
+            by_line.to_h { |line, indexes| [line.to_i, indexes.map { |i| tests.fetch(i) }] }
+          end
         end
         durations = tests.zip(data["durations"]).to_h.compact
-        new(lines: lines, tests: tests, build_seconds: data["build_seconds"], durations: durations)
+        new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
+            durations: durations, methods: decode.call(data["methods"] || {}))
       end
 
       # Cache key over every input that can change which test runs which line.
@@ -104,6 +135,11 @@ module Saboteur
       end
 
       private
+
+      def sort_test_ids(ids)
+        order = test_order
+        ids.sort_by { |id| [durations.fetch(id, Float::INFINITY), order.fetch(id, Float::INFINITY)] }
+      end
 
       def test_order
         @test_order ||= tests.each_with_index.to_h
