@@ -82,4 +82,16 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     allow(engine).to receive(:candidate_lists).and_return([[]])
     expect(engine.call.results).to eq([])
   end
+  it "uses method-call counters to exclude uncalled shared def/body lines" do
+    file = File.realpath(__FILE__)
+    methods = { [Object, :called, 1, 0, 1, 20] => 2, [Object, :uncalled, 2, 0, 2, 20] => 0,
+                [Object, :multi, 3, 0, 5, 3] => 0 }
+    allow(fake_coverage).to receive(:result).and_return(file => { lines: [1, 1, 1, 1], methods: methods })
+    expect(engine.send(:capture_load_lines, [file])).to eq(file => [1, 3, 4])
+  end
+
+  it "does not discard a shared line if any method defined there ran" do
+    data = { methods: { [Object, :unused, 1, 0, 1, 10] => 0, [Object, :used, 1, 12, 1, 20] => 1 } }
+    expect(engine.send(:uncalled_shared_lines, data)).to eq([])
+  end
 end
