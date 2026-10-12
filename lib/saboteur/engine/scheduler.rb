@@ -15,7 +15,13 @@ module Saboteur
       # A subject to run, with what its mutants need. killers counts the
       # tests that killed earlier mutants of this subject; slowdown is how
       # much slower than recorded its tests ran in a child (see calibrate).
-      Plan = Struct.new(:subject, :tests, :killers, :slowdown, keyword_init: true)
+      # unreachable is set when a captured Method object still calls the
+      # original: later mutants then skip forking, they cannot be observed.
+      # wrapper names a known def-time wrapper (Execution::Wrapper), so the
+      # child re-evaluates it together with the def. sig_warned rates the
+      # "sig not found" notice to once per subject.
+      Plan = Struct.new(:subject, :tests, :killers, :slowdown, :unreachable, :wrapper, :sig_warned,
+                        keyword_init: true)
 
       # Tests that killed more earlier mutants first; otherwise keep the order.
       def self.prioritize(tests, killers)
@@ -34,20 +40,20 @@ module Saboteur
       def call(subject, candidates)
         return [] if candidates.empty?
 
-        reason = subject.skip_reason || load_problem(subject)
+        reason, wrapper = subject.skip_reason ? [subject.skip_reason, nil] : load_problem(subject)
         return skip_all(candidates, subject, reason) if reason
 
         tests = @map.tests_for(subject)
-        return skip_all(candidates, subject, "no coverage") if tests.empty?
+        return unloadable(candidates, subject) if tests.empty?
 
-        plan = Plan.new(subject:, tests:, killers: Hash.new(0), slowdown: 1.0)
+        plan = Plan.new(subject:, tests:, killers: Hash.new(0), slowdown: 1.0, wrapper: wrapper)
         reused = all_reused(plan, candidates)
         return reused if reused
 
         results = run_candidates(candidates) do |mutation, text|
           reuse(plan, mutation, text) || execute(plan, mutation, text)
         end
-        checked(subject, results)
+        checked(plan, results)
       end
 
       # The per-mutant timeout: timeout_factor times what the tests took
@@ -64,9 +70,11 @@ module Saboteur
 
       # Verdicts that did not hold up are warned about once per subject;
       # only checked verdicts are stored for --incremental.
-      def checked(subject, results)
+      def checked(plan, results)
+        subject = plan.subject
         run_unchanged = lambda do |tests, timeout|
-          @runner.run(subject: subject, text: subject.source, test_ids: tests, timeout: timeout)
+          @runner.run(subject: subject, text: subject.source, test_ids: tests, timeout: timeout,
+                      eval_prefix: eval_prefix(plan))
                  .tap { |outcome| note_leftovers(subject, "verdict check", outcome) }
         end
         check = VerdictCheck.new(run_unchanged: run_unchanged, baseline_timeout: @config["baseline_timeout"])
@@ -100,7 +108,7 @@ module Saboteur
         return nil unless @cache
 
         tests = tests_for(plan, mutation)
-        return skip_all([[mutation, text]], plan.subject, "no coverage").first if tests.empty?
+        return uncoverable(plan, mutation, text) if tests.empty?
 
         hit = @cache.lookup(plan.subject, mutation, tests)
         return nil unless hit
@@ -112,11 +120,11 @@ module Saboteur
 
       def execute(plan, mutation, text)
         tests = tests_for(plan, mutation)
-        return skip_all([[mutation, text]], plan.subject, "no coverage").first if tests.empty?
+        return uncoverable(plan, mutation, text) if tests.empty?
+        return unreachable(plan, mutation, text) if plan.unreachable
 
-        timeout = timeout_for(tests, plan.slowdown)
-        outcome = @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: timeout, mutation: mutation)
-        outcome = calibrate(plan, mutation, text, tests, timeout) if outcome.status == :timeout
+        outcome = run_mutant(plan, mutation, text, tests)
+        note_unreachable(plan, outcome) if outcome.status == :unreachable
         result = MutantResult.new(subject: plan.subject, mutation: mutation, status: outcome.status,
                                   mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
                                   killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause)
@@ -139,6 +147,65 @@ module Saboteur
         [@config["timeout_factor"] * runtime, @config["timeout_min"]].max
       end
 
+      # What a subject no test ran gets. Code that only ran while the app
+      # loaded is not "no coverage" - it ran - but no forked test can re-run
+      # it, so it gets its own status, out of the score, with a hint.
+      def unloadable(candidates, subject, line_numbers = nil)
+        return skip_all(candidates, subject, "no coverage") unless
+          @map.ran_at_load?(subject.file, line_numbers || subject.coverage_lines)
+
+        candidates.map do |mutation, text|
+          MutantResult.new(subject: subject, mutation: mutation, status: :ran_at_load, mutated_source: text,
+                           reason: Selection::CoverageMap::RAN_AT_LOAD)
+        end
+      end
+
+      # One mutation whose edited lines no test ran (see unloadable).
+      def uncoverable(plan, mutation, text)
+        line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
+        unloadable([[mutation, text]], plan.subject, line_numbers).first
+      end
+
+      def run_mutant(plan, mutation, text, tests)
+        timeout = timeout_for(tests, plan.slowdown)
+        outcome = @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: timeout,
+                              mutation: mutation, eval_prefix: eval_prefix(plan))
+        outcome.status == :timeout ? calibrate(plan, mutation, text, tests, timeout) : outcome
+      end
+
+      # The first unreachable verdict sticks for the subject's remaining
+      # mutants and is warned about once, here.
+      def note_unreachable(plan, outcome)
+        plan.unreachable = outcome.message
+        @diagnostics.warn("#{plan.subject.id}: #{outcome.message}")
+      end
+
+      # A mutant no test can observe, because a Method object captured
+      # before re-evaluation still calls the original. Reported once per
+      # subject (see note_unreachable); later mutants of the subject share
+      # the verdict without forking.
+      def unreachable(plan, mutation, text)
+        MutantResult.new(subject: plan.subject, mutation: mutation, status: :unreachable,
+                         mutated_source: text, reason: plan.unreachable)
+      end
+
+      # The text a known def-time wrapper needs re-evaluated with the def.
+      # Sorbet's sig sits on the lines right before it; without it the def
+      # evaluates alone and runtime type checks silently drop for the child.
+      def eval_prefix(plan)
+        return nil unless plan.wrapper == :sorbet
+
+        prefix = plan.subject.sig_source
+        return prefix if prefix
+
+        unless plan.sig_warned
+          plan.sig_warned = true
+          @diagnostics.warn("#{plan.subject.id}: sorbet sig not found next to the def; " \
+                            "re-evaluating the def alone (runtime type checks off for its mutants)")
+        end
+        nil
+      end
+
       # Recorded durations come from one warm process; a fresh child can be
       # slower (lazy loading, first queries). So a timeout is checked at
       # once: the unchanged method runs the same tests with
@@ -147,7 +214,7 @@ module Saboteur
       # the measured slowdown. A timeout that remains is the mutant's own.
       def calibrate(plan, mutation, text, tests, timeout)
         unchanged = @runner.run(subject: plan.subject, text: plan.subject.source, test_ids: tests,
-                                timeout: @config["baseline_timeout"])
+                                timeout: @config["baseline_timeout"], eval_prefix: eval_prefix(plan))
         note_leftovers(plan.subject, "timeout check", unchanged)
         return unchanged_failed(unchanged) unless unchanged.status == :survived
 
@@ -167,18 +234,26 @@ module Saboteur
       end
 
       # The method saboteur would redefine must be the one Ruby is running.
+      # Returns [skip reason, wrapper]: a known def-time wrapper (sorbet's
+      # sig is one, see Execution::Wrapper) is not a shadowing - the child
+      # re-evaluates it together with the def, so the check passes.
       def load_problem(subject)
         owner = @reevaluator.resolve_owner(subject)
         target = subject.singleton ? owner.singleton_class : owner
         method = own_method(target, subject.name)
-        return "method not loaded" unless method
+        return ["method not loaded", nil] unless method
 
         file, line = method.source_location
-        return nil if file && Selection::CoverageMap.canonical(file) == subject.file && line == subject.start_line
+        if file && Selection::CoverageMap.canonical(file) == subject.file && line == subject.start_line
+          return [nil, nil]
+        end
 
-        "shadowed definition (runtime method at #{file}:#{line})"
+        wrapper = Execution::Wrapper.around(method, file)
+        return [nil, wrapper] if wrapper
+
+        ["shadowed definition (runtime method at #{file}:#{line})", nil]
       rescue Error => e
-        "owner not loaded: #{e.message}"
+        ["owner not loaded: #{e.message}", nil]
       end
 
       def own_method(target, name)
