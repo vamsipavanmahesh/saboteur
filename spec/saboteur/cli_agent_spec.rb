@@ -130,7 +130,9 @@ RSpec.describe Saboteur::CLI, "agent mode" do
     def repository(since: nil)
       dir = File.realpath(Dir.mktmpdir("saboteur-agent-"))
       (@agent_dirs ||= []) << dir
-      File.write(File.join(dir, ".saboteur.yml"), since ? "since: #{since}\n" : "{}\n")
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      body = since ? "Saboteur.configure { |c| c.since = #{since.inspect} }" + 10.chr : ""
+      File.write(File.join(dir, "config", "saboteur.rb"), body)
       FileUtils.mkdir_p(File.join(dir, "lib"))
       File.write(File.join(dir, "lib", "a.rb"), "class A; end\n")
       git(dir, "init", "-q")
