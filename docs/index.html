@@ -147,7 +147,16 @@ Saboteur.configure do |c|
   c.jobs = 4                  # optional, default is 1
 end</code></pre>
 <p>Run with <code>RAILS_ENV=test</code>.</p>
-<h3>Check the environment</h3><p><code>saboteur doctor</code> reports Ruby, coverage, integration, Rails/SimpleCov and boot-file checks, then runs the unchanged suite twice with the chosen seed. It writes no mutation reports or coverage/verdict caches; boot files and tests still have their normal side effects. It warns when an ignore subject matches no discovered method; malformed ignore files fail before target boot.</p><h3>Internal evidence, not a public baseline command</h3><p>Internal run reports retain candidate-drop and cap evidence. The engine can opt in to fresh input, planned-candidate and reconciled terminal evidence. Caps, uncovered work, invalid or empty generation, reused outcomes and changed inputs make that evidence incomplete. These records do not change public scores, exit codes or JSON. This is not a shipped survivor-acceptance or public baseline command.</p><h3>5. Accept a survivor with a reason</h3>
+<h3>Check the environment</h3><p><code>saboteur doctor</code> reports Ruby, coverage, integration, Rails/SimpleCov and boot-file checks, then runs the unchanged suite twice with the chosen seed. It writes no mutation reports or coverage/verdict caches; boot files and tests still have their normal side effects. It warns when an ignore subject matches no discovered method; malformed ignore files fail before target boot.</p><h3>Opt-in survivor baseline</h3><p><code>saboteur baseline check</code> runs every selected mutant fresh and compares reviewed survivors. It does not skip accepted mutants, change verdicts or change scores. Use whole-project or <code>--subject</code> scope; diff, replay, incremental reuse and score thresholds are refused.</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere"><code>bundle exec saboteur baseline propose \
+  --baseline baseline.json \
+  --proposal proposal.json
+<span class="c"># Edit survivor reasons in proposal.json:</span>
+<span class="c"># document.accepted[*].reason only.</span>
+bundle exec saboteur baseline accept \
+  --baseline baseline.json \
+  --proposal proposal.json
+bundle exec saboteur baseline check \
+  --baseline baseline.json</code></pre><p>Keep the private execution evidence in the configured cache directory until acceptance. Acceptance verifies that evidence and the current input fingerprint before publishing the manifest. Caps, uncovered work, empty generation, errors, resource-limit stops, changed inputs or missing results make a check incomplete, even with no new survivors.</p><p>Check exits <code>0</code> only for a compatible, complete, clean result; <code>1</code> needs survivor review; <code>2</code> means incompatible or invalid configuration; <code>3</code> means incomplete execution or tool failure. Local evidence is not remote attestation and does not prove external state stability. The ignore file below remains a separate mechanism.</p><h3>5. Accept a survivor with a reason</h3>
 <pre><code><span class="c"># config/saboteur_ignore.rb</span>
 Saboteur.ignore do |i|
   i.mutation "1a2b3c4d5e6f7a8b",
