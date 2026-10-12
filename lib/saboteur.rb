@@ -9,6 +9,9 @@ module Saboteur
   # Invalid configuration or input files (exit code 2).
   class ConfigError < Error; end
 
+  # Files vanished from the working tree while mutants ran (exit code 3).
+  class CanaryTripped < Error; end
+
   class << self
     # Set while hook files from config load, so they can call Saboteur.hook.
     attr_accessor :current_hooks
