@@ -50,6 +50,20 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     expect(warnings.last).not_to include("unknown")
   end
 
+  it "separates several thread names with a comma" do
+    first = Thread.new { sleep }
+    first.name = "reaper-a"
+    second = Thread.new { sleep }
+    second.name = "reaper-b"
+    engine.send(:warn_about_threads)
+    expect(warnings.last).to include("reaper-a, reaper-b").or include("reaper-b, reaper-a")
+  ensure
+    first.kill
+    first.join
+    second.kill
+    second.join
+  end
+
   it "says nothing when no other thread is alive" do
     allow(Thread).to receive(:list).and_return([Thread.current])
     engine.send(:warn_about_threads)
