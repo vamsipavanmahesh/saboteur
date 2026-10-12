@@ -14,6 +14,15 @@ RSpec.describe PatternEquivalence::Matcher do
     end
   end
 
+  it "recognizes a directly supplied byte-identical edit as P0 without calling it a useful skip" do
+    subject = subjects_in("class Probe; def call; 1; end; end").first
+    offset = subject.file_source.index("1")
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: offset, end_byte: offset + 1,
+                                              replacement: "1")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "noop", edits: [edit])
+    expect(matcher.classify(subject, mutation)).to eq("P0_noop")
+  end
+
   it "recognizes left literal truth identities without dropping evaluation of the right operand" do
     expect(matched("true && value")).to eq([["P6_left_identity", "def call(value); value; end"]])
     expect(matched("false || value")).to eq([["P6_left_identity", "def call(value); value; end"]])
