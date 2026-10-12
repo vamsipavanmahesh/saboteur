@@ -57,7 +57,7 @@ Do not run untrusted pull-request code with secrets or privileged credentials.
 
 ## Configuration
 
-Keep shared `.saboteur.yml` settings such as `include`, `exclude`, `require`
+Keep shared `config/saboteur.rb` settings such as `include`, `exclude`, `require`
 and `rspec_args`. Pass `--since` only in the PR job, so a main-branch audit
 can use the same config without a diff filter. CLI flags override YAML.
 
