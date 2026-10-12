@@ -3,6 +3,14 @@
 
 require_relative "../lib/people"
 
+require "fileutils"
+
+# e2e evidence: a load of this file proves RSpec loaded it (saboteur --since scoping).
+if ENV["SABOTEUR_E2E_TRACE"]
+  FileUtils.mkdir_p(File.expand_path("../tmp", __dir__))
+  File.open(File.expand_path("../tmp/loaded_specs.log", __dir__), "a") { |file| file.puts(File.basename(__FILE__)) }
+end
+
 RSpec.describe People::Person do
   it "is not an adult at 17" do
     expect(described_class.new(17).adult?).to be(false)
