@@ -24,23 +24,29 @@ module Saboteur
         raise ConfigError, "baseline plan already recorded" if @planned
         raise ConfigError, "baseline candidate lists differ from subjects" unless subjects.size == lists.size
 
-        @subjects = subjects.map { |subject| [relative(subject.file), subject.id] }
-        @planned = subjects.zip(lists).flat_map do |subject, candidates|
+        @subjects = Engine::RunFingerprint.canonical_value(subjects.map do |subject|
+          [relative(subject.file), subject.id]
+        end)
+        @planned = Engine::RunFingerprint.canonical_value(subjects.zip(lists).flat_map do |subject, candidates|
           candidates.map { |mutation, _| Identity.new(subject: subject, mutation: mutation, root: @root).entry }
-        end
+        end)
       end
 
-      def finish(results:, stable_suite:, skipped_subjects:, generation_events:, omissions:)
+      def finish(results:, stable_suite:, skipped_subjects:, generation_events:, omissions:, discovery_failures: [])
         raise ConfigError, "baseline plan missing" unless @planned
 
         observed = results.map { |result| outcome(result) }
         generation = generation_events.map { |event| event.to_h.transform_keys(&:to_s) }
-        errors = generation_issues(generation, results) + context_issues(observed)
+        discovery = discovery_failures.map { |failure| failure.to_h.transform_keys(&:to_s) }
+        errors = generation_issues(generation, results) + context_issues(observed) + discovery.map do |failure|
+          "discovery:#{failure.fetch('reason')}:#{relative(failure.fetch('file'))}"
+        end
         completeness = assess(observed, stable_suite, skipped_subjects, omissions, errors)
         document = { "compatibility" => compatibility, "snapshot" => @snapshot.to_h, "subjects" => @subjects,
                      "candidates" => observed, "planned" => @planned,
                      "complete" => completeness.complete?, "issues" => completeness.issues,
-                     "generation_events" => generation, "omissions" => omissions.map(&:to_h) }
+                     "generation_events" => generation, "omissions" => omissions.map(&:to_h),
+                     "discovery_failures" => discovery }
         Engine::RunFingerprint.canonical_value(document)
       end
 
