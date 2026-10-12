@@ -123,9 +123,11 @@ RSpec.describe Saboteur::IgnoreList do
     end
   end
 
-  it "re-raises a NoMethodError from a non-collector receiver" do
+  it "wraps a NoMethodError from a non-collector receiver" do
     with_file("[].bogus\n") do |path|
-      expect { described_class.load(path) }.to raise_error(NoMethodError)
+      expect { described_class.load(path) }.to raise_error(Saboteur::ConfigError) { |error|
+        expect(error.message).to include("saboteur_ignore.rb:1:", "'bogus'", "before the app boots")
+      }
     end
   end
 
