@@ -21,6 +21,26 @@ RSpec.describe Saboteur::Engine::Distribution do
     expect(distribution.run(%i[a], [[]])).to eq([:a])
   end
 
+  it "runs after_subject as each row arrives in parallel and stops the queue when it raises" do
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: subject.file_source.index("1"),
+                                              end_byte: subject.file_source.index("1") + 1, replacement: "2")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "x")]
+    scheduler = ->(_subject, _list) { row }
+    trips = []
+    after = lambda do |seen_subject, results|
+      trips << [seen_subject.id, results.map(&:status)]
+      raise Saboteur::CanaryTripped, "canary: trip"
+    end
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil, after_subject: after)
+    lists = [[[mutation, "text"]], [[mutation, "text"]], [[mutation, "text"]]]
+    expect { distribution.run([subject, subject, subject], lists) }
+      .to raise_error(Saboteur::CanaryTripped, "canary: trip")
+    expect(trips.size).to be < 3
+    expect(trips.first).to eq(["K#m", [:killed]])
+  end
+
   it "uses the worker pool when jobs is above one" do
     scheduler = ->(subject, _list) { [subject] }
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
