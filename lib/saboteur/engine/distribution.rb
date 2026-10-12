@@ -25,13 +25,17 @@ module Saboteur
           end
         end
 
-        pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start)
+        # The watcher runs as each subject's row arrives, before the pool
+        # hands out more work, so a tripped canary stops the queue (jobs>1
+        # used to check only after the whole batch returned, issue #102).
+        arrival = lambda do |i, row|
+          @after_subject&.call(subjects[i], decode(row, subjects[i], lists[i]))
+        end
+        pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start, on_result: arrival)
         rows = pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
           work(subjects[i], lists[i])
         end
-        rows.each_with_index.flat_map do |row, i|
-          rebuild(row, subjects[i], lists[i]).tap { |results| @after_subject&.call(subjects[i], results) }
-        end
+        rows.each_with_index.flat_map { |row, i| rebuild(row, subjects[i], lists[i]) }
       end
 
       private
@@ -55,24 +59,32 @@ module Saboteur
       end
 
       def rebuild(row, subject, list)
-        return failed(row["error"], subject, list) if row["error"]
+        if row["error"]
+          @diagnostics.warn("#{subject.id}: #{row['error']}")
+          return failed(row["error"], subject, list)
+        end
 
         @diagnostics.warnings.concat(row["warnings"])
+        decode(row, subject, list).each { |result| @cache&.record(result) unless result.reused? }
+      end
+
+      # Turns a worker row back into results, without diagnostics or caching:
+      # used both at result arrival (the canary) and at rebuild time.
+      def decode(row, subject, list)
+        return failed(row["error"], subject, list) if row["error"]
+
         row["results"].map do |data|
           mutation, text = list.fetch(data["position"])
-          result = MutantResult.new(subject: subject, mutation: mutation, status: data["status"].to_sym,
-                                    mutated_source: text, reason: data["reason"], runtime: data["runtime"],
-                                    killed_by: data["killed_by"], covered_by: data["covered_by"],
-                                    kill_cause: data["kill_cause"], reused: data["reused"],
-                                    rejected_kill: data.fetch("rejected_kill", false))
-          @cache&.record(result) unless result.reused?
-          result
+          MutantResult.new(subject: subject, mutation: mutation, status: data["status"].to_sym,
+                           mutated_source: text, reason: data["reason"], runtime: data["runtime"],
+                           killed_by: data["killed_by"], covered_by: data["covered_by"],
+                           kill_cause: data["kill_cause"], reused: data["reused"],
+                           rejected_kill: data.fetch("rejected_kill", false))
         end
       end
 
       # The worker died (or raised) while running this subject.
       def failed(message, subject, list)
-        @diagnostics.warn("#{subject.id}: #{message}")
         list.map do |mutation, text|
           MutantResult.new(subject: subject, mutation: mutation, status: :error, mutated_source: text,
                            reason: message)
