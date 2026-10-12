@@ -49,6 +49,7 @@ h2{font-size:1.7rem;margin:0 0 8px;letter-spacing:-.01em}
 .step::before{counter-increment:s;content:counter(s);width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
 .step h3{margin:0 0 4px;font-size:1.05rem}.step p{margin:0;color:var(--muted)}
 .table-wrap{overflow-x:auto}
+code{overflow-wrap:anywhere}
 table{border-collapse:collapse;width:100%;font-size:.95rem}
 th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
 th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
@@ -146,7 +147,7 @@ Saboteur.configure do |c|
   c.jobs = 4                  # optional, default is 1
 end</code></pre>
 <p>Run with <code>RAILS_ENV=test</code>.</p>
-<h3>5. Accept a survivor with a reason</h3>
+<h3>Check the environment</h3><p><code>saboteur doctor</code> reports Ruby, coverage, integration, Rails/SimpleCov and boot-file checks, then runs the unchanged suite twice with the chosen seed. It writes no mutation reports or coverage/verdict caches; boot files and tests still have their normal side effects. It warns when an ignore subject matches no discovered method; malformed ignore files fail before target boot.</p><h3>Internal evidence, not a public baseline command</h3><p>Internal run reports retain candidate-drop and cap evidence. The engine can opt in to fresh input, planned-candidate and reconciled terminal evidence. Caps, uncovered work, invalid or empty generation, reused outcomes and changed inputs make that evidence incomplete. These records do not change public scores, exit codes or JSON. This is not a shipped survivor-acceptance or public baseline command.</p><h3>5. Accept a survivor with a reason</h3>
 <pre><code><span class="c"># config/saboteur_ignore.rb</span>
 Saboteur.ignore do |i|
   i.mutation "1a2b3c4d5e6f7a8b",
@@ -156,44 +157,20 @@ end</code></pre>
 <p>An entry without a reason is rejected. Exit codes for <code>saboteur run</code>: <code>0</code> no unignored survivors (survivors on the ignore list do not fail the run), or with <code>--threshold</code> the score is at or above it even if mutants survived; <code>1</code> an unignored survivor, or with <code>--threshold</code> the score is below it or missing; <code>2</code> bad configuration or a missing source or test; <code>3</code> the tool failed, or more than half of the executed mutants errored (with <code>--threshold</code>, any errored or resource-limited mutant). <code>saboteur run --agent</code> is strict: it prints one JSON verdict and exits <code>0</code> clean, <code>1</code> unignored survivors, <code>2</code> invalid invocation, <code>3</code> incomplete. The JSON report goes to <code>.saboteur/report.json</code>.</p>
 </div></section>
 
-<section id="compare"><div class="wrap">
-<h2>saboteur and mutineer, side by side</h2>
-<p class="sub"><a href="https://github.com/davidteren/mutineer">mutineer</a> is another Ruby mutation testing tool. We compared the two on real projects. Here is the honest picture, including where mutineer is ahead. These numbers were measured at 2b6ec02, before the coarse-survivor gate was removed and before the newer operators. They are historical, and a rerun is pending.</p>
-<div class="table-wrap"><table>
-<thead><tr><th>Area</th><th>saboteur</th><th>mutineer</th><th></th></tr></thead>
-<tbody>
-<tr><td>Fake kills (lobsters)</td><td>0 of 20 sampled at random</td><td>8 of 8 hand-checked</td><td><span class="tag">sample check</span></td></tr>
-<tr><td>Rails app, parallel</td><td>6 workers, same verdicts as 1</td><td>1 worker only</td><td><span class="tag win">saboteur</span></td></tr>
-<tr><td>Postgres Rails app</td><td>Runs</td><td>Does not run</td><td><span class="tag win">saboteur</span></td></tr>
-<tr><td>Time per mutant (hashie)</td><td>0.008 s</td><td>0.092 s</td><td><span class="tag win">saboteur</span></td></tr>
-<tr><td>Peak memory (hashie)</td><td>595 MB</td><td>471 MB</td><td><span class="tag lose">mutineer</span> <em>(measured before the fork-memory work; see below)</em></td></tr>
-<tr><td>Operators and CI extras</td><td>Fixed set, fewer</td><td>20 operators, baseline, HTML, GitHub Action</td><td><span class="tag lose">mutineer</span></td></tr>
-<tr><td>Test frameworks</td><td>RSpec</td><td>RSpec and Minitest</td><td><span class="tag lose">mutineer</span></td></tr>
-<tr><td>Ruby version</td><td>3.3+</td><td>3.4+</td><td><span class="tag tie">saboteur is wider</span></td></tr>
-</tbody></table></div>
-<div class="note">Each configuration ran once on sampled files, so read these numbers as a guide, not a verdict. Full method and limits are on the <a href="benchmark/">benchmark page</a>. Findings about mutineer are from our runs of version 1.6.0.</div>
-</div></section>
-
-<section id="bench"><div class="wrap">
-<h2>Benchmarks</h2>
-<p class="sub">Numbers you can rerun yourself.</p>
-<h3>Memory after the fork-sharing change (hashie)</h3>
-<p>Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with AB/BA alternation and cold caches, on a 2 vCPU / 2 GB shared sandbox. Peak memory is per-process-tree PSS from /proc/smaps_rollup sampled at 0.3s. Verdict parity: <strong>0 verdict differences in 23,700 mutant outcomes</strong> (1,580 mutants x 15 pairs); kill reasons (assertion vs crash class) vary run to run on both variants, as before.</p>
-<div class="table-wrap">
-<table>
-  <thead><tr><th>jobs</th><th>peak PSS baseline (median, range)</th><th>peak PSS PR (median, range)</th><th>shared-memory delta</th></tr></thead>
-  <tbody>
-    <tr><td>1</td><td>101 MB (101-101)</td><td>100 MB (100-102)</td><td>~0 (no workers to share with)</td></tr>
-    <tr><td>2</td><td>133 MB (116-134)</td><td>109 MB (106-121)</td><td>-18%</td></tr>
-    <tr><td>6</td><td>235 MB (192-269)</td><td>196 MB (175-201)</td><td>-17%</td></tr>
-  </tbody>
-</table>
-</div>
-<p>Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not touch less memory, it keeps more of it shared between workers after fork, which is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers. Swap was not measured.</p>
-<p>Wall time on uncontended runs, per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6. These are noisy per-cell minima from historical runs and do not show a direction either way. The shared sandbox had multi-minute CPU-starvation windows during this session (walls up to 594s); affected runs are flagged via sampler cadence and excluded from wall analysis. Absolute times are specific to this 2-core sandbox.</p>
-<p>Scripts and raw data: <a href="https://github.com/vamsipavanmahesh/saboteur/tree/main/bench/vs-mutineer">bench/vs-mutineer</a>. Full write-up, environment and contention log: <a href="benchmark/">benchmark page</a>.</p>
-</div></section>
-
+<section id="bench"><div class="wrap"><h2>Rails mutation-score rebaseline</h2><p class="sub">12 October 2026 &middot; Post-removal rebaseline: 9 of 10 selected Rails/RSpec targets complete. Chatwoot is pending.</p><div class="table-wrap"><table>
+<thead><tr><th>Project</th><th>Mutation score</th><th>Measured scope</th></tr></thead><tbody>
+<tr><td>paper_trail</td><td>81.3%</td><td>record_trail / widget specs</td></tr>
+<tr><td>alchemy_cms</td><td>95.9%</td><td>Attachment / attachment specs</td></tr>
+<tr><td>fat_free_crm</td><td>66.7%</td><td>Account / accounts controller specs</td></tr>
+<tr><td>doorkeeper</td><td>89.5%</td><td>Access-token and application mixins / model specs</td></tr>
+<tr><td>administrate</td><td>92.1%</td><td>Field::Base / base field specs</td></tr>
+<tr><td>solidus</td><td>80.0%</td><td>StockItem / stock-item specs</td></tr>
+<tr><td>publify</td><td>73.9%</td><td>Four sidebars and Gravatar / six specs</td></tr>
+<tr><td>mastodon</td><td>74.3%</td><td>Account / account specs</td></tr>
+<tr><td>lobsters</td><td>61.2%</td><td>Story / story specs</td></tr>
+<tr><td>chatwoot</td><td>Pending</td><td>Conversation / conversation specs; not included in the nine completed results</td></tr>
+</tbody></table></div><p>Selected files and their configured RSpec suites, not whole-app scores. Post-removal engine <code>1154806</code>; single complete runs with seed <code>1</code> and <code>--jobs 2</code>, not a performance comparison. Chatwoot is pending.</p><div class="note">The score includes assertion kills, crash kills and timeouts. Errors, resource-limit stops and no-coverage work are excluded. A high score does not prove broad coverage or the absence of flaky tests.</div><p><a href="benchmark/">Full method, scope and caveats</a></p></div></section>
+<section id="compare"><div class="wrap"><h2>Historical comparison</h2><p>The older saboteur-versus-mutineer measurements and hashie fork-sharing experiment are <a href="benchmark/archive.html">archived</a>, not a headline ranking of current tools. The competitor operator count belongs to that measured-version archive; it is not a claim about today's versions. A new competitor comparison is still pending.</p></div></section>
 <footer><div class="wrap">
 <p><strong>saboteur</strong> &middot; MIT licensed &middot; Copyright 2026 Vamsi Pavan Mahesh Gunturu</p>
 <p><a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/design.md">Design</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CHANGELOG.md">Changelog</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CONTRIBUTING.md">Contribute</a> &middot; <a href="https://rubygems.org/gems/saboteur">RubyGems</a></p>
