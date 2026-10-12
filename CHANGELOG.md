@@ -40,9 +40,9 @@ All notable changes are documented here. The format follows
 - `config/saboteur_custom_map.rb` declares explicit source-file to spec-file
   mappings (`SABOTEUR_CUSTOM_MAP`): exact paths, globs (the more specific glob
   wins; equal specificity is an error) and Regexps with capture substitution.
-  An empty array marks a file intentionally untested. Invalid maps fail the
-  run with the file and key; stale and duplicate keys warn on runs, and
-  `saboteur doctor` fails on stale keys.
+  Invalid maps fail the run with the file and key; stale and duplicate keys
+  warn on runs, and `saboteur doctor` fails on stale keys. The map is parsed
+  and validated only for now - it does not change which specs run yet.
 
 - An integration target can declare a known error profile
   (`allow_error_fraction` per strategy in integration/targets.yml): the
