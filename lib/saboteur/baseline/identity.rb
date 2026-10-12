@@ -23,9 +23,9 @@ module Saboteur
         path = file.relative_path_from(base).to_s
         raise ConfigError, "baseline subject outside project root" if path == ".." || path.start_with?("../")
 
-        @tuple = [VERSION, path, subject.id, mutation.source, mutation.operator, mutation.coarse, edits].freeze
-        @id = Digest::SHA256.hexdigest(JSON.generate(tuple))
-        @context = Digest::SHA256.hexdigest(subject.source.b)
+        @tuple = immutable([VERSION, path, subject.id, mutation.source, mutation.operator, mutation.coarse, edits])
+        @id = Digest::SHA256.hexdigest(JSON.generate(tuple)).freeze
+        @context = Digest::SHA256.hexdigest(subject.source.b).freeze
       end
 
       def entry
@@ -33,6 +33,14 @@ module Saboteur
       end
 
       private
+
+      def immutable(value)
+        case value
+        when Array then value.map { |entry| immutable(entry) }.freeze
+        when String then value.dup.freeze
+        else value
+        end
+      end
 
       def edits
         previous_end = nil
