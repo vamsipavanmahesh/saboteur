@@ -12,9 +12,21 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
 
   it "records uncovered subjects without generating any mutants" do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
+    allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
+                                        .and_return(false)
     expect(candidates).not_to receive(:for)
     expect(selection.for(subject_under_test)).to be_empty
     expect(selection.skipped_subjects).to eq(subject_under_test => "no coverage")
+  end
+
+  it "records load-only subjects as ran at load: they ran, just never inside a test" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
+    allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
+                                        .and_return(true)
+    expect(candidates).not_to receive(:for)
+    expect(selection.for(subject_under_test)).to be_empty
+    expect(selection.skipped_subjects)
+      .to eq(subject_under_test => Saboteur::Selection::CoverageMap::RAN_AT_LOAD)
   end
 
   it "keeps the first candidates in deterministic coarse-first order and reports the omitted count" do
