@@ -5,7 +5,7 @@
 
 Target: rubyforgood/human-essentials at d6f829046ee9696499f6781fc8f9e434d270a2be
 (MIT licence), Rails 8.1, Postgres 16 in Docker, Ruby 3.4.3. Test env only,
-no network from tests. Config: integration/configs/human-essentials.yml
+no network from tests. Config: integration/configs/human_essentials.rb
 (app/models and app/services; system specs excluded).
 
 Scope: 136 files, 664 subjects, 4,202 candidate mutations.
