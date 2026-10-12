@@ -167,8 +167,9 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     allow(Coverage).to receive(:state).and_return(:suspended)
     expect { store.fetch([file]) }.to raise_error(
       Saboteur::Error,
-      "Coverage recorded no lines in 1 included files during a whole-suite build. " \
-      "Is Bootsnap's compile cache on? If not, no test may exercise these files. Run `saboteur doctor`."
+      "Coverage recorded nothing in 1 included files during a whole-suite build. No test in the suite " \
+      "may exercise these files, or the setup hid the app from Coverage (Bootsnap's compile cache is " \
+      "the default Rails case). Run `saboteur doctor`."
     )
     expect(cache_files).to be_empty
   end
@@ -178,7 +179,18 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
     allow(Saboteur::Selection::CoverageMap).to receive(:load).and_return(empty)
     allow(Coverage).to receive(:state).and_return(:suspended)
-    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded no lines in 1 included files/)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded nothing in 1 included files/)
+  end
+
+  # Endless defs record method calls but no line hits; that map is usable.
+  it "accepts a map that recorded only method calls, the endless-def case" do
+    method_only = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"], methods: { file => { 3 => ["t1"] } })
+    result = Saboteur::Execution::Supervisor::Result.new(payload: method_only.to_json, exit_status: nil,
+                                                         stopped_by: nil, detail: nil, runtime: 1.0,
+                                                         leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect { store.fetch([file]) }.not_to raise_error
   end
 
   # "No coverage" can be spelled per-file hashes with no line entries, not
@@ -189,7 +201,7 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                                          detail: nil, runtime: 1.0, leftover_pids: [])
     allow(supervisor).to receive(:run).and_return(result)
     allow(Coverage).to receive(:state).and_return(:suspended)
-    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded no lines in 1 included files/)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded nothing in 1 included files/)
     expect(cache_files).to be_empty
   end
 

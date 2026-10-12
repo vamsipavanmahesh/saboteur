@@ -26,8 +26,51 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(map.tests_for_lines(file, [99])).to eq([])
   end
 
+  it "sorts tests without a recorded duration last instead of failing" do
+    partial = described_class.new(lines: map.lines, tests: map.tests, durations: { "t2" => 0.01 })
+    expect(partial.tests_for(subject_under_test)).to eq(%w[t2 t1 t3])
+  end
+
   it "ignores the def line of a multi-line method (it runs at load time)" do
     expect(map.tests_for(subject_under_test)).not_to include("load")
+  end
+
+  it "falls back to method coverage for a subject with no line hits (endless defs)" do
+    endless = subjects_in("class A\n  def m = 1\nend\n").first
+    endless_map = described_class.new(lines: {}, tests: %w[t1 t2], methods: { endless.file => { 2 => %w[t2 t1] } })
+    expect(endless_map.tests_for(endless)).to eq(%w[t1 t2])
+  end
+
+  it "prefers line coverage over method coverage when both exist" do
+    both = described_class.new(lines: { file => { 3 => %w[t3] } }, tests: %w[t1 t3],
+                               methods: { file => { 2 => %w[t1] } })
+    expect(both.tests_for(subject_under_test)).to eq(%w[t3])
+  end
+
+  it "only counts method hits whose def falls inside the subject" do
+    by_method = described_class.new(lines: {}, tests: %w[t1 t2], methods: { file => { 1 => %w[t1], 2 => %w[t2] } })
+    expect(by_method.tests_for(subject_under_test)).to eq(%w[t2])
+  end
+
+  it "keeps an uncovered branch as no coverage while an endless def falls back to methods" do
+    branched = subjects_in("class A\n  def m\n    1\n    2\n  end\nend\n").first
+    map = described_class.new(lines: { branched.file => { 3 => %w[t1] } }, tests: %w[t1 t2],
+                              methods: { branched.file => { 2 => %w[t1 t2] } })
+    expect(map.tests_for_edit(branched, [4])).to eq([])
+    endless = subjects_in("class A\n  def m = 1\nend\n").first
+    endless_map = described_class.new(lines: {}, tests: %w[t1 t2], methods: { endless.file => { 2 => %w[t2 t1] } })
+    expect(endless_map.tests_for_edit(endless, [2])).to eq(%w[t1 t2])
+  end
+
+  it "is empty only when neither lines nor methods recorded anything" do
+    expect(described_class.new(lines: {}, tests: []).empty?).to be(true)
+    expect(described_class.new(lines: {}, tests: [], methods: { file => { 2 => %w[t1] } }).empty?).to be(false)
+    expect(map.empty?).to be(false)
+  end
+
+  it "round-trips method coverage through JSON" do
+    with_methods = described_class.new(lines: {}, tests: %w[t1 t2], methods: { file => { 2 => %w[t2 t1] } })
+    expect(described_class.from_json(with_methods.to_json).methods).to eq(file => { 2 => %w[t2 t1] })
   end
 
   it "returns nothing for files it has never seen" do
@@ -106,6 +149,21 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(recorder.result.durations["t1"]).to be_a(Float).and(be >= 0)
     end
 
+    it "carries the build time onto the map" do
+      results.push({}, {})
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result(build_seconds: 12.5).build_seconds).to eq(12.5)
+    end
+
+    it "ignores method keys with zero hits" do
+      key = ["A", :m, 2, 2, 2, 10]
+      results.push({}, { file => { lines: [], methods: { key => 0 } } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.methods).to eq({})
+    end
+
     it "records how long each test took" do
       results.push({}, {})
       allow(recorder).to receive(:monotonic).and_return(10.0, 10.25)
@@ -137,6 +195,22 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       recorder.test_finished("t1")
       expect(Coverage).to have_received(:suspend).twice
       expect(Coverage).to have_received(:resume).twice
+    end
+
+    it "records per-test method hits, for endless defs whose lines never count" do
+      key = ["A", :m, 2, 2, 2, 10]
+      results.push({}, { file => { lines: [nil, nil], methods: { key => 1 } } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.methods[file]).to eq(2 => %w[t1])
+    end
+
+    it "attributes method calls outside a test to the next test's file" do
+      key = ["A", :m, 2, 2, 2, 10]
+      results.push({ file => { lines: [], methods: { key => 1 } } }, {})
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.methods[file]).to eq(2 => %w[t1])
     end
 
     it "ignores files that are not being mutated" do

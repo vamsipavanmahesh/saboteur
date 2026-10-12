@@ -53,10 +53,10 @@ module Saboteur
     def check_coverage
       state = Coverage.state
       @out.puts "Coverage: #{state}"
-      return if Coverage.supported?(:lines) && state == :suspended
+      return if Coverage.supported?(:lines) && Coverage.supported?(:methods) && state == :suspended
 
-      raise Error, "Coverage must be suspended with line support before boot; use the saboteur executable, " \
-                   "disable SimpleCov and remove other Coverage.start calls"
+      raise Error, "Coverage must be suspended with line and method support before boot; use the saboteur " \
+                   "executable, disable SimpleCov and remove other Coverage.start calls"
     end
 
     # Match against all included source definitions, not the current diff or

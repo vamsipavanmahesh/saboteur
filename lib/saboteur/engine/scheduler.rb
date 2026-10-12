@@ -139,7 +139,7 @@ module Saboteur
       # fastest-first.
       def tests_for(plan, mutation)
         line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
-        tests = plan.tests & @map.tests_for_lines(plan.subject.file, line_numbers)
+        tests = plan.tests & @map.tests_for_edit(plan.subject, line_numbers)
         self.class.prioritize(tests, plan.killers)
       end
 
