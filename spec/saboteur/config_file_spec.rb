@@ -39,8 +39,13 @@ RSpec.describe Saboteur::ConfigFile do
   end
 
   it "supports ENV in the file, since it loads before the app boots" do
-    path = write_config('Saboteur.configure { |c| c.since = ENV["CI"] ? "origin/main" : nil }')
+    path = write_config('Saboteur.configure { |c| c.since = ENV["SABOTEUR_SPEC_FLAG"] ? "origin/main" : nil }')
+    ENV.delete("SABOTEUR_SPEC_FLAG")
     expect(Saboteur::Config.load(root: @root, path: path)["since"]).to be_nil
+    ENV["SABOTEUR_SPEC_FLAG"] = "1"
+    expect(Saboteur::Config.load(root: @root, path: path)["since"]).to eq("origin/main")
+  ensure
+    ENV.delete("SABOTEUR_SPEC_FLAG")
   end
 
   it "names the file, line and suggestion for an unknown setting" do
@@ -94,18 +99,22 @@ RSpec.describe Saboteur::ConfigFile do
     }
   end
 
-  it "re-raises a NoMethodError that is not a setting assignment" do
+  it "wraps a NoMethodError that is not a setting assignment" do
     path = write_config(<<~RUBY)
       Saboteur.configure do |c|
         c.jobs
       end
     RUBY
-    expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(NoMethodError)
+    expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(Saboteur::ConfigError) { |error|
+      expect(error.message).to include("saboteur.rb:2", "'jobs'", "before the app boots")
+    }
   end
 
-  it "re-raises a NoMethodError whose receiver is not the settings" do
+  it "wraps a NoMethodError whose receiver is not the settings" do
     path = write_config("Saboteur.configure { |c| c.jobs = [].bogus }\n")
-    expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(NoMethodError)
+    expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(Saboteur::ConfigError) { |error|
+      expect(error.message).to include("saboteur.rb:1", "'bogus'", "before the app boots")
+    }
   end
 
   it "wraps a bare unknown constant or call with the load-order hint" do
@@ -134,9 +143,11 @@ RSpec.describe Saboteur::ConfigFile do
       .to raise_error(Saboteur::ConfigError, /threshold must be between 0 and 100/)
   end
 
-  it "re-raises a NoMethodError from an assignment on a non-settings receiver" do
+  it "wraps a NoMethodError from an assignment on a non-settings receiver" do
     path = write_config("[].bogus = 1\n")
-    expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(NoMethodError)
+    expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(Saboteur::ConfigError) { |error|
+      expect(error.message).to include("saboteur.rb:1", "'bogus='", "before the app boots")
+    }
   end
 
   it "returns the settings from Saboteur.configure" do
