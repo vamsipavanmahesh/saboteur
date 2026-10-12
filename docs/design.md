@@ -134,8 +134,9 @@ Parent:
 Fork hygiene (parent):
 - Coverage is not running in the parent during mutation (it lives only in
   the map-building child).
-- Before each fork the parent holds no open DB/Redis sockets: Rails
-  integration disconnects pools after boot; `before_fork` is the hook for
+- Before each fork the parent holds no open DB/Redis sockets, except in-memory
+  SQLite pools, which stay connected so the schema survives: Rails
+  integration disconnects the other pools after boot; `before_fork` is the hook for
   anything else. The child opens fresh connections in `after_fork`.
 - Threads do not survive fork, and a mutex held by another thread stays
   locked in the child. The parent must be effectively single-threaded at fork
@@ -432,9 +433,18 @@ Output:
   is required and the file fails to load without it. Stale entries (no
   matching mutation) are reported as warnings.
 
-Exit codes: 0 no unignored survivors; 1 unignored survivors; 2 usage/config
-error; 3 tool error (boot failure, a failed baseline, or a run where most mutants
-errored).
+Exit codes (`saboteur help` is authoritative):
+- 0: no unignored survivors and at most half of the executed mutants errored.
+  With `--threshold`, 0 means the score is at or above it, even if mutants
+  survived.
+- 1: an unignored survivor. With `--threshold`, 1 means the score is below it
+  or no mutant was tested, so there is no score.
+- 2: usage or configuration error.
+- 3: tool error: boot failure, a failed baseline, or more than half of the
+  executed mutants errored. With `--threshold`, any errored or resource-limited
+  mutant also exits 3, because the score is incomplete.
+- `--agent` prints one JSON payload and maps its verdict to the same codes:
+  clean 0, survivors 1, invalid invocation 2, incomplete or tool failure 3.
 
 ## 11. Extension point: mutation sources
 
