@@ -28,12 +28,17 @@ module Saboteur
 
       MARKS = { killed: ".", survived: "S", timeout: "T", resource_limit: "L", error: "E" }.freeze
 
-      attr_reader :warnings, :invalid_mutations
+      GenerationEvent = Data.define(:file, :subject, :source, :operator, :reason)
+      Omission = Data.define(:subject, :count, :limit)
+
+      attr_reader :warnings, :invalid_mutations, :generation_events, :omissions
 
       def initialize(err)
         @err = err
         @warnings = []
         @invalid_mutations = 0
+        @generation_events = []
+        @omissions = []
       end
 
       def warn(message)
@@ -42,6 +47,17 @@ module Saboteur
 
       def count_invalid_mutation
         @invalid_mutations += 1
+      end
+
+      def record_generation(subject, source:, reason:, operator: nil)
+        values = [subject.file, subject.id, source, operator, reason].map do |value|
+          value.nil? ? nil : value.to_s.dup.freeze
+        end
+        @generation_events << GenerationEvent.new(*values)
+      end
+
+      def record_omission(subject, count:, limit:)
+        @omissions << Omission.new(subject: subject.id.dup.freeze, count: count, limit: limit)
       end
 
       def inform(message)

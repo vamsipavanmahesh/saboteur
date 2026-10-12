@@ -39,6 +39,7 @@ RSpec.describe Saboteur::Engine::Candidates do
   it "drops and counts mutations that do not parse" do
     expect(candidates(source_proposing("a +"))).to be_empty
     expect(diagnostics.invalid_mutations).to eq(1)
+    expect(diagnostics.generation_events.map(&:reason)).to eq(["invalid_syntax"])
   end
 
   it "puts coarse mutations first" do
@@ -55,6 +56,64 @@ RSpec.describe Saboteur::Engine::Candidates do
     end.new
     expect(candidates(outside)).to be_empty
     expect(diagnostics.warnings.first).to include("outside")
+    expect(diagnostics.generation_events.map(&:reason)).to eq(["invalid_edit"])
+  end
+
+  it "records typed dropped proposals without parsing warning text" do
+    candidates(source_proposing("a + 1", "a - 1", "a - 1", "a +"))
+
+    expect(diagnostics.generation_events.map(&:reason)).to eq(%w[unchanged duplicate invalid_syntax])
+    expect(diagnostics.generation_events.map(&:subject)).to all(eq("K#m"))
+    expect(diagnostics.generation_events.map(&:source)).to all(eq("builtin"))
+    expect(diagnostics.generation_events.map(&:operator)).to all(eq("test"))
+    expect(diagnostics.generation_events).to all(be_frozen)
+  end
+
+  it "records empty generation as unverified, not proof of a supported exclusion" do
+    candidates(source_proposing)
+
+    expect(diagnostics.generation_events.map(&:reason)).to eq(["empty_generation"])
+    expect(diagnostics.generation_events.first.operator).to be_nil
+    expect(diagnostics.generation_events.first.source).to eq("anonymous")
+  end
+
+  it "uses a named source identity for empty generation" do
+    source = source_proposing
+    allow(source).to receive(:name).and_return("custom_source")
+    candidates(source)
+
+    expect(diagnostics.generation_events.first.source).to eq("custom_source")
+  end
+
+  it "records invalid subject syntax without asking mutation sources for proposals" do
+    allow(subject_under_test).to receive(:source).and_return("def broken(")
+    source = source_proposing("a - 1")
+    expect(source).not_to receive(:mutations_for)
+
+    expect(candidates(source)).to be_empty
+    expect(diagnostics.generation_events.map(&:reason)).to eq(["invalid_subject_syntax"])
+    expect(diagnostics.generation_events.first.source).to eq("subject")
+  end
+
+  it "retains empty generation for a duck-typed source without a name method" do
+    source = Object.new
+    def source.mutations_for(_subject)
+      []
+    end
+    candidates(source)
+
+    expect(diagnostics.generation_events.first.source).to eq("anonymous")
+  end
+
+  it "retains immutable evidence snapshots on the internal report" do
+    candidates(source_proposing("a +"))
+    report = Saboteur::Report.new(results: [], subjects: [subject_under_test], wall_time: 0, root: "/tmp",
+                                  generation_events: diagnostics.generation_events, omissions: diagnostics.omissions)
+    diagnostics.record_generation(subject_under_test, source: "other", reason: "empty_generation")
+
+    expect(report.generation_events.map(&:reason)).to eq(["invalid_syntax"])
+    expect(report.generation_events).to be_frozen
+    expect(report.omissions).to be_frozen
   end
 
   describe ".build_sources (external)" do
