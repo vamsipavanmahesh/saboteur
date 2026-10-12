@@ -16,7 +16,8 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
   end
 
   it "plans every selected candidate before distribution and reconciles the fresh result" do
-    Dir.mktmpdir do |root|
+    Dir.mktmpdir do |directory|
+      root = File.realpath(directory)
       file = File.join(root, "probe.rb")
       File.write(file, "class Probe; def value; 1; end; end")
       subject = Saboteur::SubjectFinder.new.call(file).subjects.first
@@ -53,7 +54,8 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
   end
 
   it "passes typed discovery failures through a mixed included-file engine run" do
-    Dir.mktmpdir do |root|
+    Dir.mktmpdir do |directory|
+      root = File.realpath(directory)
       file = File.join(root, "probe.rb")
       File.write(file, "class Probe; def value; 1; end; end")
       subject = Saboteur::SubjectFinder.new.call(file).subjects.first
@@ -91,7 +93,8 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
   end
 
   it "captures input identity before target boot and refuses changed inputs after boot" do
-    Dir.mktmpdir do |root|
+    Dir.mktmpdir do |directory|
+      root = File.realpath(directory)
       allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
       boot = instance_double(Saboteur::Engine::Boot, rails: nil)
       allow(boot).to receive(:load_target) do
@@ -111,7 +114,8 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
     end
   end
   it "fingerprints engine-supplied evidence files and passes false for an unrun baseline" do
-    Dir.mktmpdir do |root|
+    Dir.mktmpdir do |directory|
+      root = File.realpath(directory)
       evidence_file = File.join(root, "external-evidence.txt")
       File.write(evidence_file, "initial")
       allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
