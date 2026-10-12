@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
 # saboteur on its own code (CI runs it in diff mode: --since origin/main).
 Saboteur.configure do |c|
   c.include = ["lib/**/*.rb"]
