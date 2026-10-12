@@ -27,8 +27,8 @@ module Saboteur
 
         action = @argv.shift
         parse_baseline(action)
-        workflow = Baseline::Workflow.new(config: config, err: @err)
         payload = stdout_on_stderr do
+          workflow = Baseline::Workflow.new(config: config, err: @err)
           baseline_action(workflow, action)
         end
         @out.puts(JSON.generate(payload))
