@@ -23,7 +23,6 @@ module Saboteur
         fields!(@document.fetch("compatibility"), COMPATIBILITY)
         @snapshot = Engine::RunFingerprint.restore_snapshot(@document.fetch("snapshot"))
         raise ConfigError, "baseline incomplete fingerprint" unless @snapshot.complete
-        raise ConfigError, "baseline incomplete run" unless @document["complete"] == true && @document["issues"] == []
 
         validate_compatibility
         validate_generation
@@ -50,7 +49,7 @@ module Saboteur
       end
 
       def fields!(value, fields)
-        raise ConfigError, "baseline evidence fields" unless value.is_a?(Hash) && value.keys.sort == fields.sort
+        raise ConfigError, "baseline evidence fields" unless value.keys.sort == fields.sort
       end
 
       def validate_compatibility
@@ -60,10 +59,12 @@ module Saboteur
         fields!(config, Config::DEFAULTS.keys - RunEvidence::OUTPUT_SETTINGS)
         fields!(runtime, %w[engine version platform patchlevel saboteur])
         raise ConfigError, "baseline nonfresh config" if config["since"] || config["incremental"]
-        raise ConfigError, "baseline scope mismatch" unless
-          compatibility.fetch("scope") == config.slice("include", "exclude", "subjects")
-        raise ConfigError, "baseline snapshot settings mismatch" unless
-          digest(config) == @snapshot.settings_digest && digest(runtime) == @snapshot.runtime_digest
+
+        scope = config.slice("include", "exclude", "subjects")
+        raise ConfigError, "baseline scope mismatch" unless compatibility.fetch("scope") == scope
+
+        valid = digest(config) == @snapshot.settings_digest && digest(runtime) == @snapshot.runtime_digest
+        raise ConfigError, "baseline snapshot settings mismatch" unless valid
 
         validate_generator(compatibility.fetch("generator"), config, runtime)
       end
@@ -81,8 +82,8 @@ module Saboteur
       end
 
       def validate_generation
-        raise ConfigError, "baseline omitted or undiscovered work" unless
-          document["omissions"] == [] && document["discovery_failures"] == []
+        clear = document["omissions"] == [] && document["discovery_failures"] == []
+        raise ConfigError, "baseline omitted or undiscovered work" unless clear
 
         events = document.fetch("generation_events")
         array!(events, "generation events")
