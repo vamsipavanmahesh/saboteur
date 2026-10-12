@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "fileutils"
+require "tmpdir"
+
 require "timeout"
 
 RSpec.describe Saboteur::Execution::WorkerPool do
@@ -63,6 +66,21 @@ RSpec.describe Saboteur::Execution::WorkerPool do
       {}
     end
     expect(ran).to eq(%w[big medium small])
+  end
+
+  it "routes a dead worker's synthetic error row through on_result, so the canary can trip" do
+    dir = Dir.mktmpdir
+    sentinel = File.join(dir, "sentinel")
+    File.write(sentinel, "watch me")
+    pool = described_class.new(jobs: 2, on_result: lambda { |_item, _row|
+      raise Saboteur::CanaryTripped, "canary: watched file vanished" unless File.exist?(sentinel)
+    })
+    expect do
+      pool.map(["die"]) do |_item|
+        FileUtils.rm_f(sentinel)
+        Process.kill("KILL", Process.pid)
+      end
+    end.to raise_error(Saboteur::CanaryTripped, /watched file vanished/)
   end
 
   it "reports an item whose worker died as an error and carries on with the rest" do
