@@ -66,7 +66,9 @@ RSpec.describe Saboteur::Engine::Distribution do
     scheduler = ->(_subject, _list) { raise "worker exploded" }
     arrived = []
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil,
-                                       after_subject: ->(seen, results) { arrived << [seen.id, results.map(&:status), results.map(&:reason)] })
+                                       after_subject: lambda { |seen, results|
+                                         arrived << [seen.id, results.map(&:status), results.map(&:reason)]
+                                       })
     results = distribution.run([subject], [[[mutation, "text"]]])
     expect(results.map(&:status)).to eq([:error])
     expect(results.first.reason).to include("worker exploded")
