@@ -21,6 +21,11 @@ module Saboteur
       def check(path:)
         baseline = load_manifest(path)
         report = Engine.new(@config, err: @err, capture_evidence: true, evidence_files: [path]).call
+        unless Digest::SHA256.file(path).hexdigest == @baseline_digest
+          raise ConfigError,
+                "baseline changed during check"
+        end
+
         current = report.run_evidence
         Evidence.new(current) if current["complete"] == true
         # An incomplete producer report is useful for diagnosis, never acceptance.
@@ -33,6 +38,11 @@ module Saboteur
       def propose(proposal:, destination:, previous: nil)
         guard_artifacts(proposal, destination)
         report = Engine.new(@config, err: @err, capture_evidence: true).call
+        unless report.run_evidence["complete"] == true
+          raise Error,
+                "baseline proposal requires complete execution evidence"
+        end
+
         captured = Evidence.new(report.run_evidence)
         store(captured.document.fetch("snapshot")).propose(document: captured.manifest,
                                                            evidence: captured.document, proposal: proposal,
@@ -54,8 +64,17 @@ module Saboteur
       def load_manifest(path)
         raise ConfigError, "baseline file too large" if File.size(path) > Acceptance::MAX_BYTES
 
-        manifest = Manifest.new(JSON.parse(File.read(path)))
-        Engine::RunFingerprint.restore_snapshot(manifest.to_h.fetch("metadata").fetch("snapshot"))
+        bytes = File.read(path)
+        @baseline_digest = Digest::SHA256.hexdigest(bytes)
+        manifest = Manifest.new(JSON.parse(bytes))
+        metadata = manifest.to_h.fetch("metadata")
+        candidates = manifest.candidates.values
+        restored = metadata.slice("snapshot", "subjects", "complete", "issues").merge(
+          "compatibility" => manifest.compatibility, "candidates" => candidates,
+          "planned" => candidates.map { |entry| entry.slice(*Evidence::PLAN_FIELDS) },
+          "generation_events" => [], "omissions" => [], "discovery_failures" => []
+        )
+        Evidence.new(restored)
         manifest
       rescue SystemCallError, JSON::ParserError, ArgumentError => e
         raise ConfigError, "baseline file: #{e.message}"
@@ -71,7 +90,7 @@ module Saboteur
           end
           Engine::RunFingerprint.new(config: @config, extra_files: extras).verify(saved).unchanged
         end
-        Acceptance.new(directory: File.join(@config.path("cache_dir"), "baseline-evidence"),
+        Acceptance.new(directory: File.join(Identity.canonical_path(@config.path("cache_dir")), "baseline-evidence"),
                        protected_paths: protected, verify: verifier, require_evidence: true)
       end
 
