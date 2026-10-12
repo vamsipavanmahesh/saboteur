@@ -162,6 +162,10 @@ scope them. Keep whole-project runs on main: diff mode does not check every meth
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 
+Doctor warns when an ignore subject matches no method discovered in the included
+source files. Check the exact `Class#method` or `Class.method` form and the
+include/exclude settings; warnings never edit or delete ignore entries.
+
 `saboteur doctor` prints Ruby, coverage, integration, Rails/SimpleCov and boot-file
 checks, then runs the unchanged suite twice with the chosen seed. It writes no
 mutation reports or coverage/verdict caches. Target boot files and tests still
