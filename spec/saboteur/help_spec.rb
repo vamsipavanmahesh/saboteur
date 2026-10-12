@@ -16,7 +16,7 @@ RSpec.describe Saboteur::Help do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
     expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur doctor)", "EXAMPLES",
                            "EXIT CODES (saboteur run)", "EXIT CODES (saboteur doctor)",
-                           "CONFIG FILE (.saboteur.yml)", "FILES"])
+                           "CONFIG FILE (config/saboteur.rb)", "FILES"])
   end
 
   it "starts with the name, the version and a one-line purpose" do
@@ -55,11 +55,11 @@ RSpec.describe Saboteur::Help do
     end
   end
 
-  it "lists every config key with its exact default, as YAML that loads back to the same value" do
+  it "lists every config setting with its exact default, as a Ruby assignment that loads back to the same value" do
     Saboteur::Config::DEFAULTS.each do |key, default|
-      line = overview.lines.find { |candidate| candidate.start_with?("  #{key}: ") }
+      line = overview.lines.find { |candidate| candidate.start_with?("  c.#{key} = ") }
       expect(line).not_to be_nil
-      expect(YAML.safe_load(line.delete_prefix("  #{key}: "))).to eq(default)
+      expect(YAML.safe_load(line.delete_prefix("  c.#{key} = "))).to eq(default)
     end
   end
 
