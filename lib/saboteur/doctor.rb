@@ -17,6 +17,7 @@ module Saboteur
       check_runtime
       check_coverage
       check_boot_files
+      check_custom_map
       hooks = Hooks.new
       integration = boot_target(hooks)
       @out.puts "Integration: #{@config['integration']} (loaded)"
@@ -57,11 +58,26 @@ module Saboteur
                    "disable SimpleCov and remove other Coverage.start calls"
     end
 
+    def check_custom_map
+      path = @config.path("custom_map")
+      map = CustomMap.load(path, root: @config.root)
+      return @out.puts("Custom map: none (optional)") if map.empty?
+
+      duplicates = map.duplicate_keys(path)
+      if duplicates.any?
+        @out.puts "Warning: custom map keys written twice, Ruby keeps the last: #{duplicates.join(', ')}"
+      end
+      stale = map.stale_keys
+      raise ConfigError, "#{path}: stale keys matching no file: #{stale.join(', ')}" if stale.any?
+
+      @out.puts "Custom map: #{map.entries.size} entries (loaded)"
+    end
+
     def check_boot_files
       %w[require hooks].each do |key|
         @config[key].each do |file|
           path = File.expand_path(file, @config.root)
-          raise ConfigError, "#{key} file missing: #{file}; fix .saboteur.yml" unless File.file?(path)
+          raise ConfigError, "#{key} file missing: #{file}; fix config/saboteur.rb" unless File.file?(path)
 
           @out.puts "#{key}: #{file} (found)"
         end
