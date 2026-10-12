@@ -72,7 +72,8 @@ module Saboteur
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
-                 diff_scope: scope)
+                 diff_scope: scope, generation_events: @diagnostics.generation_events,
+                 omissions: @diagnostics.omissions)
     end
 
     # The subjects to mutate and, in diff mode, the scope of changed lines.
