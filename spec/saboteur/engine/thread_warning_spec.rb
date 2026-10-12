@@ -35,6 +35,21 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     unnamed.join
   end
 
+  it "names a thread with neither name nor backtrace as unknown" do
+    ghost = instance_double(Thread, name: nil, backtrace: nil)
+    allow(Thread).to receive(:list).and_return([Thread.current, ghost])
+    engine.send(:warn_about_threads)
+    expect(warnings.last).to include("unknown")
+  end
+
+  it "prefers the backtrace frame over unknown when the thread has no name" do
+    ghost = instance_double(Thread, name: nil, backtrace: ["app/pool.rb:12:in 'reap'"])
+    allow(Thread).to receive(:list).and_return([Thread.current, ghost])
+    engine.send(:warn_about_threads)
+    expect(warnings.last).to include("app/pool.rb:12")
+    expect(warnings.last).not_to include("unknown")
+  end
+
   it "says nothing when no other thread is alive" do
     allow(Thread).to receive(:list).and_return([Thread.current])
     engine.send(:warn_about_threads)
