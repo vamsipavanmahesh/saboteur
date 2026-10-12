@@ -3,6 +3,7 @@
 
 require "digest"
 require "json"
+require_relative "data_inputs"
 
 module Saboteur
   class Engine
@@ -12,7 +13,7 @@ module Saboteur
       FORMAT_VERSION = 1
       MANIFESTS = %w[Gemfile gems.rb Gemfile.lock gems.locked .rspec .rspec-local].freeze
       LOCATION_SETTINGS = %w[cache_dir json_report html_report].freeze
-      ENTRY_KINDS = %w[ruby manifest boot hook source_plugin extra].freeze
+      ENTRY_KINDS = %w[ruby manifest boot hook source_plugin extra data].freeze
       EXCLUDED_DIRECTORIES = %w[.git vendor node_modules].freeze
       Entry = Data.define(:path, :kind, :state, :sha256, :required)
       Change = Data.define(:path, :reason)
@@ -178,11 +179,12 @@ module Saboteur
       end
 
       def output_overlap_issues
-        paths = required_files.map(&:first) + MANIFESTS.map { |name| File.join(@root, name) }
+        paths = required_files.map(&:first) + MANIFESTS.map { |name| File.join(@root, name) } +
+                DataInputs.files(@root, extra: @config["fingerprint_extra"])
         outputs = %w[json_report html_report].filter_map { |key| @config.fetch(key) }
                                              .map { |path| canonical_path(path) }
         issues = outputs.filter_map do |path|
-          if path.end_with?(".rb") || paths.include?(path) || File.directory?(path)
+          if path.end_with?(".rb") || paths.include?(path) || File.directory?(path) || data_input?(path)
             "output overlaps input: #{display_path(path)}"
           end
         end
@@ -192,22 +194,48 @@ module Saboteur
 
       def cache_overlap_issues(paths)
         cache = canonical_path(@config["cache_dir"])
-        protected = [@root] + %w[app lib spec].map { |name| File.join(@root, name) } + paths
-        overlaps = protected.any? do |path|
+        protected = [@root] + %w[app lib spec test/fixtures].map { |name| File.join(@root, name) } + paths
+        inside = protected.any? do |path|
           path == cache || path.start_with?("#{cache}/") || (path != @root && cache.start_with?("#{path}/"))
         end
+        overlaps = inside || data_input?(cache)
         overlaps ? ["cache directory overlaps inputs: #{display_path(cache)}"] : []
+      end
+
+      # Declared fixture, schema or config input, or a path inside a fixture tree.
+      def data_input?(path)
+        DataInputs.match?(@root, path, extra: @config["fingerprint_extra"])
       end
 
       def inventory(issues)
         paths = project_files(issues).to_h { |path| [path, "ruby"] }
         MANIFESTS.each { |name| paths[File.join(@root, name)] = "manifest" }
+        data_files(issues).each { |path| paths[path] ||= "data" }
         required = merged_required_files
         required.each { |path, (kind, _)| paths[path] = kind }
         paths.map do |path, kind|
-          needed = required.key?(path) ? required[path].last : kind != "manifest"
+          needed = required.key?(path) ? required[path].last : !%w[manifest data].include?(kind)
           read_entry(path, kind, needed, issues)
         end
+      end
+
+      # Fixtures, schema dumps and database config. A pattern with no match is
+      # fine; a listed file that vanishes later shows up as "removed". Like Ruby
+      # files, data reached through a symlink (the file or a directory above it)
+      # is an undeclared boundary: its real path could be an output or lie outside
+      # the project, so the snapshot is incomplete instead of guessing.
+      def data_files(issues)
+        DataInputs.files(@root, extra: @config["fingerprint_extra"]).reject do |path|
+          next false unless symlinked?(path)
+
+          issues << "symlink input: #{display_path(path)}".freeze
+          true
+        end
+      end
+
+      def symlinked?(path)
+        current = @root
+        path.delete_prefix("#{@root}/").split("/").any? { |part| File.symlink?(current = File.join(current, part)) }
       end
 
       def merged_required_files

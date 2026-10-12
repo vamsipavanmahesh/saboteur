@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "reporter/diff"
+require_relative "score"
 
 module Saboteur
   # resource_limit: the mutant's process tree hit the memory or process cap.
@@ -59,6 +60,11 @@ module Saboteur
       status == :killed && !kill_cause.nil? && kill_cause != "assertion"
     end
 
+    # Killed because a test's check failed: the test looked at a value.
+    def assertion_kill?
+      status == :killed && kill_cause == "assertion"
+    end
+
     # Taken from an earlier run (--incremental) instead of run again.
     def reused?
       @reused
@@ -84,12 +90,16 @@ module Saboteur
 
   # Everything one run produced.
   class Report
+    # More than half of the executed mutants errored: the run tested
+    # almost nothing and must not pass a gate.
+    MAX_ERROR_FRACTION = 0.5
+
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :root, :seed, :skipped_subjects
 
     # REVIEW: diff mode; the terminal then shows one survivor per line.
     # seed: the random seed every test run started from (nil when unknown).
     def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [], review: false,
-                   seed: nil, skipped_subjects: {})
+                   seed: nil, skipped_subjects: {}, diff_scope: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -99,10 +109,28 @@ module Saboteur
       @review = review
       @seed = seed
       @skipped_subjects = skipped_subjects
+      @diff_scope = diff_scope
+    end
+
+    # In diff mode, the changed lines (sorted) that a mutant touches; empty
+    # outside diff mode, or when the mutant touches none (a whole-body mutant
+    # of a method whose only change is its signature).
+    def changed_lines_for(result)
+      @diff_scope ? @diff_scope.changed_lines_for(result.subject, result.mutation) : []
     end
 
     def rejected_kills
       results.count(&:rejected_kill?)
+    end
+
+    # Errored mutants (a crash, a neutral check that failed) are outside
+    # the score, so a run whose executed mutants mostly errored tested
+    # almost nothing. Skipped mutants never ran: they are neither the
+    # numerator nor the denominator.
+    def majority_errored?
+      return false if executed.empty?
+
+      executed.count { |result| result.status == :error }.fdiv(executed.size) > MAX_ERROR_FRACTION
     end
 
     def review?
@@ -115,10 +143,23 @@ module Saboteur
 
     # (killed + timeout) / (killed + survived + timeout); nil with nothing tested.
     def score
-      c = counts
-      detected = c[:killed] + c[:timeout]
-      tested = detected + c[:survived]
-      tested.zero? ? nil : detected.fdiv(tested)
+      score_breakdown.value
+    end
+
+    # The score with its split into assertion kills and crash kills.
+    def score_breakdown
+      @score_breakdown ||= Score.of(results)
+    end
+
+    # The same breakdown without the whole-body mutants (every
+    # mutation marked coarse: body_nil, body_true, body_false, body_raise). Almost any test that runs the method kills
+    # those, so they flatter the score.
+    def fine_score_breakdown
+      @fine_score_breakdown ||= Score.of(results.reject { |result| result.mutation.coarse })
+    end
+
+    def coarse_score_breakdown
+      @coarse_score_breakdown ||= Score.of(results.select { |result| result.mutation.coarse })
     end
 
     def survivors

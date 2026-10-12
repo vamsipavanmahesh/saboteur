@@ -16,14 +16,14 @@ module Saboteur
         @path = path
       end
 
-      def call(report)
+      def call(report, exit_cause: nil)
         FileUtils.mkdir_p(File.dirname(@path))
-        File.write(@path, JSON.generate(self.class.build(report)))
+        File.write(@path, JSON.generate(self.class.build(report, exit_cause: exit_cause)))
       end
 
       # Tests are listed once under testFiles with short ids; mutants refer to
       # them by id in killedBy/coveredBy instead of repeating full test names.
-      def self.build(report)
+      def self.build(report, exit_cause: nil)
         test_ids = test_index(report.results)
         files = report.results.group_by { |result| result.subject.file }.to_h do |file, results|
           [relative(file, report.root), file_entry(results, test_ids)]
@@ -38,8 +38,15 @@ module Saboteur
           rejectedKills: report.rejected_kills,
           warnings: report.warnings,
           framework: { name: "saboteur", version: VERSION },
-          saboteur: { findings: Findings.build(report) }
+          saboteur: { findings: Findings.build(report), scores: scores(report) }
+                     .merge(exit_cause ? { exitCause: exit_cause } : {})
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
+      end
+
+      # Score with its assertion and crash shares, for all mutants and without
+      # the whole-body ones (body_nil, body_true, body_false, body_raise).
+      def self.scores(report)
+        { all: report.score_breakdown.to_h, withoutWholeBodyMutants: report.fine_score_breakdown.to_h }
       end
 
       def self.skipped_subjects(report)

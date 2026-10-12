@@ -7,6 +7,28 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- An integration target can declare a known error profile
+  (`allow_error_fraction` per strategy in integration/targets.yml): the
+  majority-error exit is accepted only when the run's own fresh report
+  carries the CLI's `errorMajority` marker, the errored fraction stays
+  within the bound, and no mutant hit a resource limit. The JSON report
+  records the run's exit cause under `saboteur.exitCause`.
+- A survivor lists the first five tests that covered its line and still passed
+  with the mutant applied, in the terminal and the HTML page.
+- In diff mode (`--since`), each survivor names the changed line it relates to
+  (`changed line: path:N` in the terminal, `changedLines` in each JSON finding),
+  because a multi-line statement is reported at its first line.
+- The score is split into assertion kills and crash kills, in the terminal,
+  the JSON report (`saboteur.scores`) and the HTML page. A second score leaves
+  out whole-body mutants (`body_nil`, `body_true`, `body_false`, `body_raise`). The headline score and
+  `--threshold` are unchanged.
+- `saboteur run --agent` (`--format agent`): one bounded JSON summary (under 8 KiB) on stdout
+  with status, verdict, provenance, the first three findings and the commands for full
+  detail. Exit 0 means a complete, clean run only: 1 survivors, 2 usage or config error,
+  3 incomplete or failed. `--threshold` cannot be combined with it. The next commands are shell-escaped and keep the
+  full selection; the working-tree state is read before the run; target output stays on stderr. `saboteur agent-skill`
+  prints an AGENTS.md block for coding agents (also in `docs/agent-skill.md`). Classic
+  exit codes are unchanged.
 - Fine `argument_removal` mutants: remove one ordinary argument from a
   parenthesized call while preserving keywords and blocks. Token-based comma
   edits respect comments and strings. Existing candidate validation, order and
@@ -59,6 +81,11 @@ All notable changes are documented here. The format follows
   Ruby's random numbers with it, so runs repeat; the report prints the seed.
 
 ### Fixed
+- Rails apps whose test database is in-memory SQLite (`:memory:`) no longer
+  lose their schema: saboteur never disconnects, renames or copies an
+  in-memory pool. Each in-memory database is snapshotted to a temporary
+  file after boot, and every forked child restores the snapshot into its
+  own fresh database.
 - Linux: killed orphans adopted by the supervisor are reaped reliably, so no
   zombies are left behind (first run on Linux CI).
 - The README status line describes what has actually been tested.
@@ -70,7 +97,7 @@ First release that does mutation testing. MIT licensed.
 ### Added
 - `saboteur run` with `--since`, `--subject`, `--timeout-factor`, `--jobs`,
   `--reeval`, `--json`, `--no-cache`, `--incremental`, `--config`.
-- Subjects found with Prism; mutations are byte-range edits: whole-method
+- Subjects found with Prism; mutations are byte-range edits: whole-body
   `nil`/`true`/`false`/`raise` first, then comparison, boolean, arithmetic,
   numeric literal, statement removal, condition, negation, safe navigation
   and `||=`.

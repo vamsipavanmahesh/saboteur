@@ -32,6 +32,9 @@ RSpec.describe Saboteur::Engine, "baseline refusal" do
       expect(Saboteur::Engine::ResultCache).not_to receive(:new)
       expect(Saboteur::Engine::Distribution).not_to receive(:new)
       expect(rails).not_to receive(:prepare_workers)
+      # The baseline failure still reaches the Engine.call boundary, which
+      # releases whatever the boot already snapshotted.
+      expect(rails).to receive(:cleanup_workers)
       engine = described_class.new(Saboteur::Config.new({ "incremental" => true }, root: root), err: StringIO.new)
       expect { engine.call }.to raise_error(Saboteur::Error, "baseline failed")
     end

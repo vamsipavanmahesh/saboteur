@@ -18,15 +18,15 @@ module Saboteur
     DOCUMENTATION = "https://github.com/vamsipavanmahesh/saboteur"
 
     EXIT_CODE_MEANINGS = {
-      0 => "Success. Without --threshold: no unignored survivors. With --threshold: the score is at or above " \
-           "it, even if mutants survived.",
+      0 => "Success. Without --threshold: no unignored survivors, and at most half of the executed mutants " \
+           "errored. With --threshold: the score is at or above it, even if mutants survived.",
       1 => "Without --threshold: at least one mutant survived and is not on the ignore list. With --threshold " \
            "(survivors alone no longer fail the run): the score is below it, or no mutant was tested so " \
            "there is no score.",
       2 => "Usage or configuration error: fix the command or .saboteur.yml. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
-      3 => "Tool error: saboteur could not finish, or every executed mutant errored. With --threshold, " \
-           "also any errored or resource-limited mutant."
+      3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \
+           "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant."
     }.freeze
 
     DOCTOR_EXIT_CODE_MEANINGS = {
@@ -53,7 +53,8 @@ module Saboteur
           ["Replay one mutant by the digest printed next to a survivor", "saboteur run --id 1a2b3c4d5e6f7a8b"],
           ["Mutate named files against named specs, skipping the whole-suite coverage run",
            "saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb"],
-          ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"]
+          ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"],
+          ["AI agent: bounded JSON summary and strict exit codes", "saboteur run --agent --since origin/main"]
         ]
       ),
       Command.new(
@@ -83,8 +84,21 @@ module Saboteur
         takes_options: false,
         exit_codes: nil,
         examples: [["Show everything", "saboteur help"], ["Show one command", "saboteur help run"]]
+      ),
+      Command.new(
+        name: "agent-skill",
+        summary: "Print instructions for AI coding agents to paste into AGENTS.md or CLAUDE.md",
+        description: "Prints a short Markdown block that tells an agent when to run saboteur, how to read " \
+                     "`saboteur run --agent`, and how to handle survivors.",
+        takes_options: false,
+        exit_codes: nil,
+        examples: [["Add the agent instructions to your repo", "saboteur agent-skill >> AGENTS.md"]]
       )
     ].freeze
+
+    AGENT_EXIT_CODES = "  With --agent the codes are stricter: 0 only when the run was complete and clean; " \
+                       "1 survivors to review;\n  2 usage or config error; 3 incomplete (no coverage, caps, errors, " \
+                       "nothing selected) or tool failure."
 
     FILES = [
       [".saboteur.yml", "Settings. Command line options override it."],
@@ -169,7 +183,8 @@ module Saboteur
     def exit_codes_section(codes, command_name = nil)
       rows = codes.map { |code, meaning| "  #{code}  #{meaning}" }
       title = command_name ? "EXIT CODES (saboteur #{command_name})" : "EXIT CODES"
-      "#{title}\n#{rows.join("\n")}\n"
+      note = codes.equal?(EXIT_CODE_MEANINGS) ? "#{AGENT_EXIT_CODES}\n" : ""
+      "#{title}\n#{rows.join("\n")}\n#{note}"
     end
 
     def config_section

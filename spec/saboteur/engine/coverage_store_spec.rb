@@ -90,12 +90,31 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                                          detail: nil, runtime: 1.0, leftover_pids: [])
     allow(supervisor).to receive(:run).and_return(result)
     allow(Coverage).to receive(:state).and_return(:suspended)
+    diagnostics = Saboteur::Engine::Diagnostics.new(err)
+    allow(diagnostics).to receive(:progress_heartbeat).and_call_original
     store = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
                                 hooks: Saboteur::Hooks.new, supervisor: supervisor,
-                                diagnostics: Saboteur::Engine::Diagnostics.new(err))
+                                diagnostics: diagnostics)
     expect(store.fetch([file]).tests).to eq(["t1"])
-    expect(err.string).to include("building coverage map")
-    expect(supervisor).to have_received(:run).with(timeout: 3600.0)
+    expect(err.string).to include("building coverage map (runs the whole suite once)")
+    expect(diagnostics).to have_received(:progress_heartbeat).with("building coverage map")
+    expect(supervisor).to have_received(:run).with(timeout: 3600.0, on_tick: anything)
+  end
+
+  # --test narrows the map build to the given specs; the message must say
+  # so, or a user waits for the whole suite without knowing.
+  it "says the map build runs only the selected specs when --test narrowed the suite" do
+    err = StringIO.new
+    built = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: built.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    store = described_class.new(config: Saboteur::Config.new({ "tests" => ["spec/one_spec.rb"] }, root: @root),
+                                integration: integration, hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                diagnostics: Saboteur::Engine::Diagnostics.new(err))
+    store.fetch([file])
+    expect(err.string).to include("building coverage map (runs the selected specs once)")
   end
 
   # A child that dies before reporting (a crash in a native extension, an
@@ -114,6 +133,99 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                          "its output is in .saboteur/coverage-build.log"
       )
     end
+  end
+
+  # Bootsnap's compile cache is the common cause, but whatever hides every
+  # included file from Coverage must stop the run: the map would skip every
+  # subject as "no coverage" and exit 0 (field report, issue 2).
+  it "refuses a map with no lines for any included file and does not cache it" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect { store.fetch([file]) }.to raise_error(
+      Saboteur::Error,
+      "Coverage recorded no lines in 1 included files during a whole-suite build. " \
+      "Is Bootsnap's compile cache on? If not, no test may exercise these files. Run `saboteur doctor`."
+    )
+    expect(cache_files).to be_empty
+  end
+
+  # An empty map cached by an older saboteur must not keep a run green.
+  it "refuses a restored cached map with no lines for any included file" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    allow(Saboteur::Selection::CoverageMap).to receive(:load).and_return(empty)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded no lines in 1 included files/)
+  end
+
+  # "No coverage" can be spelled per-file hashes with no line entries, not
+  # only a literally empty map.
+  it "refuses a map whose per-file entries hold no covered lines" do
+    hollow = Saboteur::Selection::CoverageMap.new(lines: { file => {} }, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: hollow.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded no lines in 1 included files/)
+    expect(cache_files).to be_empty
+  end
+
+  # With --test the user narrowed the suite on purpose, and the chosen specs
+  # may not touch the selected sources: an empty map is a legitimate "no
+  # coverage" outcome there, not a broken setup.
+  it "accepts an empty map when explicit tests narrowed the suite" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect(store(tests: ["spec/stage_spec.rb"]).fetch([file]).tests).to eq(["t1"])
+  end
+
+  it "accepts an empty map when explicit tests came from the YAML config" do
+    File.write(File.join(@root, ".saboteur.yml"), "tests: [spec/stage_spec.rb]\n")
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    yaml = Saboteur::Config.load(root: @root)
+    store = described_class.new(config: yaml, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new))
+    expect(store.fetch([file]).tests).to eq(["t1"])
+  end
+
+  it "accepts a cached empty map, with a warning, when explicit tests narrowed the suite" do
+    err = StringIO.new
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    allow(Saboteur::Selection::CoverageMap).to receive(:load).and_return(empty)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    store = described_class.new(config: Saboteur::Config.new({ "tests" => ["spec/stage_spec.rb"] }, root: @root),
+                                integration: integration, hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                diagnostics: Saboteur::Engine::Diagnostics.new(err))
+    expect(store.fetch([file]).tests).to eq(["t1"])
+    expect(store.instance_variable_get(:@diagnostics).warnings.last).to include("may not exercise them")
+  end
+
+  it "keeps the explicit-test and whole-suite caches separate" do
+    first = store
+    allow(first).to receive(:build).and_return(map)
+    first.fetch([file])
+    other = store(tests: ["spec/stage_spec.rb"])
+    allow(other).to receive(:build).and_return(map)
+    other.fetch([file])
+    expect(cache_files.size).to eq(2)
+  end
+
+  it "accepts a map with no lines when nothing is included" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect(store.fetch([]).tests).to eq(["t1"])
   end
 
   it "refuses to build when Coverage was not set up by the executable" do

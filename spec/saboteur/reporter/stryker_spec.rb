@@ -52,6 +52,14 @@ RSpec.describe Saboteur::Reporter::Stryker do
     )
   end
 
+  it "reports the score with its assertion and crash shares, with and without whole-body mutants" do
+    report = report_of(result_for(:killed, coarse: true, kill_cause: "TypeError"),
+                       result_for(:killed, replacement: "<", kill_cause: "assertion"))
+    scores = described_class.build(report).dig(:saboteur, :scores)
+    expect(scores[:all]).to include(score: 1.0, assertionShare: 0.5, crashShare: 0.5)
+    expect(scores[:withoutWholeBodyMutants]).to include(tested: 1, assertionShare: 1.0, crashShare: 0.0)
+  end
+
   it "says what killed a killed mutant: an assertion or a crash" do
     report = report_of(result_for(:killed, kill_cause: "assertion"), result_for(:killed, kill_cause: "TypeError"))
     reasons = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
@@ -84,5 +92,14 @@ RSpec.describe Saboteur::Reporter::Stryker do
       described_class.new(path).call(report)
       expect(JSON.parse(File.read(path))["schemaVersion"]).to eq("2")
     end
+  end
+  it "records the run's exit cause when the CLI supplies one" do
+    document = described_class.build(report, exit_cause: "errorMajority")
+    expect(document.fetch(:saboteur).fetch(:exitCause)).to eq("errorMajority")
+  end
+
+  it "omits the exit cause when none is supplied" do
+    document = described_class.build(report)
+    expect(document.fetch(:saboteur)).not_to have_key(:exitCause)
   end
 end

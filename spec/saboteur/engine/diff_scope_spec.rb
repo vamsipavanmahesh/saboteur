@@ -39,4 +39,31 @@ RSpec.describe Saboteur::Engine::DiffScope do
   it "keeps nothing fine when no line of the method changed" do
     expect(kept_lines([99])).to be_empty
   end
+
+  describe "#changed_lines_for" do
+    def mutation_at(text, replacement: "x")
+      start = subject_under_test.file_source.index(text)
+      edit = Saboteur::MutationSource::Edit.new(file: subject_under_test.file, start_byte: start,
+                                                end_byte: start + text.bytesize, replacement:)
+      Saboteur::MutationSource::Mutation.new(subject_id: subject_under_test.id, operator: "test", edits: [edit])
+    end
+
+    it "names the changed line a mutant touches" do
+      expect(scope([4]).changed_lines_for(subject_under_test, mutation_at("b * 2"))).to eq([4])
+    end
+
+    it "returns nothing for a mutant on an unchanged line" do
+      expect(scope([5]).changed_lines_for(subject_under_test, mutation_at("b * 2"))).to eq([])
+    end
+
+    it "names the changed line below the first line of a mutated multi-line statement" do
+      mutation = mutation_at("b = a + 1\n    c = b * 2")
+      expect(scope([4, 99]).changed_lines_for(subject_under_test, mutation)).to eq([4])
+    end
+
+    it "returns nothing for a file with no changed lines" do
+      other = described_class.new({})
+      expect(other.changed_lines_for(subject_under_test, mutation_at("b * 2"))).to eq([])
+    end
+  end
 end

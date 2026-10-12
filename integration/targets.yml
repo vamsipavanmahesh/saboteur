@@ -3,6 +3,10 @@
 # expect: mutants per status at the pinned commit, per re-evaluation strategy.
 # expect_on: per-platform overrides (linux, macos) for targets whose own tests
 # depend on the machine; only the counts that differ are listed.
+# allow_error_fraction: per-strategy upper bound on errored mutants, as a
+# fraction of executed mutants, for a target whose own tests error on most
+# mutants by design; the majority-error exit is accepted while the report
+# stays within the bound.
 # Update the snapshot deliberately when an operator change moves the counts.
 dry-inflector:
   repo: https://github.com/dry-rb/dry-inflector.git
@@ -32,6 +36,15 @@ tty-color:
   expect_on:
     linux:
       nesting: { killed: 134, survived: 22, skipped: 4 }
+  # class_eval: spec/unit/mode_spec.rb[1:3] kills most Mode mutants with a
+  # test that also fails with the method unchanged ("uninitialized constant
+  # TTY::Color::Mode::NoValue"), so over half the mutants error on every
+  # run (76 of 147, ~52%) and the majority-error exit would fail the job.
+  # Allow that exit while the errored fraction stays under 60%; the
+  # snapshot above still pins survived, timeout, skipped and the
+  # killed+error total.
+  allow_error_fraction:
+    class_eval: 0.6
 human-essentials:
   repo: https://github.com/rubyforgood/human-essentials.git
   commit: d6f829046ee9696499f6781fc8f9e434d270a2be
