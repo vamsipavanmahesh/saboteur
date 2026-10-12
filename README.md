@@ -425,7 +425,9 @@ Coverage caches now store both per-test method hits and load-time line hits.
 Older caches are rebuilt; load-time accounting preserves endless-method coverage.
 
 One-line and endless method definitions need boot method-call counters to prove
-the body ran at load; merely defining them is not execution evidence.
+the body ran at load; merely defining them is not execution evidence. If methods
+share a physical line and any sibling is uncalled, the line is ambiguous and is
+conservatively reported as no coverage, even for its called sibling.
 Agent mode reports ran-at-load and unreachable work as incomplete.
 
 A whole-suite map with only load-time hits is valid and reports load-only subjects
