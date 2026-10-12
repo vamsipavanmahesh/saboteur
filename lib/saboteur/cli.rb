@@ -303,7 +303,7 @@ module Saboteur
     # so a typo is an error and not a run over zero subjects.
     def use_explicit_sources
       if @argv.empty?
-        raise UsageError, "--test needs at least one source file" if options[:tests] && !options[:since]
+        raise UsageError, "--test needs at least one source file" if options[:tests] && !config["since"]
 
         # With --since the changed files are the sources, so --test may
         # stand alone; the files must still exist.
