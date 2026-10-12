@@ -82,8 +82,8 @@ of the same method go first, then the fastest, and the first failure stops the
 run. A change no test reaches is reported as "no coverage", not as a survivor.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
-whole-body mutants (`nil` and `raise`, or `true`/`false` for predicates; a few
-methods, such as some that rescue or log, get none). Fine-grained mutants run
+whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
+only logs, and `raise` unless a catch-all rescue would absorb it. Fine-grained mutants run
 regardless of the coarse verdict, including a survivor or a reused verdict.
 Deleting a body unnoticed does not prove its smaller changes are harmless.
 Subjects with no tests are skipped before any mutants are generated, and each
@@ -156,7 +156,7 @@ For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
 configured project. To scope the specs as well, pass them with `--test` and no
 source operands: `bundle exec saboteur run --since origin/main --test spec/billing_spec.rb`.
-Without `--test`, the run warns before it starts that the two baseline passes
+With `--since` and no `--test`, the run warns before it starts that the two baseline passes
 run the loaded suite (a cold coverage cache adds one more pass), and how to
 scope them. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
@@ -568,8 +568,10 @@ touch less memory, it keeps more of it shared between workers after fork, which
 is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers on a
 2 GB sandbox. Swap was not measured.
 
-Wall time on uncontended runs, per-cell minimums, baseline vs PR: 48s vs 49s at
-jobs=1, 32s vs 31s at jobs=2, 30s vs 32s at jobs=6 (no regression). The shared sandbox had multi-minute CPU-starvation
+Wall time on uncontended runs: 30-36s for both variants at every job level.
+Per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs
+32s at jobs=6. These are noisy per-cell minima from historical runs and do not
+show a direction either way. The shared sandbox had multi-minute CPU-starvation
 windows during this session (walls up to 594s); affected runs are flagged via
 sampler cadence and excluded from wall analysis. Absolute times are specific to
 this 2-core sandbox. Environment, method and the contention log are on the
