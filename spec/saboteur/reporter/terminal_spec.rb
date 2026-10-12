@@ -340,4 +340,21 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
                                   root: File.dirname(subject.file), review: true)
     expect(render(report).scan("Two#m arithmetic").size).to eq(2)
   end
+  it "omits absent out-of-score counts, sections and hints" do
+    text = render(report_of(result_for(:killed)))
+    expect(text).not_to include("ran at load", "unreachable", "out of the score", "hint:")
+  end
+
+  it "prints the mutant and location under each out-of-score heading" do
+    result = result_for(:unreachable, reason: "captured definition at person.rb:2")
+    text = render(report_of(result))
+    expect(text).to include("Unreachable (out of the score):\n",
+                            "  Person#adult? comparison #{result.digest} person.rb:2\n")
+    expect(text).to include("hint: captured definition at person.rb:2")
+    expect(text).not_to include("Ran at load (out of the score):")
+  end
+
+  it "does not print a hint when an out-of-score result has no reason" do
+    expect(render(report_of(result_for(:unreachable)))).not_to include("hint:")
+  end
 end
