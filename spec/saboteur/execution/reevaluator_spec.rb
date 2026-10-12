@@ -57,6 +57,17 @@ RSpec.describe Saboteur::Execution::Reevaluator do
         expect(ReevalTargets::Util.private_method_defined?(:twice)).to be(true)
       end
 
+      it "re-applies private and protected module-function copies without exposing them" do
+        reeval("ReevalTargets::PrivateCopies#hidden", strategy, from: ":original", to: ":mutated")
+        reeval("ReevalTargets::PrivateCopies#protected_copy", strategy, from: ":original", to: ":mutated")
+        copies = ReevalTargets::PrivateCopies
+        expect(copies.public_contract).to eq(%i[mutated mutated])
+        expect(copies.singleton_class.private_method_defined?(:hidden, false)).to be(true)
+        expect(copies.singleton_class.protected_method_defined?(:protected_copy, false)).to be(true)
+        expect(copies.private_method_defined?(:hidden, false)).to be(true)
+        expect(copies.private_method_defined?(:protected_copy, false)).to be(true)
+      end
+
       it "re-points aliases at the mutated method, keeping their visibility" do
         reeval("ReevalTargets::Priced#total", strategy, from: "10", to: "11")
         reeval("ReevalTargets::Priced#secret_total", strategy, from: "1", to: "2")
