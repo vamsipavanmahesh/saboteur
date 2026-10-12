@@ -6,6 +6,7 @@ require_relative "base"
 require_relative "filter_replacement"
 require_relative "literal_replacement"
 require_relative "argument_removal"
+require_relative "pair_removal"
 
 module Saboteur
   module MutationSource
@@ -52,6 +53,7 @@ module Saboteur
         @filter_replacement = FilterReplacement.new(arid: arid)
         @literal_replacement = LiteralReplacement.new(arid: arid)
         @argument_removal = ArgumentRemoval.new(arid: arid)
+        @pair_removal = PairRemoval.new(arid: arid)
       end
 
       def name
@@ -67,6 +69,7 @@ module Saboteur
         @found.concat(@filter_replacement.mutations_for(subject))
         @found.concat(@literal_replacement.mutations_for(subject))
         @found.concat(@argument_removal.mutations_for(subject))
+        @found.concat(@pair_removal.mutations_for(subject))
       ensure
         @subject = nil
       end

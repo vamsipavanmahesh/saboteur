@@ -164,6 +164,21 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    if a\n      b\n      c\n    end\n    d", "statement_removal").size).to eq(3)
     end
 
+    it "composes pair removal into the builtin set" do
+      expect(texts("    call(a, msg: b, c: d)", "pair_removal")).to eq(["call(a,  c: d)", "call(a, msg: b )"])
+    end
+
+    it "wires the builtin arid list into pair removal" do
+      expect(texts("    logger.info(msg: a)\n    a", "pair_removal")).to be_empty
+    end
+
+    it "wires custom arid patterns into pair removal" do
+      source = described_class.new(arid: ['\Atrack\b'])
+      subject = subjects_in("class K\n  def m(a)\n    track(event: a)\n    a\n  end\nend\n").first
+      ops = mutated_texts(subject, source:).map(&:first)
+      expect(ops).not_to include("pair_removal")
+    end
+
     it "never mutates arid statements" do
       found = mutations("    logger.info(a + 1)\n    a > b").reject { |op, _| op.start_with?("body_") }
       expect(found.map(&:last)).to all(include("logger.info(a + 1)"))
