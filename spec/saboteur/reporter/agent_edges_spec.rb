@@ -88,6 +88,27 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
                                        meaning: "subjects or mutants had no covering test" }])
     end
 
+    it "never calls unjudged load-only or unreachable mutants complete" do
+      %i[ran_at_load unreachable].each do |status|
+        payload = payload_for(report_of(result_for(status)))
+        expect(payload).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+        expect(payload[:incomplete].map { |reason| reason[:reason] }).to eq([status.to_s])
+      end
+    end
+
+    it "counts load-only subjects apart from no-coverage skips with exact meanings" do
+      load_reason = Saboteur::Selection::CoverageMap::RAN_AT_LOAD
+      report = Saboteur::Report.new(results: [result_for(:ran_at_load), result_for(:unreachable)],
+                                    subjects: [person_subject], wall_time: 1, root: "/tmp",
+                                    skipped_subjects: { person_subject => load_reason })
+      expect(reasons(report)).to eq([
+                                      { reason: "ran_at_load", count: 2,
+                                        meaning: "code ran only at load; no mutant was judged" },
+                                      { reason: "unreachable", count: 1,
+                                        meaning: "tests did not call the replacement definition" }
+                                    ])
+    end
+
     it "says what a capped method means" do
       warnings = ["A#b: omitted 4 mutant(s) above max_mutants_per_method (100)", "C#d: omitted 2 mutant(s) above x"]
       expect(reasons(report_of(result_for(:killed), warnings: warnings))).to eq(
