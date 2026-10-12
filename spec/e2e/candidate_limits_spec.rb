@@ -1,41 +1,142 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-RSpec.describe "candidate limits", :e2e do
-  let(:dir) { copy_fixture("people") }
+require "tmpdir"
 
-  it "caps each method separately, keeps coarse mutants first and repeats with the same digests" do
-    File.write(File.join(dir, "config", "saboteur.rb"),
-               "Saboteur.configure { |c| c.include = [\"lib/**/*.rb\"]; c.max_mutants_per_method = 2 }\n")
-    first = saboteur(dir, "--subject", "People::Person#adult?", "--subject", "People::Person#describe")
-    second = saboteur(dir, "--subject", "People::Person#adult?", "--subject", "People::Person#describe", "--jobs", "2")
-    expect(mutants(first).size).to eq(4)
-    expect(mutants(first).map { |mutant| mutant["mutatorName"] }).to eq(%w[body_true body_false body_nil body_raise])
-    expect(mutants(second).map { |mutant| mutant.values_at("id", "status") })
-      .to eq(mutants(first).map { |mutant| mutant.values_at("id", "status") })
-    expect(first.out).to include("max_mutants_per_method (2)")
+RSpec.describe Saboteur::Selection::CoverageMap do
+  let(:subject_under_test) { subjects_in("class A\n  def m\n    1\n    2\n  end\nend\n").first }
+  let(:file) { subject_under_test.file }
+  let(:map) do
+    described_class.new(lines: { file => { 3 => %w[t2 t1], 4 => %w[t3 t1], 2 => %w[load] } },
+                        tests: %w[t1 t2 t3 load])
   end
 
-  it "reports an uncovered method as a skipped subject, not a mutant" do
-    File.open(File.join(dir, "lib", "people.rb"), "a") do |file|
-      file.puts "class Untested\n  def value\n    123\n  end\nend"
-    end
-    run = saboteur(dir, "--subject", "Untested")
-    expect(run.status).to eq(0), run.err
-    expect(mutants(run)).to be_empty
-    expect(run.out).to include("1 subjects, 0 mutants", "skipped subjects: no coverage: 1", "Untested#value")
-    expect(run.json["skippedSubjects"].first).to include("subject" => "Untested#value", "reason" => "no coverage")
+  it "returns the tests that executed any body line, in suite order, without duplicates" do
+    expect(map.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
   end
-  it "reports a one-line uncalled definition as ran at load, without inventing mutants" do
-    File.open(File.join(dir, "lib", "people.rb"), "a") do |file|
-      file.puts "class LoadOnly; def value; 123; end; end"
+
+  it "orders selected tests fastest first, then by suite order" do
+    timed = described_class.new(lines: map.lines, tests: map.tests, durations: { "t1" => 0.5, "t2" => 0.01 })
+    expect(timed.tests_for(subject_under_test)).to eq(%w[t2 t1 t3])
+    expect(described_class.from_json(timed.to_json).durations).to eq("t1" => 0.5, "t2" => 0.01)
+  end
+
+  it "selects tests by line for a single edit" do
+    expect(map.tests_for_lines(file, [4])).to eq(%w[t1 t3])
+    expect(map.tests_for_lines(file, [99])).to eq([])
+  end
+
+  it "ignores the def line of a multi-line method (it runs at load time)" do
+    expect(map.tests_for(subject_under_test)).not_to include("load")
+  end
+
+  it "returns nothing for files it has never seen" do
+    expect(described_class.new(lines: {}, tests: []).tests_for(subject_under_test)).to eq([])
+  end
+
+  it "round-trips through JSON with integer line keys" do
+    timed = described_class.new(lines: map.lines, tests: map.tests, build_seconds: 1.5)
+    restored = described_class.from_json(timed.to_json)
+    expect(restored.build_seconds).to eq(1.5)
+    expect(restored.lines).to eq(map.lines)
+    expect(restored.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
+  end
+
+  it "refuses another format version" do
+    expect { described_class.from_json('{"format":99,"lines":{},"tests":[]}') }
+      .to raise_error(Saboteur::Error, /format/)
+  end
+
+  it "saves and loads a cache file, treating a corrupt file as a miss" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "nested", "map.json")
+      map.save(path)
+      expect(described_class.load(path).tests).to eq(map.tests)
+      File.write(path, "{not json")
+      expect(described_class.load(path)).to be_nil
     end
-    run = saboteur(dir, "--subject", "LoadOnly")
-    expect(run.status).to eq(0), run.err
-    expect(mutants(run)).to be_empty
-    expect(run.out).to include("1 subjects, 0 mutants", "skipped subjects: ran at load:", "LoadOnly#value")
-    expect(run.json["skippedSubjects"].first).to include(
-      "subject" => "LoadOnly#value", "reason" => Saboteur::Selection::CoverageMap::RAN_AT_LOAD
-    )
+  end
+
+  describe ".cache_key" do
+    it "treats a missing file as an input of its own" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "gone.rb")
+        missing = described_class.cache_key(files: [path], extra: "x")
+        File.write(path, "")
+        expect(described_class.cache_key(files: [path], extra: "x")).not_to eq(missing)
+      end
+    end
+
+    it "changes when a file's content or the extra inputs change" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "a.rb")
+        File.write(path, "1")
+        first = described_class.cache_key(files: [path], extra: "x")
+        expect(described_class.cache_key(files: [path], extra: "x")).to eq(first)
+        expect(described_class.cache_key(files: [path], extra: "y")).not_to eq(first)
+        File.write(path, "2")
+        expect(described_class.cache_key(files: [path], extra: "x")).not_to eq(first)
+      end
+    end
+  end
+
+  describe "Recorder" do
+    let(:recorder) { Saboteur::Selection::Recorder.new([file]) }
+    let(:results) { [] }
+
+    before do
+      queue = results
+      allow(Coverage).to receive(:result).with(stop: false, clear: true) { queue.shift || {} }
+      # Never touch the real Coverage: when saboteur measures its own suite,
+      # suspending it here would hide these very examples from the map.
+      allow(Coverage).to receive(:running?).and_return(false)
+    end
+
+    it "records a real, non-negative duration with the real clock" do
+      results.push({}, {})
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.durations["t1"]).to be_a(Float).and(be >= 0)
+    end
+
+    it "records how long each test took" do
+      results.push({}, {})
+      allow(recorder).to receive(:monotonic).and_return(10.0, 10.25)
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.durations).to eq("t1" => 0.25)
+    end
+
+    it "attributes each test's delta to that test, and outside-test lines to the next test's file" do
+      results.push({ file => { lines: [nil, nil, 1, 0, nil, nil] } }, # before t1: before(:all)
+                   { file => { lines: [nil, nil, 0, 2, nil, nil] } }, # during t1
+                   {},                                                # before t2
+                   { file => { lines: [nil, nil, 1, 0, nil, nil] } }) # during t2
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      recorder.test_started("t2", "/spec/a_spec.rb")
+      recorder.test_finished("t2")
+      built = recorder.result
+      expect(built.tests).to eq(%w[t1 t2])
+      expect(built.lines[file]).to eq(3 => %w[t2 t1], 4 => %w[t1])
+    end
+
+    it "suspends coverage while it processes a delta, so its own work is never attributed to a test" do
+      allow(Coverage).to receive(:running?).and_return(true)
+      allow(Coverage).to receive(:suspend)
+      allow(Coverage).to receive(:resume)
+      results.push({}, { file => { lines: [nil, nil, 1] } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(Coverage).to have_received(:suspend).twice
+      expect(Coverage).to have_received(:resume).twice
+    end
+
+    it "ignores files that are not being mutated" do
+      results.push({}, { "/other.rb" => { lines: [1] } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.lines).to eq({})
+    end
   end
 end
