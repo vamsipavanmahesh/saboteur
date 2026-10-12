@@ -311,6 +311,14 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(Saboteur::Config).to have_received(:load).with(hash_including(path: "x.yml"))
   end
 
+  it "describes --config with its default in both parsers" do
+    cli = cli("run")
+    [cli.parser, cli.doctor_parser].each do |parser|
+      config_switch = parser.top.list.find { |switch| switch.long.include?("--config") }
+      expect(config_switch.desc).to include("Config file (default config/saboteur.rb)")
+    end
+  end
+
   it "prints the summary and writes the JSON report it names" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "r.json")
