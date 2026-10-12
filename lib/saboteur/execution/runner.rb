@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "stale_captures"
 
 module Saboteur
   module Execution
@@ -27,7 +28,12 @@ module Saboteur
       ].freeze
 
       # Everything one child needs. mutation is nil for the verdict check.
-      Job = Data.define(:subject, :text, :test_ids, :timeout, :mutation, :log_path)
+      # eval_prefix: wrapper source (a sorbet sig) evaluated with the def.
+      Job = Data.define(:subject, :text, :test_ids, :timeout, :mutation, :log_path, :eval_prefix) do
+        def initialize(subject:, text:, test_ids:, timeout:, log_path:, mutation: nil, eval_prefix: nil)
+          super
+        end
+      end
 
       LOG_TAIL_BYTES = 2000
 
@@ -49,10 +55,10 @@ module Saboteur
       # the neutral check). Returns an Outcome with status
       # :killed, :survived, :timeout, :resource_limit (memory or process cap) or
       # :error.
-      def run(subject:, text:, test_ids:, timeout:, mutation: nil)
+      def run(subject:, text:, test_ids:, timeout:, mutation: nil, eval_prefix: nil)
         @hooks.run(:before_fork, mutation)
         @sequence = @sequence.to_i + 1
-        job = Job.new(subject:, text:, test_ids:, timeout:, mutation:,
+        job = Job.new(subject:, text:, test_ids:, timeout:, mutation:, eval_prefix:,
                       log_path: File.join(@log_dir, "child-#{Process.pid}-#{@sequence}.log"))
         result = @supervisor.run(timeout: timeout) { |writer| child(writer, job) }
         outcome = outcome_for(result, job)
@@ -68,18 +74,32 @@ module Saboteur
         Process.setproctitle(title(job))
         redirect_output(job.log_path)
         @hooks.run(:after_fork)
-        @reevaluator.call(job.subject, job.text)
+        @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
+        stale = stale_captures(job)
+        Protocol.emit(writer, "captures", site: stale.first, stale: stale.size) if stale.any?
         Protocol.emit(writer, "started")
         Kernel.srand(@seed)
+        emit_result(writer, job)
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        Protocol.emit(writer, "error", message: "#{e.class}: #{e.message}", backtrace: e.backtrace&.first(5))
+        exit!(1)
+      end
+
+      # Capture detection is best-effort: a subject shape it cannot scan
+      # must never turn the mutant run itself into an error.
+      def stale_captures(job)
+        StaleCaptures.scan(@reevaluator, job.subject)
+      rescue StandardError
+        []
+      end
+
+      def emit_result(writer, job)
         result = @hooks.around(job.mutation) { run_tests(job.test_ids) }
         if result.nil?
           Protocol.emit(writer, "error", message: "around_mutant hook did not run the tests")
         else
           Protocol.emit(writer, "result", **result)
         end
-      rescue Exception => e # rubocop:disable Lint/RescueException
-        Protocol.emit(writer, "error", message: "#{e.class}: #{e.message}", backtrace: e.backtrace&.first(5))
-        exit!(1)
       end
 
       # What `ps` shows for this child: which method, and which mutant.
@@ -124,7 +144,7 @@ module Saboteur
         error = events.find { |event| event["event"] == "error" }
 
         if result
-          classify_result(result, runtime, job.test_ids)
+          classify_events(result, events, runtime, job)
         else
           message = if error
                       error["message"]
@@ -156,6 +176,30 @@ module Saboteur
         end
 
         Outcome.new(status: :survived, runtime: runtime)
+      end
+
+      def classify_events(result, events, runtime, job)
+        outcome = classify_result(result, runtime, job.test_ids)
+        captures = events.find { |event| event["event"] == "captures" }
+        return unreachable(outcome, captures) if unobservable?(outcome, captures, job)
+
+        outcome
+      end
+
+      # Only mutant runs convert: the verdict check re-evaluates the
+      # unchanged method, and a stale capture there must not overturn a real
+      # kill.
+      def unobservable?(outcome, captures, job)
+        captures && job.mutation && outcome.status == :survived
+      end
+
+      # A survivor that no test could have observed: a Method object
+      # captured at load still calls the original. Not a verdict on the
+      # tests, so it is its own status, out of the score.
+      def unreachable(outcome, captures)
+        Outcome.new(status: :unreachable, runtime: outcome.runtime,
+                    message: "a Method object captured before re-evaluation still calls the original " \
+                             "(captured definition at #{captures['site']})")
       end
 
       def kill_cause(failure_class)
