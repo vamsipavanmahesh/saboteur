@@ -6,6 +6,11 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
+  including safe navigation. Calls with arguments or blocks, bare calls,
+  arid statements and nested scopes are excluded.
+
 ## [0.4.0] - 2026-10-12
 
 ### Changed
