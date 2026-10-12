@@ -118,10 +118,12 @@ RSpec.describe "baseline stability guard", :e2e do
 
   it "keeps suite hooks at the run seed with conflicting configured RSpec order" do
     directory = copy_fixture("people")
-    File.write(File.join(directory, ".saboteur.yml"), <<~YAML)
-      include: [lib/**/*.rb]
-      rspec_args: [--seed, '999', spec]
-    YAML
+    File.write(File.join(directory, "config", "saboteur.rb"), <<~RUBY)
+      Saboteur.configure do |c|
+        c.include = ["lib/**/*.rb"]
+        c.rspec_args = ["--seed", "999", "spec"]
+      end
+    RUBY
     write_suite(directory, <<~RUBY)
       RSpec.configure do |configuration|
         configuration.before(:suite) do
