@@ -1,4 +1,0 @@
-include:
-  - lib/**/*.rb
-exclude:
-  - lib/dry/inflector/version.rb
