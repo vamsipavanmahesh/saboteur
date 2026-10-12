@@ -77,16 +77,15 @@ Coarse (run first per subject):
 - body -> `nil`
 - body -> `raise`
 
-If either survives, report it and skip fine mutants for the subject: a method
-whose whole body can be deleted unnoticed has no meaningful test, and the fine
-mutants would only add noise. Only `survived` triggers the skip; timeout or
-error on a coarse mutant does not.
+All eligible fine mutants run after the coarse mutants, regardless of whether
+a coarse result survives, is killed, times out, errors, or is reused from cache.
+Coarse-first ordering gives early feedback and seeds killer prioritization;
+it does not gate fine execution.
 
 Equivalent coarse mutants are not generated: no `body -> nil` for a body that
 is empty, a lone `nil`, or only arid statements (logging); no `body -> raise`
 when the method's own rescue catches `StandardError` (the raise is what the
-rescue is for). A surviving coarse mutant stops the fine mutants, except in
-a method with `rescue` or `else`, which can return a value of its own.
+rescue is for). Fine execution is independent of these coarse results.
 
 Fine:
 - Comparison (sufficient set, Kaminski et al. 2011): `<` -> `<=`, `!=`,
@@ -267,7 +266,7 @@ process's reservation and are not enforced, so memory is capped by polling;
 | timeout   | deadline passed; tree killed |
 | resource_limit | the tree hit the memory or process cap; tree killed; outside the score |
 | error     | child exited/crashed before writing `started`, or adapter itself raised |
-| skipped   | not run: baseline failure, no covering tests, or coarse survivor |
+| skipped   | not run: no covering tests or a load/subject restriction |
 
 `error` is never counted as killed. Skips carry a reason. A child that dies
 after `started` without writing a result is `error`: from outside, a crash in
@@ -468,7 +467,7 @@ keys; CLI flags; the Stryker JSON report. Everything else may change.
 | fork per mutant | full isolation, no state leaks, simple rollback | no Windows/JRuby; forking a big Rails app costs ~ms-tens of ms each (to measure) |
 | byte-range edits | exact diffs, no unparser | operators must emit valid text; re-parse guards it |
 | coverage per test | runs few tests per mutant | one slow instrumented suite run per cache key; before(:all) attribution |
-| coarse first | fast signal, fewer noisy survivors | a coarse survivor hides fine-grained detail until fixed |
+| coarse first | early feedback and killer prioritization | fine mutants still run, so there is no survivor-gating time saving |
 | method-level subjects only | simple, re-evaluable unit | misses class-body/DSL logic (validations, scopes) |
 
 ## 14. Second opinion (Grok CLI, 2026-10-06)
