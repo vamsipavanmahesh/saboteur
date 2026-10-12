@@ -568,8 +568,7 @@ touch less memory, it keeps more of it shared between workers after fork, which
 is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers on a
 2 GB sandbox. Swap was not measured.
 
-Wall time on uncontended runs: 30-36s for both variants at every job level.
-Per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs
+Wall time on uncontended runs, per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs
 32s at jobs=6. These are noisy per-cell minima from historical runs and do not
 show a direction either way. The shared sandbox had multi-minute CPU-starvation
 windows during this session (walls up to 594s); affected runs are flagged via
