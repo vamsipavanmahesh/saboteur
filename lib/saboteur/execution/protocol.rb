@@ -11,7 +11,7 @@ module Saboteur
     #   captures a stale Method capture of the original def exists (site, stale)
     #   started  the mutated method is in place; tests are about to run
     #   result   passed, failed (ids), executed (ids), runtime, exited (status
-    #            when a test called exit)
+    #            when a test called exit), replacement_called (false only after a verified trace)
     #   error    message, backtrace: the harness failed, not the tests
     #
     # A child that dies after "started" without "result" crashed while its
