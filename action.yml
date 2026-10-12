@@ -65,7 +65,7 @@ outputs:
     description: Number of survived mutants not accepted by the ignore list.
     value: ${{ steps.run.outputs.survivors }}
   accepted-survivors:
-    description: Number of survived mutants accepted by .saboteur-ignore.yml.
+    description: Number of survived mutants accepted by config/saboteur_ignore.rb.
     value: ${{ steps.run.outputs.accepted-survivors }}
   timeouts:
     description: Number of mutants that timed out (counted as kills in the score).
@@ -91,9 +91,9 @@ runs:
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: .saboteur/coverage-*.json
-        key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', '.saboteur.yml') }}-${{ github.sha }}
+        key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
         restore-keys: |
-          saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', '.saboteur.yml') }}-
+          saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
     - name: Mutate the changed methods
       id: run
       shell: bash
