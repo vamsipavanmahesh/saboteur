@@ -29,7 +29,9 @@ caught by the positive fixture and fixed before measurements were retained.
 ## Measurements
 
 Ruby 3.3.12, Linux, Prism from repository bundle. All `lib/**/*.rb` files are
-parsed and every def's current builtin mutants generated, without coverage/caps.
+parsed and the current builtin mutants of discovered/supported subjects are
+generated, without coverage/caps. SubjectFinder excludes top-level, nested,
+block/lambda and non-self receiver defs; this is not every Ruby definition.
 Counts are pre-dedup generation counts, not executed denominators or scores.
 
 | Project | SHA | Subjects | Generated | Invalid method text | Duplicates | Pattern matches |
