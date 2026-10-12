@@ -29,11 +29,12 @@ module Saboteur
         target = subject.singleton ? owner.singleton_class : owner
         visibility = visibility_of(target, subject.name)
         module_function = module_function?(owner, subject)
+        copy_visibility = visibility_of(owner.singleton_class, subject.name) if module_function
         aliases = aliases_of(target, subject.name)
 
         @strategy == "nesting" ? eval_nested(subject, text) : eval_in_owner(owner, subject, text)
 
-        restore(owner, target, subject.name, visibility, module_function)
+        restore(owner, target, subject.name, visibility, copy_visibility)
         repoint(target, subject.name, aliases)
       end
 
@@ -82,7 +83,8 @@ module Saboteur
       def module_function?(owner, subject)
         return false if subject.singleton || owner.is_a?(Class)
         return false unless owner.private_method_defined?(subject.name, false)
-        return false unless owner.singleton_class.public_method_defined?(subject.name, false)
+        return false unless owner.singleton_class.method_defined?(subject.name, false) ||
+                            owner.singleton_class.private_method_defined?(subject.name, false)
 
         owner.instance_method(subject.name).source_location ==
           owner.singleton_class.instance_method(subject.name).source_location
@@ -132,9 +134,10 @@ module Saboteur
         end
       end
 
-      def restore(owner, target, name, visibility, module_function)
-        if module_function
+      def restore(owner, target, name, visibility, copy_visibility)
+        if copy_visibility
           owner.send(:module_function, name)
+          owner.singleton_class.send(copy_visibility, name)
         elsif visibility != :public
           target.send(visibility, name)
         end
