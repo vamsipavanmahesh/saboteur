@@ -43,7 +43,7 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
     expect(results.first.reason).to eq(Saboteur::Selection::CoverageMap::RAN_AT_LOAD)
   end
 
-  it "marks every mutant unreachable after the first stale capture: forks once, warns once, checks no verdict" do
+  it "checks each mutant separately after a stale capture, without checking unreachable verdicts" do
     subject = subjects_in("class UnreachTarget\n  def m(a)\n    a + 1\n  end\nend\n").first
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => %w[t1] } },
                                                tests: %w[t1], durations: { "t1" => 0.1 })
@@ -58,8 +58,8 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
     results = scheduler.call(subject, mutations.map { |mutation| [mutation, subject.source] })
     expect(results.map(&:status)).to eq(%i[unreachable unreachable])
     expect(results.last.reason).to eq(message)
-    expect(runner).to have_received(:run).once
-    expect(diagnostics.warnings).to eq(["UnreachTarget#m: #{message}"])
+    expect(runner).to have_received(:run).twice
+    expect(diagnostics.warnings).to eq(["UnreachTarget#m: #{message}", "UnreachTarget#m: #{message}"])
   end
 
   it "re-evaluates the sig together with the def for sorbet-wrapped methods" do
@@ -121,12 +121,46 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
                                    .and_return(outcome(:killed))
     scheduler.send(:calibrate, plan, nil, subject.source, ["t1"], 5)
   end
-  it "warns only once when a wrapped method has no adjacent sig" do
-    subject = subjects_in("class NoSigPrefix\n  def m; end\nend\n").first
-    plan = described_class::Plan.new(subject: subject, wrapper: :sorbet)
+
+  it "keeps the signature prefix on a calibrated mutant retry" do
+    subject = subject_named("class RetrySig\n  sig { void }\n  def m; end\nend\n", "RetrySig#m")
+    map = double("map", recorded_runtime: 1.0)
+    plan = described_class::Plan.new(subject: subject, wrapper: :sorbet, slowdown: 1.0)
+    scheduler = scheduler_for(map)
+    expect(runner).to receive(:run).with(subject: subject, text: subject.source, test_ids: ["t1"],
+                                         timeout: 300.0, eval_prefix: "sig { void }")
+                                   .and_return(outcome(:survived))
+    expect(runner).to receive(:run).with(subject: subject, text: "changed", test_ids: ["t1"],
+                                         timeout: 5.0, mutation: :probe, eval_prefix: "sig { void }")
+                                   .and_return(outcome(:killed))
+    expect(scheduler.send(:calibrate, plan, :probe, "changed", ["t1"], 1).status).to eq(:killed)
+  end
+
+  it "does not let an unreachable mutant hide a later direct-route kill" do
+    subject = subjects_in("class MixedRoutes\n  def m(a)\n    a + 1\n  end\nend\n").first
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
+    scheduler = scheduler_for(map)
+    allow(scheduler).to receive(:load_problem).and_return([nil, nil])
+    mutations = ["-", "*"].map do |replacement|
+      Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "arithmetic",
+                                             edits: [edit_around(subject, "+", replacement: replacement)])
+    end
+    allow(runner).to receive(:run).and_return(outcome(:unreachable), outcome(:killed, failed_ids: ["t1"]),
+                                              outcome(:survived))
+    expect(scheduler.call(subject, mutations.map { |mutation| [mutation, subject.source] }).map(&:status))
+      .to eq(%i[unreachable killed])
+    expect(runner).to have_received(:run).exactly(3).times
+  end
+
+  it "skips a Sorbet wrapper if its signature cannot be preserved" do
+    subject = subjects_in("class MissingSignature\n  def m(a)\n    a + 1\n  end\nend\n").first
     scheduler = scheduler_for(nil)
-    2.times { expect(scheduler.send(:eval_prefix, plan)).to be_nil }
-    expect(diagnostics.warnings.size).to eq(1)
-    expect(diagnostics.warnings.first).to include("NoSigPrefix#m: sorbet sig not found")
+    allow(scheduler).to receive(:load_problem).and_return([nil, :sorbet])
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "arithmetic",
+                                                      edits: [edit_around(subject, "+", replacement: "-")])
+    expect(runner).not_to receive(:run)
+    result = scheduler.call(subject, [[mutation, subject.source]]).first
+    expect(result.status).to eq(:skipped)
+    expect(result.reason).to include("cannot preserve runtime type checks")
   end
 end
