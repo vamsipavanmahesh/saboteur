@@ -26,7 +26,7 @@ tty-color:
   expect:
     # class_eval: killed + error is 151 after argument, pair and coarse-gate removal. Their split
     # can vary by run (historical baseline 59/68 to 69/58), so only the sum
-    # is checked. Cause open: docs/status.md.
+    # is checked. The cause is still open.
     class_eval: { killed+error: 151, survived: 13, timeout: 0, skipped: 0 }
     # macOS literal expansion has not been measured. Keep the historical
     # baseline here until a macOS run supplies a replacement snapshot.

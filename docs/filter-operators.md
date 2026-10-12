@@ -27,7 +27,7 @@ four replacements fails the same output assertion. No Oxidized code was copied.
 - Keep the existing arid-statement and nested-definition boundaries.
 - Append the new source's proposals after the old built-in proposals, keeping
   old digests and relative order for unchanged subjects. The candidate pipeline still re-parses and
-  de-duplicates them, and applies the same coarse-first rules and mutant cap.
+  de-duplicates them, and applies the same coarse-first order and mutant cap.
 
 The source uses `MutationSource::Base`; builtin composes it. The engine does
 not acquire an operator-specific branch. The report operator and source name

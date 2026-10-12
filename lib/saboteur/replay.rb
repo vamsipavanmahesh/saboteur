@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 module Saboteur
-  # Resolves one exact digest from current source, before caps or coarse gating.
+  # Resolves one exact digest from current source, before caps, ignore suppression or incremental reuse.
   class Replay
     def initialize(digest:)
       unless digest.match?(/\A[0-9a-f]{16}\z/)

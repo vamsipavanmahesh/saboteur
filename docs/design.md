@@ -1,7 +1,7 @@
 # saboteur design
 
-Status: v1 as built (2026-10-09). Sections marked OPEN wait for a maintainer
-decision; docs/status.md tracks them.
+Status: describes saboteur 0.3.x. Sections marked OPEN wait for a maintainer
+decision; open work is tracked in GitHub Issues.
 
 ## 1. Goal
 
@@ -38,7 +38,7 @@ config + CLI
 ## 3. Parsing and subjects
 
 - Prism parses each included file. Ruby 3.3 bundles prism 0.19, whose API
-  predates 1.0, so the gemspec depends on the prism gem `>= 1.0, < 2`.
+  predates 1.0, so the gemspec depends on the prism gem `>= 1.2, < 2`.
 - Subject = one `DefNode`: instance methods and `def self.x`. Methods inside
   `class << self` count as singleton methods of the enclosing class.
 - Subject id: `Outer::Klass#meth` or `Outer::Klass.meth`, from the lexical
@@ -112,6 +112,11 @@ Fine:
   expressions), and not for an if/unless without else (the condition
   mutants make the same change).
 - Nil handling: `x&.y` -> `x.y`, `a ||= b` -> `a = b`.
+- Literals, filters and arguments (added after v1): boolean and string
+  literal replacement ([literal operators](literal-operators.md)), `select`
+  <-> `reject` polarity ([filter operators](filter-operators.md)), call
+  argument removal ([argument removal](argument-removal.md)) and hash or
+  keyword pair removal ([pair removal](pair-removal.md)).
 
 Arid lines: a statement whose source matches a configured pattern is never
 mutated and never removed. Defaults: `puts`, `pp`, `p`, `print`, `warn`,
@@ -129,12 +134,14 @@ Parent:
 Fork hygiene (parent):
 - Coverage is not running in the parent during mutation (it lives only in
   the map-building child).
-- Before each fork the parent holds no open DB/Redis sockets: Rails
-  integration disconnects pools after boot; `before_fork` is the hook for
+- Before each fork the parent holds no open DB/Redis sockets, except in-memory
+  SQLite pools, which stay connected so the schema survives: Rails
+  integration disconnects the other pools after boot; `before_fork` is the hook for
   anything else. The child opens fresh connections in `after_fork`.
 - Threads do not survive fork, and a mutex held by another thread stays
   locked in the child. The parent must be effectively single-threaded at fork
-  time; saboteur warns when `Thread.list.size > 1` before the first fork.
+  time; saboteur warns once, after the baseline and coverage children have run and
+  before the first mutant fork, when `Thread.list.size > 1`.
 
 Child (forked by `Execution::Supervisor`, see 6.3):
 1. Mark itself (`SABOTEUR_CHILD=1`), own process group, CPU limit, parent
@@ -333,7 +340,8 @@ harness problem or a runaway mutant cannot raise the score silently.
 - No covering tests for a subject -> all its mutants "no coverage".
 
 Trade-off: test-by-test coverage collection costs one full suite run with
-coverage on (typically 1.2-2x slower than normal; to be measured), paid once
+coverage on (measured once: 1.7x on human-essentials, 260 s vs 155 s; see
+[the Rails validation](validation/phase-4-rails.md)), paid once
 per cache key.
 
 ## 8. Verdict check (replaces the neutral check, 2026-10-10)
@@ -401,17 +409,21 @@ timeout_min: 5
 jobs: 1
 ignore_file: .saboteur-ignore.yml
 sources: [builtin]                 # or path.rb:ClassName for external sources
-reeval: class_eval                 # or nesting (see 6.1)
+reeval: nesting                    # or class_eval (see 6.1)
 max_memory_mb: 2048                # growth cap per mutant process tree
 max_processes: 64                  # process cap per mutant tree
 coverage_timeout: 3600             # seconds for the coverage-map build
 baseline_timeout: 300              # seconds for each verdict-check run
 ```
 
-CLI: `saboteur run [--since REF] [--subject 'Klass#meth'] [--timeout-factor N] [--jobs N]`.
+This is a sample, not the full key list. `saboteur help` prints every command,
+option, config key and exit code.
+
+CLI: `saboteur help` lists every command and flag.
 
 Output:
 - Terminal: counts per status, score, wall time, then a unified diff per survivor.
+- HTML report (`html_report`) and per-method findings (`reporter/html.rb`, `reporter/findings.rb`).
 - JSON: Stryker mutation-testing-report-schema (schemaVersion "2"). Status
   mapping: killed->Killed, survived->Survived, timeout->Timeout,
   error->RuntimeError, resource_limit->RuntimeError (statusReason "resource limit: ..."),
@@ -421,8 +433,18 @@ Output:
   is required and the file fails to load without it. Stale entries (no
   matching mutation) are reported as warnings.
 
-Exit codes: 0 no unignored survivors; 1 unignored survivors; 2 usage/config
-error; 3 tool error (boot failed, all subjects errored).
+Exit codes (`saboteur help` is authoritative):
+- 0: no unignored survivors and at most half of the executed mutants errored.
+  With `--threshold`, 0 means the score is at or above it, even if mutants
+  survived.
+- 1: an unignored survivor. With `--threshold`, 1 means the score is below it
+  or no mutant was tested, so there is no score.
+- 2: usage or configuration error.
+- 3: tool error: boot failure, a failed baseline, or more than half of the
+  executed mutants errored. With `--threshold`, any errored or resource-limited
+  mutant also exits 3, because the score is incomplete.
+- `--agent` prints one JSON payload and maps its verdict to the same codes:
+  clean 0, survivors 1, invalid invocation 2, incomplete or tool failure 3.
 
 ## 11. Extension point: mutation sources
 
@@ -435,10 +457,8 @@ and runs it like any other mutant. No LLM source ships in v1.
 
 ## 12. Open questions
 
-1. 6.1: lexical-nesting wrapper (with magic comments, owner pre-resolution)
-   vs spec'd `owner.class_eval`. Recommended: wrapper.
-
-Resolved after review (see 14): post-start death is `error`; a coarse timeout
+None open. Resolved: 6.1 uses the lexical-nesting wrapper by default
+(maintainer decision M1). Resolved after review (see 14): post-start death is `error`; a coarse timeout
 or error does not skip fine mutants.
 
 ## 12a. Code layout
@@ -450,13 +470,16 @@ lib/saboteur/subject.rb, subject_finder.rb      what can be mutated
 lib/saboteur/mutation_source/   PUBLIC: Base, Edit, Mutation; Builtin operators
 lib/saboteur/integration/       PUBLIC: Base; RSpec adapter
 lib/saboteur/engine.rb          the pipeline
-lib/saboteur/engine/            Boot, SubjectSelection, CoverageStore,
-                                Candidates, Scheduler, Diagnostics
+lib/saboteur/engine/            Boot, BaselineGuard, SubjectSelection, CoverageStore,
+                                Candidates, CandidateSelection, DiffScope,
+                                Distribution, Scheduler, ResultCache,
+                                VerdictCheck, RunFingerprint, Diagnostics
 lib/saboteur/execution/         Supervisor, ProcessTree, Protocol, Runner,
                                 Reevaluator (everything that forks or evals)
 lib/saboteur/selection/         CoverageMap, Recorder, GitDiff
 lib/saboteur/frameworks/        Rails profile
-lib/saboteur/reporter/          Terminal, Stryker, Diff
+lib/saboteur/reporter/          Terminal, Stryker, Diff, Html, Findings, Replay,
+                                Agent (and its helpers)
 ```
 
 Public API (stable across minor versions): `Saboteur::MutationSource::Base`,
@@ -495,7 +518,7 @@ Rejected, with reason:
 - Drop statement removal and literal mutations: part of the v1 operator set;
   Phase 2 measures their share of mutants and runtime before any cut.
 - Prism offset mismatch between bundled 0.19 and the gem: saboteur only
-  loads the prism gem (>= 1.0) and computes all offsets with it.
+  loads the prism gem (>= 1.2) and computes all offsets with it.
 
 Noted as risks, not designed for yet: `before(:suite)` re-running in children
 and `before(:all)` attribution (measure in Phase 1/2); `extend self`,

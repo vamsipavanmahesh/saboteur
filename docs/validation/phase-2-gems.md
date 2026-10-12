@@ -1,5 +1,8 @@
 # Phase 2: two public gems
 
+> Measured before the coarse-survivor gate was removed and before the
+> rebaseline. Mutant counts, skips and times here are historical; a rerun is pending.
+
 Measured on 2026-10-09 (IST), macOS 14 (arm64, 14 cores), Ruby 3.3.4, jobs 1,
 cold coverage cache. Targets and commits are pinned in `integration/targets.yml`.
 
