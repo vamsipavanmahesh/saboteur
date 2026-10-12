@@ -36,7 +36,9 @@ jobs:
       - run: bundle exec rubocop
       - name: SPDX headers
         run: |
-          missing=$(grep -L "SPDX-License-Identifier: MIT" $(git ls-files '*.rb' '*.gemspec' 'exe/*' Gemfile Rakefile) || true)
+          # Fixture projects model a host repo, so like rubocop they are exempt
+          # from the SPDX header rule that the real sources follow.
+          missing=$(grep -L "SPDX-License-Identifier: MIT" $(git ls-files -- '*.rb' '*.gemspec' 'exe/*' Gemfile Rakefile ':(exclude)spec/fixtures/projects/**') || true)
           if [ -n "$missing" ]; then echo "Missing SPDX header:"; echo "$missing"; exit 1; fi
 
   integration-gems:
