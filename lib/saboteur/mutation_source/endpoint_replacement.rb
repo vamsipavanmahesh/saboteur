@@ -43,7 +43,8 @@ module Saboteur
 
       def replace_endpoint(node, subject, found)
         replacement = REPLACEMENTS[node.name]
-        return unless replacement && node.receiver && !node.block
+        return unless replacement && node.receiver
+        return if node.block
         return unless node.arguments.nil?
 
         location = node.message_loc
