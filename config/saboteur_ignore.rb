@@ -242,11 +242,11 @@ Saboteur.ignore do |i|
   i.mutation "a1c0d420583dc184",
              subject: "Saboteur::IgnoreList.unknown_directive_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
-  i.mutation "1f1a3cbc298d593d",
+  i.mutation "264eeaf9a5ccfb11",
              subject: "Saboteur::Engine::Scheduler#call",
              reason: "equivalent: removing the all-reused shortcut still reuses each cached verdict; checked does not run neutral checks for reused verdicts"
 
-  i.mutation "0a20955f7ba1340e",
+  i.mutation "5c4511ee458a0b62",
              subject: "Saboteur::Engine::Scheduler#call",
              reason: "equivalent: initial slowdown 1 and 1.0 produce the same float deadline when multiplied by recorded runtime"
 
