@@ -26,16 +26,16 @@ RSpec.describe "candidate limits", :e2e do
     expect(run.out).to include("1 subjects, 0 mutants", "skipped subjects: no coverage: 1", "Untested#value")
     expect(run.json["skippedSubjects"].first).to include("subject" => "Untested#value", "reason" => "no coverage")
   end
-  it "reports a one-line uncalled definition as ran at load, without inventing mutants" do
+  it "keeps a one-line uncalled definition uncovered, without inventing mutants" do
     File.open(File.join(dir, "lib", "people.rb"), "a") do |file|
       file.puts "class LoadOnly; def value; 123; end; end"
     end
     run = saboteur(dir, "--subject", "LoadOnly")
     expect(run.status).to eq(0), run.err
     expect(mutants(run)).to be_empty
-    expect(run.out).to include("1 subjects, 0 mutants", "skipped subjects: ran at load:", "LoadOnly#value")
+    expect(run.out).to include("1 subjects, 0 mutants", "skipped subjects: no coverage:", "LoadOnly#value")
     expect(run.json["skippedSubjects"].first).to include(
-      "subject" => "LoadOnly#value", "reason" => Saboteur::Selection::CoverageMap::RAN_AT_LOAD
+      "subject" => "LoadOnly#value", "reason" => "no coverage"
     )
   end
 end
