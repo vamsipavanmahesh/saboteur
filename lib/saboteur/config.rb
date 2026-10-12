@@ -1,13 +1,18 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "yaml"
 require_relative "mutation_source/builtin"
 
 module Saboteur
-  # Settings from .saboteur.yml, overridden by CLI flags.
+  # Settings from config/saboteur.rb, overridden by CLI flags.
   class Config
-    FILE = ".saboteur.yml"
+    FILE = "config/saboteur.rb"
+
+    # Died with the YAML port: a leftover file means settings are
+    # silently ignored, which could turn off a threshold. Fail loud.
+    LEGACY_FILE = ".saboteur.yml"
+    LEGACY_IGNORE_FILE = ".saboteur-ignore.yml"
+    IGNORE_FILE = "config/saboteur_ignore.rb"
 
     DEFAULTS = {
       "integration" => "rspec",
@@ -23,7 +28,8 @@ module Saboteur
       "max_processes" => 64,
       "max_mutants_per_method" => 100,
       "jobs" => 1,
-      "ignore_file" => ".saboteur-ignore.yml",
+      "ignore_file" => "config/saboteur_ignore.rb",
+      "custom_map" => "config/saboteur_custom_map.rb",
       "sources" => ["builtin"],
       "hooks" => [],
       "rails" => false,
@@ -53,17 +59,19 @@ module Saboteur
 
     def self.load(root: Dir.pwd, path: nil, overrides: {})
       path ||= File.join(root, FILE)
-      from_file = File.file?(path) ? parse(path) : {}
+      legacy = File.join(root, LEGACY_FILE)
+      if File.file?(legacy)
+        raise ConfigError,
+              "saboteur no longer reads #{LEGACY_FILE}; move its settings to #{FILE} (see README)."
+      end
+      legacy_ignore = File.join(root, LEGACY_IGNORE_FILE)
+      if File.file?(legacy_ignore)
+        raise ConfigError,
+              "saboteur no longer reads #{LEGACY_IGNORE_FILE}; move its entries to #{IGNORE_FILE} (see README)."
+      end
+
+      from_file = File.file?(path) ? ConfigFile.load(path) : {}
       new(from_file.merge(stringify(overrides)), root: root)
-    end
-
-    def self.parse(path)
-      data = YAML.safe_load_file(path) || {}
-      raise ConfigError, "#{path}: expected a mapping at the top level" unless data.is_a?(Hash)
-
-      data
-    rescue Psych::SyntaxError => e
-      raise ConfigError, "#{path}: #{e.message}"
     end
 
     def self.stringify(hash)
@@ -167,3 +175,5 @@ module Saboteur
     end
   end
 end
+
+require_relative "config_file"

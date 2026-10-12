@@ -1,40 +1,94 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "yaml"
-
 module Saboteur
-  # Survivors the team has accepted. YAML list of entries:
+  # Entry point used by config/saboteur_ignore.rb.
+  def self.ignore
+    collector = IgnoreList.current_collector
+    raise "Saboteur.ignore is only valid while config/saboteur_ignore.rb loads" unless collector
+
+    yield collector
+    collector
+  end
+
+  # Survivors the team has accepted. config/saboteur_ignore.rb declares them:
   #
-  #   - subject: "Person#adult?"
-  #     mutation: "1a2b3c4d5e6f7a8b"   # digest shown next to each survivor
-  #     reason: "equivalent: age is always an integer"
+  #   Saboteur.ignore do |i|
+  #     i.mutation "1a2b3c4d5e6f7a8b",
+  #                subject: "Person#adult?",
+  #                reason: "equivalent: age is always an integer"
+  #   end
   #
   # reason is mandatory; a file with a missing or blank reason does not load.
   class IgnoreList
     Entry = Data.define(:subject, :mutation, :reason)
 
+    # Collects the entries a saboteur_ignore.rb file declares.
+    class Collector
+      attr_reader :entries
+
+      def initialize
+        @entries = []
+      end
+
+      def mutation(digest = nil, subject: nil, reason: nil)
+        line = caller_locations(1, 1).first.lineno
+        values = { "subject" => subject, "mutation" => digest, "reason" => reason }
+        missing = values.select { |_, value| value.to_s.strip.empty? }.keys
+        raise ConfigError, "#{line}: entry is missing #{missing.join(', ')}" if missing.any?
+
+        @entries << Entry.new(
+          subject: subject.to_s.strip,
+          mutation: digest.to_s.strip,
+          reason: reason.to_s.strip
+        )
+      end
+    end
+
     attr_reader :entries
 
+    # The collector is process-global on purpose: the ignore file calls the
+    # top-level Saboteur.ignore, which must reach the load in progress.
+    # Loads are therefore serialized - never load two ignore files at once.
     def self.load(path)
       return new([]) unless path && File.file?(path)
 
-      data = YAML.safe_load_file(path) || []
-      raise ConfigError, "#{path}: expected a list of entries" unless data.is_a?(Array)
+      @collector = Collector.new
+      Kernel.load(path)
+      new(@collector.entries)
+    rescue ConfigError => e
+      raise ConfigError, "#{path}:#{e.message}"
+    rescue NoMethodError => e
+      raise ConfigError, unknown_directive_message(path, e) if e.receiver.is_a?(Collector)
 
-      new(data.each_with_index.map { |raw, index| parse_entry(raw, path, index) })
-    rescue Psych::SyntaxError => e
-      raise ConfigError, "#{path}: #{e.message}"
+      # A typo'd call outside the collector: same treatment as a bare
+      # constant, or the raw NoMethodError points at our internals.
+      raise ConfigError, name_error_message(path, e)
+    rescue SyntaxError, LoadError => e
+      raise ConfigError, "#{path}: #{e.message.lines.first.to_s.chomp}"
+    rescue NameError => e
+      raise ConfigError, name_error_message(path, e)
+    ensure
+      @collector = nil
     end
 
-    def self.parse_entry(raw, path, index)
-      raise ConfigError, "#{path}: entry #{index + 1} is not a mapping" unless raw.is_a?(Hash)
+    def self.unknown_directive_message(path, error)
+      line = error.backtrace_locations.find { |loc| loc.path == path }&.lineno
+      "#{path}:#{line}: unknown directive #{error.name.to_s.inspect} - " \
+        'declare entries with mutation "<digest>", subject:, reason:'
+    end
 
-      values = %w[subject mutation reason].to_h { |key| [key, raw[key].to_s.strip] }
-      missing = values.select { |_, value| value.empty? }.keys
-      raise ConfigError, "#{path}: entry #{index + 1} is missing #{missing.join(', ')}" if missing.any?
+    def self.name_error_message(path, error)
+      line = error.backtrace_locations&.find { |loc| loc.path == path }&.lineno
+      "#{path}:#{line}: #{error.message.lines.first.to_s.chomp} " \
+        "- this file loads before the app boots; use plain Ruby or ENV"
+    end
 
-      Entry.new(subject: values["subject"], mutation: values["mutation"], reason: values["reason"])
+    private_class_method :unknown_directive_message, :name_error_message
+
+    # The Collector Saboteur.ignore hands to the file being loaded.
+    def self.current_collector
+      @collector
     end
 
     def initialize(entries)

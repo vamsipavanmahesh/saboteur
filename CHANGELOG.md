@@ -6,7 +6,30 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Breaking:** configuration moved from YAML to Ruby. `.saboteur.yml` becomes
+  `config/saboteur.rb` (`Saboteur.configure do |c| ... end`, same key names),
+  and `.saboteur-ignore.yml` becomes `config/saboteur_ignore.rb`
+  (`Saboteur.ignore do |i| i.mutation "<digest>", subject:, reason: end`,
+  reason still mandatory). A legacy YAML file stops the run with a pointer to
+  the new file instead of being read. Unknown settings fail with the line
+  number and a did-you-mean suggestion. `rails generate saboteur:install`
+  writes `config/saboteur.rb` (never overwriting without `--force`);
+  `config/saboteur_ignore.rb` and `config/saboteur_custom_map.rb` are optional
+  and created by hand when needed.
+
+### Removed
+- The coarse-survivor gate: a surviving whole-body mutant no longer skips the
+  method's fine mutants; every eligible fine mutant runs.
+
+### Fixed
+- Mutations inside private `module_function` helpers are preserved when the
+  method is re-evaluated; they previously reverted and reported as false
+  survivors.
+
 ### Added
+- The warning about threads alive when a worker forks names those threads,
+  falling back to their backtraces for unnamed ones.
 - `--test` no longer requires source operands when `--since` is given: the
   changed files are the sources, so `saboteur run --since origin/main --test
   spec/billing_spec.rb` scopes a pull-request run to chosen specs. A `--since`
@@ -14,6 +37,13 @@ All notable changes are documented here. The format follows
   run the loaded suite (a cold coverage cache adds one more pass), with the
   spec-file count and how to scope them, instead of going quiet for hours on a
   large app.
+- `config/saboteur_custom_map.rb` declares explicit source-file to spec-file
+  mappings (`SABOTEUR_CUSTOM_MAP`): exact paths, globs (the more specific glob
+  wins; equal specificity is an error) and Regexps with capture substitution.
+  Invalid maps fail the run with the file and key; stale and duplicate keys
+  warn on runs, and `saboteur doctor` fails on stale keys. The map is parsed
+  and validated only for now - it does not change which specs run yet.
+
 - An integration target can declare a known error profile
   (`allow_error_fraction` per strategy in integration/targets.yml): the
   majority-error exit is accepted only when the run's own fresh report

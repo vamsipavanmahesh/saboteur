@@ -17,6 +17,10 @@ RSpec.describe Saboteur::Config do
     File.write(full, content)
   end
 
+  it "keeps the root it is loaded with" do
+    expect(described_class.load(root: @root).root).to eq(@root)
+  end
+
   it "uses defaults without a config file" do
     config = described_class.load(root: @root)
     expect(config.to_h.values_at("integration", "timeout_factor", "timeout_min", "jobs", "reeval"))
@@ -25,7 +29,7 @@ RSpec.describe Saboteur::Config do
 
   it "has no threshold or explicit tests by default, and reads both from the file" do
     expect(described_class.load(root: @root).to_h.values_at("threshold", "tests")).to eq([nil, []])
-    write(".saboteur.yml", "threshold: 90\ntests: spec/a_spec.rb\n")
+    write("config/saboteur.rb", "Saboteur.configure { |c| c.threshold = 90; c.tests = [\"spec/a_spec.rb\"] }")
     config = described_class.load(root: @root)
     expect([config["threshold"], config["tests"]]).to eq([90.0, ["spec/a_spec.rb"]])
   end
@@ -44,8 +48,14 @@ RSpec.describe Saboteur::Config do
       .to raise_error(Saboteur::ConfigError, /invalid config value/)
   end
 
-  it "reads .saboteur.yml and lets CLI overrides win" do
-    write(".saboteur.yml", "timeout_factor: 4\njobs: 1\nreeval: nesting\n")
+  it "reads config/saboteur.rb and lets CLI overrides win" do
+    write("config/saboteur.rb", <<~RUBY)
+      Saboteur.configure do |c|
+        c.timeout_factor = 4
+        c.jobs = 1
+        c.reeval = "nesting"
+      end
+    RUBY
     config = described_class.load(root: @root, overrides: { timeout_factor: 2.5, since: nil })
     expect([config["timeout_factor"], config["reeval"], config["since"]]).to eq([2.5, "nesting", nil])
   end
@@ -89,7 +99,8 @@ RSpec.describe Saboteur::Config do
   end
 
   it "expands paths relative to the root" do
-    expect(described_class.new({}, root: @root).path("ignore_file")).to eq(File.join(@root, ".saboteur-ignore.yml"))
+    expect(described_class.new({},
+                               root: @root).path("ignore_file")).to eq(File.join(@root, "config/saboteur_ignore.rb"))
   end
 end
 
@@ -102,20 +113,34 @@ RSpec.describe Saboteur::Config, "details" do
   end
 
   def write(path, content)
-    File.join(@root, path).tap { |full| File.write(full, content) }
+    File.join(@root, path).tap { |full| FileUtils.mkdir_p(File.dirname(full)) && File.write(full, content) }
   end
 
-  it "reads the config file it is given instead of .saboteur.yml" do
-    write(".saboteur.yml", "jobs: 2\n")
-    custom = write("custom.yml", "jobs: 3\n")
+  it "reads the config file it is given instead of config/saboteur.rb" do
+    write("config/saboteur.rb", "Saboteur.configure { |c| c.jobs = 2 }")
+    custom = write("custom.rb", "Saboteur.configure { |c| c.jobs = 3 }")
     expect(described_class.load(root: @root, path: custom)["jobs"]).to eq(3)
   end
 
-  it "treats an empty config file as defaults and rejects one that is not a mapping" do
-    write(".saboteur.yml", "")
+  it "refuses a legacy .saboteur.yml with a pointer to the Ruby file" do
+    write(".saboteur.yml", "jobs: 2\n")
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, %r{no longer reads \.saboteur\.yml.*config/saboteur\.rb})
+  end
+
+  it "refuses a legacy .saboteur-ignore.yml with a pointer to the Ruby file" do
+    File.write(File.join(@root, ".saboteur-ignore.yml"), "- {subject: X#y, mutation: abc, reason: r}\n")
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError,
+                      "saboteur no longer reads .saboteur-ignore.yml; " \
+                      "move its entries to config/saboteur_ignore.rb (see README).")
+  end
+
+  it "treats an empty config file as defaults and reports a syntax error with the path" do
+    write("config/saboteur.rb", "")
     expect(described_class.load(root: @root)["jobs"]).to eq(1)
-    write(".saboteur.yml", "- a\n")
-    expect { described_class.load(root: @root) }.to raise_error(Saboteur::ConfigError, /expected a mapping/)
+    write("config/saboteur.rb", "Saboteur.configure { |c| c.jobs =")
+    expect { described_class.load(root: @root) }.to raise_error(Saboteur::ConfigError, /saboteur\.rb.*:/)
   end
 
   it "coerces numbers from strings and single values into lists" do

@@ -311,6 +311,14 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(Saboteur::Config).to have_received(:load).with(hash_including(path: "x.yml"))
   end
 
+  it "describes --config with its default in both parsers" do
+    cli = cli("run")
+    [cli.parser, cli.doctor_parser].each do |parser|
+      config_switch = parser.top.list.find { |switch| switch.long.include?("--config") }
+      expect(config_switch.desc).to include("Config file (default config/saboteur.rb)")
+    end
+  end
+
   it "prints the summary and writes the JSON report it names" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "r.json")
@@ -335,7 +343,8 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "writes no HTML report when html_report is null in the config" do
     Dir.mktmpdir do |dir|
-      File.write(File.join(dir, ".saboteur.yml"), "html_report: null\n")
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"), "Saboteur.configure { |c| c.html_report = nil }\n")
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       Dir.chdir(dir) { cli("run").call }
@@ -479,7 +488,8 @@ RSpec.describe Saboteur::CLI, "explicit files" do
   end
 
   it "accepts --test without a source when since comes from the config file" do
-    File.write(".saboteur.yml", "since: origin/main")
+    FileUtils.mkdir_p("config")
+    File.write("config/saboteur.rb", "Saboteur.configure { |c| c.since = \"origin/main\" }\n")
     command = cli("run", "--test", "spec/a_spec.rb")
     expect(command.call).to eq(3)
     expect(command.options[:tests]).to eq(%w[spec/a_spec.rb])

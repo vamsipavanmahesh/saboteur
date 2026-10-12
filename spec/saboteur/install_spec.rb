@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 require "tmpdir"
-require "yaml"
 require "saboteur/install"
 
 RSpec.describe Saboteur::Install do
@@ -18,24 +17,24 @@ RSpec.describe Saboteur::Install do
 
   it "creates the config, the binstub and the gitignore entry" do
     results = install
-    expected = [[:created, ".saboteur.yml"], [:created, "bin/saboteur"], [:appended, ".gitignore"]]
+    expected = [[:created, "config/saboteur.rb"], [:created, "bin/saboteur"], [:appended, ".gitignore"]]
     expect(results.map { |result| [result.status, result.path] }).to eq(expected)
     expect(read(".gitignore")).to eq(".saboteur/\n")
   end
 
   it "writes a config that loads through the real Config with Rails defaults" do
     install
-    data = YAML.safe_load_file(File.join(@root, ".saboteur.yml"))
-    config = Saboteur::Config.new(data, root: @root)
+    config = Saboteur::Config.load(root: @root)
     expect([config["rails"], config["include"], config["require"], config["jobs"]])
       .to eq([true, ["app/**/*.rb"], ["./config/environment"], 4])
   end
 
   it "matches the Rails block documented in the README" do
     readme = File.read(File.expand_path("../../README.md", __dir__))
-    documented = YAML.safe_load(readme[/^### Rails apps\n.*?```yaml\n(.*?)```/m, 1])
-    generated = YAML.safe_load(described_class::CONFIG)
-    expect(generated.slice(*documented.keys)).to eq(documented)
+    documented = readme[/^### Rails apps\n.*?```ruby\n(.*?)```/m, 1]
+    code = ->(text) { text.scan(/^\s*(c\.\w+ = [^#\n]+)/).flatten.map { |line| line.strip.gsub(/\s+/, " ") } }
+    expect(code.call(described_class::CONFIG)).to include(*code.call(documented))
+    expect(code.call(documented)).to include('c.require = ["./config/environment"]')
   end
 
   it "makes bin/saboteur executable and boots in the test environment" do
@@ -45,19 +44,21 @@ RSpec.describe Saboteur::Install do
   end
 
   it "does not overwrite existing files and reports them as skipped" do
-    File.write(File.join(@root, ".saboteur.yml"), "include: [lib/**/*.rb]\n")
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    File.write(File.join(@root, "config", "saboteur.rb"), "Saboteur.configure { |c| c.include = [\"lib/**/*.rb\"] }\n")
     FileUtils.mkdir_p(File.join(@root, "bin"))
     File.write(File.join(@root, "bin/saboteur"), "custom")
     results = install
     expect(results.first(2).map(&:status)).to eq(%i[skipped skipped])
-    expect(read(".saboteur.yml")).to eq("include: [lib/**/*.rb]\n")
+    expect(read("config/saboteur.rb")).to eq("Saboteur.configure { |c| c.include = [\"lib/**/*.rb\"] }\n")
     expect(read("bin/saboteur")).to eq("custom")
   end
 
   it "overwrites with force" do
-    File.write(File.join(@root, ".saboteur.yml"), "old")
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    File.write(File.join(@root, "config", "saboteur.rb"), "old")
     expect(install(force: true).first.status).to eq(:overwritten)
-    expect(read(".saboteur.yml")).to eq(described_class::CONFIG)
+    expect(read("config/saboteur.rb")).to eq(described_class::CONFIG)
   end
 
   it "is idempotent on the gitignore and keeps existing content" do
@@ -79,23 +80,25 @@ RSpec.describe Saboteur::Install do
 
   it "does not write through a dangling symlink without force" do
     target = File.join(@root, "outside.yml")
-    File.symlink(target, File.join(@root, ".saboteur.yml"))
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    File.symlink(target, File.join(@root, "config", "saboteur.rb"))
     File.symlink(File.join(@root, "outside-ignore"), File.join(@root, ".gitignore"))
     results = install
     expect(results.map(&:status)).to eq(%i[skipped created skipped])
     expect(File.exist?(target)).to be(false)
     expect(File.exist?(File.join(@root, "outside-ignore"))).to be(false)
-    expect(File.symlink?(File.join(@root, ".saboteur.yml"))).to be(true)
+    expect(File.symlink?(File.join(@root, "config", "saboteur.rb"))).to be(true)
   end
 
   it "replaces a symlink with a regular file under force instead of writing through it" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
     target = File.join(@root, "outside.yml")
     File.write(target, "keep")
-    File.symlink(target, File.join(@root, ".saboteur.yml"))
+    File.symlink(target, File.join(@root, "config", "saboteur.rb"))
     expect(install(force: true).first.status).to eq(:overwritten)
-    expect(File.symlink?(File.join(@root, ".saboteur.yml"))).to be(false)
+    expect(File.symlink?(File.join(@root, "config", "saboteur.rb"))).to be(false)
     expect(File.read(target)).to eq("keep")
-    expect(read(".saboteur.yml")).to eq(described_class::CONFIG)
+    expect(read("config/saboteur.rb")).to eq(described_class::CONFIG)
   end
 
   describe "symlinks" do
@@ -154,9 +157,10 @@ RSpec.describe Saboteur::Install do
     end
 
     it "overwrites a dangling symlink under force and reports it as overwritten" do
-      File.symlink(File.join(outside, "missing.yml"), File.join(@root, ".saboteur.yml"))
+      FileUtils.mkdir_p(File.join(@root, "config"))
+      File.symlink(File.join(outside, "missing.yml"), File.join(@root, "config", "saboteur.rb"))
       expect(install(force: true).first.status).to eq(:overwritten)
-      expect(File.symlink?(File.join(@root, ".saboteur.yml"))).to be(false)
+      expect(File.symlink?(File.join(@root, "config", "saboteur.rb"))).to be(false)
       expect(File.exist?(File.join(outside, "missing.yml"))).to be(false)
     end
 

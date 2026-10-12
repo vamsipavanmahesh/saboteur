@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
-require "yaml"
+require "tmpdir"
 
 # The help text is the map an AI agent reads instead of the docs. These specs
 # keep it complete: a new option, command, config key or exit code that is not
@@ -16,7 +16,21 @@ RSpec.describe Saboteur::Help do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
     expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur doctor)", "EXAMPLES",
                            "EXIT CODES (saboteur run)", "EXIT CODES (saboteur doctor)",
-                           "CONFIG FILE (.saboteur.yml)", "FILES"])
+                           "CONFIG FILE (config/saboteur.rb)", "FILES"])
+  end
+
+  describe "the generated CONFIG FILE section" do
+    let(:section) { overview[%r{^CONFIG FILE \(config/saboteur\.rb\)\n(.*?)\nFILES\n}m, 1] }
+
+    it "introduces the section" do
+      expect(section).to include("Every setting with its default value, as a Ruby assignment. " \
+                                 "Unknown settings are an error.")
+    end
+
+    it "prints nil, never JSON null, for the unset defaults" do
+      expect(section).to include("c.since = nil")
+      expect(section).not_to include("null")
+    end
   end
 
   it "starts with the name, the version and a one-line purpose" do
@@ -55,11 +69,20 @@ RSpec.describe Saboteur::Help do
     end
   end
 
-  it "lists every config key with its exact default, as YAML that loads back to the same value" do
-    Saboteur::Config::DEFAULTS.each do |key, default|
-      line = overview.lines.find { |candidate| candidate.start_with?("  #{key}: ") }
+  it "lists every config setting with its exact default, as a Ruby assignment that loads back to the same value" do
+    assignments = Saboteur::Config::DEFAULTS.map do |key, _|
+      line = overview.lines.find { |candidate| candidate.start_with?("  c.#{key} = ") }
       expect(line).not_to be_nil
-      expect(YAML.safe_load(line.delete_prefix("  #{key}: "))).to eq(default)
+      line
+    end
+    Dir.mktmpdir do |root|
+      path = File.join(root, "config", "saboteur.rb")
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, "Saboteur.configure do |c|\n#{assignments.join}end\n")
+      loaded = Saboteur::Config.load(root: root, path: path)
+      Saboteur::Config::DEFAULTS.each do |key, default|
+        expect(loaded[key]).to eq(default), "c.#{key} did not load back to its default"
+      end
     end
   end
 

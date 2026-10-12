@@ -8,7 +8,9 @@ RSpec.describe "single-mutant replay", :e2e do
     original = saboteur(dir, "--subject", "People::Person#adult?")
     mutant = mutants(original).find { |item| !item["mutatorName"].start_with?("body_") }
     expect(mutant).not_to be_nil
-    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "max_mutants_per_method: 1" }
+    File.open(File.join(dir, "config", "saboteur.rb"), "a") do |file|
+      file.puts "Saboteur.configure { |c| c.max_mutants_per_method = 1 }"
+    end
     replay = saboteur(dir, "--id", mutant.fetch("id"), "--seed", "1", "--incremental", "--jobs", "2")
     expect(mutants(replay).size).to eq(1)
     actual = mutants(replay).first
@@ -62,11 +64,11 @@ RSpec.describe "replay bypasses", :e2e do
     expect(original.json).not_to be_nil, original.err
     mutant = mutants(original).find { |item| !item["mutatorName"].start_with?("body_") && item["status"] == "Survived" }
     expect(mutant).not_to be_nil
-    File.write(File.join(dir, ".saboteur-ignore.yml"), <<~YAML)
-      - subject: Loose#value
-        mutation: #{mutant.fetch('id')}
-        reason: accepted for this test
-    YAML
+    File.write(File.join(dir, "config", "saboteur_ignore.rb"), <<~RUBY)
+      Saboteur.ignore do |i|
+        i.mutation "#{mutant.fetch('id')}", subject: "Loose#value", reason: "accepted for this test"
+      end
+    RUBY
     replay = saboteur(dir, "--id", mutant.fetch("id"))
     expect(replay.status).to eq(1), replay.err
     expect(mutants(replay).size).to eq(1)

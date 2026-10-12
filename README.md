@@ -139,7 +139,7 @@ files are the sources) replaces only the files RSpec runs. Other
 is built from only those specs, each mutant runs only the ones that cover it,
 and the selection is part of the coverage and `--incremental` cache keys.
 
-`--threshold PERCENT` (0 to 100, or `threshold:` in `.saboteur.yml`) is for CI.
+`--threshold PERCENT` (0 to 100, or `c.threshold` in `config/saboteur.rb`) is for CI.
 The run exits 1 when the score is below PERCENT and 0 when it is at or above,
 even with survivors. It fails closed: a run that tested no mutant has no score
 and exits 1, and a run where any mutant errored or hit a resource limit exits 3,
@@ -192,8 +192,8 @@ exercise a line, so treat the list as a lead. A survivor reused with
 earlier run. The HTML page shows the same list in the
 survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
-the paths with `--json` / `--html` or `json_report` / `html_report` in
-`.saboteur.yml`; set either to `null` to turn that report off. The two paths
+the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
+`config/saboteur.rb`; set either to `nil` to turn that report off. The two paths
 must differ. The HTML page shows the covered mutation score
 `(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage
 out and keeps survivors accepted on the ignore list in the denominator. A tool
@@ -254,24 +254,26 @@ other errors and reused cached kills are not included. See
 
 ## ⚙️ Configuration
 
-`.saboteur.yml` in the project root; CLI flags override it. Keep the shared
+`config/saboteur.rb` in the project root; CLI flags override it. Keep the shared
 config usable for whole-project runs and pass `--since` in the pull-request
-job. A PR-only config may set `since: origin/main`; omit `since` (or use
-`since: null`) in the config for audits on main. Use your actual target branch.
+job. A PR-only config may set `c.since = "origin/main"`; omit `since` (or use
+`c.since = nil`) in the config for audits on main. Use your actual target branch.
 
-```yaml
-include: [lib/**/*.rb]
-exclude: [lib/my_gem/version.rb]
-require: []                 # boot files, e.g. ./config/environment
-reeval: nesting             # or class_eval; see docs/design.md 6.1
-timeout_factor: 3           # per-mutant deadline = factor x its tests' recorded time
-timeout_min: 5
-max_memory_mb: 2048         # memory growth cap per mutant process tree
-max_processes: 64
-max_mutants_per_method: 100  # positive integer; raise it for a broader run
-ignore_file: .saboteur-ignore.yml
-seed: 1                     # Ruby's random seed in every test run
-fingerprint_extra: []       # extra globs whose contents invalidate caches, e.g. [data/*.csv]
+```ruby
+Saboteur.configure do |c|
+  c.include = ["lib/**/*.rb"]
+  c.exclude = ["lib/my_gem/version.rb"]
+  c.require = []                 # boot files, e.g. ./config/environment
+  c.reeval = "nesting"           # or "class_eval"; see docs/design.md 6.1
+  c.timeout_factor = 3           # per-mutant deadline = factor x its tests' recorded time
+  c.timeout_min = 5
+  c.max_memory_mb = 2048         # memory growth cap per mutant process tree
+  c.max_processes = 64
+  c.max_mutants_per_method = 100 # positive integer; raise it for a broader run
+  c.ignore_file = "config/saboteur_ignore.rb"
+  c.seed = 1                     # Ruby's random seed in every test run
+  c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
+end
 ```
 
 ### Rails apps
@@ -291,18 +293,20 @@ bundle add saboteur --group test
 bundle exec rails generate saboteur:install
 ```
 
-This writes `.saboteur.yml`, a `bin/saboteur` binstub (it sets `RAILS_ENV=test`
+This writes `config/saboteur.rb`, a `bin/saboteur` binstub (it sets `RAILS_ENV=test`
 for you) and a `.gitignore` entry for `.saboteur/`. It never overwrites an
 existing file unless you pass `--force`, and never edits your Gemfile.
 
 Prefer to do it by hand, or on a version without the generator? Put this in
-`.saboteur.yml`:
+`config/saboteur.rb`:
 
-```yaml
-include: [app/**/*.rb]
-require: [./config/environment]   # boots the app
-rails: true                       # reconnects ActiveRecord after fork, per-worker databases
-jobs: 4                           # optional; the default is 1
+```ruby
+Saboteur.configure do |c|
+  c.include = ["app/**/*.rb"]
+  c.require = ["./config/environment"] # boots the app
+  c.rails = true                       # reconnects ActiveRecord after fork, per-worker databases
+  c.jobs = 4                           # optional; the default is 1
+end
 ```
 
 **3. Check the setup**
@@ -396,11 +400,13 @@ mutants; the limit does not bound how many proposals a custom source creates.
 
 Every survivor is printed with a digest. Accept it with a reason:
 
-```yaml
-# .saboteur-ignore.yml
-- subject: "Billing::Invoice#total"
-  mutation: "1a2b3c4d5e6f7a8b"
-  reason: "equivalent: amounts are always whole cents"
+```ruby
+# config/saboteur_ignore.rb
+Saboteur.ignore do |i|
+  i.mutation "1a2b3c4d5e6f7a8b",
+             subject: "Billing::Invoice#total",
+             reason: "equivalent: amounts are always whole cents"
+end
 ```
 
 An entry without a reason is rejected.

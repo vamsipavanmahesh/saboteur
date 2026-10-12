@@ -341,7 +341,7 @@ if [ "$report_valid" = "true" ]; then
       decode_field "$original" original
       decode_field "$replacement" replacement
       decode_field "$digest" digest
-      echo "::warning file=$(escape_property "$path"),line=${line},endLine=${end_line},title=$(escape_property "Mutant survived: $operator")::$(escape_data "$subject"): $(escape_data "$original") became $(escape_data "$replacement") ($digest). Add a test that fails for this mutant, or accept it in .saboteur-ignore.yml with a reason."
+      echo "::warning file=$(escape_property "$path"),line=${line},endLine=${end_line},title=$(escape_property "Mutant survived: $operator")::$(escape_data "$subject"): $(escape_data "$original") became $(escape_data "$replacement") ($digest). Add a test that fails for this mutant, or accept it in config/saboteur_ignore.rb with a reason."
       printf -- '- %s:%s %s: %s became %s in %s (%s)\n' \
         "$(code_span "$(one_line "$path")")" "$line" \
         "$(code_span "$(one_line "$operator")")" \
@@ -441,7 +441,7 @@ case "$saboteur_status" in
       [ "$fail_on_survivors" = "true" ] && exit 3
     fi
     if [ "$saboteur_status" = "1" ]; then
-      echo "::warning::saboteur: $survivors mutants survived. Add a test that fails for each one, or list it in .saboteur-ignore.yml with a reason."
+      echo "::warning::saboteur: $survivors mutants survived. Add a test that fails for each one, or list it in config/saboteur_ignore.rb with a reason."
       [ "$fail_on_survivors" = "true" ] && exit 1
     fi
     exit 0

@@ -184,8 +184,10 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(store(tests: ["spec/stage_spec.rb"]).fetch([file]).tests).to eq(["t1"])
   end
 
-  it "accepts an empty map when explicit tests came from the YAML config" do
-    File.write(File.join(@root, ".saboteur.yml"), "tests: [spec/stage_spec.rb]\n")
+  it "accepts an empty map when explicit tests came from the config file" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    File.write(File.join(@root, "config", "saboteur.rb"),
+               "Saboteur.configure { |c| c.tests = [\"spec/stage_spec.rb\"] }\n")
     empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
     result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
                                                          detail: nil, runtime: 1.0, leftover_pids: [])

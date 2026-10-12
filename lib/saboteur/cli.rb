@@ -66,7 +66,7 @@ module Saboteur
     def doctor_parser
       OptionParser.new do |opts|
         opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N]"
-        opts.on("--config PATH", "Config file (default .saboteur.yml)") { |value| set(:config, value) }
+        opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |value| set(:config, value) }
         opts.on("--seed N", Integer, "Seed for the two baseline runs (default 1)") { |value| set(:seed, value) }
       end
     end
@@ -352,7 +352,7 @@ module Saboteur
       opts.on("--seed N", Integer, "Seed for Ruby's random numbers in every test run (default 1)") do |v|
         set(:seed, v)
       end
-      opts.on("--config PATH", "Config file (default .saboteur.yml)") { |v| set(:config, v) }
+      opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |v| set(:config, v) }
       opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
       opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
       opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }

@@ -100,16 +100,17 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "unsafe inputs" do
 end
 
 RSpec.describe Saboteur::Engine::RunFingerprint, "evidence contract" do
-  it "round trips JSON and verifies an optional missing config marker" do
+  it "round trips JSON and verifies an optional missing config file" do
     Dir.mktmpdir do |root|
       config = Saboteur::Config.new({}, root: root)
-      fingerprint = described_class.new(config: config, extra_files: [{ path: ".saboteur.yml", required: false }])
+      fingerprint = described_class.new(config: config, extra_files: [{ path: "config/saboteur.rb", required: false }])
       snapshot = fingerprint.snapshot
       expect(snapshot.complete).to be(true)
       restored = described_class.restore_snapshot(JSON.parse(JSON.generate(snapshot.to_h)))
       expect(restored).to eq(snapshot)
       expect(fingerprint.verify(restored).unchanged).to be(true)
-      File.write(File.join(root, ".saboteur.yml"), "seed: 2\n")
+      FileUtils.mkdir_p(File.join(root, "config"))
+      File.write(File.join(root, "config", "saboteur.rb"), "Saboteur.configure { |c| c.seed = 2 }\n")
       expect(fingerprint.verify(restored).unchanged).to be(false)
       expect { described_class.restore_snapshot({}) }.to raise_error(ArgumentError)
     end

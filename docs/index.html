@@ -125,26 +125,32 @@ bundle exec saboteur run --subject Billing        <span class="c"># a namespace<
 bundle exec saboteur run --incremental            <span class="c"># reuse verdicts that did not change</span>
 bundle exec saboteur run --jobs 6                 <span class="c"># parallel workers</span></code></pre>
 <h3>4. Configure (optional)</h3>
-<pre><code><span class="c"># .saboteur.yml</span>
-include: [lib/**/*.rb]
-exclude: [lib/my_gem/version.rb]
-timeout_factor: 3        # deadline = 3 x the tests' recorded time
-max_memory_mb: 2048      # memory growth cap per mutant
-max_processes: 64
-seed: 1</code></pre>
+<pre><code><span class="c"># config/saboteur.rb</span>
+Saboteur.configure do |c|
+  c.include = ["lib/**/*.rb"]
+  c.exclude = ["lib/my_gem/version.rb"]
+  c.timeout_factor = 3        # deadline = 3 x the tests' recorded time
+  c.max_memory_mb = 2048      # memory growth cap per mutant
+  c.max_processes = 64
+  c.seed = 1
+end</code></pre>
 <h3>Rails apps</h3>
 <p>The defaults are for plain gems. A Rails app needs its boot file and <code>app/</code> paths:</p>
-<pre><code><span class="c"># .saboteur.yml</span>
-include: [app/**/*.rb]
-require: [./config/environment]
-rails: true
-jobs: 4                  # optional, default is 1</code></pre>
+<pre><code><span class="c"># config/saboteur.rb</span>
+Saboteur.configure do |c|
+  c.include = ["app/**/*.rb"]
+  c.require = ["./config/environment"]
+  c.rails = true
+  c.jobs = 4                  # optional, default is 1
+end</code></pre>
 <p>Run with <code>RAILS_ENV=test</code>.</p>
 <h3>5. Accept a survivor with a reason</h3>
-<pre><code><span class="c"># .saboteur-ignore.yml</span>
-- subject: "Billing::Invoice#total"
-  mutation: "1a2b3c4d5e6f7a8b"
-  reason: "equivalent: amounts are always whole cents"</code></pre>
+<pre><code><span class="c"># config/saboteur_ignore.rb</span>
+Saboteur.ignore do |i|
+  i.mutation "1a2b3c4d5e6f7a8b",
+             subject: "Billing::Invoice#total",
+             reason: "equivalent: amounts are always whole cents"
+end</code></pre>
 <p>An entry without a reason is rejected. Exit codes: <code>0</code> no survivors, <code>1</code> survivors, <code>2</code> bad configuration, <code>3</code> the tool failed. The JSON report goes to <code>.saboteur/report.json</code>.</p>
 </div></section>
 

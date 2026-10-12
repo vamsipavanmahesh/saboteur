@@ -46,7 +46,9 @@ RSpec.describe "doctor diagnostics", :e2e do
 
   it "reports a missing boot file as a config error" do
     dir = copy_fixture("people")
-    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "require: [missing.rb]" }
+    File.open(File.join(dir, "config", "saboteur.rb"), "a") do |file|
+      file.puts "Saboteur.configure { |c| c.require = [\"missing.rb\"] }"
+    end
     _, err, status = doctor_check(dir)
     expect(status.exitstatus).to eq(2)
     expect(err).to include("require file missing: missing.rb")
@@ -55,7 +57,9 @@ RSpec.describe "doctor diagnostics", :e2e do
   it "reports a broken boot file without a backtrace" do
     dir = copy_fixture("people")
     File.write(File.join(dir, "broken.rb"), 'raise "bad boot"')
-    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "require: [broken.rb]" }
+    File.open(File.join(dir, "config", "saboteur.rb"), "a") do |file|
+      file.puts "Saboteur.configure { |c| c.require = [\"broken.rb\"] }"
+    end
     _, err, status = doctor_check(dir)
     expect(status.exitstatus).to eq(3)
     expect(err).to include("target boot failed", "bad boot")
@@ -94,7 +98,9 @@ RSpec.describe "doctor failure detail", :e2e do
   it "reports syntax errors as a tool error without leaking a backtrace" do
     dir = copy_fixture("people")
     File.write(File.join(dir, "syntax.rb"), "def broken(\n")
-    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "require: [syntax.rb]" }
+    File.open(File.join(dir, "config", "saboteur.rb"), "a") do |file|
+      file.puts "Saboteur.configure { |c| c.require = [\"syntax.rb\"] }"
+    end
     _, err, status = diagnose(dir)
     expect(status.exitstatus).to eq(3)
     expect(err).to include("target boot failed: SyntaxError")
@@ -104,7 +110,9 @@ RSpec.describe "doctor failure detail", :e2e do
   it "reports an explicit boot exit rather than accepting its status" do
     dir = copy_fixture("people")
     File.write(File.join(dir, "exit.rb"), "exit 0\n")
-    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "require: [exit.rb]" }
+    File.open(File.join(dir, "config", "saboteur.rb"), "a") do |file|
+      file.puts "Saboteur.configure { |c| c.require = [\"exit.rb\"] }"
+    end
     _, err, status = diagnose(dir)
     expect(status.exitstatus).to eq(3)
     expect(err).to include("target boot failed: SystemExit")
@@ -122,7 +130,9 @@ RSpec.describe "doctor read-only and hook boundaries", :e2e do
     dir = copy_fixture("people")
     File.write(File.join(dir, "hooks.rb"),
                'Saboteur.hook(:before_fork) { |mutation| mutation.edits.each { raise "should not run" } }')
-    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "hooks: [hooks.rb]" }
+    File.open(File.join(dir, "config", "saboteur.rb"), "a") do |file|
+      file.puts "Saboteur.configure { |c| c.hooks = [\"hooks.rb\"] }"
+    end
     _, err, status = check_doctor(dir)
     expect(status.exitstatus).to eq(0), err
   end
@@ -130,7 +140,9 @@ RSpec.describe "doctor read-only and hook boundaries", :e2e do
   it "turns a failing after_fork hook into a plain tool error" do
     dir = copy_fixture("people")
     File.write(File.join(dir, "hooks.rb"), 'Saboteur.hook(:after_fork) { raise "hook detail" }')
-    File.open(File.join(dir, ".saboteur.yml"), "a") { |file| file.puts "hooks: [hooks.rb]" }
+    File.open(File.join(dir, "config", "saboteur.rb"), "a") do |file|
+      file.puts "Saboteur.configure { |c| c.hooks = [\"hooks.rb\"] }"
+    end
     _, err, status = check_doctor(dir)
     expect(status.exitstatus).to eq(3)
     expect(err).to include("hook detail")

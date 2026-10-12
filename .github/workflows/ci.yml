@@ -36,7 +36,9 @@ jobs:
       - run: bundle exec rubocop
       - name: SPDX headers
         run: |
-          missing=$(grep -L "SPDX-License-Identifier: MIT" $(git ls-files '*.rb' '*.gemspec' 'exe/*' Gemfile Rakefile) || true)
+          # Fixture projects model a host repo, so like rubocop they are exempt
+          # from the SPDX header rule that the real sources follow.
+          missing=$(grep -L "SPDX-License-Identifier: MIT" $(git ls-files -- '*.rb' '*.gemspec' 'exe/*' Gemfile Rakefile ':(exclude)spec/fixtures/projects/**') || true)
           if [ -n "$missing" ]; then echo "Missing SPDX header:"; echo "$missing"; exit 1; fi
 
   integration-gems:
@@ -56,7 +58,7 @@ jobs:
         run: script/integration-target "${{ matrix.target }}" "$RUNNER_TEMP/targets" --reeval "${{ matrix.reeval }}" --check
 
   # saboteur on its own changed methods. Survivors fail the check unless they
-  # are on .saboteur-ignore.yml with a reason.
+  # are on config/saboteur_ignore.rb with a reason.
   dogfood:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

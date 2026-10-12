@@ -57,18 +57,18 @@ Do not run untrusted pull-request code with secrets or privileged credentials.
 
 ## Configuration
 
-Keep shared `.saboteur.yml` settings such as `include`, `exclude`, `require`
+Keep shared `config/saboteur.rb` settings such as `include`, `exclude`, `require`
 and `rspec_args`. Pass `--since` only in the PR job, so a main-branch audit
-can use the same config without a diff filter. CLI flags override YAML.
+can use the same config without a diff filter. CLI flags override `config/saboteur.rb`.
 
 For a dedicated PR-only config, `since` can be set to the exact 40-character
 base commit SHA from the event payload. Do not put a moving branch name in a
 PR config; refresh the SHA for each event, or pass it as a CLI argument as in
 the workflow example above.
 
-`since` is `null` by default. For whole-project audits, omit `since` or set
-`since: null` in the chosen config. Omitting the CLI flag does not clear a
-`since` value stored in YAML. There is no `--no-since` flag.
+`since` is `nil` by default. For whole-project audits, omit `since` or set
+`c.since = nil` in the chosen config. Omitting the CLI flag does not clear a
+`c.since` value stored in `config/saboteur.rb`. There is no `--no-since` flag.
 
 ## What gets checked
 

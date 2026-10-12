@@ -1,4 +1,0 @@
-include:
-  - lib/**/*.rb
-exclude:
-  - lib/tty/color/version.rb

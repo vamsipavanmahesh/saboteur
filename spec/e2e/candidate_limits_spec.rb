@@ -5,7 +5,8 @@ RSpec.describe "candidate limits", :e2e do
   let(:dir) { copy_fixture("people") }
 
   it "caps each method separately, keeps coarse mutants first and repeats with the same digests" do
-    File.write(File.join(dir, ".saboteur.yml"), "include: [lib/**/*.rb]\nmax_mutants_per_method: 2\n")
+    File.write(File.join(dir, "config", "saboteur.rb"),
+               "Saboteur.configure { |c| c.include = [\"lib/**/*.rb\"]; c.max_mutants_per_method = 2 }\n")
     first = saboteur(dir, "--subject", "People::Person#adult?", "--subject", "People::Person#describe")
     second = saboteur(dir, "--subject", "People::Person#adult?", "--subject", "People::Person#describe", "--jobs", "2")
     expect(mutants(first).size).to eq(4)

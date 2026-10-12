@@ -29,6 +29,7 @@ module Saboteur
       Boot.refuse_recursion!
       started = monotonic
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
+      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
       boot = Boot.new(config, hooks)
       begin
         integration = boot.load_target
@@ -48,6 +49,20 @@ module Saboteur
         # abrupt process exit.
         safely_cleanup_workers(boot.rails)
       end
+    end
+
+    # Stale entries and duplicate literals never fail a run; they warn so the
+    # map does not rot silently. doctor fails on stale keys.
+    def load_custom_map
+      @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
+    end
+
+    def custom_map_warnings(map)
+      path = config.path("custom_map")
+      warnings = map.stale_keys.map { |key| "stale custom map key #{key}: matches no file" }
+      return warnings unless path && File.file?(path)
+
+      warnings + map.duplicate_keys(path).map { |key| "duplicate custom map key #{key}: Ruby keeps the last" }
     end
 
     private

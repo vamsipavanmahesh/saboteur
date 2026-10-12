@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "json"
 require_relative "config"
 
 module Saboteur
@@ -23,7 +22,7 @@ module Saboteur
       1 => "Without --threshold: at least one mutant survived and is not on the ignore list. With --threshold " \
            "(survivors alone no longer fail the run): the score is below it, or no mutant was tested so " \
            "there is no score.",
-      2 => "Usage or configuration error: fix the command or .saboteur.yml. A replay --id that matches no " \
+      2 => "Usage or configuration error: fix the command or config/saboteur.rb. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
       3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \
            "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant."
@@ -31,7 +30,7 @@ module Saboteur
 
     DOCTOR_EXIT_CODE_MEANINGS = {
       0 => "Healthy: the environment checks passed and the baseline passed twice in the same order.",
-      2 => "Usage or configuration error: fix the command or .saboteur.yml.",
+      2 => "Usage or configuration error: fix the command or config/saboteur.rb.",
       3 => "A check failed: the target did not boot, or the baseline failed or changed between runs."
     }.freeze
 
@@ -101,8 +100,8 @@ module Saboteur
                        "nothing selected) or tool failure."
 
     FILES = [
-      [".saboteur.yml", "Settings. Command line options override it."],
-      [".saboteur-ignore.yml", "Accepted survivors: entries with subject, mutation (digest) and a required reason."],
+      ["config/saboteur.rb", "Settings as Ruby (Saboteur.configure). Command line options override it."],
+      ["config/saboteur_ignore.rb", "Accepted survivors: mutation digests with subject and a required reason."],
       [".saboteur/report.json", "Stryker mutation-testing-report-schema JSON (--json changes the path)."],
       [".saboteur/report.html", "Self-contained HTML report (--html changes the path)."],
       [".saboteur/", "Cache: coverage map and incremental verdicts. Safe to delete."]
@@ -188,14 +187,16 @@ module Saboteur
     end
 
     def config_section
-      rows = Config::DEFAULTS.map { |key, value| "  #{key}: #{describe_default(value)}" }
-      intro = "Every key with its default value, as YAML. Unknown keys are an error."
-      "CONFIG FILE (.saboteur.yml)\n#{intro}\n#{rows.join("\n")}\n"
+      rows = Config::DEFAULTS.map { |key, value| "  c.#{key} = #{describe_default(value)}" }
+      intro = "Every setting with its default value, as a Ruby assignment. Unknown settings are an error."
+      "CONFIG FILE (config/saboteur.rb)\n#{intro}\n#{rows.join("\n")}\n"
     end
 
-    # Valid YAML (JSON flow style), so a copied line keeps the default's meaning.
+    # Ruby literals, so a copied line loads as the same value: inspect prints
+    # nil as "nil" (JSON would print null, which is not Ruby) and quotes
+    # strings and arrays the way Ruby reads them back.
     def describe_default(value)
-      JSON.generate(value)
+      value.inspect
     end
 
     def files_section
