@@ -7,12 +7,18 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
-- **Safety:** a mutant can no longer make a destructive call more destructive
-  than the original code (#102). The hazard guard suppresses mutants inside
-  the receiver or arguments of calls like `FileUtils.rm_rf`, `system`,
-  backticks/`%x`, `IO.popen` and `Open3.*` (configurable via `c.hazard`,
-  `--allow-hazardous` opts back in), and a canary aborts the run with exit 3
-  if any tracked file vanishes while mutants run.
+- **Safety:** mutants that would leave a directly-written destructive call
+  running with altered inputs are suppressed (#102). A syntactic hazard
+  guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
+  (bare names included), `File.delete`/`unlink`, `Dir.rmdir`/`delete`/
+  `unlink`, `rmtree`, `system`/`exec`/`spawn` (bare or on `Kernel`/
+  `Process`), backticks/`%x`, `IO.popen`, `Open3.*`, piped `open` - and
+  suppresses mutants inside such a call or elsewhere in a method that still
+  holds one. Calls behind aliases, variables or `send` are not recognized.
+  A canary re-checks the tracked tree after each method's mutants and aborts
+  with exit 3 when a file vanishes: detection after the damage, per method,
+  with no restoration. Configure the list via `c.hazard`; `--allow-hazardous`
+  opts out.
 
 ## [0.4.0] - 2026-10-12
 
