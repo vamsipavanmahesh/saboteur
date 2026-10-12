@@ -6,6 +6,14 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Safety:** a mutant can no longer make a destructive call more destructive
+  than the original code (#102). The hazard guard suppresses mutants inside
+  the receiver or arguments of calls like `FileUtils.rm_rf`, `system`,
+  backticks/`%x`, `IO.popen` and `Open3.*` (configurable via `c.hazard`,
+  `--allow-hazardous` opts back in), and a canary aborts the run with exit 3
+  if any tracked file vanishes while mutants run.
+
 ## [0.4.0] - 2026-10-12
 
 ### Changed
