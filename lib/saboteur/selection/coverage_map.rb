@@ -15,22 +15,50 @@ module Saboteur
     # Lines executed outside any test (before(:all), before(:suite)) are mapped
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
+    # load_lines: file -> lines that executed while the app and spec files
+    # loaded, captured in the parent right after boot (see Engine#capture_load_lines).
     class CoverageMap
-      FORMAT = 3
+      FORMAT = 4
 
-      attr_reader :lines, :tests, :build_seconds, :durations
+      # Skip reason for code that ran only while the app loaded. It ran, so
+      # "no coverage" would lie; and no forked test can re-run it, so letting
+      # its mutants survive would lie the other way. Out of the score either way.
+      RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
+
+      attr_reader :lines, :tests, :build_seconds, :durations, :load_lines
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
+      # load_lines: { "/abs/file.rb" => [12] }
       # durations: { "id1" => seconds }
-      def initialize(lines:, tests:, build_seconds: nil, durations: {})
+      def initialize(lines:, tests:, build_seconds: nil, durations: {}, load_lines: {})
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
         @durations = durations
+        @load_lines = load_lines
       end
 
       def tests_for(subject)
         tests_for_lines(subject.file, subject.coverage_lines)
+      end
+
+      # True when the code on these lines ran while the app loaded and no
+      # test ever ran it. A line a test later hit is ordinary coverage, so
+      # A copy with the parent's load lines attached: the forked build child
+      # cannot inherit the parent's Coverage counters, so the engine reads
+      # them after boot and the store merges them into the built map here.
+      def with_load_lines(load_lines)
+        self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
+                       load_lines: load_lines)
+      end
+
+      # lines and load_lines may overlap; the test wins.
+      def ran_at_load?(file, line_numbers)
+        at_load = load_lines[CoverageMap.canonical(file)]
+        return false unless at_load
+
+        covered = lines[CoverageMap.canonical(file)] || {}
+        line_numbers.any? { |line| at_load.include?(line) && !covered.key?(line) }
       end
 
       # Tests that executed any of the lines, fastest first (suite order breaks
@@ -59,7 +87,7 @@ module Saboteur
           by_line.to_h { |line, ids| [line.to_s, ids.map { |id| index.fetch(id) }] }
         end
         JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encoded,
-                      durations: tests.map { |id| durations[id]&.round(6) })
+                      durations: tests.map { |id| durations[id]&.round(6) }, load_lines: load_lines)
       end
 
       def self.from_json(json)
@@ -71,7 +99,9 @@ module Saboteur
           by_line.to_h { |line, indexes| [line.to_i, indexes.map { |i| tests.fetch(i) }] }
         end
         durations = tests.zip(data["durations"]).to_h.compact
-        new(lines: lines, tests: tests, build_seconds: data["build_seconds"], durations: durations)
+        load_lines = (data["load_lines"] || {}).transform_values { |list| list.map(&:to_i) }
+        new(lines: lines, tests: tests, build_seconds: data["build_seconds"], durations: durations,
+            load_lines: load_lines)
       end
 
       # Cache key over every input that can change which test runs which line.
