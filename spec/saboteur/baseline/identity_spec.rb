@@ -15,6 +15,19 @@ RSpec.describe Saboteur::Baseline::Identity do
     expect(identity.entry).to eq("id" => identity.id, "identity" => identity.tuple, "context" => identity.context)
   end
 
+  it "copies and deeply freezes identity values under the computed digest" do
+    origin = +"external"
+    operator = +"change"
+    value = identified(origin: origin, operator: operator)
+    origin.replace("changed")
+    operator.replace("changed")
+    expect(value.tuple[3..4]).to eq(%w[external change])
+    expect { value.tuple.last.first << "other" }.to raise_error(FrozenError)
+    expect { value.tuple.last.first.last.replace("00") }.to raise_error(FrozenError)
+    expect { value.tuple[3].replace("other") }.to raise_error(FrozenError)
+    expect(value.id).to eq(Digest::SHA256.hexdigest(JSON.generate(value.tuple)))
+  end
+
   def identified(source: ReportHelpers::PERSON, file: "person.rb", operator: "comparison", origin: "builtin",
                  coarse: false)
     subject = subjects_in(source, name: file).first
