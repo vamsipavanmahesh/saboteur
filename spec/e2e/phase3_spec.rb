@@ -125,10 +125,11 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     it "exits 0 once every survivor is ignored with a reason, and reports them as ignored" do
       digests = survivor_digests(saboteur(dir, "--subject", "People::Person#adult?"))
       expect(digests).not_to be_empty
-      entries = digests.map do |digest|
-        { "subject" => "People::Person#adult?", "mutation" => digest, "reason" => "boundary covered elsewhere" }
+      lines = digests.map do |digest|
+        %(  i.mutation "#{digest}", subject: "People::Person#adult?", reason: "boundary covered elsewhere")
       end
-      File.write(File.join(dir, ".saboteur-ignore.yml"), entries.to_yaml)
+      File.write(File.join(dir, "config", "saboteur_ignore.rb"),
+                 "Saboteur.ignore do |i|\n#{lines.join("\n")}\nend\n")
 
       run = saboteur(dir, "--subject", "People::Person#adult?")
       expect(run.status).to eq(0)
@@ -138,24 +139,26 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     end
 
     it "refuses an entry without a reason (exit 2, before anything runs)" do
-      File.write(File.join(dir, ".saboteur-ignore.yml"), "- subject: People::Person#adult?\n  mutation: abc\n")
+      File.write(File.join(dir, "config", "saboteur_ignore.rb"),
+                 "Saboteur.ignore do |i|\n  i.mutation \"abc\", subject: \"People::Person#adult?\"\nend\n")
       run = saboteur(dir)
       expect(run.status).to eq(2)
       expect(run.err).not_to include("building coverage map")
-      expect(run.err).to include("entry 1 is missing reason")
+      expect(run.err).to include("entry is missing reason")
     end
   end
 
   describe "config" do
     it "exits 2 for an invalid config file" do
-      File.write(File.join(dir, ".saboteur.yml"), "timeout_factr: 2\n")
+      File.write(File.join(dir, "config", "saboteur.rb"), "Saboteur.configure { |c| c.timeout_factr = 2 }\n")
       run = saboteur(dir)
       expect(run.status).to eq(2)
-      expect(run.err).to include("unknown config key(s): timeout_factr")
+      expect(run.err).to include('unknown setting "timeout_factr"')
     end
 
     it "lets CLI flags override the config file" do
-      File.write(File.join(dir, ".saboteur.yml"), "include: [lib/**/*.rb]\njson_report: custom.json\n")
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.include = [\"lib/**/*.rb\"]; c.json_report = \"custom.json\" }\n")
       saboteur(dir, "--json", "flag.json")
       expect(File).to exist(File.join(dir, "flag.json"))
       expect(File).not_to exist(File.join(dir, "custom.json"))
