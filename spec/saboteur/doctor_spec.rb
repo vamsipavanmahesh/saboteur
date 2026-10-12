@@ -104,6 +104,37 @@ RSpec.describe Saboteur::Doctor do
     end
   end
 
+  it "does not mark valid ignore subjects unmatched because of a subject filter" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "lib"))
+      File.write(File.join(root, "lib", "probe.rb"), "class Probe; def valid; true; end; end")
+      config = Saboteur::Config.new({ "subjects" => ["Other"] }, root: root)
+      ignores = Saboteur::IgnoreList.new([Saboteur::IgnoreList::Entry.new(subject: "Probe#valid",
+                                                                          mutation: "a", reason: "accepted")])
+      allow(Saboteur::IgnoreList).to receive(:load).with(config.path("ignore_file")).and_return(ignores)
+
+      described_class.new(config, out: out).send(:check_ignore_subjects)
+
+      expect(out.string).to be_empty
+    end
+  end
+
+  it "reports an incomplete ignore check instead of unmatched subjects when source parsing fails" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "lib"))
+      File.write(File.join(root, "lib", "probe.rb"), "class Probe; def valid;")
+      config = Saboteur::Config.new({}, root: root)
+      ignores = Saboteur::IgnoreList.new([Saboteur::IgnoreList::Entry.new(subject: "Probe#valid",
+                                                                          mutation: "a", reason: "accepted")])
+      allow(Saboteur::IgnoreList).to receive(:load).with(config.path("ignore_file")).and_return(ignores)
+
+      described_class.new(config, out: out).send(:check_ignore_subjects)
+
+      expect(out.string).to include("ignore subject check incomplete")
+      expect(out.string).not_to include("matches no discovered subject")
+    end
+  end
+
   it "reports enabled Rails and present SimpleCov" do
     stub_const("SimpleCov", Module.new)
     allow(config).to receive(:[]).and_call_original
