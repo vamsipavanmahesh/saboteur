@@ -44,7 +44,10 @@ module E2EHelpers
     return run.err unless run.json
 
     odd = mutants(run).reject { |m| %w[Killed Survived].include?(m["status"]) }
-    details = odd.map { |m| m.slice("id", "status", "operator", "line").compact }
+    details = odd.map do |m|
+      { "id" => m["id"], "status" => m["status"], "mutatorName" => m["mutatorName"],
+        "line" => m.dig("location", "start", "line"), "statusReason" => m["statusReason"] }.compact
+    end
     "#{run.err}\nunscored mutants: #{details.inspect}"
   end
 
