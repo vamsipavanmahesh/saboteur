@@ -102,7 +102,7 @@ RSpec.describe "replay coverage boundaries", :e2e do
     expect(replay.out).to include(digest, "Selected tests:", "none")
   end
 
-  it "reports a replay on a one-line uncalled definition as ran at load" do
+  it "keeps a replay on a one-line uncalled definition uncovered" do
     source = File.join(dir, "lib", "people.rb")
     File.open(source, "a") { |file| file.puts "class LoadReplay; def value; 123; end; end" }
     subject = Saboteur::SubjectFinder.new.call(source).subjects.find { |item| item.id == "LoadReplay#value" }
@@ -111,9 +111,9 @@ RSpec.describe "replay coverage boundaries", :e2e do
     replay = saboteur(dir, "--id", digest)
     expect(replay.status).to eq(0), replay.err
     expect(mutants(replay).first).to include(
-      "id" => digest, "status" => "Ignored", "statusReason" => Saboteur::Selection::CoverageMap::RAN_AT_LOAD
+      "id" => digest, "status" => "NoCoverage", "statusReason" => "no coverage"
     )
-    expect(replay.out).to include(digest, "Selected tests:", "none", "ran at load:")
+    expect(replay.out).to include(digest, "Selected tests:", "none", "no coverage")
   end
 
   it "keeps changed-line scope when resolving --id with --since" do
