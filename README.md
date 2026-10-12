@@ -56,9 +56,10 @@ print their elapsed time about every 30 seconds, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). A suite child that has
-already reported its result gets up to 5 seconds to finish exiting; if it is
-still running then, saboteur stops it and keeps the result, so a slow exit is
-not reported as a failure. A child killed by `SIGKILL` is called a possible
+already reported its result gets up to 5 seconds to finish exiting, under the
+same deadline and memory/process limits as before; if it is still running then,
+saboteur stops it and keeps the result, so a slow exit is not reported as a
+failure. A child that ends by itself in that window keeps its own exit status. A child killed by `SIGKILL` is called a possible
 out-of-memory kill only when the process tree was seen growing toward the
 memory limit. Older benchmark numbers
 need a rerun before they describe this extra fixed cost.
