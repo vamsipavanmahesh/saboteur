@@ -114,7 +114,7 @@ suppression rules built from their feedback raised the productive share from
 ([Petrovic et al., 2021](https://arxiv.org/pdf/2102.11378)). The lesson we
 take is the method, not the numbers: collect feedback, then suppress by rule.
 
-- **Shipped:** a configurable `arid` pattern list in `.saboteur.yml` (logging,
+- **Shipped:** a configurable `arid` pattern list in `config/saboteur.rb` (logging,
   metrics and instrumentation calls by default). **Planned:** a required
   reason per project entry, a count of mutants each rule removed, and a
   report line for each rule. A rule count says how much was suppressed, not
@@ -127,10 +127,10 @@ take is the method, not the numbers: collect feedback, then suppress by rule.
   excuses, like
   [Stryker's disable comments](https://stryker-mutator.io/docs/stryker-js/disable-mutants/).
   Same status and same reporting as the ignore list.
-- **Shipped:** the fake-kill check, with a per-cause kill count in the
-  report. **Planned:** report how many kills it rejected.
+- **Shipped:** unchanged-method kill verification, per-cause kill counts and
+  rejected-kill counts in terminal and JSON reports.
 - **Shipped:** self-hosting. CI runs saboteur on its own changed methods and
-  fails on survivors that are not in `.saboteur-ignore.yml`. **Planned:**
+  fails on survivors that are not in `config/saboteur_ignore.rb`. **Planned:**
   publish the score history and raise the bar over time.
 - **Shipped:** mutant digests use offsets relative to the subject, so an
   edit above a method does not change them, and a spec covers it.
@@ -161,10 +161,10 @@ take is the method, not the numbers: collect feedback, then suppress by rule.
   ([PIT](https://pitest.org/quickstart/incremental_analysis/)), and
   [StrykerJS](https://stryker-mutator.io/docs/stryker-js/incremental/)
   shows its limits by how well the test runner reports test locations.
-- **Planned:** a flaky-test guard. Re-run the baseline suite with the run
-  seed and refuse to start if it is not green and stable. The report says
-  whether a run completed clean, so a CI gate can tell "no useful work" from
-  "nothing to find".
+- **Shipped:** two unchanged baseline suite passes at the run seed, before
+  coverage lookup or verdict reuse. Both must pass, execute the loaded tests
+  and keep the same order. This detects observed instability, not every flake.
+  Agent mode distinguishes complete, partial and not-applicable outcomes.
 - **Research: equivalent mutants by instruction sequence.** Trivial compiler
   equivalence found that comparing compiled code detects some equivalent
   mutants
@@ -231,12 +231,12 @@ invalidation rules and specs above.
   in CI logs. The report metadata says how many mutants were selected,
   omitted by the per-method cap, skipped, and ignored, so a reader can see
   what the score covers.
-- **Replay one mutant.** `saboteur run --mutant <digest>` re-runs a single
+- **Shipped: replay one mutant.** `saboteur run --id <digest>` re-runs a single
   mutant and prints its diff and the tests it ran, as Infection does with
   [`--id`](https://infection.github.io/guide/command-line-options.html) and
   mutmut does from its [browse screen](https://github.com/boxed/mutmut).
   Fixing a survivor should not need a full run.
-- **Config check.** `saboteur doctor` prints what it found: Ruby version,
+- **Shipped: config check.** `saboteur doctor` prints what it found: Ruby version,
   coverage setup, SimpleCov conflicts, boot files, and whether the baseline
   suite is green. It names the fix.
 - **More operators**, added one by one through the mutation source API. Each
@@ -258,14 +258,14 @@ a documented real-fault reason.
 
 ## Milestone 4: An Action a team can adopt (0.6)
 
-Planned. This comes from a review of the mutineer GitHub Action by four
+Partly shipped. This comes from a review of the mutineer GitHub Action by four
 reviewers and was approved by the maintainer. The order below is the order of
 work.
 
-1. **Survivor annotations.** Per-survivor notes on the changed lines of the
+1. **Shipped: survivor annotations.** Per-survivor notes on the changed lines of the
    pull request diff, and a top-N survivor list in the job summary. This is
    the feature that shows the tool working inside a review.
-2. **Exact base anchoring for diff scope.** Pin the pull request's
+2. **Shipped: exact base anchoring for diff scope.** Pin the pull request's
    `base.sha`, fetch a bounded amount of history, and fail closed when there
    is no merge base. The Action never falls back to a silent full scan.
 3. **A "no new survivors" gate.** The adoption path for an existing project:
@@ -306,8 +306,11 @@ Exit criteria: no known correctness bugs, and an API we are willing to keep.
 
 Rails and RSpec teams are the first audience. The positioning: the easiest
 trustworthy pull request test-quality check for Rails and RSpec, not the tool
-with the most operators. The install generator, Rails doctor and cache
-fingerprint fixes are in flight as the first priority; the rest follows.
+with the most operators. The install generator, Rails doctor and fixture/schema cache
+fingerprints ship in 0.4.0. Doctor currently runs two suite passes; cheap
+environment-only diagnostics remain planned. The custom source/spec map is
+parsed and validated only: it does not select tests, and there is no init
+command or zero-setup selection in 0.4.0.
 
 - P1: measure cold and warm CI overhead on real Rails apps. Why: the cost of
   the job is app boot, database setup, coverage and mutants, and buyers need a
@@ -344,15 +347,14 @@ Coding agents already run test commands and read their output. This track makes
 saboteur safe and cheap for an agent to call after the specs pass. The
 `--help` map for agents has already shipped.
 
-- P0: a compact agent JSON projection, about 8 KiB, with the top 3 survivors
-  and detail on demand, an explicit complete, partial or not-applicable status,
-  and provenance. Why: the full report is too big for an agent's context, and
-  an agent must not mistake a partial run for a clean one.
-- P0: strict agent exit semantics: 0 only for a complete, clean run. Why: today
-  mixed errors can exit 0, and an agent reads 0 as "done".
-- P0: a repo-dropped agent skill or rule (`AGENTS.md` / `CLAUDE.md` trigger)
-  that runs saboteur after RSpec goes green. Why: agents only use what the
-  repo tells them to use.
+- **Shipped:** an agent JSON projection under 8 KiB, up to 3 findings,
+  provenance, complete/partial/not-applicable status and commands for detail.
+  A dedicated no-execution detail lookup remains planned.
+- **Shipped:** strict agent exit semantics: 0 only for complete, clean work.
+  Classic exit semantics remain different; clients must choose agent mode.
+- **Shipped:** `saboteur agent-skill` prints a project instruction block.
+  **Planned:** optional client-specific skill packaging, a configurable base
+  and bounded repair loops. Guidance enables use; it does not guarantee it.
 - P1: explain a survivor by digest. Why: the agent needs the diff, the covering
   tests and a hint for one survivor, without rerunning anything.
 - P1: a total-runtime budget that includes the cold coverage run. Why: an agent
@@ -361,7 +363,7 @@ saboteur safe and cheap for an agent to call after the specs pass. The
   checkout can overwrite each other's cache and report.
 - P1: warn when untracked files fall outside the diff scope. Why: a new file an
   agent just wrote is not in `git diff`, so the run silently skips it.
-- P2: a local MCP adapter with `run_diff_mutation`, `explain_survivor` and
+- **Deferred by the maintainer:** a local MCP adapter with `run_diff_mutation`, `explain_survivor` and
   `replay_mutant`. Why: tool calls are more reliable than shell parsing, but
   only after the CLI contract above is stable.
 - P2: an agent eval harness that scores correct tool use, useful tests written,
