@@ -8,6 +8,7 @@ module Saboteur
     # What a mutant child tells its supervisor, one JSON object per line on
     # a pipe. Every message carries the protocol version.
     #
+    #   captures a stale Method capture of the original def exists (site, stale)
     #   started  the mutated method is in place; tests are about to run
     #   result   passed, failed (ids), executed (ids), runtime, exited (status
     #            when a test called exit)
