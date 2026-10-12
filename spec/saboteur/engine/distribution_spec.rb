@@ -66,12 +66,12 @@ RSpec.describe Saboteur::Engine::Distribution do
     scheduler = ->(_subject, _list) { raise "worker exploded" }
     arrived = []
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil,
-                                       after_subject: ->(seen, results) { arrived << [seen.id, results.map(&:status)] })
+                                       after_subject: ->(seen, results) { arrived << [seen.id, results.map(&:status), results.map(&:reason)] })
     results = distribution.run([subject], [[[mutation, "text"]]])
     expect(results.map(&:status)).to eq([:error])
     expect(results.first.reason).to include("worker exploded")
     expect(diagnostics.warnings.join).to include("K#m: RuntimeError: worker exploded")
-    expect(arrived).to eq([["K#m", [:error]]])
+    expect(arrived).to eq([["K#m", [:error], ["RuntimeError: worker exploded"]]])
   end
 
   it "starts the pool with the configured jobs, on_start and arrival callback" do
