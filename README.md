@@ -615,3 +615,5 @@ Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build s
 ## License
 
 MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
+
+Internal baseline capture blocks a subject with empty generation, including a subject for which the builtin source yields no candidates. Context comparison is an extra consistency check; file fingerprint verification normally also catches source drift. Neither check proves external state stability.
