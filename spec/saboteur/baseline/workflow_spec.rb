@@ -1,0 +1,235 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "tmpdir"
+require "saboteur/baseline/workflow"
+
+RSpec.describe Saboteur::Baseline::Workflow do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+  let(:config) { Saboteur::Config.new({}, root: @root) }
+  let(:workflow) { described_class.new(config: config) }
+  let(:document) do
+    file = File.join(@root, "probe.rb")
+    File.write(file, "class Probe; def value; 1; end; end")
+    subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+    mutation = Saboteur::MutationSource::Builtin.new.mutations_for(subject).first
+    text = subject.apply(mutation.edits)
+    capture = Saboteur::Baseline::RunEvidence.new(config: config)
+    capture.plan([subject], [[[mutation, text]]])
+    result = Saboteur::MutantResult.new(subject: subject, mutation: mutation, status: :survived, mutated_source: text)
+    capture.finish(results: [result], stable_suite: true, skipped_subjects: {}, generation_events: [], omissions: [])
+  end
+
+  def stub_run
+    report = instance_double(Saboteur::Report, run_evidence: document)
+    engine = instance_double(Saboteur::Engine, call: report)
+    allow(Saboteur::Engine).to receive(:new).and_return(engine)
+  end
+
+  def review(path)
+    record = JSON.parse(File.read(path))
+    record.fetch("document").fetch("accepted").each { |entry| entry["reason"] = "reviewed" }
+    File.write(path, JSON.generate(record))
+    record
+  end
+
+  it "proposes bound immutable producer evidence and accepts it only once" do
+    stub_run
+    proposal = File.join(@root, "proposal.json")
+    destination = File.join(@root, "baseline.json")
+    value = workflow.propose(proposal: proposal, destination: destination)
+    expect(value).to eq("state" => "proposal", "proposal" => proposal, "destination" => destination, "survivors" => 1)
+    record = review(proposal)
+    expect(record.fetch("execution")).to eq(JSON.parse(JSON.generate(document)))
+    expect(workflow.accept(proposal: proposal, destination: destination))
+      .to eq("state" => "accepted", "destination" => destination)
+    expect { workflow.accept(proposal: proposal, destination: destination) }.to raise_error(Saboteur::ConfigError)
+  end
+
+  it "requires full producer evidence even when a legacy local record otherwise validates" do
+    destination = File.join(@root, "baseline.json")
+    proposal = File.join(@root, "proposal.json")
+    manifest = Saboteur::Baseline::Evidence.new(document).manifest
+    directory = File.join(@root, ".saboteur", "baseline-evidence")
+    legacy = Saboteur::Baseline::Acceptance.new(directory: directory, protected_paths: [], verify: ->(_) { true })
+    legacy.propose(document: manifest, proposal: proposal, destination: destination)
+    review(proposal)
+    expect { workflow.accept(proposal: proposal, destination: destination) }
+      .to raise_error(Saboteur::ConfigError, /execution evidence missing/)
+  end
+
+  it "rejects a mismatched manifest even when the producer evidence itself is complete" do
+    captured = Saboteur::Baseline::Evidence.new(document)
+    manifest = captured.manifest
+    manifest["metadata"]["subjects"] = [["other.rb", "Other#m"]]
+    store = Saboteur::Baseline::Acceptance.new(directory: File.join(@root, ".saboteur", "baseline-evidence"),
+                                               protected_paths: [], verify: ->(_) { true }, require_evidence: true)
+    expect do
+      store.propose(document: manifest, evidence: captured.document,
+                    proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json"))
+    end.to raise_error(Saboteur::ConfigError, /execution evidence differs/)
+  end
+
+  it "preserves exact incomplete and incompatible check payloads without accepting invalid complete claims" do
+    manifest = Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")
+    path = File.join(@root, "baseline.json")
+    File.write(path, JSON.generate(manifest))
+    incomplete = document.merge("complete" => false, "issues" => ["missing_result"])
+    report = instance_double(Saboteur::Report, run_evidence: incomplete)
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    payload = workflow.check(path: path)
+    expect(payload.fetch("state")).to eq("incomplete")
+    expect(payload.fetch("exit_code")).to eq(3)
+    expect(payload.fetch("issues")).to eq(["missing_result"])
+    expect(payload.fetch("categories").fetch("accepted").size).to eq(1)
+    malformed = document.merge("complete" => true, "omissions" => [{}])
+    allow(report).to receive(:run_evidence).and_return(malformed)
+    expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError, /omitted/)
+  end
+
+  it "rejects oversized or corrupt baseline snapshots before execution" do
+    path = File.join(@root, "baseline.json")
+    File.write(path, "not json")
+    expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError, /baseline file/)
+    manifest = Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")
+    manifest = JSON.parse(JSON.generate(manifest))
+    manifest["metadata"]["snapshot"]["digest"] = "a" * 64
+    File.write(path, JSON.generate(manifest))
+    expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError, /fingerprint/)
+    valid = Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")
+    bytes = JSON.generate(valid)
+    File.write(path, bytes)
+    stub_const("Saboteur::Baseline::Acceptance::MAX_BYTES", bytes.bytesize)
+    expect(workflow.send(:load_manifest, path).to_h).to eq(JSON.parse(bytes))
+    stub_const("Saboteur::Baseline::Acceptance::MAX_BYTES", 3)
+    File.write(path, "1234")
+    expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError, /too large/)
+  end
+
+  it "carries external declared evidence paths into acceptance verification" do
+    document
+    Dir.mktmpdir do |outside|
+      extra = File.join(outside, "external.json")
+      File.write(extra, "initial")
+      # Engine extra_files, rather than data globs, permits external paths.
+      snapshot = Saboteur::Engine::RunFingerprint.new(config: config,
+                                                      extra_files: [{
+                                                        path: extra, required: false
+                                                      }]).snapshot
+      store = workflow.send(:store, snapshot.to_h)
+      metadata = { "snapshot" => snapshot.to_h }
+      expect(store.instance_variable_get(:@verify).call(metadata)).to be(true)
+      File.write(extra, "changed")
+      expect(store.instance_variable_get(:@verify).call(metadata)).to be(false)
+    end
+  end
+
+  it "protects input aliases at proposal and acceptance even when artifacts use innocuous extensions" do
+    stub_run
+    source = File.join(@root, "probe.rb")
+    alias_path = File.join(@root, "alias.json")
+    File.link(source, alias_path)
+    expect { workflow.propose(proposal: alias_path, destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::ConfigError, /input/)
+    expect { workflow.accept(proposal: File.join(@root, "p.json"), destination: source) }
+      .to raise_error(Saboteur::ConfigError, /overlaps/)
+  end
+
+  it "passes fresh capture and artifact options exactly into a proposal and acceptance" do
+    stub_run
+    store = instance_double(Saboteur::Baseline::Acceptance)
+    allow(workflow).to receive(:store).and_return(store)
+    proposal = File.join(@root, "p.json")
+    destination = File.join(@root, "b.json")
+    expect(store).to receive(:propose).with(document: anything, evidence: document, proposal: proposal,
+                                            destination: destination, previous: "a" * 64)
+    workflow.propose(proposal: proposal, destination: destination, previous: "a" * 64)
+    expect(Saboteur::Engine).to have_received(:new).with(config, err: $stderr, capture_evidence: true)
+    expect(store).to receive(:accept).with(proposal: proposal, destination: destination, previous: "a" * 64)
+                                     .and_return(destination)
+    workflow.accept(proposal: proposal, destination: destination, previous: "a" * 64)
+  end
+
+  it "rejects both output positions under explicitly declared extra fixture patterns" do
+    extra_config = Saboteur::Config.new({ "fingerprint_extra" => ["inputs/**/*"] }, root: @root)
+    extra_workflow = described_class.new(config: extra_config)
+    input = File.join(@root, "inputs", "data.json")
+    expect { extra_workflow.propose(proposal: File.join(@root, "p.json"), destination: input) }
+      .to raise_error(Saboteur::ConfigError, /overlaps/)
+    expect { extra_workflow.accept(proposal: input, destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::ConfigError, /overlaps/)
+  end
+
+  it "protects the captured inventory even when an input vanishes after capture" do
+    document
+    snapshot = document.fetch("snapshot")
+    source = File.join(@root, "probe.rb")
+    File.unlink(source)
+    protected = workflow.send(:store, snapshot).instance_variable_get(:@protected)
+    expect(protected).to include(source)
+  end
+
+  it "refuses a baseline replaced after parsing even before the run fingerprint begins" do
+    manifest = Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")
+    path = File.join(@root, "b.json")
+    File.write(path, JSON.generate(manifest))
+    report = instance_double(Saboteur::Report, run_evidence: document)
+    allow(Saboteur::Engine).to receive(:new) do
+      File.write(path, JSON.generate(manifest).concat(" "))
+      instance_double(Saboteur::Engine, call: report)
+    end
+    expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError, /changed during check/)
+  end
+
+  it "does not publish a proposal from an incomplete run even with no survivors" do
+    report = instance_double(Saboteur::Report, run_evidence: document.merge("complete" => false, "candidates" => []))
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    expect { workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::Error, /complete execution/)
+    expect(File.exist?(File.join(@root, "p.json"))).to be(false)
+  end
+
+  it "rejects stale inputs or editable execution history before publishing" do
+    stub_run
+    proposal = File.join(@root, "proposal.json")
+    destination = File.join(@root, "baseline.json")
+    workflow.propose(proposal: proposal, destination: destination)
+    record = review(proposal)
+    record.fetch("execution")["generation_events"] = []
+    record.fetch("execution")["issues"] = ["edited"]
+    File.write(proposal, JSON.generate(record))
+    expect { workflow.accept(proposal: proposal, destination: destination) }.to raise_error(Saboteur::ConfigError)
+    record.fetch("execution")["issues"] = []
+    File.write(proposal, JSON.generate(record))
+    File.write(File.join(@root, "probe.rb"), "changed")
+    expect { workflow.accept(proposal: proposal, destination: destination) }
+      .to raise_error(Saboteur::ConfigError, /inputs/)
+    expect(File.exist?(destination)).to be(false)
+  end
+
+  it "refuses nonfresh configuration and artifact paths that overlap present or future inputs" do
+    [{ "since" => "main" }, { "incremental" => true }, { "threshold" => 90 }].each do |settings|
+      expect { described_class.new(config: Saboteur::Config.new(settings, root: @root)) }
+        .to raise_error(Saboteur::ConfigError, /fresh whole|score threshold/)
+    end
+    %w[lib/a.rb config/database.yml Gemfile spec/fixtures/data.json].each do |path|
+      expect { workflow.propose(proposal: File.join(@root, path), destination: File.join(@root, "b.json")) }
+        .to raise_error(Saboteur::ConfigError, /overlaps/)
+    end
+  end
+
+  it "runs check fresh with the baseline file in the input fingerprint and returns review state" do
+    manifest = Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")
+    path = File.join(@root, "baseline.json")
+    File.write(path, JSON.generate(manifest))
+    stub_run
+    expect(workflow.check(path: path).fetch("state")).to eq("clean")
+    expect(Saboteur::Engine).to have_received(:new).with(config, err: $stderr, capture_evidence: true,
+                                                                 evidence_files: [path])
+  end
+end

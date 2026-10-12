@@ -68,6 +68,23 @@ module Saboteur
                    ["Use another config file and seed", "saboteur doctor --config config/ci.rb --seed 7"]]
       ),
       Command.new(
+        name: "baseline",
+        summary: "Check, propose or accept a fresh opt-in survivor baseline",
+        description: "Check runs every mutant fresh and reports new, changed or unmatched accepted survivors. " \
+                     "Propose writes a proposal with private local execution evidence. Edit only survivor reasons; " \
+                     "accept verifies current inputs and publishes it. No scores or execution are suppressed. " \
+                     "Only whole or subject scope; no diff, replay, incremental reuse or score threshold.",
+        takes_options: true,
+        exit_codes: { 0 => "Clean check, proposal written or accepted.", 1 => "New, changed or unmatched survivors.",
+                      2 => "Invalid configuration, incompatible baseline or rejected acceptance.",
+                      3 => "Incomplete execution or tool failure." },
+        examples: [["Prepare a reasoned proposal",
+                    "saboteur baseline propose --baseline baseline.json --proposal proposal.json"],
+                   ["Publish reviewed reasons",
+                    "saboteur baseline accept --baseline baseline.json --proposal proposal.json"],
+                   ["Check fresh outcomes", "saboteur baseline check --baseline baseline.json"]]
+      ),
+      Command.new(
         name: "version",
         summary: "Print the installed version",
         description: "Prints the version number and nothing else.",

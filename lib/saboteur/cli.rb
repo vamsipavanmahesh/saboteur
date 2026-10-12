@@ -6,9 +6,12 @@ require_relative "../saboteur"
 require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
+require_relative "baseline/command"
 
 module Saboteur
   class CLI
+    include Baseline::Command
+
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
 " \
@@ -32,7 +35,8 @@ module Saboteur
 
     def call
       case @argv.shift
-      when "run" then help_requested? ? show_help("run") : run
+      when "run" then run_command
+      when "baseline" then baseline
       when "doctor" then help_requested? ? show_help("doctor") : doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help" then show_help(@argv.shift)
@@ -60,7 +64,7 @@ module Saboteur
 
     # Each command's own option lines, as printed under OPTIONS in `saboteur help`.
     def option_lines
-      { "run" => parser.summarize, "doctor" => doctor_parser.summarize }
+      { "run" => parser.summarize, "doctor" => doctor_parser.summarize, "baseline" => baseline_parser.summarize }
     end
 
     def doctor_parser
@@ -72,6 +76,10 @@ module Saboteur
     end
 
     private
+
+    def run_command
+      help_requested? ? show_help("run") : run
+    end
 
     def help_requested?
       @argv.intersect?(%w[--help -h])
