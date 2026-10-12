@@ -4,7 +4,13 @@
 RSpec.describe "internal baseline evidence", :e2e do
   it "captures a fresh real run with exact planned and terminal candidate identities" do
     dir = copy_fixture("people")
-    File.write(File.join(dir, "lib", "evidence_probe.rb"), "class EvidenceProbe; def value; 1; end; end")
+    File.write(File.join(dir, "lib", "evidence_probe.rb"), <<~RUBY)
+      class EvidenceProbe
+        def value
+          1
+        end
+      end
+    RUBY
     File.write(File.join(dir, "spec", "evidence_probe_spec.rb"), <<~RUBY)
       require_relative "../lib/evidence_probe"
       RSpec.describe EvidenceProbe do
@@ -35,7 +41,13 @@ RSpec.describe "internal baseline evidence", :e2e do
   end
   it "blocks malformed discovery input even alongside valid covered work" do
     dir = copy_fixture("people")
-    File.write(File.join(dir, "lib", "evidence_probe.rb"), "class EvidenceProbe; def value; 1; end; end")
+    File.write(File.join(dir, "lib", "evidence_probe.rb"), <<~RUBY)
+      class EvidenceProbe
+        def value
+          1
+        end
+      end
+    RUBY
     File.write(File.join(dir, "spec", "evidence_probe_spec.rb"), <<~RUBY)
       require_relative "../lib/evidence_probe"
       RSpec.describe EvidenceProbe do
