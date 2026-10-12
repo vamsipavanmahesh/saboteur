@@ -15,7 +15,8 @@ Ignore subjects are checked against every included source definition, not a diff
 or test subset. Unmatched names warn with the exact instance/singleton naming
 forms. A source parse failure makes that check incomplete rather than labelling
 entries unmatched. This checks subject names, not mutation digests, and never
-changes the ignore file.
+changes the ignore file. A malformed ignore declaration fails with a config
+error before target boot, just as it does for a mutation run.
 
 After normal project boot it runs the full filtered RSpec suite in two fresh
 supervised children from the same parent state. Each pass seeds Ruby random
