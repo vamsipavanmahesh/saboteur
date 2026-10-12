@@ -34,8 +34,16 @@ module Saboteur
       new(data.map { |key, specs| validate_entry(path, root, key, specs) }, root: root)
     rescue SyntaxError, LoadError => e
       raise ConfigError, "#{path}: #{e.message.lines.first.to_s.chomp}"
+    rescue NameError => e
+      raise ConfigError, name_error_message(path, e)
     ensure
       Object.send(:remove_const, CONSTANT) if Object.const_defined?(CONSTANT)
+    end
+
+    def self.name_error_message(path, error)
+      line = error.backtrace_locations&.find { |loc| loc.path == path }&.lineno
+      "#{path}:#{line}: #{error.message.lines.first.to_s.chomp} " \
+        "- this file loads before the app boots; use plain Ruby or ENV"
     end
 
     def self.validate_entry(path, root, key, specs)
@@ -96,6 +104,8 @@ module Saboteur
     end
 
     # Literal String keys written twice (Ruby silently keeps the last).
+    # Detection is line-based and only sees double-quoted one-line keys;
+    # single-quoted, multi-line or %q keys that repeat go unreported.
     def duplicate_keys(path)
       seen = Hash.new(0)
       File.readlines(path).each do |line|
@@ -131,9 +141,13 @@ module Saboteur
         [entry, match] if match
       end
       return nil if matches.empty?
+      # Exclusion is unanimous: a file is intentionally untested only when
+      # every matching regexp entry maps to an empty array. One mapped entry
+      # is enough to keep the file tested; unmapped entries add nothing.
       return :excluded if matches.all? { |entry, _| entry.specs.empty? }
 
-      matches.flat_map { |entry, match| resolve(entry, match) }
+      matches.reject { |entry, _| entry.specs.empty? }
+             .flat_map { |entry, match| resolve(entry, match) }
     end
 
     def specificity(key)
@@ -144,7 +158,12 @@ module Saboteur
       return :excluded if entry.specs.empty?
 
       specs = entry.specs
-      specs = specs.map { |spec| spec.gsub(/\\(\d+)/) { match[::Regexp.last_match(1).to_i].to_s } } if match
+      if match
+        # A backreference to a group that did not participate expands to "";
+        # that is never a real spec path, so drop it here rather than letting
+        # a junk entry reach the run.
+        specs = specs.map { |spec| spec.gsub(/\\(\d+)/) { match[::Regexp.last_match(1).to_i].to_s } }.reject(&:empty?)
+      end
       specs
     end
   end
