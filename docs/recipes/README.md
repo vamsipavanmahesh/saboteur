@@ -1,7 +1,7 @@
 # Recipes
 
 How to run saboteur on suites that use common test tools. Each recipe is a
-few lines in a hooks file listed in `.saboteur.yml`:
+few lines in a hooks file listed in `config/saboteur.rb`:
 
 ```yaml
 hooks:
