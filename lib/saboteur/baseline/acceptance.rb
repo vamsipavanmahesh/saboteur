@@ -6,6 +6,7 @@ require "json"
 require "securerandom"
 require "tempfile"
 require_relative "manifest"
+require_relative "evidence"
 
 module Saboteur
   module Baseline
@@ -14,22 +15,27 @@ module Saboteur
     class Acceptance
       MAX_BYTES = 20 * 1024 * 1024
 
-      def initialize(directory:, protected_paths:, verify:)
+      def initialize(directory:, protected_paths:, verify:, require_evidence: false)
         @directory = File.expand_path(directory)
         @protected = protected_paths.map { |path| File.expand_path(path) }
         @verify = verify
+        @require_evidence = require_evidence
       end
 
-      def propose(document:, proposal:, destination:, previous: nil)
+      def propose(document:, proposal:, destination:, previous: nil, evidence: nil)
         proposal, destination = paths(proposal, destination)
         verify_previous(destination, previous)
+        document = JSON.parse(JSON.generate(document))
+        evidence = JSON.parse(JSON.generate(evidence)) if evidence
+        validate_execution(document, evidence)
         validate_document(document)
         verify_inputs(document)
         prepare_directory
         token = SecureRandom.hex(16)
         record = { "token" => token, "destination" => destination, "previous" => previous, "document" => document }
-        evidence = evidence_path(token)
-        exclusive_write(evidence, record)
+        record["execution"] = evidence if evidence
+        path = evidence_path(token)
+        exclusive_write(path, record)
         exclusive_write(proposal, record)
         record
       rescue SystemCallError => e
@@ -42,6 +48,7 @@ module Saboteur
         prepare_directory
         original = read_record(evidence_path(edited.fetch("token")), private_record: true)
         validate_binding(original, edited, destination)
+        validate_execution(edited.fetch("document"), original["execution"])
         Manifest.new(edited.fetch("document"))
         verify_inputs(original.fetch("document"))
         publish(destination, edited.fetch("document"), original.fetch("previous"), previous)
@@ -55,7 +62,9 @@ module Saboteur
 
       def paths(proposal, destination)
         list = [proposal, destination].map { |path| File.expand_path(path) }
-        raise ConfigError, "baseline proposal and destination alias" if list.first == list.last
+        aliases = list.first == list.last ||
+                  (File.exist?(list.first) && File.exist?(list.last) && File.identical?(*list))
+        raise ConfigError, "baseline proposal and destination alias" if aliases
 
         if list.any? { |path| path == @directory || path.start_with?("#{@directory}/") }
           raise ConfigError, "baseline artifact aliases local evidence directory"
@@ -102,13 +111,24 @@ module Saboteur
         raise ConfigError, "baseline evidence too large" if File.size(path) > MAX_BYTES
 
         record = File.open(path, File::RDONLY | File::NOFOLLOW) { |file| JSON.parse(file.read) }
-        unless record.is_a?(Hash) && record.keys.sort == %w[destination document previous token]
+        unless record.is_a?(Hash) && [%w[destination document previous token],
+                                      %w[destination document execution previous token]].include?(record.keys.sort)
           raise ConfigError, "baseline evidence fields"
         end
 
         record
       rescue JSON::ParserError => e
         raise ConfigError, "baseline evidence JSON: #{e.message}"
+      end
+
+      def validate_execution(document, execution)
+        raise ConfigError, "baseline execution evidence missing" if @require_evidence && !execution
+        return unless execution
+
+        captured = Evidence.new(execution).manifest(reasons: "validation")
+        proposed = JSON.parse(JSON.generate(document))
+        proposed.fetch("accepted").each { |entry| entry["reason"] = "validation" }
+        raise ConfigError, "baseline execution evidence differs" unless captured == proposed
       end
 
       def validate_document(document)
