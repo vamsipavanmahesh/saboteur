@@ -38,6 +38,20 @@ module E2EHelpers
     run.json.fetch("files").values.flat_map { |file| file.fetch("mutants") }
   end
 
+  # What a failed exit-code expectation should print: stderr plus every mutant
+  # whose status is neither Killed nor Survived (Timeout, RuntimeError, resource
+  # limit and so on), so a flaky run names the mutant that ended unusually.
+  def other_outcomes(run)
+    return run.err unless run.json
+
+    odd = mutants(run).reject { |m| %w[Killed Survived].include?(m["status"]) }
+    details = odd.map do |m|
+      { "id" => m["id"], "status" => m["status"], "mutatorName" => m["mutatorName"],
+        "line" => m.dig("location", "start", "line"), "statusReason" => m["statusReason"] }.compact
+    end
+    "#{run.err}\nmutants other than Killed or Survived: #{details.inspect}"
+  end
+
   # Full test names for the short ids a mutant's killedBy/coveredBy holds.
   def test_names(run, ids)
     names = run.json.fetch("testFiles").values.flat_map { |file| file.fetch("tests") }.to_h { |t| [t["id"], t["name"]] }
