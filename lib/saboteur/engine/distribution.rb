@@ -8,23 +8,30 @@ module Saboteur
     # plain data; the parent rebuilds them against its own copy of the same
     # candidate list, so results look the same either way.
     class Distribution
-      def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil)
+      def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil, after_subject: nil)
         @jobs = jobs
         @on_start = on_start
         @scheduler = scheduler
         @diagnostics = diagnostics
         @cache = cache
+        @after_subject = after_subject
       end
 
       # lists: each subject's [[mutation, text]] candidates, in subject order.
       def run(subjects, lists)
-        return subjects.zip(lists).flat_map { |subject, list| @scheduler.call(subject, list) } if @jobs <= 1
+        if @jobs <= 1
+          return subjects.zip(lists).flat_map do |subject, list|
+            @scheduler.call(subject, list).tap { |results| @after_subject&.call(subject, results) }
+          end
+        end
 
         pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start)
         rows = pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
           work(subjects[i], lists[i])
         end
-        rows.each_with_index.flat_map { |row, i| rebuild(row, subjects[i], lists[i]) }
+        rows.each_with_index.flat_map do |row, i|
+          rebuild(row, subjects[i], lists[i]).tap { |results| @after_subject&.call(subjects[i], results) }
+        end
       end
 
       private
