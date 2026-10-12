@@ -21,7 +21,7 @@ trust.
 
 Before anything else, check that your suite is green and that SimpleCov is
 off for the run (see "SimpleCov" in the [README](../README.md)). Rails apps
-need their boot file under `require:` in `.saboteur.yml`.
+need their boot file under `c.require` in `config/saboteur.rb`.
 
 ## Pick a run mode for each place
 
@@ -42,10 +42,10 @@ Details and limits of diff mode are in
   diff, so do not expect a PR run to take seconds on a slow suite.
 - Keep new files tracked in git, or the diff cannot see them.
 
-Keep one shared `.saboteur.yml` and pass `--since` only in the PR job. A
-`since:` value stored in YAML is not cleared by omitting the flag, and there
-is no `--no-since`. If you want a PR-only config, make it a separate file
-(`--config .saboteur-pr.yml`).
+Keep one shared `config/saboteur.rb` and pass `--since` only in the PR job. A
+`c.since` value stored in the config is not cleared by omitting the flag, and
+there is no `--no-since`. If you want a PR-only config, make it a separate
+file (`--config config/saboteur_pr.rb`).
 
 `--incremental` reuses earlier verdicts while the method, mutant, covering
 tests, lockfile and config are unchanged. It cannot see a change in a method
@@ -92,7 +92,7 @@ workflow warning are the report.
 survivor not on the ignore list fails. That is strict but workable when the
 diff is small, which is why it suits PRs.
 
-**[needs #26]** `--threshold PERCENT` (or `threshold:` in `.saboteur.yml`)
+**[needs #26]** `--threshold PERCENT` (or `c.threshold` in `config/saboteur.rb`)
 makes the run exit 1 when the score is below PERCENT, even with survivors. As
 written in that pull request:
 
@@ -227,7 +227,7 @@ is there:
    reading, so survivors there are cheap to act on. You never face the whole
    backlog.
 2. **Pick a few modules and cover them well.** Use `--subject` on a
-   namespace, or `include` / `exclude` in `.saboteur.yml`, to start with the
+   namespace, or `c.include` / `c.exclude` in `config/saboteur.rb`, to start with the
    code you care about most (billing, auth). Get those clean, then widen
    `include`.
 3. **Run a full audit on a schedule.** A nightly or weekly `saboteur run` on
