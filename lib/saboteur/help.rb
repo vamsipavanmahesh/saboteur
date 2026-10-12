@@ -65,7 +65,7 @@ module Saboteur
         takes_options: true,
         exit_codes: DOCTOR_EXIT_CODE_MEANINGS,
         examples: [["Check the setup before the first run", "saboteur doctor"],
-                   ["Use another config file and seed", "saboteur doctor --config ci.yml --seed 7"]]
+                   ["Use another config file and seed", "saboteur doctor --config config/ci.rb --seed 7"]]
       ),
       Command.new(
         name: "version",
