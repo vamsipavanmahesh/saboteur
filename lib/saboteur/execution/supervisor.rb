@@ -198,42 +198,86 @@ module Saboteur
         tree = ProcessTree.new(pid)
         self.class.live[pid] = tree
         own_group(pid)
-        reached_eof = false
+        deadline = started + timeout
+        exit_status = nil
+        grace_expired = false
         begin
-          payload, stop, detail = watch(tree, reader, started + timeout, on_tick)
-          reached_eof = stop.nil?
+          payload, stop, detail = watch(tree, reader, deadline, on_tick)
+          # EOF: the child has reported. Keep supervising while it finishes
+          # exiting by itself (same deadline, limits and progress ticks).
+          exit_status, stop, detail, grace_expired = await_exit(tree, pid, deadline, on_tick) if stop.nil?
         ensure
           # Containment holds on every path out of watch: a raising on_tick
           # (progress IO failed) or any other error must not skip the
           # kill/reap, or the child and its tree would run unsupervised
           # until this process exits.
-          exit_status = if stop == :timeout then terminate(pid)
-                        elsif reached_eof then await_exit(pid)
-                        end
-          supervisor_killed = reached_eof && exit_status.nil?
-          leftover_pids = tree.kill_all - [pid]
-          exit_status ||= reap(pid)
-          self.class.live.delete(pid)
-          reap_adopted(leftover_pids)
-          reap_group(pid)
+          exit_status, supervisor_killed, leftover_pids = release(pid, tree, exit_status, stop, grace_expired)
         end
         Result.new(payload: payload, exit_status: exit_status, stopped_by: stop, detail: detail,
                    runtime: monotonic - started, leftover_pids: leftover_pids,
                    supervisor_killed: supervisor_killed, memory_pressure: memory_pressure?)
       end
 
-      # The child closed its pipe, so it has reported; give it time to finish
-      # exiting by itself. Returns its status, or nil if it is still running
-      # after POST_EOF_GRACE (the caller then kills it).
-      def await_exit(pid)
-        deadline = monotonic + POST_EOF_GRACE
-        until monotonic > deadline
+      # Kills and reaps the child and everything it started. Returns
+      # [exit_status, supervisor_killed, leftover_pids].
+      def release(pid, tree, exit_status, stop, grace_expired)
+        exit_status ||= terminate(pid) if stop == :timeout
+        supervisor_killed = false
+        # The grace ran out with the child seemingly alive. What ends it is
+        # only ours to claim if we see it alive: stop it first.
+        exit_status, supervisor_killed = freeze_child(pid) if grace_expired
+        leftover_pids = tree.kill_all - [pid]
+        exit_status ||= reap(pid)
+        self.class.live.delete(pid)
+        reap_adopted(leftover_pids)
+        reap_group(pid)
+        [exit_status, supervisor_killed, leftover_pids]
+      end
+
+      # After EOF, waits for the child to exit by itself while still checking
+      # the deadline, the memory and process limits and calling on_tick.
+      # Returns [exit_status, stop, detail, grace_expired]. exit_status is set
+      # only when the child exited on its own; grace_expired is true when it
+      # was still running after POST_EOF_GRACE.
+      def await_exit(tree, pid, deadline, on_tick)
+        grace_deadline = [monotonic + POST_EOF_GRACE, deadline].min
+        next_poll = monotonic + POLL_INTERVAL
+        loop do
           status = waitpid(pid)
-          return status if status
+          return [status, nil, nil, false] if status
+
+          now = monotonic
+          return [nil, :timeout, "exceeded deadline", false] if now >= deadline
+          return [nil, nil, nil, true] if now >= grace_deadline
+
+          on_tick&.call
+          if now >= next_poll
+            stop = over_limit(tree)
+            return [nil, *stop, false] if stop
+
+            next_poll = now + POLL_INTERVAL
+          end
+          sleep 0.01
+        end
+      end
+
+      # SIGSTOP cannot be caught, ignored or raced by a signal handler. A
+      # child that reports "stopped" was alive when we acted, so the SIGKILL
+      # that follows is ours. A child that turns out to have ended by itself
+      # keeps its own status. Returns [exit_status or nil, supervisor_killed].
+      def freeze_child(pid)
+        signal("STOP", pid)
+        deadline = monotonic + TERM_GRACE
+        until monotonic > deadline
+          _, status = Process.waitpid2(pid, Process::WNOHANG | Process::WUNTRACED)
+          return [nil, true] if status&.stopped?
+          return [status, false] if status
 
           sleep 0.01
         end
-        nil
+        [nil, false]
+      rescue Errno::ECHILD
+        [:reaped, false]
       end
 
       def memory_pressure?
