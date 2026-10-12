@@ -38,8 +38,26 @@ RSpec.describe Saboteur::Baseline::Acceptance do
     edit
   end
 
+  it "rejects distinct public proposal and destination paths that are the same inode" do
+    File.write(@proposal, "original")
+    File.link(@proposal, @output)
+    expect { store.accept(proposal: @proposal, destination: @output) }
+      .to raise_error(Saboteur::ConfigError, /proposal and destination alias/)
+    expect(File.read(@output)).to eq("original")
+  end
+
+  it "creates the atomic staging file in the destination directory with a private baseline name" do
+    propose
+    expect(Tempfile).to receive(:create).with([".baseline-", ".json"], @root).and_call_original
+    allow(File).to receive(:open).and_call_original
+    expect(File).to receive(:open).with(@proposal, File::RDONLY | File::NOFOLLOW).and_call_original
+    store.accept(proposal: @proposal, destination: @output)
+    expect(File.stat(@output).mode & 0o777).to eq(0o600)
+  end
+
   it "creates private independent evidence and accepts only reviewed reasons from the proposal" do
     edit = propose
+    expect(edit).not_to have_key("execution")
     expect(File.stat(@directory).mode & 0o777).to eq(0o700)
     evidence = File.join(@directory, "#{edit['token']}.json")
     expect(File.stat(evidence).mode & 0o777).to eq(0o600)
