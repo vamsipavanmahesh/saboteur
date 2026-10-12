@@ -6,6 +6,16 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Breaking:** configuration moved from YAML to Ruby. `.saboteur.yml` becomes
+  `config/saboteur.rb` (`Saboteur.configure do |c| ... end`, same key names),
+  and `.saboteur-ignore.yml` becomes `config/saboteur_ignore.rb`
+  (`Saboteur.ignore do |i| i.mutation "<digest>", subject:, reason: end`,
+  reason still mandatory). A legacy YAML file stops the run with a pointer to
+  the new file instead of being read. Unknown settings fail with the line
+  number and a did-you-mean suggestion. `saboteur init` and the Rails
+  generator write the Ruby file.
+
 ### Added
 - `--test` no longer requires source operands when `--since` is given: the
   changed files are the sources, so `saboteur run --since origin/main --test
@@ -14,6 +24,13 @@ All notable changes are documented here. The format follows
   run the loaded suite (a cold coverage cache adds one more pass), with the
   spec-file count and how to scope them, instead of going quiet for hours on a
   large app.
+- `config/saboteur_custom_map.rb` declares explicit source-file to spec-file
+  mappings (`SABOTEUR_CUSTOM_MAP`): exact paths, globs (the more specific glob
+  wins; equal specificity is an error) and Regexps with capture substitution.
+  An empty array marks a file intentionally untested. Invalid maps fail the
+  run with the file and key; stale and duplicate keys warn on runs, and
+  `saboteur doctor` fails on stale keys.
+
 - An integration target can declare a known error profile
   (`allow_error_fraction` per strategy in integration/targets.yml): the
   majority-error exit is accepted only when the run's own fresh report
