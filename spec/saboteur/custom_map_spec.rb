@@ -201,6 +201,37 @@ RSpec.describe Saboteur::CustomMap do
     expect(map.specs_for("app/generated/client.rb")).to eq(:excluded)
   end
 
+  it "keeps the mapped specs when only some matching Regexp entries are empty" do
+    map = load(<<~'RUBY')
+      SABOTEUR_CUSTOM_MAP = {
+        %r{\Aapp/generated/} => [],
+        %r{\Aapp/generated/(.*)\.rb\z} => ['spec/generated/\1_spec.rb'],
+      }.freeze
+    RUBY
+    expect(map.specs_for("app/generated/client.rb")).to eq(["spec/generated/client_spec.rb"])
+  end
+
+  it "still excludes when every matching Regexp entry is empty" do
+    map = load(<<~'RUBY')
+      SABOTEUR_CUSTOM_MAP = { %r{\Aapp/generated/} => [], %r{client} => [] }.freeze
+    RUBY
+    expect(map.specs_for("app/generated/client.rb")).to eq(:excluded)
+  end
+
+  it "drops a backreference whose group did not participate" do
+    map = load(<<~'RUBY')
+      SABOTEUR_CUSTOM_MAP = { %r{\Aapp/(admin/)?client\.rb\z} => ['\1'] }.freeze
+    RUBY
+    expect(map.specs_for("app/client.rb")).to eq([])
+  end
+
+  it "wraps a bare call in the map file with file, line and the load-order hint" do
+    path = write_map("bogus_call\n")
+    expect { described_class.load(path, root: @root) }.to raise_error(Saboteur::ConfigError) { |error|
+      expect(error.message).to include("saboteur_custom_map.rb:1", "bogus_call", "before the app boots")
+    }
+  end
+
   it "names both keys in the equal-specificity error" do
     touch("spec/a_spec.rb")
     touch("spec/b_spec.rb")
