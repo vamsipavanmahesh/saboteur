@@ -124,6 +124,7 @@ unified diff for every survivor, so you can read the exact change your tests
 missed. The JSON report lands in `.saboteur/report.json`.
 
 📋 Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
+Minitest is not supported; see [Minitest](docs/minitest.md) for why and what it would take.
 
 ## 🧠 Why it is built the way it is
 
@@ -178,6 +179,8 @@ bundle exec saboteur run --seed 1234              # repeat a run that used seed 
 bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
 bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
 bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
+bundle exec saboteur run --fail-fast              # stop after the first subject with a survivor
+bundle exec saboteur run --verbose --no-color     # add score split, timings and kill causes; no colour
 ```
 
 Positional operands name the sources to mutate: Ruby files, or directories
@@ -262,14 +265,35 @@ file is seen. It cannot see a change in another file that the method uses (a
 method it calls, a constant defined elsewhere), so run without it now and then
 (and in CI on the main branch).
 
-Output: counts per status, the score, timing, and a unified diff for every
-survivor. Under each diff the terminal lists the tests that covered that line
-and still passed with the mutant applied (the first five, likeliest killers
+Output: survivors first, then a short summary last, so the summary stays on
+screen. Survivors are grouped by file, then method, then line. Each line is
+printed once as `path:line in Subject`, with the source line and the tests that
+covered it, then one compact line per mutation: `operator original -> replacement digest`,
+and a hint on what kind of test would kill it. The summary has the counts per
+status, the score, a table of scores per file (worst first) and a one-line
+legend. `--verbose` adds the score split, mean time, whole-body score and
+kill causes. Colour is on when stdout is a terminal and `NO_COLOR` is not set;
+`--color` and `--no-color` override that. While mutants run, stderr shows
+`done/total (percent) eta`: a live counter on a terminal, and dots with a
+counter every 50 mutants otherwise. Skipped and reused mutants are not
+counted, so the count can end below the total.
+The tests that covered the survivor's line and
+still passed with the mutant applied are listed (the first five, likeliest killers
 first; the rest are under `coveredBy` in the JSON report). The missing
 check may belong in one of them. Line coverage can overstate which tests
 exercise a line, so treat the list as a lead. A survivor reused with
 `--incremental` was not run again, and the list says its tests passed in an
-earlier run. The HTML page shows the same list in the
+earlier run. `--fail-fast` (serial runs only) stops after the first subject
+that has a survivor the ignore list does not accept. The report then covers
+only the subjects that ran: the terminal says which subjects did not run, the
+JSON report has an `earlyStop` field naming them (`exitCause` is `failFast`),
+`--agent` reports status `partial` with the reason `fail_fast`, and the run
+always exits 1, so no `--threshold` can pass it. It cannot be used with
+`baseline` evidence. Survivors that share a line are printed together only
+when their covering tests, reuse status and changed lines are identical;
+otherwise each distinct set of evidence is printed above its own mutations.
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant. The HTML page shows the same list in the
 survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
@@ -280,6 +304,10 @@ RanAtLoad and Unreachable out and keeps survivors accepted on the ignore list
 in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
+
+[Scores](docs/scores.md) defines each number on this page: the covered score, the
+score a Stryker dashboard shows, the assertion and crash split, and what makes a run
+incomplete.
 
 The score is split by how the mutant was killed. A crash kill (a `NoMethodError`,
 a `TypeError`, a parse error) shows the code ran and broke, not that a test
@@ -319,6 +347,8 @@ touches, and each finding carries them as `changedLines`. Use `changedLines`,
 not `line`, to put a note on a changed line of the pull-request diff. A
 whole-body mutant of a method whose only change is its signature touches no
 changed line and prints none.
+
+New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md) walks one from the diff to the test that kills it.
 
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `--threshold`; 1 survivors, or the score is below `--threshold` or missing;
@@ -768,3 +798,13 @@ Local evidence protects against edits to the public proposal except review reaso
 A baseline that changes during `check` is rejected as configuration/evidence error (exit 2), not an incomplete execution result. Acceptance leaves a private `baseline.json.lock` beside the destination: keep it for cooperating-process publication locks. It contains no evidence or results. Symlinked checkout parents are normalized; symlink artifacts themselves and private-store/lock symlinks are still refused.
 
 The builtin `endpoint_replacement` operator swaps explicit, no-argument `first`/`last` calls. It targets wrong-end/order-selection faults in collection handling. Argument-bearing slices, bare calls and block-bearing APIs are left unchanged. Receivers are not statically typed: a custom object may implement either name differently, so a crash remains a crash kill, not proof of a collection assertion.
+
+### Preview and choose operators
+
+`bundle exec saboteur run --dry-run` discovers source methods and generates candidates without booting the app, running tests, forking, or writing reports/caches. It honors `--since`, `--subject` and source arguments. It prints per-method counts and cap omissions. After a matching normal run, a cached estimate shows baseline covering-test work (cached original-test durations times planned mutants; it is not a bound on mutant runtime and excludes boot and fork costs). If any file cannot be parsed, the total is marked INCOMPLETE and no estimate is given.
+
+Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `sources` entries (`path.rb:ClassName`) are still `require`d to generate candidates, so their code runs. Only preview with sources you trust.
+
+`bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains today's operators, extended is reserved for new opt-in operators. Empty/default selection keeps all current operators. Selection changes invalidate incremental verdict identity.
+
+Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).
