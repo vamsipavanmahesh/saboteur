@@ -156,6 +156,12 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(nested.map(&:id)).to eq(["A#arg_def", "A::Thing#own_def"])
   end
 
+  it "does not give a block argument (&-> { }) the factory's new class as owner" do
+    found = subjects_in("Thing = Class.new(&-> { def m; end })\n")
+    expect(found.map(&:id)).to eq(["(anonymous block)#m"])
+    expect(found.first.skip_reason).to eq("defined inside a block")
+  end
+
   it "keeps walking a factory call that has no block of its own" do
     found = subjects_in("Thing = Class.new(Base.build do\n  def m; end\nend)\n")
     expect(found.map { |subject| [subject.id, subject.skip_reason] })
