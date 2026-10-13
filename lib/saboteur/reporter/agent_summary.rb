@@ -34,7 +34,7 @@ module Saboteur
           private
 
           def status_of(report, incomplete)
-            return "not_applicable" if report.results.empty? && report.skipped_subjects.empty?
+            return "not_applicable" if report.results.empty? && incomplete.empty?
 
             incomplete.empty? ? "complete" : "partial"
           end
