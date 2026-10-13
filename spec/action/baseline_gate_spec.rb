@@ -268,4 +268,27 @@ RSpec.describe "action/run-baseline-gate" do
       expect(outputs.fetch("baseline-score-drop").fetch("value")).to include("baseline-score-drop")
     end
   end
+
+  # macOS runners ship Bash 3.2. These constructs need Bash 4 or later.
+  describe "Bash 3.2 portability" do
+    bash4 = Regexp.union(
+      /\b(mapfile|readarray|coproc)\b/, /declare\s+-[A-Za-z]*A/, /local\s+-[A-Za-z]*[nA]\b/,
+      /\$\{[A-Za-z_]+(,,|\^\^)/, /&>>/, /\|&/, /wait\s+-n\b/
+    )
+
+    it "recognizes Bash 4 constructs, so the check below can fail" do
+      expect("mapfile -t parsed <<<\"$x\"").to match(bash4)
+      expect("declare -A seen").to match(bash4)
+      expect("name=${value,,}").to match(bash4)
+      expect("while IFS= read -r line; do parsed+=(\"$line\"); done <<<\"$x\"").not_to match(bash4)
+    end
+
+    %w[run-baseline-gate run-saboteur].each do |name|
+      it "keeps action/#{name} free of Bash 4 constructs" do
+        lines = File.readlines(File.expand_path("../../action/#{name}", __dir__))
+        offenders = lines.reject { |line| line.lstrip.start_with?("#") }.grep(bash4)
+        expect(offenders).to eq([])
+      end
+    end
+  end
 end
