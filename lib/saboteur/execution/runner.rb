@@ -74,7 +74,12 @@ module Saboteur
         Process.setproctitle(title(job))
         redirect_output(job.log_path)
         @hooks.run(:after_fork)
+        # Before the evaluation: a whole-file subject runs the file's own
+        # top-level code there, and it must see the run's random numbers.
+        Kernel.srand(@seed)
         @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
+        replaced = @reevaluator.replaced_definition(job.subject)
+        Protocol.emit(writer, "replaced", site: replaced) if replaced
         stale = stale_captures(job)
         Protocol.emit(writer, "captures", site: stale.first, stale: stale.size) if stale.any?
         Protocol.emit(writer, "started")
@@ -198,10 +203,25 @@ module Saboteur
 
       def classify_events(result, events, runtime, job)
         outcome = classify_result(result, runtime, job.test_ids)
+        replaced = events.find { |event| event["event"] == "replaced" }
+        return replaced_by_later_definition(outcome, replaced) if never_ran?(outcome, replaced, job)
+
         captures = events.find { |event| event["event"] == "captures" }
         return unreachable(outcome, captures) if unobservable?(outcome, captures, job, result["replacement_called"])
 
         outcome
+      end
+
+      # A surviving mutant whose definition a later one in the same file
+      # replaced: the tests could not have run it, so it is no verdict on them.
+      def never_ran?(outcome, replaced, job)
+        replaced && job.mutation && outcome.status == :survived
+      end
+
+      def replaced_by_later_definition(outcome, replaced)
+        Outcome.new(status: :unreachable, runtime: outcome.runtime,
+                    message: "the whole-file evaluation left another definition in place " \
+                             "(#{replaced['site']}), so this mutant never ran")
       end
 
       # Only mutant runs convert: the verdict check re-evaluates the
