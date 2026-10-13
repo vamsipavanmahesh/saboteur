@@ -37,7 +37,50 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "prints the survivor's source line and a hint once per line, with one compact line per mutation" do
     text = render(report_of(result_for(:survived), result_for(:survived, replacement: "<=")))
     expect(text.scan("      2: def adult?; @age >= 18; end").size).to eq(1)
-    expect(text).to include("- comparison >= -> > ", "- comparison >= -> <= ", "hint: no example sits on the boundary")
+    expect(text).to include("- comparison >= -> > ", "- comparison >= -> <= ", "hint: try an example at the boundary",
+                            "Hints are suggestions, not diagnoses")
+  end
+
+  it "words the timeout legend as an exceeded deadline, not a hang" do
+    text = render(report_of(result_for(:timeout)))
+    expect(text).to include("timeout: exceeded its deadline")
+    expect(text).not_to include("hung")
+  end
+
+  it "does not diagnose a missing example or assertion in any hint" do
+    hints = Saboteur::Reporter::SurvivorHints::BY_OPERATOR.values + [Saboteur::Reporter::SurvivorHints::COARSE]
+    expect(hints).to all(start_with("try "))
+    expect(hints.join(" ")).not_to match(/\bno (example|assertion|test)\b/)
+  end
+
+  it "prints the hint caveat only when a hint was shown" do
+    expect(render(report_of(result_for(:killed)))).not_to include("Hints are suggestions")
+    ignored = result_for(:survived).tap { |result| result.ignored = "equivalent" }
+    expect(render(report_of(ignored))).not_to include("Hints are suggestions")
+  end
+
+  it "keeps each same-line mutant's own covering tests, reuse and order" do
+    a = result_for(:survived, replacement: ">", covered_by: ["./spec/a_spec.rb[1:1]", "./spec/a_spec.rb[1:2]"])
+    b = result_for(:survived, replacement: "<=", covered_by: ["./spec/a_spec.rb[1:2]", "./spec/a_spec.rb[1:1]"])
+    c = result_for(:survived, replacement: "==", covered_by: ["./spec/c_spec.rb[1:1]"], reused: true)
+    same = result_for(:survived, replacement: "!=", covered_by: ["./spec/c_spec.rb[1:1]"], reused: true)
+    text = render(report_of(a, b, c, same))
+    expect(text.scan("tests covered this line and still passed").size).to eq(2)
+    expect(text.scan("covered this line and passed in an earlier run").size).to eq(1)
+    expect(text.index("-> > ")).to be < text.index("c_spec.rb[1:1]")
+    first_block = text[/(?<=2 tests covered this line and still passed).*?(?=- comparison >= -> <=)/m]
+    expect(first_block).to include("a_spec.rb[1:1]\n        ./spec/a_spec.rb[1:2]")
+    expect(text).to match(%r{\./spec/a_spec\.rb\[1:2\]\n\s+\./spec/a_spec\.rb\[1:1\]})
+    expect(text.scan("1 test covered this line and passed in an earlier run").size).to eq(1)
+  end
+
+  it "says where the run stopped early and which subjects did not run" do
+    report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file),
+                                  early_stop: Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y]))
+    text = render(report)
+    expect(text).to include("stopped early (--fail-fast): 2 selected subjects did not run",
+                            "not run: A#x", "not run: B#y")
   end
 
   it "points at the mutated line, not the def line" do
