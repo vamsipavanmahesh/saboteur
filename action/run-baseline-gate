@@ -182,7 +182,9 @@ if [ "$saboteur_status" -le 1 ]; then
   fi
   # One field per line: a tab-separated read would collapse empty fields and shift the columns.
   # The command substitution drops trailing empty lines, so a missing last field reads as empty.
-  mapfile -t parsed <<<"$fields"
+  # A read loop, not mapfile: macOS ships Bash 3.2, which has no mapfile.
+  parsed=()
+  while IFS= read -r line || [ -n "$line" ]; do parsed+=("$line"); done <<<"$fields"
   state="${parsed[0]:-}" new="${parsed[1]:-0}" changed="${parsed[2]:-0}" unmatched="${parsed[3]:-0}"
   errors="${parsed[4]:-0}" baseline_score="${parsed[5]:-}" current_score="${parsed[6]:-}" drop="${parsed[7]:-}"
   exceeded="${parsed[8]:-}"
