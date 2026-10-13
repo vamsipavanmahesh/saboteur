@@ -124,6 +124,7 @@ unified diff for every survivor, so you can read the exact change your tests
 missed. The JSON report lands in `.saboteur/report.json`.
 
 📋 Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
+Minitest is not supported; see [Minitest](docs/minitest.md) for why and what it would take.
 
 ## 🧠 Why it is built the way it is
 
