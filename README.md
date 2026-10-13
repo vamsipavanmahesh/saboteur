@@ -809,3 +809,9 @@ one score-history JSONL record per finished report. History is off by default;
 changes are printed to stderr, not agent stdout. See [score definitions and
 history limits](docs/scores.md). The file can be uploaded by your own artifact
 step; the bundled Action's upload behavior is unchanged.
+
+Score history now refuses non-regular files, symlink paths and report/history
+inode aliases before running the engine or writing reports. Imported records
+have a 64 KiB per-line bound and strict version-one validation, including
+counts, scores and duplicate keys. History is an output, excluded from baseline
+fingerprints. See [history safety and comparison limits](docs/scores.md).
