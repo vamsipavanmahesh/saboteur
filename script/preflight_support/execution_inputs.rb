@@ -49,23 +49,29 @@ module Preflight
 
     # Dependency identity: runs Bundler, which evaluates the candidate's Gemfile. The runner calls this only
     # after the protected-path checks passed. It records gem names and versions, not their source contents.
+    # Explicit preparation, run once before the "before" fingerprint. In a fresh checkout there is no lockfile and
+    # the first Bundler command that resolves would create it in the middle of the run. This creates it from
+    # locally installed gems only (no network), then requires the effective lockfile to exist. Nothing else
+    # calls it, so a lockfile deleted during the checks is seen as a change, never silently recreated.
+    def prepare_lockfile
+      if bundler_files[:lockfile].last == "absent"
+        result = @runner.run(%w[bundle lock --local], timeout: 120)
+        unless result.succeeded?
+          raise ExecutionGap,
+                "cannot prepare the lockfile: #{result.problem || result.stderr.strip}"
+        end
+      end
+      return unless bundler_files[:lockfile].last == "absent"
+
+      raise ExecutionGap, "lock preparation succeeded but #{bundler_files[:lockfile].first} does not exist"
+    end
+
+    # Read-only: never writes the lockfile.
     def dependency_digest
-      prepare_lockfile
       Digest::SHA256.hexdigest(JSON.generate(bundler: bundler_version, bundled_gems: bundled_gems))
     end
 
     private
-
-    # In a fresh checkout there is no lockfile and the first Bundler command that resolves would create it in the
-    # middle of the run. Create it here, from locally installed gems only (no network), so the run starts stable.
-    def prepare_lockfile
-      return unless bundler_files[:lockfile].last == "absent"
-
-      result = @runner.run(%w[bundle lock --local], timeout: 120)
-      return if result.succeeded?
-
-      raise ExecutionGap, "cannot prepare the lockfile: #{result.problem || result.stderr.strip}"
-    end
 
     def same_but_new_lockfile?(before, after)
       JSON.generate(without_new_lockfile(before, after)) == JSON.generate(before)
