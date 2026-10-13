@@ -30,8 +30,9 @@ module Saboteur
 
       def agent_run(arguments)
         tree = WorkingTree.new(config.root, ignored: config.output_paths).state
-        report = stdout_on_stderr { Engine.new(config, **arguments).call }
-        payload = Reporter::Agent.call(report, agent_provenance(report, tree))
+        engine = Engine.new(config, **arguments)
+        report = stdout_on_stderr { engine.call }
+        payload = Reporter::Agent.call(report, agent_provenance(report, tree, engine))
         rendered = Reporter::Agent.render(payload)
         # Same publish order as text_run: the JSON is the completion
         # evidence, so it is written only after every other fallible stage,
