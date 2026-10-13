@@ -149,6 +149,13 @@ RSpec.describe Saboteur::SubjectFinder do
     end
   end
 
+  it "keeps an argument's block in the enclosing scope next to the factory's own block" do
+    source = "Thing = Class.new(Base.build do\n  def arg_def; end\nend) do\n  def own_def; end\nend\n"
+    expect(subjects_in(source).map(&:id)).to eq(["(anonymous block)#arg_def", "Thing#own_def"])
+    nested = subjects_in("class A\n  Thing = Class.new(wrap { def arg_def; end }) { def own_def; end }\nend\n")
+    expect(nested.map(&:id)).to eq(["A#arg_def", "A::Thing#own_def"])
+  end
+
   it "keeps walking a factory call that has no block of its own" do
     found = subjects_in("Thing = Class.new(Base.build do\n  def m; end\nend)\n")
     expect(found.map { |subject| [subject.id, subject.skip_reason] })
