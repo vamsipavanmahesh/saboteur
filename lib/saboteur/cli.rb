@@ -130,9 +130,7 @@ module Saboteur
 
       return preview if options[:list_operators] || options[:dry_run]
 
-      arguments = { err: @err }
-      arguments[:digest] = options[:id] if options[:id]
-      agent? ? agent_run(arguments) : text_run(Engine.new(config, **arguments).call)
+      execute_run
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
       agent_failure(e.message, EXIT_USAGE)
