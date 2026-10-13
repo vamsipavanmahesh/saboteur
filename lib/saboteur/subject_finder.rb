@@ -75,8 +75,10 @@ module Saboteur
       call = node.value
       return node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) } unless class_factory?(call)
 
-      scope = Scope.new(kind: :class, path: node.name.to_s)
-      walk(call.block, nesting + [scope], out, **ctx)
+      # The receiver and arguments stay in the enclosing scope; only the
+      # factory's own block belongs to the new class.
+      (call.compact_child_nodes - [call.block]).each { |child| walk(child, nesting, out, **ctx) }
+      walk(call.block, nesting + [Scope.new(kind: :class, path: node.name.to_s)], out, **ctx)
     end
 
     def class_factory?(call)
