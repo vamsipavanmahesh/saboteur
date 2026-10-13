@@ -11,6 +11,10 @@ module Saboteur
     # including string and numeric literals, are compared exactly (2 and 2.0 differ, and so do +0.0 and -0.0).
     class BytecodeEquivalence
       ISEQ_MAGIC = "YARVInstructionSequence/SimpleDataFormat"
+      # Operand types whose eql? is exact. Anything else (an unknown object,
+      # a type that could hold a Float) is never called equal, so its
+      # mutant still runs.
+      PLAIN = [Integer, String, Symbol, Rational, Regexp, NilClass, TrueClass, FalseClass].freeze
       POSITION_EVENT = /\ARUBY_EVENT_/
 
       # True when mutated_text compiles to the same instructions as the
@@ -49,9 +53,19 @@ module Saboteur
       def exact?(left, right)
         case left
         when Array then right.is_a?(Array) && left.size == right.size && left.zip(right).all? { |l, r| exact?(l, r) }
-        when Hash then right.is_a?(Hash) && exact?(left.to_a, right.to_a)
+        when Hash, Complex, Range then right.instance_of?(left.class) && exact?(parts(left), parts(right))
         when Float then right.is_a?(Float) && [left].pack("G") == [right].pack("G")
-        else left.eql?(right)
+        when *PLAIN then left.eql?(right)
+        else false
+        end
+      end
+
+      # The values a composite operand is made of, compared one by one.
+      def parts(value)
+        case value
+        when Hash then value.to_a
+        when Complex then value.rectangular
+        else [value.begin, value.end, value.exclude_end?]
         end
       end
 
