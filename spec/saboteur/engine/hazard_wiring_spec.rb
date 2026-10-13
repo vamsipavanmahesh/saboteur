@@ -134,4 +134,26 @@ RSpec.describe Saboteur::Engine, "hazard guard wiring (issue #102)" do
     expect(canary).to receive(:check!).with(subject:, digest: d2)
     check.call(subject, [reused])
   end
+
+  it "picks the most recent result for the canary digest, never the oldest" do
+    subject = rm_rf_subject
+    m1 = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                edits: [edit_for(subject, "build")])
+    m2 = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                edits: [edit_for(subject, "rm_rf")])
+    d2 = m2.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+    fresh1 = Saboteur::MutantResult.new(subject:, mutation: m1, status: :killed, mutated_source: "x")
+    fresh2 = Saboteur::MutantResult.new(subject:, mutation: m2, status: :killed, mutated_source: "x")
+    reused1 = Saboteur::MutantResult.new(subject:, mutation: m1, status: :killed, mutated_source: "x",
+                                         reused: true)
+    reused2 = Saboteur::MutantResult.new(subject:, mutation: m2, status: :killed, mutated_source: "x",
+                                         reused: true)
+    canary = instance_double(Saboteur::Engine::Canary)
+    allow(Saboteur::Engine::Canary).to receive(:new).and_return(canary)
+    check = engine.send(:canary_check)
+    expect(canary).to receive(:check!).with(subject:, digest: d2)
+    check.call(subject, [fresh1, fresh2])
+    expect(canary).to receive(:check!).with(subject:, digest: d2)
+    check.call(subject, [reused1, reused2])
+  end
 end
