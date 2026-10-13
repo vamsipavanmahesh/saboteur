@@ -323,4 +323,20 @@ Saboteur.ignore do |i|
   i.mutation "eb6af4aef069613b",
              subject: "Saboteur::Engine::Scheduler#uncoverable",
              reason: "equivalent: skip_all receives exactly one candidate here, so first and last return the same result"
+
+  i.mutation "560fd49376706c7c",
+             subject: "Saboteur::Config#validate_fail_fast!",
+             reason: "equivalent: jobs is validated as at least 1 before this check, so jobs > 1 and jobs != 1 agree for every value that reaches it"
+
+  i.mutation "90c137059dc758bd",
+             subject: "Saboteur::Reporter::SurvivorList#lines",
+             reason: "equivalent: the mutants on one line belong to one subject and share its id and source line, so the first and the last print the same header"
+
+  i.mutation "bc3002bc8baaf16b",
+             subject: "Saboteur::Reporter::SurvivorList#evidence_group",
+             reason: "equivalent: a group is keyed by covering tests, reuse and changed lines, so every member prints the same evidence"
+
+  i.mutation "d32490123aa331d1",
+             subject: "Saboteur::Reporter::SurvivorList#mutation",
+             reason: "equivalent: the branch runs only when hidden is positive, and for a positive integer hidden > 1 and hidden != 1 agree"
 end
