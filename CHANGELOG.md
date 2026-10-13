@@ -1,5 +1,7 @@
 # Changelog
 
+- Add audited inline suppression comments with required reasons. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
+
 - Add source-only --dry-run, --list-operators and --operators selection. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
 
 All notable changes are documented here. The format follows
