@@ -115,6 +115,22 @@ RSpec.describe Saboteur::Preview do
     end
   end
 
+  it "reports no estimate when the coverage map itself has the wrong shape" do
+    settings = config
+    FileUtils.mkdir_p(File.join(root, ".saboteur"))
+    identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
+    map = File.join(root, ".saboteur", "bad.json")
+    [{ format: Saboteur::Selection::CoverageMap::FORMAT, tests: 1, lines: [], durations: [] },
+     { format: Saboteur::Selection::CoverageMap::FORMAT, tests: ["t"], lines: { "f" => { "1" => [5] } },
+       durations: [] }].each do |body|
+      File.write(map, JSON.generate(body))
+      File.write(File.join(root, ".saboteur", "preview.json"), JSON.generate(path: map, fingerprint: identity))
+      out.truncate(0)
+      expect { preview(settings).call }.not_to raise_error
+      expect(out.string).to include("no estimate: run once")
+    end
+  end
+
   it "uses a replaced hazard list rather than the default" do
     settings = config(hazard: ["x.+"])
     guard = instance_double(Saboteur::MutationSource::HazardGuard)
