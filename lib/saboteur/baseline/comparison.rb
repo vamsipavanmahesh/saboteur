@@ -71,11 +71,13 @@ module Saboteur
 
       # Percent of scored mutants that were detected, as saboteur's own score
       # counts them: killed and timed out over killed, timed out and survived.
+      # An exact Rational, so the drop is compared with epsilon without
+      # binary float error.
       def percent_detected(candidates)
         scored = candidates.select { |entry| SCORED_STATUSES.include?(entry.fetch("status")) }
         return nil if scored.empty?
 
-        scored.count { |entry| DETECTED_STATUSES.include?(entry.fetch("status")) } * 100.0 / scored.size
+        Rational(scored.count { |entry| DETECTED_STATUSES.include?(entry.fetch("status")) } * 100, scored.size)
       end
 
       def score_change(baseline, current, epsilon)
@@ -84,8 +86,9 @@ module Saboteur
         return nil unless accepted && measured
 
         drop = accepted - measured
-        { "baseline" => accepted, "current" => measured, "drop" => drop, "epsilon" => epsilon,
-          "exceeded" => drop > epsilon }
+        # The epsilon as the decimal the user typed, not its binary float.
+        { "baseline" => accepted.to_f, "current" => measured.to_f, "drop" => drop.to_f, "epsilon" => epsilon,
+          "exceeded" => drop > Rational(epsilon.to_s) }
       end
 
       def order(entry)
