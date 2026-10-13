@@ -67,3 +67,28 @@ RSpec.describe "script/preflight", :fixture do
     expect([status.exitstatus, err, out]).to match([3, /incomplete: output directory/, ""])
   end
 end
+
+RSpec.describe "preflight invocation form" do
+  let(:root) { File.expand_path("../../..", __dir__) }
+
+  it "documents and reports only the `ruby script/preflight` form, never direct execution" do
+    %w[README.md AGENTS.md docs/preflight.md].each do |file|
+      text = File.read(File.join(root, file))
+      direct = text.lines.grep(%r{(?<!ruby )(?<![\w/.])script/preflight --})
+      expect(direct).to eq([]), "#{file} runs script/preflight directly: #{direct.first}"
+    end
+  end
+
+  it "has no shebang, because it is not executable and Lint/ScriptPermission would flag one" do
+    expect(File.read(File.join(root, "script/preflight")).lines.first).not_to start_with("#!")
+  end
+
+  it "does not depend on the executable bit anywhere in the specs" do
+    specs = Dir[File.join(root, "spec/script/preflight/*_spec.rb")]
+    expect(specs.grep_v(/entrypoint_spec/).select do |f|
+      File.read(f).include?("File.executable?(entrypoint")
+    end).to eq([])
+    expect(File.read(File.join(root,
+                               "spec/script/preflight/entrypoint_spec.rb"))).to include("RbConfig.ruby, entrypoint")
+  end
+end
