@@ -118,6 +118,38 @@ which.
 A pull request is also limited by what diff mode selects, and by the
 `max_mutants_per_method` cap. The score says nothing about the whole project.
 
+## Failing on new survivors with a baseline
+
+Accept today's survivors once with `saboteur baseline propose` and
+`saboteur baseline accept` (see the README), commit the baseline file, then set
+two inputs:
+
+```yaml
+- uses: vamsipavanmahesh/saboteur@main
+  with:
+    baseline: config/saboteur-baseline.json
+    baseline-epsilon: "2"
+    fail-on-survivors: "true"
+```
+
+With `baseline` set, the action runs `saboteur baseline check` on the whole
+project instead of the diff-mode run, so the `score`, `killed`, `survivors` and
+report outputs stay empty and no annotations are written. The check fails on new,
+changed or unmatched survivors. `baseline-epsilon` (0 to 100, percentage points)
+adds a second failure: the fresh score is more than that far below the score
+recorded in the baseline. A score that rose never fails. Without
+`fail-on-survivors: "true"` a review-needed result is a warning and the step stays
+green, as in diff mode; an invalid, incompatible or incomplete check always fails
+the step. Outputs: `baseline-state` (`clean`, `review_required`, `incompatible`
+or `incomplete`) and `baseline-score-drop`. Do not pass `--baseline`, `--epsilon`,
+`--proposal` or `--previous` in `arguments`; the action sets them. Unlike the
+diff-mode run, the baseline check runs on any event except `pull_request_target`,
+which it refuses.
+
+A whole-project check runs every mutant, so it costs far more than a pull request
+run. Use it on a schedule or on pushes to your main branch rather than on every pull
+request, and keep the diff-mode run for pull requests.
+
 ## Going from advisory to enforced
 
 1. Run in advisory mode for a while and read the job summaries.
@@ -153,8 +185,8 @@ cached.
 - **No installation check in another repository yet.** The dogfood job runs
   the action on this repository only. Treat `@main` as a preview until a
   release has been tried on an outside project.
-- **No baseline file.** There is no way yet to accept today's survivors and
-  fail only on new ones. See the [roadmap](../ROADMAP.md).
+- **The baseline gate is a whole-project check, not a diff-mode run.** See
+  "Failing on new survivors with a baseline" above.
 
 ## Packaging
 
