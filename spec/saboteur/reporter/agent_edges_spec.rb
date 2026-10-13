@@ -79,6 +79,18 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       payload_for(report)[:incomplete]
     end
 
+    it "names the subjects a --fail-fast stop left unrun" do
+      stop = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y])
+      report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1.0,
+                                    root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
+      expect(reasons(report)).to include(
+        reason: "fail_fast", count: 2,
+        meaning: "selected subjects did not run because --fail-fast stopped the run"
+      )
+      whole = Array(reasons(report_of(result_for(:survived)))).map { |reason| reason[:reason] }
+      expect(whole).not_to include("fail_fast")
+    end
+
     it "says what no coverage means, adding skipped subjects and skipped mutants" do
       report = Saboteur::Report.new(results: [result_for(:skipped, reason: "no coverage"),
                                               result_for(:skipped, replacement: "<", reason: "no coverage")],
