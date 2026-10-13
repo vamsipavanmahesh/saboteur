@@ -25,10 +25,16 @@ module Saboteur
             add(reasons, "resource_limit", report.counts[:resource_limit], "mutants hit the memory or process cap")
             add(reasons, "fail_fast", report.early_stop&.unreached&.size.to_i,
                 "selected subjects did not run because --fail-fast stopped the run")
+            inline_scope(reasons, report)
             reasons
           end
 
           private
+
+          def inline_scope(reasons, report)
+            add(reasons, "inline_suppressed", report.inline_suppressions.size,
+                "candidates were suppressed by inline directives; see the full report audit")
+          end
 
           def add(reasons, code, count, meaning)
             reasons << { reason: code, count: count, meaning: meaning } if count.positive?

@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "prism"
+require_relative "../inline_suppression"
 
 module Saboteur
   class Engine
@@ -39,11 +40,21 @@ module Saboteur
         list = @sources.flat_map { |source| proposals(source, subject) }.filter_map do |mutation|
           candidate(subject, mutation, seen)
         end
+        list = suppress_inline(list, subject)
         list = suppress_hazards(list, subject)
         list.sort_by.with_index { |(mutation, _), index| [mutation.coarse ? 0 : 1, index] }
       end
 
       private
+
+      def suppress_inline(list, subject)
+        directives = InlineSuppression.new(subject.file, subject.file_source)
+        list.reject do |mutation, _text|
+          directive = directives.reason(subject, mutation)
+          @diagnostics.record_inline_suppression(subject, mutation, directive) if directive
+          directive
+        end
+      end
 
       # The hazard guard (issue #102) refuses mutants that would leave a
       # destructive call running with altered inputs; each refusal is counted.

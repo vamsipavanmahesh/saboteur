@@ -30,6 +30,7 @@ module Saboteur
         errors(report)
         skipped_subjects(report)
         outside_the_score(report)
+        inline_suppressions(report)
         warnings(report)
         early_stop(report)
         test_matrix(report)
@@ -64,6 +65,17 @@ module Saboteur
         tests.first(TestMatrix::MAX_LISTED).each { |test| @out.puts "    #{test}  #{yield(test)}" }
         more = tests.size - TestMatrix::MAX_LISTED
         @out.puts "    ... #{more} more" if more.positive?
+      end
+
+      def inline_suppressions(report)
+        return if report.inline_suppressions.empty?
+
+        @out.puts("Inline suppressions: #{report.inline_suppressions.size} (outside the score)")
+        report.inline_suppressions.each do |entry|
+          path = entry[:file].delete_prefix("#{report.root}/")
+          @out.puts("  #{path}:#{entry[:line]} #{entry[:subject]} #{entry[:operator]} " \
+                    "#{entry[:digest]}: #{entry[:reason]}")
+        end
       end
 
       def summary(report)

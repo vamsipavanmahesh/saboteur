@@ -19,6 +19,7 @@ module Saboteur
       guard = MutationSource::HazardGuard.new(@config["hazard"]) unless @config["allow_hazardous"]
       candidates = Engine::Candidates.new(Engine::Candidates.build_sources(@config), @diagnostics, hazard_guard: guard)
       lists = subjects.map { |subject| planned(subject, candidates, scope) }
+      inline_suppressions
       incomplete = @diagnostics.discovery_failures.size
       @out.puts("Total: #{lists.sum(&:size)} mutants; #{@diagnostics.omissions.sum(&:count)} " \
                 "dropped by max_mutants_per_method#{incomplete_note(incomplete)}")
@@ -28,6 +29,21 @@ module Saboteur
     end
 
     private
+
+    # Candidate filtering precedes diff restriction and the per-method cap.
+    # Name that scope rather than implying these rows were executed or scored.
+    def inline_suppressions
+      entries = @diagnostics.inline_suppressions
+      return if entries.empty?
+
+      @out.puts("Inline suppressions: #{entries.size} candidates in selected methods " \
+                "(before diff restriction and per-method cap; outside the planned total)")
+      entries.each do |entry|
+        path = entry[:file].delete_prefix("#{@config.root}/")
+        @out.puts("  #{path}:#{entry[:line]} #{entry[:subject]} #{entry[:operator]} " \
+                  "#{entry[:digest]}: #{entry[:reason]}")
+      end
+    end
 
     def incomplete_note(count)
       return "" if count.zero?

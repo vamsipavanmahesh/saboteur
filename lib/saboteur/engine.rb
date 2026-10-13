@@ -117,7 +117,7 @@ module Saboteur
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
-                 matrix: config["matrix"])
+                 matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions)
     end
 
     def complete_evidence(results, subjects)
@@ -126,7 +126,8 @@ module Saboteur
       @run_evidence.plan(subjects, subjects.map { [] }) unless @evidence_planned
       @run_evidence.finish(results: results, stable_suite: @stable_suite, skipped_subjects: @skipped_subjects,
                            generation_events: @diagnostics.generation_events, omissions: @diagnostics.omissions,
-                           discovery_failures: @diagnostics.discovery_failures)
+                           discovery_failures: @diagnostics.discovery_failures,
+                           inline_suppressions: @diagnostics.inline_suppressions)
     end
 
     # The subjects to mutate and, in diff mode, the scope of changed lines.

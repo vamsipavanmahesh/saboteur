@@ -248,4 +248,16 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
     File.write(File.join(@root, "new.rb"), "changed")
     expect(finish.fetch("issues")).to include("inputs_unverified")
   end
+  it "retains inline audit scope and refuses completeness even with every selected verdict present" do
+    evidence.plan([subject], [[[mutation, subject.apply(mutation.edits)]]])
+    row = { file: subject.file, line: 1, subject: subject.id, operator: "number", reason: "elsewhere", digest: "abc" }
+    captured = evidence.finish(results: [result], stable_suite: true, skipped_subjects: {},
+                               generation_events: [], omissions: [], inline_suppressions: [row])
+    expect(captured.fetch("complete")).to be(false)
+    expect(captured.fetch("issues")).to eq(["generation:inline_suppressed:Probe#value:abc"])
+    expect(captured.fetch("inline_suppressions")).to eq([row.transform_keys(&:to_s).merge("file" => "probe.rb")])
+    expect(captured.fetch("inline_suppressions").first).to be_frozen
+    row[:reason] = "changed"
+    expect(captured.fetch("inline_suppressions").first.fetch("reason")).to eq("elsewhere")
+  end
 end

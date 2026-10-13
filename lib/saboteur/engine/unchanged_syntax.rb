@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "prism"
+require_relative "../inline_suppression"
 
 module Saboteur
   class Engine
@@ -30,6 +31,8 @@ module Saboteur
         before = base_subject(subject)
         return false unless before
 
+        return false unless suppression_signature(before) == suppression_signature(subject)
+
         before.frozen_literals == subject.frozen_literals && before.sig_source == subject.sig_source &&
           self.class.digest(before.node) == self.class.digest(subject.node)
       end
@@ -49,6 +52,10 @@ module Saboteur
       end
 
       private
+
+      def suppression_signature(subject)
+        InlineSuppression.new(subject.file, subject.file_source).signature(subject)
+      end
 
       def base_subject(subject)
         return nil unless current_subjects(subject).key?(subject.id)

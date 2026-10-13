@@ -33,6 +33,7 @@ module Saboteur
       def find(files)
         finder = SubjectFinder.new
         files.flat_map do |file|
+          InlineSuppression.new(file, File.read(file))
           parsed = finder.call(file)
           @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax") unless parsed.errors.empty?
           parsed.errors.first(1).each do |message|

@@ -63,7 +63,37 @@ RSpec.describe Saboteur::Preview do
 
   it "does not mark a clean discovery incomplete" do
     preview.call
-    expect(out.string).not_to include("INCOMPLETE")
+    expect(out.string).not_to include("INCOMPLETE", "Inline suppressions:")
+  end
+
+  [
+    ['def m(x); x + 1; end # saboteur:disable-line reason="all candidates"', true],
+    ['def m(x); x + 1; end # saboteur:disable-line arithmetic reason="operator subset"', false]
+  ].each do |definition, all|
+    it "audits #{all ? 'all' : 'a subset of'} inline-suppressed candidates without boot or writes" do
+      File.write(target.file, "class PreviewCases\n  #{definition}\nend\n")
+      settings = config
+      subject = Saboteur::SubjectFinder.new.call(target.file).subjects.first
+      diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+      candidates = Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new], diagnostics).for(subject)
+      entries = diagnostics.inline_suppressions
+      expect(entries).not_to be_empty
+      expect(candidates.empty?).to eq(all)
+      before = Dir.glob("#{root}/**/*", File::FNM_DOTMATCH).select { |file| File.file?(file) }
+                  .to_h { |file| [file, File.binread(file)] }
+      expect(Saboteur::Engine).not_to receive(:new)
+      preview(settings).call
+      expect(out.string).to include("Total: #{candidates.size} mutants",
+                                    "Inline suppressions: #{entries.size} candidates in selected methods",
+                                    "before diff restriction and per-method cap; outside the planned total")
+      entries.each do |entry|
+        expect(out.string).to include("#{File.basename(subject.file)}:#{entry[:line]} #{entry[:subject]} " \
+                                      "#{entry[:operator]} #{entry[:digest]}: #{entry[:reason]}")
+      end
+      after = Dir.glob("#{root}/**/*", File::FNM_DOTMATCH).select { |file| File.file?(file) }
+                 .to_h { |file| [file, File.binread(file)] }
+      expect(after).to eq(before)
+    end
   end
 
   def receipt(settings, durations: { "t1" => 0.25 }, fingerprint: nil)

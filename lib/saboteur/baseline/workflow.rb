@@ -72,7 +72,7 @@ module Saboteur
         restored = metadata.slice("snapshot", "subjects", "complete", "issues").merge(
           "compatibility" => manifest.compatibility, "candidates" => candidates,
           "planned" => candidates.map { |entry| entry.slice(*Evidence::PLAN_FIELDS) },
-          "generation_events" => [], "omissions" => [], "discovery_failures" => []
+          "generation_events" => [], "omissions" => [], "discovery_failures" => [], "inline_suppressions" => []
         )
         Evidence.new(restored)
         manifest
