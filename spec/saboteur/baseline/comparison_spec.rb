@@ -80,4 +80,69 @@ RSpec.describe Saboteur::Baseline::Comparison do
     expect(result.categories["detected_timeouts"]).to be_empty
     expect(result.exit_code).to eq(0)
   end
+
+  describe "the score-drop gate (epsilon)" do
+    def results(kills:, survivors:, timeouts: 0)
+      Array.new(kills) { |index| { "id" => "k#{index}", "status" => "killed", "context" => "c" } } +
+        Array.new(timeouts) { |index| { "id" => "t#{index}", "status" => "timeout", "context" => "c" } } +
+        Array.new(survivors) { |index| { "id" => "s#{index}", "status" => "survived", "context" => "c" } }
+    end
+
+    def gate(before_entries, now_entries, epsilon)
+      accepted = before_entries.select { |entry| entry["status"] == "survived" }
+                               .map { |entry| entry.slice("id", "context").merge("reason" => "known") }
+      described_class.new(baseline: before.merge("candidates" => before_entries, "accepted" => accepted),
+                          current: { "compatibility" => before["compatibility"], "complete" => true,
+                                     "issues" => [], "candidates" => now_entries },
+                          epsilon: epsilon)
+    end
+
+    it "is off without an epsilon and reports no score" do
+      result = gate(results(kills: 4, survivors: 1), results(kills: 1, survivors: 1), nil)
+      expect(result.score).to be_nil
+      expect(result.state).to eq("clean")
+    end
+
+    it "fails when removed kills lower the score by more than epsilon, with no survivor changed" do
+      result = gate(results(kills: 4, survivors: 1), results(kills: 1, survivors: 1), 5.0)
+      expect(result.categories["new"]).to be_empty
+      expect(result.categories["unmatched"]).to be_empty
+      expect(result.score).to eq("baseline" => 80.0, "current" => 50.0, "drop" => 30.0, "epsilon" => 5.0,
+                                 "exceeded" => true)
+      expect(result.state).to eq("review_required")
+      expect(result.exit_code).to eq(1)
+    end
+
+    it "passes a drop of exactly epsilon and fails a drop just above it" do
+      before_entries = results(kills: 3, survivors: 1)
+      now_entries = results(kills: 1, survivors: 1)
+      at_limit = gate(before_entries, now_entries, 25.0)
+      expect(at_limit.score).to include("drop" => 25.0, "exceeded" => false)
+      expect(at_limit.exit_code).to eq(0)
+      expect(gate(before_entries, now_entries, 24.9).exit_code).to eq(1)
+    end
+
+    it "never fails a score that rose, and counts a timeout as a kill" do
+      result = gate(results(kills: 1, survivors: 1), results(kills: 1, timeouts: 1, survivors: 1), 0.0)
+      expect(result.score).to include("baseline" => 50.0, "exceeded" => false)
+      expect(result.score["drop"]).to be_within(1e-9).of(-50.0 / 3)
+      expect(result.score["current"]).to be_within(1e-9).of(200.0 / 3)
+      expect(result.exit_code).to eq(0)
+    end
+
+    it "leaves incompatible baselines without a score" do
+      incompatible = described_class.new(baseline: before.merge("candidates" => results(kills: 1, survivors: 0)),
+                                         current: { "compatibility" => { "scope" => "other" }, "complete" => true,
+                                                    "issues" => [], "candidates" => results(kills: 0, survivors: 1) },
+                                         epsilon: 0.0)
+      expect(incompatible.exit_code).to eq(2)
+      expect(incompatible.score).to be_nil
+    end
+
+    it "keeps an incomplete run ahead of the score" do
+      result = gate(results(kills: 4, survivors: 1), results(kills: 1, survivors: 1) +
+                    [{ "id" => "e", "status" => "error" }], 0.0)
+      expect(result.exit_code).to eq(3)
+    end
+  end
 end
