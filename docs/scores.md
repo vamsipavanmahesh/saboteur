@@ -38,7 +38,7 @@ NoCoverage is a mutant skipped with the reason "no coverage": no test runs
 that code. Stryker-schema tools count it as undetected, so a dashboard that
 reads the JSON report can show a lower number than the covered score for the
 same run. The two agree when nothing lacks coverage. Saboteur's JSON report
-does not store this number; the history file (below) does.
+does not store this number.
 
 ## Assertion and crash kills
 
@@ -46,10 +46,11 @@ A kill is an assertion kill when a failed check caused it, and a crash kill
 when an error did (`NoMethodError`, `TypeError`, a parse error). A crash shows
 the code ran and broke, not that a test looked at a value. The terminal prints
 `score 100.0 % (assertion 50.0 %, crash 50.0 %)`. Each share is part of the
-tested mutants, so the shares add up to the covered score. Timeouts and kills
-with no recorded cause (a verdict reused from an older run, a test that called
-`exit`, a failure outside any example) are shown as their own parts when there
-are some.
+tested mutants, so the shares add up to the covered score. The split is shown
+only when at least one kill has a recorded cause. A kill has none when its
+verdict was reused from an older run, the test called `exit`, or the failure
+was outside any example. When the split is shown, timeouts and kills with no
+recorded cause get their own parts, but only if there are some.
 
 ## Without whole-body mutants
 
