@@ -365,6 +365,9 @@ module Saboteur
       opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
       opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
+      opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
+        set(:allow_focus, true)
+      end
     end
 
     def define_output_options(opts)
