@@ -32,6 +32,8 @@ module Saboteur
 
         map = refuse_empty_map(build(files), files)
         map.save(path)
+        File.write(File.join(@config.path("cache_dir"), "preview.json"),
+                   JSON.generate(path: path, fingerprint: RunFingerprint.new(config: @config).snapshot.digest))
         map
       end
 
