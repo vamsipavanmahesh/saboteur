@@ -1,7 +1,7 @@
-#!/usr/bin/env ruby
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+# Run as `ruby script/preflight ...` (the file need not be executable).
 # Local pre-review check of one exact base and head. See docs/preflight.md.
 # Exit 0: required automatic checks passed (not approval). 1: a check failed.
 # 2: invalid invocation or unverifiable inputs. 3: a check could not finish.
