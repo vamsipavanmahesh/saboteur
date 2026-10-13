@@ -138,6 +138,8 @@ module Saboteur
       # body, so it gets every test of the method), prior killers first, then
       # fastest-first.
       def tests_for(plan, mutation)
+        return self.class.prioritize(plan.tests, plan.killers) if mutation.coarse
+
         line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
         tests = plan.tests & @map.tests_for_edit(plan.subject, line_numbers)
         self.class.prioritize(tests, plan.killers)
