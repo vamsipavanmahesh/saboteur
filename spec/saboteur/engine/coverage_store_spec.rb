@@ -168,10 +168,22 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect { store.fetch([file]) }.to raise_error(
       Saboteur::Error,
       "Coverage recorded nothing in 1 included files during a whole-suite build. No test in the suite " \
-      "may exercise these files, or the setup hid the app from Coverage (Bootsnap's compile cache is " \
-      "the default Rails case). Run `saboteur doctor`."
+      "may exercise these files, or the setup hid the app from Coverage. Run `saboteur doctor`."
     )
     expect(cache_files).to be_empty
+  end
+
+  it "names Bootsnap as a possible cause only when Bootsnap is loaded" do
+    stub_const("Bootsnap", Module.new)
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+
+    expect { store.fetch([file]) }.to raise_error(
+      Saboteur::Error, /Coverage \(Bootsnap's compile cache is the default Rails case\)\. Run/
+    )
   end
 
   # An empty map cached by an older saboteur must not keep a run green.
