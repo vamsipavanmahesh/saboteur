@@ -101,6 +101,18 @@ a fresh checkout or a reclone - a deleted `.git` or uncommitted work is gone
 unless you have another copy. The canary is the backstop for the destructive
 forms the syntactic guard cannot see.
 
+On Linux 5.13 and later each mutant child also runs under a Landlock
+sandbox: the project tree is read-only for the child except `tmp/`, the
+cache dir and the system temp dir, so even a destructive call the guard
+missed and the canary has not caught yet cannot write outside them. Reads
+and process execution are unaffected. The sandbox applies to every mutant
+child, fails closed (a child that cannot restrict itself reports an error
+rather than run), and does not change how your tests see the tree. When the
+kernel is too old for Landlock the run notes once that children run with
+the guard and canary only; `c.sandbox = false` opts out. A checkout inside
+the system temp dir cannot be protected - everything under it stays
+writable so that real test suites keep working.
+
 
 ## 🚀 Try it in a minute
 
@@ -332,6 +344,7 @@ Saboteur.configure do |c|
   c.max_processes = 64
   c.max_mutants_per_method = 100 # positive integer; raise it for a broader run
   c.hazard = Saboteur::MutationSource::HazardGuard::DEFAULT_HAZARD # calls whose arguments are never mutated
+  c.sandbox = true               # read-only project tree for mutant children (Linux 5.13+)
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
