@@ -25,6 +25,19 @@ RSpec.describe Saboteur::Selection::CoverageMap, "branch selection" do
     expect(map.tests_for_branches(target, [edit("10")])).to eq(["yes"])
   end
 
+  it "still calls a multi-line arm untaken when tests hit only its first or last line" do
+    arms[[2, 2, 4, 5]] = []
+    boundary = described_class.new(lines: { target.file => { 2 => %w[yes], 4 => %w[yes] } }, tests: %w[yes],
+                                   branches: { target.file => arms })
+    expect(boundary.tests_for_branches(target, [edit("10")])).to eq([])
+  end
+
+  it "calls a multi-line arm no test touched untaken" do
+    arms[[2, 2, 4, 5]] = []
+    untouched = described_class.new(lines: {}, tests: %w[yes], branches: { target.file => arms })
+    expect(untouched.tests_for_branches(target, [edit("10")])).to eq([])
+  end
+
   it "leaves condition and whole-expression changes to normal selection" do
     expect(map.tests_for_branches(target, [edit("x ?")])).to be_nil
     expect(map.tests_for_branches(target, [edit("x ? 10 : 20")])).to be_nil
