@@ -1,7 +1,5 @@
 # Changelog
 
-- Add source-only --dry-run, --list-operators and --operators selection. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
-
 All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
@@ -9,6 +7,13 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `--dry-run` previews planned mutants per method and the max_mutants_per_method
+  omissions without booting the app, running tests, forking or writing reports
+  (#134). A file that does not parse marks the total INCOMPLETE. A cached
+  estimate is baseline covering-test work, not a bound on mutant runtime.
+  Custom sources are still required during a dry run. `--list-operators` and
+  `--operators` list and select builtin operators. Inspired by mutineer
+  (github.com/davidteren/mutineer, MIT, by David Teren).
 - A startup warning on stderr when the working tree has uncommitted changes,
   because mutants run your code and could alter or delete files. Saboteur's own
   output paths do not count as changes.
