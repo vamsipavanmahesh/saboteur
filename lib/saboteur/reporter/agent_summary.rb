@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "findings"
+require_relative "survivor_hints"
 require_relative "agent_incomplete"
 require_relative "agent_clipping"
 
@@ -97,7 +98,14 @@ module Saboteur
                      .merge(path: clip_value(finding[:path], 200), subject: clip_value(finding[:subject], 200),
                             original: clip(finding[:original], snippet_limit),
                             replacement: clip(finding[:replacement], snippet_limit))
+                     .merge(testHint: test_hint(finding))
             end
+          end
+
+          # nil (JSON null) when the operator has no hint.
+          def test_hint(finding)
+            SurvivorHints.structured(operator: finding[:operator], original: finding[:original],
+                                     replacement: finding[:replacement], coarse: finding[:coarse])
           end
 
           def warnings(report)
