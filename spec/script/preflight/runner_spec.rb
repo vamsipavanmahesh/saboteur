@@ -248,3 +248,79 @@ RSpec.describe Preflight::Runner, :fixture do
     end
   end
 end
+
+RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
+  let(:run_id) { "swap-run" }
+  let(:stubs) { Dir.mktmpdir("stubs") }
+  let(:outside) { Dir.mktmpdir("outside") }
+
+  after do
+    FileUtils.remove_entry(stubs)
+    FileUtils.remove_entry(outside)
+  end
+
+  def run_directory
+    File.join(File.realpath(@fixture.directory), "tmp/preflight", run_id)
+  end
+
+  # A stand-in for bundle. Its `exec rubocop` and `exec rspec` branches behave like candidate code that tampers with
+  # the harness's output directory while the checks run. Everything else succeeds.
+  def install_stubs(tamper)
+    File.write(File.join(stubs, "ruby"), "#!/bin/sh\nexit 0\n", perm: 0o755)
+    File.write(File.join(stubs, "bundle"), <<~SH, perm: 0o755)
+      #!/bin/sh
+      if [ "$1" = "lock" ]; then touch "$BUNDLE_GEMFILE.lock"; exit 0; fi
+      if [ "$1" = "exec" ] && [ "$2" = "rubocop" ]; then
+        #{tamper == :logs_symlink ? 'mv "$RUN/logs" "$RUN/logs.old" && ln -s "$OUTSIDE" "$RUN/logs"' : ':'}
+        #{tamper == :report_fifo ? 'mkfifo "$RUN/report.json"' : ':'}
+        cat "$RUBOCOP_JSON"; exit 0
+      fi
+      if [ "$1" = "exec" ] && [ "$2" = "rspec" ]; then
+        while [ "$1" != "--out" ]; do shift; done
+        #{tamper == :raw_symlink ? 'rm -f "$2" && ln -s "$RSPEC_JSON" "$2"' : 'cp "$RSPEC_JSON" "$2"'}
+        exit 0
+      fi
+      echo "Bundler version stub"
+    SH
+  end
+
+  def write_stub_documents
+    File.write(File.join(stubs, "Gemfile"), "")
+    File.write(File.join(stubs, "outside_rspec.json"), PreflightSupport.fixture_text("rspec_clean.json"))
+    File.write(File.join(stubs, "rubocop.json"), PreflightSupport.fixture_text("rubocop_clean.json"))
+  end
+
+  def run_swap(tamper)
+    good = "# SPDX-License-Identifier: MIT\n"
+    @fixture.write("lib/ok.rb", good)
+    @fixture.commit("good")
+    install_stubs(tamper)
+    write_stub_documents
+    env = { "PATH" => "#{stubs}:/usr/bin:/bin", "BUNDLE_GEMFILE" => File.join(stubs, "Gemfile"),
+            "RUN" => run_directory, "OUTSIDE" => outside, "RUBOCOP_JSON" => File.join(stubs, "rubocop.json"),
+            "RSPEC_JSON" => File.join(stubs, "outside_rspec.json") }
+    options = @fixture.options(base: @base, mode: "fast")
+    Timeout.timeout(30) do
+      described_class.new(options: options, directory: @fixture.directory, env: env, run_id: run_id).call
+    end
+  end
+
+  it "passes when nothing tampers (valid control)" do
+    expect(run_swap(:none).verdict).to eq("partial")
+  end
+
+  it "does not write logs through a logs directory that was swapped for a symlink" do
+    report = run_swap(:logs_symlink)
+    expect([report.verdict, Dir.children(outside)]).to eq(["incomplete", []])
+  end
+
+  it "does not hang or pass when the report path was replaced by a FIFO" do
+    expect(run_swap(:report_fifo).verdict).to eq("incomplete")
+  end
+
+  it "does not trust a raw RSpec destination that was swapped for a symlink to a clean report" do
+    report = run_swap(:raw_symlink)
+    names = report.to_h[:checks].to_h { |c| [c[:name], c[:status]] }
+    expect([report.verdict, names["harness_specs"]]).to eq(["incomplete", :incomplete])
+  end
+end
