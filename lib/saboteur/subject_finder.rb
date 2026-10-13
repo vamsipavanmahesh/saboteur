@@ -34,7 +34,7 @@ module Saboteur
       end
     end
 
-    def walk(node, nesting, out, **ctx)
+    def walk(node, nesting, out, previous: nil, **ctx)
       case node
       when nil, Prism::BlockNode, Prism::LambdaNode
         nil
@@ -44,8 +44,14 @@ module Saboteur
         walk(node.body, nesting + [Scope.new(kind: :class, path: node.constant_path.slice)], out, **ctx)
       when Prism::SingletonClassNode
         walk_singleton_class(node, nesting, out, **ctx)
+      when Prism::StatementsNode
+        previous_child = nil
+        node.body.each do |child|
+          walk(child, nesting, out, previous: previous_child, **ctx)
+          previous_child = child
+        end
       when Prism::DefNode
-        add_subject(node, nesting, out, **ctx)
+        add_subject(node, nesting, out, previous: previous, **ctx)
       else
         node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) }
       end
@@ -58,7 +64,7 @@ module Saboteur
       walk(node.body, nesting + [Scope.new(kind: :sclass, path: "self")], out, **ctx)
     end
 
-    def add_subject(node, nesting, out, file:, source:, frozen:)
+    def add_subject(node, nesting, out, file:, source:, frozen:, previous: nil)
       in_sclass = nesting.last&.sclass? || false
       # `def self.x` inside `class << self`, and `def obj.x`, are not subjects.
       return unless node.receiver.nil? || (node.receiver.is_a?(Prism::SelfNode) && !in_sclass)
@@ -69,7 +75,16 @@ module Saboteur
 
       out << Subject.new(name: node.name, owner: owner, singleton: singleton, sclass: in_sclass,
                          file: file, node: node, file_source: source, nesting: nesting,
-                         frozen_literals: frozen)
+                         frozen_literals: frozen, sig_span: sig_span(previous))
+    end
+
+    # The byte span of a `sig { ... }` or `T.sig { ... }` call on the lines
+    # right before the def, when there is one.
+    def sig_span(previous)
+      return nil unless previous.is_a?(Prism::CallNode) && previous.name == :sig && previous.block
+      return nil unless previous.receiver.nil? || previous.receiver.slice == "T"
+
+      [previous.location.start_offset, previous.location.end_offset]
     end
 
     # Lexical path of the enclosing class/module. `class ::Foo` restarts at the top.

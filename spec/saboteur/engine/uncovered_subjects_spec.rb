@@ -4,6 +4,11 @@
 require "stringio"
 
 RSpec.describe Saboteur::Engine, "uncovered subjects" do
+  before do
+    # This nested engine has a fake boot, not ownership of the outer run's Coverage.
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+  end
+
   let(:subject_under_test) { subjects_in("class Uncovered\n  def m\n    1\n  end\nend\n").first }
 
   [1, 2].each do |jobs|

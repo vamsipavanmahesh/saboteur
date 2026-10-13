@@ -90,7 +90,9 @@ RSpec.describe "replay coverage boundaries", :e2e do
   let(:dir) { copy_fixture("people") }
 
   it "reports an uncovered current mutant as skipped" do
-    File.open(File.join(dir, "lib", "people.rb"), "a") { |file| file.puts "class Unseen; def value; 123; end; end" }
+    File.open(File.join(dir, "lib", "people.rb"), "a") do |file|
+      file.puts "class Unseen\n  def value\n    123\n  end\nend"
+    end
     subject = Saboteur::SubjectFinder.new.call(File.join(dir, "lib", "people.rb")).subjects.find { |item| item.id == "Unseen#value" }
     mutation = Saboteur::MutationSource::Builtin.new.mutations_for(subject).first
     digest = mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
@@ -98,6 +100,20 @@ RSpec.describe "replay coverage boundaries", :e2e do
     expect(replay.status).to eq(0)
     expect(mutants(replay).first).to include("id" => digest, "status" => "NoCoverage")
     expect(replay.out).to include(digest, "Selected tests:", "none")
+  end
+
+  it "keeps a replay on a one-line uncalled definition uncovered" do
+    source = File.join(dir, "lib", "people.rb")
+    File.open(source, "a") { |file| file.puts "class LoadReplay; def value; 123; end; end" }
+    subject = Saboteur::SubjectFinder.new.call(source).subjects.find { |item| item.id == "LoadReplay#value" }
+    mutation = Saboteur::MutationSource::Builtin.new.mutations_for(subject).first
+    digest = mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+    replay = saboteur(dir, "--id", digest)
+    expect(replay.status).to eq(0), replay.err
+    expect(mutants(replay).first).to include(
+      "id" => digest, "status" => "NoCoverage", "statusReason" => "no coverage"
+    )
+    expect(replay.out).to include(digest, "Selected tests:", "none", "no coverage")
   end
 
   it "keeps changed-line scope when resolving --id with --since" do

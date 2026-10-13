@@ -24,6 +24,15 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("files", "person.rb", "language")).to eq("ruby")
   end
 
+  it "maps ran-at-load and unreachable to Ignored, carrying the reason" do
+    report = report_of(result_for(:ran_at_load, reason: "ran while the app loaded"),
+                       result_for(:unreachable, reason: "a captured Method still calls the original"))
+    mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
+    expect(mutants.map { |m| m["status"] }).to eq(%w[Ignored Ignored])
+    expect(mutants.map { |m| m["statusReason"] })
+      .to eq(["ran while the app loaded", "a captured Method still calls the original"])
+  end
+
   it "records the seed, so the run can be repeated" do
     expect(json["config"]).to eq("seed" => 1)
   end

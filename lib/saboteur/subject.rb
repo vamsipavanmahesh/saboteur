@@ -24,10 +24,11 @@ module Saboteur
   # the latter, because the def text must then be evaluated on the singleton.
   class Subject
     attr_reader :name, :owner, :singleton, :sclass, :file, :start_byte, :end_byte,
-                :start_line, :end_line, :nesting, :node, :file_source, :frozen_literals
+                :start_line, :end_line, :nesting, :node, :file_source, :frozen_literals, :sig_span
     attr_accessor :skip_reason
 
-    def initialize(name:, owner:, singleton:, sclass:, file:, node:, file_source:, nesting:, frozen_literals:)
+    def initialize(name:, owner:, singleton:, sclass:, file:, node:, file_source:, nesting:, frozen_literals:,
+                   sig_span: nil)
       @name = name
       @owner = owner
       @singleton = singleton
@@ -41,7 +42,18 @@ module Saboteur
       @end_byte = node.location.end_offset
       @start_line = node.location.start_line
       @end_line = node.location.end_line
+      @sig_span = sig_span
       @skip_reason = nil
+    end
+
+    # The `sig { ... }` call right before the def, when there is one. A
+    # sorbet-wrapped method re-evaluates sig and def together, so the
+    # runtime type checks stay on for the mutant (see Execution::Wrapper).
+    def sig_source
+      return nil unless @sig_span
+
+      first, last = @sig_span
+      file_source.byteslice(first, last - first).force_encoding(Encoding::UTF_8)
     end
 
     def id

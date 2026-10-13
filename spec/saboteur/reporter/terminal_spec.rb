@@ -24,6 +24,17 @@ RSpec.describe Saboteur::Reporter::Terminal do
     )
   end
 
+  it "lists ran-at-load and unreachable mutants apart, out of the score" do
+    text = render(report_of(result_for(:killed),
+                            result_for(:ran_at_load, reason: Saboteur::Selection::CoverageMap::RAN_AT_LOAD),
+                            result_for(:unreachable, reason: "a captured Method still calls the original")))
+    expect(text).to include(
+      "killed 1  survived 0  timeout 0  resource limit 0  error 0  skipped 0  ran at load 1  unreachable 1",
+      "Ran at load (out of the score):", "Unreachable (out of the score):",
+      "hint: ran at load:", "score 100.0 %"
+    )
+  end
+
   it "lists errors separately and does not call them killed" do
     text = render(report_of(result_for(:error, reason: "child killed by signal 9 during tests")))
     expect(text).to include("killed 0", "error 1", "Errors (not counted as killed):", "signal 9")
@@ -328,5 +339,22 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     report = Saboteur::Report.new(results:, subjects: [subject], wall_time: 1.0,
                                   root: File.dirname(subject.file), review: true)
     expect(render(report).scan("Two#m arithmetic").size).to eq(2)
+  end
+  it "omits absent out-of-score counts, sections and hints" do
+    text = render(report_of(result_for(:killed)))
+    expect(text).not_to include("ran at load", "unreachable", "out of the score", "hint:")
+  end
+
+  it "prints the mutant and location under each out-of-score heading" do
+    result = result_for(:unreachable, reason: "captured definition at person.rb:2")
+    text = render(report_of(result))
+    expect(text).to include("Unreachable (out of the score):\n",
+                            "  Person#adult? comparison #{result.digest} person.rb:2\n")
+    expect(text).to include("hint: captured definition at person.rb:2")
+    expect(text).not_to include("Ran at load (out of the score):")
+  end
+
+  it "does not print a hint when an out-of-score result has no reason" do
+    expect(render(report_of(result_for(:unreachable)))).not_to include("hint:")
   end
 end

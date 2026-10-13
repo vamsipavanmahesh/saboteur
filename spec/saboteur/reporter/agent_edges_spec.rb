@@ -51,7 +51,7 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
                          result_for(:timeout, replacement: "!="), result_for(:resource_limit, replacement: "=="),
                          result_for(:error, replacement: "<="), result_for(:skipped, replacement: "+", reason: "x"))
       expect(payload_for(report)[:counts]).to eq(killed: 1, survived: 1, timeout: 1, resourceLimit: 1, error: 1,
-                                                 skipped: 1, executed: 5)
+                                                 skipped: 1, ranAtLoad: 0, unreachable: 0, executed: 5)
     end
 
     it "counts ignored survivors apart from live ones" do
@@ -86,6 +86,27 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
                                     skipped_subjects: { person_subject => "no coverage" })
       expect(reasons(report)).to eq([{ reason: "no_coverage", count: 3,
                                        meaning: "subjects or mutants had no covering test" }])
+    end
+
+    it "never calls unjudged load-only or unreachable mutants complete" do
+      %i[ran_at_load unreachable].each do |status|
+        payload = payload_for(report_of(result_for(status)))
+        expect(payload).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+        expect(payload[:incomplete].map { |reason| reason[:reason] }).to eq([status.to_s])
+      end
+    end
+
+    it "counts load-only subjects apart from no-coverage skips with exact meanings" do
+      load_reason = Saboteur::Selection::CoverageMap::RAN_AT_LOAD
+      report = Saboteur::Report.new(results: [result_for(:ran_at_load), result_for(:unreachable)],
+                                    subjects: [person_subject], wall_time: 1, root: "/tmp",
+                                    skipped_subjects: { person_subject => load_reason })
+      expect(reasons(report)).to eq([
+                                      { reason: "ran_at_load", count: 2,
+                                        meaning: "code ran only at load; no mutant was judged" },
+                                      { reason: "unreachable", count: 1,
+                                        meaning: "tests did not call the replacement definition" }
+                                    ])
     end
 
     it "says what a capped method means" do

@@ -8,6 +8,11 @@ require "tmpdir"
 # baseline passes and the coverage-map pass run the whole suite. The run
 # must say so - and how to scope it - before those hours pass.
 RSpec.describe Saboteur::Engine, "--since without --test" do
+  before do
+    # This nested engine has a fake boot, not ownership of the outer run's Coverage.
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+  end
+
   around do |example|
     Dir.mktmpdir do |dir|
       @root = File.realpath(dir)

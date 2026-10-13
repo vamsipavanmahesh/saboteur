@@ -18,14 +18,35 @@ RSpec.describe Saboteur::Engine::CoverageStore do
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
   let(:map) { Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"]) }
 
-  def store(**settings)
+  def store(load_lines: {}, **settings)
     config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: @root)
     described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new))
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                        load_lines: load_lines)
+  end
+
+  def built_result(payload)
+    Saboteur::Execution::Supervisor::Result.new(payload: payload, exit_status: nil, stopped_by: nil,
+                                                detail: nil, runtime: 0.1, leftover_pids: [])
   end
 
   def cache_files
     Dir[File.join(@root, ".saboteur", "coverage-*.json")]
+  end
+
+  it "merges the parent's load lines into the built map and caches them" do
+    payload = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"]).to_json
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(supervisor).to receive(:run).and_return(built_result(payload))
+    map = store(load_lines: { file => [2] }).fetch([file])
+    expect(map.tests_for_lines(file, [1])).to eq(["t1"])
+    expect(map.ran_at_load?(file, [2])).to be(true)
+    cached = Saboteur::Selection::CoverageMap.load(cache_files.first)
+    expect(cached.ran_at_load?(file, [2])).to be(true)
+  end
+
+  it "keeps the map object unchanged when there are no parent load lines" do
+    expect(store.send(:with_parent_load_lines, map)).to equal(map)
   end
 
   it "builds once, saves, and reuses the cached map while inputs are unchanged" do

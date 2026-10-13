@@ -224,8 +224,9 @@ report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
 `config/saboteur.rb`; set either to `nil` to turn that report off. The two paths
 must differ. The HTML page shows the covered mutation score
-`(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage
-out and keeps survivors accepted on the ignore list in the denominator. A tool
+`(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage,
+RanAtLoad and Unreachable out and keeps survivors accepted on the ignore list
+in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
@@ -403,6 +404,44 @@ Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
 `db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
 cache fingerprint automatically. Use `fingerprint_extra` for any other file your
 tests read.
+
+### Load-time code, captured methods and Sorbet signatures
+
+Code that runs while the target boots, before tests run, cannot be checked by
+replacing a method later. saboteur reports these changes as `ran_at_load` rather
+than survivors. Calls from test setup, including RSpec `before(:all)`, are still
+checked. Load-time detection follows the `ran_at_load` idea in
+[mutineer #187](https://github.com/davidteren/mutineer/pull/187).
+
+A saved `Method` or `UnboundMethod` can keep calling the old definition after
+saboteur replaces it. When tests pass without calling the replacement and a
+saved method still points to the old definition, the result is `unreachable`.
+A targeted execution check must also confirm the replacement was not called.
+Each mutant is checked separately; one unreachable result does not skip later mutants.
+The reason names the old definition's source location. A lambda that looks up
+the method when it runs is still checked normally.
+
+Coverage caches now store both per-test method hits and load-time line hits.
+Older caches are rebuilt; load-time accounting preserves endless-method coverage.
+
+One-line and endless method definitions need boot method-call counters to prove
+the body ran at load; merely defining them is not execution evidence. If methods
+share a physical line and any sibling is uncalled, the line is ambiguous and is
+conservatively reported as no coverage, even for its called sibling.
+Agent mode reports ran-at-load and unreachable work as incomplete.
+
+A whole-suite map with only load-time hits is valid and reports load-only subjects
+with their ran-at-load reason, rather than failing as an empty coverage build.
+It has no mutation score when no mutant can be tested.
+
+Both statuses are listed separately in terminal output and excluded from the
+mutation score. Stryker JSON reports them as `Ignored`, with the explanation in
+`statusReason`; they are not entries on your survivor ignore list.
+
+Methods wrapped by `sorbet-runtime` signatures are checked rather than skipped
+as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
+changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
+preserve the loaded method semantics.
 
 ### Skipped subjects and the mutant cap
 

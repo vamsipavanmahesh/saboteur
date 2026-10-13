@@ -120,4 +120,13 @@ RSpec.describe Saboteur::Execution::Reevaluator do
     subject = subjects_in("module Nowhere\n  class Missing\n    def x; end\n  end\nend\n").first
     expect { described_class.new.call(subject, subject.source) }.to raise_error(Saboteur::Error, /cannot resolve/)
   end
+
+  it "evaluates a prefix at the lines above the def, keeping the def at its original line" do
+    subject = subject_named("class PrefixTarget\n  def m\n    1\n  end\nend\n", "PrefixTarget#m")
+    load subject.file
+    described_class.new.call(subject, subject.source,
+                             prefix: "PrefixTarget.instance_variable_set(:@prefix_line, __LINE__)")
+    expect(PrefixTarget.instance_variable_get(:@prefix_line)).to eq(subject.start_line - 1)
+    expect(PrefixTarget.instance_method(:m).source_location).to eq([subject.file, subject.start_line])
+  end
 end
