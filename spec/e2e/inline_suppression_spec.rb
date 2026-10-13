@@ -15,6 +15,25 @@ RSpec.describe "inline suppression (end to end)", :e2e do
     expect(html).to include("Inline suppressions", "validated elsewhere")
   end
 
+  [false, true].each do |subset|
+    it "audits #{subset ? 'subset' : 'all'} suppressions in dry-run without output files" do
+      dir = copy_fixture("inline")
+      path = File.join(dir, "lib", "inline_math.rb")
+      File.write(path, File.read(path).sub("disable-line reason", "disable-line arithmetic reason")) if subset
+      before = Dir.glob("#{dir}/**/*", File::FNM_DOTMATCH).select { |file| File.file?(file) }
+                  .to_h { |file| [file, File.binread(file)] }
+      run = saboteur(dir, "--dry-run")
+      expect(run.status).to eq(0), run.err
+      expect(run.out).to include("Inline suppressions:", "before diff restriction and per-method cap",
+                                 "InlineMath#double arithmetic", "validated elsewhere")
+      count = run.out[/Total: (\d+) mutants/, 1].to_i
+      subset ? expect(count).to(be_positive) : expect(count).to(eq(0))
+      after = Dir.glob("#{dir}/**/*", File::FNM_DOTMATCH).select { |file| File.file?(file) }
+                 .to_h { |file| [file, File.binread(file)] }
+      expect(after).to eq(before)
+    end
+  end
+
   it "rejects a missing reason with exit 2 naming the directive line" do
     dir = copy_fixture("inline")
     path = File.join(dir, "lib", "inline_math.rb")
