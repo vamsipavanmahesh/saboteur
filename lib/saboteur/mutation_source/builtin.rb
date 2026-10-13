@@ -9,6 +9,9 @@ require_relative "argument_removal"
 require_relative "pair_removal"
 require_relative "endpoint_replacement"
 require_relative "operator_registry"
+require_relative "range_replacement"
+require_relative "operator_assignment"
+require_relative "condition_negation"
 
 module Saboteur
   module MutationSource
@@ -58,6 +61,9 @@ module Saboteur
         @argument_removal = ArgumentRemoval.new(arid: arid)
         @pair_removal = PairRemoval.new(arid: arid)
         @endpoint_replacement = EndpointReplacement.new(arid: arid)
+        @range_replacement = RangeReplacement.new(arid: arid)
+        @operator_assignment = OperatorAssignment.new(arid: arid)
+        @condition_negation = ConditionNegation.new(arid: arid)
       end
 
       def name
@@ -75,6 +81,9 @@ module Saboteur
         @found.concat(@argument_removal.mutations_for(subject))
         @found.concat(@pair_removal.mutations_for(subject))
         @found.concat(@endpoint_replacement.mutations_for(subject))
+        @found.concat(@range_replacement.mutations_for(subject))
+        @found.concat(@operator_assignment.mutations_for(subject))
+        @found.concat(@condition_negation.mutations_for(subject))
         @found.select { |mutation| @operators.include?(mutation.operator) }
       ensure
         @subject = nil
