@@ -122,6 +122,23 @@ RSpec.describe Saboteur::Baseline::Comparison do
       expect(gate(before_entries, now_entries, 24.9).exit_code).to eq(1)
     end
 
+    it "compares the drop with epsilon exactly, not in binary floats" do
+      # 4 of 1000 detected is 0.4 %, 3 of 1000 is 0.3 %: the drop is exactly 0.1,
+      # but 0.4 - 0.3 in floats is 0.10000000000000003.
+      before_entries = results(kills: 4, survivors: 996)
+      now_entries = results(kills: 3, survivors: 996) + [{ "id" => "k3", "status" => "survived", "context" => "c" }]
+      accepted = now_entries.select { |entry| entry["status"] == "survived" }
+                            .map { |entry| entry.slice("id", "context").merge("reason" => "known") }
+      compare = lambda do |epsilon|
+        described_class.new(baseline: before.merge("candidates" => before_entries, "accepted" => accepted),
+                            current: { "compatibility" => before["compatibility"], "complete" => true,
+                                       "issues" => [], "candidates" => now_entries }, epsilon: epsilon)
+      end
+      expect(compare.call(0.1).score).to include("exceeded" => false, "epsilon" => 0.1)
+      expect(compare.call(0.1).exit_code).to eq(0)
+      expect(compare.call(0.09).score).to include("exceeded" => true)
+    end
+
     it "never fails a score that rose, and counts a timeout as a kill" do
       result = gate(results(kills: 1, survivors: 1), results(kills: 1, timeouts: 1, survivors: 1), 0.0)
       expect(result.score).to include("baseline" => 50.0, "exceeded" => false)
