@@ -27,6 +27,11 @@ RSpec.describe Saboteur::Config do
       .to eq(["rspec", 3.0, 5.0, 1, "nesting"])
   end
 
+  it "keeps whole_file as a list of subject id patterns, empty by default" do
+    expect(described_class.new({})["whole_file"]).to eq([])
+    expect(described_class.new({ "whole_file" => ["Gate#open", "Box*"] })["whole_file"]).to eq(["Gate#open", "Box*"])
+  end
+
   it "has no threshold or explicit tests by default, and reads both from the file" do
     expect(described_class.load(root: @root).to_h.values_at("threshold", "tests")).to eq([nil, []])
     write("config/saboteur.rb", "Saboteur.configure { |c| c.threshold = 90; c.tests = [\"spec/a_spec.rb\"] }")
