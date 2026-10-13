@@ -75,6 +75,17 @@ RSpec.describe Saboteur::Baseline::Workflow do
     end.to raise_error(Saboteur::ConfigError, /execution evidence differs/)
   end
 
+  it "adds the score comparison to a check payload only when an epsilon is given" do
+    stub_run
+    path = File.join(@root, "baseline.json")
+    File.write(path, JSON.generate(Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")))
+    expect(workflow.check(path: path)).not_to have_key("score")
+    payload = workflow.check(path: path, epsilon: 2.5)
+    expect(payload.fetch("score")).to eq("baseline" => 0.0, "current" => 0.0, "drop" => 0.0, "epsilon" => 2.5,
+                                         "exceeded" => false)
+    expect(payload.fetch("state")).to eq("clean")
+  end
+
   it "preserves exact incomplete and incompatible check payloads without accepting invalid complete claims" do
     manifest = Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")
     path = File.join(@root, "baseline.json")
