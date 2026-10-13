@@ -342,7 +342,11 @@ RSpec.describe "Runner sandbox wiring (#152)" do
   end
 
   def build_runner(sandbox:, integration: passing_integration)
-    reevaluator = ->(_subject, _text, prefix: nil) {}
+    reevaluator = Class.new do
+      def call(_subject, _text, prefix: nil); end
+
+      def replaced_definition(_subject) = nil
+    end.new
     Saboteur::Execution::Runner.new(integration: integration, reevaluator: reevaluator,
                                     log_dir: tmpdir, sandbox: sandbox)
   end
