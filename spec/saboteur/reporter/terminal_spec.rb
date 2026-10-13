@@ -29,7 +29,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
   end
 
   it "prints the test matrix before the summary only for a --matrix run, capped" do
-    killed = result_for(:killed, killed_by: %w[a b], covered_by: %w[a b])
+    killed = result_for(:killed, killed_by: %w[a b], covered_by: %w[a b], executed: %w[a b])
     plain = report_of(killed)
     expect(render(plain)).not_to include("test matrix")
     out.truncate(0)
@@ -43,11 +43,13 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text.index("test matrix")).to be < text.index("saboteur #{Saboteur::VERSION}:")
 
     many = Array.new(22) { |index| "t#{format('%02d', index)}" }
-    blind = Saboteur::Report.new(results: [result_for(:survived, covered_by: many)], subjects: [person_subject],
+    survivor = result_for(:survived, covered_by: many, executed: many)
+    blind = Saboteur::Report.new(results: [survivor], subjects: [person_subject],
                                  wall_time: 1.0, root: File.dirname(person_subject.file), seed: 1, matrix: true)
     out.truncate(0)
     out.rewind
-    exactly = Saboteur::Report.new(results: [result_for(:survived, covered_by: many.first(20))],
+    twenty = result_for(:survived, covered_by: many.first(20), executed: many.first(20))
+    exactly = Saboteur::Report.new(results: [twenty],
                                    subjects: [person_subject], wall_time: 1.0,
                                    root: File.dirname(person_subject.file), seed: 1, matrix: true)
     text = render(exactly)
@@ -56,6 +58,20 @@ RSpec.describe Saboteur::Reporter::Terminal do
     out.truncate(0)
     out.rewind
     expect(render(blind)).to include("blind (covered mutants, killed none): 22", "    t19  1 covered", "... 2 more")
+  end
+
+  it "says how many mutants stopped before every covering test ran, and only then" do
+    stopped = result_for(:killed, killed_by: %w[a], covered_by: %w[a b], executed: %w[a])
+    whole = result_for(:killed, killed_by: %w[a], covered_by: %w[a], replacement: "<=", executed: %w[a])
+    root = File.dirname(person_subject.file)
+    partial = Saboteur::Report.new(results: [stopped], subjects: [person_subject], wall_time: 1.0, root:, seed: 1,
+                                   matrix: true)
+    expect(render(partial)).to include("1 mutants stopped before every covering test ran (incomplete)")
+    out.truncate(0)
+    out.rewind
+    complete = Saboteur::Report.new(results: [whole], subjects: [person_subject], wall_time: 1.0, root:, seed: 1,
+                                    matrix: true)
+    expect(render(complete)).not_to include("stopped before every covering test ran")
   end
 
   it "prints survivors before the summary, and keeps debug statistics out of the default report" do
