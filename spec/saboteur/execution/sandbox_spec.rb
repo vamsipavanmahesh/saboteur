@@ -21,6 +21,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
     it "probes the kernel ABI with the create-ruleset version flag" do
       syscall = double("syscall", call: 2)
       allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
+      allow(described_class).to receive(:last_errno).and_return(0)
       reset_abi_memo
       expect(described_class.abi_version).to eq(2)
       expect(syscall).to have_received(:call).with(444, 0, 0, 1, 0)
