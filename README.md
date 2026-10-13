@@ -766,3 +766,11 @@ Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `s
 `bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains today's operators, extended is reserved for new opt-in operators. Empty/default selection keeps all current operators. Selection changes invalidate incremental verdict identity.
 
 Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).
+
+### Inline suppression comments
+
+`total = a + b # saboteur:disable-line arithmetic reason="rounding checked elsewhere"` suppresses edits starting on that line, restricted to the named operators. Omit names to suppress all operators. Multiple names are space-separated. Only actual Ruby comments count; directive text in strings does not. A missing or blank reason or unknown operator is a usage error naming file:line. Terminal, JSON and HTML list every suppressed candidate with its reason and digest, outside the score. Moving the commented code keeps the suppression. Multi-line edits use their starting line.
+
+Inspired by mutineer's inline suppression comments (github.com/davidteren/mutineer, MIT, by David Teren).
+
+Inline suppressions bound completeness: classic scores still exclude suppressed candidates, but baseline evidence is incomplete when any inline candidate is suppressed. Agent output reports `inline_suppressed` with its count and points to the full audit. Reasons are audited, not proof that suppressed work was checked.
