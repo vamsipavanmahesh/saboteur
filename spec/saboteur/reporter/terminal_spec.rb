@@ -28,6 +28,36 @@ RSpec.describe Saboteur::Reporter::Terminal do
     )
   end
 
+  it "prints the test matrix before the summary only for a --matrix run, capped" do
+    killed = result_for(:killed, killed_by: %w[a b], covered_by: %w[a b])
+    plain = report_of(killed)
+    expect(render(plain)).not_to include("test matrix")
+    out.truncate(0)
+    out.rewind
+
+    matrix = Saboteur::Report.new(results: [killed], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1, matrix: true)
+    text = render(matrix)
+    expect(text).to include("test matrix: 2 tests ran against mutants", "blind (covered mutants, killed none): 0",
+                            "redundant (every kill had another killer): 2", "    a  1 kills", "    b  1 kills")
+    expect(text.index("test matrix")).to be < text.index("saboteur #{Saboteur::VERSION}:")
+
+    many = Array.new(22) { |index| "t#{format('%02d', index)}" }
+    blind = Saboteur::Report.new(results: [result_for(:survived, covered_by: many)], subjects: [person_subject],
+                                 wall_time: 1.0, root: File.dirname(person_subject.file), seed: 1, matrix: true)
+    out.truncate(0)
+    out.rewind
+    exactly = Saboteur::Report.new(results: [result_for(:survived, covered_by: many.first(20))],
+                                   subjects: [person_subject], wall_time: 1.0,
+                                   root: File.dirname(person_subject.file), seed: 1, matrix: true)
+    text = render(exactly)
+    expect(text).to include("    t19  1 covered")
+    expect(text[text.index("test matrix")..]).not_to match(/\.\.\. \d+ more/)
+    out.truncate(0)
+    out.rewind
+    expect(render(blind)).to include("blind (covered mutants, killed none): 22", "    t19  1 covered", "... 2 more")
+  end
+
   it "prints survivors before the summary, and keeps debug statistics out of the default report" do
     text = render(report_of(result_for(:killed, runtime: 0.5), result_for(:survived, runtime: 0.5)))
     expect(text.index("Survivors (1):")).to be < text.index("saboteur ")
