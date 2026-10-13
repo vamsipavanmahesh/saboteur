@@ -25,6 +25,7 @@ All notable changes are documented here. The format follows
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
 ### Fixed
+- The unscoped `--since` warning now says what `--test` drops: the consumer specs of a changed method no longer run, which can turn kills into survivors. (#113)
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
   guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
