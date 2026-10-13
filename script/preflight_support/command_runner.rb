@@ -8,7 +8,7 @@ require "fileutils"
 module Preflight
   CommandResult = Struct.new(:argv, :directory, :exit_status, :signal, :timed_out, :spawn_error, :truncated,
                              :invalid_encoding, :stray_processes, :duration_seconds, :stdout, :stderr,
-                             :stdout_path, :stderr_path, keyword_init: true) do
+                             :stdout_path, :stderr_path, :data, :data_path, keyword_init: true) do
     def succeeded?
       ran? && exit_status.zero?
     end
@@ -33,7 +33,7 @@ module Preflight
       { argv: argv, directory: directory, exit_status: exit_status, signal: signal, timed_out: timed_out,
         truncated: truncated, invalid_encoding: invalid_encoding, stray_processes: stray_processes,
         spawn_error: spawn_error, duration_seconds: duration_seconds,
-        stdout_path: stdout_path, stdout_sha256: Digest::SHA256.hexdigest(stdout.to_s),
+        stdout_path: stdout_path, data_path: data_path, stdout_sha256: Digest::SHA256.hexdigest(stdout.to_s),
         stderr_path: stderr_path, stderr_sha256: Digest::SHA256.hexdigest(stderr.to_s) }
     end
   end
@@ -71,11 +71,13 @@ module Preflight
       @history = []
     end
 
-    def run(argv, timeout: DEFAULT_TIMEOUT_SECONDS)
+    # With data_pipe the child gets an extra pipe as file descriptor 3 (use `--out /dev/fd/3`). It is read by the
+    # harness only: there is no path in the checkout that candidate code could swap for a link.
+    def run(argv, timeout: DEFAULT_TIMEOUT_SECONDS, data_pipe: false)
       raise ArgumentError, "argv must be an array of strings" unless argv.is_a?(Array) && argv.all?(String)
 
       started = monotonic
-      result = execute(argv, timeout)
+      result = execute(argv, timeout, data_pipe)
       result.duration_seconds = (monotonic - started).round(3)
       write_logs(result)
       @history << result.to_h
@@ -84,20 +86,29 @@ module Preflight
 
     private
 
-    def execute(argv, timeout)
-      Open3.popen3(@env, *argv, chdir: @directory, pgroup: true,
-                                unsetenv_others: @isolate_env) do |input, out, err, waiter|
+    def execute(argv, timeout, data_pipe)
+      data_reader, data_writer = IO.pipe if data_pipe
+      options = { chdir: @directory, pgroup: true, unsetenv_others: @isolate_env }
+      options[3] = data_writer if data_writer
+      Open3.popen3(@env, *argv, **options) do |input, out, err, waiter|
         input.close
-        buffers = [Capture.new, Capture.new]
-        readers = [out, err].zip(buffers).map { |stream, buffer| Thread.new { read_limited(stream, buffer) } }
-        timed_out = waiter.join(timeout).nil?
-        status = finish(waiter, timed_out)
-        stray = group_cleaned_up?(waiter.pid)
-        outputs = collect(readers, [out, err], buffers)
-        build(argv, { status: status, timed_out: timed_out, stray_processes: stray }, outputs)
+        data_writer&.close
+        supervise(argv, timeout, waiter, [out, err, data_reader].compact)
       end
     rescue SystemCallError => e
       build(argv, { spawn_error: e.message }, [["", false], ["", false]])
+    ensure
+      [data_reader, data_writer].each { |io| io.close if io && !io.closed? }
+    end
+
+    def supervise(argv, timeout, waiter, streams)
+      buffers = streams.map { Capture.new }
+      readers = streams.zip(buffers).map { |stream, buffer| Thread.new { read_limited(stream, buffer) } }
+      timed_out = waiter.join(timeout).nil?
+      status = finish(waiter, timed_out)
+      stray = group_cleaned_up?(waiter.pid)
+      outputs = collect(readers, streams, buffers)
+      build(argv, { status: status, timed_out: timed_out, stray_processes: stray }, outputs)
     end
 
     # Stops the leader if it overran, then waits a bounded time for its exit status.
@@ -156,16 +167,18 @@ module Preflight
     end
 
     def build(argv, outcome, outputs)
-      (stdout, out_cut), (stderr, err_cut) = outputs
+      (stdout, out_cut), (stderr, err_cut), (data, data_cut) = outputs
       status = outcome[:status]
       stdout = text(stdout)
       stderr = text(stderr)
+      data &&= text(data)
       CommandResult.new(argv: argv, directory: @directory, exit_status: status&.exitstatus || -1,
                         signal: status&.termsig, timed_out: outcome[:timed_out] || false,
                         spawn_error: outcome[:spawn_error] || (status ? nil : "no exit status"),
-                        stray_processes: outcome[:stray_processes] || false, truncated: out_cut || err_cut,
-                        invalid_encoding: !(stdout.valid_encoding? && stderr.valid_encoding?),
-                        stdout: stdout, stderr: stderr)
+                        stray_processes: outcome[:stray_processes] || false,
+                        truncated: [out_cut, err_cut, data_cut].any?,
+                        invalid_encoding: ![stdout, stderr, data].compact.all?(&:valid_encoding?),
+                        stdout: stdout, stderr: stderr, data: data)
     end
 
     def text(bytes)
@@ -189,6 +202,10 @@ module Preflight
       result.stderr_path = "#{stem}.stderr.log"
       SafeOutput.write_new(result.stdout_path, result.stdout, root)
       SafeOutput.write_new(result.stderr_path, result.stderr, root)
+      return unless result.data
+
+      result.data_path = "#{stem}.data.log"
+      SafeOutput.write_new(result.data_path, result.data, root)
     rescue SystemCallError, ExecutionGap => e
       result.spawn_error = "log write failed: #{e.message}"
     end
