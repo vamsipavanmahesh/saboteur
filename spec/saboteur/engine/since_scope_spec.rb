@@ -98,7 +98,7 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
       expect(err.string).to include("--guess-tests: running only spec/a_spec.rb, spec/b_spec.rb. A spec that reaches")
       expect(err.string).not_to include("running the loaded suite unscoped")
       expect(@report.warnings).to include(a_string_starting_with("--guess-tests: running only"))
-      expect(err.string).to include("reported as NoCoverage, not Survived")
+      expect(err.string).to include("is reported as NoCoverage")
       expect(@engine.guessed_tests).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
     end
 
