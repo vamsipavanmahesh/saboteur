@@ -56,6 +56,19 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(payload[:next][:replay]).to eq("saboteur run --id #{finding[:digest]} --since origin/main --seed 7")
     end
 
+    it "gives the finding a testHint with the boundary case, as data" do
+      hint = payload[:findings][:shown].first[:testHint]
+      expect(hint).to include(kind: "boundary", case: "left == right")
+      expect(hint[:text]).to start_with("try an example at the boundary")
+    end
+
+    it "gives a coarse survivor of an unlisted operator the method-result hint" do
+      coarse = payload_for(report_of(result_for(:survived, coarse: true)))
+      expect(coarse[:findings][:shown].first[:testHint]).to eq(
+        kind: "method_result", text: "try asserting this method's result or its effect"
+      )
+    end
+
     it "includes an operator hint with an honest caveat" do
       expect(payload[:findings][:shown].first[:hint]).to start_with("try an example at the boundary")
       expect(payload[:findings][:hintCaveat]).to include("suggestions, not diagnoses")

@@ -129,4 +129,141 @@ RSpec.describe Saboteur::Execution::Reevaluator do
     expect(PrefixTarget.instance_variable_get(:@prefix_line)).to eq(subject.start_line - 1)
     expect(PrefixTarget.instance_method(:m).source_location).to eq([subject.file, subject.start_line])
   end
+
+  describe "whole_file" do
+    let(:source) do
+      <<~RUBY
+        WHOLE_FILE_LOADS = (defined?(WHOLE_FILE_LOADS) ? WHOLE_FILE_LOADS : 0) + 1
+
+        class WholeFileThing
+          def value
+            1
+          end
+
+          def other
+            2
+          end
+        end
+      RUBY
+    end
+    let(:subject_under_test) do
+      subjects_in(source, name: "whole_file_thing.rb").find do |s|
+        s.id == "WholeFileThing#value"
+      end
+    end
+
+    before do
+      Object.send(:remove_const, :WHOLE_FILE_LOADS) if defined?(WHOLE_FILE_LOADS)
+      Object.send(:remove_const, :WholeFileThing) if defined?(WholeFileThing)
+      load subject_under_test.file
+    end
+
+    after do
+      Object.send(:remove_const, :WHOLE_FILE_LOADS) if defined?(WHOLE_FILE_LOADS)
+      Object.send(:remove_const, :OUTSIDE_GREETING) if defined?(OUTSIDE_GREETING)
+      Object.send(:remove_const, :WholeFileThing) if defined?(WholeFileThing)
+    end
+
+    it "matches subject ids exactly or by glob" do
+      expect(described_class.new("nesting",
+                                 whole_file: ["WholeFileThing#value"]).whole_file?(subject_under_test)).to be(true)
+      expect(described_class.new("nesting", whole_file: ["WholeFile*"]).whole_file?(subject_under_test)).to be(true)
+      expect(described_class.new("nesting", whole_file: ["Other#value"]).whole_file?(subject_under_test)).to be(false)
+      expect(described_class.new.whole_file?(subject_under_test)).to be(false)
+    end
+
+    it "evaluates the whole file with the mutated method spliced in, running its top-level code again" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      expect(WholeFileThing.new.value).to eq(10)
+      expect(WholeFileThing.new.other).to eq(2)
+      expect(WHOLE_FILE_LOADS).to eq(2)
+    end
+
+    it "leaves methods outside the list to surgical re-evaluation" do
+      reevaluator = described_class.new("nesting", whole_file: ["Nothing#here"])
+      reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      expect(WholeFileThing.new.value).to eq(10)
+      expect(WHOLE_FILE_LOADS).to eq(1)
+    end
+
+    it "reports no replaced definition while the subject's own def is the one in place" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "reports no replaced definition for a subject that is not whole-file" do
+      expect(described_class.new.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "names the definition that replaced it when a later def in the file wins" do
+      twice = "class WholeFileThing\n  def value\n    1\n  end\n\n  def value\n    2\n  end\nend\n"
+      first = subjects_in(twice, name: "whole_file_twice.rb").find { |s| s.id == "WholeFileThing#value" }
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(first, first.source.sub("1", "10"))
+      expect(WholeFileThing.new.value).to eq(2)
+      expect(reevaluator.replaced_definition(first)).to eq("#{first.file}:6")
+    end
+
+    it "looks through a known def-time wrapper to the def it wraps" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      wrapped = instance_double(UnboundMethod, source_location: ["/gems/sorbet/wrapper.rb", 1])
+      original = instance_double(UnboundMethod,
+                                 source_location: [subject_under_test.file, subject_under_test.start_line])
+      allow(Saboteur::Execution::Wrapper).to receive(:original_def).with(wrapped).and_return(original)
+      allow(WholeFileThing).to receive(:instance_method).with(:value).and_return(wrapped)
+      expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "keeps the verdict for an unknown wrapper: a def from another file is not a replacement" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      forwarding = instance_double(UnboundMethod, source_location: ["/gems/forwarder.rb", 3])
+      allow(Saboteur::Execution::Wrapper).to receive(:original_def).with(forwarding).and_return(nil)
+      allow(WholeFileThing).to receive(:instance_method).with(:value).and_return(forwarding)
+      expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "reports a wrapped method whose wrapped def is another def in the subject's file" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      wrapped = instance_double(UnboundMethod,
+                                source_location: [subject_under_test.file, subject_under_test.start_line])
+      original = instance_double(UnboundMethod, source_location: [subject_under_test.file, 9])
+      allow(Saboteur::Execution::Wrapper).to receive(:original_def).with(wrapped).and_return(original)
+      allow(WholeFileThing).to receive(:instance_method).with(:value).and_return(wrapped)
+      expect(reevaluator.replaced_definition(subject_under_test)).to eq("#{subject_under_test.file}:9")
+    end
+
+    it "keeps the verdict for a method that is no longer defined" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      WholeFileThing.send(:remove_method, :value)
+      expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "keeps the verdict for a definition with no Ruby source, such as a native method" do
+      native = Struct.new(:id, :singleton, :name, :file, :start_line).new("String#size", false, :size, "x.rb", 1)
+      reevaluator = described_class.new("nesting", whole_file: ["String#size"])
+      allow(reevaluator).to receive(:resolve_owner).and_return(String)
+      expect(reevaluator.replaced_definition(native)).to be_nil
+    end
+
+    it "keeps non-ASCII text inside and outside the method as UTF-8 even when the file was read as binary" do
+      source = "# frozen_string_literal: true\n\nOUTSIDE_GREETING = \"h\u00e9llo\"\n\nclass WholeFileThing\n  " \
+               "def value\n    \"caf\u00e9\"\n  end\nend\n"
+      thing = subjects_in(source, name: "whole_file_utf8.rb").find { |s| s.id == "WholeFileThing#value" }
+      allow(thing).to receive(:file_source).and_return(source.b)
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(thing, "def value\n    \"caf\u00e9!\"\n  end")
+      expect(WholeFileThing.new.value).to eq("caf\u00e9!")
+      expect([WholeFileThing.new.value.encoding, OUTSIDE_GREETING.encoding]).to eq([Encoding::UTF_8] * 2)
+    end
+
+    it "keeps the file's own name and line numbers" do
+      described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+                     .call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      file, line = WholeFileThing.instance_method(:value).source_location
+      expect([file, line]).to eq([subject_under_test.file, subject_under_test.start_line])
+    end
+  end
 end

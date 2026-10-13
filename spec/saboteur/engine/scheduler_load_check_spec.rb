@@ -35,6 +35,22 @@ RSpec.describe Saboteur::Engine::Scheduler, "load check" do
     expect(runner).to have_received(:run).at_least(:once)
   end
 
+  it "does not refuse a shadowed method that whole_file names, since the child evaluates the whole file" do
+    source = "class LoadCheckTarget\n  def m(a)\n    a + 1\n  end\nend\n"
+    subject = subjects_in(source, name: "load_check_target.rb").find { |s| s.id == "LoadCheckTarget#m" }
+    load subject.file
+    LoadCheckTarget.class_eval("def m(a); a; end", __FILE__, __LINE__)
+    lines = (subject.start_line..subject.end_line).to_h { |line| [line, ["t1"]] }
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => lines }, tests: ["t1"])
+    reevaluator = Saboteur::Execution::Reevaluator.new("nesting", whole_file: ["LoadCheckTarget#m"])
+    scheduler = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                    reevaluator: reevaluator, diagnostics: diagnostics)
+    candidates = Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new], diagnostics)
+    results = scheduler.call(subject, candidates.for(subject))
+    expect(results.map(&:reason).uniq).not_to include(a_string_matching(/shadowed/))
+    expect(runner).to have_received(:run).at_least(:once)
+  end
+
   it "runs a singleton method the same way" do
     results = schedule("class LoadCheckTarget\n  def self.m(a)\n    a + 1\n  end\nend\n", "LoadCheckTarget.m")
     expect(reasons(results)).not_to include(a_string_matching(/not loaded|shadowed/))
@@ -64,7 +80,7 @@ RSpec.describe Saboteur::Engine::Scheduler, "load check" do
     other = File.join(Dir.mktmpdir, "elsewhere.rb")
     File.write(other, source.sub("a + 1", "a + 2"))
     results = schedule(source, "LoadCheckTarget#m", extra: "load #{other.inspect}")
-    expect(reasons(results).first).to match(%r{\Ashadowed definition \(runtime method at .*/elsewhere\.rb:2\)\z})
+    expect(reasons(results).first).to match(%r{\Ashadowed definition \(runtime method at .*/elsewhere\.rb:2\); add})
   end
 
   it "looks past a prepended module to the class's own method" do
@@ -80,6 +96,7 @@ RSpec.describe Saboteur::Engine::Scheduler, "load check" do
     scheduler = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
                                     reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics)
     allow(scheduler).to receive(:own_method).and_return(native)
-    expect(scheduler.send(:load_problem, subject)).to eq(["shadowed definition (runtime method at :)", nil])
+    expected = "shadowed definition (runtime method at :)#{described_class::WHOLE_FILE_HINT}"
+    expect(scheduler.send(:load_problem, subject)).to eq([expected, nil])
   end
 end

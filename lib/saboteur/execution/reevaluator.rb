@@ -12,22 +12,60 @@ module Saboteur
     #   nesting    - rebuild the original `module A; class B` nesting on one line
     #                and eval at top level, so constant lookup matches the file.
     #
+    # A subject named in whole_file skips both: the child evaluates the whole
+    # file with the mutated method spliced in, the way mutineer does. That is
+    # the way in for methods surgical re-evaluation refuses, at a price: the
+    # file's top-level code runs again in the child, so load-time side effects
+    # repeat and constants it assigns are rebuilt. It reaches only methods
+    # SubjectFinder already finds.
+    #
     # Both keep the original file and line numbers, carry a frozen_string_literal
     # magic comment, and restore the method's visibility afterwards.
     class Reevaluator
       STRATEGIES = %w[class_eval nesting].freeze
       FROZEN_HEADER = "# frozen_string_literal: true\n"
 
-      def initialize(strategy = "nesting")
+      def initialize(strategy = "nesting", whole_file: [])
         raise Error, "unknown reeval strategy: #{strategy}" unless STRATEGIES.include?(strategy.to_s)
 
         @strategy = strategy.to_s
+        @whole_file = whole_file
+      end
+
+      # "file:line" of another def in the subject's own file that replaced it:
+      # a later definition there won, so the mutant could never run. Only a
+      # positively identified different def counts. nil when the subject is not
+      # whole-file, its def is the one in place, or this cannot be told (a
+      # method from another file, such as an unknown forwarding wrapper, no
+      # Ruby source, or no method): the caller then keeps the verdict.
+      def replaced_definition(subject)
+        return nil unless whole_file?(subject)
+
+        owner = resolve_owner(subject)
+        target = subject.singleton ? owner.singleton_class : owner
+        method = target.instance_method(subject.name)
+        # A def-time wrapper (a sorbet sig) replaces the method; its own
+        # source_location is the wrapper's, not the def's.
+        file, line = (Wrapper.original_def(method) || method).source_location
+        return nil unless file == subject.file && line != subject.start_line
+
+        "#{file}:#{line}"
+      rescue StandardError
+        nil
+      end
+
+      # True when the subject's id matches a whole_file entry (exact or a
+      # File.fnmatch glob).
+      def whole_file?(subject)
+        @whole_file.any? { |pattern| File.fnmatch?(pattern, subject.id) }
       end
 
       # prefix: source evaluated right before the def text, at the lines it
       # occupies in the file - a sorbet `sig { ... }` call, so the wrapper
       # gem re-wraps the mutant and its runtime checks stay on.
       def call(subject, text, prefix: nil)
+        return eval_whole_file(subject, text) if whole_file?(subject)
+
         owner = resolve_owner(subject)
         target = subject.singleton ? owner.singleton_class : owner
         visibility = visibility_of(target, subject.name)
@@ -97,6 +135,19 @@ module Saboteur
 
         owner.instance_method(subject.name).source_location ==
           owner.singleton_class.instance_method(subject.name).source_location
+      end
+
+      # The file as it is on disk, with the method's bytes replaced by text,
+      # evaluated at top level under the file's own name and first line.
+      # Redefinition warnings are expected and silenced.
+      def eval_whole_file(subject, text)
+        source = subject.file_source.dup.force_encoding(Encoding::UTF_8)
+        spliced = source.byteslice(0, subject.start_byte) + text + source.byteslice(subject.end_byte..)
+        verbose = $VERBOSE
+        $VERBOSE = nil
+        TOPLEVEL_BINDING.eval(spliced, subject.file, 1)
+      ensure
+        $VERBOSE = verbose
       end
 
       def eval_in_owner(owner, subject, text, extra_lines)

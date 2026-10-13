@@ -63,6 +63,7 @@ module Saboteur
         define_selection_options(opts)
         define_explicit_file_options(opts)
         define_execution_options(opts)
+        define_matrix_option(opts)
         define_output_options(opts)
       end
     end
@@ -152,6 +153,20 @@ module Saboteur
       raise UsageError, "--threshold cannot be combined with --agent: agent mode exits 0 only for a complete, clean run"
     end
 
+    # One line naming the reports written, paths relative to the root when
+    # they sit under it (a blank line before it, as the old JSON line had).
+    def announce_reports(reports)
+      written = reports.select { |path, _label| path }
+      return if written.empty?
+
+      root = File.join(File.realpath(config.root), "")
+      names = written.map do |path, label|
+        shown = File.expand_path(path).delete_prefix(root)
+        "#{shown} (#{label})"
+      end
+      @out.puts "\nReports: #{names.join(', ')}"
+    end
+
     def doctor
       doctor_parser.parse!(@argv)
       raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
@@ -196,20 +211,21 @@ module Saboteur
       @sources&.any? ? "files" : "full"
     end
 
-    def write_json(report, cause, announce: true)
+    # Writes the JSON report and returns its path, or nil when none is configured.
+    def write_json(report, cause)
       path = config.path("json_report")
       return unless path
 
       Reporter::Stryker.new(path).call(report, exit_cause: cause)
-      @out.puts "\nJSON report: #{path}" if announce
+      path
     end
 
-    def write_html(report, announce: true)
+    def write_html(report)
       path = config.path("html_report")
       return unless path
 
       Reporter::Html.new(path).call(report)
-      @out.puts "HTML report: #{path}" if announce
+      path
     end
 
     # Positional arguments name the files (or directories) to mutate. They
@@ -292,6 +308,12 @@ module Saboteur
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
+      end
+    end
+
+    def define_matrix_option(opts)
+      opts.on("--matrix", "Run every covering test per mutant and list blind and redundant tests") do
+        set(:matrix, true)
       end
     end
 
