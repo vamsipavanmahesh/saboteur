@@ -9,10 +9,14 @@ module Preflight
   class Runner
     attr_reader :output_directory
 
+    RUN_ID_PATTERN = /\A[A-Za-z0-9][A-Za-z0-9._-]{0,99}\z/
+
     def initialize(options:, directory:, command_runner: nil, run_id: nil, env: nil)
       @options = options
       @directory = directory
       @run_id = run_id || "#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{SecureRandom.hex(4)}"
+      raise ArgumentError, "run_id must be one safe path component" unless @run_id.match?(RUN_ID_PATTERN)
+
       @root = File.realpath(directory)
       @output_directory = File.join(@root, OUTPUT_ROOT, @run_id)
       @own_commands = command_runner.nil?
@@ -137,8 +141,7 @@ module Preflight
     end
 
     def rspec(name, paths)
-      Checks::Rspec.new(name: name, command_runner: @commands, paths: paths,
-                        report_directory: File.join(@output_directory, "logs"), output_root: @root).call
+      Checks::Rspec.new(name: name, command_runner: @commands, paths: paths).call
     end
 
     def unimplemented
