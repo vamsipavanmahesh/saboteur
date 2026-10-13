@@ -107,3 +107,12 @@ your own artifact step; the bundled Action does not upload it automatically.
 No Action/workflow permissions or protected files are changed by this feature.
 Malformed/truncated records and conflicting report paths fail loudly instead of
 replacing old evidence. The history grows until you archive it yourself.
+
+History/report destinations must be regular files without symlink components;
+existing destinations must not share an inode. This is checked before the
+engine runs and again before report writes. History reads use nonblocking
+regular-file descriptors and a 64 KiB limit per JSONL record. Lock contention
+has a two-second bound. Duplicate JSON keys and incomplete version-one schemas
+are refused, with old bytes preserved. Total history can still grow; archive it.
+A replay with `--id` records its one-mutant inventory, so it is not comparable
+to a whole run. History is excluded from baseline/output fingerprints.
