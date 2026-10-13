@@ -9,8 +9,9 @@ module Saboteur
     # one-line legend for the statuses in the summary.
     class ScoreTable
       MAX_ROWS = 15
-      LEGEND = "killed: a test failed  survived: every test passed  timeout: a test hung  " \
-               "error/resource limit/skipped: not scored"
+      LEGEND = ["killed: a test failed  survived: every selected test passed",
+                "timeout: exceeded its deadline",
+                "error, resource limit, skipped and the other statuses: not scored"].freeze
 
       def initialize(out, palette)
         @out = out
@@ -28,7 +29,9 @@ module Saboteur
       end
 
       def legend
-        @palette.paint(:dim, "legend: #{LEGEND}")
+        LEGEND.each_with_index.map do |text, index|
+          @palette.paint(:dim, "#{index.zero? ? 'legend: ' : '        '}#{text}")
+        end.join("\n")
       end
 
       private
