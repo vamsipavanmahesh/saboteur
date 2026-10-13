@@ -83,11 +83,14 @@ module Saboteur
 
     # Lines whose execution means the edited code ran: from the first line of
     # the innermost statement containing the edit to the edit's last line.
-    # A statement's first line always records a coverage event when it runs,
-    # so a test that never ran the edited code cannot have hit these lines.
+    # Pattern headers do not always record line events. Their enclosing case
+    # and clause body supply execution evidence instead.
     # An edit outside every statement (signature, around the def, whole
     # body) maps to the whole method.
     def coverage_lines_for(edit)
+      pattern_lines = pattern_coverage_lines(node.body, edit)
+      return pattern_lines if pattern_lines
+
       statement = innermost_statement(node.body, edit.start_byte, edit.end_byte)
       return coverage_lines unless statement
 
@@ -163,6 +166,27 @@ module Saboteur
         return innermost_statement(child, start_byte, end_byte, found)
       end
       found
+    end
+
+    def pattern_coverage_lines(child, edit, case_line = nil)
+      return nil unless child
+
+      case_line = child.start_line if child.is_a?(Prism::CaseMatchNode)
+      if child.is_a?(Prism::InNode) && contains_edit?(child.pattern, edit)
+        return [case_line, child.start_line, child.statements&.start_line].compact.uniq
+      end
+
+      child.compact_child_nodes.each do |nested|
+        next unless contains_edit?(nested, edit)
+
+        lines = pattern_coverage_lines(nested, edit, case_line)
+        return lines if lines
+      end
+      nil
+    end
+
+    def contains_edit?(child, edit)
+      child.start_offset <= edit.start_byte && edit.end_byte <= child.end_offset
     end
 
     def validate_edit!(edit, previous_start)
