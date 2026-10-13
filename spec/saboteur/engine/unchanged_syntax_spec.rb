@@ -62,6 +62,40 @@ RSpec.describe Saboteur::Engine::UnchangedSyntax do
     expect(unchanged?("# frozen_string_literal: true\n#{before}")).to be(false)
   end
 
+  describe "__LINE__, whose value is where it sits" do
+    def method_text(body, above: "")
+      "class Cart\n#{above}  def total(a)\n#{body}  end\nend\n"
+    end
+
+    {
+      "directly" => "    __LINE__\n",
+      "inside a call" => "    [a, __LINE__].max\n",
+      "inside an interpolation" => "    \"line \#{__LINE__}\"\n",
+      "inside a nested block" => "    [a].map { |x| x + __LINE__ }\n",
+      "in a heredoc interpolation" => "    <<~TEXT\n      \#{__LINE__}\n    TEXT\n"
+    }.each do |where, body|
+      it "is false when the method moves down a line, used #{where}" do
+        expect(unchanged?(method_text(body, above: "  # note\n"), base_text: method_text(body))).to be(false)
+      end
+
+      it "is false when a line is added above it inside the method, used #{where}" do
+        edited = method_text(body).sub("    ", "    # note\n    ")
+
+        expect(unchanged?(edited, base_text: method_text(body))).to be(false)
+      end
+
+      it "is true when only a comment after it changes, used #{where}" do
+        edited = method_text(body).sub("  end\nend", "    # tail\n  end\nend")
+
+        expect(unchanged?(edited, base_text: method_text(body))).to be(true)
+      end
+    end
+
+    it "is true when only an inline comment changes" do
+      expect(unchanged?(method_text("    __LINE__ # now\n"), base_text: method_text("    __LINE__\n"))).to be(true)
+    end
+  end
+
   it "is false when the sig in front of the def changes" do
     base = "class Cart\n  sig { returns(Integer) }\n  def total = 1\nend\n"
 
