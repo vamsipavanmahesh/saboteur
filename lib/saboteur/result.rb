@@ -18,11 +18,11 @@ module Saboteur
   # message or the timeout limit. ignored is the ignore-list reason, if any.
   class MutantResult
     attr_reader :subject, :mutation, :status, :reason, :runtime, :killed_by, :covered_by, :mutated_source,
-                :kill_cause
+                :kill_cause, :executed
     attr_accessor :ignored
 
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
-                   covered_by: [], kill_cause: nil, reused: false, rejected_kill: false)
+                   covered_by: [], kill_cause: nil, reused: false, rejected_kill: false, executed: nil)
       raise ArgumentError, "unknown status #{status.inspect}" unless STATUSES.include?(status)
 
       @subject = subject
@@ -34,6 +34,7 @@ module Saboteur
       @covered_by = covered_by
       @mutated_source = mutated_source
       @kill_cause = kill_cause
+      @executed = executed
       @rejected_kill = rejected_kill
       @reused = reused
       @ignored = nil
@@ -43,7 +44,14 @@ module Saboteur
     def as_error(reason, rejected_kill: false)
       MutantResult.new(subject: subject, mutation: mutation, status: :error, mutated_source: mutated_source,
                        reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by,
-                       rejected_kill: rejected_kill)
+                       executed: executed, rejected_kill: rejected_kill)
+    end
+
+    # True when every test planned for this mutant is known to have run.
+    # A killed run that stopped early, a test that called exit, or a verdict
+    # whose executed tests were never recorded is not complete.
+    def complete?
+      !executed.nil? && (covered_by - executed).empty?
     end
 
     def rejected_kill?
