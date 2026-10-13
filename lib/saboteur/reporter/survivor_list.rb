@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require_relative "mutation_text"
+require_relative "survivor_hints"
+
+module Saboteur
+  module Reporter
+    # Survivors grouped by file, then method, then line. The source line and
+    # the tests that covered it are printed once; each mutation is one compact
+    # line: operator, original -> replacement, digest.
+    class SurvivorList
+      MAX_PASSING_TESTS = 5
+
+      def initialize(out, palette)
+        @out = out
+        @palette = palette
+      end
+
+      # entries: [[result, hidden_count]] in report order.
+      def call(report, entries)
+        return if entries.empty?
+
+        @out.puts "Survivors (#{report.survivors.size}):"
+        entries.group_by { |result, _| result.subject.file }.sort_by { |file, _| file }.each do |file, in_file|
+          file_section(report, relative(file, report.root), in_file)
+        end
+      end
+
+      private
+
+      def file_section(report, path, in_file)
+        @out.puts "\n#{@palette.paint(:bold, path)}"
+        in_file.group_by { |result, _| result.subject.id }.each do |subject_id, in_subject|
+          @out.puts "  #{subject_id}"
+          lines(report, path, in_subject)
+        end
+      end
+
+      def lines(report, path, in_subject)
+        in_subject.group_by { |result, _| MutationText.line(result) }.sort.each do |line, on_line|
+          first = on_line.first.first
+          @out.puts "    #{path}:#{line} in #{first.subject.id}"
+          changed_lines(report, path, first)
+          @out.puts "      #{@palette.paint(:dim, "#{line}:")} #{source_line(first, line)}"
+          passing_tests(first)
+          on_line.each { |result, hidden| mutation(result, hidden) }
+        end
+      end
+
+      def source_line(result, line)
+        result.subject.file_source.lines[line - 1].to_s.strip
+      end
+
+      def mutation(result, hidden)
+        text = "      #{@palette.paint(:red, '-')} #{result.mutation.operator} " \
+               "#{MutationText.original(result)} -> #{@palette.paint(:green, MutationText.replacement(result))} " \
+               "#{result.digest}"
+        text += " (ignored: #{result.ignored})" if result.ignored
+        @out.puts text
+        hint(result)
+        @out.puts "        #{hidden} more survivor#{'s' if hidden > 1} on this line in the JSON report" if
+          hidden.positive?
+      end
+
+      def hint(result)
+        text = SurvivorHints.for(result.mutation.operator, coarse: result.mutation.coarse)
+        @out.puts "        #{@palette.paint(:cyan, 'hint:')} #{text}" if text && !result.ignored
+      end
+
+      # The tests that ran with the mutant applied and still passed: the
+      # missing assertion belongs in one of them. They are listed likeliest
+      # killers first, the order the run used. Line coverage can overstate which
+      # tests exercise the line, so the list is a lead, not proof.
+      def passing_tests(result)
+        tests = result.covered_by
+        return if tests.empty?
+
+        @out.puts "      #{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and " \
+                  "#{passed_phrase(result)} (the missing check may belong in one of them):"
+        tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "        #{name}" }
+        more = tests.size - MAX_PASSING_TESTS
+        @out.puts "        ... #{more} more in the JSON report (coveredBy)" if more.positive?
+      end
+
+      def passed_phrase(result)
+        result.reused? ? "passed in an earlier run (--incremental)" : "still passed"
+      end
+
+      # In diff mode: the changed lines this mutant touches.
+      def changed_lines(report, path, result)
+        lines = report.changed_lines_for(result)
+        return if lines.empty?
+
+        shown = lines.first(3).map { |line| "#{path}:#{line}" }.join(", ")
+        more = lines.size - 3
+        @out.puts "      changed #{lines.one? ? 'line' : 'lines'}: #{shown}#{" (+#{more} more)" if more.positive?}"
+      end
+
+      def relative(file, root)
+        file.delete_prefix("#{root}/")
+      end
+    end
+  end
+end
