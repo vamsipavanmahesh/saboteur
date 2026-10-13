@@ -91,14 +91,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#execute",
              reason: "equivalent: counting each kill as 2 keeps the same order of killers"
 
-  i.mutation "0f79546512131b47",
-             subject: "Saboteur::MutationSource::Builtin#initialize",
-             reason: "equivalent: Base#initialize does nothing"
-
-  i.mutation "22d70abfce019634",
-             subject: "Saboteur::MutationSource::Builtin#initialize",
-             reason: "equivalent: Regexp.new(regexp) returns an equal Regexp"
-
   i.mutation "a7573a705c635da0",
              subject: "Saboteur::MutationSource::Builtin#rescues_everything?",
              reason: "equivalent: nil and false are both falsy for the caller"
@@ -322,4 +314,7 @@ Saboteur.ignore do |i|
   i.mutation "2775afca28a11bfe",
              subject: "Saboteur::Selection::CoverageMap#sort_test_ids",
              reason: "equivalent: ids come from by_method/by_line values, which store indices into tests, so order.fetch always hits and the default is unreachable"
+  i.mutation "947651810f34ed47",
+             subject: "Saboteur::Preview#planned",
+             reason: "equivalent: at the exact cap, >= records a zero-count omission; preview only sums omission counts, so displayed counts and selected mutants are unchanged"
 end
