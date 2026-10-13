@@ -27,8 +27,9 @@ People::Person#adult? comparison <digest> lib/people.rb:14
 - **Diff:** the original line (`-`) and the mutant (`+`). The mutant is what
   your code would do if someone made this edit by mistake.
 - **Covering tests:** the tests whose line coverage touched this line and that
-  still passed with the mutant applied. They are a lead, not proof: line
-  coverage can overstate which tests exercise a line. The terminal shows five;
+  still passed with the mutant applied. They are a heuristic lead, not proof:
+  line coverage can overstate which tests exercise a line, and the missing
+  check may belong in a test that is not on the list. The terminal shows five;
   the rest are under `coveredBy` in the JSON report.
 
 In `--since` mode a survivor also prints `changed line: path:N`, the changed
@@ -71,9 +72,15 @@ bundle exec saboteur run --id <digest>
 | `argument_removal`, `pair_removal` | an argument or option nobody checks | assert that the argument changes the outcome |
 
 A surviving whole-body mutant is a strong hint that no selected test checks
-the method's result or effect. It is not proof: the method may be called only
-for a side effect the tests observe elsewhere, the result may not matter by
-contract, or the mutant may be equivalent for the inputs the code can receive.
+the method's result or effect. It is a heuristic, not proof. Before you write
+a test, check these cases:
+
+- The method may return `nil` (or another value) on purpose, so replacing the
+  body with `nil` changes nothing a caller can see.
+- The mutant may be equivalent for the inputs the code can receive.
+- The method may be part of a protocol or contract (a hook, a callback, a
+  `to_s`, a no-op default) that callers rely on only through another class.
+- Its effect may be observed in a test that was not selected for this line.
 
 ## Survivor, no coverage, or skipped
 
