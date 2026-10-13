@@ -7,6 +7,8 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `--matrix` (#132) runs every covering test per mutant and lists blind and
+  redundant tests after the survivors.
 - The 30-second heartbeat of the baseline and coverage phases now shows the examples finished so far, the percentage and a rough time left, read from the phase log, instead of only the elapsed time. (#56)
 - Each finding in `--agent` output carries a `testHint` (`kind`, `text`, and for a
   comparison swap that differs only for equal or unequal operands, a `case`
