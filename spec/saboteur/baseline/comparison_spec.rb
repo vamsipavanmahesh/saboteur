@@ -145,6 +145,11 @@ RSpec.describe Saboteur::Baseline::Comparison do
       expect(result.exit_code).to eq(3)
     end
 
+    it "reports no score when the baseline itself scored nothing" do
+      result = gate([{ "id" => "e", "status" => "error" }], results(kills: 1, survivors: 0), 0.0)
+      expect(result.score).to be_nil
+    end
+
     it "keeps an incomplete run ahead of the score" do
       result = gate(results(kills: 4, survivors: 1), results(kills: 1, survivors: 1) +
                     [{ "id" => "e", "status" => "error" }], 0.0)
