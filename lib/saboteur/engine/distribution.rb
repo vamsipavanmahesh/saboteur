@@ -8,8 +8,19 @@ module Saboteur
     # plain data; the parent rebuilds them against its own copy of the same
     # candidate list, so results look the same either way.
     class Distribution
-      def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil, after_subject: nil)
+      # After run: the subjects a stop_after callable left unrun (always empty
+      # without one).
+      attr_reader :unreached
+
+      # stop_after: nil, or a callable that gets one subject's results and
+      # returns true to stop before the next subject (--fail-fast). It only
+      # works on one process: parallel workers have already started the
+      # other subjects.
+      def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil, after_subject: nil,
+                     stop_after: nil)
         @jobs = jobs
+        @stop_after = stop_after
+        @unreached = []
         @on_start = on_start
         @scheduler = scheduler
         @diagnostics = diagnostics
@@ -19,11 +30,7 @@ module Saboteur
 
       # lists: each subject's [[mutation, text]] candidates, in subject order.
       def run(subjects, lists)
-        if @jobs <= 1
-          return subjects.zip(lists).flat_map do |subject, list|
-            @scheduler.call(subject, list).tap { |results| @after_subject&.call(subject, results) }
-          end
-        end
+        return run_serially(subjects, lists) if @jobs <= 1
 
         # The watcher runs as each subject's row arrives, before the pool
         # hands out more work, so a tripped canary stops the queue (jobs>1
@@ -39,6 +46,20 @@ module Saboteur
       end
 
       private
+
+      def run_serially(subjects, lists)
+        results = []
+        subjects.zip(lists).each_with_index do |(subject, list), index|
+          subject_results = @scheduler.call(subject, list)
+          results.concat(subject_results)
+          @after_subject&.call(subject, subject_results)
+          next unless @stop_after&.call(subject_results)
+
+          @unreached = subjects.drop(index + 1)
+          break
+        end
+        results
+      end
 
       # Runs in a worker.
       def work(subject, list)
