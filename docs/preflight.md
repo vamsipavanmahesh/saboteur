@@ -83,12 +83,14 @@ The report lists the manual obligations that no script checks. Read them.
     read-only git calls before anything is created. Candidate code (a Gemfile, a spec, a tool) runs while the output
     directory is open, so every write goes through one routine that re-checks the directory chain from the checkout
     root (real directories, owned by you, not world-writable) and creates the file with `O_EXCL | O_NOFOLLOW |
-    O_NONBLOCK`: it must be new, cannot be a link, and a FIFO cannot make it block. The raw RSpec report path is
-    created by the harness first and read back without following links. Before the report is written, every entry
-    under the run directory must still be a directory or a regular file, otherwise the run is `incomplete` (check
-    `output_safety`); a failed write after that is `report_output`. Limit: Ruby has no `openat`, so a directory
-    swapped between the chain check and the open is narrowed, not excluded, and the end-of-run tree check is what
-    catches it. The tool does not claim the output directory is tamper-proof against code running as the same user.
+    O_NONBLOCK`: it must be new, cannot be a link, and a FIFO cannot make it block. RSpec does not write its JSON to
+    a path in the checkout: it writes to a pipe (file descriptor 3) that only the harness reads, so a spec cannot
+    redirect that write. Before the report is written, every entry under the run directory must still be a directory
+    or a regular file (a bounded walk: at most 16 levels, 5000 entries and 20 s, otherwise it is not complete), or the
+    run is `incomplete` (check `output_safety`); a failed write after that is `report_output`. Limits: Ruby has no
+    `openat`, so a directory swapped for a link between the chain check and the open is narrowed, not excluded, and a
+    swap that is undone before the end of the run cannot be detected. The tree check only catches a bad state that is
+    still there when it runs. The tool does not claim the output directory is tamper-proof against code running as the same user.
 
 The report also records the local `origin/main` snapshot (freshness unverified), a SHA-256 of the base policy file,
 the mode and blob of every changed file, every command run with its logs and hashes, and the exact rerun command.
