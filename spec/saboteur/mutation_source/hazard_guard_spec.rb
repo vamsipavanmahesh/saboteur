@@ -139,6 +139,14 @@ RSpec.describe Saboteur::MutationSource::HazardGuard do
     expect(suppressed).not_to be_empty
   end
 
+  it "judges piped open by its first argument only" do
+    _kept, suppressed, = partition('    open("| ls", "r")')
+    expect(suppressed).not_to be_empty
+    kept2, suppressed2, = partition('    open("file.txt", "| ls")')
+    expect(suppressed2).to be_empty
+    expect(kept2).not_to be_empty
+  end
+
   it "suppresses Kernel#open with a leading pipe but leaves a plain open alone" do
     _kept, suppressed, = partition('    open("| ls")')
     expect(suppressed).not_to be_empty
