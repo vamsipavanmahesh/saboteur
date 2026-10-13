@@ -28,10 +28,21 @@ All notable changes are documented here. The format follows
   (serial only; the run is marked incomplete with exit cause `failFast` and
   lists the subjects it never reached). The CI progress line-break can
   misalign by a mark when parallel workers finish at the same moment.
+- Sorbet signature text does not prune nil-producing mutants. Runtime enforcement
+  is not verified: checked levels, custom handlers and shims can allow nil to
+  reach assertions. Type-aware pruning (#153) is deferred until enforcement can
+  be established without guessing from return-type text.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
+### Changed
+- The text run prints one `Reports:` line naming the JSON and HTML reports, with
+  paths relative to the project root when they are under it, instead of two
+  lines with a blank line between them (#150). Scripts that read the old
+  `JSON report:` and `HTML report:` lines must read `Reports:` instead.
+
 ### Fixed
+- The unscoped `--since` warning now says what `--test` drops: the consumer specs of a changed method no longer run, which can turn kills into survivors. (#113)
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
   guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
@@ -52,6 +63,8 @@ All notable changes are documented here. The format follows
 ## [0.4.0] - 2026-10-12
 
 ### Changed
+- The terminal report lists every survivor on a changed line in `--since` mode, instead of one
+  plus "N more survivors on this line in the JSON report" (#146).
 - **Breaking:** configuration moved from YAML to Ruby. `.saboteur.yml` becomes
   `config/saboteur.rb` (`Saboteur.configure do |c| ... end`, same key names),
   and `.saboteur-ignore.yml` becomes `config/saboteur_ignore.rb`
