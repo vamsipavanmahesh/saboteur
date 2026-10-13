@@ -10,6 +10,10 @@ module Saboteur
     # or mutation source is used. This catches observed instability, not all
     # possible flaky behaviour.
     class BaselineGuard
+      EXCERPT_LINES = 10
+      EXCERPT_WIDTH = 200
+      EXCERPT_SCAN_LINES = 5000
+
       def initialize(config:, integration:, hooks:, supervisor:, diagnostics:)
         @config = config
         @integration = integration
@@ -108,8 +112,26 @@ module Saboteur
 
       def refuse(number, reason)
         raise Error, "baseline check #{number} failed at seed #{@config['seed']}: #{reason}. " \
-                     "See the log at #{log_path(number)}. Fix the suite or its setup, then run saboteur again " \
-                     "with the same seed. No mutants were started."
+                     "#{failure_excerpt(number)}See the full log at #{log_path(number)}. Fix the suite or its " \
+                     "setup, then run saboteur again with the same seed. No mutants were started."
+      end
+
+      # The first lines of the failure, inline, so the cause is readable
+      # without opening the log: RSpec's "Failures:" section when the log has
+      # one, otherwise the last lines of the log.
+      def failure_excerpt(number)
+        lines = log_lines(number)
+        return "" if lines.empty?
+
+        start = lines.index { |line| line.start_with?("Failures:") }
+        shown = start ? lines[start, EXCERPT_LINES] : lines.last(EXCERPT_LINES)
+        "The log says:\n#{shown.map { |line| "  #{line.slice(0, EXCERPT_WIDTH)}" }.join("\n")}\n"
+      end
+
+      def log_lines(number)
+        File.foreach(log_path(number), chomp: true).first(EXCERPT_SCAN_LINES).reject { |line| line.strip.empty? }
+      rescue SystemCallError
+        []
       end
     end
   end
