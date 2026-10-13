@@ -60,7 +60,7 @@ module Saboteur
         # The suite child forked next inherits this heap; pack it first, to
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
-        heartbeat = @diagnostics.progress_heartbeat("building coverage map")
+        heartbeat = @diagnostics.progress_heartbeat("building coverage map").watch(log_path)
         result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
           record(writer, files)
         end

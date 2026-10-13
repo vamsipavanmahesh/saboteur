@@ -12,7 +12,7 @@ RSpec.describe Saboteur::CLI, "terminal options" do
   let(:reporter) { instance_double(Saboteur::Reporter::Terminal, call: nil) }
 
   before do
-    engine = instance_double(Saboteur::Engine, call: report_of(result_for(:killed)))
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
     allow(Saboteur::Reporter::Terminal).to receive(:new).and_return(reporter)
   end
@@ -47,7 +47,9 @@ RSpec.describe Saboteur::CLI, "terminal options" do
     end
 
     def run_recording(report, *flags)
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(
+        instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      )
       Dir.mktmpdir do |dir|
         json = File.join(dir, "r.json")
         code = described_class.new(["run", *flags, "--json", json], out: out, err: err).call

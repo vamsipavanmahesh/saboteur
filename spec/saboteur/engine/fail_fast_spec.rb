@@ -108,6 +108,12 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     subjects_in("class Person\n  def adult?; @age >= 18; end\nend\n", name: "person.rb").first
   end
 
+  it "marks the report as a matrix run only when matrix is configured" do
+    plain = engine.send(:build_report, [], [], nil, 0)
+    matrix = engine({ "matrix" => true }).send(:build_report, [], [], nil, 0)
+    expect([plain.matrix?, matrix.matrix?]).to eq([false, true])
+  end
+
   it "records the subjects a stop left unrun, and nothing when none were left" do
     stopped = engine
     stopped.send(:record_early_stop, [person])
