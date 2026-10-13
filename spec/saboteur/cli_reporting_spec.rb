@@ -45,10 +45,10 @@ RSpec.describe "finished run reporting" do
     engine = instance_double(Saboteur::Engine, call: report)
     expect(Saboteur::Engine).to receive(:new).with(config, **arguments).and_return(engine)
     expect(cli).to receive(:validate_history).ordered
-    expect(cli).to receive(:write_html).with(report, announce: false).ordered
+    expect(cli).to receive(:write_html).with(report).ordered
     expect(cli).to receive(:record_history).with(report).ordered
     expect(cli).to receive(:validate_history).ordered
-    expect(cli).to receive(:write_json).with(report, "ok", announce: false).ordered
+    expect(cli).to receive(:write_json).with(report, "ok").ordered
     expect(cli.send(:agent_run, arguments)).to eq(0)
   end
   [nil, "digest"].each do |digest|
