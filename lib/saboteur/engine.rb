@@ -44,7 +44,7 @@ module Saboteur
         integration, files, load_lines = boot_target(boot)
         @rails = boot.rails
         subjects, scope = select_subjects(files)
-        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, load_lines:)
+        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, ignore_list, load_lines:)
         @diagnostics.warnings.concat(ignore_list.apply(results))
         build_report(results, subjects, scope, started)
       ensure
@@ -104,7 +104,7 @@ module Saboteur
       [subjects, scope]
     end
 
-    def mutate(subjects, files, integration, scope, load_lines: {})
+    def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
       warn_about_unscoped_suite(integration)
       check_baseline(integration)
       map = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
@@ -122,11 +122,30 @@ module Saboteur
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
-      results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                                 cache: cache, on_start: method(:start_worker)).run(runnable_subjects,
-                                                                                    runnable_lists)
+      results = run_candidates(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
       cache&.save
       results
+    end
+
+    def run_candidates(subjects, lists, scheduler, cache, ignore_list)
+      @diagnostics.start_progress(lists.sum(&:size))
+      Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+                       cache: cache, on_start: method(:start_worker),
+                       stop_after: fail_fast_check(ignore_list)).run(subjects, lists)
+    ensure
+      @diagnostics.finish_progress
+    end
+
+    # --fail-fast: stop after the first subject that has a survivor the
+    # ignore list does not accept. Granularity is one subject.
+    def fail_fast_check(ignore_list)
+      return nil unless config["fail_fast"]
+
+      lambda do |results|
+        survivor = results.any? { |result| result.survived? && !ignore_list.accepts?(result) }
+        @diagnostics.inform("--fail-fast: stopping after the first subject with a survivor") if survivor
+        survivor
+      end
     end
 
     def inform_about_run(subjects, map)
