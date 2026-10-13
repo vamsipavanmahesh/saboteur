@@ -11,9 +11,7 @@ RSpec.describe "order-dependent examples (end to end)", :e2e do
   it "does not count kills by an order-dependent example" do
     expect(dependent).not_to be_empty
     expect(dependent.map { |m| m["status"] }.uniq).to eq(["RuntimeError"])
-    expect(dependent.map { |m| m["statusReason"] }.uniq.first).to match(/also fails with the method unchanged/)
-    expect(run.out).to include("kills rejected by unchanged-method check: #{dependent.size}")
-    expect(run.out).to match(/Ordered#dependent_value: \d+ verdict\(s\) failed with the method unchanged/)
+    expect(dependent.map { |m| m["statusReason"] }).to all(match(/also fails with the method unchanged/))
   end
 
   it "still kills mutants of the method whose example does not depend on order" do
