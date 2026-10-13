@@ -13,7 +13,8 @@ module Preflight
       @options = options
       @directory = directory
       @run_id = run_id || "#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{SecureRandom.hex(4)}"
-      @output_directory = File.join(File.expand_path(OUTPUT_ROOT, directory), @run_id)
+      @root = File.realpath(directory)
+      @output_directory = File.join(@root, OUTPUT_ROOT, @run_id)
       @own_commands = command_runner.nil?
       @commands = command_runner || default_commands(directory, env)
       @repository = Repository.new(command_runner: @commands, options: options, directory: directory)
@@ -33,6 +34,7 @@ module Preflight
       baseline, dependencies = prepare_dependencies(first, results)
       results << execution_gap_result("execution_inputs", baseline) unless baseline.is_a?(String)
       results.concat(costly_checks(results))
+      results << output_safety_result if output_unsafe?
       finish(results, "#{baseline}|#{dependencies}", settled_inputs(dependencies))
     end
 
@@ -50,9 +52,27 @@ module Preflight
 
     # No report can exist without a writable output directory, so this stops the run (exit 3, message on stderr).
     # Command logs are switched on only after this, so no earlier command can write outside the verified root.
+    # Candidate code ran while the output directory was open. Before the report is written, every entry in it must
+    # still be a real directory or a regular file, and the chain down to it must be real directories.
+    def output_unsafe?
+      SafeOutput.verify_tree(@output_directory, @root)
+      false
+    rescue ExecutionGap => e
+      @output_problem = e.message
+      true
+    end
+
+    def output_safety_result
+      CheckResult.new(name: "output_safety", status: :incomplete,
+                      reason: "output directory changed during the run: #{@output_problem}")
+    end
+
     def prepare_output_directory
-      FileUtils.mkdir_p(File.join(@output_directory, "logs"), mode: 0o700)
-      @commands.log_directory = File.join(@output_directory, "logs") if @own_commands
+      SafeOutput.make_directories(File.join(@output_directory, "logs"), @root)
+      return unless @own_commands
+
+      @commands.log_root = @root
+      @commands.log_directory = File.join(@output_directory, "logs")
     rescue SystemCallError => e
       raise ExecutionGap, "output directory #{@output_directory} cannot be created: #{e.class}"
     end
@@ -118,7 +138,7 @@ module Preflight
 
     def rspec(name, paths)
       Checks::Rspec.new(name: name, command_runner: @commands, paths: paths,
-                        report_directory: File.join(@output_directory, "logs")).call
+                        report_directory: File.join(@output_directory, "logs"), output_root: @root).call
     end
 
     def unimplemented
@@ -163,11 +183,12 @@ module Preflight
     # Markdown still goes to stdout.
     def finish(results, before, after)
       report = build_report(results, before, after)
-      report.write(@output_directory)
+      report.write(@output_directory, root: @root)
+      SafeOutput.verify_tree(@output_directory, @root)
       report
-    rescue SystemCallError, IOError => e
+    rescue SystemCallError, IOError, ExecutionGap => e
       failed = results + [CheckResult.new(name: "report_output", status: :incomplete,
-                                          reason: "report could not be written: #{e.class}")]
+                                          reason: "report could not be written safely: #{e.message}")]
       build_report(failed, before, after)
     end
 
