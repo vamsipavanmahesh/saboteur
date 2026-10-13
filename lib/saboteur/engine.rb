@@ -180,11 +180,11 @@ module Saboteur
         raise Error, "sandbox is strict but #{sandbox_gap(abi)}; refusing to run without the promised " \
                      "sandbox - set c.sandbox = true to run degraded, or false to opt out"
       end
+      # Once, through the report's warnings only: warn + inform printed the
+      # same line twice (D's review, #178).
       unless @sandbox_note_given
         @sandbox_note_given = true
-        message = "sandbox is on but #{sandbox_gap(abi)}; children run with the hazard guard and canary only"
-        @diagnostics.warn(message)
-        @diagnostics.inform(message)
+        @diagnostics.warn("sandbox is on but #{sandbox_gap(abi)}; children run with the hazard guard and canary only")
       end
       nil
     end
@@ -212,10 +212,31 @@ module Saboteur
     # c.sandbox_writable adds the dirs a suite genuinely needs (db/, log/,
     # ...): without a grant, writes there fail with EACCES in the child.
     def sandbox_writable_dirs
-      dirs = [File.join(@root, "tmp"), config.path("cache_dir")] +
-             config["sandbox_writable"].map { |dir| File.expand_path(dir, @root) }
+      user_dirs = config["sandbox_writable"].map { |dir| File.expand_path(dir, @root) }
+      dirs = [File.join(@root, "tmp"), config.path("cache_dir")] + user_dirs
       dirs.each { |dir| FileUtils.mkdir_p(dir) }
-      dirs.map { |dir| File.realpath(dir) } + [File.realpath(Dir.tmpdir)]
+      real = dirs.map { |dir| File.realpath(dir) } + [File.realpath(Dir.tmpdir)]
+      warn_sandbox_overlaps(user_dirs.map { |dir| File.realpath(dir) }, real)
+      real
+    end
+
+    # A user grant that contains the project root makes the sandbox
+    # pointless, and one that contains another grant makes the narrower
+    # grant redundant. Overlaps among the built-in grants (project tmp/ and
+    # the system temp dir) are by design, so only user grants are checked.
+    def warn_sandbox_overlaps(user_dirs, all_dirs)
+      user_dirs.each do |dir|
+        if @root == dir || @root.start_with?("#{dir}/")
+          @diagnostics.warn("sandbox grant #{dir} contains the project root; " \
+                            "mutant children can write the whole tree")
+        end
+        (all_dirs - [dir]).each do |other|
+          next unless other.start_with?("#{dir}/")
+
+          @diagnostics.warn("sandbox grant #{dir} contains the granted dir #{other}; " \
+                            "the narrower grant is redundant")
+        end
+      end
     end
 
     def result_cache
