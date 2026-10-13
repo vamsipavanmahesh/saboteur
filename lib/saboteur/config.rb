@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "mutation_source/builtin"
+require_relative "mutation_source/operator_registry"
 require_relative "mutation_source/hazard_guard"
 
 module Saboteur
@@ -34,6 +35,7 @@ module Saboteur
       "ignore_file" => "config/saboteur_ignore.rb",
       "custom_map" => "config/saboteur_custom_map.rb",
       "sources" => ["builtin"],
+      "operators" => [],
       "hooks" => [],
       "rails" => false,
       "reeval" => "nesting",
@@ -46,6 +48,7 @@ module Saboteur
       "cache" => true,
       "incremental" => false,
       "allow_focus" => false,
+      "fail_fast" => false,
       "guess_tests" => false,
       "seed" => 1,
       "tests" => [],
@@ -58,7 +61,7 @@ module Saboteur
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
-                   fingerprint_extra].freeze
+                   fingerprint_extra operators].freeze
 
     attr_reader :root
 
@@ -111,7 +114,7 @@ module Saboteur
       matched = self["include"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       excluded = self["exclude"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       (matched - excluded).select { |file| file.end_with?(".rb") }
-                          .map { |file| File.realpath(File.join(root, file)) }.uniq.sort
+                          .map { |file| File.realpath(File.expand_path(file, root)) }.uniq.sort
     end
 
     # Patterns that match no file. A pattern goes stale when files move;
@@ -158,6 +161,12 @@ module Saboteur
       raise ConfigError, "json_report and html_report both point to #{json}; give each report its own path"
     end
 
+    def validate_fail_fast!
+      return unless self["fail_fast"] && self["jobs"] > 1
+
+      raise ConfigError, "fail_fast needs jobs 1: parallel workers have already started the other subjects"
+    end
+
     def validate_threshold!
       threshold = self["threshold"]
       return if threshold.nil? || THRESHOLD_RANGE.cover?(threshold)
@@ -177,19 +186,25 @@ module Saboteur
         Execution::Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
     end
 
+    def validate_modes!
+      validate_reeval!
+      validate_guess_tests!
+    end
+
     def validate!
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
 
       validate_mutant_limit!
       validate_threshold!
+      validate_fail_fast!
       raise ConfigError, "seed must be >= 0" if self["seed"].negative?
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
       raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
 
-      validate_reeval!
-      validate_guess_tests!
+      validate_modes!
+      MutationSource::OperatorRegistry.resolve(self["operators"])
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
     rescue RegexpError => e
