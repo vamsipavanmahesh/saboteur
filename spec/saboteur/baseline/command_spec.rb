@@ -45,6 +45,17 @@ RSpec.describe "baseline CLI validation" do
     expect(command("check", "--baseline", "b.json", "--epsilon", "-1")).to eq(2)
     expect(@err.string).to include("--epsilon must be between 0 and 100")
     expect(command("check", "--baseline", "b.json", "--epsilon", "100.5")).to eq(2)
+    expect(@err.string).to include("--epsilon must be between 0 and 100")
+  end
+
+  it "accepts the epsilon bounds 0 and 100 and values between them" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:check).and_return("state" => "clean", "exit_code" => 0, "categories" => {},
+                                                  "issues" => [])
+    %w[0 0.5 100].each do |value|
+      expect(command("check", "--baseline", "b.json", "--epsilon", value)).to eq(0), value
+    end
   end
 
   it "passes explicit proposal destinations and reviewed hashes to acceptance" do
