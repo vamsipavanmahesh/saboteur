@@ -63,6 +63,8 @@ All notable changes are documented here. The format follows
 ## [0.4.0] - 2026-10-12
 
 ### Changed
+- The terminal report lists every survivor on a changed line in `--since` mode, instead of one
+  plus "N more survivors on this line in the JSON report" (#146).
 - **Breaking:** configuration moved from YAML to Ruby. `.saboteur.yml` becomes
   `config/saboteur.rb` (`Saboteur.configure do |c| ... end`, same key names),
   and `.saboteur-ignore.yml` becomes `config/saboteur_ignore.rb`
