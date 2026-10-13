@@ -94,9 +94,10 @@ covers: data committed by another connection, by a `before(:all)` or
 Workers are isolated from each other only where saboteur makes a copy of the
 database per worker: the Rails profile is on (`c.rails = true`), the adapter
 is SQLite or PostgreSQL, and `jobs` is above 1 (see the Rails section of the
-README). MySQL is not supported above `jobs: 1`, and
-saboteur does not copy any other database. For those, use `jobs: 1`, or give
-each worker its own database in `before_fork` or `after_fork` hooks.
+README). With the Rails profile on, an adapter saboteur cannot copy (MySQL,
+or any other) is rejected when `jobs` is above 1, before any worker hook runs,
+so use `jobs: 1` for those. With the profile off, saboteur copies nothing and
+the workers share one database: use `jobs: 1` there too.
 
 Rails fixtures in `spec/fixtures` and `test/fixtures` are part of the cache
 fingerprint, so `--incremental` does not reuse verdicts after you edit one.
@@ -111,14 +112,12 @@ a database nothing else uses.
 
 ## DatabaseCleaner
 
-With `jobs: 1` the children write to your real test database. A cleaning
-strategy that truncates tables (`:truncation`) is safe there only because it
-is a test database; never point saboteur at a development database. With
-`jobs` above 1 with the Rails profile on, each worker truncates its own copy
-on SQLite and PostgreSQL. Without the profile, or on any other adapter,
-workers share one database, so the truncation of one
-worker can wipe the rows another is using: use `jobs: 1` or per-worker
-databases from hooks.
+With `jobs: 1` the children write to the test database your suite is
+configured with. With `jobs` above 1 and the Rails profile on, each worker
+cleans its own copy on SQLite and PostgreSQL. Without the profile, the workers
+share one database, so the cleaning of one worker can remove rows another is
+using: use `jobs: 1`. Other adapters with the profile on are rejected above
+`jobs: 1` (see the previous section).
 
 Run the cleaner per example, as usual (`before(:each)` / `after(:each)`), not
 once at load time in the parent: a load-time clean runs once and the children
