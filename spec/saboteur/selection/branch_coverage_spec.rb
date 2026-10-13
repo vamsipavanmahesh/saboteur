@@ -26,7 +26,7 @@ RSpec.describe Saboteur::Selection::CoverageMap, "branch selection" do
   end
 
   it "still calls a multi-line arm untaken when tests hit only its first or last line" do
-    arms[[2, 2, 4, 5]] = []
+    arms[[2, 0, 4, 5]] = []
     boundary = described_class.new(lines: { target.file => { 2 => %w[yes], 4 => %w[yes] } }, tests: %w[yes],
                                    branches: { target.file => arms })
     expect(boundary.tests_for_branches(target, [edit("10")])).to eq([])
@@ -36,6 +36,21 @@ RSpec.describe Saboteur::Selection::CoverageMap, "branch selection" do
     arms[[2, 2, 4, 5]] = []
     untouched = described_class.new(lines: {}, tests: %w[yes], branches: { target.file => arms })
     expect(untouched.tests_for_branches(target, [edit("10")])).to eq([])
+  end
+
+  it "does not let an arm that ends before the edit restrict it" do
+    arms.replace({ [3, 8, 3, 10] => [], [3, 13, 3, 15] => ["yes"] })
+    expect(map.tests_for_branches(target, [edit("20")])).to eq(["yes"])
+  end
+
+  it "still intersects a multi-line arm that has its own tests" do
+    arms[[2, 2, 4, 5]] = ["no"]
+    expect(map.tests_for_branches(target, [edit("10")])).to eq([])
+  end
+
+  it "has no branch evidence for a file the map has no arms for" do
+    other = described_class.new(lines: {}, tests: %w[yes], branches: {})
+    expect(other.tests_for_branches(target, [edit("10")])).to be_nil
   end
 
   it "leaves condition and whole-expression changes to normal selection" do
