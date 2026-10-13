@@ -7,6 +7,7 @@ require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
+require_relative "preview"
 
 module Saboteur
   class CLI
@@ -122,6 +123,8 @@ module Saboteur
       use_explicit_sources
       reject_threshold_with_agent_format
       warn_dirty_tree
+
+      return preview if options[:list_operators] || options[:dry_run]
 
       arguments = { err: @err }
       arguments[:digest] = options[:id] if options[:id]
@@ -357,10 +360,22 @@ module Saboteur
     end
 
     def overrides
-      options.except(:config, :id)
+      options.except(:config, :id, :list_operators, :dry_run)
+    end
+
+    def preview
+      return MutationSource::OperatorRegistry.list(@out) || EXIT_OK if options[:list_operators]
+
+      Preview.new(config, out: @out, err: @err).call
+      EXIT_OK
     end
 
     def define_selection_options(opts)
+      opts.on("--operators NAMES", Array, "Choose operator names or tiers (core, extended, all)") do |v|
+        set(:operators, v)
+      end
+      opts.on("--list-operators", "List operator names, descriptions and tiers") { set(:list_operators, true) }
+      opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
       opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
       opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
       opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
