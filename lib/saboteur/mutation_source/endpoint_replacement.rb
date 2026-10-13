@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "prism"
+require_relative "base"
+
+module Saboteur
+  module MutationSource
+    # Swaps the selected end of an explicitly received collection.
+    # Only message bytes change; arguments, receiver and block stay intact.
+    class EndpointReplacement < Base
+      REPLACEMENTS = { first: "last", last: "first" }.freeze
+      SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
+
+      # Base inherits Object's empty initializer; there is no parent state to set.
+      def initialize(arid: []) # rubocop:disable Lint/MissingSuper
+        @arid = arid.map { |pattern| Regexp.new(pattern) }
+      end
+
+      def name
+        "endpoint_replacement"
+      end
+
+      def mutations_for(subject)
+        found = []
+        visit(subject.node.body, subject, found)
+        found
+      end
+
+      private
+
+      def visit(node, subject, found)
+        return if node.nil? || SCOPE_NODES.any? { |scope| node.is_a?(scope) }
+
+        if node.is_a?(Prism::StatementsNode)
+          node.body.each { |statement| visit(statement, subject, found) unless arid?(statement) }
+          return
+        end
+
+        replace_endpoint(node, subject, found) if node.is_a?(Prism::CallNode)
+        node.compact_child_nodes.each { |child| visit(child, subject, found) }
+      end
+
+      def replace_endpoint(node, subject, found)
+        replacement = REPLACEMENTS[node.name]
+        return unless replacement && node.receiver
+        return if node.block
+        return unless node.arguments.nil?
+
+        location = node.message_loc
+        edit = Edit.new(file: subject.file, start_byte: location.start_offset,
+                        end_byte: location.end_offset, replacement: replacement)
+        found << Mutation.new(subject_id: subject.id, operator: name, edits: [edit], source: name)
+      end
+
+      def arid?(node)
+        @arid.any? { |pattern| pattern.match?(node.slice) }
+      end
+    end
+  end
+end

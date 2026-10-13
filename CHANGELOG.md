@@ -6,6 +6,10 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
+  including safe navigation. Calls with arguments or blocks, bare calls,
+  arid statements and nested scopes are excluded.
 ### Fixed
 - Endless defs (`def x = ...`) are no longer skipped as "no coverage": the
   coverage map now also records per-test method calls, which is how Ruby
