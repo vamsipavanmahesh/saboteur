@@ -15,7 +15,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       first = saboteur(dir)
       expect(first.status).to eq(1), first.err
       expect(adult_comparison(first, ">")["status"]).to eq("Survived")
-      expect(first.out).to include("-    def adult?; @age >= 18; end", "+    def adult?; @age > 18; end")
+      expect(first.out).to include("14: def adult?; @age >= 18; end", "- comparison >= -> > ")
 
       File.write(File.join(dir, "spec", "boundary_spec.rb"), <<~RUBY)
         require_relative "../lib/people"
@@ -78,7 +78,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
     end
 
     it "tells assertion kills from crash kills through real RSpec" do
-      run = saboteur(dir, "--subject", "People::Person#adult?")
+      run = saboteur(dir, "--subject", "People::Person#adult?", "--verbose")
       by_operator = mutants(run).to_h { |m| [m["mutatorName"], m["statusReason"]] }
       expect(by_operator.values_at("body_true", "body_raise")).to eq(["assertion", "crash: RuntimeError"])
       expect(run.out).to include("kills:", "by a crash (RuntimeError 1)")

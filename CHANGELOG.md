@@ -10,6 +10,12 @@ All notable changes are documented here. The format follows
 - A startup warning on stderr when the working tree has uncommitted changes,
   because mutants run your code and could alter or delete files. Saboteur's own
   output paths do not count as changes.
+- Terminal report rewrite: survivors grouped by file and method with
+  evidence-scoped hints (suggestions, not diagnoses), a score table, a
+  progress counter with ETA, `--verbose`, `--[no-]color` and `--fail-fast`
+  (serial only; the run is marked incomplete with exit cause `failFast` and
+  lists the subjects it never reached). The CI progress line-break can
+  misalign by a mark when parallel workers finish at the same moment.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
