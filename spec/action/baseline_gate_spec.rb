@@ -96,6 +96,66 @@ RSpec.describe "action/run-baseline-gate" do
     expect(output).to include("could not be read")
   end
 
+  describe "a result the check could not have produced" do
+    let(:full_score) { { "baseline" => 80.0, "current" => 80.0, "drop" => 0.0, "epsilon" => 5.0, "exceeded" => false } }
+
+    def unreadable(stdout, exit_status: 0, environment: {})
+      output, status = run_gate(environment, exit_status:, stdout:)
+      expect(status).to eq(3), stdout
+      expect(output).to include("could not be read")
+      expect(outputs).not_to include("baseline-state")
+    end
+
+    it "fails closed on an unknown state, bad categories and a bad score" do
+      unreadable('{"state":"nonsense","categories":{},"score":{"drop":"bad"}}')
+      unreadable(result_json(state: "nonsense"))
+      unreadable(JSON.generate("state" => "clean", "categories" => { "new" => 0, "changed" => [], "unmatched" => [],
+                                                                     "errors" => [] }))
+      unreadable(JSON.generate("state" => "clean", "categories" => { "new" => [], "changed" => [], "unmatched" => [] }))
+      unreadable(JSON.generate("state" => "clean", "categories" => { "new" => [], "changed" => [], "unmatched" => [],
+                                                                     "errors" => [{}] }))
+    end
+
+    it "fails closed when the state, exit status and findings disagree" do
+      unreadable(result_json(state: "review_required", exit_code: 1))
+      unreadable(result_json(state: "clean", exit_code: 0), exit_status: 1)
+      unreadable(result_json(state: "clean", exit_code: 1))
+      unreadable(result_json(state: "clean", exit_code: 0, new: 1))
+      unreadable(result_json(state: "review_required", exit_code: 1), exit_status: 1)
+    end
+
+    it "requires a complete finite score when an epsilon was given" do
+      environment = { "SABOTEUR_BASELINE_EPSILON" => "5" }
+      unreadable(result_json, environment:)
+      unreadable(result_json(score: full_score.merge("drop" => "bad")), environment:)
+      unreadable(result_json(score: full_score.except("exceeded")), environment:)
+      unreadable(result_json(score: full_score.merge("current" => 120.0)), environment:)
+      unreadable(result_json(score: full_score.merge("exceeded" => true)), environment:)
+      unreadable('{"state":"clean","exit_code":0,"categories":{"new":[],"changed":[],"unmatched":[],"errors":[]},' \
+                 '"score":{"baseline":1e999,"current":1,"drop":1,"exceeded":false}}', environment:)
+    end
+
+    it "accepts a complete score and keeps empty fields in their own columns" do
+      _, status = run_gate({ "SABOTEUR_BASELINE_EPSILON" => "5" }, stdout: result_json(score: full_score))
+      expect(status).to eq(0)
+      expect(outputs).to include("baseline-score" => "80.0", "baseline-current-score" => "80.0",
+                                 "baseline-score-drop" => "0.0")
+      run_gate({}, exit_status: 1, stdout: result_json(state: "review_required", exit_code: 1, new: 1,
+                                                       score: { "baseline" => 50.0, "current" => 40.0, "drop" => 10.0,
+                                                                "exceeded" => true }))
+      expect(outputs).to include("baseline-score" => "50.0", "baseline-current-score" => "40.0",
+                                 "baseline-score-drop" => "10.0")
+    end
+
+    it "keeps a missing baseline score out of the current-score column" do
+      stdout = '{"state":"clean","exit_code":0,"categories":{"new":[],"changed":[],"unmatched":[],"errors":[]},' \
+               '"score":{"current":40.0,"drop":10.0,"exceeded":false}}'
+      run_gate({}, stdout:)
+      expect(outputs).to include("baseline-score" => "", "baseline-current-score" => "40.0",
+                                 "baseline-score-drop" => "10.0")
+    end
+  end
+
   it "refuses a missing baseline file, a bad path, a bad epsilon and a bad boolean before running saboteur" do
     [[{ "SABOTEUR_BASELINE" => "missing.json" }, "does not exist"],
      [{ "SABOTEUR_BASELINE" => "--oops" }, "baseline may only contain"],
