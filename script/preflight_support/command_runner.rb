@@ -60,11 +60,12 @@ module Preflight
     attr_reader :history
     attr_writer :log_directory
 
-    def initialize(directory:, log_directory: nil, env: {}, grace: GRACE_SECONDS, output_limit: OUTPUT_LIMIT_BYTES,
-                   drain: DRAIN_SECONDS)
+    def initialize(directory:, log_directory: nil, env: {}, isolate_env: false, grace: GRACE_SECONDS,
+                   output_limit: OUTPUT_LIMIT_BYTES, drain: DRAIN_SECONDS)
       @directory = directory
       @log_directory = log_directory
       @env = env
+      @isolate_env = isolate_env
       @settings = { grace: grace, output_limit: output_limit, drain: drain }
       @sequence = 0
       @history = []
@@ -84,7 +85,8 @@ module Preflight
     private
 
     def execute(argv, timeout)
-      Open3.popen3(@env, *argv, chdir: @directory, pgroup: true) do |input, out, err, waiter|
+      Open3.popen3(@env, *argv, chdir: @directory, pgroup: true,
+                                unsetenv_others: @isolate_env) do |input, out, err, waiter|
         input.close
         buffers = [Capture.new, Capture.new]
         readers = [out, err].zip(buffers).map { |stream, buffer| Thread.new { read_limited(stream, buffer) } }
