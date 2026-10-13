@@ -46,6 +46,11 @@ RSpec.describe Saboteur::Help do
     end
   end
 
+  it "explains --allow-focus in words an agent can act on" do
+    expect(overview).to include("--allow-focus").and include("Run even when a focus filter")
+    expect(overview).to include("fit, fdescribe, :focus")
+  end
+
   it "lists every switch of the doctor parser with its description" do
     cli.doctor_parser.top.list.each do |switch|
       (switch.long + switch.short).each { |flag| expect(overview).to include(flag) }
@@ -114,6 +119,12 @@ RSpec.describe Saboteur::Help do
     text = help.command("run")
     expect(text).to include("USAGE").and include("saboteur run [options]").and include("--since REF")
     expect(text).to include("EXAMPLES").and include("EXIT CODES")
+  end
+
+  it "describes --guess-tests in the run help" do
+    expect(help.command("run")).to include("--[no-]guess-tests", "With --since: run only the specs named after the " \
+                                                                 "changed files (lib/a.rb -> spec/a_spec.rb); " \
+                                                                 "the whole suite if any has none")
   end
 
   it "does not list options for a command that takes none" do

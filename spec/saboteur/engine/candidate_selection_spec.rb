@@ -19,6 +19,21 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     expect(selection.skipped_subjects).to eq(subject_under_test => "no coverage")
   end
 
+  it "names an explicit skip reason before looking at coverage or generating mutants" do
+    subject_under_test.skip_reason = "defined inside a block"
+    expect(map).not_to receive(:tests_for)
+    expect(candidates).not_to receive(:for)
+    expect(selection.for(subject_under_test)).to be_empty
+    expect(selection.skipped_subjects).to eq(subject_under_test => "defined inside a block")
+  end
+
+  it "names the explicit reason for an uncovered subject too, not no coverage" do
+    subject_under_test.skip_reason = "refinements"
+    allow(map).to receive(:tests_for).and_return([])
+    expect(selection.for(subject_under_test)).to be_empty
+    expect(selection.skipped_subjects.values).to eq(["refinements"])
+  end
+
   it "records load-only subjects as ran at load: they ran, just never inside a test" do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
     allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)

@@ -43,6 +43,7 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     diagnostics = instance_double(Saboteur::Engine::Diagnostics)
     expect(diagnostics).to receive(:inform).with("checking the unchanged suite twice (seed 42)")
     heartbeat = instance_double(Saboteur::Engine::Diagnostics::ProgressHeartbeat, tick: nil)
+    allow(heartbeat).to receive(:watch).and_return(heartbeat)
     allow(diagnostics).to receive(:progress_heartbeat).and_return(heartbeat)
     expect(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap).twice
     allow(supervisor).to receive(:run).and_return(response)
@@ -50,6 +51,8 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
                                   supervisor: supervisor, diagnostics: diagnostics)
     checked.call
     expect(checked.send(:log_path, 1)).to eq(File.join(@root, ".saboteur/baseline-1.log"))
+    expect(heartbeat).to have_received(:watch).with(File.join(@root, ".saboteur/baseline-1.log"))
+    expect(heartbeat).to have_received(:watch).with(File.join(@root, ".saboteur/baseline-2.log"))
   end
 
   it "refuses inconsistent pass/failure fields and invalid executed fields" do

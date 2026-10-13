@@ -449,4 +449,11 @@ RSpec.describe Saboteur::Engine::RunFingerprint, "Rails data inputs" do
       expect(issues_for({}).complete).to be(true)
     end
   end
+  it "excludes history configuration and bytes from output fingerprints" do
+    before = fingerprint.snapshot
+    history_config = Saboteur::Config.new({ "score_history" => "history.jsonl" }, root: @root)
+    other = described_class.new(config: history_config, runtime_identity: { ruby: "test" })
+    File.write(File.join(@root, "history.jsonl"), "history observation\n")
+    expect(other.snapshot.digest).to eq(before.digest)
+  end
 end

@@ -14,6 +14,8 @@ module Saboteur
         @canonical = Hash.new { |hash, path| hash[path] = CoverageMap.canonical(path) }
         @lines = hit_table
         @methods = hit_table
+        @branches = hit_table
+        @outside_branches = per_file { Set.new }
         @tests = []
         @tests_by_file = per_file { [] }
         @outside = per_file { Set.new }
@@ -30,7 +32,7 @@ module Saboteur
         @tests << id
         @tests_by_file[test_file] << id
         each_hit do |file, line, kind|
-          kind == :line ? @outside[test_file] << [file, line] : @outside_methods[test_file] << [file, line]
+          { line: @outside, method: @outside_methods, branch: @outside_branches }.fetch(kind)[test_file] << [file, line]
         end
         @started_at = monotonic
       end
@@ -38,26 +40,39 @@ module Saboteur
       def test_finished(id)
         @durations[id] = monotonic - @started_at if @started_at
         each_hit do |file, line, kind|
-          kind == :line ? @lines[file][line] << id : @methods[file][line] << id
+          { line: @lines, method: @methods, branch: @branches }.fetch(kind)[file][line] << id
         end
       end
 
       def result(build_seconds: nil)
-        @outside.each do |test_file, hits|
-          ids = @tests_by_file[test_file]
-          hits.each { |file, line| @lines[file][line] |= ids }
-        end
-        @outside_methods.each do |test_file, hits|
-          ids = @tests_by_file[test_file]
-          hits.each { |file, line| @methods[file][line] |= ids }
-        end
+        assign_outside(@outside, @lines)
+        assign_outside(@outside_methods, @methods)
+        assign_outside(@outside_branches, @branches)
         lines = @lines.transform_values { |by_line| by_line.transform_values(&:uniq) }
         methods = @methods.transform_values { |by_line| by_line.transform_values(&:uniq) }
         CoverageMap.new(lines: lines, tests: @tests, build_seconds: build_seconds, durations: @durations,
-                        methods: methods)
+                        methods: methods, branches: @branches.transform_values { |arms| arms.transform_values(&:uniq) })
       end
 
       private
+
+      def assign_outside(outside, table)
+        outside.each do |test_file, hits|
+          ids = @tests_by_file[test_file]
+          hits.each { |file, line| table[file][line] |= ids }
+        end
+      end
+
+      def record_branches(file, data)
+        data.fetch(:branches, {}).each do |(_kind, _id, *parent_span), arms|
+          arms.each do |(_arm_kind, _arm_id, *span), count|
+            next if span == parent_span
+
+            @branches[file][span] # Keep zero-hit arms as evidence, not as covered code.
+            yield span if count.positive?
+          end
+        end
+      end
 
       def hit_table
         Hash.new { |hash, file| hash[file] = Hash.new { |by_line, line| by_line[line] = [] } }
@@ -86,6 +101,7 @@ module Saboteur
           # endless def's body never counts a line hit, but its calls count
           # here (issue #107).
           data[:lines].each_with_index { |count, index| yield file, index + 1, :line if count&.positive? }
+          record_branches(file, data) { |span| yield file, span, :branch }
           data[:methods]&.each do |(_owner, _name, start_line, *), count|
             yield file, start_line, :method if count.positive?
           end

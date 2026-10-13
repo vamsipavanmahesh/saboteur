@@ -49,6 +49,16 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(store.send(:with_parent_load_lines, map)).to equal(map)
   end
 
+  it "records an auditable preview receipt next to a fresh map" do
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(supervisor).to receive(:run).and_return(built_result(map.to_json))
+    store.fetch([file])
+    receipt = JSON.parse(File.read(File.join(@root, ".saboteur", "preview.json")))
+    expect(File.file?(receipt.fetch("path"))).to be(true)
+    config = Saboteur::Config.new({}, root: @root)
+    expect(receipt.fetch("fingerprint")).to eq(Saboteur::Engine::RunFingerprint.new(config: config).snapshot.digest)
+  end
+
   it "builds once, saves, and reuses the cached map while inputs are unchanged" do
     first = store
     allow(first).to receive(:build).and_return(map)
@@ -112,13 +122,16 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     allow(supervisor).to receive(:run).and_return(result)
     allow(Coverage).to receive(:state).and_return(:suspended)
     diagnostics = Saboteur::Engine::Diagnostics.new(err)
-    allow(diagnostics).to receive(:progress_heartbeat).and_call_original
+    heartbeat = Saboteur::Engine::Diagnostics::ProgressHeartbeat.new(diagnostics, "building coverage map")
+    allow(heartbeat).to receive(:watch).and_call_original
+    allow(diagnostics).to receive(:progress_heartbeat).and_return(heartbeat)
     store = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
                                 hooks: Saboteur::Hooks.new, supervisor: supervisor,
                                 diagnostics: diagnostics)
     expect(store.fetch([file]).tests).to eq(["t1"])
     expect(err.string).to include("building coverage map (runs the whole suite once)")
     expect(diagnostics).to have_received(:progress_heartbeat).with("building coverage map")
+    expect(heartbeat).to have_received(:watch).with(File.join(@root, ".saboteur/coverage-build.log"))
     expect(supervisor).to have_received(:run).with(timeout: 3600.0, on_tick: anything)
   end
 
@@ -168,10 +181,22 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect { store.fetch([file]) }.to raise_error(
       Saboteur::Error,
       "Coverage recorded nothing in 1 included files during a whole-suite build. No test in the suite " \
-      "may exercise these files, or the setup hid the app from Coverage (Bootsnap's compile cache is " \
-      "the default Rails case). Run `saboteur doctor`."
+      "may exercise these files, or the setup hid the app from Coverage. Run `saboteur doctor`."
     )
     expect(cache_files).to be_empty
+  end
+
+  it "names Bootsnap as a possible cause only when Bootsnap is loaded" do
+    stub_const("Bootsnap", Module.new)
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: empty.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+
+    expect { store.fetch([file]) }.to raise_error(
+      Saboteur::Error, /Coverage \(Bootsnap's compile cache is the default Rails case\)\. Run/
+    )
   end
 
   # An empty map cached by an older saboteur must not keep a run green.
