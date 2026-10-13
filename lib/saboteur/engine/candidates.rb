@@ -25,6 +25,7 @@ module Saboteur
       def initialize(sources, diagnostics)
         @sources = sources
         @diagnostics = diagnostics
+        @bytecode = BytecodeEquivalence.new
       end
 
       def for(subject)
@@ -70,6 +71,8 @@ module Saboteur
           @diagnostics.count_invalid_mutation
           return record_drop(subject, mutation, "invalid_syntax")
         end
+
+        return record_drop(subject, mutation, "equivalent_bytecode") if @bytecode.equivalent?(subject.source, text)
 
         [mutation, text]
       rescue ArgumentError => e
