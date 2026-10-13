@@ -570,6 +570,20 @@ No speed, type-safety or real-fault detection improvement is claimed. See
 [the literal operator rationale](docs/literal-operators.md) for fault evidence
 and limits, including string encoding/frozen-value behavior.
 
+## Chain removal
+
+Builtin drops one link from the middle of a dotted method chain: `user.name.strip`
+becomes `user.strip`, and `a.b.c.d` gives `a.c.d` and `a.b.d`. The first receiver
+and the last call stay, so a test has to notice that a step in between went
+missing. The link goes whole, with its arguments and block. The operator and
+source name is `chain_removal`.
+
+Operators, index calls, attribute writes and bare-name receivers are not chains
+and are unchanged. Links that return an equal object (`freeze`, `dup`, `clone`,
+`itself`, `tap`) are never removed. Arid statements and nested definitions are skipped. These
+proposals follow the other fine proposals, with the same validation,
+deduplication and `max_mutants_per_method` cap.
+
 ## Argument removal
 
 Builtin removes one ordinary positional argument from a parenthesized call.
