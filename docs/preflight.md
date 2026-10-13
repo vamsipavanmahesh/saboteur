@@ -124,7 +124,7 @@ is not proof of coverage; read the spec.
 
 ## Measured cost
 
-Indicative numbers, not a benchmark. Three sequential runs per row, median (range) in seconds, taken on the code of
+Indicative numbers, not a benchmark. Sequential runs per row (three each, except by-hand fast, where two are kept, see below), median (range) in seconds, taken on the code of
 the slice 1 PR before its last docs-only change. Environment: 2 vCPU Intel Xeon 2.6 GHz, Linux 6.1, Ruby 3.3.0,
 Bundler 2.5.3, CPU shared with other jobs. Full mode got slower than my first measurement (about 307 s) because
 `main` gained specs and the machine was busier, so compare rows within one table only.
@@ -137,11 +137,12 @@ Bundler 2.5.3, CPU shared with other jobs. Full mode got slower than my first me
 | by hand, full | `bundle exec rubocop && bundle exec rspec` | 361.2 | 360.7 to 372.6 | n/a |
 
 Raw runs (ms): preflight fast 30754, 30326, 29943. By hand fast 29695, 28472, plus one run of 782364 that overlapped an
-idle pause of the sandbox, so it is dropped. Preflight full 402696, 407246, 405890. By hand full 361226, 360735, 372585.
+idle pause of the sandbox, so it is dropped, leaving two by-hand fast runs. Preflight full 402696, 407246, 405890. By hand full 361226, 360735, 372585.
 
-What this says: running the checks through preflight costs about 1 s more in fast mode and about 45 s more in full
-mode than typing the same two commands, because it also runs the extra cheap checks, fingerprints the inputs before and
-after, and writes a report. It does not make the checks faster. What it saves is the wasted cycle: a protected-file edit
+What this says: running the checks through preflight costs about 1 s more in fast mode and about 45 s more in full mode
+than typing the commands in the table. In full mode part of that is not overhead of the harness itself: preflight runs
+`harness_specs` (about 18 s) and then the full suite, which runs those specs again, while the by-hand full command runs
+the suite once. The rest is the extra cheap checks, the fingerprint before and after, and the report. It does not make the checks faster. What it saves is the wasted cycle: a protected-file edit
 fails in about 0.3 s and a RuboCop offense in about 2.5 s (measured earlier, five runs each), and the costly checks are
-skipped, so a reviewer round trip for a problem it catches is avoided. The 45 s in full mode is spent on a run that
-also proves nothing changed underneath it.
+skipped, so a reviewer round trip for a problem it catches is avoided. The extra time in full mode also buys a run that
+is checked for changes underneath it.
