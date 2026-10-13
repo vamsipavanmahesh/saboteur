@@ -21,3 +21,13 @@ RSpec.describe Saboteur::Reporter::Palette do
     expect(described_class.for(terminal, mode: :never, environment: {}).paint(:red, "x")).to eq("x")
   end
 end
+
+RSpec.describe Saboteur::Reporter::Palette, "auto mode on odd outputs" do
+  it "stays plain for an output without tty? and for a terminal with an empty NO_COLOR" do
+    expect(described_class.for(Object.new, environment: {}).enabled?).to be(false)
+    tty = StringIO.new.tap { |io| allow(io).to receive(:tty?).and_return(true) }
+    expect(described_class.for(tty, environment: { "NO_COLOR" => "" }).enabled?).to be(true)
+    expect(described_class.for(tty, environment: { "NO_COLOR" => "1" }).enabled?).to be(false)
+    expect(described_class.for(StringIO.new, environment: { "NO_COLOR" => "" }).enabled?).to be(false)
+  end
+end
