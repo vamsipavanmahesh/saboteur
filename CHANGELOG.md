@@ -25,6 +25,10 @@ All notable changes are documented here. The format follows
 - `--max-timeouts N` and `--max-errors N` CI gates (count or percent of executed
   mutants). Exceeding one exits 1 with `exitCause` `maxTimeouts` or `maxErrors`.
   The covered score is already gated by `--threshold`. No Action input yet.
+- A run that leaves a live survivor ends with a "Next steps" footer of command
+  templates: replay (`saboteur run --id DIGEST --seed N`, to be combined with the
+  run's own selection options), an ignore entry with the survivor's subject, and
+  `saboteur run --agent` (#147).
 - `--dry-run` previews planned mutants per method and the max_mutants_per_method
   omissions without booting the app, running tests, forking or writing reports
   (#134). A file that does not parse marks the total INCOMPLETE. A cached

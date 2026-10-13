@@ -142,7 +142,7 @@ module Saboteur
         load_lines = (data["load_lines"] || {}).transform_values { |list| list.map(&:to_i) }
         new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
             durations: durations, methods: decode.call(data["methods"] || {}), load_lines: load_lines,
-            branches: decode_branches(data.fetch("branches"), tests))
+            branches: decode_branches(data.fetch("branches", {}), tests))
       end
 
       def self.decode_branches(branches, tests)
