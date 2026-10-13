@@ -37,18 +37,28 @@ module Saboteur
 
     def estimate(subjects, lists)
       map = cached_map
-      unless map
-        @out.puts("no estimate: run once to build the coverage map")
-        return
-      end
-      seconds = subjects.zip(lists).sum do |subject, list|
-        runtime = map.recorded_runtime(map.tests_for(subject))
-        return @out.puts("no estimate: cached test durations are incomplete") unless runtime
+      return @out.puts("no estimate: run once to build the coverage map") unless map
 
-        runtime * list.size
-      end
+      seconds = work_seconds(map, subjects, lists)
+      return @out.puts("no estimate: cached test durations are incomplete") unless seconds
+
       @out.puts("Estimated baseline covering-test work: #{seconds.round(2)} s (cached original-test durations " \
                 "times planned mutants; not a bound on mutant runtime; excludes boot and forks)")
+    end
+
+    # Cached data is untrusted input: a duration must be a number that is not
+    # negative (JSON cannot carry NaN or Infinity), and anything that fails
+    # while reading it, such as a string or null, is no estimate. Source
+    # generation has already finished, so this cannot hide its errors.
+    def work_seconds(map, subjects, lists)
+      return unless map.durations.values.all? { |seconds| seconds >= 0 }
+
+      subjects.zip(lists).sum do |subject, list|
+        # nil when a covering test has no recorded duration: the rescue below.
+        map.recorded_runtime(map.tests_for(subject)) * list.size
+      end
+    rescue StandardError
+      nil
     end
 
     # Any receipt that is not exactly a current, readable pointer to a
