@@ -77,7 +77,8 @@ RSpec.describe Saboteur::Engine::Scheduler, "flow" do
   it "finds a method that is not loaded with the real check" do
     results = scheduler(load_problem: :real).call(subject_under_test, candidates)
     expect(results.map(&:reason).uniq)
-      .to eq(["owner not loaded: cannot resolve FlowTarget: uninitialized constant FlowTarget"])
+      .to eq(["owner not loaded: cannot resolve FlowTarget: uninitialized constant FlowTarget" \
+              "; add it to c.whole_file to re-evaluate the whole file"])
   end
 
   it "skips everything as no coverage when no test runs the method" do
