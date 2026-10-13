@@ -19,8 +19,24 @@ RSpec.describe Saboteur::Reporter::NextSteps do
     text = render(report_of(first, second))
 
     expect(text).to include("\nNext steps:\n", "saboteur run --id #{first.digest}", "config/saboteur_ignore.rb",
-                            "saboteur run --format agent")
+                            "saboteur run --agent")
     expect(text).not_to include(second.digest)
+  end
+
+  it "labels the commands as templates: it knows neither the run's selection nor its ignore file" do
+    survivor = result_for(:survived)
+    text = render(report_of(survivor))
+    expect(text).to include("(add this run's own --config, --since, --subject, --test and source options)",
+                            "your ignore file (c.ignore_file, default #{Saboteur::Config::IGNORE_FILE})",
+                            "saboteur run --agent, with the same options")
+    expect(text).not_to include("--format agent")
+  end
+
+  it "shows a complete ignore entry: the digest, the survivor's subject and a reason" do
+    survivor = result_for(:survived)
+    expect(render(report_of(survivor))).to include(
+      %(i.mutation "#{survivor.digest}", subject: "#{survivor.subject.id}", reason: "why it is equivalent")
+    )
   end
 
   it "adds the run's seed to the replay command, and leaves it out when there is none" do
