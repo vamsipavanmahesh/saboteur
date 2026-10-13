@@ -104,9 +104,17 @@ forms the syntactic guard cannot see.
 On Linux 6.2 and later (Landlock ABI 3) each mutant child also runs under
 a Landlock sandbox: the child cannot create, write, rename, unlink or
 truncate files in the project tree, except `tmp/`, the cache dir and the
-system temp dir, plus anything in `c.sandbox_writable`. Inherited
+system temp dir, plus anything in `c.sandbox_writable`. Every other path
+is denied for writing, `/dev/shm` and `/dev/tty` included; `/dev/null`
+stays writable. Inherited
 descriptors already open for writing outside the granted dirs are closed
-before the sandbox engages; reads and process execution are unaffected.
+before the sandbox engages - stdio redirected to a regular file and files
+already deleted from the tree included (stdio on a terminal, pipe or
+`/dev/null` stays), and a descriptor whose target or flags cannot be
+inspected is closed too rather than trusted. A `c.sandbox_writable` grant
+that contains the project root or another granted dir warns, since it
+defeats or duplicates the protection; reads and process execution are
+unaffected.
 This DOES change what your tests can write: a suite that writes elsewhere
 in the project (`db/`, `log/`, ...) fails with EACCES in mutant children -
 grant that directory with `c.sandbox_writable` or opt out with
@@ -121,8 +129,10 @@ cleanly reporting Landlock absent) refuses the run.
 On kernels from 5.13 to 6.1 (Landlock ABI 1-2) `truncate()` cannot be
 restricted, so the tree is not fully read-only and the claim above does
 not hold; the run notes once that children run with the guard and canary
-only, exactly as on kernels without Landlock. `c.sandbox = "strict"`
-turns that degraded note into a refusal; `c.sandbox = false` opts out.
+only, exactly as on kernels without Landlock - and as on non-glibc Linux
+whose C library cannot be located (musl is tried by soname first).
+`c.sandbox = "strict"` turns that degraded note into a refusal;
+`c.sandbox = false` opts out.
 
 
 ## 🚀 Try it in a minute
