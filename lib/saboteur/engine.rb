@@ -97,8 +97,8 @@ module Saboteur
           @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
           @guessed_tests = guess.specs
           "--guess-tests: running only #{guess.specs.join(', ')}. A spec that reaches a changed file only " \
-            "through another file does not run: a mutant only it would kill has no covering spec and is " \
-            "reported as NoCoverage, not Survived"
+            "through another file does not run, so a mutant only it would kill can survive, and a line " \
+            "no guessed spec executes is reported as NoCoverage"
         end
       @diagnostics.warn(message)
       @diagnostics.inform(message)
