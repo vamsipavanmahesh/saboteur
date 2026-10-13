@@ -16,7 +16,7 @@ module Saboteur
     class Builtin < Base
       DEFAULT_ARID = [
         '\A(puts|pp|p|print|warn)\b',
-        '\A(::)?(Rails\.)?logger\b',
+        '\A(@|self\.|::)?(Rails\.)?logger\b',
         '\A(::)?(StatsD|Statsd|Datadog|NewRelic)\b',
         '\.instrument\b'
       ].freeze
