@@ -1,0 +1,152 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require_relative "support"
+
+RSpec.describe Preflight::Runner, :fixture do
+  def passing_responder(&extra)
+    lambda do |argv|
+      extra&.call(argv)
+      if argv.include?("rubocop")
+        next PreflightSupport::ScriptedRunner.new.result(argv, 0,
+                                                         PreflightSupport.fixture_text("rubocop_clean.json"))
+      end
+
+      if argv.include?("rspec")
+        File.write(argv[argv.index("--out") + 1],
+                   PreflightSupport.fixture_text("rspec_clean.json"))
+      end
+      next PreflightSupport::ScriptedRunner.new.result(argv, 0, "Bundler version 2.5.3\n") if argv.include?("--version")
+
+      nil
+    end
+  end
+
+  def run_in_fixture(mode:, responder: passing_responder)
+    scripted = PreflightSupport::ScriptedRunner.new(&responder)
+    # Git commands go to a real runner; everything else is scripted.
+    real = @fixture.runner
+    router = Object.new
+    router.define_singleton_method(:run) do |argv, **options|
+      argv.first == "git" ? real.run(argv, **options) : scripted.run(argv, **options)
+    end
+    options = @fixture.options(base: @base, mode: mode)
+    described_class.new(options: options, directory: @fixture.directory, command_runner: router,
+                        run_id: "test-run").call
+  end
+
+  def good_change
+    @fixture.write("lib/ok.rb", "# SPDX-License-Identifier: MIT\n")
+    @fixture.commit("good")
+  end
+
+  it "full mode with everything passing is still partial, because dogfood is not implemented" do
+    good_change
+    report = run_in_fixture(mode: "full")
+    statuses = report.to_h[:checks].to_h { |check| [check[:name], check[:status]] }
+    expect(report.verdict).to eq("partial")
+    expect(statuses).to include("rubocop" => :passed, "full_suite" => :passed, "changed_method_dogfood" => :not_run)
+  end
+
+  it "fast mode is partial and does not run the full suite" do
+    good_change
+    report = run_in_fixture(mode: "fast")
+    names = report.to_h[:checks].map { |check| check[:name] }
+    expect([report.verdict, names]).to match(["partial", array_excluding("full_suite")])
+  end
+
+  it "skips the costly checks when a cheap check failed and says why" do
+    @fixture.write("lib/ok.rb", "# SPDX-License-Identifier: MIT\n")
+    @fixture.commit("unsigned", signoff: nil)
+    report = run_in_fixture(mode: "full")
+    skipped = report.to_h[:checks].select { |check| check[:name] == "rubocop" }.first
+    expect([report.verdict, skipped[:status], skipped[:reason]]).to match(["failed", :not_run, /earlier check/])
+  end
+
+  it "fails an empty change set instead of passing it" do
+    @fixture.git("commit", "-q", "--allow-empty", "-m", "empty\n\nSigned-off-by: Fixture Author <author@example.test>")
+    report = run_in_fixture(mode: "full")
+    expect([report.verdict, report.to_h[:checks].first[:name]]).to eq(%w[failed change_inventory])
+  end
+
+  it "is incomplete when the tree changes while the checks run" do
+    good_change
+    mutate = ->(argv) { @fixture.write("late.txt", "x\n") if argv.include?("rubocop") }
+    report = run_in_fixture(mode: "full", responder: passing_responder(&mutate))
+    expect(report.verdict).to eq("incomplete")
+  end
+
+  it "writes a report and records a swallowed-status RuboCop failure as incomplete, not passed" do
+    good_change
+    lying = lambda do |argv|
+      clean = PreflightSupport.fixture_text("rubocop_clean.json")
+      PreflightSupport::ScriptedRunner.new.result(argv, 1, clean) if argv.include?("rubocop")
+    end
+    report = run_in_fixture(mode: "full", responder: lying)
+    expect(report.verdict).to eq("incomplete")
+    expect(File.exist?(File.join(@fixture.directory, "tmp/preflight/test-run/report.json"))).to be(true)
+  end
+
+  it "still runs the costly checks when only a check-policy notice was raised" do
+    @fixture.write(".rubocop.yml", "AllCops:\n  NewCops: enable\n")
+    @fixture.commit("policy edit")
+    report = run_in_fixture(mode: "fast")
+    statuses = report.to_h[:checks].to_h { |check| [check[:name], check[:status]] }
+    expect(statuses).to include("check_policy_changes" => :review_required, "rubocop" => :passed)
+  end
+
+  it "stops at the first failing costly check and never runs the later stages" do
+    good_change
+    calls = []
+    failing = lambda do |argv|
+      calls << argv
+      next PreflightSupport::ScriptedRunner.new.result(argv, 0, "Bundler version 2.5.3\n") if argv.include?("--version")
+      next unless argv.include?("rubocop")
+
+      PreflightSupport::ScriptedRunner.new.result(argv, 1, PreflightSupport.fixture_text("rubocop_offense.json"))
+    end
+    report = run_in_fixture(mode: "full", responder: failing)
+    statuses = report.to_h[:checks].to_h { |check| [check[:name], check[:status]] }
+    expect(statuses).to include("rubocop" => :failed, "harness_specs" => :not_run, "full_suite" => :not_run)
+    expect(calls.flatten).not_to include("rspec")
+  end
+
+  it "records provenance: rerun command, policy digest, per-file blobs and modes, command log" do
+    good_change
+    data = run_in_fixture(mode: "fast").to_h
+    expect(data[:provenance]).to include(rerun_command: a_string_including("--mode fast"),
+                                         trusted_policy_sha256: a_string_matching(/\A\h{64}\z/))
+    expect(data[:changed_files].first).to include(path: "lib/ok.rb", new_mode: "100644")
+    expect(data[:changed_files].first[:new_blob]).to match(/\A\h{40}\z/)
+  end
+
+  it "never invokes bundle or a candidate Gemfile when a protected file changed (negative control below)" do
+    @fixture.write(".github/workflows/evil.yml", "x\n")
+    @fixture.commit("workflow")
+    calls = []
+    report = run_in_fixture(mode: "full", responder: passing_responder { |argv| calls << argv })
+    expect([report.verdict, calls.flatten.grep(/bundle|rspec|rubocop/)]).to eq(["failed", []])
+  end
+
+  it "does probe dependencies when nothing blocks it (valid control)" do
+    good_change
+    calls = []
+    run_in_fixture(mode: "fast", responder: passing_responder { |argv| calls << argv })
+    expect(calls).to include(%w[bundle list])
+  end
+
+  %w[tmp tmp/preflight].each do |link|
+    it "writes nothing outside the checkout when #{link} is a symlink" do
+      good_change
+      outside = Dir.mktmpdir("outside")
+      FileUtils.mkdir_p(File.join(@fixture.directory, "tmp")) if link == "tmp/preflight"
+      File.symlink(outside, File.join(@fixture.directory, link))
+      options = @fixture.options(base: @base, mode: "fast")
+      expect { described_class.new(options: options, directory: @fixture.directory).call }
+        .to raise_error(Preflight::UnverifiableInput, /symlink/)
+      expect(Dir.children(outside)).to be_empty
+    ensure
+      FileUtils.remove_entry(outside)
+    end
+  end
+end
