@@ -79,6 +79,18 @@ RSpec.describe "saboteur run with a focus filter in the suite (end to end)", :e2
       expect(run.err).to include("focus filter")
     end
 
+    it "does not treat an explicit --example filter as a stray focus" do
+      write_suite(rspec_options: "--example adult\n", body: <<~RUBY)
+        RSpec.describe People::Person do
+          it("adult one") { expect(described_class.new(19).adult?).to be(true) }
+          it("other") { expect(described_class.new(17).adult?).to be(false) }
+        end
+      RUBY
+      run = saboteur(dir, "lib/people.rb", "--test", "spec/boundary_spec.rb")
+      expect(run.err).not_to include("focus filter")
+      expect(run.status).not_to eq(2), run.err
+    end
+
     it "does not count examples that :if or :unless prune anyway as hidden" do
       write_suite(body: <<~RUBY)
         RSpec.describe People::Person do
