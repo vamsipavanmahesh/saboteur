@@ -155,6 +155,13 @@ RSpec.describe Saboteur::Config, "details" do
     end
   end
 
+  it "leaves the count gates off by default and rejects a malformed limit" do
+    expect(described_class.new({}).to_h.values_at("max_timeouts", "max_errors")).to eq([nil, nil])
+    expect(described_class.new({ "max_errors" => "5%" })["max_errors"]).to eq("5%")
+    expect { described_class.new({ "max_timeouts" => "many" }) }
+      .to raise_error(Saboteur::ConfigError, /max_timeouts must be a count/)
+  end
+
   # A fixed default makes every run repeatable; --seed or seed: changes it.
   it "seeds runs with 1 by default and rejects a negative seed" do
     expect(described_class.new({})["seed"]).to eq(1)
