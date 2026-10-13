@@ -128,6 +128,15 @@ module Saboteur
       value && File.expand_path(value, root)
     end
 
+    # Paths of saboteur's own output, relative to the root, that do not count as source changes.
+    def output_paths
+      prefix = File.join(File.realpath(root), "")
+      %w[cache_dir json_report html_report].filter_map { |key| path(key) }
+                                           .map { |file| File.expand_path(file) }
+                                           .select { |file| file.start_with?(prefix) }
+                                           .map { |file| file.delete_prefix(prefix) }
+    end
+
     private
 
     def coerce!
