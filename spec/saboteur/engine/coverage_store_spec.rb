@@ -122,13 +122,16 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     allow(supervisor).to receive(:run).and_return(result)
     allow(Coverage).to receive(:state).and_return(:suspended)
     diagnostics = Saboteur::Engine::Diagnostics.new(err)
-    allow(diagnostics).to receive(:progress_heartbeat).and_call_original
+    heartbeat = Saboteur::Engine::Diagnostics::ProgressHeartbeat.new(diagnostics, "building coverage map")
+    allow(heartbeat).to receive(:watch).and_call_original
+    allow(diagnostics).to receive(:progress_heartbeat).and_return(heartbeat)
     store = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
                                 hooks: Saboteur::Hooks.new, supervisor: supervisor,
                                 diagnostics: diagnostics)
     expect(store.fetch([file]).tests).to eq(["t1"])
     expect(err.string).to include("building coverage map (runs the whole suite once)")
     expect(diagnostics).to have_received(:progress_heartbeat).with("building coverage map")
+    expect(heartbeat).to have_received(:watch).with(File.join(@root, ".saboteur/coverage-build.log"))
     expect(supervisor).to have_received(:run).with(timeout: 3600.0, on_tick: anything)
   end
 
