@@ -1,9 +1,15 @@
 # Check a project before mutation testing
 
 ```sh
-bundle exec saboteur doctor --seed 42
-bundle exec saboteur doctor --config config/saboteur.rb --seed 42
+bundle exec saboteur doctor
+bundle exec saboteur doctor --suite --seed 42
+bundle exec saboteur doctor --test spec/models --seed 42
+bundle exec saboteur doctor --config config/saboteur.rb --suite
 ```
+
+By default doctor makes the environment checks only, so it finishes in seconds
+even on a large suite. `--suite` also runs the unchanged suite twice, and
+`--test PATH` (repeatable) runs only those specs twice; `--test` implies `--suite`.
 
 Doctor checks Ruby 3.3+ and fork support, suspended line coverage, configured
 require/hook files, and the RSpec integration. It prints the Rails setting and
@@ -18,7 +24,7 @@ entries unmatched. This checks subject names, not mutation digests, and never
 changes the ignore file. A malformed ignore declaration fails with a config
 error before target boot, just as it does for a mutation run.
 
-After normal project boot it runs the full filtered RSpec suite in two fresh
+With `--suite` or `--test`, after normal project boot it runs the filtered RSpec suite in two fresh
 supervised children from the same parent state. Each pass seeds Ruby random
 numbers and sets RSpec random ordering to the run seed. Both must pass, execute
 all loaded test IDs and finish in the same order. Empty suites, timeouts,

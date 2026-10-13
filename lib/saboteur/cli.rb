@@ -75,9 +75,13 @@ module Saboteur
 
     def doctor_parser
       OptionParser.new do |opts|
-        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N]"
+        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH]"
         opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |value| set(:config, value) }
         opts.on("--seed N", Integer, "Seed for the two baseline runs (default 1)") { |value| set(:seed, value) }
+        opts.on("--suite", "Also run the unchanged suite twice (slow on a large suite)") { set(:suite, true) }
+        opts.on("--test PATH", "Spec file or directory for the suite runs; repeatable. Implies --suite") do |value|
+          (options[:tests] ||= []) << value
+        end
       end
     end
 
@@ -148,9 +152,9 @@ module Saboteur
 
     # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
     def reject_threshold_with_agent_format
-      return unless agent? && config["threshold"]
+      return unless agent? && (config["threshold"] || gates.any?)
 
-      raise UsageError, "--threshold cannot be combined with --agent: agent mode exits 0 only for a complete, clean run"
+      raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
     end
 
     # One line naming the reports written, paths relative to the root when
@@ -171,7 +175,8 @@ module Saboteur
       doctor_parser.parse!(@argv)
       raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
 
-      Doctor.new(config, out: @out).call
+      options[:tests]&.each { |test| require_existing_test(test) }
+      Doctor.new(config, out: @out, suite: options[:suite] || options.key?(:tests)).call
       EXIT_OK
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
@@ -194,11 +199,12 @@ module Saboteur
       saved&.close
     end
 
-    def agent_provenance(report, tree)
+    def agent_provenance(report, tree, engine)
       Reporter::Agent::Provenance.new(
         ref: config["since"], seed: report.seed, head: tree.head, working_tree: tree.label,
         changed_files: tree.changed_files, mode: agent_mode, json_report: config.path("json_report"),
-        subjects: Array(config["subjects"]), tests: Array(options[:tests]), sources: @sources || [],
+        subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || options[:tests]),
+        sources: @sources || [],
         config_path: options[:config], digest: options[:id], cache: config["cache"],
         incremental: config["incremental"], settings: options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
       )
@@ -267,7 +273,7 @@ module Saboteur
     end
 
     def overrides
-      options.except(:config, :id, :list_operators, :dry_run)
+      options.except(:config, :id, :suite, :list_operators, :dry_run)
     end
 
     def preview
@@ -309,6 +315,10 @@ module Saboteur
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
       end
+      opts.on("--[no-]guess-tests", "With --since: run only the specs named after the changed files " \
+                                    "(lib/a.rb -> spec/a_spec.rb); the whole suite if any has none") do |v|
+        set(:guess_tests, v)
+      end
     end
 
     def define_matrix_option(opts)
@@ -337,6 +347,7 @@ module Saboteur
       opts.on("--threshold PERCENT", Float, "Exit 1 when the score is below PERCENT (0-100)") do |v|
         set(:threshold, v)
       end
+      Gates.define_options(opts) { |key, value| set(key, value) }
     end
 
     def add_subject(expr)

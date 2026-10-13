@@ -48,6 +48,17 @@ RSpec.describe Saboteur::Config do
     end
   end
 
+  it "needs since for guess_tests and refuses it with tests" do
+    expect(described_class.new({}, root: @root)["guess_tests"]).to be(false)
+    expect(described_class.new({ "guess_tests" => true, "since" => "main" }, root: @root)["guess_tests"]).to be(true)
+    expect { described_class.new({ "guess_tests" => true }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /guess_tests needs since/)
+    expect do
+      described_class.new({ "guess_tests" => true, "since" => "main", "tests" => ["spec/a_spec.rb"] }, root: @root)
+    end
+      .to raise_error(Saboteur::ConfigError, /guess_tests cannot be combined with tests/)
+  end
+
   it "rejects a threshold that is not a number" do
     expect { described_class.new({ "threshold" => "high" }, root: @root) }
       .to raise_error(Saboteur::ConfigError, /invalid config value/)
@@ -158,6 +169,13 @@ RSpec.describe Saboteur::Config, "details" do
     { "max_memory_mb" => 0, "max_processes" => 0, "timeout_factor" => 0, "timeout_min" => -1 }.each do |key, value|
       expect { described_class.new({ key => value }) }.to raise_error(Saboteur::ConfigError, /#{key} must be > 0/)
     end
+  end
+
+  it "leaves the count gates off by default and rejects a malformed limit" do
+    expect(described_class.new({}).to_h.values_at("max_timeouts", "max_errors")).to eq([nil, nil])
+    expect(described_class.new({ "max_errors" => "5%" })["max_errors"]).to eq("5%")
+    expect { described_class.new({ "max_timeouts" => "many" }) }
+      .to raise_error(Saboteur::ConfigError, /max_timeouts must be a count/)
   end
 
   # A fixed default makes every run repeatable; --seed or seed: changes it.

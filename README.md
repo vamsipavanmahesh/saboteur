@@ -170,7 +170,8 @@ schema, and you can add your own mutants through a small public interface.
 
 ```sh
 bundle exec saboteur run                          # whole project
-bundle exec saboteur doctor --seed 42             # environment + two unchanged suite checks
+bundle exec saboteur doctor                       # environment checks only
+bundle exec saboteur doctor --suite --seed 42     # plus two unchanged suite checks
 bundle exec saboteur run --since origin/main      # methods changed on this branch
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
@@ -203,6 +204,17 @@ unignored survivor exits 1. Either way, a run where more than half of the
 executed mutants errored exits 3: errored mutants are outside the score,
 so such a run tested almost nothing.
 
+`--max-timeouts N` and `--max-errors N` (or `c.max_timeouts` / `c.max_errors`)
+are two more CI gates. Each takes a count or a percentage of the executed
+mutants (`--max-errors 5%`). The run exits 1 when the count (or share) is
+above the limit, with `exitCause` `maxTimeouts` or `maxErrors` in the JSON report.
+`--threshold` already compares the covered score, `(killed + timeout) /
+(killed + survived + timeout)`, so no separate score flag exists. With
+`--max-errors`, errored mutants are judged by that limit instead of making a
+`--threshold` run exit 3. Survivors and a score below the threshold keep
+their own causes when they fail too. The gates cannot be combined with `--agent`.
+The GitHub Action has no input for them yet.
+
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
 `--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
@@ -221,7 +233,19 @@ configured project. To scope the specs as well, pass them with `--test` and no
 source operands: `bundle exec saboteur run --since origin/main --test spec/billing_spec.rb`.
 With `--since` and no `--test`, the run warns before it starts that the two baseline passes
 run the loaded suite (a cold coverage cache adds one more pass), and how to
-scope them. Keep whole-project runs on main: diff mode does not check every method affected by a
+scope them.
+
+`--since origin/main --guess-tests` does that scoping for you: it picks the spec
+named after each changed source file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/`
+files and `spec/lib/` work too) and runs only those for the baseline passes, the
+coverage pass and every mutant, as `--test` would. It is a naming guess, not
+coverage: a spec that reaches the changed file only through another file does not
+run: a mutant only that spec would kill can survive, and a line that none of the
+guessed specs executes is reported as NoCoverage. The agent JSON records the guessed specs as its
+`tests`, so its follow-up commands keep the same `--test` scope (with `--no-guess-tests`, so a `guess_tests`
+in the config file cannot conflict) instead of widening to the whole suite. If any changed file has no such
+spec, or nothing changed, the whole suite runs as before and the run says so.
+`--guess-tests` needs `--since` and cannot be combined with `--test`. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 
@@ -231,7 +255,9 @@ include/exclude settings; warnings never edit or delete ignore entries.
 A malformed ignore file fails doctor with a config error before target boot.
 
 `saboteur doctor` prints Ruby, coverage, integration, Rails/SimpleCov and boot-file
-checks, then runs the unchanged suite twice with the chosen seed. It writes no
+checks. Add `--suite` to also run the unchanged suite twice with the chosen seed
+(`--test PATH`, repeatable, limits those runs to some specs and implies `--suite`),
+since that takes hours on a large suite. It writes no
 mutation reports or coverage/verdict caches. Target boot files and tests still
 run, so their normal side effects remain. See the [doctor guide](docs/guides/doctor.md).
 

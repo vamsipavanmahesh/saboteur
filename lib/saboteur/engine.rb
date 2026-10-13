@@ -17,6 +17,8 @@ module Saboteur
                         max_memory_mb max_processes seed tests whole_file].freeze
 
     attr_reader :config, :hooks
+    # The specs --guess-tests narrowed the run to, or nil when it did not.
+    attr_reader :guessed_tests
 
     def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [])
       @config = config
@@ -38,9 +40,10 @@ module Saboteur
       Boot.refuse_recursion!
       refuse_fail_fast_evidence
       started = monotonic
+      guess_tests
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
-      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
+      warn_custom_map
       boot = Boot.new(config, hooks)
       begin
         integration, files, load_lines = boot_target(boot)
@@ -61,6 +64,10 @@ module Saboteur
       end
     end
 
+    def warn_custom_map
+      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
+    end
+
     # Stale entries and duplicate literals never fail a run; they warn so the
     # map does not rot silently. doctor fails on stale keys.
     def load_custom_map
@@ -76,6 +83,31 @@ module Saboteur
     end
 
     private
+
+    # --guess-tests with --since: scope the run to the specs found next to
+    # the changed files, as --test would, but only when each changed file
+    # has one. Otherwise the whole suite runs, as without the flag.
+    def guess_tests
+      return unless config["guess_tests"]
+
+      guess = TestGuess.new(config).call
+      message =
+        if guess.changed.zero?
+          "--guess-tests: no changed source file to guess specs for, so the whole suite runs"
+        elsif guess.unmatched.any?
+          "--guess-tests: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs " \
+            "(name specs after their source files or pass --test)"
+        else
+          # The guesses now stand as explicit tests, like --test.
+          @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
+          @guessed_tests = guess.specs
+          "--guess-tests: running only #{guess.specs.join(', ')}. A spec that reaches a changed file only " \
+            "through another file does not run, so a mutant only it would kill can survive, and a line " \
+            "no guessed spec executes is reported as NoCoverage"
+        end
+      @diagnostics.warn(message)
+      @diagnostics.inform(message)
+    end
 
     # The run's immutable report, built once the last result is in.
     def build_report(results, subjects, scope, started)
@@ -183,7 +215,9 @@ module Saboteur
       message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
                 "(#{integration.test_files.size} spec files). " \
                 "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
-                "only by those specs, so specs elsewhere that call this code are not run."
+                "only by those specs, so specs elsewhere that call this code are not run. " \
+                "--guess-tests does the same with the specs named after the changed files, " \
+                "a guess that can miss specs elsewhere."
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end
@@ -346,6 +380,7 @@ require_relative "engine/diagnostics"
 require_relative "engine/boot"
 require_relative "engine/subject_selection"
 require_relative "engine/suite_files"
+require_relative "engine/test_guess"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
 require_relative "engine/bytecode_equivalence"
