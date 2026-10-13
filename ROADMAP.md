@@ -211,7 +211,7 @@ invalidation rules and specs above.
   trusted workflow that reads the report and never runs the pull request's
   code.
 - **Survivors in the comment.** **Shipped:** in review mode the terminal
-  output shows one survivor per line and counts the rest. **Planned:** a cap
+  output lists every survivor, grouped by file, method and line. **Planned:** a cap
   on survivors per pull request, with the rest in the report. The order
   needs a measurable rule before it ships, for example coarse before fine,
   then by whether a covering test exists, and we publish the rule. Google
