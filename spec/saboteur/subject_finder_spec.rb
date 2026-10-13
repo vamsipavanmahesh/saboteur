@@ -136,6 +136,40 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(found.map { |subject| [subject.id, subject.skip_reason] }).to eq([["A#inside", "defined inside a block"]])
   end
 
+  it "names the owner for each core class factory, and only for those" do
+    {
+      "Data.define(:a)" => true, "Struct.new(:a)" => true, "Class.new" => true, "Module.new" => true,
+      "Data.new(:a)" => false, "Struct.define(:a)" => false, "Class.define" => false,
+      "Factory.define(:a)" => false, "Other::Data.define(:a)" => false, "build(:a)" => false,
+      "Data.define(:a).itself" => false
+    }.each do |call, owned|
+      found = subjects_in("Thing = #{call} do\n  def m; end\nend\n")
+      expect(found.map(&:id)).to eq([owned ? "Thing#m" : "(anonymous block)#m"]), call
+      expect(found.first.skip_reason).to eq("defined inside a block"), call
+    end
+  end
+
+  it "keeps walking a factory call that has no block of its own" do
+    found = subjects_in("Thing = Class.new(Base.build do\n  def m; end\nend)\n")
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["(anonymous block)#m", "defined inside a block"]])
+  end
+
+  it "keeps the enclosing owner for a block that is not a class factory" do
+    found = subjects_in("class A\n  Thing = Factory.define(:a) do\n    def m; end\n  end\nend\n")
+    expect(found.map(&:id)).to eq(["A#m"])
+  end
+
+  it "does not name a qualified constant target after a guessed owner" do
+    found = subjects_in("class A\n  B::Thing = Struct.new(:a) do\n    def m; end\n  end\nend\n")
+    expect(found.map(&:id)).to eq(["A#m"])
+  end
+
+  it "nests a factory-defined class under the enclosing scope" do
+    found = subjects_in("module Outer\n  Point = Data.define(:x) do\n    def m; end\n  end\nend\n")
+    expect(found.map(&:id)).to eq(["Outer::Point#m"])
+  end
+
   it "keeps walking a constant assigned to a plain value" do
     expect(ids("class A\n  LIMIT = 3\n  def m; end\nend\n")).to eq(["A#m"])
   end
