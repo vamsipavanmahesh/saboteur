@@ -188,14 +188,16 @@ module Saboteur
       end
 
       # An arm whose body the app ran while loading (a def inside an if) has no
-      # per-test hits, yet tests ran the lines inside it. For an arm that spans
-      # lines, those line hits prove it was taken. A one-line arm cannot be
-      # told apart this way, so its empty list still means "not taken".
+      # per-test hits, yet tests ran the lines inside it. Only lines strictly
+      # between the arm's first and last line count: the boundary lines can
+      # also hold code outside the arm. An arm with no interior line, such as
+      # a one-line arm, cannot be told apart, so its empty list still means
+      # "not taken".
       def ran_before_tests?(file, span, ids)
         return false unless ids.empty? && span[0] != span[2]
 
         covered = lines[CoverageMap.canonical(file)] || {}
-        (span[0]..span[2]).any? { |line| covered.key?(line) }
+        ((span[0] + 1)...span[2]).any? { |line| covered.key?(line) }
       end
 
       def position(source, offset)
