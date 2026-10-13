@@ -22,6 +22,9 @@ All notable changes are documented here. The format follows
   `log/`, ... otherwise fail with EACCES in mutant children). A kernel
   probe that errors (rather than cleanly reporting Landlock absent) refuses
   the run.
+- A startup warning on stderr when the working tree has uncommitted changes,
+  because mutants run your code and could alter or delete files. Saboteur's own
+  output paths do not count as changes.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.

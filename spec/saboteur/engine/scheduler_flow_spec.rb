@@ -122,6 +122,14 @@ RSpec.describe Saboteur::Engine::Scheduler, "flow" do
     expect(line_four[:test_ids]).to match_array(%w[t_all t_four])
   end
 
+  it "gives whole-body replacements tests beyond a heredoc opener with no line hits" do
+    allow(subject_under_test).to receive(:coverage_lines_for).and_return([99])
+    coarse = candidates.select { |mutation, _| mutation.coarse }
+    scheduler.call(subject_under_test, coarse)
+    expect(mutant_calls.size).to eq(2)
+    expect(mutant_calls.map { |call| call[:test_ids] }).to all(match_array(%w[t_all t_three t_four]))
+  end
+
   it "skips a fine mutant whose line no test ran, without running it" do
     lines.delete(4)
     lines[3] = %w[t_all]
