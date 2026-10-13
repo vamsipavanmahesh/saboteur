@@ -10,7 +10,7 @@ RSpec.describe "operator selection and source-only preview" do
     registry = Saboteur::MutationSource::OperatorRegistry
     expect(registry.resolve([])).to eq(registry.resolve(["core"]))
     expect(registry.resolve(["all"])).to eq(registry::DESCRIPTIONS.keys)
-    expect(registry.resolve(["extended"])).to eq([])
+    expect(registry.resolve(["extended"])).to eq(registry::EXTENDED)
   end
 
   it "restricts builtin generation and rejects unknown names" do
@@ -24,7 +24,8 @@ RSpec.describe "operator selection and source-only preview" do
     out = StringIO.new
     expect(Saboteur::Engine).not_to receive(:new)
     expect(Saboteur::CLI.new(%w[run --list-operators], out: out).call).to eq(0)
-    expect(out.string).to include("argument_removal  core", "endpoint_replacement  core")
+    expect(out.string).to include("argument_removal  core", "endpoint_replacement  core", "range  extended",
+                                  "operator_assignment  extended", "condition_negation  extended")
   end
 
   it "previews explicit sources without loading tests, forking or writing reports" do
