@@ -32,6 +32,12 @@ All notable changes are documented here. The format follows
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
 ### Fixed
+- `--since` with a ref that is not a commit exits 2 as a usage error, naming the
+  ref, before the target boots. It used to exit 3 (tool failure) after boot (#115).
+- Diff mode skips a method whose only changes are comments, blank lines or
+  spacing, because its syntax tree matches the merge base. The run prints how many
+  it skipped. Ambiguous cases (a new file or method, a name defined twice, a base
+  that does not parse) still run (#115).
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
   guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
