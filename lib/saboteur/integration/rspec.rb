@@ -50,7 +50,7 @@ module Saboteur
         wanted = Set.new(ids)
         narrow_to(wanted)
         order_by(ids)
-        configuration.fail_fast = 1
+        configuration.fail_fast = config["matrix"] ? false : 1
         listener = Listener.new
         passed = execute(listener)
         RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
