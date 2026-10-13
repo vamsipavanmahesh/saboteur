@@ -101,17 +101,28 @@ a fresh checkout or a reclone - a deleted `.git` or uncommitted work is gone
 unless you have another copy. The canary is the backstop for the destructive
 forms the syntactic guard cannot see.
 
-On Linux 5.13 and later each mutant child also runs under a Landlock
-sandbox: the project tree is read-only for the child except `tmp/`, the
-cache dir and the system temp dir, so even a destructive call the guard
-missed and the canary has not caught yet cannot write outside them. Reads
-and process execution are unaffected. The sandbox applies to every mutant
-child, fails closed (a child that cannot restrict itself reports an error
-rather than run), and does not change how your tests see the tree. When the
-kernel is too old for Landlock the run notes once that children run with
-the guard and canary only; `c.sandbox = false` opts out. A checkout inside
-the system temp dir cannot be protected - everything under it stays
-writable so that real test suites keep working.
+On Linux 6.2 and later (Landlock ABI 3) each mutant child also runs under
+a Landlock sandbox: the child cannot create, write, rename, unlink or
+truncate files in the project tree, except `tmp/`, the cache dir and the
+system temp dir, plus anything in `c.sandbox_writable`. Inherited
+descriptors already open for writing outside the granted dirs are closed
+before the sandbox engages; reads and process execution are unaffected.
+This DOES change what your tests can write: a suite that writes elsewhere
+in the project (`db/`, `log/`, ...) fails with EACCES in mutant children -
+grant that directory with `c.sandbox_writable` or opt out with
+`c.sandbox = false`. Landlock covers the filesystem only - network,
+sockets and IPC are never restricted - and a checkout inside the system
+temp dir cannot be protected, because everything under it stays writable
+so that real test suites keep working. The sandbox applies to every mutant
+child and fails closed: a child that cannot restrict itself reports an
+error rather than run, and a kernel probe that errors (as opposed to
+cleanly reporting Landlock absent) refuses the run.
+
+On kernels from 5.13 to 6.1 (Landlock ABI 1-2) `truncate()` cannot be
+restricted, so the tree is not fully read-only and the claim above does
+not hold; the run notes once that children run with the guard and canary
+only, exactly as on kernels without Landlock. `c.sandbox = "strict"`
+turns that degraded note into a refusal; `c.sandbox = false` opts out.
 
 
 ## 🚀 Try it in a minute
@@ -344,7 +355,8 @@ Saboteur.configure do |c|
   c.max_processes = 64
   c.max_mutants_per_method = 100 # positive integer; raise it for a broader run
   c.hazard = Saboteur::MutationSource::HazardGuard::DEFAULT_HAZARD # calls whose arguments are never mutated
-  c.sandbox = true               # read-only project tree for mutant children (Linux 5.13+)
+  c.sandbox = true               # read-only project tree for mutant children (Linux 6.2+); "strict" refuses to run degraded
+  c.sandbox_writable = []        # extra dirs mutant children may write, e.g. ["db", "log"]
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
