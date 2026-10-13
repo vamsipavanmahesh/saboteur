@@ -14,7 +14,7 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     # Everything besides sources and tests that can change a verdict.
-    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources arid timeout_factor timeout_min
+    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators arid timeout_factor timeout_min
                         max_memory_mb max_processes seed tests].freeze
 
     attr_reader :config, :hooks
