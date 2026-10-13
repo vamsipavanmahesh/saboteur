@@ -14,6 +14,14 @@ RSpec.describe Saboteur::InlineSuppression do
     [list, diagnostics]
   end
 
+  it "compares directive scope with exact relative lines, sorted operators and reasons" do
+    subject = target('# saboteur:disable-line literal_number arithmetic reason="scope"')
+    parser = described_class.new(subject.file, subject.file_source)
+    expect(parser.signature(subject)).to eq([[1, %w[arithmetic literal_number], "scope"]])
+    later = subjects_in("class Later\n  def other(x)\n    x + 1\n  end\nend\n").first
+    expect(described_class.new(later.file, later.file_source).signature(later)).to eq([])
+  end
+
   it "suppresses all edits starting on the directive line and records each reason" do
     subject = target('# saboteur:disable-line reason="covered elsewhere"')
     list, diagnostics = candidates(subject)
