@@ -10,7 +10,10 @@ module Saboteur
     # line or spacing leaves it the same, so no mutant of it asks a question
     # the change raised. Comparison is of the Prism tree without locations
     # and comments, plus the frozen_string_literal magic comment and the
-    # `sig` in front of the def, which both change what runs.
+    # `sig` in front of the def, which both change what runs. `__LINE__` is
+    # the one node whose value is its location, so it keeps its line: a
+    # method that moved, or one with a line added above its `__LINE__`, is
+    # not the same.
     #
     # Anything that cannot be compared says the method changed: a file or
     # method that is new at the base, a base that does not parse, a method
@@ -31,9 +34,11 @@ module Saboteur
           self.class.digest(before.node) == self.class.digest(subject.node)
       end
 
-      # The node as plain data: type and fields, never locations.
+      # The node as plain data: type and fields, never locations (except
+      # the line a `__LINE__` stands for).
       def self.digest(value)
         case value
+        when Prism::SourceLineNode then [value.type, value.location.start_line]
         when Prism::Node
           fields = value.deconstruct_keys(nil).except(:node_id)
           [value.type, fields.transform_values { |field| digest(field) }]
