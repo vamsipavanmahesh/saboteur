@@ -25,17 +25,14 @@ module Preflight
     def call
       @repository.verify_identity!
       prepare_output_directory
-      passive = capture_inputs { @inputs.digest }
-      return finish([execution_gap_result("execution_inputs", passive)], nil, nil) unless passive.is_a?(String)
+      first = capture_inputs { @inputs.snapshot }
+      return finish([execution_gap_result("execution_inputs", first)], nil, nil) unless first.is_a?(Hash)
 
       results = cheap_checks
-      dependencies = stops?(results) ? nil : capture_inputs { @inputs.dependency_digest }
-      unless dependencies.nil? || dependencies.is_a?(String)
-        results << execution_gap_result("execution_inputs",
-                                        dependencies)
-      end
+      baseline, dependencies = prepare_dependencies(first, results)
+      results << execution_gap_result("execution_inputs", baseline) unless baseline.is_a?(String)
       results.concat(costly_checks(results))
-      finish(results, "#{passive}|#{dependencies}", settled_inputs(dependencies))
+      finish(results, "#{baseline}|#{dependencies}", settled_inputs(dependencies))
     end
 
     private
@@ -123,6 +120,23 @@ module Preflight
       CheckResult.new(name: name, status: :not_run, reason: "skipped: an earlier check did not pass")
     end
 
+    # Dependency preparation contract: after the cheap checks passed, `bundle list` runs. It may create the ignored
+    # lockfile in a fresh checkout. The "before" fingerprint is the one taken after that step, and only the
+    # lockfile appearing is accepted as a difference from the one taken before it. Anything else that
+    # changed (a tracked file, the tree, any other input) is a gap.
+    def prepare_dependencies(first, results)
+      return [@inputs.digest_of(first), nil] if stops?(results)
+
+      dependencies = capture_inputs { @inputs.dependency_digest }
+      return [dependencies, nil] unless dependencies.is_a?(String)
+
+      second = capture_inputs { @inputs.snapshot }
+      return [second, nil] unless second.is_a?(Hash)
+
+      baseline = capture_inputs { @inputs.baseline(first, second) }
+      [baseline, dependencies]
+    end
+
     def settled_inputs(dependencies)
       @repository.verify_identity!
       passive = @inputs.digest
@@ -157,7 +171,7 @@ module Preflight
       { origin_main_snapshot: @repository.origin_main_snapshot,
         trusted_policy_sha256: Checks::ProtectedPaths.new(repository: @repository).policy_digest,
         output_directory: @output_directory,
-        rerun_command: "script/preflight --base #{@options.base} --head #{@options.head} " \
+        rerun_command: "ruby script/preflight --base #{@options.base} --head #{@options.head} " \
                        "--base-ref #{@options.base_ref} --mode #{@options.mode}",
         commands: @commands.respond_to?(:history) ? @commands.history : [] }
     end
