@@ -35,13 +35,60 @@ module Preflight
         tools: tool_identities, bundler_files: bundler_files }
     end
 
+    def digest_of(snapshot)
+      Digest::SHA256.hexdigest(JSON.generate(snapshot))
+    end
+
+    # The fingerprint after dependency preparation. The only difference allowed from the one before it is a
+    # lockfile that did not exist and now does (Bundler writes it in a fresh checkout). Anything else is a gap.
+    def baseline(before, after)
+      raise ExecutionGap, "inputs changed while dependencies were prepared" unless same_but_new_lockfile?(before, after)
+
+      digest_of(after)
+    end
+
     # Dependency identity: runs Bundler, which evaluates the candidate's Gemfile. The runner calls this only
     # after the protected-path checks passed. It records gem names and versions, not their source contents.
     def dependency_digest
+      prepare_lockfile
       Digest::SHA256.hexdigest(JSON.generate(bundler: bundler_version, bundled_gems: bundled_gems))
     end
 
     private
+
+    # In a fresh checkout there is no lockfile and the first Bundler command that resolves would create it in the
+    # middle of the run. Create it here, from locally installed gems only (no network), so the run starts stable.
+    def prepare_lockfile
+      return unless bundler_files[:lockfile].last == "absent"
+
+      result = @runner.run(%w[bundle lock --local], timeout: 120)
+      return if result.succeeded?
+
+      raise ExecutionGap, "cannot prepare the lockfile: #{result.problem || result.stderr.strip}"
+    end
+
+    def same_but_new_lockfile?(before, after)
+      JSON.generate(without_new_lockfile(before, after)) == JSON.generate(before)
+    end
+
+    def without_new_lockfile(before, after)
+      shaped = JSON.parse(JSON.generate(after))
+      original = JSON.parse(JSON.generate(before))
+      if absent?(original["ignored_files"]["Gemfile.lock"])
+        shaped["ignored_files"]["Gemfile.lock"] =
+          original["ignored_files"]["Gemfile.lock"]
+      end
+      lock = original["bundler_files"]["lockfile"]
+      if lock.last == "absent" && shaped["bundler_files"]["lockfile"].first == lock.first
+        shaped["bundler_files"]["lockfile"] =
+          lock
+      end
+      shaped
+    end
+
+    def absent?(state)
+      state == "absent"
+    end
 
     def tracked_digest
       entries = @repository.tracked_files.map { |path| [path, file_state(path, required: true)] }
