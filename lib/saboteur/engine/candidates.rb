@@ -93,8 +93,7 @@ module Saboteur
       end
 
       def equivalent?(subject, text)
-        frozen = BytecodeEquivalence.frozen_string_literal?(subject.file_source)
-        @bytecode.equivalent?(subject.source, text, frozen_string_literal: frozen)
+        @bytecode.equivalent?(subject.source, text, frozen_string_literal: subject.frozen_literals)
       end
 
       def parses?(text)
