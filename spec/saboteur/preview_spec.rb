@@ -131,6 +131,33 @@ RSpec.describe Saboteur::Preview do
     end
   end
 
+  it "reports incomplete durations, not an error, for a map that decodes but holds unusable values" do
+    settings = config(operators: ["arithmetic"])
+    FileUtils.mkdir_p(File.join(root, ".saboteur"))
+    identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
+    map = File.join(root, ".saboteur", "late.json")
+    format = Saboteur::Selection::CoverageMap::FORMAT
+    base = { format: format, tests: ["t"], lines: { target.file => { "3" => [0] } } }
+    [{ durations: ["bad"] }, { durations: [-1.0] }, { durations: [nil] }, { durations: {} },
+     { tests: %w[t u], durations: [0.5, -1.0] },
+     { durations: [0.5], methods: 5 }, { durations: [0.5], load_lines: [1] }].each do |extra|
+      File.write(map, JSON.generate(base.merge(extra)))
+      File.write(File.join(root, ".saboteur", "preview.json"), JSON.generate(path: map, fingerprint: identity))
+      out.truncate(0)
+      expect { preview(settings).call }.not_to raise_error
+      expect(out.string).to include("Total: 2 mutants")
+      expect(out.string).to match(/no estimate: (cached test durations are incomplete|run once)/)
+      expect(out.string).not_to include("Estimated baseline")
+    end
+  end
+
+  it "still estimates from a map whose durations are valid" do
+    settings = config(operators: ["arithmetic"])
+    receipt(settings, durations: { "t1" => 0.0 })
+    preview(settings).call
+    expect(out.string).to include("Estimated baseline covering-test work: 0.0 s")
+  end
+
   it "uses a replaced hazard list rather than the default" do
     settings = config(hazard: ["x.+"])
     guard = instance_double(Saboteur::MutationSource::HazardGuard)
