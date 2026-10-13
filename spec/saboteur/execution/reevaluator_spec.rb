@@ -129,4 +129,68 @@ RSpec.describe Saboteur::Execution::Reevaluator do
     expect(PrefixTarget.instance_variable_get(:@prefix_line)).to eq(subject.start_line - 1)
     expect(PrefixTarget.instance_method(:m).source_location).to eq([subject.file, subject.start_line])
   end
+
+  describe "whole_file" do
+    let(:source) do
+      <<~RUBY
+        WHOLE_FILE_LOADS = (defined?(WHOLE_FILE_LOADS) ? WHOLE_FILE_LOADS : 0) + 1
+
+        class WholeFileThing
+          def value
+            1
+          end
+
+          def other
+            2
+          end
+        end
+      RUBY
+    end
+    let(:subject_under_test) do
+      subjects_in(source, name: "whole_file_thing.rb").find do |s|
+        s.id == "WholeFileThing#value"
+      end
+    end
+
+    before do
+      Object.send(:remove_const, :WHOLE_FILE_LOADS) if defined?(WHOLE_FILE_LOADS)
+      Object.send(:remove_const, :WholeFileThing) if defined?(WholeFileThing)
+      load subject_under_test.file
+    end
+
+    after do
+      Object.send(:remove_const, :WHOLE_FILE_LOADS) if defined?(WHOLE_FILE_LOADS)
+      Object.send(:remove_const, :WholeFileThing) if defined?(WholeFileThing)
+    end
+
+    it "matches subject ids exactly or by glob" do
+      expect(described_class.new("nesting",
+                                 whole_file: ["WholeFileThing#value"]).whole_file?(subject_under_test)).to be(true)
+      expect(described_class.new("nesting", whole_file: ["WholeFile*"]).whole_file?(subject_under_test)).to be(true)
+      expect(described_class.new("nesting", whole_file: ["Other#value"]).whole_file?(subject_under_test)).to be(false)
+      expect(described_class.new.whole_file?(subject_under_test)).to be(false)
+    end
+
+    it "evaluates the whole file with the mutated method spliced in, running its top-level code again" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      expect(WholeFileThing.new.value).to eq(10)
+      expect(WholeFileThing.new.other).to eq(2)
+      expect(WHOLE_FILE_LOADS).to eq(2)
+    end
+
+    it "leaves methods outside the list to surgical re-evaluation" do
+      reevaluator = described_class.new("nesting", whole_file: ["Nothing#here"])
+      reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      expect(WholeFileThing.new.value).to eq(10)
+      expect(WHOLE_FILE_LOADS).to eq(1)
+    end
+
+    it "keeps the file's own name and line numbers" do
+      described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+                     .call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      file, line = WholeFileThing.instance_method(:value).source_location
+      expect([file, line]).to eq([subject_under_test.file, subject_under_test.start_line])
+    end
+  end
 end
