@@ -251,17 +251,8 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#define_execution_options",
              reason: "user-facing copy: dropping the description argument leaves the flag working; behaviour is spec'd in cli_spec"
 
-  i.mutation "be3a6b88d34ee36d",
-             subject: "Saboteur::Engine#mutate",
-             reason: "wiring verified end-to-end: spec/e2e/hazard_guard_spec.rb runs saboteur in a subprocess, so in-process coverage cannot see it; without after_subject the --allow-hazardous canary e2e fails"
 
-  i.mutation "7bd25c7494417d00",
-             subject: "Saboteur::Engine#mutate",
-             reason: "same wiring pair as be3a6b88d34ee36d (on_start/after_subject kwargs): verified by the subprocess e2e, invisible to in-process coverage"
 
-  i.mutation "4f2d5208a11e0752",
-             subject: "Saboteur::Engine#mutate",
-             reason: "same wiring pair as be3a6b88d34ee36d (Distribution kwargs): verified by the subprocess e2e, invisible to in-process coverage"
 
   i.mutation "d5d83ae928db4190",
              subject: "Saboteur::Engine#candidate_lists",
