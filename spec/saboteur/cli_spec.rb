@@ -48,6 +48,41 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("invalid argument")
   end
 
+  describe "dirty working tree" do
+    def run_on_tree(state)
+      tree = instance_double(Saboteur::WorkingTree, state: state)
+      allow(Saboteur::WorkingTree).to receive(:new).and_return(tree)
+      allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+      cli("run").call
+    end
+
+    it "warns at startup with the number of uncommitted changes" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 3))
+
+      expect(err.string).to include("saboteur: warning: 3 uncommitted change(s) in the working tree")
+      expect(err.string).to include("clean, committed tree or a CI checkout")
+    end
+
+    it "excludes saboteur's own output paths from the changes it counts" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 1))
+
+      expect(Saboteur::WorkingTree).to have_received(:new)
+        .with(anything, ignored: [".saboteur", ".saboteur/report.json", ".saboteur/report.html"])
+    end
+
+    it "stays quiet on a clean tree" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: false, changed_files: 0))
+
+      expect(err.string).not_to include("uncommitted")
+    end
+
+    it "stays quiet when the tree state is unknown" do
+      run_on_tree(Saboteur::WorkingTree::UNKNOWN)
+
+      expect(err.string).not_to include("uncommitted")
+    end
+  end
+
   describe "exit codes after a run" do
     def run_with(report)
       engine = instance_double(Saboteur::Engine, call: report)
@@ -300,6 +335,18 @@ RSpec.describe Saboteur::CLI, "details" do
   it "prints only the usage line for an unknown command" do
     cli("explode").call
     expect(err.string).to eq("#{described_class::USAGE}\n")
+  end
+
+  it "parses --allow-focus into the allow_focus config key" do
+    command = cli("run", "--allow-focus")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(allow_focus: true)
+    expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["allow_focus"]).to be(true)
+  end
+
+  it "refuses a focused suite unless allow_focus is set" do
+    expect(Saboteur::Config.new({})["allow_focus"]).to be(false)
   end
 
   it "parses --config, --integration and --incremental" do

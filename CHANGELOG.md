@@ -7,6 +7,9 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- A startup warning on stderr when the working tree has uncommitted changes,
+  because mutants run your code and could alter or delete files. Saboteur's own
+  output paths do not count as changes.
 - Terminal report rewrite: survivors grouped by file and method with
   evidence-scoped hints (suggestions, not diagnoses), a score table, a
   progress counter with ETA, `--verbose`, `--[no-]color` and `--fail-fast`

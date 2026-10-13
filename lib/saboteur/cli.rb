@@ -121,6 +121,7 @@ module Saboteur
       parser.parse!(@argv)
       use_explicit_sources
       reject_threshold_with_agent_format
+      warn_dirty_tree
 
       arguments = { err: @err }
       arguments[:digest] = options[:id] if options[:id]
@@ -131,6 +132,17 @@ module Saboteur
     rescue Error => e
       @err.puts("saboteur: #{e.message}")
       agent_failure(e.message, EXIT_TOOL)
+    end
+
+    # Mutants run your code, and a mutant of code that writes or deletes files
+    # can change the tree. Say so up front when uncommitted work is at stake.
+    def warn_dirty_tree
+      tree = WorkingTree.new(config.root, ignored: output_paths).state
+      return unless tree.dirty
+
+      @err.puts("saboteur: warning: #{tree.changed_files} uncommitted change(s) in the working tree. " \
+                "Mutants run your code and could alter or delete files; run on a clean, committed tree " \
+                "or a CI checkout.")
     end
 
     # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
@@ -379,6 +391,9 @@ module Saboteur
       end
       opts.on("--fail-fast", "Stop after the first subject with a survivor (needs --jobs 1)") { set(:fail_fast, true) }
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
+      opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
+        set(:allow_focus, true)
+      end
     end
 
     def define_output_options(opts)

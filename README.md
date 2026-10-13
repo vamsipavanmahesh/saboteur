@@ -130,7 +130,7 @@ missed. The JSON report lands in `.saboteur/report.json`.
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
-run. A change no test reaches is reported as "no coverage", not as a survivor. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
+run. A change no test reaches is reported as "no coverage", not as a survivor. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
 whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
@@ -203,7 +203,15 @@ so such a run tested almost nothing.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
-`--json PATH`, `--no-cache` (rebuild the coverage map).
+`--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
+
+A stray `fit`, `fdescribe` or `:focus` example, with `filter_run_when_matching :focus`, makes RSpec skip
+every other example. The baseline stays green and the score would cover only the focused ones, so
+saboteur exits 2 and names the focused examples. Remove the focus, or pass `--allow-focus` (config
+`c.allow_focus = true`) to run the narrowed suite. Filters you name in `rspec_args` or `.rspec`, such
+as `--tag slow`, and example selectors such as `--test spec/a_spec.rb:12`, are on purpose and are not refused. The
+check compares what RSpec runs with what it would run without the stray focus, so examples RSpec leaves out anyway
+(`:if` / `:unless`, `--tag`, exclusions, selectors in another file) never count as hidden.
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
@@ -357,6 +365,7 @@ Saboteur.configure do |c|
   c.hazard = Saboteur::MutationSource::HazardGuard::DEFAULT_HAZARD # calls whose arguments are never mutated
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
+  c.allow_focus = false          # true runs a suite narrowed by fit/fdescribe/:focus instead of exit 2
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
 end
 ```

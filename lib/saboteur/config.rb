@@ -45,6 +45,7 @@ module Saboteur
       "since" => nil,
       "cache" => true,
       "incremental" => false,
+      "allow_focus" => false,
       "fail_fast" => false,
       "seed" => 1,
       "tests" => [],
