@@ -206,6 +206,27 @@ RSpec.describe Saboteur::Execution::Reevaluator do
       expect(reevaluator.replaced_definition(first)).to eq("#{first.file}:6")
     end
 
+    it "looks through a known def-time wrapper to the def it wraps" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      wrapped = instance_double(UnboundMethod, source_location: ["/gems/sorbet/wrapper.rb", 1])
+      original = instance_double(UnboundMethod,
+                                 source_location: [subject_under_test.file, subject_under_test.start_line])
+      allow(Saboteur::Execution::Wrapper).to receive(:original_def).with(wrapped).and_return(original)
+      allow(WholeFileThing).to receive(:instance_method).with(:value).and_return(wrapped)
+      expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "reports a wrapped method whose wrapped def is not the subject's" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      wrapped = instance_double(UnboundMethod,
+                                source_location: [subject_under_test.file, subject_under_test.start_line])
+      original = instance_double(UnboundMethod, source_location: ["/other.rb", 9])
+      allow(Saboteur::Execution::Wrapper).to receive(:original_def).with(wrapped).and_return(original)
+      allow(WholeFileThing).to receive(:instance_method).with(:value).and_return(wrapped)
+      expect(reevaluator.replaced_definition(subject_under_test)).to eq("/other.rb:9")
+    end
+
     it "reports a method that is no longer defined" do
       reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
       WholeFileThing.send(:remove_method, :value)
