@@ -6,29 +6,53 @@ require "time"
 require "digest"
 require "fileutils"
 require_relative "agent_incomplete"
+require_relative "history_record"
 
 module Saboteur
   module Reporter
     # Opt-in append-only score observations, not a baseline or a CI gate.
     class ScoreHistory
+      DIFFERENT_RUN = "score history: change unavailable (different selection/inventory or incomplete run)"
+      MISSING_SCORE = "score history: change unavailable (no tested mutants)"
+      MAX_RECORD_BYTES = 64 * 1024
+      OPEN_FLAGS = File::RDWR | File::CREAT | File::NONBLOCK | File::NOFOLLOW
+
       def initialize(path)
         @path = path
       end
 
       def append(report, head:, scope:)
         record = build(report, head, scope)
+        HistoryRecord.validate(record)
+        line = "#{JSON.generate(record)}\n"
+        raise Error, "score history record exceeds byte limit" if line.bytesize > MAX_RECORD_BYTES
+
         FileUtils.mkdir_p(File.dirname(@path))
-        File.open(@path, File::RDWR | File::CREAT, 0o600) do |file|
-          raise Error, "score history lock was not acquired" unless file.flock(File::LOCK_EX)
+        File.open(@path, OPEN_FLAGS, 0o600) do |file|
+          regular_file(file)
+          lock(file, File::LOCK_EX)
 
           previous = previous_record(file)
           file.seek(0, IO::SEEK_END)
-          file.write("#{JSON.generate(record)}\n")
+          file.write(line)
           file.flush
           change(previous, record)
         end
       rescue SystemCallError, IOError, JSON::ParserError, KeyError, TypeError => e
         raise Error, "score history was not recorded: #{e.message}"
+      end
+
+      def validate_existing
+        return unless File.exist?(@path) || File.symlink?(@path)
+
+        File.open(@path, File::RDONLY | File::NONBLOCK | File::NOFOLLOW) do |file|
+          regular_file(file)
+          lock(file, File::LOCK_SH)
+
+          previous_record(file)
+        end
+      rescue SystemCallError, IOError => e
+        raise Error, "score history cannot be read: #{e.message}"
       end
 
       private
@@ -39,7 +63,7 @@ module Saboteur
           "inventory" => Digest::SHA256.hexdigest(JSON.generate(report.results.map(&:digest).sort)),
           "score" => overall_score(report), "coveredScore" => report.score,
           "counts" => report.counts.transform_keys(&:to_s),
-          "breakdown" => report.score_breakdown.to_h,
+          "breakdown" => report.score_breakdown.to_h.transform_keys(&:to_s),
           "incomplete" => incompleteness(report) }
       end
 
@@ -57,35 +81,38 @@ module Saboteur
         reasons.uniq
       end
 
-      def previous_record(file)
-        previous = nil
-        file.each_line do |line|
-          unless line.end_with?("\n")
+      def lock(file, mode)
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 2
+        until file.flock(mode | File::LOCK_NB)
+          if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
             raise Error,
-                  "score history contains a truncated record; existing file was not changed"
+                  "score history lock was not acquired"
           end
 
-          previous = JSON.parse(line)
-          unless previous.is_a?(Hash) && previous["version"] == 1 && previous.key?("coveredScore") &&
-                 previous["selection"].is_a?(String) && previous["inventory"].is_a?(String) &&
-                 previous["incomplete"].is_a?(Array)
-            raise Error, "score history contains an invalid record; existing file was not changed"
-          end
+          sleep 0.01
+        end
+      end
 
-          score = previous["coveredScore"]
-          unless score.nil? || (score.is_a?(Numeric) && (0..1).cover?(score))
-            raise Error, "score history contains an invalid score; existing file was not changed"
-          end
+      def regular_file(file)
+        raise Error, "score history must be a regular file" unless file.stat.file?
+      end
+
+      def previous_record(file)
+        while (line = file.gets(MAX_RECORD_BYTES + 1))
+          raise Error, "score history record exceeds byte limit" if line.bytesize > MAX_RECORD_BYTES
+          raise Error, "score history contains a truncated record" unless line.end_with?("\n")
+
+          previous = HistoryRecord.parse(line)
         end
         previous
       end
 
       def change(previous, current)
         return "score history: first record" unless previous
-        return "score history: change unavailable (different selection/inventory or incomplete run)" unless
+        return DIFFERENT_RUN unless
           previous["selection"] == current["selection"] && previous["inventory"] == current["inventory"] &&
           previous["incomplete"].empty? && current["incomplete"].empty?
-        return "score history: change unavailable (no tested mutants)" if
+        return MISSING_SCORE if
           previous["coveredScore"].nil? || current["coveredScore"].nil?
 
         delta = (current["coveredScore"] - previous["coveredScore"]) * 100
