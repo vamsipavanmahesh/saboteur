@@ -108,7 +108,8 @@ RSpec.describe Saboteur::Baseline::Comparison do
       expect(result.categories["new"]).to be_empty
       expect(result.categories["unmatched"]).to be_empty
       expect(result.score).to eq("baseline" => 80.0, "current" => 50.0, "drop" => 30.0, "epsilon" => 5.0,
-                                 "exceeded" => true)
+                                 "exceeded" => true, "baseline_detected" => 4, "baseline_scored" => 5,
+                                 "current_detected" => 1, "current_scored" => 2)
       expect(result.state).to eq("review_required")
       expect(result.exit_code).to eq(1)
     end
