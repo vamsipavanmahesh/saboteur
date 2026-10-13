@@ -578,10 +578,15 @@ and the last call stay, so a test has to notice that a step in between went
 missing. The link goes whole, with its arguments and block. The operator and
 source name is `chain_removal`.
 
-Operators, index calls, attribute writes and bare-name receivers are not chains
-and are unchanged. Links that return an equal object (`freeze`, `dup`, `clone`,
-`itself`, `tap`) are never removed. Arid statements and nested definitions are skipped. These
-proposals follow the other fine proposals, with the same validation,
+Operators, index calls, attribute writes (`user.profile.name = 1`, `+=`, `||=`)
+and bare-name receivers are not chains and are unchanged. `freeze`, `dup`,
+`clone`, `itself` and `tap` links are never removed: they hand back the same
+value or an equal copy, so dropping one changes only frozenness or object
+identity, which ordinary tests do not check, and the mutant is mostly
+equivalent noise. Arid statements and nested definitions are skipped.
+
+Chain removal is on by default, like `argument_removal` and `pair_removal`.
+Its proposals follow the other fine proposals, with the same validation,
 deduplication and `max_mutants_per_method` cap.
 
 ## Argument removal
