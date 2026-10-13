@@ -24,10 +24,9 @@ tty-color:
   config: integration/configs/tty_color.rb
   schedule: pr
   expect:
-    # class_eval: killed + error is 125 after the hazard guard suppressed 25
+    # class_eval: killed + error is 126 after the hazard guard suppressed 25
     # mutants in tty-color's backtick/system methods (was 151). Their split
-    # can vary by run (Linux measured 73/52), so only the sum is checked.
-    # Branch selection skips the untaken false return at Support#support?:43.
+    # can vary by run (Linux measured 69/57), so only the sum is checked.
     class_eval: { killed+error: 125, survived: 13, timeout: 0, skipped: 1 }
     # macOS literal expansion has not been measured, and no CI job runs
     # integration targets on macOS. Keep the historical (pre-guard) baseline
@@ -40,12 +39,11 @@ tty-color:
     linux:
       # Measured after the hazard guard suppressed 25 mutants in tty-color's
       # backtick/system methods (was killed 138, survived 26).
-      # One former survivor is an untaken return arm, now skipped.
       nesting: { killed: 118, survived: 20, skipped: 1 }
   # class_eval: spec/unit/mode_spec.rb[1:3] kills most Mode mutants with a
   # test that also fails with the method unchanged ("uninitialized constant
   # TTY::Color::Mode::NoValue"), so over half the mutants error on every
-  # run (52 of 138, ~38%) and the majority-error exit would fail the job.
+  # run (57 of 139, ~41%) and the majority-error exit would fail the job.
   # Allow that exit while the errored fraction stays under 60%; the
   # snapshot above still pins survived, timeout, skipped and the
   # killed+error total.
