@@ -38,7 +38,10 @@ module Saboteur
           rejectedKills: report.rejected_kills,
           warnings: report.warnings,
           framework: { name: "saboteur", version: VERSION },
-          saboteur: { findings: Findings.build(report), scores: scores(report) }
+          saboteur: { findings: Findings.build(report), scores: scores(report),
+                      inlineSuppressions: report.inline_suppressions.map do |entry|
+                        entry.merge(file: relative(entry[:file], report.root))
+                      end }
                      .merge(exit_cause ? { exitCause: exit_cause } : {})
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
       end
