@@ -20,10 +20,11 @@ module Saboteur
         # every other fallible reporting stage, or a late failure would
         # leave a fresh, misleading report behind.
         validate_history
-        write_html(report)
+        html = write_html(report)
         record_history(report)
         validate_history
-        write_json(report, exit_cause(report, code))
+        json = write_json(report, exit_cause(report, code))
+        announce_reports(json => "JSON", html => "HTML")
         code
       end
 
@@ -36,10 +37,10 @@ module Saboteur
         # evidence, so it is written only after every other fallible stage,
         # including the agent payload itself.
         validate_history
-        write_html(report, announce: false)
+        write_html(report)
         record_history(report)
         validate_history
-        write_json(report, agent_exit_cause(report, payload), announce: false)
+        write_json(report, agent_exit_cause(report, payload))
         @out.print(rendered)
         Reporter::Agent.exit_code(payload)
       end
