@@ -72,6 +72,23 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     expect(display).to eq([[high, 1]])
   end
 
+  it "preserves ranked render order when evidence groups are interleaved" do
+    first = ranked_result(subject, first: 3, coarse: true, tests: ["./spec/a_spec.rb[1:1]"],
+                                   replacement: "first")
+    middle = ranked_result(subject, first: 3, tests: %w[./spec/b_spec.rb[1:1] ./spec/b_spec.rb[1:2]],
+                                    replacement: "middle")
+    last = ranked_result(subject, first: 3, tests: ["./spec/a_spec.rb[1:1]"], replacement: "last")
+    report = report_for([last, middle, first])
+    out = StringIO.new
+    Saboteur::Reporter::Terminal.new(out).call(report)
+    rendered = out.string.scan(/(#{first.digest}|#{middle.digest}|#{last.digest})/).flatten
+    expect(rendered).to eq([first.digest, middle.digest, last.digest])
+    expect(out.string.scan("./spec/a_spec.rb[1:1]").size).to eq(2)
+    expect(out.string.scan("./spec/b_spec.rb[1:1]").size).to eq(1)
+    findings = Saboteur::Reporter::Stryker.build(report).dig(:saboteur, :findings, :survivors)
+    expect(findings.map { |finding| finding[:digest] }).to eq(rendered)
+  end
+
   it "measures distance to a whole edit span, and treats missing file changes as unknown" do
     scope = Saboteur::Engine::DiffScope.new(subject.file => Set[4])
     report = report_for([], scope: scope)
