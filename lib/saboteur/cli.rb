@@ -8,6 +8,7 @@ require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
 require_relative "cli/exit_status"
+require_relative "preview"
 
 module Saboteur
   class CLI
@@ -125,6 +126,8 @@ module Saboteur
       reject_threshold_with_agent_format
       warn_dirty_tree
 
+      return preview if options[:list_operators] || options[:dry_run]
+
       arguments = { err: @err }
       arguments[:digest] = options[:id] if options[:id]
       agent? ? agent_run(arguments) : text_run(Engine.new(config, **arguments).call)
@@ -139,12 +142,7 @@ module Saboteur
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
     def warn_dirty_tree
-      tree = WorkingTree.new(config.root, ignored: output_paths).state
-      return unless tree.dirty
-
-      @err.puts("saboteur: warning: #{tree.changed_files} uncommitted change(s) in the working tree. " \
-                "Mutants run your code and could alter or delete files; run on a clean, committed tree " \
-                "or a CI checkout.")
+      WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
     end
 
     # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
@@ -185,7 +183,7 @@ module Saboteur
     # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
     # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
     def agent_run(arguments)
-      tree = WorkingTree.new(config.root, ignored: output_paths).state
+      tree = WorkingTree.new(config.root, ignored: config.output_paths).state
       report = stdout_on_stderr { Engine.new(config, **arguments).call }
       payload = Reporter::Agent.call(report, agent_provenance(report, tree))
       rendered = Reporter::Agent.render(payload)
@@ -196,15 +194,6 @@ module Saboteur
       write_json(report, agent_exit_cause(report, payload), announce: false)
       @out.print(rendered)
       Reporter::Agent.exit_code(payload)
-    end
-
-    # Paths of saboteur's own output, relative to the root, that do not count as source changes.
-    def output_paths
-      root = File.join(File.realpath(config.root), "")
-      %w[cache_dir json_report html_report].filter_map { |key| config.path(key) }
-                                           .map { |path| File.expand_path(path) }
-                                           .select { |path| path.start_with?(root) }
-                                           .map { |path| path.delete_prefix(root) }
     end
 
     # Descriptor 1 points at stderr for the block, so Kernel#puts, system and forked
@@ -290,10 +279,25 @@ module Saboteur
     end
 
     def overrides
-      options.except(:config, :id)
+      options.except(:config, :id, :list_operators, :dry_run)
+    end
+
+    def preview
+      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON" if agent?
+      raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
+
+      return MutationSource::OperatorRegistry.list(@out) || EXIT_OK if options[:list_operators]
+
+      Preview.new(config, out: @out, err: @err).call
+      EXIT_OK
     end
 
     def define_selection_options(opts)
+      opts.on("--operators NAMES", Array, "Choose operator names or tiers (core, extended, all)") do |v|
+        set(:operators, v)
+      end
+      opts.on("--list-operators", "List operator names, descriptions and tiers") { set(:list_operators, true) }
+      opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
       opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
       opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
       opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }

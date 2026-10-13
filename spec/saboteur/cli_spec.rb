@@ -56,6 +56,17 @@ RSpec.describe Saboteur::CLI do
       cli("run").call
     end
 
+    it "refuses --agent and --id with --dry-run or --list-operators as usage errors" do
+      [%w[--dry-run --agent], %w[--list-operators --agent], %w[--dry-run --id abc], %w[--list-operators --id abc]]
+        .each do |args|
+        expect(Saboteur::Preview).not_to receive(:new)
+        out.truncate(0)
+        expect(cli("run", *args).call).to eq(2)
+      end
+      expect(err.string).to include("--id replays one mutant: not with --dry-run or --list-operators",
+                                    "--dry-run and --list-operators print text, not --agent JSON")
+    end
+
     it "warns at startup with the number of uncommitted changes" do
       run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 3))
 
@@ -74,6 +85,7 @@ RSpec.describe Saboteur::CLI do
       run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: false, changed_files: 0))
 
       expect(err.string).not_to include("uncommitted")
+      expect(err.string).not_to match(/\A\s*\n/)
     end
 
     it "stays quiet when the tree state is unknown" do

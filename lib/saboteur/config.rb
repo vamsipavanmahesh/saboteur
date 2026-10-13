@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "mutation_source/builtin"
+require_relative "mutation_source/operator_registry"
 require_relative "mutation_source/hazard_guard"
 
 module Saboteur
@@ -34,6 +35,7 @@ module Saboteur
       "ignore_file" => "config/saboteur_ignore.rb",
       "custom_map" => "config/saboteur_custom_map.rb",
       "sources" => ["builtin"],
+      "operators" => [],
       "hooks" => [],
       "rails" => false,
       "reeval" => "nesting",
@@ -60,7 +62,7 @@ module Saboteur
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
-                   fingerprint_extra].freeze
+                   fingerprint_extra operators].freeze
 
     attr_reader :root
 
@@ -113,7 +115,7 @@ module Saboteur
       matched = self["include"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       excluded = self["exclude"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       (matched - excluded).select { |file| file.end_with?(".rb") }
-                          .map { |file| File.realpath(File.join(root, file)) }.uniq.sort
+                          .map { |file| File.realpath(File.expand_path(file, root)) }.uniq.sort
     end
 
     # Patterns that match no file. A pattern goes stale when files move;
@@ -127,6 +129,15 @@ module Saboteur
     def path(key)
       value = self[key]
       value && File.expand_path(value, root)
+    end
+
+    # Paths of saboteur's own output, relative to the root, that do not count as source changes.
+    def output_paths
+      prefix = File.join(File.realpath(root), "")
+      %w[cache_dir json_report html_report].filter_map { |key| path(key) }
+                                           .map { |file| File.expand_path(file) }
+                                           .select { |file| file.start_with?(prefix) }
+                                           .map { |file| file.delete_prefix(prefix) }
     end
 
     private
@@ -187,6 +198,7 @@ module Saboteur
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
 
       validate_reeval!
+      MutationSource::OperatorRegistry.resolve(self["operators"])
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
     rescue RegexpError => e
