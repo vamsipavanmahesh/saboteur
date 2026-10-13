@@ -32,6 +32,8 @@ RSpec.describe Saboteur::Preview do
   it "uses diff lines both to select methods and to restrict their candidates" do
     allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).with("base", root: root)
                                                                   .and_return(target.file => [4])
+    allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("base")
+    allow(Saboteur::Selection::GitDiff).to receive(:file_at).and_return(nil)
     scoped = config(since: "base")
     selection = Saboteur::Engine::SubjectSelection.new(scoped, Saboteur::Engine::Diagnostics.new(StringIO.new))
     subjects = selection.select(scoped.included_files)
@@ -52,10 +54,46 @@ RSpec.describe Saboteur::Preview do
     expect(out.string[/Total: (\d+)/, 1].to_i).to be > suppressed
   end
 
-  it "prints discovery warnings" do
+  it "prints discovery warnings and marks the total incomplete, without an estimate" do
     File.write(target.file, "def broken(")
     preview.call
-    expect(out.string).to include("does not parse")
+    expect(out.string).to include("does not parse", "INCOMPLETE: 1 file(s) could not be parsed",
+                                  "no estimate: source discovery was incomplete")
+  end
+
+  it "does not mark a clean discovery incomplete" do
+    preview.call
+    expect(out.string).not_to include("INCOMPLETE", "Inline suppressions:")
+  end
+
+  [
+    ['def m(x); x + 1; end # saboteur:disable-line reason="all candidates"', true],
+    ['def m(x); x + 1; end # saboteur:disable-line arithmetic reason="operator subset"', false]
+  ].each do |definition, all|
+    it "audits #{all ? 'all' : 'a subset of'} inline-suppressed candidates without boot or writes" do
+      File.write(target.file, "class PreviewCases\n  #{definition}\nend\n")
+      settings = config
+      subject = Saboteur::SubjectFinder.new.call(target.file).subjects.first
+      diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+      candidates = Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new], diagnostics).for(subject)
+      entries = diagnostics.inline_suppressions
+      expect(entries).not_to be_empty
+      expect(candidates.empty?).to eq(all)
+      before = Dir.glob("#{root}/**/*", File::FNM_DOTMATCH).select { |file| File.file?(file) }
+                  .to_h { |file| [file, File.binread(file)] }
+      expect(Saboteur::Engine).not_to receive(:new)
+      preview(settings).call
+      expect(out.string).to include("Total: #{candidates.size} mutants",
+                                    "Inline suppressions: #{entries.size} candidates in selected methods",
+                                    "before diff restriction and per-method cap; outside the planned total")
+      entries.each do |entry|
+        expect(out.string).to include("#{File.basename(subject.file)}:#{entry[:line]} #{entry[:subject]} " \
+                                      "#{entry[:operator]} #{entry[:digest]}: #{entry[:reason]}")
+      end
+      after = Dir.glob("#{root}/**/*", File::FNM_DOTMATCH).select { |file| File.file?(file) }
+                 .to_h { |file| [file, File.binread(file)] }
+      expect(after).to eq(before)
+    end
   end
 
   def receipt(settings, durations: { "t1" => 0.25 }, fingerprint: nil)
@@ -82,7 +120,8 @@ RSpec.describe Saboteur::Preview do
     settings = config(operators: ["arithmetic"])
     receipt(settings, durations: { "t1" => 0.123456 })
     preview(settings).call
-    expect(out.string).to include("Total: 2 mutants", "Estimated covering-test work: 0.25 s")
+    expect(out.string).to include("Total: 2 mutants", "Estimated baseline covering-test work: 0.25 s",
+                                  "not a bound on mutant runtime")
   end
 
   it "reports a corrupt receipt without making changes" do
@@ -93,6 +132,81 @@ RSpec.describe Saboteur::Preview do
     expect(out.string).to include("no estimate: run once")
     expect(File.read(path)).to eq("{")
   end
+  it "reports no estimate for valid JSON receipts of the wrong shape or a missing map" do
+    settings = config
+    FileUtils.mkdir_p(File.join(root, ".saboteur"))
+    path = File.join(root, ".saboteur", "preview.json")
+    identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
+    ["[]", "null", "42", JSON.generate(path: 1, fingerprint: identity), JSON.generate(path: "x", fingerprint: 1),
+     JSON.generate(path: File.join(root, "absent.json"), fingerprint: identity),
+     JSON.generate(path: root, fingerprint: identity)].each do |body|
+      File.write(path, body)
+      out.truncate(0)
+      expect { preview(settings).call }.not_to raise_error
+      expect(out.string).to include("no estimate: run once")
+    end
+  end
+
+  it "reports no estimate when the coverage map itself has the wrong shape" do
+    settings = config
+    FileUtils.mkdir_p(File.join(root, ".saboteur"))
+    identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
+    map = File.join(root, ".saboteur", "bad.json")
+    [{ format: Saboteur::Selection::CoverageMap::FORMAT, tests: 1, lines: [], durations: [] },
+     { format: Saboteur::Selection::CoverageMap::FORMAT, tests: ["t"], lines: { "f" => { "1" => [5] } },
+       durations: [] }].each do |body|
+      File.write(map, JSON.generate(body))
+      File.write(File.join(root, ".saboteur", "preview.json"), JSON.generate(path: map, fingerprint: identity))
+      out.truncate(0)
+      expect { preview(settings).call }.not_to raise_error
+      expect(out.string).to include("no estimate: run once")
+    end
+  end
+
+  it "reports incomplete durations, not an error, for a map that decodes but holds unusable values" do
+    settings = config(operators: ["arithmetic"])
+    FileUtils.mkdir_p(File.join(root, ".saboteur"))
+    identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
+    map = File.join(root, ".saboteur", "late.json")
+    format = Saboteur::Selection::CoverageMap::FORMAT
+    base = { format: format, tests: ["t"], lines: { target.file => { "3" => [0] } } }
+    [{ durations: ["bad"] }, { durations: [-1.0] }, { durations: [nil] }, { durations: {} },
+     { tests: %w[t u], durations: [0.5, -1.0] },
+     { durations: [0.5], methods: 5 }, { durations: [0.5], load_lines: [1] }].each do |extra|
+      File.write(map, JSON.generate(base.merge(extra)))
+      File.write(File.join(root, ".saboteur", "preview.json"), JSON.generate(path: map, fingerprint: identity))
+      out.truncate(0)
+      expect { preview(settings).call }.not_to raise_error
+      expect(out.string).to include("Total: 2 mutants")
+      expect(out.string).to match(/no estimate: (cached test durations are incomplete|run once)/)
+      expect(out.string).not_to include("Estimated baseline")
+    end
+  end
+
+  it "gives no estimate when durations are infinite or their total overflows" do
+    settings = config(operators: ["arithmetic"])
+    FileUtils.mkdir_p(File.join(root, ".saboteur"))
+    identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
+    map = File.join(root, ".saboteur", "big.json")
+    format = Saboteur::Selection::CoverageMap::FORMAT
+    %w[1e999 1e308].each do |duration|
+      File.write(map, %({"format":#{format.to_json},"tests":["t"],"lines":{#{target.file.to_json}:{"3":[0]}},) +
+                      %("durations":[#{duration}]}))
+      File.write(File.join(root, ".saboteur", "preview.json"), JSON.generate(path: map, fingerprint: identity))
+      out.truncate(0)
+      preview(settings).call
+      expect(out.string).to include("Total: 2 mutants", "no estimate: cached test durations are incomplete")
+      expect(out.string).not_to include("Estimated baseline", "Infinity")
+    end
+  end
+
+  it "still estimates from a map whose durations are valid" do
+    settings = config(operators: ["arithmetic"])
+    receipt(settings, durations: { "t1" => 0.0 })
+    preview(settings).call
+    expect(out.string).to include("Estimated baseline covering-test work: 0.0 s")
+  end
+
   it "uses a replaced hazard list rather than the default" do
     settings = config(hazard: ["x.+"])
     guard = instance_double(Saboteur::MutationSource::HazardGuard)

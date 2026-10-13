@@ -15,6 +15,14 @@ module Saboteur
       @directives = Prism.parse(source).comments.filter_map { |comment| parse(comment) }
     end
 
+    # Preserve ordinary comment/formatting skips, but treat directives as
+    # selection inputs. Relative lines distinguish which code they suppress.
+    def signature(subject)
+      @directives.select { |entry| subject.contains_line?(entry.line) }.map do |entry|
+        [entry.line - subject.start_line, entry.operators.sort, entry.reason]
+      end
+    end
+
     def reason(subject, mutation)
       mutation.edits.each do |edit|
         line = subject.line_of(edit.start_byte)

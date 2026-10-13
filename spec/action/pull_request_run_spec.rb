@@ -10,6 +10,12 @@ require "yaml"
 # Runs action/run-saboteur against a stand-in saboteur command, so the
 # action's own logic is tested without running mutation tests.
 RSpec.describe "action/run-saboteur" do
+  # The action reads the report with jq, so every example but the one that
+  # removes jq needs it on the runner: skip with a reason instead of failing.
+  before do |example|
+    skip "jq is not installed" unless example.metadata[:without_jq] || system("command -v jq > /dev/null 2>&1")
+  end
+
   let(:script) { File.expand_path("../../action/run-saboteur", __dir__) }
   let(:workspace) { Dir.mktmpdir("saboteur-action") }
   let(:github_output) { File.join(workspace, "github_output") }
@@ -462,7 +468,7 @@ RSpec.describe "action/run-saboteur" do
       expect(output).to include("unknown mutant status")
     end
 
-    it "fails when jq is not installed" do
+    it "fails when jq is not installed", :without_jq do
       bin = File.join(workspace, "bin")
       FileUtils.mkdir_p(bin)
       %w[bash git tee mktemp awk rm cat grep cp dirname mkdir sed env].each do |tool|

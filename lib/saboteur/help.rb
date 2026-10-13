@@ -21,7 +21,7 @@ module Saboteur
            "errored. With --threshold: the score is at or above it, even if mutants survived.",
       1 => "Without --threshold: at least one mutant survived and is not on the ignore list. With --threshold " \
            "(survivors alone no longer fail the run): the score is below it, or no mutant was tested so " \
-           "there is no score.",
+           "there is no score. Also more timeout or errored mutants than --max-timeouts or --max-errors allow.",
       2 => "Usage or configuration error: fix the command or config/saboteur.rb. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
       3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \
@@ -59,14 +59,15 @@ module Saboteur
       ),
       Command.new(
         name: "doctor",
-        summary: "Check the environment and run the baseline twice, without mutating anything",
-        description: "Boots the target like a run, checks runtime, coverage and boot files, then runs your " \
-                     "suite twice in the same order with one seed and reports whether both runs passed. " \
-                     "It never mutates anything.",
+        summary: "Check the environment, and with --suite run the baseline twice, without mutating anything",
+        description: "Boots the target like a run and checks runtime, coverage and boot files. With --suite " \
+                     "it also runs your suite twice in the same order with one seed and reports whether both " \
+                     "runs passed; --test PATH limits those runs to some specs. It never mutates anything.",
         takes_options: true,
         exit_codes: DOCTOR_EXIT_CODE_MEANINGS,
         examples: [["Check the setup before the first run", "saboteur doctor"],
-                   ["Use another config file and seed", "saboteur doctor --config config/ci.rb --seed 7"]]
+                   ["Also run the unchanged suite twice", "saboteur doctor --suite --seed 7"],
+                   ["Run only some specs twice", "saboteur doctor --test spec/models"]]
       ),
       Command.new(
         name: "baseline",
@@ -74,16 +75,21 @@ module Saboteur
         description: "Check runs every mutant fresh and reports new, changed or unmatched accepted survivors. " \
                      "Propose writes a proposal with private local execution evidence. Edit only survivor reasons; " \
                      "accept verifies current inputs and publishes it. No scores or execution are suppressed. " \
+                     "With --epsilon POINTS, check also fails when the score drops more than POINTS percentage " \
+                     "points below the accepted baseline's score. " \
                      "Only whole or subject scope; no diff, replay, incremental reuse or score threshold.",
         takes_options: true,
-        exit_codes: { 0 => "Clean check, proposal written or accepted.", 1 => "New, changed or unmatched survivors.",
+        exit_codes: { 0 => "Clean check, proposal written or accepted.",
+                      1 => "New, changed or unmatched survivors, or a score drop beyond --epsilon.",
                       2 => "Invalid configuration, incompatible baseline or rejected acceptance.",
                       3 => "Incomplete execution or tool failure." },
         examples: [["Prepare a reasoned proposal",
                     "saboteur baseline propose --baseline baseline.json --proposal proposal.json"],
                    ["Publish reviewed reasons",
                     "saboteur baseline accept --baseline baseline.json --proposal proposal.json"],
-                   ["Check fresh outcomes", "saboteur baseline check --baseline baseline.json"]]
+                   ["Check fresh outcomes", "saboteur baseline check --baseline baseline.json"],
+                   ["Also fail on a score drop of more than 2 points",
+                    "saboteur baseline check --baseline baseline.json --epsilon 2"]]
       ),
       Command.new(
         name: "version",

@@ -20,7 +20,7 @@ module Saboteur
     class Builtin < Base
       DEFAULT_ARID = [
         '\A(puts|pp|p|print|warn)\b',
-        '\A(::)?(Rails\.)?logger\b',
+        '\A(@|self\.|::)?(Rails\.)?logger\b',
         '\A(::)?(StatsD|Statsd|Datadog|NewRelic)\b',
         '\.instrument\b'
       ].freeze
@@ -149,7 +149,8 @@ module Saboteur
         statements.each do |statement|
           next if arid?(statement)
 
-          add("statement_removal", statement, "nil") if statements.size > 1 && removable?(statement)
+          removable_here = statements.drop(1).any? && removable?(statement)
+          add("statement_removal", statement, "nil") if removable_here
           visit(statement)
         end
       end

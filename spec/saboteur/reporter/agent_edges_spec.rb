@@ -79,6 +79,18 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       payload_for(report)[:incomplete]
     end
 
+    it "names the subjects a --fail-fast stop left unrun" do
+      stop = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y])
+      report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1.0,
+                                    root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
+      expect(reasons(report)).to include(
+        reason: "fail_fast", count: 2,
+        meaning: "selected subjects did not run because --fail-fast stopped the run"
+      )
+      whole = Array(reasons(report_of(result_for(:survived)))).map { |reason| reason[:reason] }
+      expect(whole).not_to include("fail_fast")
+    end
+
     it "says what no coverage means, adding skipped subjects and skipped mutants" do
       report = Saboteur::Report.new(results: [result_for(:skipped, reason: "no coverage"),
                                               result_for(:skipped, replacement: "<", reason: "no coverage")],
@@ -86,6 +98,29 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
                                     skipped_subjects: { person_subject => "no coverage" })
       expect(reasons(report)).to eq([{ reason: "no_coverage", count: 3,
                                        meaning: "subjects or mutants had no covering test" }])
+    end
+
+    it "counts covered block methods and refinements as unsupported, not as missing coverage" do
+      reports = ["defined inside a block", "refinements"].map do |reason|
+        Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1,
+                             root: "/tmp", seed: 7, skipped_subjects: { person_subject => reason })
+      end
+      reports.each do |report|
+        expect(reasons(report)).to eq([{ reason: "unsupported", count: 1,
+                                         meaning: "subjects were skipped as unsupported (for example defined " \
+                                                  "inside a block); no mutant was judged" }])
+        expect(payload_for(report)).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+      end
+    end
+
+    it "keeps no coverage, load-only and unsupported subject skips apart" do
+      first, second, third = subjects_in("class K\n  def a; end\n  def b; end\n  def c; end\nend\n")
+      skipped = { first => "no coverage", second => "defined inside a block",
+                  third => Saboteur::Selection::CoverageMap::RAN_AT_LOAD }
+      report = Saboteur::Report.new(results: [result_for(:killed)], subjects: skipped.keys, wall_time: 1,
+                                    root: "/tmp", seed: 7, skipped_subjects: skipped)
+      expect(reasons(report).to_h { |reason| [reason[:reason], reason[:count]] })
+        .to eq("no_coverage" => 1, "unsupported" => 1, "ran_at_load" => 1)
     end
 
     it "never calls unjudged load-only or unreachable mutants complete" do

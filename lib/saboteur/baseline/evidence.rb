@@ -11,7 +11,7 @@ module Saboteur
     # A claimed complete flag alone is never evidence of complete execution.
     class Evidence
       FIELDS = %w[compatibility snapshot subjects candidates planned complete issues generation_events
-                  omissions discovery_failures].freeze
+                  omissions discovery_failures inline_suppressions].freeze
       COMPATIBILITY = %w[generator runtime config scope].freeze
       PLAN_FIELDS = %w[id identity context].freeze
 
@@ -82,8 +82,10 @@ module Saboteur
       end
 
       def validate_generation
-        clear = document["omissions"] == [] && document["discovery_failures"] == []
-        raise ConfigError, "baseline omitted or undiscovered work" unless clear
+        clear = document.values_at("omissions", "discovery_failures", "inline_suppressions").all? do |entries|
+          entries == []
+        end
+        raise ConfigError, "baseline omitted or undiscovered work (including inline suppressions)" unless clear
 
         events = document.fetch("generation_events")
         array!(events, "generation events")

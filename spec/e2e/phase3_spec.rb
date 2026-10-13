@@ -45,10 +45,20 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.out).to include("0 subjects, 0 mutants")
     end
 
-    it "exits 3 for an unknown ref" do
+    it "exits 2 for an unknown ref, before the target boots" do
       run = saboteur(dir, "--since", "no-such-ref")
-      expect(run.status).to eq(3)
-      expect(run.err).to include("git merge-base failed")
+      expect(run.status).to eq(2)
+      expect(run.err).to include("--since no-such-ref: not a commit in this repository")
+      expect(run.err).not_to include("checking the unchanged suite")
+    end
+
+    it "skips a method changed only by a comment" do
+      path = File.join(dir, "lib", "people.rb")
+      File.write(path, File.read(path).sub("@age = age", "# a note\n      @age = age"))
+      run = saboteur(dir, "--since", "HEAD")
+      expect(run.status).to eq(0)
+      expect(run.err).to include("differ only in comments or formatting")
+      expect(run.out).to include("0 subjects, 0 mutants")
     end
 
     it "runs with --test alone, since the diff already names the sources" do
@@ -67,12 +77,50 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(loaded.uniq).to eq(["person_spec.rb"])
     end
 
+    it "scopes to the specs named after the changed files with --guess-tests" do
+      path = File.join(dir, "lib", "stage.rb")
+      File.write(path, File.read(path).sub("label.upcase", "label.downcase"))
+      run = saboteur(dir, "--since", "HEAD", "--guess-tests")
+      expect(run.status).to be_between(0, 1)
+      expect(run.err).to include("--guess-tests: running only spec/stage_spec.rb.")
+      expect(run.err).to include("building coverage map (runs the selected specs once)")
+      expect(run.err).not_to include("running the loaded suite unscoped")
+    end
+
+    it "records the guessed specs in agent provenance and reports uncovered mutants as no coverage" do
+      path = File.join(dir, "lib", "stage.rb")
+      File.write(path, File.read(path).sub("label.upcase", "label.downcase"))
+      run = saboteur(dir, "--since", "HEAD", "--guess-tests", "--agent")
+      expect(run.err).to include("is reported as NoCoverage")
+      payload = JSON.parse(run.out)
+      expect(payload.dig("provenance", "selection", "tests", "first")).to eq(["spec/stage_spec.rb"])
+      expect(payload.fetch("incomplete").map { |reason| reason["reason"] }).to include("no_coverage")
+      expect(JSON.generate(payload.fetch("next", {}))).not_to include("--guess-tests")
+    end
+
+    it "runs the whole suite when a changed file has no spec named after it" do
+      path = File.join(dir, "lib", "people.rb")
+      File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
+      run = saboteur(dir, "--since", "HEAD", "--guess-tests")
+      expect(run.err).to include("--guess-tests: no spec found for lib/people.rb, so the whole suite runs")
+      expect(run.err).to include("running the loaded suite unscoped")
+    end
+
+    it "refuses --guess-tests without --since or together with --test" do
+      expect(saboteur(dir, "--guess-tests").err).to include("guess_tests needs since")
+      run = saboteur(dir, "--since", "HEAD", "--guess-tests", "--test", "spec/stage_spec.rb")
+      expect(run.err).to include("guess_tests cannot be combined with tests")
+    end
+
     it "warns before an unscoped --since run what the loaded suite costs" do
       path = File.join(dir, "lib", "people.rb")
       File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
       run = saboteur(dir, "--since", "HEAD")
       warning = "running the loaded suite unscoped: two baseline passes; coverage may add a pass (3 spec files). " \
-                "Pass --test to scope it."
+                "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
+                "only by those specs, so specs elsewhere that call this code are not run. " \
+                "--guess-tests does the same with the specs named after the changed files, " \
+                "a guess that can miss specs elsewhere."
       expect(run.err).to include(warning)
       expect(run.err.index("running the loaded suite unscoped")).to be < run.err.index("checking the unchanged suite")
     end

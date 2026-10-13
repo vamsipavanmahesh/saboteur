@@ -5,7 +5,7 @@ module Saboteur
   class Engine
     # Checks each kill against the method re-evaluated unchanged: a kill
     # stands only if the same tests, in the same order, up to and including
-    # the killer, pass without the mutant (so a test that fails only after
+    # the last killer, pass without the mutant (so a test that fails only after
     # another test left state behind cannot claim a kill). A kill with no
     # failing test named (an exit, a suite-level failure) is checked on all
     # the mutant's tests. A kill that fails the check becomes an error.
@@ -39,11 +39,12 @@ module Saboteur
         result.status == :killed && result.killed_by.empty?
       end
 
-      # The tests the mutant ran, in order, up to and including the killer.
+      # The tests the mutant ran, in order, up to and including the last
+      # killer: a matrix run lists every failing test, and each of them must
+      # pass under the unchanged method in this same sequence.
       def sequence(result)
-        killer = result.killed_by.first
-        position = result.covered_by.index(killer)
-        position ? result.covered_by.first(position + 1) : [killer]
+        position = result.killed_by.filter_map { |test| result.covered_by.index(test) }.max
+        position ? result.covered_by.first(position + 1) : [result.killed_by.first]
       end
 
       # Runs each distinct kill sequence once. Returns those that fail, each
@@ -67,7 +68,7 @@ module Saboteur
 
         if named_kill?(result) && failing_runs.key?(sequence(result))
           why = failing_runs[sequence(result)]
-          result.as_error("killing test #{result.killed_by.first} also fails with the method unchanged" \
+          result.as_error("killing test #{sequence(result).last} also fails with the method unchanged" \
                           "#{": #{why}" if why}", rejected_kill: true)
         elsif failing.include?(result)
           result.as_error("tests also fail with the method unchanged", rejected_kill: true)

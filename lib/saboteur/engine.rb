@@ -14,9 +14,11 @@ module Saboteur
   class Engine
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators arid timeout_factor timeout_min
-                        max_memory_mb max_processes seed tests].freeze
+                        max_memory_mb max_processes seed tests whole_file].freeze
 
     attr_reader :config, :hooks
+    # The specs --guess-tests narrowed the run to, or nil when it did not.
+    attr_reader :guessed_tests
 
     def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [])
       @config = config
@@ -36,16 +38,18 @@ module Saboteur
 
     def call
       Boot.refuse_recursion!
+      refuse_fail_fast_evidence
       started = monotonic
+      guess_tests
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
-      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
+      warn_custom_map
       boot = Boot.new(config, hooks)
       begin
         integration, files, load_lines = boot_target(boot)
         @rails = boot.rails
         subjects, scope = select_subjects(files)
-        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, load_lines:)
+        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, ignore_list, load_lines:)
         @diagnostics.warnings.concat(ignore_list.apply(results))
         build_report(results, subjects, scope, started)
       ensure
@@ -58,6 +62,10 @@ module Saboteur
         # abrupt process exit.
         safely_cleanup_workers(boot.rails)
       end
+    end
+
+    def warn_custom_map
+      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
     end
 
     # Stale entries and duplicate literals never fail a run; they warn so the
@@ -76,6 +84,31 @@ module Saboteur
 
     private
 
+    # --guess-tests with --since: scope the run to the specs found next to
+    # the changed files, as --test would, but only when each changed file
+    # has one. Otherwise the whole suite runs, as without the flag.
+    def guess_tests
+      return unless config["guess_tests"]
+
+      guess = TestGuess.new(config).call
+      message =
+        if guess.changed.zero?
+          "--guess-tests: no changed source file to guess specs for, so the whole suite runs"
+        elsif guess.unmatched.any?
+          "--guess-tests: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs " \
+            "(name specs after their source files or pass --test)"
+        else
+          # The guesses now stand as explicit tests, like --test.
+          @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
+          @guessed_tests = guess.specs
+          "--guess-tests: running only #{guess.specs.join(', ')}. A spec that reaches a changed file only " \
+            "through another file does not run, so a mutant only it would kill can survive, and a line " \
+            "no guessed spec executes is reported as NoCoverage"
+        end
+      @diagnostics.warn(message)
+      @diagnostics.inform(message)
+    end
+
     # The run's immutable report, built once the last result is in.
     def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
@@ -83,8 +116,8 @@ module Saboteur
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
-                 hazard_suppressions: @diagnostics.hazard_suppressions,
-                 inline_suppressions: @diagnostics.inline_suppressions)
+                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
+                 matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions)
     end
 
     def complete_evidence(results, subjects)
@@ -93,7 +126,8 @@ module Saboteur
       @run_evidence.plan(subjects, subjects.map { [] }) unless @evidence_planned
       @run_evidence.finish(results: results, stable_suite: @stable_suite, skipped_subjects: @skipped_subjects,
                            generation_events: @diagnostics.generation_events, omissions: @diagnostics.omissions,
-                           discovery_failures: @diagnostics.discovery_failures)
+                           discovery_failures: @diagnostics.discovery_failures,
+                           inline_suppressions: @diagnostics.inline_suppressions)
     end
 
     # The subjects to mutate and, in diff mode, the scope of changed lines.
@@ -107,7 +141,7 @@ module Saboteur
       [subjects, scope]
     end
 
-    def mutate(subjects, files, integration, scope, load_lines: {})
+    def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
       warn_about_unscoped_suite(integration)
       check_baseline(integration)
       map = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
@@ -125,11 +159,47 @@ module Saboteur
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
-      results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                                 cache: cache, on_start: method(:start_worker),
-                                 after_subject: canary_check).run(runnable_subjects, runnable_lists)
+      results = run_candidates(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
       cache&.save
       results
+    end
+
+    def run_candidates(subjects, lists, scheduler, cache, ignore_list)
+      @diagnostics.start_progress(lists.sum(&:size))
+      distribution = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+                                      cache: cache, on_start: method(:start_worker),
+                                      after_subject: canary_check, stop_after: fail_fast_check(ignore_list))
+      distribution.run(subjects, lists).tap { record_early_stop(distribution.unreached) }
+    ensure
+      @diagnostics.finish_progress
+    end
+
+    # Baseline evidence certifies a whole selection; a run that may stop early
+    # cannot.
+    def refuse_fail_fast_evidence
+      return unless @capture_evidence && config["fail_fast"]
+
+      raise ConfigError, "fail_fast cannot be used with baseline evidence: it certifies the whole selection"
+    end
+
+    # Subjects that were selected but never ran, with candidates, are part of
+    # the report: the verdict covers less than the selection.
+    def record_early_stop(unreached)
+      return if unreached.empty?
+
+      @early_stop = EarlyStop.new(reason: "fail_fast", unreached: unreached.map(&:id))
+    end
+
+    # --fail-fast: stop after the first subject that has a survivor the
+    # ignore list does not accept. Granularity is one subject.
+    def fail_fast_check(ignore_list)
+      return nil unless config["fail_fast"]
+
+      lambda do |results|
+        survivor = results.any? { |result| result.survived? && !ignore_list.accepts?(result) }
+        @diagnostics.inform("--fail-fast: stopping after the first subject with a survivor") if survivor
+        survivor
+      end
     end
 
     def inform_about_run(subjects, map)
@@ -144,7 +214,11 @@ module Saboteur
       return unless config["since"] && config["tests"].empty?
 
       message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
-                "(#{integration.test_files.size} spec files). Pass --test to scope it."
+                "(#{integration.test_files.size} spec files). " \
+                "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
+                "only by those specs, so specs elsewhere that call this code are not run. " \
+                "--guess-tests does the same with the specs named after the changed files, " \
+                "a guess that can miss specs elsewhere."
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end
@@ -156,11 +230,19 @@ module Saboteur
     end
 
     def scheduler_for(map, integration, cache)
-      reevaluator = Execution::Reevaluator.new(config["reeval"])
+      reevaluator = Execution::Reevaluator.new(config["reeval"], whole_file: config["whole_file"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
-                                     supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"])
+                                     supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"],
+                                     sandbox: sandbox_hook)
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
                     cache: cache)
+    end
+
+    # The sandbox hook for each mutant child (#152); the policy and its
+    # one-time note live in Engine::SandboxPolicy.
+    def sandbox_hook
+      @sandbox_policy ||= SandboxPolicy.new(config: config, root: @root, diagnostics: @diagnostics)
+      @sandbox_policy.hook
     end
 
     def result_cache
@@ -306,9 +388,13 @@ end
 require_relative "engine/diagnostics"
 require_relative "engine/boot"
 require_relative "engine/subject_selection"
+require_relative "engine/unchanged_syntax"
 require_relative "engine/suite_files"
+require_relative "engine/test_guess"
+require_relative "engine/sandbox_policy"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
+require_relative "engine/bytecode_equivalence"
 require_relative "engine/candidates"
 require_relative "engine/candidate_selection"
 require_relative "engine/diff_scope"

@@ -71,10 +71,79 @@ RSpec.describe Saboteur::Selection::GitDiff do
     end
   end
 
-  it "raises a saboteur error for an unknown ref" do
+  it "raises a usage error for an unknown ref" do
     Dir.mktmpdir do |dir|
       Open3.capture3("git", "init", "-q", chdir: dir)
-      expect { described_class.changed_lines("nope", root: dir) }.to raise_error(Saboteur::Error, /git/)
+      expect { described_class.changed_lines("nope", root: dir) }.to raise_error(Saboteur::ConfigError, /--since nope/)
+    end
+  end
+
+  describe "against a repository" do
+    around do |example|
+      Dir.mktmpdir do |dir|
+        @dir = dir
+        example.run
+      end
+    end
+
+    def git(*args)
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @dir)
+    end
+
+    def commit_file(name, text)
+      File.write(File.join(@dir, name), text)
+      git("add", ".")
+      git("commit", "-q", "-m", name)
+    end
+
+    before { git("init", "-q") }
+
+    describe ".verify_ref!" do
+      it "accepts a commit, a branch and a tag" do
+        commit_file("a.rb", "1\n")
+        git("tag", "v1")
+
+        %w[HEAD v1].push(git("branch", "--show-current").first.strip).each do |ref|
+          expect { described_class.verify_ref!(ref, root: @dir) }.not_to raise_error
+        end
+      end
+
+      it "refuses an unknown ref as a usage error that names the ref" do
+        commit_file("a.rb", "1\n")
+
+        expect { described_class.verify_ref!("no-such-ref", root: @dir) }
+          .to raise_error(Saboteur::ConfigError, /--since no-such-ref: not a commit in this repository/)
+      end
+
+      it "refuses a name that is a blob, not a commit" do
+        commit_file("a.rb", "1\n")
+
+        expect { described_class.verify_ref!("HEAD:a.rb", root: @dir) }.to raise_error(Saboteur::ConfigError)
+      end
+
+      it "refuses a ref that looks like an option" do
+        expect { described_class.verify_ref!("--output=x", root: @dir) }
+          .to raise_error(Saboteur::ConfigError, /needs a git ref, not an option: --output=x/)
+      end
+    end
+
+    it "says --since needs a git repository outside one" do
+      Dir.mktmpdir do |plain|
+        expect { described_class.verify_ref!("HEAD", root: plain) }
+          .to raise_error(Saboteur::ConfigError, "--since needs a git repository")
+      end
+    end
+
+    describe ".file_at" do
+      it "reads the file as it was at the base, relative to root" do
+        FileUtils.mkdir_p(File.join(@dir, "lib"))
+        commit_file("lib/a.rb", "old\n")
+        base = described_class.merge_base("HEAD", root: @dir)
+        File.write(File.join(@dir, "lib", "a.rb"), "new\n")
+
+        expect(described_class.file_at(base, "lib/a.rb", root: @dir)).to eq("old\n")
+        expect(described_class.file_at(base, "lib/new.rb", root: @dir)).to be_nil
+      end
     end
   end
 end

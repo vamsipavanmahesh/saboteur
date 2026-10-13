@@ -14,6 +14,14 @@ RSpec.describe Saboteur::InlineSuppression do
     [list, diagnostics]
   end
 
+  it "compares directive scope with exact relative lines, sorted operators and reasons" do
+    subject = target('# saboteur:disable-line literal_number arithmetic reason="scope"')
+    parser = described_class.new(subject.file, subject.file_source)
+    expect(parser.signature(subject)).to eq([[1, %w[arithmetic literal_number], "scope"]])
+    later = subjects_in("class Later\n  def other(x)\n    x + 1\n  end\nend\n").first
+    expect(described_class.new(later.file, later.file_source).signature(later)).to eq([])
+  end
+
   it "suppresses all edits starting on the directive line and records each reason" do
     subject = target('# saboteur:disable-line reason="covered elsewhere"')
     list, diagnostics = candidates(subject)
@@ -149,5 +157,18 @@ RSpec.describe Saboteur::InlineSuppression do
       expect { described_class.new(subject.file, subject.file_source) }
         .to raise_error(Saboteur::ConfigError, /:3: one nonblank reason=/)
     end
+  end
+  it "forwards suppression and discovery scope to baseline finish" do
+    engine = Saboteur::Engine.new(Saboteur::Config.new({}))
+    capture = double("capture")
+    diagnostics = engine.instance_variable_get(:@diagnostics)
+    failure = Saboteur::Engine::Diagnostics::DiscoveryFailure.new(file: "broken.rb", reason: "invalid")
+    diagnostics.discovery_failures << failure
+    diagnostics.inline_suppressions << { file: "source.rb", digest: "abc" }
+    engine.instance_variable_set(:@run_evidence, capture)
+    engine.instance_variable_set(:@evidence_planned, true)
+    expect(capture).to receive(:finish).with(hash_including(discovery_failures: [failure],
+                                                            inline_suppressions: diagnostics.inline_suppressions))
+    engine.send(:complete_evidence, [], [])
   end
 end

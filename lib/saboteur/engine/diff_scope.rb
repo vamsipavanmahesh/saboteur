@@ -28,6 +28,16 @@ module Saboteur
         mutation.edits.flat_map { |edit| edited_lines(subject, edit).to_a }.uniq.select { changed.include?(_1) }.sort
       end
 
+      # Distance to the nearest changed line in this file. Unknown outside
+      # the diff is nil, not a made-up nearby location.
+      def distance_for(subject, mutation)
+        changed = @changed_lines.fetch(subject.file, Set.new)
+        mutation.edits.map do |edit|
+          first, last = edited_lines(subject, edit).minmax
+          changed.map { |line| (line - line.clamp(first, last)).abs }.min
+        end.min
+      end
+
       private
 
       def edited_lines(subject, edit)

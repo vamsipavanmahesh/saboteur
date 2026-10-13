@@ -74,6 +74,10 @@ RSpec.describe "opt-in baseline commands", :e2e do
     checked = JSON.parse(out)
     expect(checked.fetch("state")).to eq("clean")
     expect(checked.fetch("categories").fetch("accepted")).not_to be_empty
+    out, err, status = command(dir, "check", "--baseline", "baseline.json", "--epsilon", "0")
+    expect(status.exitstatus).to eq(0), out + err
+    expect(JSON.parse(out).fetch("score")).to include("drop" => 0.0, "epsilon" => 0.0, "exceeded" => false)
+    expect(checked).not_to have_key("score")
     baseline_path = File.join(dir, "baseline.json")
     previous = Digest::SHA256.file(baseline_path).hexdigest
     out, err, status = command(dir, "propose", "--baseline", "baseline.json", "--proposal", "replacement.json",

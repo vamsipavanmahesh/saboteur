@@ -8,12 +8,15 @@ module Saboteur
     module Command
       def baseline_parser
         OptionParser.new do |opts|
-          opts.banner = "Usage: saboteur baseline check|propose|accept --baseline PATH [--proposal PATH]"
+          opts.banner = "Usage: saboteur baseline check|propose|accept --baseline PATH [--proposal PATH] " \
+                        "[--epsilon POINTS]"
           opts.on("--baseline PATH", "Accepted baseline destination") { |value| @baseline_path = value }
           opts.on("--proposal PATH", "Editable proposal path (propose/accept)") { |value| @proposal_path = value }
           opts.on("--previous SHA256", "Reviewed current destination hash for replacement") do |value|
             @previous = value
           end
+          opts.on("--epsilon POINTS", Float, "check: also fail when the score drops more than POINTS " \
+                                             "percentage points below the baseline's") { |value| @epsilon = value }
           opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |value| set(:config, value) }
           opts.on("--subject EXPR", "Whole subject filter; repeatable") { |value| add_subject(value) }
           opts.on("--seed N", Integer, "Repeatable run seed") { |value| set(:seed, value) }
@@ -53,12 +56,20 @@ module Saboteur
           raise CLI::UsageError,
                 "check does not use --proposal or --previous"
         end
+        validate_epsilon(action)
         raise CLI::UsageError, "--previous needs a SHA-256" if @previous && !@previous.match?(/\A[0-9a-f]{64}\z/)
+      end
+
+      def validate_epsilon(action)
+        return unless @epsilon
+
+        raise CLI::UsageError, "--epsilon applies to check only" if action != "check"
+        raise CLI::UsageError, "--epsilon must be between 0 and 100" unless (0.0..100.0).cover?(@epsilon)
       end
 
       def baseline_action(workflow, action)
         case action
-        when "check" then workflow.check(path: @baseline_path)
+        when "check" then workflow.check(path: @baseline_path, epsilon: @epsilon)
         when "propose" then workflow.propose(proposal: @proposal_path, destination: @baseline_path,
                                              previous: @previous)
         when "accept" then workflow.accept(proposal: @proposal_path, destination: @baseline_path, previous: @previous)

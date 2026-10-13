@@ -13,6 +13,18 @@ RSpec.describe "operator selection and source-only preview" do
     expect(registry.resolve(["extended"])).to eq(registry::EXTENDED)
   end
 
+  it "keeps extended opt-in and validates its names in inline suppression" do
+    registry = Saboteur::MutationSource::OperatorRegistry
+    expect(registry.resolve(["extended"])).to eq(%w[range operator_assignment condition_negation])
+    expect(registry.resolve(["core"]) & registry::EXTENDED).to eq([])
+    registry::EXTENDED.each do |name|
+      expect(registry.resolve([name])).to eq([name])
+      source = "class OptIn\n  def m(x)\n    x + 1 # saboteur:disable-line #{name} reason=checked\n  end\nend\n"
+      subject = subjects_in(source).first
+      expect { Saboteur::InlineSuppression.new(subject.file, subject.file_source) }.not_to raise_error
+    end
+  end
+
   it "restricts builtin generation and rejects unknown names" do
     source = Saboteur::MutationSource::Builtin.new(operators: ["arithmetic"])
     expect(source.mutations_for(target).map(&:operator)).to eq(["arithmetic"])
@@ -60,7 +72,7 @@ RSpec.describe "operator selection and source-only preview" do
     out = StringIO.new
     Saboteur::Preview.new(config, out: out, err: StringIO.new).call
     expect(out.string).to include("Total: 1 mutants", "dropped by max_mutants_per_method",
-                                  "Estimated covering-test work: 0.25 s")
+                                  "Estimated baseline covering-test work: 0.25 s")
     expect(File.read(cache)).to eq(before)
   end
   it "exposes complete help and parses the named list as separate values" do

@@ -26,11 +26,36 @@ RSpec.describe "baseline CLI validation" do
   it "renders strict JSON and preserves check state exit codes" do
     workflow = instance_double(Saboteur::Baseline::Workflow)
     allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
-    expect(workflow).to receive(:check).with(path: "b.json")
+    expect(workflow).to receive(:check).with(path: "b.json", epsilon: nil)
                                        .and_return("state" => "review_required", "exit_code" => 1,
                                                    "categories" => {}, "issues" => [])
     expect(command("check", "--baseline", "b.json")).to eq(1)
     expect(JSON.parse(@out.string)["state"]).to eq("review_required")
+  end
+
+  it "passes --epsilon to check and rejects it elsewhere or out of range" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    expect(workflow).to receive(:check).with(path: "b.json", epsilon: 2.5)
+                                       .and_return("state" => "clean", "exit_code" => 0, "categories" => {},
+                                                   "issues" => [])
+    expect(command("check", "--baseline", "b.json", "--epsilon", "2.5")).to eq(0)
+    expect(command("propose", "--baseline", "b.json", "--proposal", "p.json", "--epsilon", "1")).to eq(2)
+    expect(@err.string).to include("--epsilon applies to check only")
+    expect(command("check", "--baseline", "b.json", "--epsilon", "-1")).to eq(2)
+    expect(@err.string).to include("--epsilon must be between 0 and 100")
+    expect(command("check", "--baseline", "b.json", "--epsilon", "100.5")).to eq(2)
+    expect(@err.string).to include("--epsilon must be between 0 and 100")
+  end
+
+  it "accepts the epsilon bounds 0 and 100 and values between them" do
+    workflow = instance_double(Saboteur::Baseline::Workflow)
+    allow(Saboteur::Baseline::Workflow).to receive(:new).and_return(workflow)
+    allow(workflow).to receive(:check).and_return("state" => "clean", "exit_code" => 0, "categories" => {},
+                                                  "issues" => [])
+    %w[0 0.5 100].each do |value|
+      expect(command("check", "--baseline", "b.json", "--epsilon", value)).to eq(0), value
+    end
   end
 
   it "passes explicit proposal destinations and reviewed hashes to acceptance" do
@@ -73,11 +98,13 @@ RSpec.describe "baseline CLI validation" do
 
   it "pins the public option descriptions and usage banner" do
     parser = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new).baseline_parser
-    expect(parser.banner).to eq("Usage: saboteur baseline check|propose|accept --baseline PATH [--proposal PATH]")
+    expect(parser.banner).to eq("Usage: saboteur baseline check|propose|accept --baseline PATH [--proposal PATH] " \
+                                "[--epsilon POINTS]")
     text = parser.summarize.join
     ["Accepted baseline destination", "Editable proposal path (propose/accept)",
      "Reviewed current destination hash for replacement", "Config file (default config/saboteur.rb)",
-     "Whole subject filter; repeatable", "Repeatable run seed"].each do |description|
+     "Whole subject filter; repeatable", "Repeatable run seed",
+     "check: also fail when the score drops more than POINTS"].each do |description|
       expect(text).to include(description)
     end
   end

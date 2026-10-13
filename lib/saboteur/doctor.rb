@@ -5,11 +5,13 @@ require "coverage"
 require_relative "baseline_health"
 
 module Saboteur
-  # Reports the current environment and runs baseline checks, never mutations.
+  # Reports the current environment, never mutations. The two unchanged suite
+  # passes are slow on a large suite, so they run only when asked for.
   class Doctor
-    def initialize(config, out: $stdout)
+    def initialize(config, out: $stdout, suite: false)
       @config = config
       @out = out
+      @suite = suite
     end
 
     def call
@@ -25,13 +27,23 @@ module Saboteur
       @out.puts "Rails: #{@config['rails'] ? 'enabled' : 'disabled'}"
       @out.puts "SimpleCov: #{defined?(::SimpleCov) ? 'present; start suppressed for this process' : 'not loaded'}"
       check_coverage
-      tests = BaselineHealth.new(@config, integration: integration, hooks: hooks).call
-      @out.puts "Baseline: #{tests.size} tests passed twice in the same order with seed #{@config['seed']}"
-      @out.puts "Healthy in these two runs. This does not prove the suite is free of flaky tests."
+      check_suite(integration, hooks)
       true
     end
 
     private
+
+    def check_suite(integration, hooks)
+      unless @suite
+        @out.puts "Baseline: not run. Pass --suite to run the unchanged suite twice " \
+                  "(add --test PATH to limit it to some specs)."
+        return
+      end
+
+      tests = BaselineHealth.new(@config, integration: integration, hooks: hooks).call
+      @out.puts "Baseline: #{tests.size} tests passed twice in the same order with seed #{@config['seed']}"
+      @out.puts "Healthy in these two runs. This does not prove the suite is free of flaky tests."
+    end
 
     def boot_target(hooks)
       Engine::Boot.new(@config, hooks).load_target
