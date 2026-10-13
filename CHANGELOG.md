@@ -22,7 +22,11 @@ All notable changes are documented here. The format follows
   refuses to run degraded;
   `c.sandbox_writable` grants extra directories (suites writing `db/`,
   `log/`, ... otherwise fail with EACCES in mutant children) and warns when
-  a grant contains the project root or another grant. A kernel probe that
+  a grant contains the project root or another grant. The root check covers
+  the effective write set - every grant realpath'd, the cache dir and the
+  system temp dir included - so `cache_dir = "."`, a symlinked `tmp`, a
+  `/` grant or a checkout inside the system temp dir cannot silently leave
+  the tree writable; `c.sandbox = "strict"` refuses to run then. A kernel probe that
   errors (rather than cleanly reporting Landlock absent) refuses the run.
   The descriptor sweep also closes stdio redirected to a writable regular
   file (terminal, pipe and `/dev/null` stdio stays), inherited files
@@ -33,6 +37,12 @@ All notable changes are documented here. The format follows
 - A startup warning on stderr when the working tree has uncommitted changes,
   because mutants run your code and could alter or delete files. Saboteur's own
   output paths do not count as changes.
+- Terminal report rewrite: survivors grouped by file and method with
+  evidence-scoped hints (suggestions, not diagnoses), a score table, a
+  progress counter with ETA, `--verbose`, `--[no-]color` and `--fail-fast`
+  (serial only; the run is marked incomplete with exit cause `failFast` and
+  lists the subjects it never reached). The CI progress line-break can
+  misalign by a mark when parallel workers finish at the same moment.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
