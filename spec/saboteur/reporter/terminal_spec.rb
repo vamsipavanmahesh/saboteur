@@ -74,6 +74,15 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(render(complete)).not_to include("stopped before every covering test ran")
   end
 
+  it "ends a run with survivors on the next steps, after the legend, and a clean run without them" do
+    text = render(report_of(result_for(:killed), result_for(:survived)))
+    expect(text.index("legend:")).to be < text.index("Next steps:")
+  end
+
+  it "leaves the next steps out of a clean run" do
+    expect(render(report_of(result_for(:killed)))).not_to include("Next steps:")
+  end
+
   it "prints survivors before the summary, and keeps debug statistics out of the default report" do
     text = render(report_of(result_for(:killed, runtime: 0.5), result_for(:survived, runtime: 0.5)))
     expect(text.index("Survivors (1):")).to be < text.index("saboteur ")

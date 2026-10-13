@@ -182,6 +182,52 @@ RSpec.describe Saboteur::CLI do
       expect(cli("run", "--threshold", "0", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
     end
 
+    def killed(count)
+      Array.new(count) { result_for(:killed) }
+    end
+
+    it "is 0 when timeouts and errors stay within --max-timeouts and --max-errors" do
+      report = report_of(*killed(8), result_for(:timeout), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--max-timeouts", "1", "--max-errors", "10%", "--json",
+                 File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+    end
+
+    it "is 1 when errors are above --max-errors, with the error count named" do
+      report = report_of(*killed(8), result_for(:error), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      json = File.join(Dir.mktmpdir, "r.json")
+      expect(cli("run", "--max-errors", "1", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("maxErrors")
+    end
+
+    it "keeps survivors and the threshold as the stated cause when they fail too" do
+      report = report_of(result_for(:killed), result_for(:survived), result_for(:timeout))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      json = File.join(Dir.mktmpdir, "r.json")
+      expect(cli("run", "--max-timeouts", "0", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
+    end
+
+    it "lets --max-errors, not --threshold, judge errored mutants" do
+      report = report_of(*killed(8), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--threshold", "50", "--max-errors", "1", "--json",
+                 File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+    end
+
+    it "still makes an errored mutant incomplete under --threshold with only --max-timeouts" do
+      report = report_of(*killed(8), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--threshold", "50", "--max-timeouts", "1", "--json",
+                 File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
+    end
+
+    it "refuses the count gates with --agent, like --threshold" do
+      expect(cli("run", "--agent", "--max-errors", "1").call).to eq(2)
+      expect(err.string).to include("--max-* gates cannot be combined with --agent")
+    end
+
     it "is 3 when every executed mutant errored" do
       expect(run_with(report_of(result_for(:error), result_for(:skipped, reason: "no coverage")))).to eq(3)
     end
@@ -353,6 +399,15 @@ RSpec.describe Saboteur::CLI do
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "90", "--json", json).call).to eq(1)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("belowThreshold")
+    end
+
+    it "writes maxTimeouts into the JSON report when too many mutants time out" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      report = report_of(result_for(:killed), result_for(:killed), result_for(:timeout))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--max-timeouts", "0", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("maxTimeouts")
+      expect(err.string).to include("1 timeout mutants, above --max-timeouts 0")
     end
 
     it "writes the incomplete-under-threshold cause into the JSON report" do
