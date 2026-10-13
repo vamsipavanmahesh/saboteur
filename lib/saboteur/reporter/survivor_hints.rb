@@ -18,7 +18,7 @@ module Saboteur
         "or_assign" => "try an example where the variable is already set (||= vs =)",
         "safe_navigation" => "try an example where the receiver is nil",
         "argument_removal" => "try have_received(...).with(...), or assert a result that depends on this argument",
-        "pair_removal" => "try asserting the hash content under this key",
+        "pair_removal" => "try have_received(...).with(...), or assert the hash content under this key",
         "endpoint_replacement" => "try a collection with 2 or more elements, to tell first from last",
         "filter_replacement" => "try items that match and items that do not, to tell select from reject"
       }.freeze
