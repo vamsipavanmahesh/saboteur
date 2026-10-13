@@ -41,7 +41,10 @@ module Saboteur
 
         owner = resolve_owner(subject)
         target = subject.singleton ? owner.singleton_class : owner
-        file, line = target.instance_method(subject.name).source_location
+        method = target.instance_method(subject.name)
+        # A def-time wrapper (a sorbet sig) replaces the method; its own
+        # source_location is the wrapper's, not the def's.
+        file, line = (Wrapper.original_def(method) || method).source_location
         return nil if file == subject.file && line == subject.start_line
 
         file ? "#{file}:#{line}" : "no Ruby definition"
