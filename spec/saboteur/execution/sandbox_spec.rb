@@ -60,6 +60,9 @@ RSpec.describe Saboteur::Execution::Sandbox do
   end
 
   it "builds the ruleset, grants each writable dir and restricts itself" do
+    # The stubbed probe memoizes a fake ABI; reset it so later examples
+    # (and their forked children) probe for real.
+    reset_abi_memo
     calls = []
     syscall = double("syscall")
     allow(syscall).to receive(:call) do |*args|
@@ -83,6 +86,8 @@ RSpec.describe Saboteur::Execution::Sandbox do
     expect(described_class::LibC.close_fn).to have_received(:call).with(5)
     expect(calls.last).to eq([446, 5, 0, 0, 0])
     expect(calls.select { |args| args.first == 445 }.size).to eq(3)
+  ensure
+    reset_abi_memo
   end
 
   it "knows whether this kernel supports Landlock" do
@@ -117,7 +122,10 @@ RSpec.describe Saboteur::Execution::Sandbox do
       symlink_io = File.open(File.join(linked, "via_link.rb"), "r+") # rubocop:disable Style/FileOpen
       reader, _writer = IO.pipe
 
-      described_class::InheritedFds.close_writable_files([File.realpath(granted)], [reader.fileno])
+      # keep_fds covers stdio: under a redirected suite run, stdout is a
+      # regular file and would itself be swept (that is the #178 behavior;
+      # the forked specs below pin it). Callers pass their own keeps.
+      described_class::InheritedFds.close_writable_files([File.realpath(granted)], [reader.fileno, 0, 1, 2])
 
       expect(attempt do
         project_io.write("y")
@@ -137,6 +145,124 @@ RSpec.describe Saboteur::Execution::Sandbox do
         symlink_io.flush
       end).to eq("ok")
     end
+  end
+
+  it "sweeps stdio redirected to a writable regular file but keeps stdio on /dev/null" do
+    skip "needs /proc/self/fd" unless described_class.linux?
+    Dir.mktmpdir("saboteur-stdio-") do |root|
+      target = File.join(root, "captured.log")
+      File.write(target, "")
+
+      swept_reader, swept_writer = IO.pipe
+      swept = fork do
+        swept_reader.close
+        $stderr.reopen(target, "a")
+        described_class::InheritedFds.close_writable_files([], [swept_writer.fileno])
+        swept_writer.write(attempt do
+          $stderr.write("x")
+          $stderr.flush
+        end)
+        swept_writer.close
+        exit!(0)
+      end
+      swept_writer.close
+      expect(swept_reader.read).to eq("denied")
+      Process.wait(swept)
+
+      kept_reader, kept_writer = IO.pipe
+      kept = fork do
+        kept_reader.close
+        $stderr.reopen(File::NULL, "a")
+        described_class::InheritedFds.close_writable_files([], [kept_writer.fileno])
+        kept_writer.write(attempt do
+          $stderr.write("x")
+          $stderr.flush
+        end)
+        kept_writer.close
+        exit!(0)
+      end
+      kept_writer.close
+      expect(kept_reader.read).to eq("ok")
+      Process.wait(kept)
+    end
+  end
+
+  it "closes inherited writable files already deleted from the tree" do
+    skip "needs /proc/self/fd" unless described_class.linux?
+    Dir.mktmpdir("saboteur-deleted-") do |root|
+      path = File.join(root, "gone.rb")
+      File.write(path, "x")
+      io = File.open(path, "r+") # rubocop:disable Style/FileOpen
+      File.unlink(path)
+      described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+      expect(attempt do
+        io.write("y")
+        io.flush
+      end).to eq("denied")
+    end
+  end
+
+  it "fails closed when a descriptor's flags cannot be read" do
+    skip "needs /proc/self/fd" unless described_class.linux?
+    Dir.mktmpdir("saboteur-fcntl-") do |root|
+      path = File.join(root, "project.rb")
+      File.write(path, "x")
+      io = File.open(path, "r+") # rubocop:disable Style/FileOpen
+      allow(described_class::LibC).to receive(:fcntl_fn).and_return(double("fcntl", call: -1))
+      described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+      expect(attempt do
+        io.write("y")
+        io.flush
+      end).to eq("denied")
+    end
+  end
+
+  it "fails closed when a descriptor's target cannot be read" do
+    skip "needs /proc/self/fd" unless described_class.linux?
+    Dir.mktmpdir("saboteur-readlink-") do |root|
+      path = File.join(root, "project.rb")
+      File.write(path, "x")
+      io = File.open(path, "r+") # rubocop:disable Style/FileOpen
+      failing = "/proc/self/fd/#{io.fileno}"
+      allow(File).to receive(:readlink).and_wrap_original do |original, link|
+        link == failing ? raise(Errno::EIO) : original.call(link)
+      end
+      described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+      expect(attempt do
+        io.write("y")
+        io.flush
+      end).to eq("denied")
+    end
+  end
+
+  describe "LibC.handle" do
+    around do |example|
+      reset_libc_handle
+      example.run
+      reset_libc_handle
+    end
+
+    it "falls back to musl's soname when libc.so.6 is absent" do
+      arch = RbConfig::CONFIG["host_cpu"]
+      musl = double("musl handle")
+      allow(Fiddle).to receive(:dlopen) do |name|
+        name == "libc.musl-#{arch}.so.1" ? musl : raise(Fiddle::DLError)
+      end
+      expect(described_class::LibC.handle).to be(musl)
+    end
+
+    it "falls back to the process symbol table when no soname resolves" do
+      allow(Fiddle).to receive(:dlopen).and_raise(Fiddle::DLError)
+      expect(described_class::LibC.handle).to eq(Fiddle::Handle::DEFAULT)
+    end
+  end
+
+  it "reports ABI 0 rather than crash when no libc can be found" do
+    reset_abi_memo
+    allow(described_class::LibC).to receive(:syscall_fn).and_raise(Fiddle::DLError)
+    expect(described_class.abi_version).to eq(0)
+    expect(described_class.available?).to be(false)
+    reset_abi_memo
   end
 
   it "requires without touching libc on a non-Linux platform" do
@@ -169,7 +295,9 @@ RSpec.describe Saboteur::Execution::Sandbox do
 
   it "raises rather than run half-restricted when a writable dir cannot be opened" do
     skip "Landlock unavailable" unless described_class.available?
-    expect { described_class.restrict!(writable: ["/nonexistent/saboteur-test"]) }
+    # keep stdio: this spec runs in the suite process, whose redirected
+    # stdout is a regular file the sweep would otherwise close (#178).
+    expect { described_class.restrict!(writable: ["/nonexistent/saboteur-test"], keep_fds: [0, 1, 2]) }
       .to raise_error(SystemCallError)
   end
 
@@ -248,6 +376,12 @@ RSpec.describe Saboteur::Execution::Sandbox do
     "ok"
   rescue SystemCallError, IOError
     "denied"
+  end
+
+  def reset_libc_handle
+    return unless described_class::LibC.instance_variable_defined?(:@handle)
+
+    described_class::LibC.instance_eval { remove_instance_variable(:@handle) }
   end
 
   def reset_abi_memo
