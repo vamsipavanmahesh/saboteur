@@ -742,6 +742,17 @@ Proposal writes independent owner-private execution evidence under the configure
 
 Check prints one JSON object: accepted, new, changed, resolved_kills, detected_timeouts, unmatched and errors are separate categories. Exit 0 means a compatible complete clean check; 1 needs survivor review; 2 means incompatible or invalid configuration; 3 means incomplete execution or tool failure. Propose and accept exit 0 only after their file operation succeeds. Context changes require fresh review. Timeouts remain a distinct detected category, not assertion kills.
 
+Score-drop gate: `saboteur baseline check --baseline baseline.json --epsilon POINTS` also fails (exit 1,
+state `review_required`) when the fresh score is more than POINTS percentage points below the score recorded in
+the baseline. Both scores use saboteur's own formula, (killed + timeout) / (killed + timeout + survived), over
+every candidate. The baseline already stores each candidate's status, so no new file format is needed. This
+catches what the survivor comparison cannot: a score that falls because killed mutants disappeared (deleted or
+rewritten code) while every accepted survivor is still matched. A drop of exactly POINTS passes; a rise never
+fails. The check prints a `score` object (`baseline`, `current`, `drop`, `epsilon`, `exceeded`) only when
+`--epsilon` is given. Without it, behavior is unchanged. POINTS is 0 to 100. It lives on `baseline check`,
+not on `run`: the delta gate needs the baseline's fresh whole-scope evidence, which `run` does not produce.
+It is not the same as `--threshold`, which gates an absolute score.
+
 Local evidence protects against edits to the public proposal except review reasons. It is not remote attestation, a signature, or protection against the account owner changing their private files. File fingerprints cannot prove external database, network or environment stability. `config/saboteur_ignore.rb` remains a separate legacy ignore mechanism; this gate compares every survivor regardless of ignore status.
 
 A baseline that changes during `check` is rejected as configuration/evidence error (exit 2), not an incomplete execution result. Acceptance leaves a private `baseline.json.lock` beside the destination: keep it for cooperating-process publication locks. It contains no evidence or results. Symlinked checkout parents are normalized; symlink artifacts themselves and private-store/lock symlinks are still refused.
