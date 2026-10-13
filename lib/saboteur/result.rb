@@ -149,6 +149,10 @@ module Saboteur
       @diff_scope ? @diff_scope.changed_lines_for(result.subject, result.mutation) : []
     end
 
+    def changed_line_distance(result)
+      @diff_scope&.distance_for(result.subject, result.mutation)
+    end
+
     def rejected_kills
       results.count(&:rejected_kill?)
     end

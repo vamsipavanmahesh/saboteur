@@ -27,6 +27,9 @@ module Saboteur
 
       1. Pick one live survivor from `findings.shown`.
       2. Add the smallest test that checks the observable behavior the mutant changed.
+         A finding's `testHint`, when present, says where to look (for a comparison, the
+         `case` of operands that separates the two). It is a suggestion; the survivor
+         can also be an equivalent mutant.
       3. Replay it with the command in `next.replay` (it uses the recorded seed) and
          confirm the mutant is now killed.
       4. Run the diff again. Repeat until the exit code is 0.

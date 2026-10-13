@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "score_table"
 require_relative "survivor_list"
@@ -228,27 +229,14 @@ module Saboteur
       end
 
       def survivors(report)
-        SurvivorList.new(@out, @palette).call(report, shown(report))
+        SurvivorList.new(@out, @palette).call(report, ranked_survivors(report))
         @out.puts unless report.survivors.empty?
       end
 
-      # [[result, how many more on the same line]]. In review mode survivors
-      # on one line usually share a fate, so one is shown: live before
-      # ignored, then coarse before fine, then the earliest edit.
-      def shown(report)
-        return report.survivors.map { |result| [result, 0] } unless report.review?
-
-        lines = report.survivors.group_by { |result| [result.subject.file, edit_line(result)] }
-        lines.values.map do |same_line|
-          best = same_line.min_by do |result|
-            [result.ignored ? 1 : 0, result.mutation.coarse ? 0 : 1, result.mutation.edits.first.start_byte]
-          end
-          [best, same_line.size - 1]
-        end
-      end
-
-      def edit_line(result)
-        result.subject.line_of(result.mutation.edits.first.start_byte)
+      # Live survivors precede accepted ones; each group follows SurvivorRanking.
+      def ranked_survivors(report)
+        live, accepted = report.survivors.partition(&:unignored_survivor?)
+        [live, accepted].flat_map { |group| SurvivorRanking.ordered(report, group) }
       end
 
       def relative(file, root)

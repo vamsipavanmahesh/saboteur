@@ -181,7 +181,9 @@ module Saboteur
       return unless config["since"] && config["tests"].empty?
 
       message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
-                "(#{integration.test_files.size} spec files). Pass --test to scope it."
+                "(#{integration.test_files.size} spec files). " \
+                "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
+                "only by those specs, so specs elsewhere that call this code are not run."
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end

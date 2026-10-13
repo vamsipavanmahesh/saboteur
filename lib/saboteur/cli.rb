@@ -162,9 +162,24 @@ module Saboteur
       # the completion evidence for the whole run: write it only after
       # every other fallible reporting stage, or a late failure would
       # leave a fresh, misleading report behind.
-      write_html(report)
-      write_json(report, exit_cause(report, code))
+      html = write_html(report)
+      json = write_json(report, exit_cause(report, code))
+      announce_reports(json => "JSON", html => "HTML")
       code
+    end
+
+    # One line naming the reports written, paths relative to the root when
+    # they sit under it (a blank line before it, as the old JSON line had).
+    def announce_reports(reports)
+      written = reports.select { |path, _label| path }
+      return if written.empty?
+
+      root = File.join(File.realpath(config.root), "")
+      names = written.map do |path, label|
+        shown = File.expand_path(path).delete_prefix(root)
+        "#{shown} (#{label})"
+      end
+      @out.puts "\nReports: #{names.join(', ')}"
     end
 
     def doctor
@@ -191,8 +206,8 @@ module Saboteur
       # Same publish order as text_run: the JSON is the completion
       # evidence, so it is written only after every other fallible stage,
       # including the agent payload itself.
-      write_html(report, announce: false)
-      write_json(report, agent_exit_cause(report, payload), announce: false)
+      write_html(report)
+      write_json(report, agent_exit_cause(report, payload))
       @out.print(rendered)
       Reporter::Agent.exit_code(payload)
     end
@@ -225,20 +240,21 @@ module Saboteur
       @sources&.any? ? "files" : "full"
     end
 
-    def write_json(report, cause, announce: true)
+    # Writes the JSON report and returns its path, or nil when none is configured.
+    def write_json(report, cause)
       path = config.path("json_report")
       return unless path
 
       Reporter::Stryker.new(path).call(report, exit_cause: cause)
-      @out.puts "\nJSON report: #{path}" if announce
+      path
     end
 
-    def write_html(report, announce: true)
+    def write_html(report)
       path = config.path("html_report")
       return unless path
 
       Reporter::Html.new(path).call(report)
-      @out.puts "HTML report: #{path}" if announce
+      path
     end
 
     # Positional arguments name the files (or directories) to mutate. They
