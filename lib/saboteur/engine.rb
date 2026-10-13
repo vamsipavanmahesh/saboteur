@@ -13,7 +13,7 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     # Everything besides sources and tests that can change a verdict.
-    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources arid timeout_factor timeout_min
+    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators arid timeout_factor timeout_min
                         max_memory_mb max_processes seed tests].freeze
 
     attr_reader :config, :hooks
@@ -38,17 +38,18 @@ module Saboteur
 
     def call
       Boot.refuse_recursion!
+      refuse_fail_fast_evidence
       started = monotonic
       guess_tests
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
-      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
+      warn_custom_map
       boot = Boot.new(config, hooks)
       begin
         integration, files, load_lines = boot_target(boot)
         @rails = boot.rails
         subjects, scope = select_subjects(files)
-        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, load_lines:)
+        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, ignore_list, load_lines:)
         @diagnostics.warnings.concat(ignore_list.apply(results))
         build_report(results, subjects, scope, started)
       ensure
@@ -61,6 +62,10 @@ module Saboteur
         # abrupt process exit.
         safely_cleanup_workers(boot.rails)
       end
+    end
+
+    def warn_custom_map
+      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
     end
 
     # Stale entries and duplicate literals never fail a run; they warn so the
@@ -111,7 +116,7 @@ module Saboteur
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
-                 hazard_suppressions: @diagnostics.hazard_suppressions)
+                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop)
     end
 
     def complete_evidence(results, subjects)
@@ -134,7 +139,7 @@ module Saboteur
       [subjects, scope]
     end
 
-    def mutate(subjects, files, integration, scope, load_lines: {})
+    def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
       warn_about_unscoped_suite(integration)
       check_baseline(integration)
       map = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
@@ -152,11 +157,47 @@ module Saboteur
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
-      results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                                 cache: cache, on_start: method(:start_worker),
-                                 after_subject: canary_check).run(runnable_subjects, runnable_lists)
+      results = run_candidates(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
       cache&.save
       results
+    end
+
+    def run_candidates(subjects, lists, scheduler, cache, ignore_list)
+      @diagnostics.start_progress(lists.sum(&:size))
+      distribution = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+                                      cache: cache, on_start: method(:start_worker),
+                                      after_subject: canary_check, stop_after: fail_fast_check(ignore_list))
+      distribution.run(subjects, lists).tap { record_early_stop(distribution.unreached) }
+    ensure
+      @diagnostics.finish_progress
+    end
+
+    # Baseline evidence certifies a whole selection; a run that may stop early
+    # cannot.
+    def refuse_fail_fast_evidence
+      return unless @capture_evidence && config["fail_fast"]
+
+      raise ConfigError, "fail_fast cannot be used with baseline evidence: it certifies the whole selection"
+    end
+
+    # Subjects that were selected but never ran, with candidates, are part of
+    # the report: the verdict covers less than the selection.
+    def record_early_stop(unreached)
+      return if unreached.empty?
+
+      @early_stop = EarlyStop.new(reason: "fail_fast", unreached: unreached.map(&:id))
+    end
+
+    # --fail-fast: stop after the first subject that has a survivor the
+    # ignore list does not accept. Granularity is one subject.
+    def fail_fast_check(ignore_list)
+      return nil unless config["fail_fast"]
+
+      lambda do |results|
+        survivor = results.any? { |result| result.survived? && !ignore_list.accepts?(result) }
+        @diagnostics.inform("--fail-fast: stopping after the first subject with a survivor") if survivor
+        survivor
+      end
     end
 
     def inform_about_run(subjects, map)
