@@ -66,7 +66,7 @@ The report lists the manual obligations that no script checks. Read them.
     `ruby` and `bundle` executables found on `PATH` the way the OS finds them (readable executable file; an empty
     or relative `PATH` entry is refused), the effective Gemfile (`BUNDLE_GEMFILE`, relative to the checkout) and
     its lockfile, the app and user Bundler config (digests only, never contents), and a fixed list of environment
-    variables. Dependency preparation: when the ignored `Gemfile.lock` is missing (a fresh checkout), `bundle lock --local` creates it from locally installed gems, with no network. The "before" fingerprint is taken after that step, and the only difference accepted from the one before it is a lockfile that did not exist and now does. Any other difference (tree, tracked file, another input) is a gap. So a first run in a fresh checkout needs no rerun, provided the gems are installed. Dependency part: the Bundler version and the `bundle list` result. It evaluates the candidate's
+    variables. Dependency preparation: when the ignored `Gemfile.lock` is missing (a fresh checkout), `bundle lock --local` creates it from locally installed gems, with no network. The "before" fingerprint is taken after that step, and the only difference accepted from the one before it is a lockfile that did not exist and now does. Any other difference (tree, tracked file, another input) is a gap. So a first run in a fresh checkout needs no rerun, provided the gems are installed. Dependency part: the Bundler version and the `bundle list` result, which is read-only in the harness's own orchestration (it never runs a lock command). That is not a sandbox guarantee: the candidate's Gemfile or Bundler could still write files, and the before/after comparison is what catches that. It evaluates the candidate's
     Gemfile, so it runs only after the cheap checks, including `protected_paths`, did not fail. If a cheap check
     failed it is not run, and no costly check runs either. A difference in either part is `incomplete`.
     A tracked symlink is bound to the content it resolves to; one that leaves the checkout, a directory or a
@@ -121,18 +121,27 @@ is not proof of coverage; read the spec.
 - Every command runs in its own process group. After it ends (or times out) the group gets TERM, a grace period,
   then KILL. Leftover processes, a pipe still held open, signal deaths, invalid UTF-8 and output over 20 MB each make
   the result unusable (`incomplete`), never a pass. A grandchild that moves to a new process group escapes the cleanup.
-- Timings are not measured yet. Measure before claiming any speedup.
 
 ## Measured cost
 
-Five sequential runs per row on the development machine, on the slice 1 head (median, range). Your times will differ.
+Indicative numbers, not a benchmark. Three sequential runs per row, median (range) in seconds, taken on the code of
+the slice 1 PR before its last docs-only change. Environment: 2 vCPU Intel Xeon 2.6 GHz, Linux 6.1, Ruby 3.3.0,
+Bundler 2.5.3, CPU shared with other jobs. Full mode got slower than my first measurement (about 307 s) because
+`main` gained specs and the machine was busier, so compare rows within one table only.
 
-| scenario | median | range | result |
-| --- | --- | --- | --- |
-| clean, `--mode fast` | 28.5 s | 28.0 to 29.5 s | partial |
-| clean, `--mode full` | 307 s (5.1 min) | 300 to 312 s | partial |
-| protected file edited, fast | 0.32 s | 0.30 to 0.37 s | failed, costly checks skipped, Bundler never run |
-| RuboCop offense, fast | 2.5 s | 2.4 to 10.7 s (first run cold) | failed, specs skipped |
+| scenario | what runs | median | range | verdict |
+| --- | --- | --- | --- | --- |
+| preflight, fast | `ruby script/preflight ... --mode fast` | 30.3 | 29.9 to 30.8 | partial |
+| by hand, fast | `bundle exec rubocop && bundle exec rspec spec/script/preflight` | 29.1 | 28.5 to 29.7 | n/a |
+| preflight, full | `ruby script/preflight ... --mode full` | 405.9 | 402.7 to 407.2 | partial |
+| by hand, full | `bundle exec rubocop && bundle exec rspec` | 361.2 | 360.7 to 372.6 | n/a |
 
-A failure stops early on purpose, so fix it and rerun in seconds rather than waiting for the full suite. The full
-run is dominated by the whole spec suite (about 274 s).
+Raw runs (ms): preflight fast 30754, 30326, 29943. By hand fast 29695, 28472, plus one run of 782364 that overlapped an
+idle pause of the sandbox, so it is dropped. Preflight full 402696, 407246, 405890. By hand full 361226, 360735, 372585.
+
+What this says: running the checks through preflight costs about 1 s more in fast mode and about 45 s more in full
+mode than typing the same two commands, because it also runs the extra cheap checks, fingerprints the inputs before and
+after, and writes a report. It does not make the checks faster. What it saves is the wasted cycle: a protected-file edit
+fails in about 0.3 s and a RuboCop offense in about 2.5 s (measured earlier, five runs each), and the costly checks are
+skipped, so a reviewer round trip for a problem it catches is avoided. The 45 s in full mode is spent on a run that
+also proves nothing changed underneath it.
