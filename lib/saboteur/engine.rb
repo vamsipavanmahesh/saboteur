@@ -13,10 +13,12 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     # Everything besides sources and tests that can change a verdict.
-    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources arid timeout_factor timeout_min
-                        max_memory_mb max_processes seed tests].freeze
+    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators arid timeout_factor timeout_min
+                        max_memory_mb max_processes seed tests whole_file].freeze
 
     attr_reader :config, :hooks
+    # The specs --guess-tests narrowed the run to, or nil when it did not.
+    attr_reader :guessed_tests
 
     def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [])
       @config = config
@@ -38,9 +40,10 @@ module Saboteur
       Boot.refuse_recursion!
       refuse_fail_fast_evidence
       started = monotonic
+      guess_tests
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
-      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
+      warn_custom_map
       boot = Boot.new(config, hooks)
       begin
         integration, files, load_lines = boot_target(boot)
@@ -61,6 +64,10 @@ module Saboteur
       end
     end
 
+    def warn_custom_map
+      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
+    end
+
     # Stale entries and duplicate literals never fail a run; they warn so the
     # map does not rot silently. doctor fails on stale keys.
     def load_custom_map
@@ -77,6 +84,31 @@ module Saboteur
 
     private
 
+    # --guess-tests with --since: scope the run to the specs found next to
+    # the changed files, as --test would, but only when each changed file
+    # has one. Otherwise the whole suite runs, as without the flag.
+    def guess_tests
+      return unless config["guess_tests"]
+
+      guess = TestGuess.new(config).call
+      message =
+        if guess.changed.zero?
+          "--guess-tests: no changed source file to guess specs for, so the whole suite runs"
+        elsif guess.unmatched.any?
+          "--guess-tests: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs " \
+            "(name specs after their source files or pass --test)"
+        else
+          # The guesses now stand as explicit tests, like --test.
+          @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
+          @guessed_tests = guess.specs
+          "--guess-tests: running only #{guess.specs.join(', ')}. A spec that reaches a changed file only " \
+            "through another file does not run, so a mutant only it would kill can survive, and a line " \
+            "no guessed spec executes is reported as NoCoverage"
+        end
+      @diagnostics.warn(message)
+      @diagnostics.inform(message)
+    end
+
     # The run's immutable report, built once the last result is in.
     def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
@@ -84,7 +116,8 @@ module Saboteur
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
-                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop)
+                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
+                 matrix: config["matrix"])
     end
 
     def complete_evidence(results, subjects)
@@ -180,7 +213,11 @@ module Saboteur
       return unless config["since"] && config["tests"].empty?
 
       message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
-                "(#{integration.test_files.size} spec files). Pass --test to scope it."
+                "(#{integration.test_files.size} spec files). " \
+                "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
+                "only by those specs, so specs elsewhere that call this code are not run. " \
+                "--guess-tests does the same with the specs named after the changed files, " \
+                "a guess that can miss specs elsewhere."
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end
@@ -192,7 +229,7 @@ module Saboteur
     end
 
     def scheduler_for(map, integration, cache)
-      reevaluator = Execution::Reevaluator.new(config["reeval"])
+      reevaluator = Execution::Reevaluator.new(config["reeval"], whole_file: config["whole_file"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
                                      supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"])
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
@@ -343,8 +380,10 @@ require_relative "engine/diagnostics"
 require_relative "engine/boot"
 require_relative "engine/subject_selection"
 require_relative "engine/suite_files"
+require_relative "engine/test_guess"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
+require_relative "engine/bytecode_equivalence"
 require_relative "engine/candidates"
 require_relative "engine/candidate_selection"
 require_relative "engine/diff_scope"
