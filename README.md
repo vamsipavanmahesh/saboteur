@@ -269,6 +269,10 @@ in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
+[Scores](docs/scores.md) defines each number on this page: the covered score, the
+score a Stryker dashboard shows, the assertion and crash split, and what makes a run
+incomplete.
+
 The score is split by how the mutant was killed. A crash kill (a `NoMethodError`,
 a `TypeError`, a parse error) shows the code ran and broke, not that a test
 checked a value. The terminal prints
