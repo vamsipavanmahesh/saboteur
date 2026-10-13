@@ -140,7 +140,8 @@ module Saboteur
         statements.each do |statement|
           next if arid?(statement)
 
-          add("statement_removal", statement, "nil") if statements.size > 1 && removable?(statement)
+          removable_here = statements.drop(1).any? && removable?(statement)
+          add("statement_removal", statement, "nil") if removable_here
           visit(statement)
         end
       end
