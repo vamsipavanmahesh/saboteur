@@ -2,21 +2,23 @@
 # frozen_string_literal: true
 
 # Locks review issue #128: with --incremental, a survivor from an earlier run
-# must be judged again once a new spec exists that can kill it.
+# must be judged again once a new spec exists that can kill it, and verdicts
+# are still reused when nothing changed.
 RSpec.describe "--incremental cache invalidation by a new spec (end to end)", :e2e do
   let(:dir) { copy_fixture("people") }
   let(:subject_flags) { ["--incremental", "--subject", "People::Person#adult?"] }
+  let(:boundary_spec) { File.join(dir, "spec", "boundary_edge_spec.rb") }
 
-  def boundary_mutants(run)
-    mutants(run).select { |m| m["mutatorName"] == "comparison" }
+  def ids_with_status(run, status)
+    mutants(run).select { |m| m["status"] == status }.map { |m| m["id"] }.sort
   end
 
-  it "re-runs a surviving mutant and kills it after a new spec file covers the boundary" do
-    first = saboteur(dir, *subject_flags)
-    survivors = boundary_mutants(first).select { |m| m["status"] == "Survived" }
-    expect(survivors).not_to be_empty
+  def test_ids_in(run, file)
+    run.json.fetch("testFiles").fetch(file).fetch("tests").map { |test| test.fetch("id") }
+  end
 
-    File.write(File.join(dir, "spec", "boundary_edge_spec.rb"), <<~RUBY)
+  def write_boundary_spec
+    File.write(boundary_spec, <<~RUBY)
       require_relative "../lib/people"
 
       RSpec.describe People::Person do
@@ -25,11 +27,42 @@ RSpec.describe "--incremental cache invalidation by a new spec (end to end)", :e
         end
       end
     RUBY
+  end
 
+  it "judges every earlier survivor again and kills each one with the new spec" do
+    first = saboteur(dir, *subject_flags)
+    prior_survivors = ids_with_status(first, "Survived")
+    expect(prior_survivors).not_to be_empty
+
+    write_boundary_spec
     second = saboteur(dir, *subject_flags)
-    now = boundary_mutants(second).select { |m| survivors.map { |s| s["id"] }.include?(m["id"]) }
-    expect(now.map { |m| m["status"] }).to include("Killed")
-    expect(second.out).not_to include("reused #{mutants(second).size} of #{mutants(second).size}")
-    expect(second.json.fetch("testFiles").keys.join).to include("boundary_edge_spec.rb")
+    new_test_ids = test_ids_in(second, "spec/boundary_edge_spec.rb")
+    expect(new_test_ids.size).to eq(1)
+
+    again = mutants(second).select { |m| prior_survivors.include?(m["id"]) }
+    expect(again.map { |m| m["id"] }.sort).to eq(prior_survivors)
+    expect(again.map { |m| m["status"] }.uniq).to eq(["Killed"])
+    expect(again.map { |m| m["killedBy"] }).to all(eq(new_test_ids))
+    expect(ids_with_status(second, "Survived")).to be_empty
+  end
+
+  it "does not reuse any verdict once the new spec changes what covers the method" do
+    saboteur(dir, *subject_flags)
+    write_boundary_spec
+    second = saboteur(dir, *subject_flags)
+
+    expect(second.out).not_to include("reused")
+  end
+
+  it "reuses every verdict when nothing changed (positive control)" do
+    first = saboteur(dir, *subject_flags)
+    write_boundary_spec
+    second = saboteur(dir, *subject_flags)
+    third = saboteur(dir, *subject_flags)
+    total = mutants(third).size
+
+    expect(first.out).not_to include("reused")
+    expect(third.out).to include("reused #{total} of #{total} verdicts")
+    expect(mutants(third).map { |m| [m["id"], m["status"]] }).to eq(mutants(second).map { |m| [m["id"], m["status"]] })
   end
 end
