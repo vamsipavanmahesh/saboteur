@@ -33,8 +33,9 @@ module Preflight
 
     # The one way evidence files are read: open once without blocking, then require the opened descriptor
     # to be a regular file. A FIFO or device swapped in after any earlier metadata check cannot hang the run.
-    def open_regular(path)
-      File.open(path, File::RDONLY | File::NONBLOCK) do |file|
+    def open_regular(path, follow: true)
+      flags = File::RDONLY | File::NONBLOCK | (follow ? 0 : File::NOFOLLOW)
+      File.open(path, flags) do |file|
         raise MalformedDocument, "#{path} is not a regular file" unless file.stat.file?
 
         yield file
@@ -44,8 +45,8 @@ module Preflight
     end
 
     # Reads at most the limit plus one byte, so a growing or replaced file cannot exceed the cap.
-    def read(path)
-      open_regular(path) do |file|
+    def read(path, follow: true)
+      open_regular(path, follow: follow) do |file|
         bytes = file.read(MAX_BYTES + 1) || ""
         raise MalformedDocument, "#{path} is over #{MAX_BYTES} bytes" if bytes.bytesize > MAX_BYTES
 
