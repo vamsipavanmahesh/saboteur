@@ -61,6 +61,61 @@ saboteur needs Ruby's `Coverage` module for itself. Guard SimpleCov with an
 environment variable (`if ENV["COVERAGE"]`) and leave it unset for saboteur
 runs.
 
+## factory_bot and other factories
+
+Factory definitions load once in the parent and every child inherits them, so
+there is nothing to configure. Two habits matter:
+
+- Build records inside examples (`create(:user)` in an `it` or `let`), not at
+  load time. A record created when the spec file loads is created in the
+  parent, before the fork, and every child sees the same row.
+- Sequences start from the parent's state in every child, so a mutant never
+  sees numbers another mutant used. Do not assert on absolute sequence values
+  that depend on how many examples ran before; the first test to touch a
+  sequence in each child decides them.
+
+`FactoryBot.lint` is slow and runs the whole factory set. Keep it in its own
+spec or a CI step, not in a `before(:suite)` that every saboteur baseline pass
+also runs, unless you want that time in every run.
+
+## Rails fixtures and transactional tests
+
+Fixtures load into the test database before mutants run. Transactional
+examples roll back inside the child that ran them, so one mutant's writes do
+not reach the next. With `jobs` above 1 each worker has its own copy of the
+database (see the Rails section of the README), so workers do not see each
+other's rows either.
+
+A change to a fixture file changes the cache keys, so `--incremental` does not
+reuse verdicts after you edit one.
+
+## DatabaseCleaner
+
+With `jobs: 1` the child writes to your real test database. A cleaning
+strategy that truncates tables (`:truncation`) is safe there only because it
+is a test database; never point saboteur at a development database. With
+`jobs` above 1 each worker truncates its own copy.
+
+Run the cleaner per example, as usual (`before(:each)` / `after(:each)`), not
+once at load time in the parent: a load-time clean runs once and the children
+inherit a database it already emptied.
+
+## Capybara and system specs
+
+A browser, a driver or an app server started in the parent is shared by every
+child, which breaks the one rule above. Start them per example (or per child
+in `after_fork`), and stop them in the same place. Prefer a rack-test driver
+for the specs you want mutation-tested; a browser makes each mutant slow, and
+a mutant that hangs the page loses its time to the timeout.
+
+## ActionMailer and ActiveJob
+
+The test delivery method (`config.action_mailer.delivery_method = :test`) and
+the test queue adapter (`config.active_job.queue_adapter = :test`) keep their
+state in the process, so each child starts clean. Nothing to configure. A
+real queue adapter that talks to Redis falls under the Sidekiq recipe: close
+the connection in `before_fork`.
+
 ## Tests that start saboteur
 
 A test that runs saboteur (an integration test of a tool built on it, for
