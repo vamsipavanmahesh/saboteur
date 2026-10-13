@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "survivor_ranking"
+
 module Saboteur
   module Reporter
     # Findings for a code-review surface such as the saboteur GitHub Action:
@@ -15,12 +17,7 @@ module Saboteur
       # GitHub shows at most 10 annotations of one kind per step.
       LIMIT = 10
 
-      # Published ordering, coarse survivors first: a surviving coarse mutant
-      # replaced the whole method body, which hints that no test pins the
-      # method's behavior - though it can also be a re-evaluation limit or an
-      # equivalent mutant, so this is a heuristic, not a guarantee. Ties break
-      # by file, line and digest, so one report always reads the same way.
-      ORDERING = "coarse survivors first, then file, line and digest"
+      ORDERING = SurvivorRanking::ORDERING
 
       class << self
         def build(report)
@@ -46,20 +43,8 @@ module Saboteur
           [results.size - LIMIT, 0].max
         end
 
-        # partition keeps the coarse group ahead; inside a group the key is
-        # total (no two mutants share a digest), so the order is stable.
         def ordered(report, results)
-          results.partition { |result| result.mutation.coarse }
-                 .map { |group| group.sort_by { |result| tie_break(report, result) } }
-                 .flatten
-        end
-
-        def tie_break(report, result)
-          [path(report, result), first_line(result), result.digest]
-        end
-
-        def first_line(result)
-          result.subject.line_of(result.mutation.edits.map(&:start_byte).min)
+          SurvivorRanking.ordered(report, results)
         end
 
         def finding(report, result)

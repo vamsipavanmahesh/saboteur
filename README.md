@@ -52,7 +52,7 @@ supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
 a cache miss. Both baseline passes must be green, complete and in the same
 RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Long phases
-print their elapsed time about every 30 seconds, and each phase's log holds
+print their elapsed time about every 30 seconds, with the examples finished so far, the percentage and a rough estimate of the time left (it assumes equally long examples) once the suite child has logged its first count, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). A suite child that has
@@ -529,6 +529,19 @@ it assigns are rebuilt, with redefinition warnings silenced. If a later
 definition in the same file replaces the mutated method, the mutant could never
 run, so a survivor there is reported as unreachable instead. It is off by
 default, and the cache key includes the list.
+Signature text alone does not remove mutants. `body_nil` and last-statement
+removal remain available even when `sig` declares a non-nil return type.
+`checked(:never)`, unchecked `checked(:tests)` signatures, configured default
+levels, custom validation handlers and wrapper shims can all allow nil to
+reach real assertions. saboteur does not verify enforcement, evaluate return
+type expressions or infer types from constant names. Aliases, enclosing
+namespace constants and transformed generic types therefore cannot change
+mutation generation. RBS signatures are not read yet. Type-only crash kills
+remain visible in the crash share, not silently pruned.
+
+The Sorbet E2E fixture is a wrapper/registry shim without runtime type checking.
+It tests re-evaluation and assertion detection, not real Sorbet enforcement or
+proof of type-check noise reduction.
 
 ### Skipped subjects and the mutant cap
 
@@ -802,6 +815,8 @@ Local evidence protects against edits to the public proposal except review reaso
 A baseline that changes during `check` is rejected as configuration/evidence error (exit 2), not an incomplete execution result. Acceptance leaves a private `baseline.json.lock` beside the destination: keep it for cooperating-process publication locks. It contains no evidence or results. Symlinked checkout parents are normalized; symlink artifacts themselves and private-store/lock symlinks are still refused.
 
 The builtin `endpoint_replacement` operator swaps explicit, no-argument `first`/`last` calls. It targets wrong-end/order-selection faults in collection handling. Argument-bearing slices, bare calls and block-bearing APIs are left unchanged. Receivers are not statically typed: a custom object may implement either name differently, so a crash remains a crash kill, not proof of a collection assertion.
+
+JSON findings are ordered by a deterministic [review ranking](docs/survivor-ranking.md): coarse first, then covering-test count, edited-line impact and changed-line proximity, with file/line/digest ties. The terminal groups survivors by file, method and line first; the ranking only orders the survivors on one line, and every survivor is listed, in review mode too. Only consecutive survivors with matching evidence share a test/evidence block; repeated evidence after another group is printed again to keep that order. Ranking does not change scores or execution.
 
 ### Preview and choose operators
 

@@ -16,6 +16,38 @@ RSpec.describe Saboteur::Reporter::SurvivorHints do
   end
 end
 
+RSpec.describe Saboteur::Reporter::SurvivorHints, ".structured" do
+  def hint(operator, original = "x", replacement = "y", coarse: false)
+    described_class.structured(operator: operator, original: original, replacement: replacement, coarse: coarse)
+  end
+
+  it "names the equal-operands case when the swap differs only there" do
+    [%w[> >=], %w[>= >], %w[< <=], %w[<= <]].each do |original, replacement|
+      expect(hint("comparison", original, replacement)).to include(kind: "boundary", case: "left == right")
+    end
+  end
+
+  it "names the unequal-operands case for a flip" do
+    [%w[< >], %w[> <], %w[<= >=], %w[>= <=]].each do |original, replacement|
+      expect(hint("comparison", original, replacement)).to include(kind: "boundary", case: "left != right")
+    end
+  end
+
+  it "gives a plain assertion hint when no case is known" do
+    expect(hint("comparison", "<", "==")).to eq(kind: "assertion", text: described_class.for("comparison"))
+    expect(hint("arithmetic")).to eq(kind: "assertion", text: described_class.for("arithmetic"))
+  end
+
+  it "names a coarse mutant of an unlisted operator as a method result check" do
+    expect(hint("body_nil", coarse: true)).to eq(kind: "method_result", text: described_class::COARSE)
+  end
+
+  it "is nil without a hint, and ignores operator text on a non-comparison operator" do
+    expect(hint("made_up")).to be_nil
+    expect(hint("arithmetic", ">", ">=")).not_to include(:case)
+  end
+end
+
 RSpec.describe Saboteur::Reporter::SurvivorList do
   def render(report)
     out = StringIO.new
