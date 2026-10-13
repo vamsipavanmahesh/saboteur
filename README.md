@@ -224,10 +224,10 @@ named after each changed source file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app
 files and `spec/lib/` work too) and runs only those for the baseline passes, the
 coverage pass and every mutant, as `--test` would. It is a naming guess, not
 coverage: a spec that reaches the changed file only through another file does not
-run, so a mutant only that spec would kill has no covering spec and is reported
-as NoCoverage (not Survived). The agent JSON records the guessed specs as its
-`tests`, so its follow-up commands keep the same `--test` scope instead of widening
-to the whole suite. If any changed file has no such
+run: a mutant only that spec would kill can survive, and a line that none of the
+guessed specs executes is reported as NoCoverage. The agent JSON records the guessed specs as its
+`tests`, so its follow-up commands keep the same `--test` scope (with `--no-guess-tests`, so a `guess_tests`
+in the config file cannot conflict) instead of widening to the whole suite. If any changed file has no such
 spec, or nothing changed, the whole suite runs as before and the run says so.
 `--guess-tests` needs `--since` and cannot be combined with `--test`. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
