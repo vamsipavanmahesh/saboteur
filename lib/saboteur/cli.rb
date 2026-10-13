@@ -140,8 +140,7 @@ module Saboteur
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
     def warn_dirty_tree
-      warning = WorkingTree.new(config.root, ignored: config.output_paths).state.warning
-      @err.puts(warning) if warning
+      WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
     end
 
     # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
@@ -351,6 +350,9 @@ module Saboteur
     end
 
     def preview
+      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON" if agent?
+      raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
+
       return MutationSource::OperatorRegistry.list(@out) || EXIT_OK if options[:list_operators]
 
       Preview.new(config, out: @out, err: @err).call
