@@ -314,6 +314,14 @@ Saboteur.ignore do |i|
   i.mutation "2775afca28a11bfe",
              subject: "Saboteur::Selection::CoverageMap#sort_test_ids",
              reason: "equivalent: ids come from by_method/by_line values, which store indices into tests, so order.fetch always hits and the default is unreachable"
+  i.mutation "58015bc90175b563",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent: walking unrelated AST children still returns nil; the InNode pattern containment check prevents them from supplying lines for this edit"
+
+  i.mutation "8f347a8e928e9ef5",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent: Prism's sibling locations are disjoint, so at most one child contains the edit; returning its nil immediately is the same as finishing the loop with nil"
+
   i.mutation "947651810f34ed47",
              subject: "Saboteur::Preview#planned",
              reason: "equivalent: at the exact cap, >= records a zero-count omission; preview only sums omission counts, so displayed counts and selected mutants are unchanged"
