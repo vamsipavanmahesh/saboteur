@@ -616,6 +616,32 @@ per-process RSS, which counts shared pages more than once, and it was measured
 before the fork-memory work. Read it as history, not a ranking of physical
 memory.
 
+### Independent review, saboteur 0.4.0 vs mutineer 1.6.0
+
+An outside review (12 October 2026) ran both tools on the same machine and
+projects. mutineer ran with its default 5 operators and with all 20. These are
+the reviewer's numbers for saboteur 0.4.0, one run each. Several findings in
+the right-hand column of saboteur's rows have been fixed on main since; the
+rerun that replaces this table is still pending.
+
+| Measure | saboteur 0.4.0 | mutineer 1.6.0 |
+|---|---|---|
+| Snippets project (11 planted gaps) | 177 mutants, 14 s, 10/11 gaps found, 9 noise survivors | Default: 56 mutants, 18 s, about 5/11. All operators: 191 mutants, 51 s, 10/11, 8 noise and duplicates |
+| Dependency project (A tested only via B) | 239 mutants, 6 s | 254 mutants, 26 s (needed hand-ordered source files) |
+| dry-inflector (real gem) | 551 mutants, 24 survivors, 95.6 %, 133 s | 480 mutants, 47 survivors (31 distinct), 90.1 %, 134 s |
+| Test selection | Whole suite, per example, automatic | Only files passed with --test, per file |
+| Kill verification | Yes (re-runs killers on unchanged code) | No |
+| sorbet sig methods | Skipped at 0.4.0 | Mutated, 24/24 killed |
+| Data.define / Struct.new block methods | Absent at 0.4.0 | Mutated |
+| Load-time code | False survivors at 0.4.0 | ran_at_load status |
+| Endless defs | Tested ones reported as no coverage at 0.4.0 | Tested ones work; untested ones show as survived |
+| Order-dependent specs | Smell exposed, bogus kills rejected | Hidden (whole file runs) |
+| Destructive mutant | Project wiped except .saboteur | Project wiped |
+| Baseline stability | Race at 0.4.0 (13-20 % of green runs) | No failures observed (15/15) |
+
+Not in the review and still pending: a rerun on current main, memory and
+per-mutant time on the benchmark apps, and any mutineer release after 1.6.0.
+
 ### Memory after the fork-memory work (hashie @ 9c81e83)
 
 Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with
