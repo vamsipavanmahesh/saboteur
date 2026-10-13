@@ -139,6 +139,12 @@ RSpec.describe Saboteur::Baseline::Comparison do
       expect(incompatible.score).to be_nil
     end
 
+    it "reports no score when the fresh run scored nothing, and stays incomplete" do
+      result = gate(results(kills: 4, survivors: 1), [{ "id" => "e", "status" => "error" }], 0.0)
+      expect(result.score).to be_nil
+      expect(result.exit_code).to eq(3)
+    end
+
     it "keeps an incomplete run ahead of the score" do
       result = gate(results(kills: 4, survivors: 1), results(kills: 1, survivors: 1) +
                     [{ "id" => "e", "status" => "error" }], 0.0)
