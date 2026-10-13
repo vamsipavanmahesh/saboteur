@@ -7,7 +7,7 @@ require "timeout"
 
 RSpec.describe "history safety" do
   around do |example|
-    Dir.mktmpdir do |dir|
+    Dir.mktmpdir(nil, File.realpath(Dir.tmpdir)) do |dir|
       @path = File.join(dir, "history.jsonl")
       example.run
     end
