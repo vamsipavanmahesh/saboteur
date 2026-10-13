@@ -98,12 +98,17 @@ module Saboteur
         if @config["tests"].empty?
           raise Error, "Coverage recorded nothing in #{files.size} included files during a whole-suite " \
                        "build. No test in the suite may exercise these files, or the setup hid the app " \
-                       "from Coverage (Bootsnap's compile cache is the default Rails case). " \
-                       "Run `saboteur doctor`."
+                       "from Coverage#{bootsnap_note}. Run `saboteur doctor`."
         end
         @diagnostics.warn("Coverage recorded nothing in #{files.size} included files; " \
                           "the selected specs may not exercise them.")
         map
+      end
+
+      # Bootsnap is named only when it is loaded: blaming a library the app
+      # does not use sends the reader to the wrong place.
+      def bootsnap_note
+        " (Bootsnap's compile cache is the default Rails case)" if defined?(::Bootsnap)
       end
 
       def died(status)

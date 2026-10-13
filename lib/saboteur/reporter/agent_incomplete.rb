@@ -19,6 +19,8 @@ module Saboteur
             add(reasons, "mutant_cap", omitted_by_cap(report), "mutants omitted by max_mutants_per_method")
             add(reasons, "errors", report.counts[:error], "mutants errored; their verdict did not hold up")
             add(reasons, "resource_limit", report.counts[:resource_limit], "mutants hit the memory or process cap")
+            add(reasons, "fail_fast", report.early_stop&.unreached&.size.to_i,
+                "selected subjects did not run because --fail-fast stopped the run")
             reasons
           end
 

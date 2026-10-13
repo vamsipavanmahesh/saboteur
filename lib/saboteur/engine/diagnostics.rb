@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "tempfile"
+
 module Saboteur
   class Engine
     # What a run has to say besides results: warnings for the report, the
@@ -27,6 +29,8 @@ module Saboteur
       end
 
       MARKS = { killed: ".", survived: "S", timeout: "T", resource_limit: "L", error: "E" }.freeze
+      LEGEND = ". killed  S survived  T timeout  L resource limit  E error"
+      LINE_WIDTH = 50
 
       GenerationEvent = Data.define(:file, :subject, :source, :operator, :reason)
       Omission = Data.define(:subject, :count, :limit)
@@ -87,9 +91,74 @@ module Saboteur
         ProgressHeartbeat.new(self, label, interval: interval)
       end
 
+      # Call before the workers fork. total is the number of mutants the run
+      # may execute; mutants that are skipped or reused never report progress,
+      # so the counter can end below total and the ETA errs on the long side.
+      # The count lives in one file the workers inherit, so every worker adds
+      # to the same number.
+      def start_progress(total)
+        @progress_total = total
+        @progress_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        @progress_file = Tempfile.new("saboteur-progress")
+        @progress_file.binmode
+        @progress_file.sync = true
+        @err.puts("saboteur: progress #{LEGEND}") unless progress_on_terminal?
+      end
+
       def progress(result)
-        @err.print(MARKS.fetch(result.status, "?"))
+        mark = MARKS.fetch(result.status, "?")
+        return plain_progress(mark) unless @progress_file
+
+        done = record_progress(mark)
+        progress_on_terminal? ? terminal_progress(done) : ci_progress(mark, done)
         @err.flush
+      end
+
+      def finish_progress
+        @err.puts if @progress_file && (progress_on_terminal? || @progress_file.size % LINE_WIDTH != 0)
+        @progress_file&.close!
+        @progress_file = nil
+      end
+
+      def progress_summary(done)
+        return "#{done}/#{@progress_total}" unless @progress_total.to_i.positive?
+
+        percent = (done * 100.0 / @progress_total).floor
+        "#{done}/#{@progress_total} (#{percent}%)#{eta_text(done)}"
+      end
+
+      private
+
+      def plain_progress(mark)
+        @err.print(mark)
+        @err.flush
+      end
+
+      def record_progress(mark)
+        @progress_file.write(mark)
+        @progress_file.size
+      end
+
+      def progress_on_terminal?
+        @err.respond_to?(:tty?) && @err.tty?
+      end
+
+      def terminal_progress(done)
+        @err.print("\r\e[Ksaboteur: #{progress_summary(done)}")
+      end
+
+      def ci_progress(mark, done)
+        @err.print(mark)
+        @err.print(" #{progress_summary(done)}\n") if (done % LINE_WIDTH).zero?
+      end
+
+      def eta_text(done)
+        remaining = @progress_total - done
+        return "" if remaining <= 0 || done.zero?
+
+        elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - @progress_started
+        seconds = (elapsed / done * remaining).round
+        " eta #{seconds / 60}m#{format('%02d', seconds % 60)}s"
       end
     end
   end
