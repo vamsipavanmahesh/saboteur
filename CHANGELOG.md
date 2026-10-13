@@ -7,6 +7,8 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Audited inline suppression comments with required reasons (#133). Inspired by mutineer
+  (github.com/davidteren/mutineer, MIT, by David Teren).
 - `--dry-run` previews planned mutants per method and the max_mutants_per_method
   omissions without booting the app, running tests, forking or writing reports
   (#134). A file that does not parse marks the total INCOMPLETE. A cached
