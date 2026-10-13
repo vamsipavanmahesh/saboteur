@@ -64,6 +64,8 @@ All notable changes are documented here. The format follows
   `JSON report:` and `HTML report:` lines must read `Reports:` instead.
 
 ### Fixed
+- The default arid logger pattern also matches `@logger`, `self.logger` and
+  `::Rails.logger`, so those calls no longer produce noise survivors (#111).
 - The unscoped `--since` warning now says what `--test` drops: the consumer specs of a changed method no longer run, which can turn kills into survivors. (#113)
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
