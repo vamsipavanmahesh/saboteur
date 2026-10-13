@@ -6,6 +6,10 @@ RSpec.describe Saboteur::MutationSource::OperatorAssignment do
     subjects_in("class AssignmentTarget\n  def m(a)\n    #{expression}\n  end\nend\n").first
   end
 
+  it "handles a method with no body" do
+    expect(described_class.new.mutations_for(target(""))).to be_empty
+  end
+
   it "swaps each arithmetic compound assignment deterministically" do
     { "a += 1" => "a -= 1", "a -= 1" => "a += 1", "a *= 2" => "a /= 2", "a /= 2" => "a *= 2" }.each do |before, after|
       subject = target(before)
