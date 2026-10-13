@@ -8,6 +8,7 @@ require_relative "literal_replacement"
 require_relative "argument_removal"
 require_relative "pair_removal"
 require_relative "endpoint_replacement"
+require_relative "declared_return"
 
 module Saboteur
   module MutationSource
@@ -83,15 +84,27 @@ module Saboteur
 
       def coarse(body)
         statements = body.is_a?(Prism::BeginNode) ? body.statements : body
+        @method_statements = statements
         return if statements.nil?
 
         unless nothing_to_remove?(statements)
           # A predicate's nil is just false; true is the value its tests must reject.
           (@subject.name.end_with?("?") ? %w[true false] : %w[nil]).each do |value|
+            next if value == "nil" && returns_nil_against_type?
+
             add("body_#{value}", statements, value, coarse: true)
           end
         end
         add("body_raise", statements, "raise", coarse: true) unless rescues_everything?(body)
+      end
+
+      # A mutant whose value is nil, in a method whose sig forbids nil, only
+      # fails the runtime type check. With a statement, it counts only when
+      # that statement is the last of its sequence, where its value is returned.
+      def returns_nil_against_type?(statement = nil)
+        return false if statement && !@method_statements.body.last.equal?(statement)
+
+        DeclaredReturn.new(@subject).excludes_nil?
       end
 
       # Nothing but logging: replacing it changes nothing a test can see.
@@ -137,7 +150,8 @@ module Saboteur
         statements.each do |statement|
           next if arid?(statement)
 
-          add("statement_removal", statement, "nil") if statements.size > 1 && removable?(statement)
+          removable_here = statements.drop(1).any? && removable?(statement) && !returns_nil_against_type?(statement)
+          add("statement_removal", statement, "nil") if removable_here
           visit(statement)
         end
       end
