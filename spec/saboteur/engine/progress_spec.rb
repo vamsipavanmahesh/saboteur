@@ -28,4 +28,25 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress" do
     expect(err.string).to include("saboteur: 1/4 (25%)", "saboteur: 2/4 (50%) eta")
     expect(err.string).not_to include("progress .")
   end
+
+  it "ends a partial line with a newline and removes the progress file" do
+    diagnostics.start_progress(10)
+    3.times { diagnostics.progress(result) }
+    file = diagnostics.instance_variable_get(:@progress_file)
+    before = err.string.dup
+    diagnostics.finish_progress
+    expect(err.string).to eq("#{before}\n")
+    expect(file.path).to be_nil
+    expect(diagnostics.instance_variable_get(:@progress_file)).to be_nil
+  end
+
+  it "adds no newline after a full line of marks, or when no progress was started" do
+    diagnostics.start_progress(50)
+    Saboteur::Engine::Diagnostics::LINE_WIDTH.times { diagnostics.progress(result) }
+    before = err.string.dup
+    diagnostics.finish_progress
+    expect(err.string).to eq(before)
+    diagnostics.finish_progress
+    expect(err.string).to eq(before)
+  end
 end
