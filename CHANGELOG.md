@@ -7,9 +7,10 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
-- A run that leaves a live survivor ends with a "Next steps" footer: the replay command
-  (`saboteur run --id DIGEST --seed N`), the ignore file for an equivalent mutant,
-  and `saboteur run --format agent` (#147).
+- A run that leaves a live survivor ends with a "Next steps" footer of command
+  templates: replay (`saboteur run --id DIGEST --seed N`, to be combined with the
+  run's own selection options), an ignore entry with the survivor's subject, and
+  `saboteur run --agent` (#147).
 - `--dry-run` previews planned mutants per method and the max_mutants_per_method
   omissions without booting the app, running tests, forking or writing reports
   (#134). A file that does not parse marks the total INCOMPLETE. A cached
