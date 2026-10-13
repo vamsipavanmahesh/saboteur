@@ -56,9 +56,24 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(payload[:next][:replay]).to eq("saboteur run --id #{finding[:digest]} --since origin/main --seed 7")
     end
 
+    it "includes an operator hint with an honest caveat" do
+      expect(payload[:findings][:shown].first[:hint]).to start_with("try an example at the boundary")
+      expect(payload[:findings][:hintCaveat]).to include("suggestions, not diagnoses")
+      expect(described_class.render(payload).bytesize).to be <= described_class::BYTE_BUDGET
+    end
+
     it "does not carry file sources" do
       expect(JSON.generate(payload)).not_to include("def adult?")
     end
+  end
+
+  it "uses coarse fallback hints but invents no hint for unknown fine operators" do
+    fine = result_for(:survived)
+    allow(fine).to receive(:mutation).and_return(fine.mutation.with(operator: "unknown_operator"))
+    expect(payload_for(report_of(fine))[:findings][:shown].first).not_to have_key(:hint)
+    coarse = result_for(:survived, coarse: true)
+    expect(payload_for(report_of(coarse))[:findings][:shown].first[:hint])
+      .to eq(Saboteur::Reporter::SurvivorHints::COARSE)
   end
 
   context "when the only survivor is accepted on the ignore list" do
