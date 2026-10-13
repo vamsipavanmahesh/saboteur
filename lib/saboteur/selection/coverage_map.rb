@@ -16,21 +16,68 @@ module Saboteur
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
     class CoverageMap
-      FORMAT = 3
+      FORMAT = 7
 
-      attr_reader :lines, :tests, :build_seconds, :durations
+      RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
+
+      attr_reader :lines, :tests, :build_seconds, :durations, :methods, :load_lines
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
+      # methods: { "/abs/file.rb" => { 12 => ["id1", "id2"] } } keyed by the
+      # def's first line; line coverage never counts an endless def's body,
+      # so methods carry those subjects (issue #107).
       # durations: { "id1" => seconds }
-      def initialize(lines:, tests:, build_seconds: nil, durations: {})
+      def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {})
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
         @durations = durations
+        @methods = methods
+        @load_lines = load_lines
       end
 
       def tests_for(subject)
-        tests_for_lines(subject.file, subject.coverage_lines)
+        tests = tests_for_lines(subject.file, subject.coverage_lines)
+        return tests unless tests.empty?
+
+        by_method = methods[CoverageMap.canonical(subject.file)]
+        return [] unless by_method
+
+        span = subject.start_line..subject.end_line
+        ids = by_method.flat_map { |line, method_ids| span.cover?(line) ? method_ids : [] }.uniq
+        sort_test_ids(ids)
+      end
+
+      # Attach the parent's boot counters without losing the child's method coverage.
+      def with_load_lines(load_lines)
+        self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
+                       methods: methods, load_lines: load_lines)
+      end
+
+      # A requested line ran at load but no test later hit it.
+      def ran_at_load?(file, line_numbers)
+        at_load = load_lines[CoverageMap.canonical(file)]
+        return false unless at_load
+
+        covered = lines[CoverageMap.canonical(file)] || {}
+        line_numbers.any? { |line| at_load.include?(line) && !covered.key?(line) }
+      end
+
+      # Tests for the lines of one edit. A branch no test executes keeps its
+      # "no coverage" skip, but a subject whose lines never record at all
+      # (an endless def) falls back to its method coverage (issue #107).
+      def tests_for_edit(subject, line_numbers)
+        tests = tests_for_lines(subject.file, line_numbers)
+        return tests unless tests.empty?
+        return [] unless tests_for_lines(subject.file, subject.coverage_lines).empty?
+
+        tests_for(subject)
+      end
+
+      # True when neither boot nor tests recorded included code. Load-only
+      # evidence is valid, even though it supplies no judged mutation score.
+      def empty?
+        [lines, methods, load_lines].all? { |hits| hits.none? { |_file, values| values.any? } }
       end
 
       # Tests that executed any of the lines, fastest first (suite order breaks
@@ -46,19 +93,18 @@ module Saboteur
         by_line = lines[CoverageMap.canonical(file)]
         return [] unless by_line
 
-        ids = line_numbers.flat_map { |line| by_line.fetch(line, []) }.uniq
-        order = test_order
-        ids.sort_by { |id| [durations.fetch(id, Float::INFINITY), order.fetch(id, Float::INFINITY)] }
+        sort_test_ids(line_numbers.flat_map { |line| by_line.fetch(line, []) }.uniq)
       end
 
       # Lines refer to tests by their index in tests, which keeps the cache
       # small for suites with long test ids.
       def to_json(*)
         index = test_order
-        encoded = lines.transform_values do |by_line|
-          by_line.to_h { |line, ids| [line.to_s, ids.map { |id| index.fetch(id) }] }
+        encode = lambda do |hits|
+          hits.transform_values { |by_line| by_line.to_h { |line, ids| [line.to_s, ids.map { |id| index.fetch(id) }] } }
         end
-        JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encoded,
+        JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encode.call(lines),
+                      methods: encode.call(methods), load_lines: load_lines,
                       durations: tests.map { |id| durations[id]&.round(6) })
       end
 
@@ -67,11 +113,15 @@ module Saboteur
         raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
 
         tests = data["tests"]
-        lines = data["lines"].transform_values do |by_line|
-          by_line.to_h { |line, indexes| [line.to_i, indexes.map { |i| tests.fetch(i) }] }
+        decode = lambda do |hits|
+          hits.transform_values do |by_line|
+            by_line.to_h { |line, indexes| [line.to_i, indexes.map { |i| tests.fetch(i) }] }
+          end
         end
         durations = tests.zip(data["durations"]).to_h.compact
-        new(lines: lines, tests: tests, build_seconds: data["build_seconds"], durations: durations)
+        load_lines = (data["load_lines"] || {}).transform_values { |list| list.map(&:to_i) }
+        new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
+            durations: durations, methods: decode.call(data["methods"] || {}), load_lines: load_lines)
       end
 
       # Cache key over every input that can change which test runs which line.
@@ -104,6 +154,11 @@ module Saboteur
       end
 
       private
+
+      def sort_test_ids(ids)
+        order = test_order
+        ids.sort_by { |id| [durations.fetch(id, Float::INFINITY), order.fetch(id, Float::INFINITY)] }
+      end
 
       def test_order
         @test_order ||= tests.each_with_index.to_h

@@ -55,7 +55,13 @@ RSpec order at the run seed. A failure exits 3, stops mutation and names the log
 print their elapsed time about every 30 seconds, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
-budget is four times `max_memory_mb`, as for coverage). Older benchmark numbers
+budget is four times `max_memory_mb`, as for coverage). A suite child that has
+already reported its result gets up to 5 seconds to finish exiting, under the
+same deadline and memory/process limits as before; if it is still running then,
+saboteur stops it and keeps the result, so a slow exit is not reported as a
+failure. A child that ends by itself in that window keeps its own exit status. A child killed by `SIGKILL` is called a possible
+out-of-memory kill only when the process tree was seen growing toward the
+memory limit. Older benchmark numbers
 need a rerun before they describe this extra fixed cost.
 A whole-suite coverage build that records no lines for any included file
 means the setup hid the app from Coverage (Bootsnap's compile cache is the
@@ -95,7 +101,7 @@ missed. The JSON report lands in `.saboteur/report.json`.
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
-run. A change no test reaches is reported as "no coverage", not as a survivor.
+run. A change no test reaches is reported as "no coverage", not as a survivor. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
 whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
@@ -198,10 +204,12 @@ use `rand` see the same values in each mutant's run and in the check that
 confirms a kill. The report prints the seed; pass it to `--seed` to repeat a
 run.
 
-`--incremental` reuses an earlier verdict only while the method, the mutant,
-its covering tests and their files, the lockfile and the config are all
-unchanged. It cannot see a change in a method this one calls, so run without
-it now and then (and in CI on the main branch).
+`--incremental` reuses an earlier verdict only while the method, the whole
+file it lives in, the mutant, its covering tests and their files, the lockfile
+and the config are all unchanged. So a constant or helper changed in the same
+file is seen. It cannot see a change in another file that the method uses (a
+method it calls, a constant defined elsewhere), so run without it now and then
+(and in CI on the main branch).
 
 Output: counts per status, the score, timing, and a unified diff for every
 survivor. Under each diff the terminal lists the tests that covered that line
@@ -216,8 +224,9 @@ report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
 `config/saboteur.rb`; set either to `nil` to turn that report off. The two paths
 must differ. The HTML page shows the covered mutation score
-`(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage
-out and keeps survivors accepted on the ignore list in the denominator. A tool
+`(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage,
+RanAtLoad and Unreachable out and keeps survivors accepted on the ignore list
+in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
@@ -395,6 +404,44 @@ Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
 `db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
 cache fingerprint automatically. Use `fingerprint_extra` for any other file your
 tests read.
+
+### Load-time code, captured methods and Sorbet signatures
+
+Code that runs while the target boots, before tests run, cannot be checked by
+replacing a method later. saboteur reports these changes as `ran_at_load` rather
+than survivors. Calls from test setup, including RSpec `before(:all)`, are still
+checked. Load-time detection follows the `ran_at_load` idea in
+[mutineer #187](https://github.com/davidteren/mutineer/pull/187).
+
+A saved `Method` or `UnboundMethod` can keep calling the old definition after
+saboteur replaces it. When tests pass without calling the replacement and a
+saved method still points to the old definition, the result is `unreachable`.
+A targeted execution check must also confirm the replacement was not called.
+Each mutant is checked separately; one unreachable result does not skip later mutants.
+The reason names the old definition's source location. A lambda that looks up
+the method when it runs is still checked normally.
+
+Coverage caches now store both per-test method hits and load-time line hits.
+Older caches are rebuilt; load-time accounting preserves endless-method coverage.
+
+One-line and endless method definitions need boot method-call counters to prove
+the body ran at load; merely defining them is not execution evidence. If methods
+share a physical line and any sibling is uncalled, the line is ambiguous and is
+conservatively reported as no coverage, even for its called sibling.
+Agent mode reports ran-at-load and unreachable work as incomplete.
+
+A whole-suite map with only load-time hits is valid and reports load-only subjects
+with their ran-at-load reason, rather than failing as an empty coverage build.
+It has no mutation score when no mutant can be tested.
+
+Both statuses are listed separately in terminal output and excluded from the
+mutation score. Stryker JSON reports them as `Ignored`, with the explanation in
+`statusReason`; they are not entries on your survivor ignore list.
+
+Methods wrapped by `sorbet-runtime` signatures are checked rather than skipped
+as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
+changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
+preserve the loaded method semantics.
 
 ### Skipped subjects and the mutant cap
 

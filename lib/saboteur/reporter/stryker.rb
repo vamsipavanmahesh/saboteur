@@ -102,6 +102,9 @@ module Saboteur
         when :timeout then "Timeout"
         when :error, :resource_limit then "RuntimeError"
         when :skipped then result.reason == "no coverage" ? "NoCoverage" : "Ignored"
+        # The schema has no status for "ran, but no test can observe a
+        # change here". Ignored with the reason is the honest mapping.
+        when :ran_at_load, :unreachable then "Ignored"
         end
       end
 

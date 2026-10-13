@@ -15,12 +15,13 @@ module Saboteur
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
 
-      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:)
+      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, load_lines: {})
         @config = config
         @integration = integration
         @hooks = hooks
         @supervisor = supervisor
         @diagnostics = diagnostics
+        @load_lines = load_lines
         @root = File.realpath(config.root)
       end
 
@@ -61,34 +62,46 @@ module Saboteur
         result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
           record(writer, files)
         end
+        map_from(result)
+      end
+
+      def map_from(result)
         raise Error, "coverage map build stopped: #{result.detail}" if result.stopped_by
         raise Error, "coverage map build failed: #{died(result.exit_status)}" if result.payload.empty?
 
         data = JSON.parse(result.payload)
         raise Error, "coverage map build failed: #{data['error']}" if data["error"]
 
-        Selection::CoverageMap.from_json(result.payload)
+        with_parent_load_lines(Selection::CoverageMap.from_json(result.payload))
       end
 
-      # A whole-suite build that records no line in any included file fails
-      # the run (exit 3): usually the setup hid the app from Coverage
-      # (Bootsnap's compile cache is the default Rails case); it can also
-      # mean no test in the suite exercises any included file. Either way a
-      # run on this map would test nothing, and exit 0 would lie. With
-      # explicit tests (--test) an empty map is a legitimate outcome
+      # The parent's load lines merge into the freshly built map: the forked
+      # build child cannot inherit the parent's Coverage counters.
+      def with_parent_load_lines(map)
+        @load_lines.empty? ? map : map.with_load_lines(@load_lines)
+      end
+
+      # A whole-suite build that records nothing - no line hit and no method
+      # call - in any included file fails the run (exit 3): usually no test
+      # in the suite exercises these files, or the setup hid the app from
+      # Coverage (Bootsnap's compile cache is the default Rails case). An
+      # all-endless-def file records method calls only and passes. Either way
+      # a run on a truly empty map would test nothing, and exit 0 would lie.
+      # With explicit tests (--test) an empty map is a legitimate outcome
       # instead: the user narrowed the suite to specs that may not touch
       # these sources, so the map passes with a warning. Applies to a cached
       # map too, so a map cached before this check cannot keep a run green,
       # and the guard runs before saving, so an empty map is never cached.
       def refuse_empty_map(map, files)
-        return map if files.empty? || map.lines.any? { |_file, by_line| by_line.any? }
+        return map if files.empty? || !map.empty?
 
         if @config["tests"].empty?
-          raise Error, "Coverage recorded no lines in #{files.size} included files during a whole-suite " \
-                       "build. Is Bootsnap's compile cache on? If not, no test may exercise these files. " \
+          raise Error, "Coverage recorded nothing in #{files.size} included files during a whole-suite " \
+                       "build. No test in the suite may exercise these files, or the setup hid the app " \
+                       "from Coverage (Bootsnap's compile cache is the default Rails case). " \
                        "Run `saboteur doctor`."
         end
-        @diagnostics.warn("Coverage recorded no lines in #{files.size} included files; " \
+        @diagnostics.warn("Coverage recorded nothing in #{files.size} included files; " \
                           "the selected specs may not exercise them.")
         map
       end

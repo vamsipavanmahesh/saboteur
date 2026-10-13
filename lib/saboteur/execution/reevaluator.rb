@@ -24,7 +24,10 @@ module Saboteur
         @strategy = strategy.to_s
       end
 
-      def call(subject, text)
+      # prefix: source evaluated right before the def text, at the lines it
+      # occupies in the file - a sorbet `sig { ... }` call, so the wrapper
+      # gem re-wraps the mutant and its runtime checks stay on.
+      def call(subject, text, prefix: nil)
         owner = resolve_owner(subject)
         target = subject.singleton ? owner.singleton_class : owner
         visibility = visibility_of(target, subject.name)
@@ -32,7 +35,13 @@ module Saboteur
         copy_visibility = visibility_of(owner.singleton_class, subject.name) if module_function
         aliases = aliases_of(target, subject.name)
 
-        @strategy == "nesting" ? eval_nested(subject, text) : eval_in_owner(owner, subject, text)
+        extra_lines = prefix ? prefix.count("\n") + 1 : 0
+        full_text = prefix ? "#{prefix}\n#{text}" : text
+        if @strategy == "nesting"
+          eval_nested(subject, full_text, extra_lines)
+        else
+          eval_in_owner(owner, subject, full_text, extra_lines)
+        end
 
         restore(owner, target, subject.name, visibility, copy_visibility)
         repoint(target, subject.name, aliases)
@@ -90,23 +99,25 @@ module Saboteur
           owner.singleton_class.instance_method(subject.name).source_location
       end
 
-      def eval_in_owner(owner, subject, text)
-        code, line = with_magic_comment(subject, text)
+      def eval_in_owner(owner, subject, text, extra_lines)
+        code, line = with_magic_comment(subject, text, extra_lines)
         eval_target = subject.sclass ? owner.singleton_class : owner
         eval_target.class_eval(code, subject.file, line)
       end
 
-      def eval_nested(subject, text)
+      def eval_nested(subject, text, extra_lines)
         headers = subject.nesting.map(&:header)
         wrapped = "#{headers.join('; ')}; #{text}; #{(['end'] * headers.size).join('; ')}"
-        code, line = with_magic_comment(subject, wrapped)
+        code, line = with_magic_comment(subject, wrapped, extra_lines)
         TOPLEVEL_BINDING.eval(code, subject.file, line)
       end
 
-      def with_magic_comment(subject, code)
-        return [code, subject.start_line] unless subject.frozen_literals
+      # The first line of code sits extra_lines above the def, so the def
+      # keeps its file line numbers.
+      def with_magic_comment(subject, code, extra_lines)
+        return [code, subject.start_line - extra_lines] unless subject.frozen_literals
 
-        [FROZEN_HEADER + code, subject.start_line - 1]
+        [FROZEN_HEADER + code, subject.start_line - extra_lines - 1]
       end
 
       # Methods defined with alias/alias_method copy the old body. Callers

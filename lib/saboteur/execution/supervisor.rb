@@ -40,11 +40,33 @@ module Saboteur
 
       # payload: bytes the child wrote to its pipe. stop: nil when the child
       # finished on its own, else :timeout, :memory or :processes.
-      Result = Data.define(:payload, :exit_status, :stopped_by, :detail, :runtime, :leftover_pids)
+      # supervisor_killed: the child had already closed its pipe (delivered
+      # its result) but was still running after POST_EOF_GRACE, so the
+      # supervisor killed it. Its signal exit is then ours, not a failure of
+      # the child. memory_pressure: the process tree was seen growing to at
+      # least half of the memory limit, the evidence that a SIGKILL may be
+      # an out-of-memory kill.
+      Result = Data.define(:payload, :exit_status, :stopped_by, :detail, :runtime, :leftover_pids,
+                           :supervisor_killed, :memory_pressure) do
+        def initialize(supervisor_killed: false, memory_pressure: false, **fields)
+          super
+        end
+
+        # True when the child itself ended unsuccessfully (non-zero exit or
+        # a signal the supervisor did not send).
+        def child_failed?
+          exit_status.is_a?(Process::Status) && !exit_status.success? && !supervisor_killed
+        end
+      end
 
       POLL_INTERVAL = 0.5
       PR_SET_CHILD_SUBREAPER = 36
       TERM_GRACE = 1.0
+      # How long a child that closed its pipe may take to exit by itself
+      # (at_exit handlers, buffered output) before the supervisor kills it.
+      POST_EOF_GRACE = 5.0
+      # Share of the memory limit the tree must reach to count as pressure.
+      MEMORY_PRESSURE_SHARE = 0.5
       REAP_DEADLINE = 5.0
 
       @live = {}
@@ -107,6 +129,7 @@ module Saboteur
         $stdout.flush
         $stderr.flush
         started = monotonic
+        @peak_growth_kb = 0
         supervisor = Process.pid
         pid = fork { child(reader, writer, supervisor, cpu_seconds, depth + 1, &block) }
         writer.close
@@ -175,22 +198,90 @@ module Saboteur
         tree = ProcessTree.new(pid)
         self.class.live[pid] = tree
         own_group(pid)
+        deadline = started + timeout
+        exit_status = nil
+        grace_expired = false
         begin
-          payload, stop, detail = watch(tree, reader, started + timeout, on_tick)
+          payload, stop, detail = watch(tree, reader, deadline, on_tick)
+          # EOF: the child has reported. Keep supervising while it finishes
+          # exiting by itself (same deadline, limits and progress ticks).
+          exit_status, stop, detail, grace_expired = await_exit(tree, pid, deadline, on_tick) if stop.nil?
         ensure
           # Containment holds on every path out of watch: a raising on_tick
           # (progress IO failed) or any other error must not skip the
           # kill/reap, or the child and its tree would run unsupervised
           # until this process exits.
-          exit_status = stop == :timeout ? terminate(pid) : nil
-          leftover_pids = tree.kill_all - [pid]
-          exit_status ||= reap(pid)
-          self.class.live.delete(pid)
-          reap_adopted(leftover_pids)
-          reap_group(pid)
+          exit_status, supervisor_killed, leftover_pids = release(pid, tree, exit_status, stop, grace_expired)
         end
         Result.new(payload: payload, exit_status: exit_status, stopped_by: stop, detail: detail,
-                   runtime: monotonic - started, leftover_pids: leftover_pids)
+                   runtime: monotonic - started, leftover_pids: leftover_pids,
+                   supervisor_killed: supervisor_killed, memory_pressure: memory_pressure?)
+      end
+
+      # Kills and reaps the child and everything it started. Returns
+      # [exit_status, supervisor_killed, leftover_pids].
+      def release(pid, tree, exit_status, stop, grace_expired)
+        exit_status ||= terminate(pid) if stop == :timeout
+        supervisor_killed = false
+        # The grace ran out with the child seemingly alive. What ends it is
+        # only ours to claim if we see it alive: stop it first.
+        exit_status, supervisor_killed = freeze_child(pid) if grace_expired
+        leftover_pids = tree.kill_all - [pid]
+        exit_status ||= reap(pid)
+        self.class.live.delete(pid)
+        reap_adopted(leftover_pids)
+        reap_group(pid)
+        [exit_status, supervisor_killed, leftover_pids]
+      end
+
+      # After EOF, waits for the child to exit by itself while still checking
+      # the deadline, the memory and process limits and calling on_tick.
+      # Returns [exit_status, stop, detail, grace_expired]. exit_status is set
+      # only when the child exited on its own; grace_expired is true when it
+      # was still running after POST_EOF_GRACE.
+      def await_exit(tree, pid, deadline, on_tick)
+        grace_deadline = [monotonic + POST_EOF_GRACE, deadline].min
+        next_poll = monotonic + POLL_INTERVAL
+        loop do
+          status = waitpid(pid)
+          return [status, nil, nil, false] if status
+
+          now = monotonic
+          return [nil, :timeout, "exceeded deadline", false] if now >= deadline
+          return [nil, nil, nil, true] if now >= grace_deadline
+
+          on_tick&.call
+          if now >= next_poll
+            stop = over_limit(tree)
+            return [nil, *stop, false] if stop
+
+            next_poll = now + POLL_INTERVAL
+          end
+          sleep 0.01
+        end
+      end
+
+      # SIGSTOP cannot be caught, ignored or raced by a signal handler. A
+      # child that reports "stopped" was alive when we acted, so the SIGKILL
+      # that follows is ours. A child that turns out to have ended by itself
+      # keeps its own status. Returns [exit_status or nil, supervisor_killed].
+      def freeze_child(pid)
+        signal("STOP", pid)
+        deadline = monotonic + TERM_GRACE
+        until monotonic > deadline
+          _, status = Process.waitpid2(pid, Process::WNOHANG | Process::WUNTRACED)
+          return [nil, true] if status&.stopped?
+          return [status, false] if status
+
+          sleep 0.01
+        end
+        [nil, false]
+      rescue Errno::ECHILD
+        [:reaped, false]
+      end
+
+      def memory_pressure?
+        @peak_growth_kb >= @limits.max_memory_mb * 1024 * MEMORY_PRESSURE_SHARE
       end
 
       # Reads until EOF, polling the tree's size and memory. Returns
@@ -223,6 +314,7 @@ module Saboteur
 
       def over_limit(tree)
         count, growth_kb = tree.usage(baseline_rss_kb)
+        @peak_growth_kb = [@peak_growth_kb, growth_kb].max
         if growth_kb > @limits.max_memory_mb * 1024
           [:memory, "process tree grew by #{growth_kb / 1024} MB (limit #{@limits.max_memory_mb} MB)"]
         elsif count > @limits.max_processes
