@@ -13,38 +13,44 @@ RSpec.describe Saboteur::Execution::Sandbox do
     expect(described_class.linux?).to be(false)
   end
 
-  it "probes the kernel ABI with the create-ruleset version flag" do
-    syscall = double("syscall", call: 2)
-    allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
-    reset_abi_memo
-    expect(described_class.abi_version).to eq(2)
-    expect(syscall).to have_received(:call).with(444, 0, 0, 1, 0)
-    reset_abi_memo
-  end
+  # The probe only runs on Linux (linux? gate); stub the platform so these
+  # examples exercise it on macOS and BSD too.
+  context "probing the kernel as on Linux" do
+    before { stub_const("RUBY_PLATFORM", "x86_64-linux") }
 
-  it "reports ABI 0 when the kernel has no Landlock (ENOSYS)" do
-    allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
-    allow(described_class).to receive(:last_errno).and_return(Errno::ENOSYS::Errno)
-    reset_abi_memo
-    expect(described_class.abi_version).to eq(0)
-    expect(described_class.available?).to be(false)
-    reset_abi_memo
-  end
+    it "probes the kernel ABI with the create-ruleset version flag" do
+      syscall = double("syscall", call: 2)
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
+      reset_abi_memo
+      expect(described_class.abi_version).to eq(2)
+      expect(syscall).to have_received(:call).with(444, 0, 0, 1, 0)
+      reset_abi_memo
+    end
 
-  it "reports ABI 0 when the kernel has Landlock disabled (EOPNOTSUPP)" do
-    allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
-    allow(described_class).to receive(:last_errno).and_return(Errno::EOPNOTSUPP::Errno)
-    reset_abi_memo
-    expect(described_class.abi_version).to eq(0)
-    reset_abi_memo
-  end
+    it "reports ABI 0 when the kernel has no Landlock (ENOSYS)" do
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
+      allow(described_class).to receive(:last_errno).and_return(Errno::ENOSYS::Errno)
+      reset_abi_memo
+      expect(described_class.abi_version).to eq(0)
+      expect(described_class.available?).to be(false)
+      reset_abi_memo
+    end
 
-  it "fails closed when the probe errors for any other reason (EPERM under seccomp)" do
-    allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
-    allow(described_class).to receive(:last_errno).and_return(Errno::EPERM::Errno)
-    reset_abi_memo
-    expect { described_class.abi_version }.to raise_error(SystemCallError, /landlock_create_ruleset probe/)
-    reset_abi_memo
+    it "reports ABI 0 when the kernel has Landlock disabled (EOPNOTSUPP)" do
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
+      allow(described_class).to receive(:last_errno).and_return(Errno::EOPNOTSUPP::Errno)
+      reset_abi_memo
+      expect(described_class.abi_version).to eq(0)
+      reset_abi_memo
+    end
+
+    it "fails closed when the probe errors for any other reason (EPERM under seccomp)" do
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
+      allow(described_class).to receive(:last_errno).and_return(Errno::EPERM::Errno)
+      reset_abi_memo
+      expect { described_class.abi_version }.to raise_error(SystemCallError, /landlock_create_ruleset probe/)
+      reset_abi_memo
+    end
   end
 
   it "reads errno as a native int" do
@@ -263,12 +269,16 @@ RSpec.describe Saboteur::Execution::Sandbox do
     end
   end
 
-  it "reports ABI 0 rather than crash when no libc can be found" do
-    reset_abi_memo
-    allow(described_class::LibC).to receive(:syscall_fn).and_raise(Fiddle::DLError)
-    expect(described_class.abi_version).to eq(0)
-    expect(described_class.available?).to be(false)
-    reset_abi_memo
+  context "without a usable libc, as on Linux" do
+    before { stub_const("RUBY_PLATFORM", "x86_64-linux") }
+
+    it "reports ABI 0 rather than crash when no libc can be found" do
+      reset_abi_memo
+      allow(described_class::LibC).to receive(:syscall_fn).and_raise(Fiddle::DLError)
+      expect(described_class.abi_version).to eq(0)
+      expect(described_class.available?).to be(false)
+      reset_abi_memo
+    end
   end
 
   it "requires without touching libc on a non-Linux platform" do
