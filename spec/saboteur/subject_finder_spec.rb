@@ -36,7 +36,7 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(ids("class A\n  if true\n    def x; end\n  end\nend\n")).to eq(["A#x"])
   end
 
-  it "skips top-level defs, nested defs, defs in blocks and def obj.x" do
+  it "does not find top-level defs, nested defs and def obj.x, and marks defs in blocks as skipped" do
     source = <<~RUBY
       def top; end
       class A
@@ -56,7 +56,17 @@ RSpec.describe Saboteur::SubjectFinder do
         end
       end
     RUBY
-    expect(ids(source)).to eq(["A#outer"])
+    found = subjects_in(source)
+    expect(found.map(&:id)).to eq(["A#outer", "A#in_block", "A::Klass#anon"])
+    expect(found.map(&:skip_reason)).to eq([nil, "defined inside a block", "defined inside a block"])
+  end
+
+  it "names a def in an anonymous block after the block, not after the file" do
+    source = "class A\n  included do\n    def in_block; end\n  end\nend\n" \
+             "Cart = Struct.new(:a) do\n  def total = a\nend\n"
+    found = subjects_in(source)
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["A#in_block", "defined inside a block"], ["Cart#total", "defined inside a block"]])
   end
 
   it "records byte offsets and lines of the whole def" do
@@ -113,5 +123,20 @@ RSpec.describe Saboteur::SubjectFinder do
       target = subject_named("class SigReject\n  #{call}\n  def m\n  end\nend\n", "SigReject#m")
       expect(target.sig_source).to be_nil
     end
+  end
+
+  it "names a def in a top-level block with a placeholder owner" do
+    found = subjects_in("included do\n  def hook; end\nend\n")
+    expect(found.map(&:id)).to eq(["(anonymous block)#hook"])
+    expect(found.first.skip_reason).to eq("defined inside a block")
+  end
+
+  it "finds a block that is an argument of a constant's value" do
+    found = subjects_in("class A\n  BOX = wrap(Class.new do\n    def inside; end\n  end)\nend\n")
+    expect(found.map { |subject| [subject.id, subject.skip_reason] }).to eq([["A#inside", "defined inside a block"]])
+  end
+
+  it "keeps walking a constant assigned to a plain value" do
+    expect(ids("class A\n  LIMIT = 3\n  def m; end\nend\n")).to eq(["A#m"])
   end
 end
