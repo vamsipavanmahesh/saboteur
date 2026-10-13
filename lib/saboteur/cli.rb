@@ -7,11 +7,13 @@ require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
+require_relative "cli/exit_status"
 require_relative "preview"
 
 module Saboteur
   class CLI
     include Baseline::Command
+    include ExitStatus
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -152,7 +154,7 @@ module Saboteur
 
     def text_run(report)
       @err.puts
-      Reporter::Terminal.new(@out).call(report)
+      Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto).call(report)
       Reporter::Replay.new(@out).call(report) if options[:id]
       code = exit_code(report)
       # The JSON carries the exit cause an outer harness trusts, so it is
@@ -238,75 +240,6 @@ module Saboteur
       @out.puts "HTML report: #{path}" if announce
     end
 
-    def exit_code(report)
-      return EXIT_TOOL if mostly_errored?(report)
-
-      return EXIT_TOOL if incomplete_under_threshold?(report)
-
-      failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
-    end
-
-    def mostly_errored?(report)
-      return false unless report.majority_errored?
-
-      executed = report.executed
-      errors = executed.count { |result| result.status == :error }
-      @err.puts("saboteur: #{errors} of #{executed.size} mutants errored, so the run tested almost nothing; " \
-                "fix the errors and run again")
-      true
-    end
-
-    # Agent mode: the recorded cause is the payload's own verdict, so the
-    # JSON and the process exit classify the run the same way. An
-    # incomplete run that mostly errored keeps its distinct cause, so the
-    # harness rule means the same thing in both modes.
-    def agent_exit_cause(report, payload)
-      case payload[:verdict]
-      when "clean" then "ok"
-      when "survivors" then "survivors"
-      else report.majority_errored? ? "errorMajority" : "incomplete"
-      end
-    end
-
-    # Why the run exits the way it does, recorded in the JSON report so an
-    # outer harness can tell "most mutants errored" from the other exit 3s.
-    def exit_cause(report, code)
-      case code
-      when EXIT_OK then "ok"
-      when EXIT_SURVIVORS then config["threshold"].nil? ? "survivors" : "belowThreshold"
-      else report.majority_errored? ? "errorMajority" : "incompleteUnderThreshold"
-      end
-    end
-
-    # With --threshold the score decides; without it any unignored survivor does.
-    def failed_quality_gate?(report)
-      threshold = config["threshold"]
-      return report.unignored_survivors.any? if threshold.nil?
-
-      score = report.score
-      return missing_score_reported? if score.nil?
-
-      score * 100 < threshold
-    end
-
-    # A gate that cannot measure a score must not pass: CI would go green
-    # on a run that tested nothing.
-    def missing_score_reported?
-      @err.puts("saboteur: no mutant was tested, so there is no score to compare with --threshold")
-      true
-    end
-
-    # Errors and resource limits are outside the score. With a threshold they
-    # make the run incomplete, so the score alone cannot pass it.
-    def incomplete_under_threshold?(report)
-      return false if config["threshold"].nil?
-
-      count = report.counts.values_at(:error, :resource_limit).sum
-      @err.puts("saboteur: #{count} mutant(s) errored or hit a resource limit, so the score is incomplete") if
-        count.positive?
-      count.positive?
-    end
-
     # Positional arguments name the files (or directories) to mutate. They
     # replace the configured include and exclude patterns. Each must exist,
     # so a typo is an error and not a run over zero subjects.
@@ -383,6 +316,7 @@ module Saboteur
       opts.on("--allow-hazardous", "Also run mutants inside destructive calls (rm_rf, system, ...)") do
         set(:allow_hazardous, true)
       end
+      opts.on("--fail-fast", "Stop after the first subject with a survivor (needs --jobs 1)") { set(:fail_fast, true) }
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
@@ -395,6 +329,10 @@ module Saboteur
       opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
                                                  "strict exit codes") { |v| @format = v }
       opts.on("--agent", "Same as --format agent") { @format = "agent" }
+      opts.on("--verbose", "Text report: also print score split, timings and kill causes") { @verbose = true }
+      opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
+        @color = v ? :always : :never
+      end
     end
 
     def define_explicit_file_options(opts)
