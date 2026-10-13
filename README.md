@@ -363,6 +363,7 @@ Saboteur.configure do |c|
   c.include = ["lib/**/*.rb"]
   c.exclude = ["lib/my_gem/version.rb"]
   c.require = []                 # boot files, e.g. ./config/environment
+  c.whole_file = []              # subject ids or globs to re-evaluate as a whole file (see below)
   c.reeval = "nesting"           # or "class_eval"; see docs/design.md 6.1
   c.timeout_factor = 3           # per-mutant deadline = factor x its tests' recorded time
   c.timeout_min = 5
@@ -513,6 +514,17 @@ Methods wrapped by `sorbet-runtime` signatures are checked rather than skipped
 as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
 changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
 preserve the loaded method semantics.
+
+### Whole-file re-evaluation (opt-in)
+
+Surgical re-evaluation refuses a method whose owner it cannot resolve or whose
+loaded definition is not the one in the file, for example methods inside
+`Data.define` or `Struct.new` blocks. The skip reason ends with a hint. List such
+subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
+`"Geometry::*"`) and the child evaluates the whole mutated file instead. The
+file's top-level code then runs again in every child: load-time side effects
+repeat and constants it assigns are rebuilt, with redefinition warnings
+silenced. It is off by default, and the cache key includes the list.
 
 ### Skipped subjects and the mutant cap
 
