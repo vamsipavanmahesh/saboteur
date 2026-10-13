@@ -35,7 +35,7 @@ RSpec.describe Saboteur::Baseline::Evidence do
   end
 
   it "refuses forged complete flags with omitted, undiscovered, invalid or unexecuted work" do
-    %w[omissions discovery_failures].each do |field|
+    %w[omissions discovery_failures inline_suppressions].each do |field|
       expect do
         described_class.new(document.merge(field => [{}]))
       end.to raise_error(Saboteur::ConfigError,
