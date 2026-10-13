@@ -179,6 +179,21 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(ops).not_to include("pair_removal")
     end
 
+    it "composes chain removal into the builtin set" do
+      expect(texts("    a.b.c", "chain_removal")).to eq(["a.c"])
+    end
+
+    it "wires the builtin arid list into chain removal" do
+      expect(texts("    logger.info.debug(a)\n    a", "chain_removal")).to be_empty
+    end
+
+    it "wires custom arid patterns into chain removal" do
+      source = described_class.new(arid: ['\Atrack\b'])
+      subject = subjects_in("class K\n  def m(a)\n    track.event.name\n    a\n  end\nend\n").first
+      ops = mutated_texts(subject, source:).map(&:first)
+      expect(ops).not_to include("chain_removal")
+    end
+
     it "wires custom arid patterns into endpoint replacement" do
       subject = subjects_in("class K\n  def m(a)\n    track(a.first)\n    a\n  end\nend\n").first
       expect(mutated_texts(subject).map(&:first)).to include("endpoint_replacement")
