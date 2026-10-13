@@ -281,3 +281,66 @@ RSpec.describe Saboteur::Execution::Runner, "replacement execution" do
     end
   end
 end
+
+RSpec.describe "Runner sandbox wiring (#152)" do
+  let(:tmpdir) { Dir.mktmpdir("saboteur-runner-") }
+  let(:subject_stub) { Struct.new(:id).new("Stub#run") }
+
+  after { FileUtils.rm_rf(tmpdir) }
+
+  def passing_integration(&side_effect)
+    Class.new do
+      define_method(:run) do |ids|
+        side_effect&.call
+        Saboteur::Integration::RunResult.new(runtime: 0.01, passed: true, failed_ids: [], executed_ids: ids)
+      end
+    end.new
+  end
+
+  def build_runner(sandbox:, integration: passing_integration)
+    reevaluator = ->(_subject, _text, prefix: nil) {}
+    Saboteur::Execution::Runner.new(integration: integration, reevaluator: reevaluator,
+                                    log_dir: tmpdir, sandbox: sandbox)
+  end
+
+  it "runs the sandbox hook in the child before the tests" do
+    order = File.join(tmpdir, "order")
+    integration = passing_integration { File.open(order, "a") { |f| f.puts("tests") } }
+    sandbox = -> { File.open(order, "a") { |f| f.puts("sandbox") } }
+    outcome = build_runner(sandbox: sandbox, integration: integration)
+              .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    expect(outcome.status).to eq(:survived)
+    expect(File.read(order).split).to eq(%w[sandbox tests])
+  end
+
+  it "reports an error rather than run when the sandbox cannot be applied" do
+    outcome = build_runner(sandbox: -> { raise SystemCallError.new("landlock_restrict_self", 13) })
+              .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    expect(outcome.status).to eq(:error)
+    expect(outcome.message).to include("landlock_restrict_self")
+  end
+
+  it "denies a mutant's writes to the project tree while logs and tmp stay writable" do
+    skip "Landlock unavailable" unless Saboteur::Execution::Sandbox.available?
+    project = File.expand_path("../../../tmp/saboteur-runner-project", __dir__)
+    FileUtils.mkdir_p(File.join(project, "tmp"))
+    marker = File.join(tmpdir, "outcome")
+    integration = passing_integration do
+      result = begin
+        File.write(File.join(project, "evil.rb"), "x")
+        :writable
+      rescue SystemCallError
+        :denied
+      end
+      File.write(marker, result.to_s)
+    end
+    sandbox = -> { Saboteur::Execution::Sandbox.restrict!(writable: [File.join(project, "tmp"), tmpdir]) }
+    outcome = build_runner(sandbox: sandbox, integration: integration)
+              .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    expect(outcome.status).to eq(:survived)
+    expect(File.read(marker)).to eq("denied")
+    expect(File.exist?(File.join(project, "evil.rb"))).to be(false)
+  ensure
+    FileUtils.rm_rf(project)
+  end
+end
