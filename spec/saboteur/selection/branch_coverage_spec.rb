@@ -20,6 +20,11 @@ RSpec.describe Saboteur::Selection::CoverageMap, "branch selection" do
     expect(map.tests_for_branches(target, [edit("20")])).to eq([])
   end
 
+  it "does not call a multi-line arm untaken when tests ran lines inside it" do
+    arms[[2, 2, 4, 5]] = []
+    expect(map.tests_for_branches(target, [edit("10")])).to eq(["yes"])
+  end
+
   it "leaves condition and whole-expression changes to normal selection" do
     expect(map.tests_for_branches(target, [edit("x ?")])).to be_nil
     expect(map.tests_for_branches(target, [edit("x ? 10 : 20")])).to be_nil
