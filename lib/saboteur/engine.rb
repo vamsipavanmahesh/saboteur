@@ -342,6 +342,7 @@ end
 require_relative "engine/diagnostics"
 require_relative "engine/boot"
 require_relative "engine/subject_selection"
+require_relative "engine/unchanged_syntax"
 require_relative "engine/suite_files"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
