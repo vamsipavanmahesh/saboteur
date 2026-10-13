@@ -42,9 +42,9 @@ module Saboteur
     end
 
     def walk(node, nesting, out, previous: nil, **ctx)
+      return if node.nil?
+
       case node
-      when nil
-        nil
       when Prism::BlockNode, Prism::LambdaNode
         walk(node.body, nesting, out, **ctx, in_block: true)
       when Prism::ConstantWriteNode
