@@ -12,7 +12,7 @@ module Saboteur
     class RunFingerprint
       FORMAT_VERSION = 1
       MANIFESTS = %w[Gemfile gems.rb Gemfile.lock gems.locked .rspec .rspec-local].freeze
-      LOCATION_SETTINGS = %w[cache_dir json_report html_report].freeze
+      LOCATION_SETTINGS = %w[cache_dir json_report html_report score_history].freeze
       ENTRY_KINDS = %w[ruby manifest boot hook source_plugin extra data].freeze
       EXCLUDED_DIRECTORIES = %w[.git vendor node_modules].freeze
       Entry = Data.define(:path, :kind, :state, :sha256, :required)
@@ -183,8 +183,8 @@ module Saboteur
                 DataInputs.files(@root, extra: @config["fingerprint_extra"])
         # Compare physical boundaries without changing declared inventory identities.
         paths = paths.map { |path| canonical_path(path) }.uniq
-        outputs = %w[json_report html_report].filter_map { |key| @config.fetch(key) }
-                                             .map { |path| canonical_path(path) }
+        outputs = %w[json_report html_report score_history].filter_map { |key| @config.fetch(key) }
+                                                           .map { |path| canonical_path(path) }
         issues = outputs.filter_map do |path|
           if path.end_with?(".rb") || paths.include?(path) || File.directory?(path) || data_input?(path)
             "output overlaps input: #{display_path(path)}"
@@ -270,7 +270,7 @@ module Saboteur
 
       def excluded?(path, name)
         EXCLUDED_DIRECTORIES.include?(name) || path == canonical_path(@config["cache_dir"]) ||
-          %w[json_report html_report].filter_map { |key| @config.fetch(key) }.any? do |output|
+          %w[json_report html_report score_history].filter_map { |key| @config.fetch(key) }.any? do |output|
             path == canonical_path(output)
           end
       end
