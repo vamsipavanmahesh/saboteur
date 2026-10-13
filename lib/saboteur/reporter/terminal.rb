@@ -1,26 +1,33 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "palette"
+require_relative "score_table"
+require_relative "survivor_list"
+
 module Saboteur
   module Reporter
-    # Plain-text summary: counts per status, score, timings, skip reasons,
-    # errors, then a unified diff for each survivor.
+    # Plain-text report: survivors first (grouped by file, method and line),
+    # then errors and notes, then a short summary last so it stays on screen.
+    # Debug statistics (score split, timings, kill causes) need verbose.
     class Terminal
       MAX_ERRORS = 10
-      MAX_PASSING_TESTS = 5
-      MAX_CHANGED_LINES = 3
+      MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
 
-      def initialize(out)
+      def initialize(out, verbose: false, color: :auto)
         @out = out
+        @verbose = verbose
+        @palette = Palette.for(out, mode: color)
+        @score_table = ScoreTable.new(out, @palette)
       end
 
       def call(report)
-        summary(report)
+        survivors(report)
+        errors(report)
         skipped_subjects(report)
         outside_the_score(report)
         warnings(report)
-        errors(report)
-        survivors(report)
+        summary(report)
       end
 
       private
@@ -31,6 +38,8 @@ module Saboteur
                   "wall #{format('%.2f', report.wall_time)} s#{seed}"
         @out.puts status_line(report)
         details(report)
+        @score_table.call(report)
+        @out.puts @score_table.legend
       end
 
       def status_line(report)
@@ -38,7 +47,9 @@ module Saboteur
         survived = "survived #{c[:survived]}"
         ignored = report.survivors.size - report.unignored_survivors.size
         survived += " (#{ignored} ignored)" if ignored.positive?
-        line = "killed #{c[:killed]}  #{survived}  timeout #{c[:timeout]}  " \
+        line = "#{@palette.paint(:green,
+                                 "killed #{c[:killed]}")}  #{@palette.paint(:red,
+                                                                            survived)}  timeout #{c[:timeout]}  " \
                "resource limit #{c[:resource_limit]}  error #{c[:error]}  skipped #{c[:skipped]}"
         line += "  ran at load #{c[:ran_at_load]}" if c[:ran_at_load].positive?
         line += "  unreachable #{c[:unreachable]}" if c[:unreachable].positive?
@@ -47,17 +58,24 @@ module Saboteur
 
       def details(report)
         breakdown = report.score_breakdown
-        @out.puts "score #{percent(breakdown.value)}#{score_split(breakdown)} " \
-                  "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded"
-        whole_body_score(report)
-        mean = report.mean_runtime
-        @out.puts "mean time per executed mutant #{format('%.3f', mean)} s" if mean
-        @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
-          report.invalid_mutations.positive?
+        @out.puts "score #{percent(breakdown.value)}" \
+                  "#{if @verbose
+                       "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
+                         'errors, resource limits and skips excluded'
+                     end}"
         report.skip_reasons.each { |reason, count| @out.puts "skipped: #{reason}: #{count}" }
         reused = report.results.count(&:reused?)
         @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
           reused.positive?
+        @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
+          report.invalid_mutations.positive?
+        debug_details(report) if @verbose
+      end
+
+      def debug_details(report)
+        whole_body_score(report)
+        mean = report.mean_runtime
+        @out.puts "mean time per executed mutant #{format('%.3f', mean)} s" if mean
         @out.puts "kills rejected by unchanged-method check: #{report.rejected_kills}"
         kill_causes(report)
       end
@@ -158,51 +176,8 @@ module Saboteur
       end
 
       def survivors(report)
-        return if report.survivors.empty?
-
-        @out.puts "\nSurvivors:"
-        shown(report).each do |result, hidden|
-          location = "#{relative(result.subject.file, report.root)}:#{result.subject.start_line}"
-          @out.puts "\n#{result.subject.id} #{result.mutation.operator} #{result.digest} #{location}"
-          changed_lines(report, result)
-          @out.puts "ignored: #{result.ignored}" if result.ignored
-          @out.puts result.diff(root: report.root)
-          passing_tests(result)
-          @out.puts "#{hidden} more survivor#{'s' if hidden > 1} on this line in the JSON report" if hidden.positive?
-        end
-      end
-
-      # The tests that ran with the mutant applied and still passed: the
-      # missing assertion belongs in one of them. They are listed likeliest
-      # killers first, the order the run used. Line coverage can overstate which
-      # tests exercise the line, so the list is a lead, not proof.
-      def passing_tests(result)
-        tests = result.covered_by
-        return if tests.empty?
-
-        @out.puts "#{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and #{passed_phrase(result)} " \
-                  "(the missing check may belong in one of them):"
-        tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "  #{name}" }
-        more = tests.size - MAX_PASSING_TESTS
-        @out.puts "  ... #{more} more in the JSON report (coveredBy)" if more.positive?
-      end
-
-      # A reused verdict was not run again: its tests passed in the earlier run.
-      def passed_phrase(result)
-        result.reused? ? "passed in an earlier run (--incremental)" : "still passed"
-      end
-
-      # In diff mode: the changed lines this mutant touches. The location above
-      # is where the mutated statement starts, which can be a line or two above
-      # the line that changed.
-      def changed_lines(report, result)
-        lines = report.changed_lines_for(result)
-        return if lines.empty?
-
-        path = relative(result.subject.file, report.root)
-        shown = lines.first(MAX_CHANGED_LINES).map { |line| "#{path}:#{line}" }.join(", ")
-        more = lines.size - MAX_CHANGED_LINES
-        @out.puts "changed #{lines.one? ? 'line' : 'lines'}: #{shown}#{" (+#{more} more)" if more.positive?}"
+        SurvivorList.new(@out, @palette).call(report, shown(report))
+        @out.puts unless report.survivors.empty?
       end
 
       # [[result, how many more on the same line]]. In review mode survivors
