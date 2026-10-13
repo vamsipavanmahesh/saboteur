@@ -233,7 +233,19 @@ configured project. To scope the specs as well, pass them with `--test` and no
 source operands: `bundle exec saboteur run --since origin/main --test spec/billing_spec.rb`.
 With `--since` and no `--test`, the run warns before it starts that the two baseline passes
 run the loaded suite (a cold coverage cache adds one more pass), and how to
-scope them. Keep whole-project runs on main: diff mode does not check every method affected by a
+scope them.
+
+`--since origin/main --guess-tests` does that scoping for you: it picks the spec
+named after each changed source file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/`
+files and `spec/lib/` work too) and runs only those for the baseline passes, the
+coverage pass and every mutant, as `--test` would. It is a naming guess, not
+coverage: a spec that reaches the changed file only through another file does not
+run: a mutant only that spec would kill can survive, and a line that none of the
+guessed specs executes is reported as NoCoverage. The agent JSON records the guessed specs as its
+`tests`, so its follow-up commands keep the same `--test` scope (with `--no-guess-tests`, so a `guess_tests`
+in the config file cannot conflict) instead of widening to the whole suite. If any changed file has no such
+spec, or nothing changed, the whole suite runs as before and the run says so.
+`--guess-tests` needs `--since` and cannot be combined with `--test`. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 

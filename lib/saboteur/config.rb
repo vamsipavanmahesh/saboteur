@@ -50,6 +50,7 @@ module Saboteur
       "incremental" => false,
       "allow_focus" => false,
       "fail_fast" => false,
+      "guess_tests" => false,
       "matrix" => false,
       "seed" => 1,
       "tests" => [],
@@ -167,6 +168,7 @@ module Saboteur
     def validate_modes!
       validate_fail_fast!
       validate_matrix!
+      validate_guess_tests!
       validate_gates!
     end
 
@@ -193,6 +195,13 @@ module Saboteur
       return if threshold.nil? || THRESHOLD_RANGE.cover?(threshold)
 
       raise ConfigError, "threshold must be between 0 and 100"
+    end
+
+    def validate_guess_tests!
+      return unless self["guess_tests"]
+
+      raise ConfigError, "guess_tests needs since" unless self["since"]
+      raise ConfigError, "guess_tests cannot be combined with tests" if self["tests"].any?
     end
 
     def validate_reeval!

@@ -205,8 +205,9 @@ module Saboteur
     # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
     def agent_run(arguments)
       tree = WorkingTree.new(config.root, ignored: config.output_paths).state
-      report = stdout_on_stderr { Engine.new(config, **arguments).call }
-      payload = Reporter::Agent.call(report, agent_provenance(report, tree))
+      engine = Engine.new(config, **arguments)
+      report = stdout_on_stderr { engine.call }
+      payload = Reporter::Agent.call(report, agent_provenance(report, tree, engine))
       rendered = Reporter::Agent.render(payload)
       # Same publish order as text_run: the JSON is the completion
       # evidence, so it is written only after every other fallible stage,
@@ -228,11 +229,12 @@ module Saboteur
       saved&.close
     end
 
-    def agent_provenance(report, tree)
+    def agent_provenance(report, tree, engine)
       Reporter::Agent::Provenance.new(
         ref: config["since"], seed: report.seed, head: tree.head, working_tree: tree.label,
         changed_files: tree.changed_files, mode: agent_mode, json_report: config.path("json_report"),
-        subjects: Array(config["subjects"]), tests: Array(options[:tests]), sources: @sources || [],
+        subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || options[:tests]),
+        sources: @sources || [],
         config_path: options[:config], digest: options[:id], cache: config["cache"],
         incremental: config["incremental"], settings: options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
       )
@@ -342,6 +344,10 @@ module Saboteur
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
+      end
+      opts.on("--[no-]guess-tests", "With --since: run only the specs named after the changed files " \
+                                    "(lib/a.rb -> spec/a_spec.rb); the whole suite if any has none") do |v|
+        set(:guess_tests, v)
       end
     end
 

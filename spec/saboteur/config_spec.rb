@@ -48,6 +48,17 @@ RSpec.describe Saboteur::Config do
     end
   end
 
+  it "needs since for guess_tests and refuses it with tests" do
+    expect(described_class.new({}, root: @root)["guess_tests"]).to be(false)
+    expect(described_class.new({ "guess_tests" => true, "since" => "main" }, root: @root)["guess_tests"]).to be(true)
+    expect { described_class.new({ "guess_tests" => true }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /guess_tests needs since/)
+    expect do
+      described_class.new({ "guess_tests" => true, "since" => "main", "tests" => ["spec/a_spec.rb"] }, root: @root)
+    end
+      .to raise_error(Saboteur::ConfigError, /guess_tests cannot be combined with tests/)
+  end
+
   it "rejects a threshold that is not a number" do
     expect { described_class.new({ "threshold" => "high" }, root: @root) }
       .to raise_error(Saboteur::ConfigError, /invalid config value/)
