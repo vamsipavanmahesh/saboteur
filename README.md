@@ -178,7 +178,9 @@ A stray `fit`, `fdescribe` or `:focus` example, with `filter_run_when_matching :
 every other example. The baseline stays green and the score would cover only the focused ones, so
 saboteur exits 2 and names the focused examples. Remove the focus, or pass `--allow-focus` (config
 `c.allow_focus = true`) to run the narrowed suite. Filters you name in `rspec_args` or `.rspec`, such
-as `--tag slow`, and example selectors such as `--test spec/a_spec.rb:12`, are on purpose and are not refused.
+as `--tag slow`, and example selectors such as `--test spec/a_spec.rb:12`, are on purpose and are not refused. The
+check compares what RSpec runs with what it would run without the stray focus, so examples RSpec leaves out anyway
+(`:if` / `:unless`, `--tag`, exclusions, selectors in another file) never count as hidden.
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
