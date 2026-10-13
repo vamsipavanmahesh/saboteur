@@ -7,6 +7,8 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- [docs/minitest.md](docs/minitest.md) records that Minitest is unsupported and how much
+  of the engine depends on RSpec (#200).
 - [docs/scores.md](docs/scores.md) defines the covered score, the overall score a
   Stryker dashboard shows, assertion and crash kills, and what makes a run
   incomplete (#198).
