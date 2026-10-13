@@ -7,6 +7,12 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Safety:** mutant children now run under a Landlock sandbox on Linux
+  5.13+ (#152): the project tree is read-only for the child except `tmp/`,
+  the cache dir and the system temp dir. This is the third layer behind the
+  hazard guard and the canary, and the first one that stops a destructive
+  call before it acts. On older kernels the run notes once that children
+  run with the guard and canary only. Configure with `c.sandbox`.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
