@@ -37,6 +37,8 @@ All notable changes are documented here. The format follows
   with exit 3 when a file vanishes: detection after the damage, per method,
   with no restoration. Configure the list via `c.hazard`; `--allow-hazardous`
   opts out.
+- Methods defined inside blocks (`Class.new do`, `Data.define do`, `included do`) are listed as
+  skipped ("defined inside a block") instead of being silently absent. They are not mutated yet. (#114)
 - Endless defs (`def x = ...`) are no longer skipped as "no coverage": the
   coverage map now also records per-test method calls, which is how Ruby
   reports endless-def bodies. A whole-suite build that records neither a line
