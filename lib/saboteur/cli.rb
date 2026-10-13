@@ -8,10 +8,12 @@ require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
 require_relative "preview"
+require_relative "cli_preview"
 
 module Saboteur
   class CLI
     include Baseline::Command
+    include CLIPreview
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -349,16 +351,6 @@ module Saboteur
       options.except(:config, :id, :list_operators, :dry_run)
     end
 
-    def preview
-      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON" if agent?
-      raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
-
-      return MutationSource::OperatorRegistry.list(@out) || EXIT_OK if options[:list_operators]
-
-      Preview.new(config, out: @out, err: @err).call
-      EXIT_OK
-    end
-
     def define_selection_options(opts)
       opts.on("--operators NAMES", Array, "Choose operator names or tiers (core, extended, all)") do |v|
         set(:operators, v)
@@ -387,14 +379,6 @@ module Saboteur
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
       end
-    end
-
-    def define_output_options(opts)
-      opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
-      opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
-      opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
-                                                 "strict exit codes") { |v| @format = v }
-      opts.on("--agent", "Same as --format agent") { @format = "agent" }
     end
 
     def define_explicit_file_options(opts)
