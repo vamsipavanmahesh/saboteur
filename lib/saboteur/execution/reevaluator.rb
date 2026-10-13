@@ -14,10 +14,10 @@ module Saboteur
     #
     # A subject named in whole_file skips both: the child evaluates the whole
     # file with the mutated method spliced in, the way mutineer does. That is
-    # the way in for methods surgical re-evaluation cannot reach (Data.define
-    # or Struct.new blocks, unknown wrappers), at a price: the file's top-level
-    # code runs again in the child, so load-time side effects repeat and
-    # constants it assigns are rebuilt.
+    # the way in for methods surgical re-evaluation refuses, at a price: the
+    # file's top-level code runs again in the child, so load-time side effects
+    # repeat and constants it assigns are rebuilt. It reaches only methods
+    # SubjectFinder already finds.
     #
     # Both keep the original file and line numbers, carry a frozen_string_literal
     # magic comment, and restore the method's visibility afterwards.
@@ -30,6 +30,23 @@ module Saboteur
 
         @strategy = strategy.to_s
         @whole_file = whole_file
+      end
+
+      # Where the method the child ended up with is defined, as "file:line",
+      # when that is not the subject's own def: a later definition in the same
+      # file replaced it (or none is left), so the mutant could never run.
+      # nil when the subject is not whole-file, or its def is the one in place.
+      def replaced_definition(subject)
+        return nil unless whole_file?(subject)
+
+        owner = resolve_owner(subject)
+        target = subject.singleton ? owner.singleton_class : owner
+        file, line = target.instance_method(subject.name).source_location
+        return nil if file == subject.file && line == subject.start_line
+
+        file ? "#{file}:#{line}" : "no Ruby definition"
+      rescue StandardError
+        "no definition"
       end
 
       # True when the subject's id matches a whole_file entry (exact or a
@@ -119,7 +136,7 @@ module Saboteur
       # evaluated at top level under the file's own name and first line.
       # Redefinition warnings are expected and silenced.
       def eval_whole_file(subject, text)
-        source = subject.file_source
+        source = subject.file_source.dup.force_encoding(Encoding::UTF_8)
         spliced = source.byteslice(0, subject.start_byte) + text + source.byteslice(subject.end_byte..)
         verbose = $VERBOSE
         $VERBOSE = nil
