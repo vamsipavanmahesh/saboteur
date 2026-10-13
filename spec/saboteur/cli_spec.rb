@@ -358,6 +358,13 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(Saboteur::Config).to have_received(:load).with(hash_including(path: "x.yml"))
   end
 
+  it "parses --guess-tests" do
+    command = cli("run", "--since", "main", "--guess-tests")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(guess_tests: true)
+  end
+
   it "describes --config with its default in both parsers" do
     cli = cli("run")
     [cli.parser, cli.doctor_parser].each do |parser|
