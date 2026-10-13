@@ -171,9 +171,9 @@ module Saboteur
     def pattern_coverage_lines(child, edit, case_line = nil)
       return nil unless child
 
-      case_line = child.start_line if child.is_a?(Prism::CaseMatchNode)
+      case_line = child.location.start_line if child.is_a?(Prism::CaseMatchNode)
       if child.is_a?(Prism::InNode) && contains_edit?(child.pattern, edit)
-        return [case_line, child.start_line, child.statements&.start_line].compact.uniq
+        return [case_line, child.location.start_line, child.statements&.location&.start_line].compact.uniq
       end
 
       child.compact_child_nodes.each do |nested|
