@@ -18,12 +18,24 @@ module Saboteur
         summary(report)
         skipped_subjects(report)
         outside_the_score(report)
+        inline_suppressions(report)
         warnings(report)
         errors(report)
         survivors(report)
       end
 
       private
+
+      def inline_suppressions(report)
+        return if report.inline_suppressions.empty?
+
+        @out.puts("Inline suppressions: #{report.inline_suppressions.size} (outside the score)")
+        report.inline_suppressions.each do |entry|
+          path = entry[:file].delete_prefix("#{report.root}/")
+          @out.puts("  #{path}:#{entry[:line]} #{entry[:subject]} #{entry[:operator]} " \
+                    "#{entry[:digest]}: #{entry[:reason]}")
+        end
+      end
 
       def summary(report)
         seed = report.seed && ", seed #{report.seed} (repeat with --seed #{report.seed})"
