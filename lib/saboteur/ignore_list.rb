@@ -96,6 +96,11 @@ module Saboteur
       @index = entries.to_h { |entry| [[entry.subject, entry.mutation], entry] }
     end
 
+    # True when this result is a survivor the list accepts.
+    def accepts?(result)
+      result.survived? && @index.key?([result.subject.id, result.digest])
+    end
+
     # Marks matching survivors as ignored. Returns warnings for stale entries:
     # entries whose subject was examined but whose mutation no longer exists.
     def apply(results)
