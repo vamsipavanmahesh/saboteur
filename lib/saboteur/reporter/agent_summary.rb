@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "findings"
+require_relative "survivor_hints"
 require_relative "agent_incomplete"
 require_relative "agent_clipping"
 
@@ -87,7 +88,8 @@ module Saboteur
             {
               survivors: live, shown: shown_findings(all[:survivors], shown, snippet_limit),
               omitted: live - [shown, all[:survivors].size].min,
-              accepted: report.survivors.size - live, ordering: all[:ordering]
+              accepted: report.survivors.size - live, ordering: all[:ordering],
+              hintCaveat: SurvivorHints::CAVEAT
             }
           end
 
@@ -97,7 +99,13 @@ module Saboteur
                      .merge(path: clip_value(finding[:path], 200), subject: clip_value(finding[:subject], 200),
                             original: clip(finding[:original], snippet_limit),
                             replacement: clip(finding[:replacement], snippet_limit))
+                     .merge(hint_for(finding))
             end
+          end
+
+          def hint_for(finding)
+            hint = SurvivorHints.for(finding[:operator], coarse: finding[:coarse])
+            hint ? { hint: hint } : {}
           end
 
           def warnings(report)
