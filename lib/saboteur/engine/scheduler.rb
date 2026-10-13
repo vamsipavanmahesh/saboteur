@@ -142,6 +142,8 @@ module Saboteur
 
         line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
         tests = plan.tests & @map.tests_for_edit(plan.subject, line_numbers)
+        branch_tests = @map.tests_for_branches(plan.subject, mutation.edits)
+        tests &= branch_tests if branch_tests
         self.class.prioritize(tests, plan.killers)
       end
 
@@ -165,7 +167,11 @@ module Saboteur
       # One mutation whose edited lines no test ran (see unloadable).
       def uncoverable(plan, mutation, text)
         line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
-        unloadable([[mutation, text]], plan.subject, line_numbers).first
+        result = unloadable([[mutation, text]], plan.subject, line_numbers).first
+        return result if result.status == :ran_at_load
+        return result unless @map.tests_for_branches(plan.subject, mutation.edits) == []
+
+        skip_all([[mutation, text]], plan.subject, "no coverage (branch not taken)").first
       end
 
       def run_mutant(plan, mutation, text, tests)
