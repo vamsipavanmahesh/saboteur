@@ -18,7 +18,6 @@ module Saboteur
       def initialize(baseline:, current:, epsilon: nil)
         @issues = current.fetch("issues").dup
         @categories = {}
-        @score = nil
         unless baseline.fetch("compatibility") == current.fetch("compatibility")
           @state = "incompatible"
           return
