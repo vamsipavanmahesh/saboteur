@@ -7,10 +7,13 @@ require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
+require_relative "cli/exit_status"
+require_relative "preview"
 
 module Saboteur
   class CLI
     include Baseline::Command
+    include ExitStatus
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -58,6 +61,7 @@ module Saboteur
         define_selection_options(opts)
         define_explicit_file_options(opts)
         define_execution_options(opts)
+        define_matrix_option(opts)
         define_output_options(opts)
       end
     end
@@ -123,6 +127,8 @@ module Saboteur
       reject_threshold_with_agent_format
       warn_dirty_tree
 
+      return preview if options[:list_operators] || options[:dry_run]
+
       arguments = { err: @err }
       arguments[:digest] = options[:id] if options[:id]
       agent? ? agent_run(arguments) : text_run(Engine.new(config, **arguments).call)
@@ -137,33 +143,43 @@ module Saboteur
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
     def warn_dirty_tree
-      tree = WorkingTree.new(config.root, ignored: output_paths).state
-      return unless tree.dirty
-
-      @err.puts("saboteur: warning: #{tree.changed_files} uncommitted change(s) in the working tree. " \
-                "Mutants run your code and could alter or delete files; run on a clean, committed tree " \
-                "or a CI checkout.")
+      WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
     end
 
     # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
     def reject_threshold_with_agent_format
-      return unless agent? && config["threshold"]
+      return unless agent? && (config["threshold"] || gates.any?)
 
-      raise UsageError, "--threshold cannot be combined with --agent: agent mode exits 0 only for a complete, clean run"
+      raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
     end
 
     def text_run(report)
       @err.puts
-      Reporter::Terminal.new(@out).call(report)
+      Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto).call(report)
       Reporter::Replay.new(@out).call(report) if options[:id]
       code = exit_code(report)
       # The JSON carries the exit cause an outer harness trusts, so it is
       # the completion evidence for the whole run: write it only after
       # every other fallible reporting stage, or a late failure would
       # leave a fresh, misleading report behind.
-      write_html(report)
-      write_json(report, exit_cause(report, code))
+      html = write_html(report)
+      json = write_json(report, exit_cause(report, code))
+      announce_reports(json => "JSON", html => "HTML")
       code
+    end
+
+    # One line naming the reports written, paths relative to the root when
+    # they sit under it (a blank line before it, as the old JSON line had).
+    def announce_reports(reports)
+      written = reports.select { |path, _label| path }
+      return if written.empty?
+
+      root = File.join(File.realpath(config.root), "")
+      names = written.map do |path, label|
+        shown = File.expand_path(path).delete_prefix(root)
+        "#{shown} (#{label})"
+      end
+      @out.puts "\nReports: #{names.join(', ')}"
     end
 
     def doctor
@@ -183,26 +199,17 @@ module Saboteur
     # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
     # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
     def agent_run(arguments)
-      tree = WorkingTree.new(config.root, ignored: output_paths).state
+      tree = WorkingTree.new(config.root, ignored: config.output_paths).state
       report = stdout_on_stderr { Engine.new(config, **arguments).call }
       payload = Reporter::Agent.call(report, agent_provenance(report, tree))
       rendered = Reporter::Agent.render(payload)
       # Same publish order as text_run: the JSON is the completion
       # evidence, so it is written only after every other fallible stage,
       # including the agent payload itself.
-      write_html(report, announce: false)
-      write_json(report, agent_exit_cause(report, payload), announce: false)
+      write_html(report)
+      write_json(report, agent_exit_cause(report, payload))
       @out.print(rendered)
       Reporter::Agent.exit_code(payload)
-    end
-
-    # Paths of saboteur's own output, relative to the root, that do not count as source changes.
-    def output_paths
-      root = File.join(File.realpath(config.root), "")
-      %w[cache_dir json_report html_report].filter_map { |key| config.path(key) }
-                                           .map { |path| File.expand_path(path) }
-                                           .select { |path| path.start_with?(root) }
-                                           .map { |path| path.delete_prefix(root) }
     end
 
     # Descriptor 1 points at stderr for the block, so Kernel#puts, system and forked
@@ -233,89 +240,21 @@ module Saboteur
       @sources&.any? ? "files" : "full"
     end
 
-    def write_json(report, cause, announce: true)
+    # Writes the JSON report and returns its path, or nil when none is configured.
+    def write_json(report, cause)
       path = config.path("json_report")
       return unless path
 
       Reporter::Stryker.new(path).call(report, exit_cause: cause)
-      @out.puts "\nJSON report: #{path}" if announce
+      path
     end
 
-    def write_html(report, announce: true)
+    def write_html(report)
       path = config.path("html_report")
       return unless path
 
       Reporter::Html.new(path).call(report)
-      @out.puts "HTML report: #{path}" if announce
-    end
-
-    def exit_code(report)
-      return EXIT_TOOL if mostly_errored?(report)
-
-      return EXIT_TOOL if incomplete_under_threshold?(report)
-
-      failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
-    end
-
-    def mostly_errored?(report)
-      return false unless report.majority_errored?
-
-      executed = report.executed
-      errors = executed.count { |result| result.status == :error }
-      @err.puts("saboteur: #{errors} of #{executed.size} mutants errored, so the run tested almost nothing; " \
-                "fix the errors and run again")
-      true
-    end
-
-    # Agent mode: the recorded cause is the payload's own verdict, so the
-    # JSON and the process exit classify the run the same way. An
-    # incomplete run that mostly errored keeps its distinct cause, so the
-    # harness rule means the same thing in both modes.
-    def agent_exit_cause(report, payload)
-      case payload[:verdict]
-      when "clean" then "ok"
-      when "survivors" then "survivors"
-      else report.majority_errored? ? "errorMajority" : "incomplete"
-      end
-    end
-
-    # Why the run exits the way it does, recorded in the JSON report so an
-    # outer harness can tell "most mutants errored" from the other exit 3s.
-    def exit_cause(report, code)
-      case code
-      when EXIT_OK then "ok"
-      when EXIT_SURVIVORS then config["threshold"].nil? ? "survivors" : "belowThreshold"
-      else report.majority_errored? ? "errorMajority" : "incompleteUnderThreshold"
-      end
-    end
-
-    # With --threshold the score decides; without it any unignored survivor does.
-    def failed_quality_gate?(report)
-      threshold = config["threshold"]
-      return report.unignored_survivors.any? if threshold.nil?
-
-      score = report.score
-      return missing_score_reported? if score.nil?
-
-      score * 100 < threshold
-    end
-
-    # A gate that cannot measure a score must not pass: CI would go green
-    # on a run that tested nothing.
-    def missing_score_reported?
-      @err.puts("saboteur: no mutant was tested, so there is no score to compare with --threshold")
-      true
-    end
-
-    # Errors and resource limits are outside the score. With a threshold they
-    # make the run incomplete, so the score alone cannot pass it.
-    def incomplete_under_threshold?(report)
-      return false if config["threshold"].nil?
-
-      count = report.counts.values_at(:error, :resource_limit).sum
-      @err.puts("saboteur: #{count} mutant(s) errored or hit a resource limit, so the score is incomplete") if
-        count.positive?
-      count.positive?
+      path
     end
 
     # Positional arguments name the files (or directories) to mutate. They
@@ -357,10 +296,25 @@ module Saboteur
     end
 
     def overrides
-      options.except(:config, :id)
+      options.except(:config, :id, :list_operators, :dry_run)
+    end
+
+    def preview
+      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON" if agent?
+      raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
+
+      return MutationSource::OperatorRegistry.list(@out) || EXIT_OK if options[:list_operators]
+
+      Preview.new(config, out: @out, err: @err).call
+      EXIT_OK
     end
 
     def define_selection_options(opts)
+      opts.on("--operators NAMES", Array, "Choose operator names or tiers (core, extended, all)") do |v|
+        set(:operators, v)
+      end
+      opts.on("--list-operators", "List operator names, descriptions and tiers") { set(:list_operators, true) }
+      opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
       opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
       opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
       opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
@@ -379,9 +333,16 @@ module Saboteur
       opts.on("--allow-hazardous", "Also run mutants inside destructive calls (rm_rf, system, ...)") do
         set(:allow_hazardous, true)
       end
+      opts.on("--fail-fast", "Stop after the first subject with a survivor (needs --jobs 1)") { set(:fail_fast, true) }
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
+      end
+    end
+
+    def define_matrix_option(opts)
+      opts.on("--matrix", "Run every covering test per mutant and list blind and redundant tests") do
+        set(:matrix, true)
       end
     end
 
@@ -391,6 +352,10 @@ module Saboteur
       opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
                                                  "strict exit codes") { |v| @format = v }
       opts.on("--agent", "Same as --format agent") { @format = "agent" }
+      opts.on("--verbose", "Text report: also print score split, timings and kill causes") { @verbose = true }
+      opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
+        @color = v ? :always : :never
+      end
     end
 
     def define_explicit_file_options(opts)
@@ -400,6 +365,7 @@ module Saboteur
       opts.on("--threshold PERCENT", Float, "Exit 1 when the score is below PERCENT (0-100)") do |v|
         set(:threshold, v)
       end
+      Gates.define_options(opts) { |key, value| set(key, value) }
     end
 
     def add_subject(expr)

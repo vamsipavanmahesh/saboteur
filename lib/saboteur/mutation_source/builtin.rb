@@ -8,6 +8,7 @@ require_relative "literal_replacement"
 require_relative "argument_removal"
 require_relative "pair_removal"
 require_relative "endpoint_replacement"
+require_relative "operator_registry"
 
 module Saboteur
   module MutationSource
@@ -48,8 +49,9 @@ module Saboteur
       CATCH_ALL = %w[StandardError ::StandardError Exception ::Exception].freeze
       SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
 
-      def initialize(arid: DEFAULT_ARID)
+      def initialize(arid: DEFAULT_ARID, operators: [])
         super()
+        @operators = OperatorRegistry.resolve(operators)
         @arid = arid.map { |pattern| pattern.is_a?(Regexp) ? pattern : Regexp.new(pattern) }
         @filter_replacement = FilterReplacement.new(arid: arid)
         @literal_replacement = LiteralReplacement.new(arid: arid)
@@ -73,6 +75,7 @@ module Saboteur
         @found.concat(@argument_removal.mutations_for(subject))
         @found.concat(@pair_removal.mutations_for(subject))
         @found.concat(@endpoint_replacement.mutations_for(subject))
+        @found.select { |mutation| @operators.include?(mutation.operator) }
       ensure
         @subject = nil
       end
@@ -137,7 +140,8 @@ module Saboteur
         statements.each do |statement|
           next if arid?(statement)
 
-          add("statement_removal", statement, "nil") if statements.size > 1 && removable?(statement)
+          removable_here = statements.drop(1).any? && removable?(statement)
+          add("statement_removal", statement, "nil") if removable_here
           visit(statement)
         end
       end

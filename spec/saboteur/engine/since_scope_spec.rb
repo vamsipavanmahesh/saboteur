@@ -52,7 +52,7 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
     store = instance_double(Saboteur::Engine::CoverageStore)
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
-    distribution = instance_double(Saboteur::Engine::Distribution, run: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, run: [], unreached: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
   end
@@ -61,13 +61,15 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
     report = run_engine("since" => "origin/main")
     expect(err.string).to include(
       "running the loaded suite unscoped: two baseline passes; coverage may add a pass (3 spec files). " \
-      "Pass --test to scope it."
+      "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
+      "only by those specs, so specs elsewhere that call this code are not run."
     )
     expect(err.string.index("running the loaded suite unscoped"))
       .to be < err.string.index("checking the unchanged suite")
     expect(report.warnings).to include(
       "running the loaded suite unscoped: two baseline passes; coverage may add a pass (3 spec files). " \
-      "Pass --test to scope it."
+      "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
+      "only by those specs, so specs elsewhere that call this code are not run."
     )
   end
 

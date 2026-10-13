@@ -61,6 +61,98 @@ saboteur needs Ruby's `Coverage` module for itself. Guard SimpleCov with an
 environment variable (`if ENV["COVERAGE"]`) and leave it unset for saboteur
 runs.
 
+> **Status of these recipes.** The recipes from here to "Tests that start
+> saboteur" follow from saboteur's fork-per-mutant model and the Rails notes in
+> the README. They have not been checked against real apps that use each tool
+> (see #57 and #58). Treat them as starting points and check them against
+> your suite.
+
+## factory_bot and other factories
+
+Factory definitions load once in the parent and every child inherits them.
+Two habits matter:
+
+- Build records inside examples (`create(:user)` in an `it` or `let`), not at
+  load time. A record created when the spec file loads is created in the
+  parent, before the fork, and every child sees the same row.
+- Sequences start from the parent's state in every child, so a mutant never
+  sees numbers another mutant used. Do not assert on absolute sequence values
+  that depend on how many examples ran before; the first test to touch a
+  sequence in each child decides them.
+
+`FactoryBot.lint` is slow and runs the whole factory set. Keep it in its own
+spec or a CI step, not in a `before(:suite)` that every saboteur baseline pass
+also runs, unless you want that time in every run.
+
+## Rails fixtures and transactional tests
+
+Transactional examples roll back at the end of each example, so one mutant's
+writes should not reach the next. That holds only for writes the transaction
+covers: data committed by another connection, by a `before(:all)` or
+`before(:suite)` hook, or outside the transaction stays.
+
+Workers are isolated from each other only where saboteur makes a copy of the
+database per worker: the Rails profile is on (`c.rails = true`), the adapter
+is SQLite or PostgreSQL, and `jobs` is above 1 (see the Rails section of the
+README). With the Rails profile on, an adapter saboteur cannot copy (MySQL,
+or any other) is rejected when `jobs` is above 1, before any worker hook runs,
+so use `jobs: 1` for those. With the profile off, saboteur copies nothing and
+the workers share one database: use `jobs: 1` there too.
+
+Rails fixtures in `spec/fixtures` and `test/fixtures` are part of the cache
+fingerprint, so `--incremental` does not reuse verdicts after you edit one.
+Fixtures or data files anywhere else (for example `spec/support/data/*.csv`)
+are not seen: list them in `c.fingerprint_extra`.
+
+A suite that shares one database between processes (a shared test database, a
+database another job or developer also uses, or tests that commit) can see
+rows from a run that is not its own. A transaction or a cleaning strategy only
+undoes what it wraps and only for the connection that opened it. Give saboteur
+a database nothing else uses.
+
+## DatabaseCleaner
+
+With `jobs: 1` the children write to the test database your suite is
+configured with. With `jobs` above 1 and the Rails profile on, each worker
+cleans its own copy on SQLite and PostgreSQL. Without the profile, the workers
+share one database, so the cleaning of one worker can remove rows another is
+using: use `jobs: 1`. Other adapters with the profile on are rejected above
+`jobs: 1` (see the previous section).
+
+Run the cleaner per example, as usual (`before(:each)` / `after(:each)`), not
+once at load time in the parent: a load-time clean runs once and the children
+inherit a database it already emptied.
+
+## Capybara and system specs
+
+A browser, a driver or an app server started in the parent is shared by every
+child, which breaks the one rule above. Start them per example (or per child
+in `after_fork`), and stop them in the same place. Prefer a rack-test driver
+for the specs you want mutation-tested; a browser makes each mutant slow, and
+a mutant that hangs the page loses its time to the timeout.
+
+## ActionMailer and ActiveJob
+
+The test delivery method (`config.action_mailer.delivery_method = :test`) and
+the test queue adapter (`config.active_job.queue_adapter = :test`) keep their
+state in process memory. Each child gets a copy of the parent's state at the
+fork, not an empty one. If anything delivered a mail or enqueued a job in the
+parent (a load-time hook, a `before(:suite)`), that entry is in every child and
+can break an assertion that counts. Clear it before the fork:
+
+```ruby
+# spec/saboteur_hooks.rb
+Saboteur.hook(:before_fork) do
+  ActionMailer::Base.deliveries.clear
+  ActiveJob::Base.queue_adapter.enqueued_jobs.clear if
+    ActiveJob::Base.queue_adapter.respond_to?(:enqueued_jobs)
+end
+```
+
+Most suites also clear these per example, which makes the hook unnecessary.
+A real queue adapter that talks to Redis falls under the Sidekiq recipe: close
+the connection in `before_fork`.
+
 ## Tests that start saboteur
 
 A test that runs saboteur (an integration test of a tool built on it, for

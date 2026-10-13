@@ -17,6 +17,14 @@ module Saboteur
 
         dirty ? "dirty" : "clean"
       end
+
+      # Shown before a run: mutants run your code and can change the tree.
+      def warning
+        return unless dirty
+
+        "saboteur: warning: #{changed_files} uncommitted change(s) in the working tree. " \
+          "Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout."
+      end
     end
 
     UNKNOWN = State.new(head: nil, dirty: nil, changed_files: nil)
