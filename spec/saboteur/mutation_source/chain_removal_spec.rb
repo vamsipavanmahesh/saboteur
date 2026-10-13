@@ -50,6 +50,13 @@ RSpec.describe Saboteur::MutationSource::ChainRemoval do
     expect(bodies("user.name.freeze.strip")).to eq(["user.freeze.strip"])
   end
 
+  it "leaves attribute writes and operator-assigns alone" do
+    expect(bodies("user.profile.name = 1")).to be_empty
+    expect(bodies("user.profile.count += 1")).to be_empty
+    expect(bodies("user.profile.name ||= 1")).to be_empty
+    expect(bodies("user.profile.name = user.account.id")).to eq(["user.profile.name = user.id"])
+  end
+
   it "skips a call written with .() because it has no method name to remove" do
     expect(bodies("user.items.(1).first")).to eq(["user.(1).first"])
   end
