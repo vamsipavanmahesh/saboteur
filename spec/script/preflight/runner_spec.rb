@@ -32,7 +32,13 @@ RSpec.describe Preflight::Runner, :fixture do
     end
     options = @fixture.options(base: @base, mode: mode)
     described_class.new(options: options, directory: @fixture.directory, command_runner: router,
-                        run_id: "test-run").call
+                        run_id: "test-run", env: { "PATH" => ENV.fetch("PATH") }).call
+  end
+
+  before do
+    # Ordinary runs start with an ignored lockfile already present, like a normal checkout.
+    File.open(File.join(@fixture.directory, ".git/info/exclude"), "a") { |file| file.puts("Gemfile.lock") }
+    File.write(File.join(@fixture.directory, "Gemfile.lock"), "present\n")
   end
 
   def good_change
@@ -161,8 +167,7 @@ RSpec.describe Preflight::Runner, :fixture do
     end
 
     before do
-      @fixture.write(".gitignore", "Gemfile.lock\ntmp/\n")
-      @fixture.commit("ignore the lockfile")
+      FileUtils.rm_f(lock_path)
     end
 
     it "accepts the lockfile that preparation (bundle lock --local) creates, with no rerun needed (valid control)" do
@@ -181,6 +186,21 @@ RSpec.describe Preflight::Runner, :fixture do
       expect(calls).not_to include(%w[bundle lock --local])
     end
 
+    it "is incomplete, and does not recreate the lockfile, when it is deleted during the checks" do
+      good_change
+      File.write(lock_path, "present\n")
+      report = run_in_fixture(mode: "fast", responder: passing_responder do |argv|
+        FileUtils.rm_f(lock_path) if argv.include?("rubocop")
+      end)
+      expect([report.verdict, File.exist?(lock_path)]).to eq(["incomplete", false])
+    end
+
+    it "is incomplete when preparation reports success but leaves no lockfile" do
+      good_change
+      report = run_in_fixture(mode: "fast")
+      expect(report.to_h[:checks].map { |c| [c[:name], c[:status]] }).to include(["execution_inputs", :incomplete])
+    end
+
     it "still catches a lockfile that changes after preparation" do
       good_change
       report = run_in_fixture(mode: "fast", responder: passing_responder do |argv|
@@ -192,10 +212,39 @@ RSpec.describe Preflight::Runner, :fixture do
 
     it "makes the run incomplete when preparation changes a tracked file" do
       good_change
+      File.write(lock_path, "present\n")
       report = run_in_fixture(mode: "fast", responder: passing_responder do |argv|
         File.write(File.join(@fixture.directory, "lib/ok.rb"), "tampered\n") if argv == %w[bundle list]
       end)
       expect([report.verdict, report.to_h[:checks].map { |c| c[:name] }]).to include("incomplete")
+    end
+  end
+
+  describe "an injected environment" do
+    it "is used for probing, fingerprinting and execution, with no ambient variables leaking in" do
+      good_change
+      stubs = Dir.mktmpdir("stubs")
+      alt = File.join(stubs, "AltGemfile")
+      log = File.join(stubs, "calls.log")
+      File.write(alt, "")
+      File.write(File.join(stubs, "ruby"), "#!/bin/sh\nexit 0\n", perm: 0o755)
+      File.write(File.join(stubs, "bundle"), <<~SH, perm: 0o755)
+        #!/bin/sh
+        echo "$1 gemfile=$BUNDLE_GEMFILE mark=$PREFLIGHT_MARK ambient=${HOME:-none}" >> "$STUB_LOG"
+        [ "$1" = "lock" ] && touch "$BUNDLE_GEMFILE.lock"
+        [ "$1" = "exec" ] && exit 1
+        echo "Bundler version stub"
+      SH
+      env = { "PATH" => "#{stubs}:/usr/bin:/bin", "BUNDLE_GEMFILE" => alt, "PREFLIGHT_MARK" => "alt",
+              "STUB_LOG" => log }
+      options = @fixture.options(base: @base, mode: "fast")
+      report = described_class.new(options: options, directory: @fixture.directory, env: env, run_id: "env-run").call
+      lines = File.readlines(log)
+      expect(lines.map { |l| l.split.first }).to include("lock", "--version", "list", "exec")
+      expect(lines).to all(include("gemfile=#{alt}", "mark=alt", "ambient=none"))
+      expect(report.verdict).to eq("incomplete")
+    ensure
+      FileUtils.remove_entry(stubs)
     end
   end
 end
