@@ -32,7 +32,8 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
   def run_engine(overrides)
     stub_boot_phase
     stub_test_phases
-    described_class.new(Saboteur::Config.new({ "jobs" => 2 }.merge(overrides), root: @root), err: err).call
+    @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2 }.merge(overrides), root: @root), err: err)
+    @engine.call
   end
 
   def stub_boot_phase
@@ -97,12 +98,15 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
       expect(err.string).to include("--guess-tests: running only spec/a_spec.rb, spec/b_spec.rb. A spec that reaches")
       expect(err.string).not_to include("running the loaded suite unscoped")
       expect(@report.warnings).to include(a_string_starting_with("--guess-tests: running only"))
+      expect(err.string).to include("reported as NoCoverage, not Survived")
+      expect(@engine.guessed_tests).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
     end
 
     it "runs the whole suite and names the files without a spec" do
       guess(specs: ["spec/a_spec.rb"], unmatched: %w[lib/b.rb lib/c.rb], changed: 3)
       used = tests_the_run_used { run_engine("since" => "origin/main", "guess_tests" => true) }
       expect(used).to eq([])
+      expect(@engine.guessed_tests).to be_nil
       expect(err.string).to include("--guess-tests: no spec found for lib/b.rb, lib/c.rb, so the whole suite runs " \
                                     "(name specs after their source files or pass --test)")
       expect(err.string).to include("running the loaded suite unscoped")
