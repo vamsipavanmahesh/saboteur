@@ -14,6 +14,8 @@ All notable changes are documented here. The format follows
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
 ### Fixed
+- The default arid logger pattern also matches `@logger`, `self.logger` and
+  `::Rails.logger`, so those calls no longer produce noise survivors (#111).
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
   guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
