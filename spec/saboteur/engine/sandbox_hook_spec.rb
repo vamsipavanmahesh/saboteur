@@ -43,11 +43,11 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     engine = engine_for({})
     expect(engine.send(:sandbox_hook)).to be_nil
     expect(engine.send(:sandbox_hook)).to be_nil
-    expect(err.string.scan("lacks Landlock").size).to eq(1)
-    expect(err.string).to include("hazard guard and canary only")
+    # once, in the report's warnings only - not inform-printed twice (#178)
+    expect(err.string).to eq("")
     warnings = engine.instance_variable_get(:@diagnostics).warnings
     expect(warnings.size).to eq(1)
-    expect(warnings.first).to include("lacks Landlock")
+    expect(warnings.first).to include("lacks Landlock").and include("hazard guard and canary only")
   end
 
   it "degrades with a one-time note when the kernel's ABI cannot restrict truncate" do
@@ -119,5 +119,46 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     expect(captured[:seed]).to eq(7)
     expect(captured[:sandbox]).to be_a(Proc)
     expect(captured[:log_dir]).to include(".saboteur")
+  end
+  it "warns when a user grant contains the project root" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    engine = engine_for({ "sandbox_writable" => [@root] })
+    engine.send(:sandbox_hook)
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    expect(warnings.join).to include("contains the project root")
+  end
+
+  it "warns when a user grant is a strict ancestor of the project root" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    engine = engine_for({ "sandbox_writable" => [File.dirname(@root)] })
+    engine.send(:sandbox_hook)
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    expect(warnings.join).to include("contains the project root")
+  end
+
+  it "warns when a user grant contains another granted dir" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    engine = engine_for({ "sandbox_writable" => ["data", "data/nested", "logs"] })
+    engine.send(:sandbox_hook)
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    # exactly one: the data grant contains the data/nested grant, and no other pair
+    expect(warnings.size).to eq(1)
+    expect(warnings.first).to include("the narrower grant is redundant")
+  end
+
+  it "does not warn for user grants that contain neither the root nor another grant" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    engine = engine_for({ "sandbox_writable" => %w[data logs] })
+    engine.send(:sandbox_hook)
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    expect(warnings).to be_empty
+  end
+
+  it "does not warn on the built-in grants alone" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    engine = engine_for({})
+    engine.send(:sandbox_hook)
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    expect(warnings).to be_empty
   end
 end
