@@ -290,6 +290,18 @@ RSpec.describe Preflight::ExecutionInputs, :fixture do
       expect { subject_inputs.baseline(before, subject_inputs.snapshot) }.not_to raise_error
     end
 
+    it "rejects a lockfile that preparation created but that is absent again at the second snapshot" do
+      ignored_lock_setup
+      lock = File.join(@fixture.directory, "Gemfile.lock")
+      env["BUNDLE_GEMFILE"] = File.join(@fixture.directory, "Gemfile")
+      subject_inputs = inputs_with(creating(lock))
+      before = subject_inputs.snapshot
+      subject_inputs.prepare_lockfile
+      File.delete(lock)
+      expect { subject_inputs.baseline(before, subject_inputs.snapshot) }
+        .to raise_error(Preflight::ExecutionGap, /changed while dependencies were prepared/)
+    end
+
     it "accepts an alternate effective lockfile created by preparation" do
       ignored_lock_setup
       env["BUNDLE_GEMFILE"] = File.join(@fixture.directory, "alt")
