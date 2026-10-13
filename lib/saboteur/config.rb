@@ -42,6 +42,7 @@ module Saboteur
       "since" => nil,
       "cache" => true,
       "incremental" => false,
+      "allow_focus" => false,
       "seed" => 1,
       "tests" => [],
       "fingerprint_extra" => [],
