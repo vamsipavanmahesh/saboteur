@@ -12,22 +12,38 @@ module Saboteur
     #   nesting    - rebuild the original `module A; class B` nesting on one line
     #                and eval at top level, so constant lookup matches the file.
     #
+    # A subject named in whole_file skips both: the child evaluates the whole
+    # file with the mutated method spliced in, the way mutineer does. That is
+    # the way in for methods surgical re-evaluation cannot reach (Data.define
+    # or Struct.new blocks, unknown wrappers), at a price: the file's top-level
+    # code runs again in the child, so load-time side effects repeat and
+    # constants it assigns are rebuilt.
+    #
     # Both keep the original file and line numbers, carry a frozen_string_literal
     # magic comment, and restore the method's visibility afterwards.
     class Reevaluator
       STRATEGIES = %w[class_eval nesting].freeze
       FROZEN_HEADER = "# frozen_string_literal: true\n"
 
-      def initialize(strategy = "nesting")
+      def initialize(strategy = "nesting", whole_file: [])
         raise Error, "unknown reeval strategy: #{strategy}" unless STRATEGIES.include?(strategy.to_s)
 
         @strategy = strategy.to_s
+        @whole_file = whole_file
+      end
+
+      # True when the subject's id matches a whole_file entry (exact or a
+      # File.fnmatch glob).
+      def whole_file?(subject)
+        @whole_file.any? { |pattern| File.fnmatch?(pattern, subject.id) }
       end
 
       # prefix: source evaluated right before the def text, at the lines it
       # occupies in the file - a sorbet `sig { ... }` call, so the wrapper
       # gem re-wraps the mutant and its runtime checks stay on.
       def call(subject, text, prefix: nil)
+        return eval_whole_file(subject, text) if whole_file?(subject)
+
         owner = resolve_owner(subject)
         target = subject.singleton ? owner.singleton_class : owner
         visibility = visibility_of(target, subject.name)
@@ -97,6 +113,19 @@ module Saboteur
 
         owner.instance_method(subject.name).source_location ==
           owner.singleton_class.instance_method(subject.name).source_location
+      end
+
+      # The file as it is on disk, with the method's bytes replaced by text,
+      # evaluated at top level under the file's own name and first line.
+      # Redefinition warnings are expected and silenced.
+      def eval_whole_file(subject, text)
+        source = subject.file_source
+        spliced = source.byteslice(0, subject.start_byte) + text + source.byteslice(subject.end_byte..)
+        verbose = $VERBOSE
+        $VERBOSE = nil
+        TOPLEVEL_BINDING.eval(spliced, subject.file, 1)
+      ensure
+        $VERBOSE = verbose
       end
 
       def eval_in_owner(owner, subject, text, extra_lines)
