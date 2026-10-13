@@ -245,22 +245,23 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "(2 mutants); whole-body mutants alone 100.0 % (1)")
   end
 
-  it "shows one survivor per line in review mode, and says how many more the JSON holds" do
+  it "shows every survivor on a line in review mode, with no truncation note" do
     survivors = [result_for(:survived, replacement: ">"), result_for(:survived, replacement: "<=")]
     report = Saboteur::Report.new(results: survivors, subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file), review: true)
     text = render(report)
-    expect(text.scan("- comparison").size).to eq(1)
-    expect(text).to include("1 more survivor on this line in the JSON report")
+    expect(text.scan("- comparison").size).to eq(2)
+    expect(text).not_to include("more survivor", "in the JSON report\n")
   end
 
-  it "never lets an ignored survivor hide a live one on the same line in review mode" do
+  it "shows an ignored survivor next to a live one on the same line in review mode" do
     ignored = result_for(:survived, replacement: ">")
     ignored.ignored = "equivalent"
     live = result_for(:survived, replacement: "<=")
     report = Saboteur::Report.new(results: [ignored, live], subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file), review: true)
-    expect(render(report)).to include("- comparison >= -> <= ")
+    text = render(report)
+    expect(text).to include("- comparison >= -> <= ", "- comparison >= -> > ", "(ignored: equivalent)")
   end
 
   it "shows resource-limit stops as their own status" do
@@ -387,12 +388,11 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     expect(render(report_of(result_for(:survived)))).to include("Survivors (1):\n")
   end
 
-  it "says survivor or survivors depending on how many more share the line" do
-    two = render(review(result_for(:survived), result_for(:survived, replacement: "<=")))
-    three = render(review(result_for(:survived), result_for(:survived, replacement: "<="),
-                          result_for(:survived, replacement: "==")))
-    expect(two).to include("1 more survivor on this line")
-    expect(three).to include("2 more survivors on this line")
+  it "shows three survivors on one line in review mode, in report order" do
+    text = render(review(result_for(:survived), result_for(:survived, replacement: "<="),
+                         result_for(:survived, replacement: "==")))
+    expect(text.scan("- comparison").size).to eq(3)
+    expect(text.scan(/ >= -> (\S+) /).flatten).to eq([">", "<=", "=="])
   end
 
   it "shows every survivor, with no 'more' note, outside review mode" do
@@ -401,27 +401,12 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     expect(text).not_to include("more survivor")
   end
 
-  it "prefers a coarse survivor over a fine one that starts at the same byte" do
-    fine = mutant(:survived, at: "@age >= 18", replacement: "nil", operator: "statement_removal")
-    coarse = mutant(:survived, at: "@age >= 18", replacement: "nil", operator: "body_nil", coarse: true)
-    expect(render(review(fine, coarse))).to include("- body_nil")
-  end
-
-  it "shows a live fine survivor over an ignored coarse one on the same line" do
-    coarse = mutant(:survived, at: "@age >= 18", replacement: "nil", operator: "body_nil", coarse: true)
-    coarse.ignored = "accepted"
-    fine = mutant(:survived, at: ">=", replacement: ">", operator: "comparison")
-    text = render(review(coarse, fine))
-    expect(text).to include("- comparison")
-    expect(text).not_to include("- body_nil")
-  end
-
   it "prints no errors section and no ignored note when there is nothing to say" do
     text = render(report_of(result_for(:survived)))
     expect(text).not_to include("Errors", "ignored:")
   end
 
-  it "keeps survivors on different lines apart in review mode" do
+  it "shows survivors on different lines in review mode" do
     subject = subjects_in("class Two\n  def m(a)\n    b = a + 1\n    b * 2\n  end\nend\n").first
     results = ["+", "*"].map do |operator|
       at = subject.file_source.index(" #{operator} ") + 1
