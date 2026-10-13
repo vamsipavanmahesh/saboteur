@@ -22,6 +22,7 @@ module Saboteur
       "include" => ["lib/**/*.rb"],
       "exclude" => [],
       "arid" => MutationSource::Builtin::DEFAULT_ARID,
+      "whole_file" => [],
       "hazard" => MutationSource::HazardGuard::DEFAULT_HAZARD,
       "allow_hazardous" => false,
       "timeout_factor" => 3.0,
@@ -49,6 +50,7 @@ module Saboteur
       "incremental" => false,
       "allow_focus" => false,
       "fail_fast" => false,
+      "matrix" => false,
       "seed" => 1,
       "tests" => [],
       "fingerprint_extra" => [],
@@ -60,7 +62,7 @@ module Saboteur
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
-                   fingerprint_extra operators].freeze
+                   fingerprint_extra operators whole_file].freeze
 
     attr_reader :root
 
@@ -160,10 +162,23 @@ module Saboteur
       raise ConfigError, "json_report and html_report both point to #{json}; give each report its own path"
     end
 
+    def validate_modes!
+      validate_fail_fast!
+      validate_matrix!
+    end
+
     def validate_fail_fast!
       return unless self["fail_fast"] && self["jobs"] > 1
 
       raise ConfigError, "fail_fast needs jobs 1: parallel workers have already started the other subjects"
+    end
+
+    # A reused verdict was computed by a run that stopped at the first
+    # failing test, so it lists too few killers for a matrix.
+    def validate_matrix!
+      return unless self["matrix"] && self["incremental"]
+
+      raise ConfigError, "matrix cannot be combined with incremental: reused verdicts list only the first killer"
     end
 
     def validate_threshold!
@@ -183,7 +198,7 @@ module Saboteur
 
       validate_mutant_limit!
       validate_threshold!
-      validate_fail_fast!
+      validate_modes!
       raise ConfigError, "seed must be >= 0" if self["seed"].negative?
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?

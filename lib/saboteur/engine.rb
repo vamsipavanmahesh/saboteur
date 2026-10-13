@@ -14,7 +14,7 @@ module Saboteur
   class Engine
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators arid timeout_factor timeout_min
-                        max_memory_mb max_processes seed tests].freeze
+                        max_memory_mb max_processes seed tests whole_file].freeze
 
     attr_reader :config, :hooks
 
@@ -84,7 +84,8 @@ module Saboteur
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
-                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop)
+                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
+                 matrix: config["matrix"])
     end
 
     def complete_evidence(results, subjects)
@@ -180,7 +181,9 @@ module Saboteur
       return unless config["since"] && config["tests"].empty?
 
       message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
-                "(#{integration.test_files.size} spec files). Pass --test to scope it."
+                "(#{integration.test_files.size} spec files). " \
+                "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
+                "only by those specs, so specs elsewhere that call this code are not run."
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end
@@ -192,7 +195,7 @@ module Saboteur
     end
 
     def scheduler_for(map, integration, cache)
-      reevaluator = Execution::Reevaluator.new(config["reeval"])
+      reevaluator = Execution::Reevaluator.new(config["reeval"], whole_file: config["whole_file"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
                                      supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"])
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
@@ -345,6 +348,7 @@ require_relative "engine/subject_selection"
 require_relative "engine/suite_files"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
+require_relative "engine/bytecode_equivalence"
 require_relative "engine/candidates"
 require_relative "engine/candidate_selection"
 require_relative "engine/diff_scope"

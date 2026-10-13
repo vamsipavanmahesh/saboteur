@@ -27,6 +27,11 @@ RSpec.describe Saboteur::Config do
       .to eq(["rspec", 3.0, 5.0, 1, "nesting"])
   end
 
+  it "keeps whole_file as a list of subject id patterns, empty by default" do
+    expect(described_class.new({})["whole_file"]).to eq([])
+    expect(described_class.new({ "whole_file" => ["Gate#open", "Box*"] })["whole_file"]).to eq(["Gate#open", "Box*"])
+  end
+
   it "has no threshold or explicit tests by default, and reads both from the file" do
     expect(described_class.load(root: @root).to_h.values_at("threshold", "tests")).to eq([nil, []])
     write("config/saboteur.rb", "Saboteur.configure { |c| c.threshold = 90; c.tests = [\"spec/a_spec.rb\"] }")
@@ -190,5 +195,14 @@ RSpec.describe Saboteur::Config, "#output_paths" do
                                      "html_report" => "/elsewhere/r.html" }, root: root)
       expect(config.output_paths).to eq([".saboteur", "out/r.json"])
     end
+  end
+end
+
+RSpec.describe Saboteur::Config, "matrix" do
+  it "is off by default and refuses to combine with incremental reuse" do
+    expect(described_class.new({})["matrix"]).to be(false)
+    expect(described_class.new({ "matrix" => true })["matrix"]).to be(true)
+    expect { described_class.new({ "matrix" => true, "incremental" => true }) }
+      .to raise_error(Saboteur::ConfigError, /matrix cannot be combined with incremental/)
   end
 end

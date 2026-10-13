@@ -7,6 +7,21 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `whole_file` config: an opt-in list of subject ids or globs (for example
+  `"Point#distance"`, `"Geometry::*"`). For those subjects the child evaluates the
+  whole mutated file instead of re-evaluating the one method, so methods
+  surgical re-evaluation refuses can be mutated. It applies to methods already
+  found as subjects. The file's top-level code runs again in the child: load-time
+  side effects repeat and constants it assigns are rebuilt. A surviving
+  mutant whose definition a later definition in the file replaces is reported as
+  unreachable, not survived. Off by default (Refs #138).
+- `--matrix` (#132) runs every covering test per mutant and lists blind and
+  redundant tests after the survivors.
+- The 30-second heartbeat of the baseline and coverage phases now shows the examples finished so far, the percentage and a rough time left, read from the phase log, instead of only the elapsed time. (#56)
+- Each finding in `--agent` output carries a `testHint` (`kind`, `text`, and for a
+  comparison swap that differs only for equal or unequal operands, a `case`
+  such as `left == right`) saying where a test could look (#154). It is a
+  suggestion, not a diagnosis: a survivor can also be an equivalent mutant.
 - A run that leaves a live survivor ends with a "Next steps" footer of command
   templates: replay (`saboteur run --id DIGEST --seed N`, to be combined with the
   run's own selection options), an ignore entry with the survivor's subject, and
@@ -32,10 +47,21 @@ All notable changes are documented here. The format follows
   (serial only; the run is marked incomplete with exit cause `failFast` and
   lists the subjects it never reached). The CI progress line-break can
   misalign by a mark when parallel workers finish at the same moment.
+- Sorbet signature text does not prune nil-producing mutants. Runtime enforcement
+  is not verified: checked levels, custom handlers and shims can allow nil to
+  reach assertions. Type-aware pruning (#153) is deferred until enforcement can
+  be established without guessing from return-type text.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
+### Changed
+- The text run prints one `Reports:` line naming the JSON and HTML reports, with
+  paths relative to the project root when they are under it, instead of two
+  lines with a blank line between them (#150). Scripts that read the old
+  `JSON report:` and `HTML report:` lines must read `Reports:` instead.
+
 ### Fixed
+- The unscoped `--since` warning now says what `--test` drops: the consumer specs of a changed method no longer run, which can turn kills into survivors. (#113)
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
   guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
@@ -56,6 +82,8 @@ All notable changes are documented here. The format follows
 ## [0.4.0] - 2026-10-12
 
 ### Changed
+- The terminal report lists every survivor on a changed line in `--since` mode, instead of one
+  plus "N more survivors on this line in the JSON report" (#146).
 - **Breaking:** configuration moved from YAML to Ruby. `.saboteur.yml` becomes
   `config/saboteur.rb` (`Saboteur.configure do |c| ... end`, same key names),
   and `.saboteur-ignore.yml` becomes `config/saboteur_ignore.rb`

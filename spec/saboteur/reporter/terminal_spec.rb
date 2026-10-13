@@ -28,6 +28,52 @@ RSpec.describe Saboteur::Reporter::Terminal do
     )
   end
 
+  it "prints the test matrix before the summary only for a --matrix run, capped" do
+    killed = result_for(:killed, killed_by: %w[a b], covered_by: %w[a b], executed: %w[a b])
+    plain = report_of(killed)
+    expect(render(plain)).not_to include("test matrix")
+    out.truncate(0)
+    out.rewind
+
+    matrix = Saboteur::Report.new(results: [killed], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1, matrix: true)
+    text = render(matrix)
+    expect(text).to include("test matrix: 2 tests ran against mutants", "blind (covered mutants, killed none): 0",
+                            "redundant (every kill had another killer): 2", "    a  1 kills", "    b  1 kills")
+    expect(text.index("test matrix")).to be < text.index("saboteur #{Saboteur::VERSION}:")
+
+    many = Array.new(22) { |index| "t#{format('%02d', index)}" }
+    survivor = result_for(:survived, covered_by: many, executed: many)
+    blind = Saboteur::Report.new(results: [survivor], subjects: [person_subject],
+                                 wall_time: 1.0, root: File.dirname(person_subject.file), seed: 1, matrix: true)
+    out.truncate(0)
+    out.rewind
+    twenty = result_for(:survived, covered_by: many.first(20), executed: many.first(20))
+    exactly = Saboteur::Report.new(results: [twenty],
+                                   subjects: [person_subject], wall_time: 1.0,
+                                   root: File.dirname(person_subject.file), seed: 1, matrix: true)
+    text = render(exactly)
+    expect(text).to include("    t19  1 covered")
+    expect(text[text.index("test matrix")..]).not_to match(/\.\.\. \d+ more/)
+    out.truncate(0)
+    out.rewind
+    expect(render(blind)).to include("blind (covered mutants, killed none): 22", "    t19  1 covered", "... 2 more")
+  end
+
+  it "says how many mutants stopped before every covering test ran, and only then" do
+    stopped = result_for(:killed, killed_by: %w[a], covered_by: %w[a b], executed: %w[a])
+    whole = result_for(:killed, killed_by: %w[a], covered_by: %w[a], replacement: "<=", executed: %w[a])
+    root = File.dirname(person_subject.file)
+    partial = Saboteur::Report.new(results: [stopped], subjects: [person_subject], wall_time: 1.0, root:, seed: 1,
+                                   matrix: true)
+    expect(render(partial)).to include("1 mutants stopped before every covering test ran (incomplete)")
+    out.truncate(0)
+    out.rewind
+    complete = Saboteur::Report.new(results: [whole], subjects: [person_subject], wall_time: 1.0, root:, seed: 1,
+                                    matrix: true)
+    expect(render(complete)).not_to include("stopped before every covering test ran")
+  end
+
   it "ends a run with survivors on the next steps, after the legend, and a clean run without them" do
     text = render(report_of(result_for(:killed), result_for(:survived)))
     expect(text.index("legend:")).to be < text.index("Next steps:")
@@ -77,9 +123,13 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text.scan("tests covered this line and still passed").size).to eq(2)
     expect(text.scan("covered this line and passed in an earlier run").size).to eq(1)
     expect(text.index("-> > ")).to be < text.index("c_spec.rb[1:1]")
-    first_block = text[/(?<=2 tests covered this line and still passed).*?(?=- comparison >= -> <=)/m]
-    expect(first_block).to include("a_spec.rb[1:1]\n        ./spec/a_spec.rb[1:2]")
-    expect(text).to match(%r{\./spec/a_spec\.rb\[1:2\]\n\s+\./spec/a_spec\.rb\[1:1\]})
+    # Same-line mutants are ranked (docs/survivor-ranking.md), so their order is not fixed here; each
+    # one must still print its own covering tests, in its own order, just above its line.
+    evidence = lambda { |shown|
+      text[%r{still passed[^\n]*\n((?:\s+\./spec/[^\n]*\n)+)\s+- comparison >= -> #{Regexp.escape(shown)} }, 1]
+    }
+    expect(evidence.call(">").scan(/a_spec\.rb\[[\d:]+\]/)).to eq(["a_spec.rb[1:1]", "a_spec.rb[1:2]"])
+    expect(evidence.call("<=").scan(/a_spec\.rb\[[\d:]+\]/)).to eq(["a_spec.rb[1:2]", "a_spec.rb[1:1]"])
     expect(text.scan("1 test covered this line and passed in an earlier run").size).to eq(1)
   end
 
@@ -254,22 +304,23 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "(2 mutants); whole-body mutants alone 100.0 % (1)")
   end
 
-  it "shows one survivor per line in review mode, and says how many more the JSON holds" do
+  it "shows every survivor on a line in review mode, with no truncation note" do
     survivors = [result_for(:survived, replacement: ">"), result_for(:survived, replacement: "<=")]
     report = Saboteur::Report.new(results: survivors, subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file), review: true)
     text = render(report)
-    expect(text.scan("- comparison").size).to eq(1)
-    expect(text).to include("1 more survivor on this line in the JSON report")
+    expect(text.scan("- comparison").size).to eq(2)
+    expect(text).not_to include("more survivor", "in the JSON report\n")
   end
 
-  it "never lets an ignored survivor hide a live one on the same line in review mode" do
+  it "shows an ignored survivor next to a live one on the same line in review mode" do
     ignored = result_for(:survived, replacement: ">")
     ignored.ignored = "equivalent"
     live = result_for(:survived, replacement: "<=")
     report = Saboteur::Report.new(results: [ignored, live], subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file), review: true)
-    expect(render(report)).to include("- comparison >= -> <= ")
+    text = render(report)
+    expect(text).to include("- comparison >= -> <= ", "- comparison >= -> > ", "(ignored: equivalent)")
   end
 
   it "shows resource-limit stops as their own status" do
@@ -396,12 +447,12 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     expect(render(report_of(result_for(:survived)))).to include("Survivors (1):\n")
   end
 
-  it "says survivor or survivors depending on how many more share the line" do
-    two = render(review(result_for(:survived), result_for(:survived, replacement: "<=")))
-    three = render(review(result_for(:survived), result_for(:survived, replacement: "<="),
-                          result_for(:survived, replacement: "==")))
-    expect(two).to include("1 more survivor on this line")
-    expect(three).to include("2 more survivors on this line")
+  it "shows three survivors on one line in review mode, in ranked order (ties by digest)" do
+    results = [">", "<=", "=="].map { |replacement| result_for(:survived, replacement: replacement) }
+    text = render(review(*results))
+    expect(text.scan("- comparison").size).to eq(3)
+    expect(text.scan(/ >= -> (\S+) /).flatten)
+      .to eq(results.sort_by(&:digest).map { |result| result.mutation.edits.first.replacement })
   end
 
   it "shows every survivor, with no 'more' note, outside review mode" do
@@ -410,27 +461,12 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     expect(text).not_to include("more survivor")
   end
 
-  it "prefers a coarse survivor over a fine one that starts at the same byte" do
-    fine = mutant(:survived, at: "@age >= 18", replacement: "nil", operator: "statement_removal")
-    coarse = mutant(:survived, at: "@age >= 18", replacement: "nil", operator: "body_nil", coarse: true)
-    expect(render(review(fine, coarse))).to include("- body_nil")
-  end
-
-  it "shows a live fine survivor over an ignored coarse one on the same line" do
-    coarse = mutant(:survived, at: "@age >= 18", replacement: "nil", operator: "body_nil", coarse: true)
-    coarse.ignored = "accepted"
-    fine = mutant(:survived, at: ">=", replacement: ">", operator: "comparison")
-    text = render(review(coarse, fine))
-    expect(text).to include("- comparison")
-    expect(text).not_to include("- body_nil")
-  end
-
   it "prints no errors section and no ignored note when there is nothing to say" do
     text = render(report_of(result_for(:survived)))
     expect(text).not_to include("Errors", "ignored:")
   end
 
-  it "keeps survivors on different lines apart in review mode" do
+  it "shows survivors on different lines in review mode" do
     subject = subjects_in("class Two\n  def m(a)\n    b = a + 1\n    b * 2\n  end\nend\n").first
     results = ["+", "*"].map do |operator|
       at = subject.file_source.index(" #{operator} ") + 1
