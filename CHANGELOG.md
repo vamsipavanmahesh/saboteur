@@ -1,5 +1,7 @@
 # Changelog
 
+- Add source-only --dry-run, --list-operators and --operators selection. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
+
 All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
