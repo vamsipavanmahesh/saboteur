@@ -130,7 +130,7 @@ missed. The JSON report lands in `.saboteur/report.json`.
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
-run. A change no test reaches is reported as "no coverage", not as a survivor. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
+run. A change no test reaches is reported as "no coverage", not as a survivor. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
 whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
@@ -578,12 +578,14 @@ and the last call stay, so a test has to notice that a step in between went
 missing. The link goes whole, with its arguments and block. The operator and
 source name is `chain_removal`.
 
-Operators, index calls, attribute writes (`user.profile.name = 1`, `+=`, `||=`)
-and bare-name receivers are not chains and are unchanged. `freeze`, `dup`,
-`clone`, `itself` and `tap` links are never removed: they hand back the same
-value or an equal copy, so dropping one changes only frozenness or object
-identity, which ordinary tests do not check, and the mutant is mostly
-equivalent noise. Arid statements and nested definitions are skipped.
+Operators, index calls and bare-name receivers are not chains and are unchanged.
+The target of a write (`user.account.profile.name = 1`, `+=`, `||=`, `a.b[0] = 1`)
+is left whole: no link of its receiver chain is dropped, however long. Only
+the value on the right can be mutated. `freeze`, `dup`, `clone`, `itself`
+and `tap` links are never removed. Tests can observe frozenness, copies and a
+`tap` block's effects, but those are other contracts than a missing step in a
+query chain, and dropping such a link mostly yields noise, so this operator
+leaves them out. Arid statements and nested definitions are skipped.
 
 Chain removal is on by default, like `argument_removal` and `pair_removal`.
 Its proposals follow the other fine proposals, with the same validation,
