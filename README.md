@@ -864,3 +864,22 @@ Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `s
 `bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains today's operators, extended is reserved for new opt-in operators. Empty/default selection keeps all current operators. Selection changes invalidate incremental verdict identity.
 
 Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).
+
+### Agent survivor hints and score history
+
+`--agent` findings include operator-specific `hint` suggestions and a shared
+`hintCaveat`. Hints do not diagnose a missing test or assertion; equivalent
+mutants and limited observation are still possible. Unknown operators have no
+hint unless marked coarse. The normal JSON byte budget still applies.
+
+Use `--score-history PATH` (or `c.score_history = PATH` in your config) to append
+one score-history JSONL record per finished report. History is off by default;
+changes are printed to stderr, not agent stdout. See [score definitions and
+history limits](docs/scores.md). The file can be uploaded by your own artifact
+step; the bundled Action's upload behavior is unchanged.
+
+Score history now refuses non-regular files, symlink paths and report/history
+inode aliases before running the engine or writing reports. Imported records
+have a 64 KiB per-line bound and strict version-one validation, including
+counts, scores and duplicate keys. History is an output, excluded from baseline
+fingerprints. See [history safety and comparison limits](docs/scores.md).

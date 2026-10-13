@@ -27,7 +27,7 @@ module Saboteur
               scoreDefinition: "(killed + timeout) / (killed + survived + timeout); null when nothing was tested",
               incomplete: incomplete, timeoutCountedAsDetected: report.counts[:timeout],
               findings: findings(report, shown, snippet_limit),
-              warnings: warnings(report),
+              warnings: report.warnings.first(WARNING_LIMIT).map { |warning| warning.to_s[0, WARNING_LENGTH] },
               next: next_steps(report, provenance)
             }
           end
@@ -88,7 +88,8 @@ module Saboteur
             {
               survivors: live, shown: shown_findings(all[:survivors], shown, snippet_limit),
               omitted: live - [shown, all[:survivors].size].min,
-              accepted: report.survivors.size - live, ordering: all[:ordering]
+              accepted: report.survivors.size - live, ordering: all[:ordering],
+              hintCaveat: SurvivorHints::CAVEAT
             }
           end
 
@@ -98,18 +99,15 @@ module Saboteur
                      .merge(path: clip_value(finding[:path], 200), subject: clip_value(finding[:subject], 200),
                             original: clip(finding[:original], snippet_limit),
                             replacement: clip(finding[:replacement], snippet_limit))
-                     .merge(testHint: test_hint(finding))
+                     .merge(finding_hints(finding))
             end
           end
 
-          # nil (JSON null) when the operator has no hint.
-          def test_hint(finding)
-            SurvivorHints.structured(operator: finding[:operator], original: finding[:original],
-                                     replacement: finding[:replacement], coarse: finding[:coarse])
-          end
-
-          def warnings(report)
-            report.warnings.first(WARNING_LIMIT).map { |warning| warning.to_s[0, WARNING_LENGTH] }
+          def finding_hints(finding)
+            structured = SurvivorHints.structured(operator: finding[:operator], original: finding[:original],
+                                                  replacement: finding[:replacement], coarse: finding[:coarse])
+            { hint: SurvivorHints.for(finding[:operator], coarse: finding[:coarse]) }.compact
+                                                                                     .merge(testHint: structured)
           end
 
           def next_steps(report, provenance)

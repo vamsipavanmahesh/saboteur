@@ -9,11 +9,13 @@ require_relative "reporter/replay"
 require_relative "baseline/command"
 require_relative "cli/exit_status"
 require_relative "preview"
+require_relative "cli/run_reporting"
 
 module Saboteur
   class CLI
     include Baseline::Command
     include ExitStatus
+    include RunReporting
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -133,9 +135,7 @@ module Saboteur
 
       return preview if options[:list_operators] || options[:dry_run]
 
-      arguments = { err: @err }
-      arguments[:digest] = options[:id] if options[:id]
-      agent? ? agent_run(arguments) : text_run(Engine.new(config, **arguments).call)
+      execute_run
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
       agent_failure(e.message, EXIT_USAGE)
@@ -161,21 +161,6 @@ module Saboteur
       return unless agent? && (config["threshold"] || gates.any?)
 
       raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
-    end
-
-    def text_run(report)
-      @err.puts
-      Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto).call(report)
-      Reporter::Replay.new(@out).call(report) if options[:id]
-      code = exit_code(report)
-      # The JSON carries the exit cause an outer harness trusts, so it is
-      # the completion evidence for the whole run: write it only after
-      # every other fallible reporting stage, or a late failure would
-      # leave a fresh, misleading report behind.
-      html = write_html(report)
-      json = write_json(report, exit_cause(report, code))
-      announce_reports(json => "JSON", html => "HTML")
-      code
     end
 
     # One line naming the reports written, paths relative to the root when
@@ -209,21 +194,6 @@ module Saboteur
 
     # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
     # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
-    def agent_run(arguments)
-      tree = WorkingTree.new(config.root, ignored: config.output_paths).state
-      engine = Engine.new(config, **arguments)
-      report = stdout_on_stderr { engine.call }
-      payload = Reporter::Agent.call(report, agent_provenance(report, tree, engine))
-      rendered = Reporter::Agent.render(payload)
-      # Same publish order as text_run: the JSON is the completion
-      # evidence, so it is written only after every other fallible stage,
-      # including the agent payload itself.
-      write_html(report)
-      write_json(report, agent_exit_cause(report, payload))
-      @out.print(rendered)
-      Reporter::Agent.exit_code(payload)
-    end
-
     # Descriptor 1 points at stderr for the block, so Kernel#puts, system and forked
     # children cannot write into the JSON on stdout.
     def stdout_on_stderr
@@ -364,6 +334,7 @@ module Saboteur
     end
 
     def define_output_options(opts)
+      opts.on("--score-history PATH", "Append score history JSONL (opt-in)") { |v| set(:score_history, v) }
       opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
       opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
       opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
