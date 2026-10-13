@@ -242,6 +242,67 @@ Saboteur.ignore do |i|
   i.mutation "a1c0d420583dc184",
              subject: "Saboteur::IgnoreList.unknown_directive_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
+
+  i.mutation "e378487a3478079b",
+             subject: "Saboteur::CLI#define_execution_options",
+             reason: "user-facing copy: the option description string has no behavioural contract; the flag itself is spec'd (cli_spec parses --allow-hazardous into overrides)"
+
+  i.mutation "d9c188cb0ab4fa17",
+             subject: "Saboteur::CLI#define_execution_options",
+             reason: "user-facing copy: dropping the description argument leaves the flag working; behaviour is spec'd in cli_spec"
+
+
+
+
+  i.mutation "d5d83ae928db4190",
+             subject: "Saboteur::Engine#candidate_lists",
+             reason: "wiring verified end-to-end: without hazard_guard the danger-fixture e2e wipes its copy and fails; subprocess runs are invisible to in-process coverage"
+
+
+
+
+  i.mutation "9e0c7ce08f5408e6",
+             subject: "Saboteur::Engine::Distribution#run",
+             reason: "equivalent: jobs is validated >= 1, so <= and == agree on every reachable value"
+
+  i.mutation "266e4305edcac0b1",
+             subject: "Saboteur::Engine::Canary#inventory",
+             reason: "equivalent: forcing the git branch still reaches walk_files through the ls-files failure fallback in a non-repository, yielding the same inventory"
+
+  i.mutation "9bbfe3d7a6763928",
+             subject: "Saboteur::Engine::Canary#git?",
+             reason: "equivalent: with the condition forced true, a tree without .git still falls back to walk_files when git ls-files fails"
+
+  i.mutation "92187871045409ad",
+             subject: "Saboteur::Engine::Canary#git?",
+             reason: "equivalent: replacing the git binary probe with the directory check only differs when git is absent, and saboteur requires git for diffs and baselines"
+
+
+
+
+
+
+
+
+  i.mutation "d68346ea9d02b690",
+             subject: "Saboteur::Engine::Canary#walk_files",
+             reason: "equivalent: the reject operands are pure predicates, so | returns the same boolean as ||"
+
+  i.mutation "2689f9db0bec4712",
+             subject: "Saboteur::Engine::Distribution#decode",
+             reason: "equivalent: encode always writes rejected_kill, so the fetch default never fires for same-version workers"
+
+  i.mutation "e26320eab32dc139",
+             subject: "Saboteur::Engine::Distribution#decode",
+             reason: "equivalent: encode always writes rejected_kill, so fetch with and without the default reads the same present key"
+
+  i.mutation "efe71ae606835faa",
+             subject: "Saboteur::MutationSource::HazardGuard#hazard_spans",
+             reason: "equivalent: descending into a hazardous call only records spans nested inside the outer one, and an edit covering the outer span covers them too, so kept/suppressed outcomes are unchanged"
+
+
+
+
   i.mutation "264eeaf9a5ccfb11",
              subject: "Saboteur::Engine::Scheduler#call",
              reason: "equivalent: removing the all-reused shortcut still reuses each cached verdict; checked does not run neutral checks for reused verdicts"

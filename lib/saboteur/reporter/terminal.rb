@@ -45,6 +45,13 @@ module Saboteur
         line
       end
 
+      def hazard_suppressions(report)
+        return unless report.hazard_suppressions.positive?
+
+        @out.puts "hazardous mutations suppressed: #{report.hazard_suppressions} " \
+                  "(--allow-hazardous runs them anyway; the canary still watches the tree)"
+      end
+
       def details(report)
         breakdown = report.score_breakdown
         @out.puts "score #{percent(breakdown.value)}#{score_split(breakdown)} " \
@@ -54,6 +61,7 @@ module Saboteur
         @out.puts "mean time per executed mutant #{format('%.3f', mean)} s" if mean
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
           report.invalid_mutations.positive?
+        hazard_suppressions(report)
         report.skip_reasons.each { |reason, count| @out.puts "skipped: #{reason}: #{count}" }
         reused = report.results.count(&:reused?)
         @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if

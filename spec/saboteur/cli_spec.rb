@@ -532,3 +532,19 @@ RSpec.describe Saboteur::CLI, "explicit files" do
     expect(err.string).to include("threshold must be between 0 and 100")
   end
 end
+
+RSpec.describe Saboteur::CLI, "--allow-hazardous (issue #102)" do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+
+  def cli(*argv)
+    described_class.new(argv, out:, err:)
+  end
+
+  it "parses into the config overrides" do
+    command = cli("run", "--allow-hazardous")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(allow_hazardous: true)
+  end
+end

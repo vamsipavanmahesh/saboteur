@@ -72,6 +72,35 @@ selected sources.
 Two passes detect observed instability, not every possible flaky test. See
 [baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
 
+### Hazardous calls are not mutated, and a canary watches the tree
+
+Mutants run in your checkout, so a mutant inside a destructive call could do
+real damage: a string mutation inside `FileUtils.rm_rf(File.join(Dir.pwd,
+"build"))` once turned the target into the working directory itself. The
+hazard guard is a syntactic filter. It recognizes destructive calls written
+as direct calls: `FileUtils.rm*`/`remove_entry*` (also as bare names under
+`include FileUtils`), `File.delete`/`unlink`, `Dir.rmdir`/`delete`/`unlink`,
+`rmtree`, `system`/`exec`/`spawn` (bare or on `Kernel`/`Process`), backticks
+and `%x`, `IO.popen`, any `Open3` method, and `open` with a leading `|`. It
+suppresses any mutant that would leave such a call in place while altering
+code inside it or anywhere else in the same method. A mutant that removes
+every hazardous call in the method still runs, provided its replacement
+introduces no new hazard. The match is by name on the written call: calls
+reached through aliases, variables, `send` or other indirection are not
+recognized, so the guard cannot promise to find every destructive call. The
+summary reports how many mutants were suppressed. Extend or replace the list
+with `c.hazard` (same tag shapes: `"FileUtils.rm_rf"`, or a bare name like
+`"system"`); `--allow-hazardous` runs the suppressed mutants anyway.
+
+Behind the guard, a canary snapshots the tracked files (or every file,
+outside a repository) before mutating and re-checks after each method's
+mutants. If anything vanished, the run aborts with exit 3 and names the most
+recent mutant's digest. That check happens after the damage and restores
+nothing; it limits how far a bad mutant gets. Recover from your own backup,
+a fresh checkout or a reclone - a deleted `.git` or uncommitted work is gone
+unless you have another copy. The canary is the backstop for the destructive
+forms the syntactic guard cannot see.
+
 
 ## 🚀 Try it in a minute
 
@@ -196,7 +225,9 @@ run, so their normal side effects remain. See the [doctor guide](docs/guides/doc
 
 `--id` runs exactly one current mutant with its coverage-selected tests, bypassing
 per-method caps, ignore suppression and incremental verdict reuse.
-It still honors `--subject` and `--since` changed-line selection. See the
+It still honors `--subject` and `--since` changed-line selection, and the
+hazard guard: a digest that names a suppressed mutant is refused unless
+`--allow-hazardous` is also given. See the
 [replay guide](docs/guides/replay.md) for digest format, checks and limits.
 
 Every test run starts from the same random seed (1 by default), so tests that
@@ -300,6 +331,7 @@ Saboteur.configure do |c|
   c.max_memory_mb = 2048         # memory growth cap per mutant process tree
   c.max_processes = 64
   c.max_mutants_per_method = 100 # positive integer; raise it for a broader run
+  c.hazard = Saboteur::MutationSource::HazardGuard::DEFAULT_HAZARD # calls whose arguments are never mutated
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]

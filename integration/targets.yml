@@ -24,22 +24,26 @@ tty-color:
   config: integration/configs/tty_color.rb
   schedule: pr
   expect:
-    # class_eval: killed + error is 151 after argument, pair and coarse-gate removal. Their split
-    # can vary by run (historical baseline 59/68 to 69/58), so only the sum
-    # is checked. The cause is still open.
-    class_eval: { killed+error: 151, survived: 13, timeout: 0, skipped: 0 }
-    # macOS literal expansion has not been measured. Keep the historical
-    # baseline here until a macOS run supplies a replacement snapshot.
+    # class_eval: killed + error is 126 after the hazard guard suppressed 25
+    # mutants in tty-color's backtick/system methods (was 151). Their split
+    # can vary by run (Linux measured 69/57), so only the sum is checked.
+    class_eval: { killed+error: 126, survived: 13, timeout: 0, skipped: 0 }
+    # macOS literal expansion has not been measured, and no CI job runs
+    # integration targets on macOS. Keep the historical (pre-guard) baseline
+    # here until a macOS run supplies a replacement snapshot; Linux CI reads
+    # the override below.
     nesting: { killed: 118, survived: 16, timeout: 0, error: 0, skipped: 2 }
   # Mode#from_tput (is tput on PATH?) and Support#support? (is stdout a
   # terminal?) take different paths in tty-color's own tests on Linux CI.
   expect_on:
     linux:
-      nesting: { killed: 138, survived: 26, skipped: 0 }
+      # Measured after the hazard guard suppressed 25 mutants in tty-color's
+      # backtick/system methods (was killed 138, survived 26).
+      nesting: { killed: 118, survived: 21, skipped: 0 }
   # class_eval: spec/unit/mode_spec.rb[1:3] kills most Mode mutants with a
   # test that also fails with the method unchanged ("uninitialized constant
   # TTY::Color::Mode::NoValue"), so over half the mutants error on every
-  # run (76 of 147, ~52%) and the majority-error exit would fail the job.
+  # run (57 of 139, ~41%) and the majority-error exit would fail the job.
   # Allow that exit while the errored fraction stays under 60%; the
   # snapshot above still pins survived, timeout, skipped and the
   # killed+error total.

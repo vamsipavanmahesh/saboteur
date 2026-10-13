@@ -11,6 +11,18 @@ All notable changes are documented here. The format follows
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
 ### Fixed
+- **Safety:** mutants that would leave a directly-written destructive call
+  running with altered inputs are suppressed (#102). A syntactic hazard
+  guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
+  (bare names included), `File.delete`/`unlink`, `Dir.rmdir`/`delete`/
+  `unlink`, `rmtree`, `system`/`exec`/`spawn` (bare or on `Kernel`/
+  `Process`), backticks/`%x`, `IO.popen`, `Open3.*`, piped `open` - and
+  suppresses mutants inside such a call or elsewhere in a method that still
+  holds one. Calls behind aliases, variables or `send` are not recognized.
+  A canary re-checks the tracked tree after each method's mutants and aborts
+  with exit 3 when a file vanishes: detection after the damage, per method,
+  with no restoration. Configure the list via `c.hazard`; `--allow-hazardous`
+  opts out.
 - Endless defs (`def x = ...`) are no longer skipped as "no coverage": the
   coverage map now also records per-test method calls, which is how Ruby
   reports endless-def bodies. A whole-suite build that records neither a line
