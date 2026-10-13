@@ -57,6 +57,21 @@ RSpec.describe Saboteur::MutationSource::ChainRemoval do
     expect(bodies("user.profile.name = user.account.id")).to eq(["user.profile.name = user.id"])
   end
 
+  it "leaves the whole receiver chain of a write target alone, however long" do
+    expect(bodies("user.account.profile.name = 1")).to be_empty
+    expect(bodies("user.account.profile.count += 1")).to be_empty
+    expect(bodies("user.account.profile.name ||= 1")).to be_empty
+    expect(bodies("user.account.profile.name &&= 1")).to be_empty
+    expect(bodies("user.account.list[0] = 1")).to be_empty
+    expect(bodies("user.account.list[0] += 1")).to be_empty
+  end
+
+  it "still shortens chains on the value side and in the index of a write" do
+    expect(bodies("user.profile.name = user.account.owner.id"))
+      .to match_array(["user.profile.name = user.owner.id", "user.profile.name = user.account.id"])
+    expect(bodies("user.list[user.a.b] = 1")).to eq(["user.list[user.b] = 1"])
+  end
+
   it "skips a call written with .() because it has no method name to remove" do
     expect(bodies("user.items.(1).first")).to eq(["user.(1).first"])
   end
