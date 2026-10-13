@@ -186,7 +186,7 @@ RSpec.describe Saboteur::Reporter::Agent do
       steps = next_commands(config_path: "ci.yml", subjects: ["A#b"], tests: ["spec/a_spec.rb"], cache: false,
                             incremental: true, sources: ["lib/a.rb"], digest: "f" * 16)
       expect(steps[:rerun]).to eq("saboteur run --agent --config ci.yml --since origin/main --subject A\\#b " \
-                                  "--test spec/a_spec.rb --no-cache --incremental --id #{'f' * 16} " \
+                                  "--no-guess-tests --test spec/a_spec.rb --no-cache --incremental --id #{'f' * 16} " \
                                   "--seed 7 -- lib/a.rb")
     end
 
