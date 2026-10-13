@@ -6,6 +6,10 @@ RSpec.describe Saboteur::MutationSource::RangeReplacement do
     subjects_in("class RangeTarget\n  def m\n    #{expression}\n  end\nend\n").first
   end
 
+  it "handles a method with no body" do
+    expect(described_class.new.mutations_for(target(""))).to be_empty
+  end
+
   it "swaps either bounded endpoint rule deterministically" do
     { "1..3" => "1...3", "1...3" => "1..3" }.each do |before, after|
       subject = target(before)
