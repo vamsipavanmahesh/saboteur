@@ -403,6 +403,6 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     expect(File.read(marker)).to eq("denied")
     expect(File.exist?(File.join(project, "evil.rb"))).to be(false)
   ensure
-    FileUtils.rm_rf(project)
+    FileUtils.rm_rf(project) if project
   end
 end
