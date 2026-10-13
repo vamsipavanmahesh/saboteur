@@ -12,40 +12,29 @@ module Preflight
     class Rspec
       STATUSES = %w[passed failed pending].freeze
 
-      def initialize(name:, command_runner:, paths: [], report_directory: nil, output_root: nil)
+      def initialize(name:, command_runner:, paths: [])
         @name = name
         @runner = command_runner
         @paths = paths
-        @report_directory = report_directory
-        @output_root = output_root
       end
 
+      # The JSON goes to a pipe the harness owns (file descriptor 3), not to a path in the checkout.
       def call(_context = nil)
-        directory = @report_directory || Dir.mktmpdir("preflight-rspec")
-        output = File.join(directory, "#{@name}.rspec.json")
-        prepare_destination(directory, output)
-        result = @runner.run(%w[bundle exec rspec] + @paths + ["--format", "json", "--out", output])
+        result = @runner.run(%w[bundle exec rspec] + @paths + ["--format", "json", "--out", "/dev/fd/3"],
+                             data_pipe: true)
         return incomplete(result, "could not use RSpec: #{result.problem}") unless result.ran?
+        return incomplete(result, "RSpec wrote no report") if result.data.to_s.empty?
 
-        document = StrictJson.read(output, follow: @output_root.nil?)
+        document = StrictJson.parse(result.data)
         problem = shape_problem(document)
         return incomplete(result, "RSpec report rejected: #{problem}") if problem
 
-        verdict(result, document, output)
+        verdict(result, document, result.data_path)
       rescue MalformedDocument => e
         incomplete(result, "RSpec report rejected: #{e.message}")
       end
 
       private
-
-      # Inside the checkout the destination is created by the harness (new, regular, no link) before candidate code
-      # can run, and read back without following links, so a swap during the run is rejected, not trusted.
-      def prepare_destination(directory, output)
-        return FileUtils.mkdir_p(directory) unless @output_root
-
-        SafeOutput.make_directories(directory, @output_root)
-        SafeOutput.write_new(output, "", @output_root)
-      end
 
       def verdict(result, document, path)
         counts = document["summary"]
@@ -96,7 +85,7 @@ module Preflight
       def failed_names(document, path)
         failed = document["examples"].select { |example| example["status"] == "failed" }
         failed.first(20).map { |example| "#{example['file_path']}: #{example['full_description']}" } +
-          ["raw report: #{path}"]
+          ["raw report: #{path || 'not saved'}"]
       end
 
       def incomplete(result, reason)
