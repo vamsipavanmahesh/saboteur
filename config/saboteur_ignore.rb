@@ -91,14 +91,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#execute",
              reason: "equivalent: counting each kill as 2 keeps the same order of killers"
 
-  i.mutation "0f79546512131b47",
-             subject: "Saboteur::MutationSource::Builtin#initialize",
-             reason: "equivalent: Base#initialize does nothing"
-
-  i.mutation "22d70abfce019634",
-             subject: "Saboteur::MutationSource::Builtin#initialize",
-             reason: "equivalent: Regexp.new(regexp) returns an equal Regexp"
-
   i.mutation "a7573a705c635da0",
              subject: "Saboteur::MutationSource::Builtin#rescues_everything?",
              reason: "equivalent: nil and false are both falsy for the caller"
@@ -329,4 +321,24 @@ Saboteur.ignore do |i|
   i.mutation "8f347a8e928e9ef5",
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent: Prism's sibling locations are disjoint, so at most one child contains the edit; returning its nil immediately is the same as finishing the loop with nil"
+
+  i.mutation "560fd49376706c7c",
+             subject: "Saboteur::Config#validate_fail_fast!",
+             reason: "equivalent: jobs is validated as at least 1 before this check, so jobs > 1 and jobs != 1 agree for every value that reaches it"
+
+  i.mutation "90c137059dc758bd",
+             subject: "Saboteur::Reporter::SurvivorList#lines",
+             reason: "equivalent: the mutants on one line belong to one subject and share its id and source line, so the first and the last print the same header"
+
+  i.mutation "bc3002bc8baaf16b",
+             subject: "Saboteur::Reporter::SurvivorList#evidence_group",
+             reason: "equivalent: a group is keyed by covering tests, reuse and changed lines, so every member prints the same evidence"
+
+  i.mutation "d32490123aa331d1",
+             subject: "Saboteur::Reporter::SurvivorList#mutation",
+             reason: "equivalent: the branch runs only when hidden is positive, and for a positive integer hidden > 1 and hidden != 1 agree"
+
+  i.mutation "947651810f34ed47",
+             subject: "Saboteur::Preview#planned",
+             reason: "equivalent: at the exact cap, >= records a zero-count omission; preview only sums omission counts, so displayed counts and selected mutants are unchanged"
 end
