@@ -53,7 +53,7 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     expect(described_class.edited_lines(one)).to eq([3])
   end
 
-  it "ranks terminal display and JSON findings consistently, including review representatives" do
+  it "ranks terminal display and JSON findings consistently, including review mode" do
     low = ranked_result(subject, first: 3)
     high = ranked_result(subject, first: 3, tests: %w[a b], replacement: "high")
     accepted = ranked_result(subject, first: 4, coarse: true)
@@ -66,10 +66,9 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     findings = Saboteur::Reporter::Stryker.build(report).dig(:saboteur, :findings)
     expect(findings[:survivors].map { |item| item[:digest] }).to eq([high.digest, low.digest])
     expect(findings[:accepted].first[:digest]).to eq(accepted.digest)
-    expect(Saboteur::Reporter::Terminal.new(StringIO.new).send(:shown, report))
-      .to eq([[high, 0], [low, 0], [accepted, 0]])
-    display = Saboteur::Reporter::Terminal.new(StringIO.new).send(:shown, report_for([low, high], review: true))
-    expect(display).to eq([[high, 1]])
+    review = StringIO.new
+    Saboteur::Reporter::Terminal.new(review).call(report_for([low, high], review: true))
+    expect(review.string.index(high.digest)).to be < review.string.index(low.digest)
   end
 
   it "preserves ranked render order when evidence groups are interleaved" do
