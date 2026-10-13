@@ -58,7 +58,7 @@ module Preflight
     OUTPUT_LIMIT_BYTES = 20 * 1024 * 1024
 
     attr_reader :history
-    attr_writer :log_directory
+    attr_writer :log_directory, :log_root
 
     def initialize(directory:, log_directory: nil, env: {}, isolate_env: false, grace: GRACE_SECONDS,
                    output_limit: OUTPUT_LIMIT_BYTES, drain: DRAIN_SECONDS)
@@ -181,14 +181,15 @@ module Preflight
     def write_logs(result)
       return unless @log_directory
 
-      FileUtils.mkdir_p(@log_directory)
+      root = @log_root || @log_directory
+      SafeOutput.make_directories(@log_directory, root)
       @sequence += 1
       stem = File.join(@log_directory, format("%03d", @sequence))
       result.stdout_path = "#{stem}.stdout.log"
       result.stderr_path = "#{stem}.stderr.log"
-      File.binwrite(result.stdout_path, result.stdout)
-      File.binwrite(result.stderr_path, result.stderr)
-    rescue SystemCallError => e
+      SafeOutput.write_new(result.stdout_path, result.stdout, root)
+      SafeOutput.write_new(result.stderr_path, result.stderr, root)
+    rescue SystemCallError, ExecutionGap => e
       result.spawn_error = "log write failed: #{e.message}"
     end
 
