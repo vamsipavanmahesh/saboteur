@@ -8,8 +8,13 @@ module Saboteur
     # plain data; the parent rebuilds them against its own copy of the same
     # candidate list, so results look the same either way.
     class Distribution
-      def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil)
+      # stop_after: nil, or a callable that gets one subject's results and
+      # returns true to stop before the next subject (--fail-fast). It only
+      # works on one process: parallel workers have already started the
+      # other subjects.
+      def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil, stop_after: nil)
         @jobs = jobs
+        @stop_after = stop_after
         @on_start = on_start
         @scheduler = scheduler
         @diagnostics = diagnostics
@@ -18,7 +23,7 @@ module Saboteur
 
       # lists: each subject's [[mutation, text]] candidates, in subject order.
       def run(subjects, lists)
-        return subjects.zip(lists).flat_map { |subject, list| @scheduler.call(subject, list) } if @jobs <= 1
+        return run_serially(subjects, lists) if @jobs <= 1
 
         pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start)
         rows = pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
@@ -28,6 +33,16 @@ module Saboteur
       end
 
       private
+
+      def run_serially(subjects, lists)
+        results = []
+        subjects.zip(lists).each do |subject, list|
+          subject_results = @scheduler.call(subject, list)
+          results.concat(subject_results)
+          break if @stop_after&.call(subject_results)
+        end
+        results
+      end
 
       # Runs in a worker.
       def work(subject, list)
