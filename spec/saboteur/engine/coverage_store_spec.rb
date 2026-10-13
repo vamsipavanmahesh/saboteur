@@ -49,6 +49,16 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(store.send(:with_parent_load_lines, map)).to equal(map)
   end
 
+  it "records an auditable preview receipt next to a fresh map" do
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(supervisor).to receive(:run).and_return(built_result(map.to_json))
+    store.fetch([file])
+    receipt = JSON.parse(File.read(File.join(@root, ".saboteur", "preview.json")))
+    expect(File.file?(receipt.fetch("path"))).to be(true)
+    config = Saboteur::Config.new({}, root: @root)
+    expect(receipt.fetch("fingerprint")).to eq(Saboteur::Engine::RunFingerprint.new(config: config).snapshot.digest)
+  end
+
   it "builds once, saves, and reuses the cached map while inputs are unchanged" do
     first = store
     allow(first).to receive(:build).and_return(map)
