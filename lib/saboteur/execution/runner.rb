@@ -41,13 +41,18 @@ module Saboteur
       # only when it ends in an error.
       # seed: every child seeds Ruby's random numbers with it before its
       # tests, so a test that uses rand sees the same values in every run.
-      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1)
+      # sandbox: when given, a callable run first in every child (Landlock
+      # makes the project tree read-only there, #152). It raises rather than
+      # run half-restricted, which the child reports as an error.
+      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1,
+                     sandbox: nil)
         @integration = integration
         @reevaluator = reevaluator
         @hooks = hooks
         @log_dir = log_dir
         @supervisor = supervisor
         @seed = seed
+        @sandbox = sandbox
       end
 
       # text: method source to evaluate in the child (the unchanged source for
@@ -71,6 +76,7 @@ module Saboteur
       # --- child ----------------------------------------------------------
 
       def child(writer, job)
+        @sandbox&.call
         Process.setproctitle(title(job))
         redirect_output(job.log_path)
         @hooks.run(:after_fork)
