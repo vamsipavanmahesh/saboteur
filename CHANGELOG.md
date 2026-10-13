@@ -7,6 +7,7 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The 30-second heartbeat of the baseline and coverage phases now shows the examples finished so far, the percentage and a rough time left, read from the phase log, instead of only the elapsed time. (#56)
 - [docs/minitest.md](docs/minitest.md) records that Minitest is unsupported and how much
   of the engine depends on RSpec (#200).
 - [docs/scores.md](docs/scores.md) defines the covered score, the overall score a
