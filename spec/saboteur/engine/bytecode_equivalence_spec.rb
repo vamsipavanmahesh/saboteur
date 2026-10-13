@@ -88,4 +88,44 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
     expect(filter.equivalent?("def m\n  { 1 => :a }\nend", "def m\n  { 1.0 => :a }\nend")).to be(false)
     expect(filter.equivalent?("def m\n  2.0\nend", "def m\n  2.0\nend")).to be(true)
   end
+
+  it "never equates +0.0 with -0.0, which divide to different infinities" do
+    expect(filter.equivalent?("def m\n  1.0 / 0.0\nend", "def m\n  1.0 / -0.0\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  0.0\nend", "def m\n  -0.0\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  [0.0]\nend", "def m\n  [-0.0]\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  { 0.0 => 1 }\nend", "def m\n  { -0.0 => 1 }\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  -0.0\nend", "def m\n  -0.0\nend")).to be(true)
+  end
+
+  describe "structural comparison of operands" do
+    def exact?(left, right)
+      filter.send(:exact?, left, right)
+    end
+
+    it "separates containers of different size or kind" do
+      expect(exact?([1], [1, 2])).to be(false)
+      expect(exact?([1, 2], [1])).to be(false)
+      expect(exact?([1], 1)).to be(false)
+      expect(exact?(Array.new(8, 0), 0)).to be(false)
+      expect(exact?([1, [2.0]], [1, [2.0]])).to be(true)
+      expect(exact?([1, [2.0]], [1, [-2.0]])).to be(false)
+    end
+
+    it "separates a hash from a non-hash and compares hash pairs in order" do
+      expect(exact?({ a: 1 }, [[:a, 1]])).to be(false)
+      expect(exact?({ a: 1 }, { a: 1 })).to be(true)
+      expect(exact?({ a: 1 }, { a: 2 })).to be(false)
+      expect(exact?({ a: 0.0 }, { a: -0.0 })).to be(false)
+    end
+
+    it "separates a Float from an Integer and compares floats by their bytes" do
+      expect(exact?(2.0, 2)).to be(false)
+      expect(exact?(2.0, 2.0)).to be(true)
+      expect(exact?(0.0, -0.0)).to be(false)
+    end
+  end
+
+  it "keeps a mutant that holds NaN, which equals nothing" do
+    expect(filter.equivalent?("def m\n  0.0 / 0.0\nend", "def m\n  1.0\nend")).to be(false)
+  end
 end
