@@ -24,6 +24,16 @@ RSpec.describe "action/run-baseline-gate" do
                     "issues" => [] }.merge(score ? { "score" => score } : {}))
   end
 
+  # A score as saboteur writes it: the percentages, drop and verdict follow from the counts.
+  def score_for(before:, now:, epsilon: 5.0)
+    baseline = before[0] * 100.0 / before[1]
+    current = now[0] * 100.0 / now[1]
+    exceeded = (Rational(before[0] * 100, before[1]) - Rational(now[0] * 100, now[1])) > Rational(epsilon.to_s)
+    { "baseline" => baseline, "current" => current, "drop" => baseline - current, "epsilon" => epsilon,
+      "exceeded" => exceeded, "baseline_detected" => before[0], "baseline_scored" => before[1],
+      "current_detected" => now[0], "current_scored" => now[1] }
+  end
+
   def write_stand_in(exit_status:, stdout:)
     path = File.join(workspace, "stand-in")
     File.write(path, <<~SH)
@@ -62,7 +72,7 @@ RSpec.describe "action/run-baseline-gate" do
   end
 
   it "passes the epsilon through and reports the score drop in the outputs and the summary" do
-    score = { "baseline" => 80.0, "current" => 50.0, "drop" => 30.0, "epsilon" => 5.0, "exceeded" => true }
+    score = score_for(before: [4, 5], now: [1, 2])
     output, status = run_gate({ "SABOTEUR_BASELINE_EPSILON" => "5" }, exit_status: 1,
                                                                       stdout: result_json(state: "review_required",
                                                                                           exit_code: 1, score:))
@@ -97,23 +107,28 @@ RSpec.describe "action/run-baseline-gate" do
   end
 
   describe "a result the check could not have produced" do
-    let(:full_score) { { "baseline" => 80.0, "current" => 80.0, "drop" => 0.0, "epsilon" => 5.0, "exceeded" => false } }
+    let(:epsilon) { { "SABOTEUR_BASELINE_EPSILON" => "5" } }
+    let(:full_score) { score_for(before: [4, 5], now: [4, 5]) }
 
-    def unreadable(stdout, exit_status: 0, environment: {})
+    def unreadable(stdout, exit_status: 0, environment: {}, message: "could not be read")
       output, status = run_gate(environment, exit_status:, stdout:)
       expect(status).to eq(3), stdout
-      expect(output).to include("could not be read")
+      expect(output).to include(message)
       expect(outputs).not_to include("baseline-state")
+    end
+
+    def raw(extra = {})
+      JSON.generate({ "state" => "clean", "exit_code" => 0, "issues" => [],
+                      "categories" => { "new" => [], "changed" => [], "unmatched" => [], "errors" => [] } }
+                    .merge(extra))
     end
 
     it "fails closed on an unknown state, bad categories and a bad score" do
       unreadable('{"state":"nonsense","categories":{},"score":{"drop":"bad"}}')
       unreadable(result_json(state: "nonsense"))
-      unreadable(JSON.generate("state" => "clean", "categories" => { "new" => 0, "changed" => [], "unmatched" => [],
-                                                                     "errors" => [] }))
-      unreadable(JSON.generate("state" => "clean", "categories" => { "new" => [], "changed" => [], "unmatched" => [] }))
-      unreadable(JSON.generate("state" => "clean", "categories" => { "new" => [], "changed" => [], "unmatched" => [],
-                                                                     "errors" => [{}] }))
+      unreadable(raw("categories" => { "new" => 0, "changed" => [], "unmatched" => [], "errors" => [] }))
+      unreadable(raw("categories" => { "new" => [], "changed" => [], "unmatched" => [] }))
+      unreadable(raw("categories" => { "new" => [], "changed" => [], "unmatched" => [], "errors" => [{}] }))
     end
 
     it "fails closed when the state, exit status and findings disagree" do
@@ -124,34 +139,68 @@ RSpec.describe "action/run-baseline-gate" do
       unreadable(result_json(state: "review_required", exit_code: 1), exit_status: 1)
     end
 
-    it "requires a complete finite score when an epsilon was given" do
-      environment = { "SABOTEUR_BASELINE_EPSILON" => "5" }
-      unreadable(result_json, environment:)
-      unreadable(result_json(score: full_score.merge("drop" => "bad")), environment:)
-      unreadable(result_json(score: full_score.except("exceeded")), environment:)
-      unreadable(result_json(score: full_score.merge("current" => 120.0)), environment:)
-      unreadable(result_json(score: full_score.merge("exceeded" => true)), environment:)
-      unreadable('{"state":"clean","exit_code":0,"categories":{"new":[],"changed":[],"unmatched":[],"errors":[]},' \
-                 '"score":{"baseline":1e999,"current":1,"drop":1,"exceeded":false}}', environment:)
+    it "requires the exit code and an empty issues list" do
+      unreadable(JSON.generate(JSON.parse(raw).except("exit_code")))
+      unreadable(JSON.generate(JSON.parse(raw).except("issues")))
+      unreadable(raw("issues" => ["incomplete evidence"]))
+      score = score_for(before: [1, 1], now: [0, 1]).merge("exceeded" => false)
+      unreadable(raw("issues" => ["incomplete evidence"], "score" => score), environment: epsilon)
     end
 
-    it "accepts a complete score and keeps empty fields in their own columns" do
-      _, status = run_gate({ "SABOTEUR_BASELINE_EPSILON" => "5" }, stdout: result_json(score: full_score))
+    it "requires a complete finite score when an epsilon was given" do
+      unreadable(result_json, environment: epsilon)
+      unreadable(result_json(score: full_score.merge("drop" => "bad")), environment: epsilon)
+      unreadable(result_json(score: full_score.except("exceeded")), environment: epsilon)
+      unreadable(result_json(score: full_score.except("baseline_scored")), environment: epsilon)
+      unreadable(result_json(score: full_score.merge("current" => 120.0)), environment: epsilon)
+      unreadable(raw("score" => full_score).sub("80.0", "1e999"), environment: epsilon)
+    end
+
+    it "rejects a score whose arithmetic or verdict contradicts its counts" do
+      lie = full_score.merge("baseline" => 80.0, "current" => 50.0, "drop" => 0.0)
+      unreadable(result_json(score: lie), environment: epsilon)
+      loss = score_for(before: [4, 5], now: [1, 2])
+      unreadable(result_json(score: loss.merge("drop" => 0.0)), environment: epsilon)
+      unreadable(result_json(score: loss.merge("exceeded" => false)), environment: epsilon)
+      unreadable(result_json(score: full_score.merge("exceeded" => true)), environment: epsilon)
+      unreadable(result_json(score: full_score.merge("current_detected" => 5)), environment: epsilon)
+      total = score_for(before: [1, 1], now: [0, 1]).merge("exceeded" => false)
+      unreadable(result_json(score: total), environment: epsilon)
+    end
+
+    it "binds the result's epsilon to the epsilon input" do
+      score = score_for(before: [4, 5], now: [4, 5])
+      unreadable(result_json(score: score.merge("epsilon" => 100.0)), environment: epsilon)
+      unreadable(result_json(score: score.except("epsilon")), environment: epsilon)
+      unreadable(result_json(score: score.merge("epsilon" => 4.9)), environment: epsilon)
+    end
+
+    it "rejects a score when no epsilon was given" do
+      unreadable(result_json(score: full_score))
+    end
+
+    it "accepts the exact boundary that floating point gets wrong" do
+      # 4/1000 vs 3/1000 detected is a drop of exactly 0.1 point.
+      score = score_for(before: [4, 1000], now: [3, 1000], epsilon: 0.1)
+      expect(score["exceeded"]).to be(false)
+      _, status = run_gate({ "SABOTEUR_BASELINE_EPSILON" => "0.1" }, stdout: result_json(score:))
+      expect(status).to eq(0)
+      score = score_for(before: [4, 1000], now: [3, 1000], epsilon: 0.09)
+      _, status = run_gate({ "SABOTEUR_BASELINE_EPSILON" => "0.09" }, exit_status: 1,
+                                                                      stdout: result_json(state: "review_required",
+                                                                                          exit_code: 1, score:))
+      expect(status).to eq(0)
+      expect(outputs).to include("baseline-state" => "review_required")
+    end
+
+    it "accepts a complete score and reports it in its own outputs" do
+      _, status = run_gate(epsilon, stdout: result_json(score: full_score))
       expect(status).to eq(0)
       expect(outputs).to include("baseline-score" => "80.0", "baseline-current-score" => "80.0",
                                  "baseline-score-drop" => "0.0")
-      run_gate({}, exit_status: 1, stdout: result_json(state: "review_required", exit_code: 1, new: 1,
-                                                       score: { "baseline" => 50.0, "current" => 40.0, "drop" => 10.0,
-                                                                "exceeded" => true }))
+      run_gate(epsilon, exit_status: 1, stdout: result_json(state: "review_required", exit_code: 1, new: 1,
+                                                            score: score_for(before: [1, 2], now: [2, 5])))
       expect(outputs).to include("baseline-score" => "50.0", "baseline-current-score" => "40.0",
-                                 "baseline-score-drop" => "10.0")
-    end
-
-    it "keeps a missing baseline score out of the current-score column" do
-      stdout = '{"state":"clean","exit_code":0,"categories":{"new":[],"changed":[],"unmatched":[],"errors":[]},' \
-               '"score":{"current":40.0,"drop":10.0,"exceeded":false}}'
-      run_gate({}, stdout:)
-      expect(outputs).to include("baseline-score" => "", "baseline-current-score" => "40.0",
                                  "baseline-score-drop" => "10.0")
     end
   end
@@ -162,6 +211,7 @@ RSpec.describe "action/run-baseline-gate" do
      [{ "SABOTEUR_BASELINE_EPSILON" => "abc" }, "baseline-epsilon must be a number"],
      [{ "SABOTEUR_BASELINE_EPSILON" => "100.5" }, "baseline-epsilon must be a number"],
      [{ "SABOTEUR_BASELINE_EPSILON" => "-1" }, "baseline-epsilon must be a number"],
+     [{ "SABOTEUR_BASELINE_EPSILON" => "0.0001" }, "at most three decimals"],
      [{ "SABOTEUR_FAIL_ON_SURVIVORS" => "yes" }, "fail-on-survivors"]].each do |environment, message|
       output, status = run_gate(environment)
       expect(status).to eq(2), environment.inspect
