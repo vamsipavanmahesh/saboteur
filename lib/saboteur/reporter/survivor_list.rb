@@ -49,11 +49,13 @@ module Saboteur
 
       # Mutants on one line share the printed evidence only when it is the
       # same for all of them: covering tests (in order), reuse and changed
-      # lines can each differ per mutant, so each distinct tuple is its own
-      # group and its evidence is printed once, above its own mutations.
+      # lines can each differ per mutant, so each run of neighbours with the
+      # same tuple is one group and shares evidence above its own mutations.
+      # Evidence that repeats after another group is printed again, which
+      # keeps the ranked order.
       def evidence_groups(report, on_line)
-        on_line.group_by { |result| [result.covered_by, result.reused?, report.changed_lines_for(result)] }
-               .values
+        on_line.chunk { |result| [result.covered_by, result.reused?, report.changed_lines_for(result)] }
+               .map(&:last)
       end
 
       def evidence_group(report, path, group)

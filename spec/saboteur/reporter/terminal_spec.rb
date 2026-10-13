@@ -68,9 +68,13 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text.scan("tests covered this line and still passed").size).to eq(2)
     expect(text.scan("covered this line and passed in an earlier run").size).to eq(1)
     expect(text.index("-> > ")).to be < text.index("c_spec.rb[1:1]")
-    first_block = text[/(?<=2 tests covered this line and still passed).*?(?=- comparison >= -> <=)/m]
-    expect(first_block).to include("a_spec.rb[1:1]\n        ./spec/a_spec.rb[1:2]")
-    expect(text).to match(%r{\./spec/a_spec\.rb\[1:2\]\n\s+\./spec/a_spec\.rb\[1:1\]})
+    # Same-line mutants are ranked (docs/survivor-ranking.md), so their order is not fixed here; each
+    # one must still print its own covering tests, in its own order, just above its line.
+    evidence = lambda { |shown|
+      text[%r{still passed[^\n]*\n((?:\s+\./spec/[^\n]*\n)+)\s+- comparison >= -> #{Regexp.escape(shown)} }, 1]
+    }
+    expect(evidence.call(">").scan(/a_spec\.rb\[[\d:]+\]/)).to eq(["a_spec.rb[1:1]", "a_spec.rb[1:2]"])
+    expect(evidence.call("<=").scan(/a_spec\.rb\[[\d:]+\]/)).to eq(["a_spec.rb[1:2]", "a_spec.rb[1:1]"])
     expect(text.scan("1 test covered this line and passed in an earlier run").size).to eq(1)
   end
 
@@ -388,11 +392,12 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     expect(render(report_of(result_for(:survived)))).to include("Survivors (1):\n")
   end
 
-  it "shows three survivors on one line in review mode, in report order" do
-    text = render(review(result_for(:survived), result_for(:survived, replacement: "<="),
-                         result_for(:survived, replacement: "==")))
+  it "shows three survivors on one line in review mode, in ranked order (ties by digest)" do
+    results = [">", "<=", "=="].map { |replacement| result_for(:survived, replacement: replacement) }
+    text = render(review(*results))
     expect(text.scan("- comparison").size).to eq(3)
-    expect(text.scan(/ >= -> (\S+) /).flatten).to eq([">", "<=", "=="])
+    expect(text.scan(/ >= -> (\S+) /).flatten)
+      .to eq(results.sort_by(&:digest).map { |result| result.mutation.edits.first.replacement })
   end
 
   it "shows every survivor, with no 'more' note, outside review mode" do

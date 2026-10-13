@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "score_table"
 require_relative "survivor_list"
@@ -198,8 +199,14 @@ module Saboteur
       end
 
       def survivors(report)
-        SurvivorList.new(@out, @palette).call(report, report.survivors)
+        SurvivorList.new(@out, @palette).call(report, ranked_survivors(report))
         @out.puts unless report.survivors.empty?
+      end
+
+      # Live survivors precede accepted ones; each group follows SurvivorRanking.
+      def ranked_survivors(report)
+        live, accepted = report.survivors.partition(&:unignored_survivor?)
+        [live, accepted].flat_map { |group| SurvivorRanking.ordered(report, group) }
       end
 
       def relative(file, root)
