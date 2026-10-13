@@ -12,6 +12,8 @@ module Saboteur
     # (VerdictCheck). Each mutant runs only the tests that executed its edit,
     # likeliest killers first, with a timeout from their recorded durations.
     class Scheduler
+      WHOLE_FILE_HINT = "; add it to c.whole_file to re-evaluate the whole file"
+
       # A subject to run, with what its mutants need. killers counts the
       # tests that killed earlier mutants of this subject; slowdown is how
       # much slower than recorded its tests ran in a child (see calibrate).
@@ -127,7 +129,8 @@ module Saboteur
         note_unreachable(plan, outcome) if outcome.status == :unreachable
         result = MutantResult.new(subject: plan.subject, mutation: mutation, status: outcome.status,
                                   mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
-                                  killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause)
+                                  killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause,
+                                  executed: outcome.executed_ids)
         outcome.failed_ids.each { |id| plan.killers[id] += 1 }
         note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
         @diagnostics.progress(result)
@@ -138,8 +141,12 @@ module Saboteur
       # body, so it gets every test of the method), prior killers first, then
       # fastest-first.
       def tests_for(plan, mutation)
+        return self.class.prioritize(plan.tests, plan.killers) if mutation.coarse
+
         line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
         tests = plan.tests & @map.tests_for_edit(plan.subject, line_numbers)
+        branch_tests = @map.tests_for_branches(plan.subject, mutation.edits)
+        tests &= branch_tests if branch_tests
         self.class.prioritize(tests, plan.killers)
       end
 
@@ -163,7 +170,12 @@ module Saboteur
       # One mutation whose edited lines no test ran (see unloadable).
       def uncoverable(plan, mutation, text)
         line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
-        unloadable([[mutation, text]], plan.subject, line_numbers).first
+        result, = unloadable([[mutation, text]], plan.subject, line_numbers)
+        return result if result.status == :ran_at_load
+        return result unless @map.tests_for_branches(plan.subject, mutation.edits) == []
+
+        skipped, = skip_all([[mutation, text]], plan.subject, "no coverage (branch not taken)")
+        skipped
       end
 
       def run_mutant(plan, mutation, text, tests)
@@ -221,6 +233,8 @@ module Saboteur
       # sig is one, see Execution::Wrapper) is not a shadowing - the child
       # re-evaluates it together with the def, so the check passes.
       def load_problem(subject)
+        return [nil, nil] if @reevaluator.whole_file?(subject)
+
         owner = @reevaluator.resolve_owner(subject)
         target = subject.singleton ? owner.singleton_class : owner
         method = own_method(target, subject.name)
@@ -234,9 +248,9 @@ module Saboteur
         wrapper = Execution::Wrapper.around(method, file)
         return [nil, wrapper] if wrapper
 
-        ["shadowed definition (runtime method at #{file}:#{line})", nil]
+        ["shadowed definition (runtime method at #{file}:#{line})#{WHOLE_FILE_HINT}", nil]
       rescue Error => e
-        ["owner not loaded: #{e.message}", nil]
+        ["owner not loaded: #{e.message}#{WHOLE_FILE_HINT}", nil]
       end
 
       def own_method(target, name)

@@ -46,6 +46,11 @@ RSpec.describe Saboteur::Help do
     end
   end
 
+  it "explains --allow-focus in words an agent can act on" do
+    expect(overview).to include("--allow-focus").and include("Run even when a focus filter")
+    expect(overview).to include("fit, fdescribe, :focus")
+  end
+
   it "lists every switch of the doctor parser with its description" do
     cli.doctor_parser.top.list.each do |switch|
       (switch.long + switch.short).each { |flag| expect(overview).to include(flag) }

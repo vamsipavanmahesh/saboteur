@@ -34,7 +34,7 @@ RSpec.describe Saboteur::Reporter::Findings do
   it "declares its version, the bound and the published ordering" do
     findings = build(report_of)
     expect(findings.values_at("version", "limit", "ordering")).to eq(
-      [1, 10, "coarse survivors first, then file, line and digest"]
+      [1, 10, Saboteur::Reporter::SurvivorRanking::ORDERING]
     )
   end
 

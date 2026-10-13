@@ -142,6 +142,35 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       allow(Coverage).to receive(:running?).and_return(false)
     end
 
+    it "ignores synthetic full-expression arms that include a modifier condition" do
+      branch = [:if, 0, 3, 4, 3, 15]
+      yes = [:then, 1, 3, 4, 3, 10]
+      synthetic = [:else, 2, 3, 4, 3, 15]
+      results.push({}, { file => { lines: [], branches: { branch => { yes => 0, synthetic => 1 } } } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.branches).to eq(file => { [3, 4, 3, 10] => [] })
+    end
+
+    it "keeps untaken arms and attributes taken branches to each test" do
+      branch = [:if, 0, 3, 4, 3, 15]
+      yes = [:then, 1, 3, 8, 3, 10]
+      no = [:else, 2, 3, 13, 3, 15]
+      results.push({}, { file => { lines: [], branches: { branch => { yes => 1, no => 0 } } } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.branches).to eq(file => { [3, 8, 3, 10] => ["t1"], [3, 13, 3, 15] => [] })
+    end
+
+    it "attributes branches outside examples to the next test file" do
+      branch = [:if, 0, 3, 4, 3, 15]
+      yes = [:then, 1, 3, 8, 3, 10]
+      results.push({ file => { lines: [], branches: { branch => { yes => 1 } } } }, {})
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.branches).to eq(file => { [3, 8, 3, 10] => ["t1"] })
+    end
+
     it "records a real, non-negative duration with the real clock" do
       results.push({}, {})
       recorder.test_started("t1", "/spec/a_spec.rb")

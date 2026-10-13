@@ -52,7 +52,7 @@ supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
 a cache miss. Both baseline passes must be green, complete and in the same
 RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Long phases
-print their elapsed time about every 30 seconds, and each phase's log holds
+print their elapsed time about every 30 seconds, with the examples finished so far, the percentage and a rough estimate of the time left (it assumes equally long examples) once the suite child has logged its first count, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). A suite child that has
@@ -124,13 +124,14 @@ unified diff for every survivor, so you can read the exact change your tests
 missed. The JSON report lands in `.saboteur/report.json`.
 
 📋 Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
+Minitest is not supported; see [Minitest](docs/minitest.md) for why and what it would take.
 
 ## 🧠 Why it is built the way it is
 
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
-run. A change no test reaches is reported as "no coverage", not as a survivor. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
+run. A change no test reaches is reported as "no coverage", not as a survivor. Branch coverage separates arms on the same line: an edit inside an arm no test took reports "no coverage (branch not taken)". Ruby does not expose `&&`/`||` right operands as branches, so those keep line-based selection. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
 whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
@@ -179,6 +180,9 @@ bundle exec saboteur run --seed 1234              # repeat a run that used seed 
 bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
 bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
 bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
+bundle exec saboteur run --fail-fast              # stop after the first subject with a survivor
+bundle exec saboteur run --matrix                 # every covering test per mutant: blind and redundant tests
+bundle exec saboteur run --verbose --no-color     # add score split, timings and kill causes; no colour
 ```
 
 Positional operands name the sources to mutate: Ruby files, or directories
@@ -200,9 +204,28 @@ unignored survivor exits 1. Either way, a run where more than half of the
 executed mutants errored exits 3: errored mutants are outside the score,
 so such a run tested almost nothing.
 
+`--max-timeouts N` and `--max-errors N` (or `c.max_timeouts` / `c.max_errors`)
+are two more CI gates. Each takes a count or a percentage of the executed
+mutants (`--max-errors 5%`). The run exits 1 when the count (or share) is
+above the limit, with `exitCause` `maxTimeouts` or `maxErrors` in the JSON report.
+`--threshold` already compares the covered score, `(killed + timeout) /
+(killed + survived + timeout)`, so no separate score flag exists. With
+`--max-errors`, errored mutants are judged by that limit instead of making a
+`--threshold` run exit 3. Survivors and a score below the threshold keep
+their own causes when they fail too. The gates cannot be combined with `--agent`.
+The GitHub Action has no input for them yet.
+
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
-`--json PATH`, `--no-cache` (rebuild the coverage map).
+`--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
+
+A stray `fit`, `fdescribe` or `:focus` example, with `filter_run_when_matching :focus`, makes RSpec skip
+every other example. The baseline stays green and the score would cover only the focused ones, so
+saboteur exits 2 and names the focused examples. Remove the focus, or pass `--allow-focus` (config
+`c.allow_focus = true`) to run the narrowed suite. Filters you name in `rspec_args` or `.rspec`, such
+as `--tag slow`, and example selectors such as `--test spec/a_spec.rb:12`, are on purpose and are not refused. The
+check compares what RSpec runs with what it would run without the stray focus, so examples RSpec leaves out anyway
+(`:if` / `:unless`, `--tag`, exclusions, selectors in another file) never count as hidden.
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
@@ -245,14 +268,35 @@ file is seen. It cannot see a change in another file that the method uses (a
 method it calls, a constant defined elsewhere), so run without it now and then
 (and in CI on the main branch).
 
-Output: counts per status, the score, timing, and a unified diff for every
-survivor. Under each diff the terminal lists the tests that covered that line
-and still passed with the mutant applied (the first five, likeliest killers
+Output: survivors first, then a short summary last, so the summary stays on
+screen. Survivors are grouped by file, then method, then line. Each line is
+printed once as `path:line in Subject`, with the source line and the tests that
+covered it, then one compact line per mutation: `operator original -> replacement digest`,
+and a hint on what kind of test would kill it. The summary has the counts per
+status, the score, a table of scores per file (worst first) and a one-line
+legend. `--verbose` adds the score split, mean time, whole-body score and
+kill causes. Colour is on when stdout is a terminal and `NO_COLOR` is not set;
+`--color` and `--no-color` override that. While mutants run, stderr shows
+`done/total (percent) eta`: a live counter on a terminal, and dots with a
+counter every 50 mutants otherwise. Skipped and reused mutants are not
+counted, so the count can end below the total.
+The tests that covered the survivor's line and
+still passed with the mutant applied are listed (the first five, likeliest killers
 first; the rest are under `coveredBy` in the JSON report). The missing
 check may belong in one of them. Line coverage can overstate which tests
 exercise a line, so treat the list as a lead. A survivor reused with
 `--incremental` was not run again, and the list says its tests passed in an
-earlier run. The HTML page shows the same list in the
+earlier run. `--fail-fast` (serial runs only) stops after the first subject
+that has a survivor the ignore list does not accept. The report then covers
+only the subjects that ran: the terminal says which subjects did not run, the
+JSON report has an `earlyStop` field naming them (`exitCause` is `failFast`),
+`--agent` reports status `partial` with the reason `fail_fast`, and the run
+always exits 1, so no `--threshold` can pass it. It cannot be used with
+`baseline` evidence. Survivors that share a line are printed together only
+when their covering tests, reuse status and changed lines are identical;
+otherwise each distinct set of evidence is printed above its own mutations.
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant. The HTML page shows the same list in the
 survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
@@ -263,6 +307,20 @@ RanAtLoad and Unreachable out and keeps survivors accepted on the ignore list
 in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
+
+`--matrix` runs every covering test against every mutant instead of stopping at
+the first failing one, so a killed mutant lists all of its killers. After the
+survivors the report prints two lists: blind tests (they covered mutants and
+killed none) and redundant tests (they killed some, and every one of those
+mutants had another killer). The run is slower, by up to the number of covering
+tests per mutant. `--matrix` cannot be combined with `--incremental`, because a
+reused verdict lists only the first killer. A redundant test is a lead, not a
+verdict: it may guard behavior no selected mutant touches. A selection with
+`--since` or `--subject` describes only the selected methods.
+
+[Scores](docs/scores.md) defines each number on this page: the covered score, the
+score a Stryker dashboard shows, the assertion and crash split, and what makes a run
+incomplete.
 
 The score is split by how the mutant was killed. A crash kill (a `NoMethodError`,
 a `TypeError`, a parse error) shows the code ran and broke, not that a test
@@ -303,6 +361,8 @@ not `line`, to put a note on a changed line of the pull-request diff. A
 whole-body mutant of a method whose only change is its signature touches no
 changed line and prints none.
 
+New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md) walks one from the diff to the test that kills it.
+
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `--threshold`; 1 survivors, or the score is below `--threshold` or missing;
 2 bad configuration or a missing source or test; 3 the tool failed (with
@@ -328,6 +388,7 @@ Saboteur.configure do |c|
   c.include = ["lib/**/*.rb"]
   c.exclude = ["lib/my_gem/version.rb"]
   c.require = []                 # boot files, e.g. ./config/environment
+  c.whole_file = []              # subject ids or globs to re-evaluate as a whole file (see below)
   c.reeval = "nesting"           # or "class_eval"; see docs/design.md 6.1
   c.timeout_factor = 3           # per-mutant deadline = factor x its tests' recorded time
   c.timeout_min = 5
@@ -337,6 +398,7 @@ Saboteur.configure do |c|
   c.hazard = Saboteur::MutationSource::HazardGuard::DEFAULT_HAZARD # calls whose arguments are never mutated
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
+  c.allow_focus = false          # true runs a suite narrowed by fit/fdescribe/:focus instead of exit 2
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
 end
 ```
@@ -477,6 +539,34 @@ Methods wrapped by `sorbet-runtime` signatures are checked rather than skipped
 as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
 changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
 preserve the loaded method semantics.
+
+### Whole-file re-evaluation (opt-in)
+
+Surgical re-evaluation refuses a method whose owner it cannot resolve or whose
+loaded definition is not the one in the file. The skip reason ends with a hint.
+List such subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
+`"Geometry::*"`) and the child evaluates the whole mutated file instead. This
+applies to methods saboteur already finds as subjects; it does not make new
+kinds of definitions selectable (methods inside `Data.define` or `Struct.new`
+blocks are still not found). The file's top-level code then runs again in every
+child, after the run's seed is set: load-time side effects repeat and constants
+it assigns are rebuilt, with redefinition warnings silenced. If a later
+definition in the same file replaces the mutated method, the mutant could never
+run, so a survivor there is reported as unreachable instead. It is off by
+default, and the cache key includes the list.
+Signature text alone does not remove mutants. `body_nil` and last-statement
+removal remain available even when `sig` declares a non-nil return type.
+`checked(:never)`, unchecked `checked(:tests)` signatures, configured default
+levels, custom validation handlers and wrapper shims can all allow nil to
+reach real assertions. saboteur does not verify enforcement, evaluate return
+type expressions or infer types from constant names. Aliases, enclosing
+namespace constants and transformed generic types therefore cannot change
+mutation generation. RBS signatures are not read yet. Type-only crash kills
+remain visible in the crash share, not silently pruned.
+
+The Sorbet E2E fixture is a wrapper/registry shim without runtime type checking.
+It tests re-evaluation and assertion detection, not real Sorbet enforcement or
+proof of type-check noise reduction.
 
 ### Skipped subjects and the mutant cap
 
@@ -750,3 +840,15 @@ Local evidence protects against edits to the public proposal except review reaso
 A baseline that changes during `check` is rejected as configuration/evidence error (exit 2), not an incomplete execution result. Acceptance leaves a private `baseline.json.lock` beside the destination: keep it for cooperating-process publication locks. It contains no evidence or results. Symlinked checkout parents are normalized; symlink artifacts themselves and private-store/lock symlinks are still refused.
 
 The builtin `endpoint_replacement` operator swaps explicit, no-argument `first`/`last` calls. It targets wrong-end/order-selection faults in collection handling. Argument-bearing slices, bare calls and block-bearing APIs are left unchanged. Receivers are not statically typed: a custom object may implement either name differently, so a crash remains a crash kill, not proof of a collection assertion.
+
+JSON findings are ordered by a deterministic [review ranking](docs/survivor-ranking.md): coarse first, then covering-test count, edited-line impact and changed-line proximity, with file/line/digest ties. The terminal groups survivors by file, method and line first; the ranking only orders the survivors on one line, and every survivor is listed, in review mode too. Only consecutive survivors with matching evidence share a test/evidence block; repeated evidence after another group is printed again to keep that order. Ranking does not change scores or execution.
+
+### Preview and choose operators
+
+`bundle exec saboteur run --dry-run` discovers source methods and generates candidates without booting the app, running tests, forking, or writing reports/caches. It honors `--since`, `--subject` and source arguments. It prints per-method counts and cap omissions. After a matching normal run, a cached estimate shows baseline covering-test work (cached original-test durations times planned mutants; it is not a bound on mutant runtime and excludes boot and fork costs). If any file cannot be parsed, the total is marked INCOMPLETE and no estimate is given.
+
+Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `sources` entries (`path.rb:ClassName`) are still `require`d to generate candidates, so their code runs. Only preview with sources you trust.
+
+`bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains today's operators, extended is reserved for new opt-in operators. Empty/default selection keeps all current operators. Selection changes invalidate incremental verdict identity.
+
+Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).

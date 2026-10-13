@@ -77,7 +77,8 @@ RSpec.describe Saboteur::Engine::Scheduler, "flow" do
   it "finds a method that is not loaded with the real check" do
     results = scheduler(load_problem: :real).call(subject_under_test, candidates)
     expect(results.map(&:reason).uniq)
-      .to eq(["owner not loaded: cannot resolve FlowTarget: uninitialized constant FlowTarget"])
+      .to eq(["owner not loaded: cannot resolve FlowTarget: uninitialized constant FlowTarget" \
+              "; add it to c.whole_file to re-evaluate the whole file"])
   end
 
   it "skips everything as no coverage when no test runs the method" do
@@ -120,6 +121,14 @@ RSpec.describe Saboteur::Engine::Scheduler, "flow" do
     expect(by_operator["body_nil"].first[:test_ids]).to match_array(%w[t_all t_three t_four])
     line_four = mutant_calls.find { |call| call[:mutation].operator == "arithmetic" && call[:text].include?("b / 2") }
     expect(line_four[:test_ids]).to match_array(%w[t_all t_four])
+  end
+
+  it "gives whole-body replacements tests beyond a heredoc opener with no line hits" do
+    allow(subject_under_test).to receive(:coverage_lines_for).and_return([99])
+    coarse = candidates.select { |mutation, _| mutation.coarse }
+    scheduler.call(subject_under_test, coarse)
+    expect(mutant_calls.size).to eq(2)
+    expect(mutant_calls.map { |call| call[:test_ids] }).to all(match_array(%w[t_all t_three t_four]))
   end
 
   it "skips a fine mutant whose line no test ran, without running it" do

@@ -35,6 +35,7 @@ module Saboteur
           files: files,
           testFiles: test_files(test_ids),
           skippedSubjects: skipped_subjects(report),
+          earlyStop: early_stop(report),
           rejectedKills: report.rejected_kills,
           warnings: report.warnings,
           framework: { name: "saboteur", version: VERSION },
@@ -47,6 +48,12 @@ module Saboteur
       # the whole-body ones (body_nil, body_true, body_false, body_raise).
       def self.scores(report)
         { all: report.score_breakdown.to_h, withoutWholeBodyMutants: report.fine_score_breakdown.to_h }
+      end
+
+      # nil for a run that covered its whole selection.
+      def self.early_stop(report)
+        stop = report.early_stop
+        stop && { reason: stop.reason, unreachedSubjects: stop.unreached }
       end
 
       def self.skipped_subjects(report)
@@ -101,7 +108,7 @@ module Saboteur
         when :survived then "Survived"
         when :timeout then "Timeout"
         when :error, :resource_limit then "RuntimeError"
-        when :skipped then result.reason == "no coverage" ? "NoCoverage" : "Ignored"
+        when :skipped then result.reason&.start_with?("no coverage") ? "NoCoverage" : "Ignored"
         # The schema has no status for "ran, but no test can observe a
         # change here". Ignored with the reason is the honest mapping.
         when :ran_at_load, :unreachable then "Ignored"

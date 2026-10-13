@@ -7,10 +7,64 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `whole_file` config: an opt-in list of subject ids or globs (for example
+  `"Point#distance"`, `"Geometry::*"`). For those subjects the child evaluates the
+  whole mutated file instead of re-evaluating the one method, so methods
+  surgical re-evaluation refuses can be mutated. It applies to methods already
+  found as subjects. The file's top-level code runs again in the child: load-time
+  side effects repeat and constants it assigns are rebuilt. A surviving
+  mutant whose definition a later definition in the file replaces is reported as
+  unreachable, not survived. Off by default (Refs #138).
+- `--matrix` (#132) runs every covering test per mutant and lists blind and
+  redundant tests after the survivors.
+- The 30-second heartbeat of the baseline and coverage phases now shows the examples finished so far, the percentage and a rough time left, read from the phase log, instead of only the elapsed time. (#56)
+- Each finding in `--agent` output carries a `testHint` (`kind`, `text`, and for a
+  comparison swap that differs only for equal or unequal operands, a `case`
+  such as `left == right`) saying where a test could look (#154). It is a
+  suggestion, not a diagnosis: a survivor can also be an equivalent mutant.
+- `--max-timeouts N` and `--max-errors N` CI gates (count or percent of executed
+  mutants). Exceeding one exits 1 with `exitCause` `maxTimeouts` or `maxErrors`.
+  The covered score is already gated by `--threshold`. No Action input yet.
+- A run that leaves a live survivor ends with a "Next steps" footer of command
+  templates: replay (`saboteur run --id DIGEST --seed N`, to be combined with the
+  run's own selection options), an ignore entry with the survivor's subject, and
+  `saboteur run --agent` (#147).
+- `--dry-run` previews planned mutants per method and the max_mutants_per_method
+  omissions without booting the app, running tests, forking or writing reports
+  (#134). A file that does not parse marks the total INCOMPLETE. A cached
+  estimate is baseline covering-test work, not a bound on mutant runtime.
+  Custom sources are still required during a dry run. `--list-operators` and
+  `--operators` list and select builtin operators. Inspired by mutineer
+  (github.com/davidteren/mutineer, MIT, by David Teren).
+- [docs/minitest.md](docs/minitest.md) records that Minitest is unsupported and how much
+  of the engine depends on RSpec (#200).
+- [docs/scores.md](docs/scores.md) defines the covered score, the overall score a
+  Stryker dashboard shows, assertion and crash kills, and what makes a run
+  incomplete (#198).
+- A startup warning on stderr when the working tree has uncommitted changes,
+  because mutants run your code and could alter or delete files. Saboteur's own
+  output paths do not count as changes.
+- Terminal report rewrite: survivors grouped by file and method with
+  evidence-scoped hints (suggestions, not diagnoses), a score table, a
+  progress counter with ETA, `--verbose`, `--[no-]color` and `--fail-fast`
+  (serial only; the run is marked incomplete with exit cause `failFast` and
+  lists the subjects it never reached). The CI progress line-break can
+  misalign by a mark when parallel workers finish at the same moment.
+- Sorbet signature text does not prune nil-producing mutants. Runtime enforcement
+  is not verified: checked levels, custom handlers and shims can allow nil to
+  reach assertions. Type-aware pruning (#153) is deferred until enforcement can
+  be established without guessing from return-type text.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
+### Changed
+- The text run prints one `Reports:` line naming the JSON and HTML reports, with
+  paths relative to the project root when they are under it, instead of two
+  lines with a blank line between them (#150). Scripts that read the old
+  `JSON report:` and `HTML report:` lines must read `Reports:` instead.
+
 ### Fixed
+- The unscoped `--since` warning now says what `--test` drops: the consumer specs of a changed method no longer run, which can turn kills into survivors. (#113)
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
   guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
@@ -31,6 +85,8 @@ All notable changes are documented here. The format follows
 ## [0.4.0] - 2026-10-12
 
 ### Changed
+- The terminal report lists every survivor on a changed line in `--since` mode, instead of one
+  plus "N more survivors on this line in the JSON report" (#146).
 - **Breaking:** configuration moved from YAML to Ruby. `.saboteur.yml` becomes
   `config/saboteur.rb` (`Saboteur.configure do |c| ... end`, same key names),
   and `.saboteur-ignore.yml` becomes `config/saboteur_ignore.rb`

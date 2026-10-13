@@ -8,7 +8,7 @@
 # ones. The engine suspends counting right after boot and reads the
 # counters as the map's load lines (a forked child would not inherit them).
 require "coverage"
-Coverage.setup(lines: true, methods: true) if Coverage.state == :idle
+Coverage.setup(lines: true, methods: true, branches: true) if Coverage.state == :idle
 Coverage.resume if ARGV.first == "run" && Coverage.state == :suspended
 
 require "saboteur/cli"

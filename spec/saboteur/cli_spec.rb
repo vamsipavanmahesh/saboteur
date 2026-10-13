@@ -86,6 +86,53 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("invalid argument")
   end
 
+  describe "dirty working tree" do
+    def run_on_tree(state)
+      tree = instance_double(Saboteur::WorkingTree, state: state)
+      allow(Saboteur::WorkingTree).to receive(:new).and_return(tree)
+      allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+      cli("run").call
+    end
+
+    it "refuses --agent and --id with --dry-run or --list-operators as usage errors" do
+      [%w[--dry-run --agent], %w[--list-operators --agent], %w[--dry-run --id abc], %w[--list-operators --id abc]]
+        .each do |args|
+        expect(Saboteur::Preview).not_to receive(:new)
+        out.truncate(0)
+        expect(cli("run", *args).call).to eq(2)
+      end
+      expect(err.string).to include("--id replays one mutant: not with --dry-run or --list-operators",
+                                    "--dry-run and --list-operators print text, not --agent JSON")
+    end
+
+    it "warns at startup with the number of uncommitted changes" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 3))
+
+      expect(err.string).to include("saboteur: warning: 3 uncommitted change(s) in the working tree")
+      expect(err.string).to include("clean, committed tree or a CI checkout")
+    end
+
+    it "excludes saboteur's own output paths from the changes it counts" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 1))
+
+      expect(Saboteur::WorkingTree).to have_received(:new)
+        .with(anything, ignored: [".saboteur", ".saboteur/report.json", ".saboteur/report.html"])
+    end
+
+    it "stays quiet on a clean tree" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: false, changed_files: 0))
+
+      expect(err.string).not_to include("uncommitted")
+      expect(err.string).not_to match(/\A\s*\n/)
+    end
+
+    it "stays quiet when the tree state is unknown" do
+      run_on_tree(Saboteur::WorkingTree::UNKNOWN)
+
+      expect(err.string).not_to include("uncommitted")
+    end
+  end
+
   describe "exit codes after a run" do
     def run_with(report)
       engine = instance_double(Saboteur::Engine, call: report)
@@ -167,6 +214,52 @@ RSpec.describe Saboteur::CLI do
       engine = instance_double(Saboteur::Engine, call: report_of(result_for(:error)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       expect(cli("run", "--threshold", "0", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
+    end
+
+    def killed(count)
+      Array.new(count) { result_for(:killed) }
+    end
+
+    it "is 0 when timeouts and errors stay within --max-timeouts and --max-errors" do
+      report = report_of(*killed(8), result_for(:timeout), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--max-timeouts", "1", "--max-errors", "10%", "--json",
+                 File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+    end
+
+    it "is 1 when errors are above --max-errors, with the error count named" do
+      report = report_of(*killed(8), result_for(:error), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      json = File.join(Dir.mktmpdir, "r.json")
+      expect(cli("run", "--max-errors", "1", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("maxErrors")
+    end
+
+    it "keeps survivors and the threshold as the stated cause when they fail too" do
+      report = report_of(result_for(:killed), result_for(:survived), result_for(:timeout))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      json = File.join(Dir.mktmpdir, "r.json")
+      expect(cli("run", "--max-timeouts", "0", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
+    end
+
+    it "lets --max-errors, not --threshold, judge errored mutants" do
+      report = report_of(*killed(8), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--threshold", "50", "--max-errors", "1", "--json",
+                 File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
+    end
+
+    it "still makes an errored mutant incomplete under --threshold with only --max-timeouts" do
+      report = report_of(*killed(8), result_for(:error))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--threshold", "50", "--max-timeouts", "1", "--json",
+                 File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
+    end
+
+    it "refuses the count gates with --agent, like --threshold" do
+      expect(cli("run", "--agent", "--max-errors", "1").call).to eq(2)
+      expect(err.string).to include("--max-* gates cannot be combined with --agent")
     end
 
     it "is 3 when every executed mutant errored" do
@@ -316,6 +409,15 @@ RSpec.describe Saboteur::CLI do
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("belowThreshold")
     end
 
+    it "writes maxTimeouts into the JSON report when too many mutants time out" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      report = report_of(result_for(:killed), result_for(:killed), result_for(:timeout))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--max-timeouts", "0", "--json", json).call).to eq(1)
+      expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("maxTimeouts")
+      expect(err.string).to include("1 timeout mutants, above --max-timeouts 0")
+    end
+
     it "writes the incomplete-under-threshold cause into the JSON report" do
       report = report_of(result_for(:killed), result_for(:error))
       json = File.join(Dir.mktmpdir, "r.json")
@@ -338,6 +440,29 @@ RSpec.describe Saboteur::CLI, "details" do
   it "prints only the usage line for an unknown command" do
     cli("explode").call
     expect(err.string).to eq("#{described_class::USAGE}\n")
+  end
+
+  it "parses --allow-focus into the allow_focus config key" do
+    command = cli("run", "--allow-focus")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(allow_focus: true)
+    expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["allow_focus"]).to be(true)
+  end
+
+  it "parses --matrix into the matrix config key, and describes it in help" do
+    command = cli("run", "--matrix")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(matrix: true)
+    expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["matrix"]).to be(true)
+    out = StringIO.new
+    Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
+    expect(out.string).to include("--matrix", "Run every covering test per mutant and list blind and redundant tests")
+  end
+
+  it "refuses a focused suite unless allow_focus is set" do
+    expect(Saboteur::Config.new({})["allow_focus"]).to be(false)
   end
 
   it "parses --config, --integration and --incremental" do
@@ -363,7 +488,7 @@ RSpec.describe Saboteur::CLI, "details" do
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       cli("run", "--json", path).call
-      expect(out.string).to include("saboteur #{Saboteur::VERSION}:", "JSON report: #{path}")
+      expect(out.string).to include("saboteur #{Saboteur::VERSION}:", "Reports: #{path} (JSON)")
       expect(File).to exist(path)
     end
   end
@@ -374,8 +499,32 @@ RSpec.describe Saboteur::CLI, "details" do
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       cli("run", "--json", File.join(dir, "r.json"), "--html", path).call
-      expect(out.string).to include("HTML report: #{path}")
+      expect(out.string).to include("Reports: #{File.join(dir, 'r.json')} (JSON), #{path} (HTML)")
+      expect(out.string.scan("Reports:").size).to eq(1)
       expect(File.read(path)).to start_with("<!DOCTYPE html>")
+    end
+  end
+
+  it "names both reports on one Reports line with paths relative to the root" do
+    Dir.mktmpdir do |dir|
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      Dir.chdir(dir) { cli("run").call }
+      expect(out.string).to include("\nReports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)\n")
+      expect(out.string).not_to include("JSON report:")
+    end
+  end
+
+  it "prints no Reports line and writes nothing when both reports are null" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.html_report = nil; c.json_report = nil }\n")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      Dir.chdir(dir) { cli("run").call }
+      expect(out.string).not_to include("Reports:")
+      expect(Dir.glob("#{dir}/.saboteur/report.*")).to be_empty
     end
   end
 
@@ -386,7 +535,8 @@ RSpec.describe Saboteur::CLI, "details" do
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       Dir.chdir(dir) { cli("run").call }
-      expect(out.string).not_to include("HTML report:")
+      expect(out.string).to include("Reports: .saboteur/report.json (JSON)\n")
+      expect(out.string).not_to include("HTML")
       expect(Dir.glob("#{dir}/**/*.html")).to be_empty
     end
   end

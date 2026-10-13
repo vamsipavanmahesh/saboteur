@@ -45,7 +45,7 @@ module Saboteur
 
       def check(number)
         Execution::ForkReadiness.prepare_heap
-        heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}")
+        heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
         result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
           record(writer, number)
         end
