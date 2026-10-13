@@ -7,8 +7,6 @@ module Saboteur
     # accept one, and how to hand the run to an agent. Silent when nothing
     # survived, so a clean run stays short.
     class NextSteps
-      IGNORE_FILE = "config/saboteur_ignore.rb"
-
       def initialize(out, palette)
         @out = out
         @palette = palette
@@ -21,8 +19,11 @@ module Saboteur
         @out.puts "\n#{@palette.paint(:bold, 'Next steps:')}"
         seed = " --seed #{report.seed}" if report.seed
         @out.puts "  replay one survivor: saboteur run --id #{survivor.digest}#{seed}"
-        @out.puts "  accept an equivalent one: add its digest and a reason to #{IGNORE_FILE}"
-        @out.puts "  let an agent close the gaps: saboteur run --format agent"
+        @out.puts "    (add this run's own --config, --since, --subject, --test and source options)"
+        @out.puts "  accept an equivalent one: add to your ignore file (c.ignore_file, default #{Config::IGNORE_FILE}):"
+        entry = %(i.mutation "#{survivor.digest}", subject: "#{survivor.subject.id}", reason: "why it is equivalent")
+        @out.puts "    #{entry}"
+        @out.puts "  let an agent close the gaps: saboteur run --agent, with the same options"
       end
     end
   end
