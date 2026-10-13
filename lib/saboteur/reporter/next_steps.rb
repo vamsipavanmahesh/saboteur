@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+module Saboteur
+  module Reporter
+    # The footer under a run that left survivors: how to look at one, how to
+    # accept one, and how to hand the run to an agent. Silent when nothing
+    # survived, so a clean run stays short.
+    class NextSteps
+      def initialize(out, palette)
+        @out = out
+        @palette = palette
+      end
+
+      def call(report)
+        survivor = report.unignored_survivors.first
+        return unless survivor
+
+        @out.puts "\n#{@palette.paint(:bold, 'Next steps:')}"
+        seed = " --seed #{report.seed}" if report.seed
+        @out.puts "  replay one survivor: saboteur run --id #{survivor.digest}#{seed}"
+        @out.puts "    (add this run's own --config, --since, --subject, --test and source options)"
+        @out.puts "  accept an equivalent one: add to your ignore file (c.ignore_file, default #{Config::IGNORE_FILE}):"
+        entry = %(i.mutation "#{survivor.digest}", subject: "#{survivor.subject.id}", reason: "why it is equivalent")
+        @out.puts "    #{entry}"
+        @out.puts "  let an agent close the gaps: saboteur run --agent, with the same options"
+      end
+    end
+  end
+end
