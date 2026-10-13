@@ -28,6 +28,10 @@ All notable changes are documented here. The format follows
   (serial only; the run is marked incomplete with exit cause `failFast` and
   lists the subjects it never reached). The CI progress line-break can
   misalign by a mark when parallel workers finish at the same moment.
+- Sorbet signature text does not prune nil-producing mutants. Runtime enforcement
+  is not verified: checked levels, custom handlers and shims can allow nil to
+  reach assertions. Type-aware pruning (#153) is deferred until enforcement can
+  be established without guessing from return-type text.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
