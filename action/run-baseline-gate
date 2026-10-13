@@ -60,7 +60,9 @@ if [ ! -f "$baseline_path" ]; then
 fi
 
 epsilon_arguments=()
+score_gated=false
 if [ -n "$epsilon" ]; then
+  score_gated=true
   if ! [[ "$epsilon" =~ ^[0-9]+(\.[0-9]+)?$ ]] || ! awk -v value="$epsilon" 'BEGIN { exit !(value <= 100) }'; then
     stop_with_error "saboteur: baseline-epsilon must be a number from 0 to 100 (percentage points), not \"$epsilon\"."
   fi
@@ -94,17 +96,45 @@ saboteur_status=$?
 
 state="" new=0 changed=0 unmatched=0 errors=0 baseline_score="" current_score="" drop="" exceeded=""
 if [ "$saboteur_status" -le 1 ]; then
-  if ! fields="$(jq -es -r '
+  # Fail closed: anything the check could not have produced is unreadable,
+  # so a broken or tampered result never turns into a green step.
+  if ! fields="$(jq -es -r --argjson status "$saboteur_status" --argjson gated "$score_gated" '
+        def finite: type == "number" and (isinfinite | not) and (isnan | not);
+        def percent: finite and . >= 0 and . <= 100;
+        def full_score: type == "object" and (.baseline | percent) and (.current | percent)
+                        and (.drop | finite) and .drop >= -100 and .drop <= 100 and (.exceeded | type) == "boolean";
         if length != 1 then error("the output must hold exactly one JSON document")
         else .[0] as $result
           | if ($result | type) != "object" or ($result.state | type) != "string"
                or ($result.categories | type) != "object"
             then error("the output is not a baseline check result")
-            else [ $result.state,
-                   ($result.categories.new | length), ($result.categories.changed | length),
-                   ($result.categories.unmatched | length), ($result.categories.errors | length),
-                   ($result.score.baseline // "" | tostring), ($result.score.current // "" | tostring),
-                   ($result.score.drop // "" | tostring), ($result.score.exceeded // "" | tostring) ] | @tsv
+            elif ($result.state != (if $status == 0 then "clean" else "review_required" end))
+            then error("the state \($result.state) does not match exit \($status)")
+            elif ($result | has("exit_code")) and $result.exit_code != $status
+            then error("exit_code does not match the exit status")
+            elif ([$result.categories.new, $result.categories.changed, $result.categories.unmatched,
+                   $result.categories.errors] | any(type != "array"))
+            then error("the categories new, changed, unmatched and errors must be lists")
+            elif ($result.categories.errors | length) > 0
+            then error("a clean or review result cannot hold errors")
+            elif $gated and ($result.score | full_score | not)
+            then error("the score is missing or invalid although an epsilon was given")
+            elif ($result.score != null) and ($result.score | type) != "object"
+            then error("the score is not an object")
+            else
+              (($result.score.exceeded // false) == true) as $exceeded
+              | ([$result.categories.new, $result.categories.changed, $result.categories.unmatched]
+                 | any(length > 0)) as $survivors
+              | if $status == 0 and ($exceeded or $survivors)
+                then error("exit 0 contradicts the survivors or score drop in the result")
+                elif $status == 1 and (($exceeded or $survivors) | not)
+                then error("exit 1 has no survivors or score drop in the result")
+                else [ $result.state,
+                       ($result.categories.new | length), ($result.categories.changed | length),
+                       ($result.categories.unmatched | length), ($result.categories.errors | length),
+                       ($result.score.baseline // "" | tostring), ($result.score.current // "" | tostring),
+                       ($result.score.drop // "" | tostring), ($result.score.exceeded // "" | tostring) ] | .[]
+                end
             end
         end' "$result_file" 2>&1)"; then
     echo "::error::saboteur baseline check exited with $saboteur_status but its result could not be read ($fields), so the outcome cannot be trusted."
@@ -112,7 +142,12 @@ if [ "$saboteur_status" -le 1 ]; then
     write_output exit-code "$saboteur_status"
     exit 3
   fi
-  IFS=$'\t' read -r state new changed unmatched errors baseline_score current_score drop exceeded <<<"$fields"
+  # One field per line: a tab-separated read would collapse empty fields and shift the columns.
+  # The command substitution drops trailing empty lines, so a missing last field reads as empty.
+  mapfile -t parsed <<<"$fields"
+  state="${parsed[0]:-}" new="${parsed[1]:-0}" changed="${parsed[2]:-0}" unmatched="${parsed[3]:-0}"
+  errors="${parsed[4]:-0}" baseline_score="${parsed[5]:-}" current_score="${parsed[6]:-}" drop="${parsed[7]:-}"
+  exceeded="${parsed[8]:-}"
   baseline_score="$(one_decimal "$baseline_score")"
   current_score="$(one_decimal "$current_score")"
   drop="$(one_decimal "$drop")"
