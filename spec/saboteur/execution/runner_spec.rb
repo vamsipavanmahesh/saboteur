@@ -306,15 +306,27 @@ RSpec.describe "Runner sandbox wiring (#152)" do
   it "runs the sandbox hook in the child before the tests" do
     order = File.join(tmpdir, "order")
     integration = passing_integration { File.open(order, "a") { |f| f.puts("tests") } }
-    sandbox = -> { File.open(order, "a") { |f| f.puts("sandbox") } }
+    sandbox = ->(_keep_fds) { File.open(order, "a") { |f| f.puts("sandbox") } }
     outcome = build_runner(sandbox: sandbox, integration: integration)
               .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
     expect(outcome.status).to eq(:survived)
     expect(File.read(order).split).to eq(%w[sandbox tests])
   end
 
+  it "hands the child's report-pipe fd to the sandbox hook" do
+    seen = File.join(tmpdir, "keep_fds")
+    sandbox = ->(keep_fds) { File.write(seen, keep_fds.inspect) }
+    outcome = build_runner(sandbox: sandbox).run(subject: subject_stub, text: "pass", test_ids: %w[t1],
+                                                 timeout: 5)
+    expect(outcome.status).to eq(:survived)
+    fds = eval(File.read(seen)) # rubocop:disable Security/Eval
+    expect(fds).to be_an(Array)
+    expect(fds.size).to eq(1)
+    expect(fds.first).to be_an(Integer).and(be > 2)
+  end
+
   it "reports an error rather than run when the sandbox cannot be applied" do
-    outcome = build_runner(sandbox: -> { raise SystemCallError.new("landlock_restrict_self", 13) })
+    outcome = build_runner(sandbox: ->(_keep_fds) { raise SystemCallError.new("landlock_restrict_self", 13) })
               .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
     expect(outcome.status).to eq(:error)
     expect(outcome.message).to include("landlock_restrict_self")
@@ -334,7 +346,9 @@ RSpec.describe "Runner sandbox wiring (#152)" do
       end
       File.write(marker, result.to_s)
     end
-    sandbox = -> { Saboteur::Execution::Sandbox.restrict!(writable: [File.join(project, "tmp"), tmpdir]) }
+    sandbox = lambda do |keep_fds|
+      Saboteur::Execution::Sandbox.restrict!(writable: [File.join(project, "tmp"), tmpdir], keep_fds: keep_fds)
+    end
     outcome = build_runner(sandbox: sandbox, integration: integration)
               .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
     expect(outcome.status).to eq(:survived)
