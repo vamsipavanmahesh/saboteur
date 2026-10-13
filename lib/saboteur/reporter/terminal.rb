@@ -199,27 +199,14 @@ module Saboteur
       end
 
       def survivors(report)
-        SurvivorList.new(@out, @palette).call(report, shown(report))
+        SurvivorList.new(@out, @palette).call(report, ranked_survivors(report))
         @out.puts unless report.survivors.empty?
       end
 
-      # [[result, how many more on the same line]]. In review mode survivors
-      # on one line usually share a fate, so the top-ranked one is shown.
-      # Live survivors precede accepted survivors.
-      def shown(report)
+      # Live survivors precede accepted ones; each group follows SurvivorRanking.
+      def ranked_survivors(report)
         live, accepted = report.survivors.partition(&:unignored_survivor?)
-        ranked = [live, accepted].flat_map { |group| SurvivorRanking.ordered(report, group) }
-        return ranked.map { |result| [result, 0] } unless report.review?
-
-        lines = ranked.group_by { |result| [result.subject.file, edit_line(result)] }
-        lines.values.map do |same_line|
-          best = same_line.first
-          [best, same_line.size - 1]
-        end
-      end
-
-      def edit_line(result)
-        result.subject.line_of(result.mutation.edits.first.start_byte)
+        [live, accepted].flat_map { |group| SurvivorRanking.ordered(report, group) }
       end
 
       def relative(file, root)
