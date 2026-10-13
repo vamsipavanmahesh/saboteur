@@ -41,7 +41,9 @@ RSpec.describe "baseline CLI validation" do
                                                    "issues" => [])
     expect(command("check", "--baseline", "b.json", "--epsilon", "2.5")).to eq(0)
     expect(command("propose", "--baseline", "b.json", "--proposal", "p.json", "--epsilon", "1")).to eq(2)
+    expect(@err.string).to include("--epsilon applies to check only")
     expect(command("check", "--baseline", "b.json", "--epsilon", "-1")).to eq(2)
+    expect(@err.string).to include("--epsilon must be between 0 and 100")
     expect(command("check", "--baseline", "b.json", "--epsilon", "100.5")).to eq(2)
   end
 
