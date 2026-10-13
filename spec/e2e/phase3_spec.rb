@@ -45,10 +45,20 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.out).to include("0 subjects, 0 mutants")
     end
 
-    it "exits 3 for an unknown ref" do
+    it "exits 2 for an unknown ref, before the target boots" do
       run = saboteur(dir, "--since", "no-such-ref")
-      expect(run.status).to eq(3)
-      expect(run.err).to include("git merge-base failed")
+      expect(run.status).to eq(2)
+      expect(run.err).to include("--since no-such-ref: not a commit in this repository")
+      expect(run.err).not_to include("checking the unchanged suite")
+    end
+
+    it "skips a method changed only by a comment" do
+      path = File.join(dir, "lib", "people.rb")
+      File.write(path, File.read(path).sub("@age = age", "# a note\n      @age = age"))
+      run = saboteur(dir, "--since", "HEAD")
+      expect(run.status).to eq(0)
+      expect(run.err).to include("differ only in comments or formatting")
+      expect(run.out).to include("0 subjects, 0 mutants")
     end
 
     it "runs with --test alone, since the diff already names the sources" do

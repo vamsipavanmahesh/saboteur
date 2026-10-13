@@ -56,6 +56,79 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(select([file], since: "HEAD").map(&:id)).to eq(["Shop::Cart#total"])
   end
 
+  describe "--since with changes that leave a method's syntax alone" do
+    let(:err) { StringIO.new }
+    let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
+    let(:two_methods) do
+      "class Cart\n  def total\n    1 + 1\n  end\n\n  def count\n    2\n  end\nend\n"
+    end
+
+    def commit_base(text)
+      file = write("cart.rb", text)
+      [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+      end
+      file
+    end
+
+    it "skips a method changed only by a comment or spacing, and says so" do
+      file = commit_base(two_methods)
+      File.write(file, two_methods.sub("1 + 1", "1+1 # one").sub("    2\n", "\n    2\n"))
+
+      expect(select([file], since: "HEAD")).to be_empty
+      expect(err.string).to eq("saboteur: 2 changed method(s) differ only in comments or formatting, " \
+                               "so they are skipped: Cart#total, Cart#count\n")
+    end
+
+    it "keeps the method whose code changed and skips the other" do
+      file = commit_base(two_methods)
+      File.write(file, two_methods.sub("1 + 1", "1 + 2").sub("    2\n", "    2 # two\n"))
+
+      expect(select([file], since: "HEAD").map(&:id)).to eq(["Cart#total"])
+      expect(err.string).to include("1 changed method(s) differ only in comments or formatting, so they are " \
+                                    "skipped: Cart#count")
+    end
+
+    def commented_methods(count)
+      text = (1..count).map { |n| "  def m#{n}\n    #{n}\n  end\n" }.join("\n")
+      file = commit_base("class Cart\n#{text}end\n")
+      File.write(file, File.read(file).gsub(/^    (\d)$/, "    \\1 # n"))
+      select([file], since: "HEAD")
+    end
+
+    it "names every skipped method up to five" do
+      expect(commented_methods(5)).to be_empty
+      expect(err.string).to end_with("skipped: Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5\n")
+    end
+
+    it "names five and then an ellipsis when more were skipped" do
+      expect(commented_methods(6)).to be_empty
+      expect(err.string).to include("6 changed method(s)").and end_with("Cart#m4, Cart#m5, ...\n")
+    end
+
+    it "does not look up the merge base when no method changed" do
+      file = commit_base(two_methods)
+      allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_call_original
+
+      expect(select([file], since: "HEAD")).to be_empty
+      expect(Saboteur::Selection::GitDiff).to have_received(:merge_base).once
+    end
+
+    it "says nothing when no method is skipped" do
+      file = commit_base(two_methods)
+      File.write(file, two_methods.sub("1 + 1", "1 + 2"))
+      select([file], since: "HEAD")
+
+      expect(err.string).to eq("")
+    end
+
+    it "refuses an unknown ref as a usage error" do
+      file = commit_base(two_methods)
+
+      expect { select([file], since: "no-such-ref") }.to raise_error(Saboteur::ConfigError, /--since no-such-ref/)
+    end
+  end
+
   it "keeps --since working when some selected files have no change" do
     changed = write("cart.rb", source)
     untouched = write("other.rb", "class Other\n  def x = 1\nend\n")

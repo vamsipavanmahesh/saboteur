@@ -32,6 +32,8 @@ RSpec.describe Saboteur::Preview do
   it "uses diff lines both to select methods and to restrict their candidates" do
     allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).with("base", root: root)
                                                                   .and_return(target.file => [4])
+    allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("base")
+    allow(Saboteur::Selection::GitDiff).to receive(:file_at).and_return(nil)
     scoped = config(since: "base")
     selection = Saboteur::Engine::SubjectSelection.new(scoped, Saboteur::Engine::Diagnostics.new(StringIO.new))
     subjects = selection.select(scoped.included_files)

@@ -14,8 +14,9 @@ module Saboteur
   class SubjectFinder
     Parsed = Data.define(:subjects, :errors)
 
-    def call(file)
-      source = File.binread(file)
+    # source: the text to parse when it is not the file on disk (the file as
+    # it was at an earlier commit).
+    def call(file, source: File.binread(file))
       result = Prism.parse(source, filepath: file)
       return Parsed.new(subjects: [], errors: result.errors.map(&:message)) if result.failure?
 

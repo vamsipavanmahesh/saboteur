@@ -64,6 +64,14 @@ All notable changes are documented here. The format follows
   `JSON report:` and `HTML report:` lines must read `Reports:` instead.
 
 ### Fixed
+- `--since` with a ref that is not a commit exits 2 as a usage error, naming the
+  ref, before the target boots. It used to exit 3 (tool failure) after boot (#115).
+- Diff mode skips a method whose only changes are comments, blank lines or
+  spacing, because its syntax tree matches the merge base. The run prints how many
+  it skipped. A method that uses `__LINE__` is compared by the line it stands
+  for, so moving it or adding a line above that use keeps it in the run.
+  Ambiguous cases (a new file or method, a name defined twice, a base
+  that does not parse) still run (#115).
 - The default arid logger pattern also matches `@logger`, `self.logger` and
   `::Rails.logger`, so those calls no longer produce noise survivors (#111).
 - The unscoped `--since` warning now says what `--test` drops: the consumer specs of a changed method no longer run, which can turn kills into survivors. (#113)

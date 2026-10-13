@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "open3"
 require "stringio"
 
 RSpec.describe Saboteur::CLI do
@@ -585,6 +586,22 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  describe "--since with a ref that is not a commit" do
+    it "exits 2 with a usage message, in text and in agent mode" do
+      Dir.mktmpdir do |dir|
+        Open3.capture3("git", "init", "-q", chdir: dir)
+        allow(Saboteur::Engine).to receive(:new)
+
+        Dir.chdir(dir) do
+          expect(cli("run", "--since", "no-such-ref").call).to eq(2)
+          expect(err.string).to include("saboteur: --since no-such-ref: not a commit in this repository")
+          expect(cli("run", "--agent", "--since", "no-such-ref").call).to eq(2)
+        end
+        expect(Saboteur::Engine).not_to have_received(:new)
+      end
+    end
+  end
+
   it "refuses to run when the JSON and HTML reports share one path" do
     allow(Saboteur::Engine).to receive(:new)
     expect(cli("run", "--json", "same.out", "--html", "same.out").call).to eq(2)
@@ -721,7 +738,10 @@ RSpec.describe Saboteur::CLI, "explicit files" do
   # files), so listing them again only repeats the diff.
   it "accepts --test without a source when --since scopes the run" do
     command = cli("run", "--since", "origin/main", "--test", "spec/a_spec.rb")
-    expect(command.call).to eq(3)
+    # Past the argument checks, the run stops on the ref: this directory is no git repository.
+    expect(command.call).to eq(2)
+    expect(err.string).to include("--since needs a git repository")
+    expect(err.string).not_to include("--test needs")
     expect(command.options[:tests]).to eq(%w[spec/a_spec.rb])
     expect(command.options[:include]).to be_nil
   end
@@ -730,7 +750,9 @@ RSpec.describe Saboteur::CLI, "explicit files" do
     FileUtils.mkdir_p("config")
     File.write("config/saboteur.rb", "Saboteur.configure { |c| c.since = \"origin/main\" }\n")
     command = cli("run", "--test", "spec/a_spec.rb")
-    expect(command.call).to eq(3)
+    expect(command.call).to eq(2)
+    expect(err.string).to include("--since needs a git repository")
+    expect(err.string).not_to include("--test needs")
     expect(command.options[:tests]).to eq(%w[spec/a_spec.rb])
   end
 
