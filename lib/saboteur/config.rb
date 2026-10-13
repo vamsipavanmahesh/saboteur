@@ -42,6 +42,7 @@ module Saboteur
       "since" => nil,
       "cache" => true,
       "incremental" => false,
+      "fail_fast" => false,
       "seed" => 1,
       "tests" => [],
       "fingerprint_extra" => [],
@@ -144,6 +145,12 @@ module Saboteur
       raise ConfigError, "json_report and html_report both point to #{json}; give each report its own path"
     end
 
+    def validate_fail_fast!
+      return unless self["fail_fast"] && self["jobs"] > 1
+
+      raise ConfigError, "fail_fast needs jobs 1: parallel workers have already started the other subjects"
+    end
+
     def validate_threshold!
       threshold = self["threshold"]
       return if threshold.nil? || THRESHOLD_RANGE.cover?(threshold)
@@ -161,6 +168,7 @@ module Saboteur
 
       validate_mutant_limit!
       validate_threshold!
+      validate_fail_fast!
       raise ConfigError, "seed must be >= 0" if self["seed"].negative?
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
