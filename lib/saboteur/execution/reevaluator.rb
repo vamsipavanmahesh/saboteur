@@ -32,10 +32,12 @@ module Saboteur
         @whole_file = whole_file
       end
 
-      # Where the method the child ended up with is defined, as "file:line",
-      # when that is not the subject's own def: a later definition in the same
-      # file replaced it (or none is left), so the mutant could never run.
-      # nil when the subject is not whole-file, or its def is the one in place.
+      # "file:line" of another def in the subject's own file that replaced it:
+      # a later definition there won, so the mutant could never run. Only a
+      # positively identified different def counts. nil when the subject is not
+      # whole-file, its def is the one in place, or this cannot be told (a
+      # method from another file, such as an unknown forwarding wrapper, no
+      # Ruby source, or no method): the caller then keeps the verdict.
       def replaced_definition(subject)
         return nil unless whole_file?(subject)
 
@@ -45,11 +47,11 @@ module Saboteur
         # A def-time wrapper (a sorbet sig) replaces the method; its own
         # source_location is the wrapper's, not the def's.
         file, line = (Wrapper.original_def(method) || method).source_location
-        return nil if file == subject.file && line == subject.start_line
+        return nil unless file == subject.file && line != subject.start_line
 
-        file ? "#{file}:#{line}" : "no Ruby definition"
+        "#{file}:#{line}"
       rescue StandardError
-        "no definition"
+        nil
       end
 
       # True when the subject's id matches a whole_file entry (exact or a
