@@ -326,17 +326,13 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Config#validate_fail_fast!",
              reason: "equivalent: jobs is validated as at least 1 before this check, so jobs > 1 and jobs != 1 agree for every value that reaches it"
 
-  i.mutation "90c137059dc758bd",
+  i.mutation "da7d0b0cd48bc0f6",
              subject: "Saboteur::Reporter::SurvivorList#lines",
              reason: "equivalent: the mutants on one line belong to one subject and share its id and source line, so the first and the last print the same header"
 
   i.mutation "bc3002bc8baaf16b",
              subject: "Saboteur::Reporter::SurvivorList#evidence_group",
              reason: "equivalent: a group is keyed by covering tests, reuse and changed lines, so every member prints the same evidence"
-
-  i.mutation "d32490123aa331d1",
-             subject: "Saboteur::Reporter::SurvivorList#mutation",
-             reason: "equivalent: the branch runs only when hidden is positive, and for a positive integer hidden > 1 and hidden != 1 agree"
 
   i.mutation "947651810f34ed47",
              subject: "Saboteur::Preview#planned",
