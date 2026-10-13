@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "mutation_source/builtin"
+require_relative "mutation_source/operator_registry"
 require_relative "mutation_source/hazard_guard"
 
 module Saboteur
@@ -34,6 +35,7 @@ module Saboteur
       "ignore_file" => "config/saboteur_ignore.rb",
       "custom_map" => "config/saboteur_custom_map.rb",
       "sources" => ["builtin"],
+      "operators" => [],
       "hooks" => [],
       "rails" => false,
       "reeval" => "nesting",
@@ -57,7 +59,7 @@ module Saboteur
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
-                   fingerprint_extra].freeze
+                   fingerprint_extra operators].freeze
 
     attr_reader :root
 
@@ -110,7 +112,7 @@ module Saboteur
       matched = self["include"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       excluded = self["exclude"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       (matched - excluded).select { |file| file.end_with?(".rb") }
-                          .map { |file| File.realpath(File.join(root, file)) }.uniq.sort
+                          .map { |file| File.realpath(File.expand_path(file, root)) }.uniq.sort
     end
 
     # Patterns that match no file. A pattern goes stale when files move;
@@ -172,6 +174,7 @@ module Saboteur
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
 
       validate_reeval!
+      MutationSource::OperatorRegistry.resolve(self["operators"])
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
     rescue RegexpError => e
