@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
 # Methods defined inside blocks are named as skipped subjects, covered or not,
