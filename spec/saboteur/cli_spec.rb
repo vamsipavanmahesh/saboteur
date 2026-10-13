@@ -357,6 +357,17 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["allow_focus"]).to be(true)
   end
 
+  it "parses --matrix into the matrix config key, and describes it in help" do
+    command = cli("run", "--matrix")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(matrix: true)
+    expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["matrix"]).to be(true)
+    out = StringIO.new
+    Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
+    expect(out.string).to include("--matrix", "Run every covering test per mutant and list blind and redundant tests")
+  end
+
   it "refuses a focused suite unless allow_focus is set" do
     expect(Saboteur::Config.new({})["allow_focus"]).to be(false)
   end
