@@ -6,6 +6,10 @@ RSpec.describe Saboteur::MutationSource::ConditionNegation do
     subjects_in("class ConditionTarget\n  def m(x)\n    #{expression}\n  end\nend\n").first
   end
 
+  it "handles a method with no body" do
+    expect(described_class.new.mutations_for(target(""))).to be_empty
+  end
+
   it "negates if unless modifier and ternary predicates with grouping" do
     ["if x; 1; else; 2; end", "unless x; 1; else; 2; end", "1 if x", "1 unless x", "x ? 1 : 2",
      "x.positive? ? 1 : 2"].each do |expression|
