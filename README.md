@@ -308,6 +308,8 @@ not `line`, to put a note on a changed line of the pull-request diff. A
 whole-body mutant of a method whose only change is its signature touches no
 changed line and prints none.
 
+New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md) walks one from the diff to the test that kills it.
+
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `--threshold`; 1 survivors, or the score is below `--threshold` or missing;
 2 bad configuration or a missing source or test; 3 the tool failed (with
