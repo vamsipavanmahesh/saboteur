@@ -1,5 +1,11 @@
 # Changelog
 
+- Add opt-in predicate negation. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
+
+- Add opt-in arithmetic compound assignment replacement. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
+
+- Add opt-in range endpoint replacement. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
+
 - Add audited inline suppression comments with required reasons. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
 
 - Add source-only --dry-run, --list-operators and --operators selection. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
