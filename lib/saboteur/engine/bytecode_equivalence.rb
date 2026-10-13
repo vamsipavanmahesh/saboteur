@@ -8,8 +8,7 @@ module Saboteur
     # running it can only produce a false survivor. The comparison walks the
     # compiled instruction tree and drops only position metadata (line
     # numbers, line events, source spans, node ids, file paths). Operands,
-    # including string and numeric literals, are compared exactly (eql?, so
-    # 2 and 2.0 differ).
+    # including string and numeric literals, are compared exactly (2 and 2.0 differ, and so do +0.0 and -0.0).
     class BytecodeEquivalence
       ISEQ_MAGIC = "YARVInstructionSequence/SimpleDataFormat"
       POSITION_EVENT = /\ARUBY_EVENT_/
@@ -23,7 +22,7 @@ module Saboteur
         original = fingerprint_of_original(original_text, frozen_string_literal)
         return false unless original
 
-        original.eql?(fingerprint(mutated_text, frozen_string_literal))
+        exact?(original, fingerprint(mutated_text, frozen_string_literal))
       end
 
       private
@@ -31,7 +30,7 @@ module Saboteur
       # Mutants of one method arrive together, so the last original is enough.
       def fingerprint_of_original(text, frozen)
         key = [text, frozen]
-        return @original_fingerprint if key.eql?(@original_key)
+        return @original_fingerprint if key == @original_key
 
         @original_key = key
         @original_fingerprint = fingerprint(text, frozen)
@@ -42,6 +41,18 @@ module Saboteur
         strip_positions(RubyVM::InstructionSequence.compile(text, nil, nil, 1, options).to_a)
       rescue SyntaxError, StandardError
         nil
+      end
+
+      # Structural equality that never coerces: an Integer is not a Float,
+      # and +0.0 is not -0.0 (1.0 / +0.0 and 1.0 / -0.0 are different
+      # infinities), which eql? alone would not tell apart.
+      def exact?(left, right)
+        case left
+        when Array then right.is_a?(Array) && left.size == right.size && left.zip(right).all? { |l, r| exact?(l, r) }
+        when Hash then right.is_a?(Hash) && exact?(left.to_a, right.to_a)
+        when Float then right.is_a?(Float) && [left].pack("G") == [right].pack("G")
+        else left.eql?(right)
+        end
       end
 
       def strip_positions(node)
