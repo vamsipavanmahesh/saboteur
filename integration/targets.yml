@@ -24,9 +24,8 @@ tty-color:
   config: integration/configs/tty_color.rb
   schedule: pr
   expect:
-    # class_eval: killed + error is 129 (126 plus 3 chain_removal mutants) after
-    # the hazard guard suppressed 25 mutants in tty-color's backtick/system
-    # methods (was 151). Their split
+    # class_eval: killed + error is 126 after the hazard guard suppressed 25
+    # mutants in tty-color's backtick/system methods (was 151). Their split
     # can vary by run (Linux measured 69/57), so only the sum is checked.
     class_eval: { killed+error: 129, survived: 13, timeout: 0, skipped: 0 }
     # macOS literal expansion has not been measured, and no CI job runs
