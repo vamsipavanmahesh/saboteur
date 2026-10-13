@@ -253,10 +253,49 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       mutated_texts(subjects_in(source).first).map(&:first)
     end
 
-    it "does not return nil from a method whose sig excludes nil" do
+    it "keeps nil without proof that the runtime rejects it" do
       found = operators("sig { params(a: Integer).returns(Integer) }", "    a + 1")
-      expect(found).not_to include("body_nil")
+      expect(found).to include("body_nil")
       expect(found).to include("body_raise", "arithmetic")
+    end
+
+    it "keeps nil mutants for checked levels, custom handlers and type expression near misses" do
+      ["returns(Integer).checked(:never)", "returns(Integer).checked(:tests)",
+       "returns(Integer).checked(:always)", "returns(Integer).on_failure(:log)",
+       "returns(T::Boolean)", "returns(T::Array[Integer])", "returns(T::Array[Integer].nilable)",
+       "returns(T::BooleanAlias)", "returns(T::Boolean | NilClass)", "returns(Money)",
+       "returns(::Integer)", "returns(T.any(Integer, NilClass))"].each do |expression|
+        sig = "sig { #{expression} }"
+        expect(operators(sig, "    a + 1")).to include("body_nil"), expression
+        expect(removals(sig, "    store(a)\n    a + 1").size).to eq(2), expression
+      end
+    end
+
+    it "does not resolve enclosing or aliased constants to prune mutants" do
+      stub_const("Outer", Module.new)
+      stub_const("Outer::String", NilClass)
+      stub_const("Outer::Money", Class.new)
+      source = <<~RUBY
+        module Outer
+          class Inner
+            sig { returns(String) }
+            def fee(a)
+              store(a)
+              a + 1
+            end
+            sig { returns(Money) }
+            def other(a)
+              store(a)
+              a + 1
+            end
+          end
+        end
+      RUBY
+      subjects_in(source).each do |subject|
+        found = mutated_texts(subject).map(&:first)
+        expect(found).to include("body_nil")
+        expect(found.count("statement_removal")).to eq(2)
+      end
     end
 
     it "keeps the true and false bodies of a predicate whose sig is T::Boolean" do
@@ -275,10 +314,10 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       mutated_texts(subjects_in(source).first).filter_map { |operator, text| text if operator == "statement_removal" }
     end
 
-    it "does not remove the last statement into nil when the sig excludes nil, but removes earlier ones" do
+    it "keeps last-statement removal without proof of runtime enforcement" do
       removed = removals("sig { returns(Integer) }", "    log(a)\n    store(a)\n    a + 1")
-      expect(removed.size).to eq(2)
-      expect(removed).to all(include("a + 1"))
+      expect(removed.size).to eq(3)
+      expect(removed.last).not_to include("a + 1")
     end
 
     it "still removes the last statement when the sig allows nil" do
