@@ -31,6 +31,12 @@ All notable changes are documented here. The format follows
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
+### Changed
+- The text run prints one `Reports:` line naming the JSON and HTML reports, with
+  paths relative to the project root when they are under it, instead of two
+  lines with a blank line between them (#150). Scripts that read the old
+  `JSON report:` and `HTML report:` lines must read `Reports:` instead.
+
 ### Fixed
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
