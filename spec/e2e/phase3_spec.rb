@@ -77,6 +77,17 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.err).not_to include("running the loaded suite unscoped")
     end
 
+    it "records the guessed specs in agent provenance and reports uncovered mutants as no coverage" do
+      path = File.join(dir, "lib", "stage.rb")
+      File.write(path, File.read(path).sub("label.upcase", "label.downcase"))
+      run = saboteur(dir, "--since", "HEAD", "--guess-tests", "--agent")
+      expect(run.err).to include("reported as NoCoverage, not Survived")
+      payload = JSON.parse(run.out)
+      expect(payload.dig("provenance", "selection", "tests", "first")).to eq(["spec/stage_spec.rb"])
+      expect(payload.fetch("incomplete").map { |reason| reason["reason"] }).to include("no_coverage")
+      expect(JSON.generate(payload.fetch("next", {}))).not_to include("--guess-tests")
+    end
+
     it "runs the whole suite when a changed file has no spec named after it" do
       path = File.join(dir, "lib", "people.rb")
       File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
