@@ -68,7 +68,8 @@ RSpec.describe Saboteur::Engine::Candidates do
   end
 
   it "keeps a mutant that only flips the sign of a zero, bare or nested in a literal" do
-    [["0.0", "-0.0"], ["[0.0]", "[-0.0]"], ["{ a: 0.0 }", "{ a: -0.0 }"]].each do |original, mutated|
+    [["0.0", "-0.0"], ["[0.0]", "[-0.0]"], ["{ a: 0.0 }", "{ a: -0.0 }"],
+     ["0.0i", "-0.0i"], ["(0..0.0)", "(0..-0.0)"]].each do |original, mutated|
       owner = subjects_in("class K\n  def m\n    #{original}\n  end\nend\n").first
       source = Class.new(Saboteur::MutationSource::Base) do
         define_method(:mutations_for) do |subject|
