@@ -214,4 +214,16 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(text.bytesize).to be <= described_class::BYTE_BUDGET
     end
   end
+  it "bounds completeness when any inline candidates were suppressed, including all-suppressed runs" do
+    [[], [result_for(:killed)]].each do |results|
+      report = Saboteur::Report.new(results: results, subjects: [person_subject], wall_time: 1,
+                                    root: File.dirname(person_subject.file),
+                                    inline_suppressions: [{ reason: "elsewhere" }])
+      payload = payload_for(report)
+      expect(payload).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+      meaning = "candidates were suppressed by inline directives; see the full report audit"
+      expect(payload[:incomplete]).to include(a_hash_including(reason: "inline_suppressed", count: 1, meaning: meaning))
+      expect(payload[:next][:fullReport]).to eq(".saboteur/report.json")
+    end
+  end
 end
