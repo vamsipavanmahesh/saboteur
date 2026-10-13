@@ -13,8 +13,8 @@ RSpec.describe Preflight::Runner, :fixture do
       end
 
       if argv.include?("rspec")
-        File.write(argv[argv.index("--out") + 1],
-                   PreflightSupport.fixture_text("rspec_clean.json"))
+        next PreflightSupport::ScriptedRunner.new.result(argv, 0, "",
+                                                         data: PreflightSupport.fixture_text("rspec_clean.json"))
       end
       next PreflightSupport::ScriptedRunner.new.result(argv, 0, "Bundler version 2.5.3\n") if argv.include?("--version")
 
@@ -276,8 +276,8 @@ RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
         cat "$RUBOCOP_JSON"; exit 0
       fi
       if [ "$1" = "exec" ] && [ "$2" = "rspec" ]; then
-        while [ "$1" != "--out" ]; do shift; done
-        #{tamper == :raw_symlink ? 'rm -f "$2" && ln -s "$RSPEC_JSON" "$2"' : 'cp "$RSPEC_JSON" "$2"'}
+        #{tamper == :raw_symlink ? 'ln -s "$OUTSIDE_FILE" "$RUN/logs/harness_specs.rspec.json"' : ':'}
+        cat "$RSPEC_JSON" > /dev/fd/3
         exit 0
       fi
       echo "Bundler version stub"
@@ -290,7 +290,7 @@ RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
     File.write(File.join(stubs, "rubocop.json"), PreflightSupport.fixture_text("rubocop_clean.json"))
   end
 
-  def run_swap(tamper)
+  def run_swap(tamper, victim: nil)
     good = "# SPDX-License-Identifier: MIT\n"
     @fixture.write("lib/ok.rb", good)
     @fixture.commit("good")
@@ -298,10 +298,18 @@ RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
     write_stub_documents
     env = { "PATH" => "#{stubs}:/usr/bin:/bin", "BUNDLE_GEMFILE" => File.join(stubs, "Gemfile"),
             "RUN" => run_directory, "OUTSIDE" => outside, "RUBOCOP_JSON" => File.join(stubs, "rubocop.json"),
-            "RSPEC_JSON" => File.join(stubs, "outside_rspec.json") }
+            "RSPEC_JSON" => File.join(stubs, "outside_rspec.json"), "OUTSIDE_FILE" => victim.to_s }
     options = @fixture.options(base: @base, mode: "fast")
     Timeout.timeout(30) do
       described_class.new(options: options, directory: @fixture.directory, env: env, run_id: run_id).call
+    end
+  end
+
+  it "refuses an injected run id that is not one safe path component" do
+    options = @fixture.options(base: @base, mode: "fast")
+    ["../x", "a/b", "..", ".", "", "-x", "a b"].each do |bad|
+      expect { described_class.new(options: options, directory: @fixture.directory, env: {}, run_id: bad) }
+        .to raise_error(ArgumentError, /run_id/)
     end
   end
 
@@ -318,9 +326,15 @@ RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
     expect(run_swap(:report_fifo).verdict).to eq("incomplete")
   end
 
-  it "does not trust a raw RSpec destination that was swapped for a symlink to a clean report" do
-    report = run_swap(:raw_symlink)
-    names = report.to_h[:checks].to_h { |c| [c[:name], c[:status]] }
-    expect([report.verdict, names["harness_specs"]]).to eq(["incomplete", :incomplete])
+  it "writes the raw RSpec report to a harness-owned pipe, so a planted link in the old path is never written" do
+    victim = File.join(outside, "victim.txt")
+    File.write(victim, "untouched\n")
+    report = run_swap(:raw_symlink, victim: victim)
+    expect([File.read(victim), report.verdict]).to eq(%W[untouched\n incomplete])
+  end
+
+  it "reads the raw RSpec report through the pipe in a real run (valid control)" do
+    report = run_swap(:none)
+    expect(report.to_h[:checks].find { |c| c[:name] == "harness_specs" }[:status]).to eq(:passed)
   end
 end
