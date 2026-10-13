@@ -8,11 +8,11 @@ module Saboteur
     # running it can only produce a false survivor. The comparison walks the
     # compiled instruction tree and drops only position metadata (line
     # numbers, line events, source spans, node ids, file paths). Operands,
-    # including string and numeric literals, are compared exactly.
+    # including string and numeric literals, are compared exactly (eql?, so
+    # 2 and 2.0 differ).
     class BytecodeEquivalence
       ISEQ_MAGIC = "YARVInstructionSequence/SimpleDataFormat"
       POSITION_EVENT = /\ARUBY_EVENT_/
-      FROZEN_STRING_COMMENT = /\A(?:#[^\n]*\n|\s*\n)*#[^\n]*frozen[_-]string[_-]literal:\s*true/i
 
       # True when mutated_text compiles to the same instructions as the
       # original subject source under the same compile options. Anything the
@@ -23,12 +23,7 @@ module Saboteur
         original = fingerprint_of_original(original_text, frozen_string_literal)
         return false unless original
 
-        original == fingerprint(mutated_text, frozen_string_literal)
-      end
-
-      # Whether a file's magic comments freeze its string literals.
-      def self.frozen_string_literal?(file_source)
-        FROZEN_STRING_COMMENT.match?(file_source)
+        original.eql?(fingerprint(mutated_text, frozen_string_literal))
       end
 
       private
@@ -36,7 +31,7 @@ module Saboteur
       # Mutants of one method arrive together, so the last original is enough.
       def fingerprint_of_original(text, frozen)
         key = [text, frozen]
-        return @original_fingerprint if key == @original_key
+        return @original_fingerprint if key.eql?(@original_key)
 
         @original_key = key
         @original_fingerprint = fingerprint(text, frozen)
