@@ -160,6 +160,7 @@ RSpec.describe Saboteur::Execution::Reevaluator do
 
     after do
       Object.send(:remove_const, :WHOLE_FILE_LOADS) if defined?(WHOLE_FILE_LOADS)
+      Object.send(:remove_const, :OUTSIDE_GREETING) if defined?(OUTSIDE_GREETING)
       Object.send(:remove_const, :WholeFileThing) if defined?(WholeFileThing)
     end
 
@@ -184,6 +185,49 @@ RSpec.describe Saboteur::Execution::Reevaluator do
       reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
       expect(WholeFileThing.new.value).to eq(10)
       expect(WHOLE_FILE_LOADS).to eq(1)
+    end
+
+    it "reports no replaced definition while the subject's own def is the one in place" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(subject_under_test, subject_under_test.source.sub("1", "10"))
+      expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "reports no replaced definition for a subject that is not whole-file" do
+      expect(described_class.new.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "names the definition that replaced it when a later def in the file wins" do
+      twice = "class WholeFileThing\n  def value\n    1\n  end\n\n  def value\n    2\n  end\nend\n"
+      first = subjects_in(twice, name: "whole_file_twice.rb").find { |s| s.id == "WholeFileThing#value" }
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(first, first.source.sub("1", "10"))
+      expect(WholeFileThing.new.value).to eq(2)
+      expect(reevaluator.replaced_definition(first)).to eq("#{first.file}:6")
+    end
+
+    it "reports a method that is no longer defined" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      WholeFileThing.send(:remove_method, :value)
+      expect(reevaluator.replaced_definition(subject_under_test)).to eq("no definition")
+    end
+
+    it "reports a definition with no Ruby source, such as a native method" do
+      native = Struct.new(:id, :singleton, :name, :file, :start_line).new("String#size", false, :size, "x.rb", 1)
+      reevaluator = described_class.new("nesting", whole_file: ["String#size"])
+      allow(reevaluator).to receive(:resolve_owner).and_return(String)
+      expect(reevaluator.replaced_definition(native)).to eq("no Ruby definition")
+    end
+
+    it "keeps non-ASCII text inside and outside the method as UTF-8 even when the file was read as binary" do
+      source = "# frozen_string_literal: true\n\nOUTSIDE_GREETING = \"h\u00e9llo\"\n\nclass WholeFileThing\n  " \
+               "def value\n    \"caf\u00e9\"\n  end\nend\n"
+      thing = subjects_in(source, name: "whole_file_utf8.rb").find { |s| s.id == "WholeFileThing#value" }
+      allow(thing).to receive(:file_source).and_return(source.b)
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      reevaluator.call(thing, "def value\n    \"caf\u00e9!\"\n  end")
+      expect(WholeFileThing.new.value).to eq("caf\u00e9!")
+      expect([WholeFileThing.new.value.encoding, OUTSIDE_GREETING.encoding]).to eq([Encoding::UTF_8] * 2)
     end
 
     it "keeps the file's own name and line numbers" do
