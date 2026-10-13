@@ -17,6 +17,8 @@ module Saboteur
                         max_memory_mb max_processes seed tests].freeze
 
     attr_reader :config, :hooks
+    # The specs --guess-tests narrowed the run to, or nil when it did not.
+    attr_reader :guessed_tests
 
     def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [])
       @config = config
@@ -37,10 +39,10 @@ module Saboteur
     def call
       Boot.refuse_recursion!
       started = monotonic
+      guess_tests
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
       @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
-      guess_tests
       boot = Boot.new(config, hooks)
       begin
         integration, files, load_lines = boot_target(boot)
@@ -93,8 +95,10 @@ module Saboteur
         else
           # The guesses now stand as explicit tests, like --test.
           @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
+          @guessed_tests = guess.specs
           "--guess-tests: running only #{guess.specs.join(', ')}. A spec that reaches a changed file only " \
-            "through another file does not run, so mutants only it would kill survive"
+            "through another file does not run: a mutant only it would kill has no covering spec and is " \
+            "reported as NoCoverage, not Survived"
         end
       @diagnostics.warn(message)
       @diagnostics.inform(message)
