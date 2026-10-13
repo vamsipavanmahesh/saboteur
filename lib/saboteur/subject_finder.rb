@@ -9,10 +9,17 @@ module Saboteur
   #
   # Included: instance methods and `def self.x` inside a class or module,
   # defs inside `class << self`, and defs passed to a receiverless call such
-  # as `private def x`. Skipped: top-level defs, defs nested in defs, defs in
-  # blocks (`Class.new do`, `included do`), and `def obj.x` for obj != self.
+  # as `private def x`. Skipped: top-level defs, defs nested in defs, and
+  # `def obj.x` for obj != self. Defs in blocks (`Class.new do`, `included do`)
+  # are found but marked skipped ("defined inside a block"), so the report
+  # names them instead of leaving them out. `X = Data.define`, `Struct.new`,
+  # `Class.new` or `Module.new` with a block names X as the owner; any other
+  # block, and a `A::X = ...` target, keeps the enclosing owner or the
+  # placeholder.
   class SubjectFinder
     Parsed = Data.define(:subjects, :errors)
+    ANONYMOUS_OWNER = "(anonymous block)"
+    CLASS_FACTORIES = { Data: :define, Struct: :new, Class: :new, Module: :new }.freeze
 
     # source: the text to parse when it is not the file on disk (the file as
     # it was at an earlier commit).
@@ -36,9 +43,13 @@ module Saboteur
     end
 
     def walk(node, nesting, out, previous: nil, **ctx)
+      return if node.nil?
+
       case node
-      when nil, Prism::BlockNode, Prism::LambdaNode
-        nil
+      when Prism::BlockNode, Prism::LambdaNode
+        walk(node.body, nesting, out, **ctx, in_block: true)
+      when Prism::ConstantWriteNode
+        walk_constant_assignment(node, nesting, out, **ctx)
       when Prism::ModuleNode
         walk(node.body, nesting + [Scope.new(kind: :module, path: node.constant_path.slice)], out, **ctx)
       when Prism::ClassNode
@@ -58,6 +69,26 @@ module Saboteur
       end
     end
 
+    # `Point = Data.define(:x) do ... end`: the defs belong to Point. Only the
+    # four core factories count, called on the bare constant; any other call
+    # that takes a block says nothing about the class it returns.
+    def walk_constant_assignment(node, nesting, out, **ctx)
+      call = node.value
+      return node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) } unless class_factory?(call)
+
+      # The receiver and arguments stay in the enclosing scope; only the
+      # factory's own block belongs to the new class.
+      (call.compact_child_nodes - [call.block]).each { |child| walk(child, nesting, out, **ctx) }
+      walk(call.block, nesting + [Scope.new(kind: :class, path: node.name.to_s)], out, **ctx)
+    end
+
+    def class_factory?(call)
+      return false unless call.is_a?(Prism::CallNode) && call.block.is_a?(Prism::BlockNode)
+      return false unless call.receiver.is_a?(Prism::ConstantReadNode)
+
+      CLASS_FACTORIES[call.receiver.name] == call.name
+    end
+
     def walk_singleton_class(node, nesting, out, **ctx)
       return unless node.expression.is_a?(Prism::SelfNode)
       return if nesting.empty? || nesting.last.sclass?
@@ -65,18 +96,21 @@ module Saboteur
       walk(node.body, nesting + [Scope.new(kind: :sclass, path: "self")], out, **ctx)
     end
 
-    def add_subject(node, nesting, out, file:, source:, frozen:, previous: nil)
+    def add_subject(node, nesting, out, file:, source:, frozen:, previous: nil, in_block: false)
       in_sclass = nesting.last&.sclass? || false
       # `def self.x` inside `class << self`, and `def obj.x`, are not subjects.
       return unless node.receiver.nil? || (node.receiver.is_a?(Prism::SelfNode) && !in_sclass)
 
       singleton = in_sclass || !node.receiver.nil?
       owner = owner_path(nesting)
+      owner ||= ANONYMOUS_OWNER if in_block
       return unless owner
 
-      out << Subject.new(name: node.name, owner: owner, singleton: singleton, sclass: in_sclass,
-                         file: file, node: node, file_source: source, nesting: nesting,
-                         frozen_literals: frozen, sig_span: sig_span(previous))
+      subject = Subject.new(name: node.name, owner: owner, singleton: singleton, sclass: in_sclass,
+                            file: file, node: node, file_source: source, nesting: nesting,
+                            frozen_literals: frozen, sig_span: sig_span(previous))
+      subject.skip_reason = "defined inside a block" if in_block
+      out << subject
     end
 
     # The byte span of a `sig { ... }` or `T.sig { ... }` call on the lines

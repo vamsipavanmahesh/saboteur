@@ -69,8 +69,9 @@ score well and still say little. A run is incomplete when any of these hold:
 - more than half of the executed mutants errored. The run exits 3 with or
   without a threshold;
 - subjects or mutants had no covering test, ran only at load, were unreachable,
-  or were left out by `max_mutants_per_method`. `--agent` lists these as
-  incomplete reasons with counts.
+  were left out by `max_mutants_per_method`, or were skipped as unsupported
+  (a method defined inside a block, or in a file that uses refinements).
+  `--agent` lists these as incomplete reasons with counts.
 
 Read the score together with these counts. Whether two scores are comparable
 is also a question of scope: a `--since` run, a `--subject` run and a full run
