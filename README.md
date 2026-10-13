@@ -761,7 +761,7 @@ The builtin `endpoint_replacement` operator swaps explicit, no-argument `first`/
 
 `bundle exec saboteur run --dry-run` discovers source methods and generates candidates without booting the app, running tests, forking, or writing reports/caches. It honors `--since`, `--subject` and source arguments. It prints per-method counts and cap omissions. After a matching normal run, a cached duration estimate shows covering-test work (an upper bound excluding boot and fork costs).
 
-`bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains today's operators, extended is reserved for new opt-in operators. Empty/default selection keeps all current operators. Selection changes invalidate incremental verdict identity.
+`bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains the original operators, extended contains opt-in operators such as [`range`](docs/operators/range.md). Empty/default selection keeps only core operators. Selection changes invalidate incremental verdict identity.
 
 Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).
 
