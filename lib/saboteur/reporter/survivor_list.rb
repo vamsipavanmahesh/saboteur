@@ -25,6 +25,7 @@ module Saboteur
         entries.group_by { |result, _| result.subject.file }.sort_by { |file, _| file }.each do |file, in_file|
           file_section(report, relative(file, report.root), in_file)
         end
+        @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if entries.any? { |result, _| hint_for(result) }
       end
 
       private
@@ -41,11 +42,25 @@ module Saboteur
         in_subject.group_by { |result, _| MutationText.line(result) }.sort.each do |line, on_line|
           first = on_line.first.first
           @out.puts "    #{path}:#{line} in #{first.subject.id}"
-          changed_lines(report, path, first)
           @out.puts "      #{@palette.paint(:dim, "#{line}:")} #{source_line(first, line)}"
-          passing_tests(first)
-          on_line.each { |result, hidden| mutation(result, hidden) }
+          evidence_groups(report, on_line).each { |group| evidence_group(report, path, group) }
         end
+      end
+
+      # Mutants on one line share the printed evidence only when it is the
+      # same for all of them: covering tests (in order), reuse and changed
+      # lines can each differ per mutant, so each distinct tuple is its own
+      # group and its evidence is printed once, above its own mutations.
+      def evidence_groups(report, on_line)
+        on_line.group_by { |result, _| [result.covered_by, result.reused?, report.changed_lines_for(result)] }
+               .values
+      end
+
+      def evidence_group(report, path, group)
+        first = group.first.first
+        changed_lines(report, path, first)
+        passing_tests(first)
+        group.each { |result, hidden| mutation(result, hidden) }
       end
 
       def source_line(result, line)
@@ -64,8 +79,14 @@ module Saboteur
       end
 
       def hint(result)
-        text = SurvivorHints.for(result.mutation.operator, coarse: result.mutation.coarse)
-        @out.puts "        #{@palette.paint(:cyan, 'hint:')} #{text}" if text && !result.ignored
+        text = hint_for(result)
+        @out.puts "        #{@palette.paint(:cyan, 'hint:')} #{text}" if text
+      end
+
+      def hint_for(result)
+        return nil if result.ignored
+
+        SurvivorHints.for(result.mutation.operator, coarse: result.mutation.coarse)
       end
 
       # The tests that ran with the mutant applied and still passed: the
