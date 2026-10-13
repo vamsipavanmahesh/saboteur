@@ -12,10 +12,14 @@ module Saboteur
   # as `private def x`. Skipped: top-level defs, defs nested in defs, and
   # `def obj.x` for obj != self. Defs in blocks (`Class.new do`, `included do`)
   # are found but marked skipped ("defined inside a block"), so the report
-  # names them instead of leaving them out.
+  # names them instead of leaving them out. `X = Data.define`, `Struct.new`,
+  # `Class.new` or `Module.new` with a block names X as the owner; any other
+  # block, and a `A::X = ...` target, keeps the enclosing owner or the
+  # placeholder.
   class SubjectFinder
     Parsed = Data.define(:subjects, :errors)
     ANONYMOUS_OWNER = "(anonymous block)"
+    CLASS_FACTORIES = { Data: :define, Struct: :new, Class: :new, Module: :new }.freeze
 
     def call(file)
       source = File.binread(file)
@@ -64,14 +68,22 @@ module Saboteur
       end
     end
 
-    # `Point = Data.define(:x) do ... end`: the defs belong to Point.
+    # `Point = Data.define(:x) do ... end`: the defs belong to Point. Only the
+    # four core factories count, called on the bare constant; any other call
+    # that takes a block says nothing about the class it returns.
     def walk_constant_assignment(node, nesting, out, **ctx)
       call = node.value
-      return node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) } unless
-        call.is_a?(Prism::CallNode) && call.block
+      return node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) } unless class_factory?(call)
 
       scope = Scope.new(kind: :class, path: node.name.to_s)
       walk(call.block, nesting + [scope], out, **ctx)
+    end
+
+    def class_factory?(call)
+      return false unless call.is_a?(Prism::CallNode) && call.block.is_a?(Prism::BlockNode)
+      return false unless call.receiver.is_a?(Prism::ConstantReadNode)
+
+      CLASS_FACTORIES[call.receiver.name] == call.name
     end
 
     def walk_singleton_class(node, nesting, out, **ctx)
