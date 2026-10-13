@@ -1,6 +1,6 @@
 # Preflight
 
-`script/preflight` is a local check you run on one exact base and head before you ask for review. It
+`script/preflight` (run it as `ruby script/preflight`; the file does not need the executable bit) is a local check you run on one exact base and head before you ask for review. It
 finds the cheap, repeat mistakes first: protected files, sign-off, SPDX headers, whitespace, lint and
 specs. It is not CI, not a review and not an approval. A contributor can edit it, so the existing CI,
 DCO check and panel gate stay the authority.
@@ -8,14 +8,14 @@ DCO check and panel gate stay the authority.
 ## Run it
 
 ```sh
-script/preflight --base <40-char main sha> --head <40-char head sha> --base-ref main --mode fast
-script/preflight --base <40-char main sha> --head <40-char head sha> --base-ref main --mode full
+ruby script/preflight --base <40-char main sha> --head <40-char head sha> --base-ref main --mode fast
+ruby script/preflight --base <40-char main sha> --head <40-char head sha> --base-ref main --mode full
 ```
 
 - Both SHAs must be full, lowercase, and present locally. `HEAD` must equal `--head` and the tree must be
   clean. Branch names are refused.
 - `--base-ref` must be `main`. A deliberate stack is not something this tool can call main-ready.
-- It never fetches, installs, rebases, commits, pushes or comments. It makes no network call itself, but the
+- It never fetches, installs gems, rebases, commits, pushes or comments. It makes no network call itself, but the
   specs it runs may.
 - Output always goes to `tmp/preflight/<run-id>/` (not configurable): `report.json`, `report.md`, one log file per
   command and the raw RSpec JSON. Nothing from an earlier run is reused. `tmp/preflight` must be a real directory
@@ -66,7 +66,7 @@ The report lists the manual obligations that no script checks. Read them.
     `ruby` and `bundle` executables found on `PATH` the way the OS finds them (readable executable file; an empty
     or relative `PATH` entry is refused), the effective Gemfile (`BUNDLE_GEMFILE`, relative to the checkout) and
     its lockfile, the app and user Bundler config (digests only, never contents), and a fixed list of environment
-    variables. Dependency part: the Bundler version and the `bundle list` result. It evaluates the candidate's
+    variables. Dependency preparation: when the ignored `Gemfile.lock` is missing (a fresh checkout), `bundle lock --local` creates it from locally installed gems, with no network. The "before" fingerprint is taken after that step, and the only difference accepted from the one before it is a lockfile that did not exist and now does. Any other difference (tree, tracked file, another input) is a gap. So a first run in a fresh checkout needs no rerun, provided the gems are installed. Dependency part: the Bundler version and the `bundle list` result. It evaluates the candidate's
     Gemfile, so it runs only after the cheap checks, including `protected_paths`, did not fail. If a cheap check
     failed it is not run, and no costly check runs either. A difference in either part is `incomplete`.
     A tracked symlink is bound to the content it resolves to; one that leaves the checkout, a directory or a
@@ -122,3 +122,17 @@ is not proof of coverage; read the spec.
   then KILL. Leftover processes, a pipe still held open, signal deaths, invalid UTF-8 and output over 20 MB each make
   the result unusable (`incomplete`), never a pass. A grandchild that moves to a new process group escapes the cleanup.
 - Timings are not measured yet. Measure before claiming any speedup.
+
+## Measured cost
+
+Five sequential runs per row on the development machine, on the slice 1 head (median, range). Your times will differ.
+
+| scenario | median | range | result |
+| --- | --- | --- | --- |
+| clean, `--mode fast` | 28.5 s | 28.0 to 29.5 s | partial |
+| clean, `--mode full` | 307 s (5.1 min) | 300 to 312 s | partial |
+| protected file edited, fast | 0.32 s | 0.30 to 0.37 s | failed, costly checks skipped, Bundler never run |
+| RuboCop offense, fast | 2.5 s | 2.4 to 10.7 s (first run cold) | failed, specs skipped |
+
+A failure stops early on purpose, so fix it and rerun in seconds rather than waiting for the full suite. The full
+run is dominated by the whole spec suite (about 274 s).
