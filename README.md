@@ -51,7 +51,8 @@ Every run with selected subjects runs the loaded unchanged suite twice (the spec
 supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
 a cache miss. Both baseline passes must be green, complete and in the same
-RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Long phases
+RSpec order at the run seed. A failure exits 3, stops mutation, prints the failing example ids and the first ten lines of the
+failure inline, and names the log and fix. Long phases
 print their elapsed time about every 30 seconds, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
