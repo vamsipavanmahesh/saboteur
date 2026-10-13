@@ -60,6 +60,10 @@ module Saboteur
         version = LibC.syscall_fn.call(SYS_CREATE_RULESET, 0, 0, CREATE_RULESET_VERSION, 0)
         errno = last_errno
         @abi_version = probe_abi(version, errno)
+      rescue Fiddle::DLError
+        # No usable libc (an unusual musl/ldso layout): the sandbox cannot
+        # be built here, so degrade to the unsandboxed note, not a crash.
+        @abi_version = 0
       end
 
       # A positive answer is the ABI. ENOSYS/EOPNOTSUPP mean the kernel has
@@ -131,26 +135,44 @@ module Saboteur
       module InheritedFds
         module_function
 
+        # stdio (0/1/2) is swept like any other descriptor: a terminal,
+        # pipe or /dev/null is not a regular file and stays, but stdio
+        # redirected to a writable regular file outside the grants is a
+        # write channel Landlock cannot gate, so it is closed.
         def close_writable_files(writable, keep_fds)
-          keep = keep_fds + [0, 1, 2]
           Dir.children("/proc/self/fd").each do |entry|
             descriptor = entry.to_i
-            next if keep.include?(descriptor)
+            next if keep_fds.include?(descriptor)
 
-            target = begin
-              File.readlink(File.join("/proc/self/fd", entry))
-            rescue SystemCallError
-              next
-            end
-            next unless target.start_with?("/") && File.file?(target)
-            next if writable.any? { |dir| target == dir || target.start_with?("#{dir}/") }
-
-            flags = LibC.fcntl_fn.call(descriptor, F_GETFL, 0)
-            next if flags.negative? || flags.nobits?(O_ACCMODE) # O_RDONLY
-
-            close_fd(descriptor)
+            sweep_fd(descriptor, File.join("/proc/self/fd", entry), writable)
           end
           nil
+        end
+
+        # Fail closed throughout: a descriptor whose target or flags cannot
+        # be read may be a writable file we cannot see, so it is closed
+        # rather than skipped. Deleted files still stat through the fd (the
+        # inode lives until the last descriptor closes), so they are swept
+        # on their stripped path.
+        def sweep_fd(descriptor, link, writable)
+          target = File.readlink(link)
+          stat = File.stat(link)
+          return unless stat.file?
+
+          granted = target.delete_suffix(" (deleted)")
+          return if writable.any? { |dir| granted == dir || granted.start_with?("#{dir}/") }
+
+          flags = LibC.fcntl_fn.call(descriptor, F_GETFL, 0)
+          return close_fd(descriptor) if flags.negative?
+          return if flags.nobits?(O_ACCMODE) # O_RDONLY
+
+          close_fd(descriptor)
+        rescue SystemCallError
+          begin
+            close_fd(descriptor)
+          rescue IOError, SystemCallError
+            nil # the descriptor raced away; nothing left to close
+          end
         end
 
         # Close through the owning Ruby IO when there is one: a raw close
@@ -189,8 +211,24 @@ module Saboteur
       module LibC
         module_function
 
+        # glibc's soname first, then musl's (arch-qualified), then the
+        # process global symbol table: a musl system has no libc.so.6, but
+        # its loader already mapped the C library Ruby is linked against,
+        # and Fiddle::Handle::DEFAULT resolves symbols from there.
         def handle
-          @handle ||= Fiddle.dlopen("libc.so.6")
+          @handle ||= libc_candidates.lazy.map { |name| try_dlopen(name) }.find(&:itself) ||
+                      Fiddle::Handle::DEFAULT
+        end
+
+        def libc_candidates
+          arch = RbConfig::CONFIG["host_cpu"]
+          ["libc.so.6", "libc.musl-#{arch}.so.1", "ld-musl-#{arch}.so.1"]
+        end
+
+        def try_dlopen(name)
+          Fiddle.dlopen(name)
+        rescue Fiddle::DLError
+          nil
         end
 
         def syscall_fn
