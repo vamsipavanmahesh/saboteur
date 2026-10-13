@@ -46,4 +46,88 @@ RSpec.describe "saboteur run with a focus filter in the suite (end to end)", :e2
     expect(run.err).not_to include("focus filter")
     expect(run.json).not_to be_nil
   end
+
+  describe "boundaries where RSpec itself decides what runs" do
+    def write_suite(body:, rspec_options: "")
+      File.write(File.join(dir, ".rspec"), "--require ./spec/focus_helper.rb\n#{rspec_options}")
+      File.write(File.join(dir, "spec", "focus_helper.rb"),
+                 "RSpec.configure { |config| config.filter_run_when_matching :focus }\n")
+      File.write(File.join(dir, "spec", "boundary_spec.rb"), %(require_relative "../lib/people"\n#{body}))
+    end
+
+    it "does not refuse an example selector in a file that also has a fit" do
+      write_suite(body: <<~RUBY)
+        RSpec.describe People::Person do
+          it("ordinary") { expect(described_class.new(17).adult?).to be(false) }
+          fit("stray") { expect(described_class.new(19).adult?).to be(true) }
+        end
+      RUBY
+      run = saboteur(dir, "lib/people.rb", "--test", "spec/boundary_spec.rb:3")
+      expect(run.err).not_to include("focus filter")
+      expect(run.status).not_to eq(2), run.err
+    end
+
+    it "still refuses a selector for one file when another selected file has a stray fit" do
+      write_suite(body: <<~RUBY)
+        RSpec.describe People::Person do
+          it("ordinary") { expect(described_class.new(17).adult?).to be(false) }
+          fit("stray") { expect(described_class.new(19).adult?).to be(true) }
+        end
+      RUBY
+      run = saboteur(dir, "lib/people.rb", "--test", "spec/boundary_spec.rb", "--test", "spec/stage_spec.rb:1")
+      expect(run.status).to eq(2), run.err
+      expect(run.err).to include("focus filter")
+    end
+
+    it "does not count examples that :if or :unless prune anyway as hidden" do
+      write_suite(body: <<~RUBY)
+        RSpec.describe People::Person do
+          fit("stray") { expect(described_class.new(19).adult?).to be(true) }
+          it("never runs here", if: false) { raise "skipped by :if" }
+          it("also never runs", unless: true) { raise "skipped by :unless" }
+        end
+      RUBY
+      run = saboteur(dir, "lib/people.rb", "--test", "spec/boundary_spec.rb")
+      expect(run.err).not_to include("focus filter")
+      expect(run.status).not_to eq(2), run.err
+    end
+
+    it "still refuses when an ordinary example is hidden next to :if pruned ones" do
+      write_suite(body: <<~RUBY)
+        RSpec.describe People::Person do
+          fit("stray") { expect(described_class.new(19).adult?).to be(true) }
+          it("ordinary") { expect(described_class.new(17).adult?).to be(false) }
+          it("never runs here", if: false) { raise "skipped by :if" }
+        end
+      RUBY
+      run = saboteur(dir, "lib/people.rb", "--test", "spec/boundary_spec.rb")
+      expect(run.status).to eq(2), run.err
+      expect(run.err).to include("1 of 2 examples").and include("boundary_spec.rb:3")
+    end
+
+    it "does not count examples that an explicit --tag runs as hidden by the stray fit" do
+      write_suite(rspec_options: "--tag slow\n", body: <<~RUBY)
+        RSpec.describe People::Person do
+          it("slow one", :slow) { expect(described_class.new(17).adult?).to be(false) }
+          fit("stray") { expect(described_class.new(19).adult?).to be(true) }
+        end
+      RUBY
+      run = saboteur(dir, "lib/people.rb", "--test", "spec/boundary_spec.rb")
+      expect(run.err).not_to include("focus filter")
+      expect(run.status).not_to eq(2), run.err
+    end
+
+    it "does not count examples the explicit --tag already leaves out, such as an untagged one" do
+      write_suite(rspec_options: "--tag slow\n", body: <<~RUBY)
+        RSpec.describe People::Person do
+          it("slow one", :slow) { expect(described_class.new(17).adult?).to be(false) }
+          fit("stray") { expect(described_class.new(19).adult?).to be(true) }
+          it("plain") { expect(described_class.new(20).adult?).to be(true) }
+        end
+      RUBY
+      run = saboteur(dir, "lib/people.rb", "--test", "spec/boundary_spec.rb")
+      expect(run.err).not_to include("focus filter")
+      expect(run.status).not_to eq(2), run.err
+    end
+  end
 end
