@@ -52,10 +52,16 @@ RSpec.describe Saboteur::Preview do
     expect(out.string[/Total: (\d+)/, 1].to_i).to be > suppressed
   end
 
-  it "prints discovery warnings" do
+  it "prints discovery warnings and marks the total incomplete, without an estimate" do
     File.write(target.file, "def broken(")
     preview.call
-    expect(out.string).to include("does not parse")
+    expect(out.string).to include("does not parse", "INCOMPLETE: 1 file(s) could not be parsed",
+                                  "no estimate: source discovery was incomplete")
+  end
+
+  it "does not mark a clean discovery incomplete" do
+    preview.call
+    expect(out.string).not_to include("INCOMPLETE")
   end
 
   def receipt(settings, durations: { "t1" => 0.25 }, fingerprint: nil)
@@ -82,7 +88,8 @@ RSpec.describe Saboteur::Preview do
     settings = config(operators: ["arithmetic"])
     receipt(settings, durations: { "t1" => 0.123456 })
     preview(settings).call
-    expect(out.string).to include("Total: 2 mutants", "Estimated covering-test work: 0.25 s")
+    expect(out.string).to include("Total: 2 mutants", "Estimated baseline covering-test work: 0.25 s",
+                                  "not a bound on mutant runtime")
   end
 
   it "reports a corrupt receipt without making changes" do
@@ -93,6 +100,21 @@ RSpec.describe Saboteur::Preview do
     expect(out.string).to include("no estimate: run once")
     expect(File.read(path)).to eq("{")
   end
+  it "reports no estimate for valid JSON receipts of the wrong shape or a missing map" do
+    settings = config
+    FileUtils.mkdir_p(File.join(root, ".saboteur"))
+    path = File.join(root, ".saboteur", "preview.json")
+    identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
+    ["[]", "null", "42", JSON.generate(path: 1, fingerprint: identity), JSON.generate(path: "x", fingerprint: 1),
+     JSON.generate(path: File.join(root, "absent.json"), fingerprint: identity),
+     JSON.generate(path: root, fingerprint: identity)].each do |body|
+      File.write(path, body)
+      out.truncate(0)
+      expect { preview(settings).call }.not_to raise_error
+      expect(out.string).to include("no estimate: run once")
+    end
+  end
+
   it "uses a replaced hazard list rather than the default" do
     settings = config(hazard: ["x.+"])
     guard = instance_double(Saboteur::MutationSource::HazardGuard)
