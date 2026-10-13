@@ -7,26 +7,27 @@ require "fileutils"
 module Preflight
   module Checks
     # Runs RSpec for the given paths (none means the whole suite) and validates the JSON report strictly:
-    # exact shape, non-negative counts, a status for every example, counts that match the example list,
-    # no load errors, at least one example. The report must also agree with the exit status.
+    # required fields with the right types, non-negative counts, a status for every example, counts that match
+    # the example list, no load errors, at least one example. The report must also agree with the exit status.
     class Rspec
       STATUSES = %w[passed failed pending].freeze
 
-      def initialize(name:, command_runner:, paths: [], report_directory: nil)
+      def initialize(name:, command_runner:, paths: [], report_directory: nil, output_root: nil)
         @name = name
         @runner = command_runner
         @paths = paths
         @report_directory = report_directory
+        @output_root = output_root
       end
 
       def call(_context = nil)
         directory = @report_directory || Dir.mktmpdir("preflight-rspec")
-        FileUtils.mkdir_p(directory)
         output = File.join(directory, "#{@name}.rspec.json")
+        prepare_destination(directory, output)
         result = @runner.run(%w[bundle exec rspec] + @paths + ["--format", "json", "--out", output])
         return incomplete(result, "could not use RSpec: #{result.problem}") unless result.ran?
 
-        document = StrictJson.read(output)
+        document = StrictJson.read(output, follow: @output_root.nil?)
         problem = shape_problem(document)
         return incomplete(result, "RSpec report rejected: #{problem}") if problem
 
@@ -36,6 +37,15 @@ module Preflight
       end
 
       private
+
+      # Inside the checkout the destination is created by the harness (new, regular, no link) before candidate code
+      # can run, and read back without following links, so a swap during the run is rejected, not trusted.
+      def prepare_destination(directory, output)
+        return FileUtils.mkdir_p(directory) unless @output_root
+
+        SafeOutput.make_directories(directory, @output_root)
+        SafeOutput.write_new(output, "", @output_root)
+      end
 
       def verdict(result, document, path)
         counts = document["summary"]
