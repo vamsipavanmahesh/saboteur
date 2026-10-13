@@ -137,7 +137,7 @@ project instead of the diff-mode run, so the `score`, `killed`, `survivors` and
 report outputs stay empty and no annotations are written. The check fails on new,
 changed or unmatched survivors. `baseline-epsilon` (0 to 100, percentage points)
 adds a second failure: the fresh score is more than that far below the score
-recorded in the baseline. A score that rose never fails. Without
+recorded in the baseline. A score that rose never fails. The drop is compared with the limit exactly (as fractions, not floats), so a drop of exactly the limit passes. The step reads the result strictly: an unknown state, a state that disagrees with the exit status, malformed categories, or (with an epsilon) a missing or non-finite score fails the step with exit 3 instead of passing. Without
 `fail-on-survivors: "true"` a review-needed result is a warning and the step stays
 green, as in diff mode; an invalid, incompatible or incomplete check always fails
 the step. Outputs: `baseline-state` (`clean`, `review_required`, `incompatible`
