@@ -40,12 +40,20 @@ module Saboteur
 
         matrix = TestMatrix.new(report.results)
         @out.puts "test matrix: #{matrix.tests.size} tests ran against mutants"
+        incomplete_matrix_note(matrix)
         matrix_list("blind (covered mutants, killed none)", matrix.blind) do |test|
           "#{matrix.mutants_covered(test)} covered"
         end
         matrix_list("redundant (every kill had another killer)", matrix.redundant) do |test|
           "#{matrix.mutants_killed(test)} kills"
         end
+      end
+
+      def incomplete_matrix_note(matrix)
+        return if matrix.incomplete.zero?
+
+        @out.puts "  #{matrix.incomplete} mutants stopped before every covering test ran (incomplete): " \
+                  "their tests get no blind or redundant verdict"
       end
 
       def matrix_list(title, tests)
