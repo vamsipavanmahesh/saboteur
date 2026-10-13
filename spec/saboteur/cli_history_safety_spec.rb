@@ -5,7 +5,7 @@ require "stringio"
 
 RSpec.describe "history preflight" do
   it "refuses linked destinations before starting the engine or writing either report" do
-    Dir.mktmpdir do |dir|
+    Dir.mktmpdir(nil, File.realpath(Dir.tmpdir)) do |dir|
       history = File.join(dir, "history")
       json = File.join(dir, "report.json")
       html = File.join(dir, "report.html")
@@ -29,7 +29,7 @@ RSpec.describe "history preflight" do
   end
 
   it "rejects malformed history before the mutation run" do
-    Dir.mktmpdir do |dir|
+    Dir.mktmpdir(nil, File.realpath(Dir.tmpdir)) do |dir|
       path = File.join(dir, "history")
       File.write(path, "bad\n")
       cli = Saboteur::CLI.new(["run", "--score-history", path], out: StringIO.new, err: StringIO.new)
