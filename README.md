@@ -518,13 +518,17 @@ preserve the loaded method semantics.
 ### Whole-file re-evaluation (opt-in)
 
 Surgical re-evaluation refuses a method whose owner it cannot resolve or whose
-loaded definition is not the one in the file, for example methods inside
-`Data.define` or `Struct.new` blocks. The skip reason ends with a hint. List such
-subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
-`"Geometry::*"`) and the child evaluates the whole mutated file instead. The
-file's top-level code then runs again in every child: load-time side effects
-repeat and constants it assigns are rebuilt, with redefinition warnings
-silenced. It is off by default, and the cache key includes the list.
+loaded definition is not the one in the file. The skip reason ends with a hint.
+List such subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
+`"Geometry::*"`) and the child evaluates the whole mutated file instead. This
+applies to methods saboteur already finds as subjects; it does not make new
+kinds of definitions selectable (methods inside `Data.define` or `Struct.new`
+blocks are still not found). The file's top-level code then runs again in every
+child, after the run's seed is set: load-time side effects repeat and constants
+it assigns are rebuilt, with redefinition warnings silenced. If a later
+definition in the same file replaces the mutated method, the mutant could never
+run, so a survivor there is reported as unreachable instead. It is off by
+default, and the cache key includes the list.
 
 ### Skipped subjects and the mutant cap
 
