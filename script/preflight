@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+# Local pre-review check of one exact base and head. See docs/preflight.md.
+# Exit 0: required automatic checks passed (not approval). 1: a check failed.
+# 2: invalid invocation or unverifiable inputs. 3: a check could not finish.
+require_relative "preflight_support/preflight"
+
+begin
+  options = Preflight::Options.parse(ARGV)
+  report = Preflight::Runner.new(options: options, directory: Dir.pwd).call
+  puts report.markdown
+  exit report.exit_code
+rescue Preflight::InvalidInvocation, Preflight::UnverifiableInput => e
+  warn "preflight: #{e.message}"
+  exit 2
+rescue Preflight::ExecutionGap, SystemCallError, IOError => e
+  warn "preflight: incomplete: #{e.message}"
+  exit 3
+end
