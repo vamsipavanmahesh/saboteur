@@ -83,7 +83,8 @@ module Saboteur
           first = position(subject.file_source, edit.start_byte)
           last = position(subject.file_source, edit.end_byte)
           selected = arms.select do |span, ids|
-            (span[0, 2] <=> first) <= 0 && (last <=> span[2, 2]) <= 0 && !ran_before_tests?(subject.file, span, ids)
+            (span.first(2) <=> first) <= 0 && (last <=> span.last(2)) <= 0 &&
+              !ran_before_tests?(subject.file, span, ids)
           end
           selected.values.reduce { |ids, other| ids & other }
         end
@@ -194,7 +195,7 @@ module Saboteur
       # a one-line arm, cannot be told apart, so its empty list still means
       # "not taken".
       def ran_before_tests?(file, span, ids)
-        return false unless ids.empty? && span[0] != span[2]
+        return false unless ids.empty?
 
         covered = lines[CoverageMap.canonical(file)] || {}
         ((span[0] + 1)...span[2]).any? { |line| covered.key?(line) }
