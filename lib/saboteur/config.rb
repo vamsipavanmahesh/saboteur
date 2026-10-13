@@ -22,6 +22,7 @@ module Saboteur
       "include" => ["lib/**/*.rb"],
       "exclude" => [],
       "arid" => MutationSource::Builtin::DEFAULT_ARID,
+      "whole_file" => [],
       "hazard" => MutationSource::HazardGuard::DEFAULT_HAZARD,
       "allow_hazardous" => false,
       "timeout_factor" => 3.0,
@@ -60,7 +61,7 @@ module Saboteur
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
-                   fingerprint_extra operators].freeze
+                   fingerprint_extra operators whole_file].freeze
 
     attr_reader :root
 
