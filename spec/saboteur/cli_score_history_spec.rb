@@ -5,7 +5,7 @@ require "stringio"
 
 RSpec.describe "score history CLI" do
   it "records text and agent runs without contaminating agent stdout" do
-    Dir.mktmpdir do |dir|
+    Dir.mktmpdir(nil, File.realpath(Dir.tmpdir)) do |dir|
       [[], ["--agent"]].each_with_index do |format, index|
         out = StringIO.new
         err = StringIO.new
@@ -24,12 +24,20 @@ RSpec.describe "score history CLI" do
     end
   end
 
+  it "parses the history destination and describes the opt-in JSONL switch" do
+    cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+    parser = cli.parser
+    parser.parse!(%w[--score-history out/history.jsonl])
+    expect(cli.options[:score_history]).to eq("out/history.jsonl")
+    expect(parser.to_s).to include("--score-history PATH", "Append score history JSONL (opt-in)")
+  end
+
   it "rejects colliding output destinations" do
     expect { Saboteur::Config.new({ "score_history" => ".saboteur/report.json" }) }
       .to raise_error(Saboteur::ConfigError, /distinct paths/)
   end
   it "does not create a history file for previews or failed engine runs" do
-    Dir.mktmpdir do |dir|
+    Dir.mktmpdir(nil, File.realpath(Dir.tmpdir)) do |dir|
       path = File.join(dir, "history.jsonl")
       out = StringIO.new
       err = StringIO.new
