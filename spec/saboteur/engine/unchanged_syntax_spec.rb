@@ -40,6 +40,23 @@ RSpec.describe Saboteur::Engine::UnchangedSyntax do
     expect(unchanged?(before.sub("x = a + 1\n    x", "x = a + 1; x"))).to be(true)
   end
 
+  it "retains directive addition, removal, operator and reason changes" do
+    directive = ' # saboteur:disable-line arithmetic reason="checked elsewhere"'
+    suppressed = before.sub("a + 1", "a + 1#{directive}")
+    expect(unchanged?(suppressed)).to be(false)
+    expect(unchanged?(before, base_text: suppressed)).to be(false)
+    expect(unchanged?(suppressed.sub("arithmetic", "literal_number"), base_text: suppressed)).to be(false)
+    expect(unchanged?(suppressed.sub("checked elsewhere", "other evidence"), base_text: suppressed)).to be(false)
+  end
+
+  it "skips formatting around an unchanged directive, but retains a directive moved to other code" do
+    suppressed = before.sub("a + 1", 'a + 1 # saboteur:disable-line arithmetic reason="why"')
+    expect(unchanged?(suppressed.sub("a + 1", "a+1"), base_text: suppressed)).to be(true)
+    moved = suppressed.sub(' # saboteur:disable-line arithmetic reason="why"', "")
+                      .sub("    x\n", "    x # saboteur:disable-line arithmetic reason=\"why\"\n")
+    expect(unchanged?(moved, base_text: suppressed)).to be(false)
+  end
+
   it "is false when a value changes" do
     expect(unchanged?(before.sub("a + 1", "a + 2"))).to be(false)
   end
