@@ -231,9 +231,17 @@ module Saboteur
     def scheduler_for(map, integration, cache)
       reevaluator = Execution::Reevaluator.new(config["reeval"], whole_file: config["whole_file"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
-                                     supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"])
+                                     supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"],
+                                     sandbox: sandbox_hook)
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
                     cache: cache)
+    end
+
+    # The sandbox hook for each mutant child (#152); the policy and its
+    # one-time note live in Engine::SandboxPolicy.
+    def sandbox_hook
+      @sandbox_policy ||= SandboxPolicy.new(config: config, root: @root, diagnostics: @diagnostics)
+      @sandbox_policy.hook
     end
 
     def result_cache
@@ -382,6 +390,7 @@ require_relative "engine/subject_selection"
 require_relative "engine/unchanged_syntax"
 require_relative "engine/suite_files"
 require_relative "engine/test_guess"
+require_relative "engine/sandbox_policy"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
 require_relative "engine/bytecode_equivalence"

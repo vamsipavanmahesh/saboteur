@@ -29,6 +29,33 @@ All notable changes are documented here. The format follows
   templates: replay (`saboteur run --id DIGEST --seed N`, to be combined with the
   run's own selection options), an ignore entry with the survivor's subject, and
   `saboteur run --agent` (#147).
+- **Safety:** mutant children now run under a Landlock sandbox on Linux
+  6.2+ (Landlock ABI 3) (#152): the child cannot create, write, rename,
+  unlink or truncate files in the project tree except `tmp/`, the cache dir
+  and the system temp dir, and inherited descriptors already open for
+  writing elsewhere are closed before the sandbox engages. This is the
+  third layer behind the hazard guard and the canary, and the first one
+  that stops a destructive call before it acts. Landlock covers the
+  filesystem only. On kernels 5.13-6.1 (ABI 1-2) `truncate()` cannot be
+  restricted, and on kernels without Landlock there is no sandbox at all:
+  both run with the guard and canary only, noted once. `c.sandbox = false`
+  opts out (`/dev/shm` and `/dev/tty` are denied like any other
+  ungranted path; `/dev/null` stays writable); `c.sandbox = "strict"`
+  refuses to run degraded;
+  `c.sandbox_writable` grants extra directories (suites writing `db/`,
+  `log/`, ... otherwise fail with EACCES in mutant children) and warns when
+  a grant contains the project root or another grant. The root check covers
+  the effective write set - every grant realpath'd, the cache dir and the
+  system temp dir included - so `cache_dir = "."`, a symlinked `tmp`, a
+  `/` grant or a checkout inside the system temp dir cannot silently leave
+  the tree writable; `c.sandbox = "strict"` refuses to run then. A kernel probe that
+  errors (rather than cleanly reporting Landlock absent) refuses the run.
+  The descriptor sweep also closes stdio redirected to a writable regular
+  file (terminal, pipe and `/dev/null` stdio stays), inherited files
+  already deleted from the tree, and any descriptor it cannot inspect -
+  fail closed. The C library lookup tolerates musl (soname fallbacks, then
+  the process symbol table) and degrades to the one-time unsandboxed note
+  when no libc resolves, instead of crashing.
 - `--dry-run` previews planned mutants per method and the max_mutants_per_method
   omissions without booting the app, running tests, forking or writing reports
   (#134). A file that does not parse marks the total INCOMPLETE. A cached

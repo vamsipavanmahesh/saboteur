@@ -25,6 +25,8 @@ module Saboteur
       "whole_file" => [],
       "hazard" => MutationSource::HazardGuard::DEFAULT_HAZARD,
       "allow_hazardous" => false,
+      "sandbox" => true, # true, false, or "strict": strict refuses to run without full Landlock
+      "sandbox_writable" => [],
       "timeout_factor" => 3.0,
       "timeout_min" => 5.0,
       "baseline_timeout" => 300.0,
@@ -66,7 +68,7 @@ module Saboteur
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
-                   fingerprint_extra operators whole_file].freeze
+                   fingerprint_extra sandbox_writable operators whole_file].freeze
 
     attr_reader :root
 
@@ -217,6 +219,9 @@ module Saboteur
 
     def validate!
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
+      unless [true, false, "strict"].include?(self["sandbox"])
+        raise ConfigError, 'sandbox must be true, false, or "strict"'
+      end
 
       validate_mutant_limit!
       validate_threshold!

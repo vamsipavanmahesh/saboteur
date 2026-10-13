@@ -45,13 +45,18 @@ module Saboteur
       # only when it ends in an error.
       # seed: every child seeds Ruby's random numbers with it before its
       # tests, so a test that uses rand sees the same values in every run.
-      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1)
+      # sandbox: when given, a callable run first in every child (Landlock
+      # makes the project tree read-only there, #152). It raises rather than
+      # run half-restricted, which the child reports as an error.
+      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1,
+                     sandbox: nil)
         @integration = integration
         @reevaluator = reevaluator
         @hooks = hooks
         @log_dir = log_dir
         @supervisor = supervisor
         @seed = seed
+        @sandbox = sandbox
       end
 
       # text: method source to evaluate in the child (the unchanged source for
@@ -75,15 +80,18 @@ module Saboteur
       # --- child ----------------------------------------------------------
 
       def child(writer, job)
-        Process.setproctitle(title(job))
+        # Redirect before restricting: the sweep closes inherited stdio
+        # redirected to a regular file outside the grants (#178), and a
+        # reopened-afterwards $stdout would start from a closed stream.
+        # The log lives under the granted cache dir, so it survives.
         redirect_output(job.log_path)
+        @sandbox&.call([writer.fileno])
+        Process.setproctitle(title(job))
         @hooks.run(:after_fork)
         # Before the evaluation: a whole-file subject runs the file's own
         # top-level code there, and it must see the run's random numbers.
         Kernel.srand(@seed)
-        @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
-        replaced = @reevaluator.replaced_definition(job.subject)
-        Protocol.emit(writer, "replaced", site: replaced) if replaced
+        evaluate_mutant(writer, job)
         stale = stale_captures(job)
         Protocol.emit(writer, "captures", site: stale.first, stale: stale.size) if stale.any?
         Protocol.emit(writer, "started")
@@ -92,6 +100,12 @@ module Saboteur
       rescue Exception => e # rubocop:disable Lint/RescueException
         Protocol.emit(writer, "error", message: "#{e.class}: #{e.message}", backtrace: e.backtrace&.first(5))
         exit!(1)
+      end
+
+      def evaluate_mutant(writer, job)
+        @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
+        replaced = @reevaluator.replaced_definition(job.subject)
+        Protocol.emit(writer, "replaced", site: replaced) if replaced
       end
 
       # Capture detection is best-effort: a subject shape it cannot scan
