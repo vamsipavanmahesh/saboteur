@@ -514,6 +514,20 @@ as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
 changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
 preserve the loaded method semantics.
 
+Signature text alone does not remove mutants. `body_nil` and last-statement
+removal remain available even when `sig` declares a non-nil return type.
+`checked(:never)`, unchecked `checked(:tests)` signatures, configured default
+levels, custom validation handlers and wrapper shims can all allow nil to
+reach real assertions. saboteur does not verify enforcement, evaluate return
+type expressions or infer types from constant names. Aliases, enclosing
+namespace constants and transformed generic types therefore cannot change
+mutation generation. RBS signatures are not read yet. Type-only crash kills
+remain visible in the crash share, not silently pruned.
+
+The Sorbet E2E fixture is a wrapper/registry shim without runtime type checking.
+It tests re-evaluation and assertion detection, not real Sorbet enforcement or
+proof of type-check noise reduction.
+
 ### Skipped subjects and the mutant cap
 
 Subjects with no test coverage are skipped before mutation sources run. They
