@@ -75,7 +75,7 @@ module Saboteur
           "status" => result.status.to_s, "reason" => result.reason, "runtime" => result.runtime,
           "killed_by" => result.killed_by, "covered_by" => result.covered_by,
           "kill_cause" => result.kill_cause, "reused" => result.reused?,
-          "rejected_kill" => result.rejected_kill?
+          "rejected_kill" => result.rejected_kill?, "executed" => result.executed
         }
       end
 
@@ -100,6 +100,7 @@ module Saboteur
                            mutated_source: text, reason: data["reason"], runtime: data["runtime"],
                            killed_by: data["killed_by"], covered_by: data["covered_by"],
                            kill_cause: data["kill_cause"], reused: data["reused"],
+                           executed: data["executed"],
                            rejected_kill: data.fetch("rejected_kill", false))
         end
       end

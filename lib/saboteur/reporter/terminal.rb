@@ -5,6 +5,7 @@ require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "score_table"
 require_relative "survivor_list"
+require_relative "test_matrix"
 
 module Saboteur
   module Reporter
@@ -29,10 +30,39 @@ module Saboteur
         outside_the_score(report)
         warnings(report)
         early_stop(report)
+        test_matrix(report)
         summary(report)
       end
 
       private
+
+      def test_matrix(report)
+        return unless report.matrix?
+
+        matrix = TestMatrix.new(report.results)
+        @out.puts "test matrix: #{matrix.tests.size} tests ran against mutants"
+        incomplete_matrix_note(matrix)
+        matrix_list("blind (covered mutants, killed none)", matrix.blind) do |test|
+          "#{matrix.mutants_covered(test)} covered"
+        end
+        matrix_list("redundant (every kill had another killer)", matrix.redundant) do |test|
+          "#{matrix.mutants_killed(test)} kills"
+        end
+      end
+
+      def incomplete_matrix_note(matrix)
+        return if matrix.incomplete.zero?
+
+        @out.puts "  #{matrix.incomplete} mutants stopped before every covering test ran (incomplete): " \
+                  "their tests get no blind or redundant verdict"
+      end
+
+      def matrix_list(title, tests)
+        @out.puts "  #{title}: #{tests.size}"
+        tests.first(TestMatrix::MAX_LISTED).each { |test| @out.puts "    #{test}  #{yield(test)}" }
+        more = tests.size - TestMatrix::MAX_LISTED
+        @out.puts "    ... #{more} more" if more.positive?
+      end
 
       def summary(report)
         seed = report.seed && ", seed #{report.seed} (repeat with --seed #{report.seed})"

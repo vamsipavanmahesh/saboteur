@@ -180,6 +180,7 @@ bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_s
 bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
 bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
 bundle exec saboteur run --fail-fast              # stop after the first subject with a survivor
+bundle exec saboteur run --matrix                 # every covering test per mutant: blind and redundant tests
 bundle exec saboteur run --verbose --no-color     # add score split, timings and kill causes; no colour
 ```
 
@@ -292,6 +293,16 @@ RanAtLoad and Unreachable out and keeps survivors accepted on the ignore list
 in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
+
+`--matrix` runs every covering test against every mutant instead of stopping at
+the first failing one, so a killed mutant lists all of its killers. After the
+survivors the report prints two lists: blind tests (they covered mutants and
+killed none) and redundant tests (they killed some, and every one of those
+mutants had another killer). The run is slower, by up to the number of covering
+tests per mutant. `--matrix` cannot be combined with `--incremental`, because a
+reused verdict lists only the first killer. A redundant test is a lead, not a
+verdict: it may guard behavior no selected mutant touches. A selection with
+`--since` or `--subject` describes only the selected methods.
 
 [Scores](docs/scores.md) defines each number on this page: the covered score, the
 score a Stryker dashboard shows, the assertion and crash split, and what makes a run

@@ -197,3 +197,12 @@ RSpec.describe Saboteur::Config, "#output_paths" do
     end
   end
 end
+
+RSpec.describe Saboteur::Config, "matrix" do
+  it "is off by default and refuses to combine with incremental reuse" do
+    expect(described_class.new({})["matrix"]).to be(false)
+    expect(described_class.new({ "matrix" => true })["matrix"]).to be(true)
+    expect { described_class.new({ "matrix" => true, "incremental" => true }) }
+      .to raise_error(Saboteur::ConfigError, /matrix cannot be combined with incremental/)
+  end
+end

@@ -182,6 +182,12 @@ RSpec.describe Saboteur::Execution::Runner do
     expect(run_mode("exit").status).to eq(:killed)
   end
 
+  it "reports which tests ran: all of them for a survivor, the ones before the stop for a kill, none after exit" do
+    expect(run_mode("pass").executed_ids).to eq(%w[t1 t2])
+    expect(run_mode("fail").executed_ids).to eq(%w[t1])
+    expect(run_mode("exit").executed_ids).to eq([])
+  end
+
   it "reports error, never survived, when fewer tests ran than requested" do
     outcome = run_mode("partial")
     expect([outcome.status, outcome.message]).to eq([:error, "executed 1 of 2 requested tests"])

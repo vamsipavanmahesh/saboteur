@@ -84,7 +84,8 @@ module Saboteur
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
-                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop)
+                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
+                 matrix: config["matrix"])
     end
 
     def complete_evidence(results, subjects)

@@ -129,7 +129,8 @@ module Saboteur
         note_unreachable(plan, outcome) if outcome.status == :unreachable
         result = MutantResult.new(subject: plan.subject, mutation: mutation, status: outcome.status,
                                   mutated_source: text, reason: outcome.message, runtime: outcome.runtime,
-                                  killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause)
+                                  killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause,
+                                  executed: outcome.executed_ids)
         outcome.failed_ids.each { |id| plan.killers[id] += 1 }
         note_leftovers(plan.subject, "#{mutation.operator} #{result.digest}", outcome)
         @diagnostics.progress(result)
