@@ -1,13 +1,17 @@
 # How to read survivors
 
 A survivor is a mutant that every selected test passed against. This guide
-walks one from the terminal output to the test that kills it. The output below
-is a real run on the `people` fixture project.
+walks one from the terminal output to the test that kills it. The example is
+abridged from a run on the `people` fixture project (`spec/fixtures/projects/people`)
+with saboteur 0.4.0 at main `6f704c8`. The digest and layout are illustrative:
+digests depend on your source, and the terminal report layout can change
+between versions, so compare the parts (subject, operator, digest, location,
+diff, covering tests), not the exact text. Use a digest from your own run.
 
 ## Anatomy of a survivor
 
 ```
-People::Person#adult? comparison f5f5bc39bd01444f lib/people.rb:14
+People::Person#adult? comparison <digest> lib/people.rb:14
 --- a/lib/people.rb
 +++ b/lib/people.rb
 @@ -14 +14 @@
@@ -36,8 +40,9 @@ your pull request.
 Ask: if the code really did this, would a caller notice? Here, `adult?` would
 say a person aged exactly 18 is not an adult. The two covering tests check 17
 and 19 (`spec/person_spec.rb`), so neither can tell `>= 18` from `> 18`.
-That is a missing test, and the operator name already hinted at it: a
-`comparison` survivor is usually a boundary nobody tests.
+That is a missing test here. The operator name is only a hint, not a verdict:
+a `comparison` survivor often points at a boundary nobody tests, but it can
+also be an equivalent mutant (for example when the value can never be equal).
 
 The fix is the smallest test that fails against the mutant and passes against
 the real code:
@@ -52,7 +57,7 @@ Run again. The mutant is now killed. To check one mutant without a full run,
 replay its digest (see the [replay guide](replay.md)):
 
 ```sh
-bundle exec saboteur run --id f5f5bc39bd01444f
+bundle exec saboteur run --id <digest>
 ```
 
 ## What common operators usually mean
@@ -65,8 +70,10 @@ bundle exec saboteur run --id f5f5bc39bd01444f
 | `body_nil`, `body_raise` and other whole-body mutants | no test checks the method's result or effect | assert the return value or side effect |
 | `argument_removal`, `pair_removal` | an argument or option nobody checks | assert that the argument changes the outcome |
 
-A surviving whole-body mutant is the strongest signal: the method's behavior
-is not pinned at all.
+A surviving whole-body mutant is a strong hint that no selected test checks
+the method's result or effect. It is not proof: the method may be called only
+for a side effect the tests observe elsewhere, the result may not matter by
+contract, or the mutant may be equivalent for the inputs the code can receive.
 
 ## Survivor, no coverage, or skipped
 
@@ -97,7 +104,9 @@ for the ignore file format.
 ## Reading the score next to survivors
 
 The score line splits kills into assertion kills (a test checked a value) and
-crash kills (the code raised). A high score made mostly of crash kills means
-tests run the code but do not check results. The line
+crash kills (the code raised). A score made mostly of crash kills suggests that
+many tests only notice a mutant because the code raised, not because they
+checked a value. That is a lead to look at, not a guarantee: a test that
+asserts on a raised error or a custom contract is a legitimate crash kill. The line
 `score without whole-body mutants` removes the easy kills; read that one when
 the headline score looks too good.
