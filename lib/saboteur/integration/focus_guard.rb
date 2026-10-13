@@ -9,8 +9,13 @@ module Saboteur
     # then describes only the focused examples, with no sign that the rest
     # never ran.
     #
-    # Filters named on purpose in rspec_args (`--tag`) and example selectors
-    # (`spec/a_spec.rb:12`) are not focus filters and are left alone.
+    # The test is a difference of two selections, both made by RSpec's own
+    # FilterManager#prune: the examples that run now, and the examples that
+    # would run if the stray focus rule were absent. Everything else RSpec
+    # decides stays the same in both, so it never counts as hidden: example
+    # selectors (`spec/a_spec.rb:12`) and their file-scoped priority,
+    # `--tag` filters named in rspec_args, exclusions, and the :if / :unless
+    # pruning of conditional examples.
     class FocusGuard
       LOCATION_KEYS = %i[locations ids].freeze
 
@@ -19,10 +24,11 @@ module Saboteur
         @explicit_filter_keys = explicit_filter_keys
       end
 
-      # Raises ConfigError naming the focused examples when focus has hidden
-      # other examples.
+      # Raises ConfigError naming the focused examples when the focus filter
+      # hides examples that would otherwise run.
       def check!
-        return unless hidden_example_count.positive?
+        return if stray_rules.empty?
+        return if hidden_examples.empty?
 
         raise ConfigError, message
       end
@@ -31,39 +37,46 @@ module Saboteur
 
       attr_reader :world
 
-      def focus_rules
-        @focus_rules ||= begin
-          rules = world.filter_manager.inclusions.rules
-          keys = rules.keys - LOCATION_KEYS - @explicit_filter_keys
-          ::RSpec::Core::FilterRules.new(rules.slice(*keys))
+      def filter_manager
+        world.filter_manager
+      end
+
+      # Inclusion rules the suite added itself, such as the :focus rule that
+      # `filter_run_when_matching :focus` installs once a fit exists.
+      def stray_rules
+        @stray_rules ||= begin
+          rules = filter_manager.inclusions.rules
+          rules.slice(*(rules.keys - LOCATION_KEYS - @explicit_filter_keys))
         end
       end
 
-      def exclusions
-        world.filter_manager.exclusions
+      def running_examples
+        @running_examples ||= filter_manager.prune(world.all_examples)
+      end
+
+      # The selection RSpec would make without the stray rules.
+      def examples_without_stray_focus
+        manager = ::RSpec::Core::FilterManager.new
+        manager.exclusions.rules.replace(filter_manager.exclusions.rules)
+        manager.inclusions.rules.replace(filter_manager.inclusions.rules.except(*stray_rules.keys))
+        manager.prune(world.all_examples)
+      end
+
+      def hidden_examples
+        @hidden_examples ||= examples_without_stray_focus - running_examples
       end
 
       def focused_examples
-        return [] if focus_rules.rules.empty?
-
-        world.all_examples.select { |example| focus_rules.include_example?(example) }
-      end
-
-      # Examples that only the focus filter keeps from running: not focused,
-      # and not skipped by an exclusion the suite chose.
-      def hidden_example_count
-        return 0 if focused_examples.empty?
-
-        world.all_examples.count do |example|
-          !focus_rules.include_example?(example) && !exclusions.include_example?(example)
-        end
+        focus = ::RSpec::Core::FilterRules.new(stray_rules)
+        running_examples.select { |example| focus.include_example?(example) }
       end
 
       def message
+        total = hidden_examples.size + running_examples.size
         locations = focused_examples.map(&:location).uniq.first(5).join(", ")
-        "a focus filter (#{focus_rules.description}) narrowed the suite: #{hidden_example_count} of " \
-          "#{world.all_examples.size} examples would not run, so the score would cover only the focused " \
-          "ones (#{locations}). Remove the focus, or pass --allow-focus to run the narrowed suite anyway."
+        "a focus filter (#{::RSpec::Core::FilterRules.new(stray_rules).description}) narrowed the suite: " \
+          "#{hidden_examples.size} of #{total} examples would not run, so the score would cover only the " \
+          "ones that do (#{locations}). Remove the focus, or pass --allow-focus to run the narrowed suite anyway."
       end
     end
   end
