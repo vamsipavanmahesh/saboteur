@@ -9,18 +9,20 @@ on measured facts.
 
 ## How much of the engine is RSpec-specific
 
-Measured on this tree with `git ls-files lib` and `grep`, not with a prototype
-adapter.
+Measured on main at 6f704c8 with `git ls-files lib` and `grep`, not with a
+prototype adapter.
 
-- `lib/` is 10,304 lines of Ruby. The RSpec adapter (`integration/rspec.rb`)
+- `lib/` is 10,313 lines of Ruby. The RSpec adapter (`integration/rspec.rb`)
   and its focus guard (`integration/focus_guard.rb`) are 311 lines, 3 %. They
   are the only files that call into RSpec to load, select and run examples.
 - The adapter contract is small: `Integration::Base` has `setup`, `all_tests`,
   `run(ids)`, `run_all(recorder)`, `run_baseline(seed:)` and `test_files`, and a
   `RunResult` with the passed flag, failed ids, executed ids, runtime, failure
   classes and messages. Coverage mapping, test selection, the scheduler,
-  forking, timeouts, the cache, every operator and every reporter work from
-  that contract and do not touch RSpec.
+  forking, timeouts and the mutation operators are mostly framework-neutral
+  and work from that contract. The exceptions are listed in the table below:
+  the kill classification, the baseline check, test-id parsing in the
+  reporters and the result cache, and the cache key.
 
 Outside the adapter, RSpec shows up in these places. A Minitest adapter would
 have to deal with each one:
@@ -39,11 +41,12 @@ have to deal with each one:
 None of these is a design obstacle. Together they are the real size of the
 job, and they are larger than the adapter file.
 
-## What a one-process spike showed
+## What a one-process probe showed (unverified)
 
-A 30-line script (not part of saboteur) used Minitest 6.0.6 to check the part
+This is an author-reported probe, not a measurement in the repository. A
+30-line throwaway script (not committed) used Minitest 6.0.6 to check the part
 the engine needs most: load once in the parent, run chosen tests in a forked
-child.
+child. The results below are unverified until someone reruns a probe like it.
 
 - `require "minitest"` and requiring the test file does not autorun anything.
 - `Minitest::Runnable.runnables` and `runnable_methods` list `Class#test_name`
@@ -52,8 +55,13 @@ child.
   runs one chosen test, and a reporter's `prerecord` and `record` see the
   start and the result. That is the hook the coverage recorder needs. Stopping
   after the first failure is a plain loop.
-- A failed `assert_equal` reports as `Minitest::Assertion`, and `nil.foo`
-  reports as `NoMethodError`, so assertion and crash kills can be told apart.
+- A failed `assert_equal` reports as `Minitest::Assertion`. `nil.foo` reports
+  as `Minitest::UnexpectedError`, not `NoMethodError`: Minitest 6 wraps an
+  exception raised inside a test in `UnexpectedError`, which is a subclass of
+  `Assertion` ([minitest.rb at v6.0.6](https://github.com/minitest/minitest/blob/v6.0.6/lib/minitest.rb)).
+  An adapter has to check for `UnexpectedError` first and read its `error` to
+  get the real class. Testing for `Assertion` alone would count every crash as
+  an assertion kill.
 
 Not checked: Rails `ActiveSupport::TestCase` (transactional tests, fixtures),
 `parallelize_with`, `Minitest::Spec`, `minitest/hooks` suite-level hooks, a
