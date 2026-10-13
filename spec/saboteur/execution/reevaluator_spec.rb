@@ -217,27 +217,35 @@ RSpec.describe Saboteur::Execution::Reevaluator do
       expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
     end
 
-    it "reports a wrapped method whose wrapped def is not the subject's" do
+    it "keeps the verdict for an unknown wrapper: a def from another file is not a replacement" do
+      reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
+      forwarding = instance_double(UnboundMethod, source_location: ["/gems/forwarder.rb", 3])
+      allow(Saboteur::Execution::Wrapper).to receive(:original_def).with(forwarding).and_return(nil)
+      allow(WholeFileThing).to receive(:instance_method).with(:value).and_return(forwarding)
+      expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
+    end
+
+    it "reports a wrapped method whose wrapped def is another def in the subject's file" do
       reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
       wrapped = instance_double(UnboundMethod,
                                 source_location: [subject_under_test.file, subject_under_test.start_line])
-      original = instance_double(UnboundMethod, source_location: ["/other.rb", 9])
+      original = instance_double(UnboundMethod, source_location: [subject_under_test.file, 9])
       allow(Saboteur::Execution::Wrapper).to receive(:original_def).with(wrapped).and_return(original)
       allow(WholeFileThing).to receive(:instance_method).with(:value).and_return(wrapped)
-      expect(reevaluator.replaced_definition(subject_under_test)).to eq("/other.rb:9")
+      expect(reevaluator.replaced_definition(subject_under_test)).to eq("#{subject_under_test.file}:9")
     end
 
-    it "reports a method that is no longer defined" do
+    it "keeps the verdict for a method that is no longer defined" do
       reevaluator = described_class.new("nesting", whole_file: ["WholeFileThing#value"])
       WholeFileThing.send(:remove_method, :value)
-      expect(reevaluator.replaced_definition(subject_under_test)).to eq("no definition")
+      expect(reevaluator.replaced_definition(subject_under_test)).to be_nil
     end
 
-    it "reports a definition with no Ruby source, such as a native method" do
+    it "keeps the verdict for a definition with no Ruby source, such as a native method" do
       native = Struct.new(:id, :singleton, :name, :file, :start_line).new("String#size", false, :size, "x.rb", 1)
       reevaluator = described_class.new("nesting", whole_file: ["String#size"])
       allow(reevaluator).to receive(:resolve_owner).and_return(String)
-      expect(reevaluator.replaced_definition(native)).to eq("no Ruby definition")
+      expect(reevaluator.replaced_definition(native)).to be_nil
     end
 
     it "keeps non-ASCII text inside and outside the method as UTF-8 even when the file was read as binary" do
