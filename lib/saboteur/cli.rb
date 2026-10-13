@@ -142,7 +142,7 @@ module Saboteur
 
     def text_run(report)
       @err.puts
-      Reporter::Terminal.new(@out).call(report)
+      Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto).call(report)
       Reporter::Replay.new(@out).call(report) if options[:id]
       code = exit_code(report)
       # The JSON carries the exit cause an outer harness trusts, so it is
@@ -364,6 +364,7 @@ module Saboteur
       opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
       opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
       opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
+      opts.on("--fail-fast", "Stop after the first subject with a survivor (needs --jobs 1)") { set(:fail_fast, true) }
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
     end
 
@@ -373,6 +374,10 @@ module Saboteur
       opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
                                                  "strict exit codes") { |v| @format = v }
       opts.on("--agent", "Same as --format agent") { @format = "agent" }
+      opts.on("--verbose", "Text report: also print score split, timings and kill causes") { @verbose = true }
+      opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
+        @color = v ? :always : :never
+      end
     end
 
     def define_explicit_file_options(opts)
