@@ -81,7 +81,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       path = File.join(dir, "lib", "stage.rb")
       File.write(path, File.read(path).sub("label.upcase", "label.downcase"))
       run = saboteur(dir, "--since", "HEAD", "--guess-tests", "--agent")
-      expect(run.err).to include("reported as NoCoverage, not Survived")
+      expect(run.err).to include("is reported as NoCoverage")
       payload = JSON.parse(run.out)
       expect(payload.dig("provenance", "selection", "tests", "first")).to eq(["spec/stage_spec.rb"])
       expect(payload.fetch("incomplete").map { |reason| reason["reason"] }).to include("no_coverage")
