@@ -15,8 +15,12 @@ module Saboteur
     class Runner
       # kill_cause: "assertion" when the killing test failed an expectation,
       # else the class of the error it died with (a crash, not a check).
-      Outcome = Data.define(:status, :runtime, :failed_ids, :message, :leftover_pids, :kill_cause) do
-        def initialize(status:, runtime:, failed_ids: [], message: nil, leftover_pids: [], kill_cause: nil)
+      # executed_ids: the tests the child reports it ran; empty when it could
+      # not say (a test called exit).
+      Outcome = Data.define(:status, :runtime, :failed_ids, :message, :leftover_pids, :kill_cause,
+                            :executed_ids) do
+        def initialize(status:, runtime:, failed_ids: [], message: nil, leftover_pids: [], kill_cause: nil,
+                       executed_ids: [])
           super
         end
       end
@@ -183,17 +187,20 @@ module Saboteur
           unexpected = failed - test_ids
           return mismatch(runtime, "failed tests not requested: #{unexpected.first(3).join(', ')}") if unexpected.any?
 
-          return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed,
+          return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed, executed_ids: executed,
                              message: result.fetch("failure_messages", {})[failed.first],
                              kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
         end
-        return Outcome.new(status: :killed, runtime: runtime, message: "suite-level failure") unless result["passed"]
+        unless result["passed"]
+          return Outcome.new(status: :killed, runtime: runtime, executed_ids: executed,
+                             message: "suite-level failure")
+        end
 
         if executed.sort != test_ids.sort
           return mismatch(runtime, "executed #{executed.size} of #{test_ids.size} requested tests")
         end
 
-        Outcome.new(status: :survived, runtime: runtime)
+        Outcome.new(status: :survived, runtime: runtime, executed_ids: executed)
       end
 
       def classify_events(result, events, runtime, job)
