@@ -76,7 +76,7 @@ module Saboteur
       # --- child ----------------------------------------------------------
 
       def child(writer, job)
-        @sandbox&.call
+        @sandbox&.call([writer.fileno])
         Process.setproctitle(title(job))
         redirect_output(job.log_path)
         @hooks.run(:after_fork)
