@@ -314,4 +314,24 @@ Saboteur.ignore do |i|
   i.mutation "2775afca28a11bfe",
              subject: "Saboteur::Selection::CoverageMap#sort_test_ids",
              reason: "equivalent: ids come from by_method/by_line values, which store indices into tests, so order.fetch always hits and the default is unreachable"
+
+  i.mutation "58015bc90175b563",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent: walking unrelated AST children still returns nil; the InNode pattern containment check prevents them from supplying lines for this edit"
+
+  i.mutation "8f347a8e928e9ef5",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent: Prism's sibling locations are disjoint, so at most one child contains the edit; returning its nil immediately is the same as finishing the loop with nil"
+
+  i.mutation "dc44b78352b4ef54",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
+
+  i.mutation "2458d413d0870a98",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
+
+  i.mutation "1824b380776f6a59",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
 end
