@@ -170,7 +170,8 @@ schema, and you can add your own mutants through a small public interface.
 
 ```sh
 bundle exec saboteur run                          # whole project
-bundle exec saboteur doctor --seed 42             # environment + two unchanged suite checks
+bundle exec saboteur doctor                       # environment checks only
+bundle exec saboteur doctor --suite --seed 42     # plus two unchanged suite checks
 bundle exec saboteur run --since origin/main      # methods changed on this branch
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        # a namespace
@@ -242,7 +243,9 @@ include/exclude settings; warnings never edit or delete ignore entries.
 A malformed ignore file fails doctor with a config error before target boot.
 
 `saboteur doctor` prints Ruby, coverage, integration, Rails/SimpleCov and boot-file
-checks, then runs the unchanged suite twice with the chosen seed. It writes no
+checks. Add `--suite` to also run the unchanged suite twice with the chosen seed
+(`--test PATH`, repeatable, limits those runs to some specs and implies `--suite`),
+since that takes hours on a large suite. It writes no
 mutation reports or coverage/verdict caches. Target boot files and tests still
 run, so their normal side effects remain. See the [doctor guide](docs/guides/doctor.md).
 

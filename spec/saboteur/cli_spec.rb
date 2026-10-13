@@ -25,6 +25,44 @@ RSpec.describe Saboteur::CLI do
                                   reeval: "nesting", cache: false, seed: 42)
   end
 
+  describe "doctor suite options" do
+    before { allow(Saboteur::Doctor).to receive(:new).and_return(instance_double(Saboteur::Doctor, call: true)) }
+
+    it "does not run the suite by default" do
+      expect(cli("doctor").call).to eq(0)
+      expect(Saboteur::Doctor).to have_received(:new).with(anything, out: out, suite: false)
+    end
+
+    it "runs the suite with --suite" do
+      cli("doctor", "--suite").call
+      expect(Saboteur::Doctor).to have_received(:new).with(anything, out: out, suite: true)
+    end
+
+    it "runs the suite on the given specs with --test, which the config sees" do
+      command = cli("doctor", "--test", "spec/saboteur/cli_spec.rb")
+      command.call
+      expect(Saboteur::Doctor).to have_received(:new).with(anything, out: out, suite: true)
+      expect(command.config["tests"]).to eq(["spec/saboteur/cli_spec.rb"])
+    end
+
+    it "keeps --suite out of the config overrides" do
+      allow(Saboteur::Config).to receive(:load).and_return(Saboteur::Config.new)
+      cli("doctor", "--suite").call
+      expect(Saboteur::Config).to have_received(:load).with(root: Dir.pwd, path: nil, overrides: {})
+    end
+
+    it "collects every repeated --test spec" do
+      command = cli("doctor", "--test", "spec/saboteur/cli_spec.rb", "--test", "spec/saboteur/help_spec.rb")
+      command.call
+      expect(command.config["tests"]).to eq(%w[spec/saboteur/cli_spec.rb spec/saboteur/help_spec.rb])
+    end
+
+    it "exits 2 when a --test spec does not exist" do
+      expect(cli("doctor", "--test", "spec/nope_spec.rb").call).to eq(2)
+      expect(err.string).to include("test file not found: spec/nope_spec.rb")
+    end
+  end
+
   it "exits 2 for config errors, without starting a run" do
     allow(Saboteur::Engine).to receive(:new)
     expect(cli("run", "--jobs", "0").call).to eq(2)
@@ -551,6 +589,12 @@ RSpec.describe Saboteur::CLI, "details" do
       expect(cli("help", "explode").call).to eq(2)
       names = Saboteur::Help::COMMANDS.map(&:name).join(", ")
       expect(err.string).to include("unknown command: explode").and include(names)
+    end
+
+    it "describes --suite and --test in doctor's help" do
+      expect(cli("doctor", "--help").call).to eq(0)
+      expect(out.string).to include("--suite", "Also run the unchanged suite twice (slow on a large suite)",
+                                    "--test PATH", "Implies --suite")
     end
 
     it "shows doctor's own help without running it" do

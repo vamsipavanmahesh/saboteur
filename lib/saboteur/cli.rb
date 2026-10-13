@@ -73,9 +73,13 @@ module Saboteur
 
     def doctor_parser
       OptionParser.new do |opts|
-        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N]"
+        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH]"
         opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |value| set(:config, value) }
         opts.on("--seed N", Integer, "Seed for the two baseline runs (default 1)") { |value| set(:seed, value) }
+        opts.on("--suite", "Also run the unchanged suite twice (slow on a large suite)") { set(:suite, true) }
+        opts.on("--test PATH", "Spec file or directory for the suite runs; repeatable. Implies --suite") do |value|
+          (options[:tests] ||= []) << value
+        end
       end
     end
 
@@ -186,7 +190,8 @@ module Saboteur
       doctor_parser.parse!(@argv)
       raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
 
-      Doctor.new(config, out: @out).call
+      options[:tests]&.each { |test| require_existing_test(test) }
+      Doctor.new(config, out: @out, suite: options[:suite] || options.key?(:tests)).call
       EXIT_OK
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
@@ -296,7 +301,7 @@ module Saboteur
     end
 
     def overrides
-      options.except(:config, :id, :list_operators, :dry_run)
+      options.except(:config, :id, :suite, :list_operators, :dry_run)
     end
 
     def preview

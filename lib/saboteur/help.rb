@@ -58,14 +58,15 @@ module Saboteur
       ),
       Command.new(
         name: "doctor",
-        summary: "Check the environment and run the baseline twice, without mutating anything",
-        description: "Boots the target like a run, checks runtime, coverage and boot files, then runs your " \
-                     "suite twice in the same order with one seed and reports whether both runs passed. " \
-                     "It never mutates anything.",
+        summary: "Check the environment, and with --suite run the baseline twice, without mutating anything",
+        description: "Boots the target like a run and checks runtime, coverage and boot files. With --suite " \
+                     "it also runs your suite twice in the same order with one seed and reports whether both " \
+                     "runs passed; --test PATH limits those runs to some specs. It never mutates anything.",
         takes_options: true,
         exit_codes: DOCTOR_EXIT_CODE_MEANINGS,
         examples: [["Check the setup before the first run", "saboteur doctor"],
-                   ["Use another config file and seed", "saboteur doctor --config config/ci.rb --seed 7"]]
+                   ["Also run the unchanged suite twice", "saboteur doctor --suite --seed 7"],
+                   ["Run only some specs twice", "saboteur doctor --test spec/models"]]
       ),
       Command.new(
         name: "baseline",
