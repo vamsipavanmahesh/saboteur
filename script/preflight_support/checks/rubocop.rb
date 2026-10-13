@@ -4,8 +4,8 @@
 module Preflight
   module Checks
     # Full RuboCop with the repository's own .rubocop.yml. The JSON report is validated strictly:
-    # exact shape, non-negative counts that match the file and offense lists, and proof that files
-    # were inspected. It must also agree with the process exit status. Anything odd is incomplete.
+    # required fields with the right types, non-negative counts that match the file and offense lists, and
+    # proof that files were inspected. It must also agree with the process exit status. Anything odd is incomplete.
     class Rubocop
       COMMAND = %w[bundle exec rubocop --format json].freeze
 
