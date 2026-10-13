@@ -150,4 +150,17 @@ RSpec.describe Saboteur::InlineSuppression do
         .to raise_error(Saboteur::ConfigError, /:3: one nonblank reason=/)
     end
   end
+  it "forwards suppression and discovery scope to baseline finish" do
+    engine = Saboteur::Engine.new(Saboteur::Config.new({}))
+    capture = double("capture")
+    diagnostics = engine.instance_variable_get(:@diagnostics)
+    failure = Saboteur::Engine::Diagnostics::DiscoveryFailure.new(file: "broken.rb", reason: "invalid")
+    diagnostics.discovery_failures << failure
+    diagnostics.inline_suppressions << { file: "source.rb", digest: "abc" }
+    engine.instance_variable_set(:@run_evidence, capture)
+    engine.instance_variable_set(:@evidence_planned, true)
+    expect(capture).to receive(:finish).with(hash_including(discovery_failures: [failure],
+                                                            inline_suppressions: diagnostics.inline_suppressions))
+    engine.send(:complete_evidence, [], [])
+  end
 end
