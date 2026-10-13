@@ -7,6 +7,8 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- [docs/minitest.md](docs/minitest.md) records that Minitest is unsupported and how much
+  of the engine depends on RSpec (#200).
 - A startup warning on stderr when the working tree has uncommitted changes,
   because mutants run your code and could alter or delete files. Saboteur's own
   output paths do not count as changes.
