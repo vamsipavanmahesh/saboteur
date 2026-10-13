@@ -43,17 +43,18 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
   end
 
   it "withholds deltas for different selections, mutant identities and incomplete runs" do
+    unavailable = "score history: change unavailable (different selection/inventory or incomplete run)"
     append(report_of(result_for(:killed)))
-    expect(append(report_of(result_for(:killed)), scope: { "seed" => 2 })).to include("change unavailable")
-    expect(append(report_of(result_for(:killed, replacement: "<")))).to include("change unavailable")
-    expect(append(report_of(result_for(:error)))).to include("change unavailable")
+    expect(append(report_of(result_for(:killed)), scope: { "seed" => 2 })).to include(unavailable)
+    expect(append(report_of(result_for(:killed, replacement: "<")))).to include(unavailable)
+    expect(append(report_of(result_for(:error)))).to include(unavailable)
   end
 
   it "stores null for empty scores and does not invent a delta" do
     empty = report_of
     append(empty)
     expect(records.first.fetch("coveredScore")).to be_nil
-    expect(append(empty)).to include("no tested mutants")
+    expect(append(empty)).to include("score history: change unavailable (no tested mutants)")
   end
 
   it "leaves corrupt and truncated history unchanged" do
@@ -105,7 +106,7 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
     variants.each do |row|
       text = "#{JSON.generate(row)}\n"
       File.write(@path, text)
-      expect { append(report_of(result_for(:killed))) }.to raise_error(Saboteur::Error, /invalid record/)
+      expect { append(report_of(result_for(:killed))) }.to raise_error(Saboteur::Error, /invalid/)
       expect(File.read(@path)).to eq(text)
     end
   end
@@ -132,7 +133,7 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
       File.write(@path, "#{JSON.generate(row)}\n")
       report = report_of(result_for(after))
       allow(Saboteur::Reporter::Agent::Incomplete).to receive(:reasons).and_return([])
-      expect(append(report)).to include("no tested mutants")
+      expect(append(report)).to include("score history: change unavailable (no tested mutants)")
     end
   end
 
@@ -159,11 +160,11 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
   it "creates missing directories, seeks to end, flushes and requests a private locked file" do
     @path = File.join(File.dirname(@path), "nested", "history.jsonl")
     allow(File).to receive(:open).and_call_original
-    expect(File).to receive(:open).with(@path, File::RDWR | File::CREAT, 0o600).and_call_original
+    expect(File).to receive(:open).with(@path, described_class::OPEN_FLAGS, 0o600).and_call_original
     append(report_of(result_for(:killed)))
     File.open(@path, File::RDWR) do |file|
-      allow(File).to receive(:open).with(@path, File::RDWR | File::CREAT, 0o600).and_yield(file)
-      expect(file).to receive(:flock).with(File::LOCK_EX).and_call_original
+      allow(File).to receive(:open).with(@path, described_class::OPEN_FLAGS, 0o600).and_yield(file)
+      expect(file).to receive(:flock).with(File::LOCK_EX | File::LOCK_NB).and_call_original
       expect(file).to receive(:seek).with(0, IO::SEEK_END).and_call_original
       expect(file).to receive(:flush).and_call_original
       expect(append(report_of(result_for(:killed)))).to include("+0.00 percentage points")
@@ -177,6 +178,7 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
     File.open(@path, File::RDWR) do |file|
       allow(File).to receive(:open).and_yield(file)
       allow(file).to receive(:flock).and_return(false)
+      allow(Process).to receive(:clock_gettime).and_return(0, 3)
       expect { append(report_of(result_for(:killed))) }.to raise_error(Saboteur::Error, /lock was not acquired/)
     end
     expect(File.read(@path)).to eq(original)
