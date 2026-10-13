@@ -48,6 +48,34 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("invalid argument")
   end
 
+  describe "dirty working tree" do
+    def run_on_tree(state)
+      tree = instance_double(Saboteur::WorkingTree, state: state)
+      allow(Saboteur::WorkingTree).to receive(:new).and_return(tree)
+      allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+      cli("run").call
+    end
+
+    it "warns at startup with the number of uncommitted changes" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 3))
+
+      expect(err.string).to include("saboteur: warning: 3 uncommitted change(s) in the working tree")
+      expect(err.string).to include("clean, committed tree or a CI checkout")
+    end
+
+    it "stays quiet on a clean tree" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: false, changed_files: 0))
+
+      expect(err.string).not_to include("uncommitted")
+    end
+
+    it "stays quiet when the tree state is unknown" do
+      run_on_tree(Saboteur::WorkingTree::UNKNOWN)
+
+      expect(err.string).not_to include("uncommitted")
+    end
+  end
+
   describe "exit codes after a run" do
     def run_with(report)
       engine = instance_double(Saboteur::Engine, call: report)
