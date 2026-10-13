@@ -38,11 +38,11 @@ RSpec.describe "load-time statuses (end to end)", :e2e do
       typed = mutants(run).select { |m| m["location"]["start"]["line"].between?(10, 12) }
       untyped = mutants(run).select { |m| m["location"]["start"]["line"].between?(14, 16) }
       expect(typed).not_to be_empty
-      # The typed method returns Integer, so its sig rules out the nil body mutant
-      # (issue #153); everything else matches the untyped twin.
-      expect(untyped.map { |m| m["mutatorName"] }.count("body_nil")).to eq(1)
-      expect(typed.map { |m| m["mutatorName"] }.count("body_nil")).to eq(0)
-      expect(typed.map { |m| m["status"] }).to eq(untyped.map { |m| m["status"] }.drop(1))
+      # The shim preserves wrappers but does not check types. Signature text
+      # must not hide nil mutants that the fixture's assertions really kill.
+      expect(typed.map { |m| m["mutatorName"] }).to eq(untyped.map { |m| m["mutatorName"] })
+      expect(typed.map { |m| m["mutatorName"] }.count("body_nil")).to eq(1)
+      expect(typed.map { |m| m["status"] }).to eq(untyped.map { |m| m["status"] })
       expect(typed.map { |m| m["status"] }.uniq).to eq(["Killed"])
       expect(run.out).not_to include("shadowed definition")
     end
