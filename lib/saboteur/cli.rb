@@ -61,6 +61,7 @@ module Saboteur
         define_selection_options(opts)
         define_explicit_file_options(opts)
         define_execution_options(opts)
+        define_matrix_option(opts)
         define_output_options(opts)
       end
     end
@@ -320,6 +321,12 @@ module Saboteur
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
+      end
+    end
+
+    def define_matrix_option(opts)
+      opts.on("--matrix", "Run every covering test per mutant and list blind and redundant tests") do
+        set(:matrix, true)
       end
     end
 
