@@ -85,9 +85,13 @@ module Saboteur
       # Inclusion filters the user named in rspec_args or .rspec, such as
       # `--tag slow`. Those narrow the run on purpose.
       def explicit_inclusion_keys
+        options = configuration_options
         filter_manager = ::RSpec::Core::FilterManager.new
-        configuration_options.configure_filter_manager(filter_manager)
-        filter_manager.inclusions.rules.keys
+        options.configure_filter_manager(filter_manager)
+        keys = filter_manager.inclusions.rules.keys
+        # `--example TEXT` becomes a :full_description rule when the options
+        # reach the configuration, not in the filter manager.
+        options.options[:full_description] ? keys + [:full_description] : keys
       end
 
       def world
