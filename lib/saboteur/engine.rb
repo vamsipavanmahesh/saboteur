@@ -40,6 +40,7 @@ module Saboteur
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
       @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
+      guess_tests
       boot = Boot.new(config, hooks)
       begin
         integration, files, load_lines = boot_target(boot)
@@ -75,6 +76,29 @@ module Saboteur
     end
 
     private
+
+    # --guess-tests with --since: scope the run to the specs found next to
+    # the changed files, as --test would, but only when each changed file
+    # has one. Otherwise the whole suite runs, as without the flag.
+    def guess_tests
+      return unless config["guess_tests"]
+
+      guess = TestGuess.new(config).call
+      message =
+        if guess.changed.zero?
+          "--guess-tests: no changed source file to guess specs for, so the whole suite runs"
+        elsif guess.unmatched.any?
+          "--guess-tests: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs " \
+            "(name specs after their source files or pass --test)"
+        else
+          # The guesses now stand as explicit tests, like --test.
+          @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
+          "--guess-tests: running only #{guess.specs.join(', ')}. A spec that reaches a changed file only " \
+            "through another file does not run, so mutants only it would kill survive"
+        end
+      @diagnostics.warn(message)
+      @diagnostics.inform(message)
+    end
 
     # The run's immutable report, built once the last result is in.
     def build_report(results, subjects, scope, started)
@@ -143,7 +167,8 @@ module Saboteur
       return unless config["since"] && config["tests"].empty?
 
       message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
-                "(#{integration.test_files.size} spec files). Pass --test to scope it."
+                "(#{integration.test_files.size} spec files). Pass --test to scope it, or --guess-tests to scope " \
+                "it to the specs named after the changed files."
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end
@@ -306,6 +331,7 @@ require_relative "engine/diagnostics"
 require_relative "engine/boot"
 require_relative "engine/subject_selection"
 require_relative "engine/suite_files"
+require_relative "engine/test_guess"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
 require_relative "engine/candidates"
