@@ -50,7 +50,9 @@ module Saboteur
       "seed" => 1,
       "tests" => [],
       "fingerprint_extra" => [],
-      "threshold" => nil
+      "threshold" => nil,
+      "max_timeouts" => nil,
+      "max_errors" => nil
     }.freeze
 
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed].freeze
@@ -149,6 +151,10 @@ module Saboteur
       raise ConfigError, "json_report and html_report both point to #{json}; give each report its own path"
     end
 
+    def validate_gates!
+      Gates::SETTINGS.each_key { |key| Gates.limit(self[key], key) }
+    end
+
     def validate_fail_fast!
       return unless self["fail_fast"] && self["jobs"] > 1
 
@@ -173,6 +179,7 @@ module Saboteur
       validate_mutant_limit!
       validate_threshold!
       validate_fail_fast!
+      validate_gates!
       raise ConfigError, "seed must be >= 0" if self["seed"].negative?
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
