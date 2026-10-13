@@ -388,6 +388,13 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(Saboteur::Config).to have_received(:load).with(hash_including(path: "x.yml"))
   end
 
+  it "parses --no-guess-tests so a frozen --test command can override guess_tests in the config file" do
+    command = cli("run", "--since", "main", "--no-guess-tests")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(guess_tests: false)
+  end
+
   it "parses --guess-tests" do
     command = cli("run", "--since", "main", "--guess-tests")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
