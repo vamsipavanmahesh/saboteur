@@ -34,6 +34,50 @@ RSpec.describe "inline suppression (end to end)", :e2e do
     end
   end
 
+  { "addition" => [nil, "arithmetic"], "removal" => ["arithmetic", nil],
+    "operator change" => %w[arithmetic literal_number], "ordinary comment" => [nil, nil] }.each do |change, operators|
+    [[], ["--agent"], ["--dry-run"]].each do |format|
+      it "keeps #{change} visible with --since #{format.join(' ')}" do
+        dir = copy_fixture("inline")
+        path = File.join(dir, "lib", "inline_math.rb")
+        plain = File.read(path).sub(' # saboteur:disable-line reason="validated elsewhere"', "")
+        versions = operators.map do |operator|
+          operator ? plain.sub("x * 2", "x * 2 # saboteur:disable-line #{operator} reason=checked") : plain
+        end
+        File.write(path, versions.first)
+        system("git", "init", "-q", dir, exception: true)
+        system("git", "-C", dir, "add", ".", exception: true)
+        system("git", "-C", dir, "-c", "user.name=t", "-c", "user.email=t@example.com",
+               "commit", "-q", "-m", "base", exception: true)
+        after = change == "ordinary comment" ? versions.last.sub("x * 2", "x * 2 # ordinary note") : versions.last
+        File.write(path, after)
+        run = saboteur(dir, "--since", "HEAD", *format)
+        if change == "ordinary comment"
+          expect(run.err).to include("differ only in comments or formatting")
+        elsif format.include?("--dry-run")
+          expect(run.status).to eq(0), run.err
+          expect(run.out).to include("InlineMath#double")
+          expect(run.out).to include("Inline suppressions:", "checked") if operators.last
+          expect(run.out).not_to include("Inline suppressions:") unless operators.last
+        elsif format.include?("--agent")
+          payload = JSON.parse(run.out)
+          if operators.last
+            expect(payload.fetch("incomplete")).to include(a_hash_including("reason" => "inline_suppressed"))
+          end
+          unless operators.last
+            expect(payload.fetch("incomplete")).not_to include(a_hash_including("reason" => "inline_suppressed"))
+          end
+          expect(mutants(run)).not_to be_empty
+        else
+          expect(run.status).to eq(0), run.err
+          expect(mutants(run)).not_to be_empty
+          expect(run.out).to include("Inline suppressions:", "checked") if operators.last
+          expect(run.out).not_to include("Inline suppressions:") unless operators.last
+        end
+      end
+    end
+  end
+
   it "rejects a missing reason with exit 2 naming the directive line" do
     dir = copy_fixture("inline")
     path = File.join(dir, "lib", "inline_math.rb")
