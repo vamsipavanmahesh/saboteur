@@ -82,8 +82,8 @@ module Saboteur
         matching = edits.map do |edit|
           first = position(subject.file_source, edit.start_byte)
           last = position(subject.file_source, edit.end_byte)
-          selected = arms.select do |span, _ids|
-            (span[0, 2] <=> first) <= 0 && (last <=> span[2, 2]) <= 0
+          selected = arms.select do |span, ids|
+            (span[0, 2] <=> first) <= 0 && (last <=> span[2, 2]) <= 0 && !ran_before_tests?(subject.file, span, ids)
           end
           selected.values.reduce { |ids, other| ids & other }
         end
@@ -185,6 +185,17 @@ module Saboteur
         branches.transform_values do |arms|
           arms.map { |span, ids| [span, ids.map { |id| index.fetch(id) }] }
         end
+      end
+
+      # An arm whose body the app ran while loading (a def inside an if) has no
+      # per-test hits, yet tests ran the lines inside it. For an arm that spans
+      # lines, those line hits prove it was taken. A one-line arm cannot be
+      # told apart this way, so its empty list still means "not taken".
+      def ran_before_tests?(file, span, ids)
+        return false unless ids.empty? && span[0] != span[2]
+
+        covered = lines[CoverageMap.canonical(file)] || {}
+        (span[0]..span[2]).any? { |line| covered.key?(line) }
       end
 
       def position(source, offset)
