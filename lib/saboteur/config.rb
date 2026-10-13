@@ -23,6 +23,7 @@ module Saboteur
       "arid" => MutationSource::Builtin::DEFAULT_ARID,
       "hazard" => MutationSource::HazardGuard::DEFAULT_HAZARD,
       "allow_hazardous" => false,
+      "sandbox" => true,
       "timeout_factor" => 3.0,
       "timeout_min" => 5.0,
       "baseline_timeout" => 300.0,
