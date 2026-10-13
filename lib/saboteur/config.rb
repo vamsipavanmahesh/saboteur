@@ -46,6 +46,7 @@ module Saboteur
       "cache" => true,
       "incremental" => false,
       "allow_focus" => false,
+      "guess_tests" => false,
       "seed" => 1,
       "tests" => [],
       "fingerprint_extra" => [],
@@ -155,6 +156,13 @@ module Saboteur
       raise ConfigError, "threshold must be between 0 and 100"
     end
 
+    def validate_guess_tests!
+      return unless self["guess_tests"]
+
+      raise ConfigError, "guess_tests needs since" unless self["since"]
+      raise ConfigError, "guess_tests cannot be combined with tests" if self["tests"].any?
+    end
+
     def validate_reeval!
       raise ConfigError, "reeval must be one of: #{Execution::Reevaluator::STRATEGIES.join(', ')}" unless
         Execution::Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
@@ -172,6 +180,7 @@ module Saboteur
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
 
       validate_reeval!
+      validate_guess_tests!
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
     rescue RegexpError => e
