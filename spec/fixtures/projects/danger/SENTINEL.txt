@@ -1,0 +1,1 @@
+sentinel: the canary must keep this file

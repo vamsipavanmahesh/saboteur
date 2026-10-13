@@ -30,9 +30,10 @@ module Saboteur
 
       # on_start: called in each worker with its number before its first
       # item (per-worker database connections, for example).
-      def initialize(jobs:, on_start: nil)
+      def initialize(jobs:, on_start: nil, on_result: nil)
         @jobs = jobs
         @on_start = on_start
+        @on_result = on_result
         @start_failures = 0
       end
 
@@ -78,11 +79,20 @@ module Saboteur
       # next item, retires it when none is left, or replaces it if it died.
       def receive(worker, workers, queue, results, items, &)
         line = worker.results.gets
-        take(worker, line, results) if line
+        take_and_report(worker, line, results) if line
         return replace(worker, workers, queue, results, items, &) if line.nil? || worker.last_words
 
         assign(worker, queue)
         retire(worker, workers) unless worker.current
+      end
+
+      # Records one result line, then reports the arrival before the worker
+      # gets more work: a watcher (the canary) can raise here and stop every
+      # queued item from starting (issue #102).
+      def take_and_report(worker, line, results)
+        current = worker.current
+        take(worker, line, results)
+        @on_result&.call(current, results[current]) if current && results[current]
       end
 
       def parse(line)
@@ -112,7 +122,7 @@ module Saboteur
         pending = worker.results.read_nonblock(1 << 20, exception: false)
         return unless pending.is_a?(String)
 
-        pending.each_line { |line| take(worker, line, results) if line.end_with?("\n") }
+        pending.each_line { |line| take_and_report(worker, line, results) if line.end_with?("\n") }
       rescue IOError
         nil
       end
@@ -121,7 +131,13 @@ module Saboteur
         drain(worker, results)
         retire(worker, workers)
         reason = worker.last_words || "worker #{worker.number} died#{how(worker.status)}"
-        results[worker.current] = { "error" => "#{reason}, running this item" } if worker.current
+        if worker.current
+          # The synthetic error row takes the same arrival path as a normal
+          # result, so the canary still trips when the dead worker damaged
+          # the tree before dying (issue #102).
+          results[worker.current] = { "error" => "#{reason}, running this item" }
+          @on_result&.call(worker.current, results[worker.current])
+        end
         give_up(reason) if worker.done.zero?
         return if queue.empty?
 

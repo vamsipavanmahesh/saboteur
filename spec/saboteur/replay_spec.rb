@@ -3,6 +3,8 @@
 
 require "saboteur/replay"
 
+require "stringio"
+
 RSpec.describe Saboteur::Replay do
   let(:subject) { person_subject }
   let(:mutation) { comparison_mutation }
@@ -53,5 +55,45 @@ RSpec.describe Saboteur::Replay, "nonmatching candidates" do
     candidates = instance_double(Saboteur::Engine::Candidates, for: [[mutation, subject.apply(mutation.edits)]])
     expect { described_class.new(digest: "0" * 16).select([subject], candidates) }
       .to raise_error(Saboteur::ConfigError, /not found/)
+  end
+end
+
+RSpec.describe Saboteur::Replay, "and the hazard guard (issue #102)" do
+  # The replay path selects from the guarded candidate list, so a digest
+  # naming a suppressed mutant is refused; --allow-hazardous drops the
+  # guard and replays it.
+  def hazard_subject
+    subject_named("class K\n  def m\n    FileUtils.rm_rf(File.join(Dir.pwd, \"build\"))\n  end\nend\n", "K#m")
+  end
+
+  def candidates_with(guard)
+    source = Class.new(Saboteur::MutationSource::Base) do
+      define_method(:mutations_for) do |subject|
+        at = subject.file_source.index('"build"')
+        edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 7,
+                                                  replacement: '"."')
+        [Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "literal_string", edits: [edit])]
+      end
+    end.new
+    Saboteur::Engine::Candidates.new([source], Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                     hazard_guard: guard)
+  end
+
+  def hazard_digest(subject)
+    mutation, = candidates_with(nil).for(subject).first
+    mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+  end
+
+  it "refuses a digest that names a suppressed mutant" do
+    subject = hazard_subject
+    expect { described_class.new(digest: hazard_digest(subject)).select([subject], candidates_with(Saboteur::MutationSource::HazardGuard.new)) }
+      .to raise_error(Saboteur::ConfigError, /not found/)
+  end
+
+  it "replays the same digest once the guard is off (--allow-hazardous)" do
+    subject = hazard_subject
+    mutation, text = candidates_with(nil).for(subject).first
+    expect(described_class.new(digest: hazard_digest(subject)).select([subject], candidates_with(nil)))
+      .to eq([subject, [mutation, text]])
   end
 end

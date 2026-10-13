@@ -364,6 +364,9 @@ module Saboteur
       opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
       opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
       opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
+      opts.on("--allow-hazardous", "Also run mutants inside destructive calls (rm_rf, system, ...)") do
+        set(:allow_hazardous, true)
+      end
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
     end
 

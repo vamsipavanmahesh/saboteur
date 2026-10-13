@@ -22,10 +22,11 @@ module Saboteur
         end
       end
 
-      def initialize(sources, diagnostics)
+      def initialize(sources, diagnostics, hazard_guard: nil, bytecode: BytecodeEquivalence.new)
         @sources = sources
         @diagnostics = diagnostics
-        @bytecode = BytecodeEquivalence.new
+        @hazard_guard = hazard_guard
+        @bytecode = bytecode
       end
 
       def for(subject)
@@ -38,10 +39,21 @@ module Saboteur
         list = @sources.flat_map { |source| proposals(source, subject) }.filter_map do |mutation|
           candidate(subject, mutation, seen)
         end
+        list = suppress_hazards(list, subject)
         list.sort_by.with_index { |(mutation, _), index| [mutation.coarse ? 0 : 1, index] }
       end
 
       private
+
+      # The hazard guard (issue #102) refuses mutants that would leave a
+      # destructive call running with altered inputs; each refusal is counted.
+      def suppress_hazards(list, subject)
+        return list unless @hazard_guard
+
+        kept, suppressed = @hazard_guard.partition(list, subject)
+        suppressed.each { |(mutation, _)| @diagnostics.record_hazard_suppression(subject, mutation) }
+        kept
+      end
 
       def proposals(source, subject)
         proposals = source.mutations_for(subject)
@@ -72,12 +84,17 @@ module Saboteur
           return record_drop(subject, mutation, "invalid_syntax")
         end
 
-        return record_drop(subject, mutation, "equivalent_bytecode") if @bytecode.equivalent?(subject.source, text)
+        return record_drop(subject, mutation, "equivalent_bytecode") if equivalent?(subject, text)
 
         [mutation, text]
       rescue ArgumentError => e
         @diagnostics.warn("#{subject.id}: dropped #{mutation.source} mutation: #{e.message}")
         record_drop(subject, mutation, "invalid_edit")
+      end
+
+      def equivalent?(subject, text)
+        frozen = BytecodeEquivalence.frozen_string_literal?(subject.file_source)
+        @bytecode.equivalent?(subject.source, text, frozen_string_literal: frozen)
       end
 
       def parses?(text)
