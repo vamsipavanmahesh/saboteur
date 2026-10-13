@@ -149,4 +149,53 @@ RSpec.describe Preflight::Runner, :fixture do
       FileUtils.remove_entry(outside)
     end
   end
+
+  it "reports a rerun command in the `ruby script/preflight` form" do
+    good_change
+    expect(run_in_fixture(mode: "fast").to_h[:provenance][:rerun_command]).to start_with("ruby script/preflight --base")
+  end
+
+  describe "dependency preparation in a fresh checkout" do
+    def lock_path
+      File.join(@fixture.directory, "Gemfile.lock")
+    end
+
+    before do
+      @fixture.write(".gitignore", "Gemfile.lock\ntmp/\n")
+      @fixture.commit("ignore the lockfile")
+    end
+
+    it "accepts the lockfile that preparation (bundle lock --local) creates, with no rerun needed (valid control)" do
+      good_change
+      report = run_in_fixture(mode: "fast", responder: passing_responder do |argv|
+        File.write(lock_path, "locked\n") if argv == %w[bundle lock --local]
+      end)
+      expect([report.verdict, report.to_h[:invalidated_by]]).to eq(["partial", nil])
+    end
+
+    it "does not run lock preparation when a lockfile already exists" do
+      good_change
+      File.write(lock_path, "present\n")
+      calls = []
+      run_in_fixture(mode: "fast", responder: passing_responder { |argv| calls << argv })
+      expect(calls).not_to include(%w[bundle lock --local])
+    end
+
+    it "still catches a lockfile that changes after preparation" do
+      good_change
+      report = run_in_fixture(mode: "fast", responder: passing_responder do |argv|
+        File.write(lock_path, "late #{Time.now.to_f}\n") if argv.include?("rspec") || argv.include?("rubocop")
+        File.write(lock_path, "locked\n") if argv == %w[bundle lock --local]
+      end)
+      expect(report.verdict).to eq("incomplete")
+    end
+
+    it "makes the run incomplete when preparation changes a tracked file" do
+      good_change
+      report = run_in_fixture(mode: "fast", responder: passing_responder do |argv|
+        File.write(File.join(@fixture.directory, "lib/ok.rb"), "tampered\n") if argv == %w[bundle list]
+      end)
+      expect([report.verdict, report.to_h[:checks].map { |c| c[:name] }]).to include("incomplete")
+    end
+  end
 end
