@@ -7,6 +7,9 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- [docs/scores.md](docs/scores.md) defines the covered score, the overall score a
+  Stryker dashboard shows, assertion and crash kills, and what makes a run
+  incomplete (#198).
 - A startup warning on stderr when the working tree has uncommitted changes,
   because mutants run your code and could alter or delete files. Saboteur's own
   output paths do not count as changes.
