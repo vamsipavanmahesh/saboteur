@@ -12,6 +12,28 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
     expect(filter.equivalent?(original, reformatted)).to be(true)
   end
 
+  it "ignores line events when statements move between lines" do
+    expect(filter.equivalent?("def m\n  a = 1\n  b = 2\n  a + b\nend",
+                              "def m\n  a = 1; b = 2\n  a + b\nend")).to be(true)
+  end
+
+  it "tells apart methods that differ in name, locals, parameters or rescue clauses" do
+    base = "def m(x)\n  x\nend"
+
+    expect(filter.equivalent?(base, "def n(x)\n  x\nend")).to be(false)
+    expect(filter.equivalent?(base, "def m(y)\n  y\nend")).to be(false)
+    expect(filter.equivalent?(base, "def m(x = 1)\n  x\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  1\nrescue ArgumentError\n  2\nend",
+                              "def m\n  1\nrescue TypeError\n  2\nend")).to be(false)
+  end
+
+  it "compares blocks nested in the method" do
+    expect(filter.equivalent?("def m\n  [1].each { |x| x + 1 }\nend",
+                              "def m\n  [1].each { |x| x - 1 }\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  [1].each { |x| x + 1 }\nend",
+                              "def m\n  [1].each do |x|\n    x + 1\n  end\nend")).to be(true)
+  end
+
   it "treats quote style as equivalent" do
     expect(filter.equivalent?("def m\n  \"a\"\nend", "def m\n  'a'\nend")).to be(true)
   end
@@ -31,7 +53,7 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
     filter.equivalent?(original, "def clamp(x)\n  x < 1 ? 0 : x\nend")
     filter.equivalent?(original, "def clamp(x)\n  x < 2 ? 0 : x\nend")
 
-    expect(RubyVM::InstructionSequence).to have_received(:compile).with(original).once
+    expect(RubyVM::InstructionSequence).to have_received(:compile).with(original, any_args).once
   end
 
   it "compiles a different original when the method changes" do
@@ -40,5 +62,31 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
     expect(filter.equivalent?(original, original)).to be(true)
     expect(filter.equivalent?(other, other)).to be(true)
     expect(filter.equivalent?(other, original)).to be(false)
+  end
+
+  it "does not collapse string literals that differ only in digits or hex" do
+    expect(filter.equivalent?("def m\n  \"a(1)\"\nend", "def m\n  \"a(2)\"\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  \"0x123\"\nend", "def m\n  \"0x456\"\nend")).to be(false)
+  end
+
+  it "does not collapse numeric literals" do
+    expect(filter.equivalent?("def m\n  10\nend", "def m\n  11\nend")).to be(false)
+  end
+
+  it "compiles under the file's frozen_string_literal setting" do
+    allow(RubyVM::InstructionSequence).to receive(:compile).and_call_original
+
+    filter.equivalent?("def m\n  \"a\"\nend", "def m\n  \"b\"\nend", frozen_string_literal: true)
+
+    expect(RubyVM::InstructionSequence).to have_received(:compile)
+      .with(anything, nil, nil, 1, { frozen_string_literal: true }).twice
+  end
+
+  describe ".frozen_string_literal?" do
+    it "reads the magic comment from the top of a file" do
+      expect(described_class.frozen_string_literal?("# SPDX\n# frozen_string_literal: true\nclass A; end")).to be(true)
+      expect(described_class.frozen_string_literal?("class A\n  # frozen_string_literal: true\nend")).to be(false)
+      expect(described_class.frozen_string_literal?("# frozen_string_literal: false\n")).to be(false)
+    end
   end
 end
