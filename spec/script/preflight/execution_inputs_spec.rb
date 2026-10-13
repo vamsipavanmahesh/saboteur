@@ -262,4 +262,63 @@ RSpec.describe Preflight::ExecutionInputs, :fixture do
       expect(scripted.calls).not_to include(%w[bundle lock --local])
     end
   end
+
+  describe "which new lockfile may appear" do
+    def ignored_lock_setup
+      @fixture.write(".gitignore", "Gemfile.lock\nalt.lock\n")
+      @fixture.commit("ignore locks")
+    end
+
+    def inputs_with(runner)
+      described_class.new(repository: @fixture.repository(base: @base), directory: @fixture.directory, env: env,
+                          command_runner: runner)
+    end
+
+    def creating(path)
+      PreflightSupport::ScriptedRunner.new do |argv|
+        File.write(path, "locked\n") if argv == %w[bundle lock --local]
+        PreflightSupport::ScriptedRunner.new.result(argv, 0, "")
+      end
+    end
+
+    it "accepts the checkout's own Gemfile.lock created by preparation (valid control)" do
+      ignored_lock_setup
+      env["BUNDLE_GEMFILE"] = File.join(@fixture.directory, "Gemfile")
+      subject_inputs = inputs_with(creating(File.join(@fixture.directory, "Gemfile.lock")))
+      before = subject_inputs.snapshot
+      subject_inputs.prepare_lockfile
+      expect { subject_inputs.baseline(before, subject_inputs.snapshot) }.not_to raise_error
+    end
+
+    it "accepts an alternate effective lockfile created by preparation" do
+      ignored_lock_setup
+      env["BUNDLE_GEMFILE"] = File.join(@fixture.directory, "alt")
+      subject_inputs = inputs_with(creating(File.join(@fixture.directory, "alt.lock")))
+      before = subject_inputs.snapshot
+      subject_inputs.prepare_lockfile
+      expect { subject_inputs.baseline(before, subject_inputs.snapshot) }.not_to raise_error
+    end
+
+    it "rejects an unrelated default Gemfile.lock that appears while an alternate effective lockfile was prepared" do
+      ignored_lock_setup
+      env["BUNDLE_GEMFILE"] = File.join(@fixture.directory, "alt")
+      subject_inputs = inputs_with(creating(File.join(@fixture.directory, "alt.lock")))
+      before = subject_inputs.snapshot
+      subject_inputs.prepare_lockfile
+      File.write(File.join(@fixture.directory, "Gemfile.lock"), "unexpected\n")
+      expect { subject_inputs.baseline(before, subject_inputs.snapshot) }
+        .to raise_error(Preflight::ExecutionGap, /changed while dependencies were prepared/)
+    end
+
+    it "rejects a default Gemfile.lock that appears when the alternate effective lockfile already existed" do
+      ignored_lock_setup
+      File.write(File.join(@fixture.directory, "alt.lock"), "existing\n")
+      env["BUNDLE_GEMFILE"] = File.join(@fixture.directory, "alt")
+      subject_inputs = inputs_with(PreflightSupport::ScriptedRunner.new)
+      before = subject_inputs.snapshot
+      subject_inputs.prepare_lockfile
+      File.write(File.join(@fixture.directory, "Gemfile.lock"), "unexpected\n")
+      expect { subject_inputs.baseline(before, subject_inputs.snapshot) }.to raise_error(Preflight::ExecutionGap)
+    end
+  end
 end
