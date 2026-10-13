@@ -37,6 +37,7 @@ module Saboteur
 
     def call
       Boot.refuse_recursion!
+      refuse_fail_fast_evidence
       started = monotonic
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
@@ -46,7 +47,7 @@ module Saboteur
         integration, files, load_lines = boot_target(boot)
         @rails = boot.rails
         subjects, scope = select_subjects(files)
-        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, load_lines:)
+        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, ignore_list, load_lines:)
         @diagnostics.warnings.concat(ignore_list.apply(results))
         build_report(results, subjects, scope, started)
       ensure
@@ -84,7 +85,7 @@ module Saboteur
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
-                 hazard_suppressions: @diagnostics.hazard_suppressions)
+                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop)
     end
 
     def complete_evidence(results, subjects)
@@ -107,7 +108,7 @@ module Saboteur
       [subjects, scope]
     end
 
-    def mutate(subjects, files, integration, scope, load_lines: {})
+    def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
       warn_about_unscoped_suite(integration)
       check_baseline(integration)
       map = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
@@ -125,11 +126,47 @@ module Saboteur
       # mutant when serial. Pack the heap now that the map and candidates
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
-      results = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                                 cache: cache, on_start: method(:start_worker),
-                                 after_subject: canary_check).run(runnable_subjects, runnable_lists)
+      results = run_candidates(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
       cache&.save
       results
+    end
+
+    def run_candidates(subjects, lists, scheduler, cache, ignore_list)
+      @diagnostics.start_progress(lists.sum(&:size))
+      distribution = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+                                      cache: cache, on_start: method(:start_worker),
+                                      after_subject: canary_check, stop_after: fail_fast_check(ignore_list))
+      distribution.run(subjects, lists).tap { record_early_stop(distribution.unreached) }
+    ensure
+      @diagnostics.finish_progress
+    end
+
+    # Baseline evidence certifies a whole selection; a run that may stop early
+    # cannot.
+    def refuse_fail_fast_evidence
+      return unless @capture_evidence && config["fail_fast"]
+
+      raise ConfigError, "fail_fast cannot be used with baseline evidence: it certifies the whole selection"
+    end
+
+    # Subjects that were selected but never ran, with candidates, are part of
+    # the report: the verdict covers less than the selection.
+    def record_early_stop(unreached)
+      return if unreached.empty?
+
+      @early_stop = EarlyStop.new(reason: "fail_fast", unreached: unreached.map(&:id))
+    end
+
+    # --fail-fast: stop after the first subject that has a survivor the
+    # ignore list does not accept. Granularity is one subject.
+    def fail_fast_check(ignore_list)
+      return nil unless config["fail_fast"]
+
+      lambda do |results|
+        survivor = results.any? { |result| result.survived? && !ignore_list.accepts?(result) }
+        @diagnostics.inform("--fail-fast: stopping after the first subject with a survivor") if survivor
+        survivor
+      end
     end
 
     def inform_about_run(subjects, map)
@@ -215,28 +252,42 @@ module Saboteur
       user_dirs = config["sandbox_writable"].map { |dir| File.expand_path(dir, @root) }
       dirs = [File.join(@root, "tmp"), config.path("cache_dir")] + user_dirs
       dirs.each { |dir| FileUtils.mkdir_p(dir) }
-      real = dirs.map { |dir| File.realpath(dir) } + [File.realpath(Dir.tmpdir)]
-      warn_sandbox_overlaps(user_dirs.map { |dir| File.realpath(dir) }, real)
+      real = (dirs.map { |dir| File.realpath(dir) } + [File.realpath(Dir.tmpdir)]).uniq
+      check_sandbox_write_set(real, user_dirs.map { |dir| File.realpath(dir) })
       real
     end
 
-    # A user grant that contains the project root makes the sandbox
-    # pointless, and one that contains another grant makes the narrower
-    # grant redundant. Overlaps among the built-in grants (project tmp/ and
-    # the system temp dir) are by design, so only user grants are checked.
-    def warn_sandbox_overlaps(user_dirs, all_dirs)
+    # The effective write set - every grant realpath'd, cache_dir, the
+    # project tmp and the system temp dir included - must not contain the
+    # project root: cache_dir = ".", a tmp symlink or a checkout inside the
+    # system temp dir would otherwise leave the whole tree writable without
+    # a word. c.sandbox = "strict" refuses: strict guards the effective
+    # policy, not only the kernel ABI. A user grant containing another
+    # grant only makes the narrower one redundant, so that stays a warning.
+    def check_sandbox_write_set(all_dirs, user_dirs)
+      holder = all_dirs.find { |dir| path_contains?(dir, @root) }
+      if holder
+        message = "sandbox grant #{holder} contains the project root; mutant children can write the whole tree"
+        raise Error, %(#{message} - refusing under c.sandbox = "strict") if config["sandbox"] == "strict"
+
+        @diagnostics.warn(message)
+      end
       user_dirs.each do |dir|
-        if @root == dir || @root.start_with?("#{dir}/")
-          @diagnostics.warn("sandbox grant #{dir} contains the project root; " \
-                            "mutant children can write the whole tree")
-        end
         (all_dirs - [dir]).each do |other|
-          next unless other.start_with?("#{dir}/")
+          next unless path_contains?(dir, other)
 
           @diagnostics.warn("sandbox grant #{dir} contains the granted dir #{other}; " \
                             "the narrower grant is redundant")
         end
       end
+    end
+
+    # Both sides are realpath'd, so a plain "#{dir}/" prefix test would miss
+    # dir == "/" (every path is under it; "//" prefixes nothing).
+    def path_contains?(dir, path)
+      return true if dir == "/"
+
+      path == dir || path.start_with?("#{dir}/")
     end
 
     def result_cache
