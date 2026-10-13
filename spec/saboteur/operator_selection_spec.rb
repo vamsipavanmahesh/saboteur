@@ -59,7 +59,7 @@ RSpec.describe "operator selection and source-only preview" do
     out = StringIO.new
     Saboteur::Preview.new(config, out: out, err: StringIO.new).call
     expect(out.string).to include("Total: 1 mutants", "dropped by max_mutants_per_method",
-                                  "Estimated covering-test work: 0.25 s")
+                                  "Estimated baseline covering-test work: 0.25 s")
     expect(File.read(cache)).to eq(before)
   end
   it "exposes complete help and parses the named list as separate values" do
