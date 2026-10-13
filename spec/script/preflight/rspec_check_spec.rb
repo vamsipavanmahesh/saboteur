@@ -12,12 +12,11 @@ RSpec.describe Preflight::Checks::Rspec do
     Marshal.load(Marshal.dump(document))
   end
 
-  # Writes the JSON file the real RSpec would write to the --out path.
+  # Returns the JSON the real RSpec would write to the harness-owned pipe.
   def check_with(status, document, **flags)
     text = document.is_a?(String) ? document : JSON.generate(document)
     runner = PreflightSupport::ScriptedRunner.new do |argv|
-      File.write(argv[argv.index("--out") + 1], text) if document
-      PreflightSupport::ScriptedRunner.new.result(argv, status, "", **flags)
+      PreflightSupport::ScriptedRunner.new.result(argv, status, "", data: (text if document), **flags)
     end
     described_class.new(name: "suite", command_runner: runner, paths: ["spec/a_spec.rb"]).call
   end
@@ -96,10 +95,10 @@ RSpec.describe Preflight::Checks::Rspec do
 
   it "passes the requested paths to RSpec" do
     runner = PreflightSupport::ScriptedRunner.new do |argv|
-      File.write(argv[argv.index("--out") + 1], JSON.generate(clean))
-      nil
+      PreflightSupport::ScriptedRunner.new.result(argv, 0, "", data: JSON.generate(clean))
     end
     described_class.new(name: "x", command_runner: runner, paths: ["spec/a_spec.rb"]).call
     expect(runner.calls.first).to start_with(%w[bundle exec rspec spec/a_spec.rb])
+    expect(runner.calls.first).to end_with(%w[--format json --out /dev/fd/3])
   end
 end
