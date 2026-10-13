@@ -136,3 +136,27 @@ RSpec.describe Saboteur::Engine::Candidates do
     end
   end
 end
+
+RSpec.describe Saboteur::Engine::Candidates, "hazard guard (issue #102)" do
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
+  let(:danger_subject) do
+    subjects_in("class K\n  def m\n    FileUtils.rm_rf(File.join(Dir.pwd, \"build\"))\n  end\nend\n").first
+  end
+
+  it "suppresses hazardous mutants and records each suppression" do
+    candidates = described_class.new([Saboteur::MutationSource::Builtin.new], diagnostics,
+                                     hazard_guard: Saboteur::MutationSource::HazardGuard.new)
+    operators = candidates.for(danger_subject).map(&:first).map(&:operator)
+    expect(operators).to include("body_nil", "body_raise")
+    expect(operators).not_to include("literal_string", "argument_removal")
+    expect(diagnostics.hazard_suppressions).to be_positive
+    expect(diagnostics.generation_events.map(&:reason)).to include("hazardous")
+  end
+
+  it "keeps hazardous mutants when no guard is given" do
+    candidates = described_class.new([Saboteur::MutationSource::Builtin.new], diagnostics)
+    operators = candidates.for(danger_subject).map(&:first).map(&:operator)
+    expect(operators).to include("literal_string")
+    expect(diagnostics.hazard_suppressions).to eq(0)
+  end
+end

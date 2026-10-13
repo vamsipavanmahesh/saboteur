@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "mutation_source/builtin"
+require_relative "mutation_source/hazard_guard"
 
 module Saboteur
   # Settings from config/saboteur.rb, overridden by CLI flags.
@@ -20,6 +21,8 @@ module Saboteur
       "include" => ["lib/**/*.rb"],
       "exclude" => [],
       "arid" => MutationSource::Builtin::DEFAULT_ARID,
+      "hazard" => MutationSource::HazardGuard::DEFAULT_HAZARD,
+      "allow_hazardous" => false,
       "timeout_factor" => 3.0,
       "timeout_min" => 5.0,
       "baseline_timeout" => 300.0,
@@ -53,7 +56,7 @@ module Saboteur
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
     THRESHOLD_RANGE = (0.0..100.0)
 
-    LIST_KEYS = %w[require include exclude arid sources hooks rspec_args subjects tests
+    LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
                    fingerprint_extra].freeze
 
     attr_reader :root

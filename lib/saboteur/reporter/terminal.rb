@@ -27,6 +27,7 @@ module Saboteur
         skipped_subjects(report)
         outside_the_score(report)
         warnings(report)
+        early_stop(report)
         summary(report)
       end
 
@@ -56,6 +57,13 @@ module Saboteur
         line
       end
 
+      def hazard_suppressions(report)
+        return unless report.hazard_suppressions.positive?
+
+        @out.puts "hazardous mutations suppressed: #{report.hazard_suppressions} " \
+                  "(--allow-hazardous runs them anyway; the canary still watches the tree)"
+      end
+
       def details(report)
         breakdown = report.score_breakdown
         @out.puts "score #{percent(breakdown.value)}" \
@@ -69,6 +77,7 @@ module Saboteur
           reused.positive?
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
           report.invalid_mutations.positive?
+        hazard_suppressions(report)
         debug_details(report) if @verbose
       end
 
@@ -157,6 +166,19 @@ module Saboteur
           end
           @out.puts "  hint: #{results.first.reason}" if results.first.reason
         end
+      end
+
+      # The verdict covers only the subjects that ran, so say it where the
+      # score is read.
+      def early_stop(report)
+        stop = report.early_stop
+        return unless stop
+
+        @out.puts @palette.paint(:yellow, "stopped early (--fail-fast): #{stop.unreached.size} selected " \
+                                          "subject#{'s' unless stop.unreached.one?} did not run; the score below " \
+                                          "covers only the subjects that ran")
+        stop.unreached.first(MAX_ERRORS).each { |id| @out.puts "  not run: #{id}" }
+        @out.puts "  ... #{stop.unreached.size - MAX_ERRORS} more" if stop.unreached.size > MAX_ERRORS
       end
 
       def warnings(report)

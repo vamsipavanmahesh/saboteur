@@ -4,6 +4,7 @@
 require "fileutils"
 require "json"
 require_relative "replay"
+require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 
 module Saboteur
@@ -35,6 +36,7 @@ module Saboteur
 
     def call
       Boot.refuse_recursion!
+      refuse_fail_fast_evidence
       started = monotonic
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
@@ -81,7 +83,8 @@ module Saboteur
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
-                 omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects))
+                 omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
+                 hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop)
     end
 
     def complete_evidence(results, subjects)
@@ -129,11 +132,28 @@ module Saboteur
 
     def run_candidates(subjects, lists, scheduler, cache, ignore_list)
       @diagnostics.start_progress(lists.sum(&:size))
-      Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
-                       cache: cache, on_start: method(:start_worker),
-                       stop_after: fail_fast_check(ignore_list)).run(subjects, lists)
+      distribution = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+                                      cache: cache, on_start: method(:start_worker),
+                                      after_subject: canary_check, stop_after: fail_fast_check(ignore_list))
+      distribution.run(subjects, lists).tap { record_early_stop(distribution.unreached) }
     ensure
       @diagnostics.finish_progress
+    end
+
+    # Baseline evidence certifies a whole selection; a run that may stop early
+    # cannot.
+    def refuse_fail_fast_evidence
+      return unless @capture_evidence && config["fail_fast"]
+
+      raise ConfigError, "fail_fast cannot be used with baseline evidence: it certifies the whole selection"
+    end
+
+    # Subjects that were selected but never ran, with candidates, are part of
+    # the report: the verdict covers less than the selection.
+    def record_early_stop(unreached)
+      return if unreached.empty?
+
+      @early_stop = EarlyStop.new(reason: "fail_fast", unreached: unreached.map(&:id))
     end
 
     # --fail-fast: stop after the first subject that has a survivor the
@@ -203,10 +223,30 @@ module Saboteur
     end
 
     # Each subject's candidates, narrowed to changed lines in diff mode.
+    # The hazard guard is off only when the user explicitly asks for the
+    # dangerous mutants (issue #102); the canary then still watches the tree.
+    def hazard_guard
+      return nil if config["allow_hazardous"]
+
+      MutationSource::HazardGuard.new(config["hazard"])
+    end
+
+    # Checks the tree after each subject's mutants; a vanished file means a
+    # mutant deleted it, so abort with the most recent mutant's digest.
+    def canary_check
+      canary = Canary.new(@root, cache_dir: config["cache_dir"])
+      lambda do |subject, results|
+        last = results.reject(&:reused?).last || results.last
+        digest = last&.mutation&.digest(subject_start: subject.start_byte,
+                                        original_source: subject.file_source)
+        canary.check!(subject: subject, digest: digest)
+      end
+    end
+
     def candidate_lists(subjects, scope, map)
       return [@replay_candidate] if @replay
 
-      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
+      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics, hazard_guard: hazard_guard)
       selection = CandidateSelection.new(candidates: candidates, map: map,
                                          limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
       subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
@@ -219,7 +259,7 @@ module Saboteur
     end
 
     def replay_subject(subjects, scope)
-      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics)
+      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics, hazard_guard: hazard_guard)
       subject, candidate = @replay.select(subjects, candidates, scope: scope)
       @replay_candidate = [candidate]
       [[subject], nil]
@@ -311,6 +351,7 @@ require_relative "engine/diff_scope"
 require_relative "engine/result_cache"
 require_relative "engine/verdict_check"
 require_relative "engine/scheduler"
+require_relative "engine/canary"
 require_relative "engine/distribution"
 
 require_relative "engine/run_fingerprint"

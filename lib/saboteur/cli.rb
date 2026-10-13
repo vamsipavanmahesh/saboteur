@@ -262,7 +262,7 @@ module Saboteur
     def agent_exit_cause(report, payload)
       case payload[:verdict]
       when "clean" then "ok"
-      when "survivors" then "survivors"
+      when "survivors" then report.early_stop ? "failFast" : "survivors"
       else report.majority_errored? ? "errorMajority" : "incomplete"
       end
     end
@@ -272,13 +272,23 @@ module Saboteur
     def exit_cause(report, code)
       case code
       when EXIT_OK then "ok"
-      when EXIT_SURVIVORS then config["threshold"].nil? ? "survivors" : "belowThreshold"
+      when EXIT_SURVIVORS then survivors_cause(report)
       else report.majority_errored? ? "errorMajority" : "incompleteUnderThreshold"
       end
     end
 
+    # A run stopped by --fail-fast always exits 1: it stopped on a survivor, and
+    # its score covers only the subjects that ran, so no threshold can pass it.
+    def survivors_cause(report)
+      return "failFast" if report.early_stop
+
+      config["threshold"].nil? ? "survivors" : "belowThreshold"
+    end
+
     # With --threshold the score decides; without it any unignored survivor does.
     def failed_quality_gate?(report)
+      return true if report.early_stop
+
       threshold = config["threshold"]
       return report.unignored_survivors.any? if threshold.nil?
 
@@ -364,6 +374,9 @@ module Saboteur
       opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
       opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
       opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
+      opts.on("--allow-hazardous", "Also run mutants inside destructive calls (rm_rf, system, ...)") do
+        set(:allow_hazardous, true)
+      end
       opts.on("--fail-fast", "Stop after the first subject with a survivor (needs --jobs 1)") { set(:fail_fast, true) }
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
     end

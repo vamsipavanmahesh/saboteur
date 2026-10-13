@@ -55,3 +55,18 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat" do
     expect(err.string).to match(/long phase: 30 s elapsed/)
   end
 end
+
+RSpec.describe Saboteur::Engine::Diagnostics, "hazard suppressions (issue #102)" do
+  it "counts each suppression and records a generation event" do
+    diagnostics = described_class.new(StringIO.new)
+    subject = subjects_in("class K\n  def m\n    1\n  end\nend\n").first
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: 20, end_byte: 21,
+                                              replacement: "2")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "literal_number",
+                                                      edits: [edit])
+    expect { diagnostics.record_hazard_suppression(subject, mutation) }
+      .to change { diagnostics.hazard_suppressions }.from(0).to(1)
+    event = diagnostics.generation_events.last
+    expect([event.source, event.operator, event.reason]).to eq(%w[hazard_guard literal_number hazardous])
+  end
+end
