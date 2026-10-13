@@ -168,6 +168,17 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    call(a, msg: b, c: d)", "pair_removal")).to eq(["call(a,  c: d)", "call(a, msg: b )"])
     end
 
+    it "treats a logger held in an instance variable, on self or on the root namespace as arid" do
+      ["@logger.info(a)", "self.logger.info(a)", "::Rails.logger.info(a)", "Rails.logger.warn(a)"].each do |call|
+        expect(texts("    #{call}", "body_nil")).to be_empty, call
+      end
+    end
+
+    it "does not treat a name that merely starts with logger, or an unrelated receiver, as arid" do
+      expect(texts("    @loggers.each(&:flush)", "body_nil")).to eq(["nil"])
+      expect(texts("    other.logger.info(a)", "body_nil")).to eq(["nil"])
+    end
+
     it "wires the builtin arid list into pair removal" do
       expect(texts("    logger.info(msg: a)\n    a", "pair_removal")).to be_empty
     end
