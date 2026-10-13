@@ -26,7 +26,7 @@ RSpec.describe "rejected kill accounting" do
     expect(report.counts[:killed]).to eq(1)
     expect(report.score).to eq(1.0)
     terminal = StringIO.new
-    Saboteur::Reporter::Terminal.new(terminal).call(report)
+    Saboteur::Reporter::Terminal.new(terminal, verbose: true).call(report)
     expect(terminal.string).to include("kills rejected by unchanged-method check: 2")
     expect(Saboteur::Reporter::Stryker.build(report)[:rejectedKills]).to eq(2)
   end
@@ -35,7 +35,7 @@ RSpec.describe "rejected kill accounting" do
     report = Saboteur::Report.new(results: [result], subjects: [], wall_time: 0.1, root: Dir.pwd)
     expect(report.rejected_kills).to eq(0)
     terminal = StringIO.new
-    Saboteur::Reporter::Terminal.new(terminal).call(report)
+    Saboteur::Reporter::Terminal.new(terminal, verbose: true).call(report)
     expect(terminal.string).to include("kills rejected by unchanged-method check: 0")
     expect(Saboteur::Reporter::Stryker.build(report)[:rejectedKills]).to eq(0)
   end
