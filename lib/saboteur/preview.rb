@@ -46,17 +46,19 @@ module Saboteur
                 "times planned mutants; not a bound on mutant runtime; excludes boot and forks)")
     end
 
-    # Cached data is untrusted input: a duration must be a number that is not
-    # negative (JSON cannot carry NaN or Infinity), and anything that fails
-    # while reading it, such as a string or null, is no estimate. Source
-    # generation has already finished, so this cannot hide its errors.
+    # Cached data is untrusted input: every duration must be a non-negative
+    # number, the total must stay finite (JSON text such as 1e999 parses to
+    # Infinity), and anything that fails while reading it, such as a string or
+    # null, is no estimate. Source generation has already finished, so this
+    # cannot hide its errors.
     def work_seconds(map, subjects, lists)
       return unless map.durations.values.all? { |seconds| seconds >= 0 }
 
-      subjects.zip(lists).sum do |subject, list|
+      total = subjects.zip(lists).sum do |subject, list|
         # nil when a covering test has no recorded duration: the rescue below.
         map.recorded_runtime(map.tests_for(subject)) * list.size
       end
+      total if total.finite?
     rescue StandardError
       nil
     end
