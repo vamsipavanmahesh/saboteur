@@ -172,7 +172,13 @@ so such a run tested almost nothing.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
-`--json PATH`, `--no-cache` (rebuild the coverage map).
+`--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
+
+A stray `fit`, `fdescribe` or `:focus` example, with `filter_run_when_matching :focus`, makes RSpec skip
+every other example. The baseline stays green and the score would cover only the focused ones, so
+saboteur exits 2 and names the focused examples. Remove the focus, or pass `--allow-focus` (config
+`c.allow_focus = true`) to run the narrowed suite. Filters you name in `rspec_args` or `.rspec`, such
+as `--tag slow`, and example selectors such as `--test spec/a_spec.rb:12`, are on purpose and are not refused.
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
@@ -302,6 +308,7 @@ Saboteur.configure do |c|
   c.max_mutants_per_method = 100 # positive integer; raise it for a broader run
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
+  c.allow_focus = false          # true runs a suite narrowed by fit/fdescribe/:focus instead of exit 2
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
 end
 ```
