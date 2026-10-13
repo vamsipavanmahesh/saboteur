@@ -8,11 +8,20 @@ All notable changes are documented here. The format follows
 
 ### Added
 - **Safety:** mutant children now run under a Landlock sandbox on Linux
-  5.13+ (#152): the project tree is read-only for the child except `tmp/`,
-  the cache dir and the system temp dir. This is the third layer behind the
-  hazard guard and the canary, and the first one that stops a destructive
-  call before it acts. On older kernels the run notes once that children
-  run with the guard and canary only. Configure with `c.sandbox`.
+  6.2+ (Landlock ABI 3) (#152): the child cannot create, write, rename,
+  unlink or truncate files in the project tree except `tmp/`, the cache dir
+  and the system temp dir, and inherited descriptors already open for
+  writing elsewhere are closed before the sandbox engages. This is the
+  third layer behind the hazard guard and the canary, and the first one
+  that stops a destructive call before it acts. Landlock covers the
+  filesystem only. On kernels 5.13-6.1 (ABI 1-2) `truncate()` cannot be
+  restricted, and on kernels without Landlock there is no sandbox at all:
+  both run with the guard and canary only, noted once. `c.sandbox = false`
+  opts out; `c.sandbox = "strict"` refuses to run degraded;
+  `c.sandbox_writable` grants extra directories (suites writing `db/`,
+  `log/`, ... otherwise fail with EACCES in mutant children). A kernel
+  probe that errors (rather than cleanly reporting Landlock absent) refuses
+  the run.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
