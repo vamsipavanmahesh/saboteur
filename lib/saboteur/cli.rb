@@ -376,9 +376,9 @@ module Saboteur
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
       end
-      opts.on("--guess-tests", "With --since: run only the specs named after the changed files " \
-                               "(lib/a.rb -> spec/a_spec.rb); the whole suite if any has none") do
-        set(:guess_tests, true)
+      opts.on("--[no-]guess-tests", "With --since: run only the specs named after the changed files " \
+                                    "(lib/a.rb -> spec/a_spec.rb); the whole suite if any has none") do |v|
+        set(:guess_tests, v)
       end
     end
 
