@@ -76,9 +76,13 @@ module Saboteur
       # --- child ----------------------------------------------------------
 
       def child(writer, job)
+        # Redirect before restricting: the sweep closes inherited stdio
+        # redirected to a regular file outside the grants (#178), and a
+        # reopened-afterwards $stdout would start from a closed stream.
+        # The log lives under the granted cache dir, so it survives.
+        redirect_output(job.log_path)
         @sandbox&.call([writer.fileno])
         Process.setproctitle(title(job))
-        redirect_output(job.log_path)
         @hooks.run(:after_fork)
         @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
         stale = stale_captures(job)
