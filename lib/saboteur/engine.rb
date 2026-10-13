@@ -165,31 +165,55 @@ module Saboteur
     end
 
     # The third C1 layer (#152): each mutant child makes the project tree
-    # read-only except tmp/, the cache dir and the system temp dir. Landlock
-    # needs Linux 5.13+; on an older kernel the guard and canary remain the
-    # only layers, which is worth saying once rather than hiding.
+    # read-only except tmp/, the cache dir and the system temp dir. The
+    # claim needs Landlock ABI 3 (Linux 6.2+): earlier ABIs cannot restrict
+    # truncate(), so the run degrades honestly - children run with the
+    # guard and canary only, noted once - unless c.sandbox = "strict",
+    # which refuses instead.
     def sandbox_hook
       return nil unless config["sandbox"]
 
-      unless Execution::Sandbox.available?
-        unless @sandbox_note_given
-          @sandbox_note_given = true
-          message = "sandbox is on but this kernel lacks Landlock (needs Linux 5.13+); " \
-                    "children run with the hazard guard and canary only"
-          @diagnostics.warn(message)
-          @diagnostics.inform(message)
-        end
-        return nil
-      end
+      abi = sandbox_abi
+      return restrict_hook if abi >= 3
 
-      writable = sandbox_writable_dirs
-      -> { Execution::Sandbox.restrict!(writable: writable) }
+      if config["sandbox"] == "strict"
+        raise Error, "sandbox is strict but #{sandbox_gap(abi)}; refusing to run without the promised " \
+                     "sandbox - set c.sandbox = true to run degraded, or false to opt out"
+      end
+      unless @sandbox_note_given
+        @sandbox_note_given = true
+        message = "sandbox is on but #{sandbox_gap(abi)}; children run with the hazard guard and canary only"
+        @diagnostics.warn(message)
+        @diagnostics.inform(message)
+      end
+      nil
     end
 
-    # The child can only create these if they exist before restrict!, so
-    # make sure they do.
+    # ENOSYS/EOPNOTSUPP are a clean "no Landlock here"; any other probe
+    # error (EPERM under seccomp, ...) must not silently run unsandboxed.
+    def sandbox_abi
+      Execution::Sandbox.abi_version
+    rescue SystemCallError => e
+      raise Error, "sandbox is on but the Landlock probe failed (#{e.message}); refusing to run " \
+                   "unsandboxed - set c.sandbox = false to proceed without it"
+    end
+
+    def sandbox_gap(abi)
+      return "this kernel lacks Landlock (needs Linux 6.2+)" if abi.zero?
+
+      "this kernel's Landlock ABI is #{abi} but ABI 3 (Linux 6.2+) is needed to restrict truncate()"
+    end
+
+    def restrict_hook
+      writable = sandbox_writable_dirs
+      ->(keep_fds) { Execution::Sandbox.restrict!(writable: writable, keep_fds: keep_fds) }
+    end
+
+    # c.sandbox_writable adds the dirs a suite genuinely needs (db/, log/,
+    # ...): without a grant, writes there fail with EACCES in the child.
     def sandbox_writable_dirs
-      dirs = [File.join(@root, "tmp"), config.path("cache_dir")]
+      dirs = [File.join(@root, "tmp"), config.path("cache_dir")] +
+             config["sandbox_writable"].map { |dir| File.expand_path(dir, @root) }
       dirs.each { |dir| FileUtils.mkdir_p(dir) }
       dirs.map { |dir| File.realpath(dir) } + [File.realpath(Dir.tmpdir)]
     end
