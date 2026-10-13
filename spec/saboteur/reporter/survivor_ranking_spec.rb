@@ -80,7 +80,8 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     report = report_for([last, middle, first])
     out = StringIO.new
     Saboteur::Reporter::Terminal.new(out).call(report)
-    rendered = out.string.scan(/(#{first.digest}|#{middle.digest}|#{last.digest})/).flatten
+    listed = out.string.split("Next steps:").first
+    rendered = listed.scan(/(#{first.digest}|#{middle.digest}|#{last.digest})/).flatten
     expect(rendered).to eq([first.digest, middle.digest, last.digest])
     expect(out.string.scan("./spec/a_spec.rb[1:1]").size).to eq(2)
     expect(out.string.scan("./spec/b_spec.rb[1:1]").size).to eq(1)
