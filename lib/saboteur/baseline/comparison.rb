@@ -73,22 +73,27 @@ module Saboteur
       # counts them: killed and timed out over killed, timed out and survived.
       # An exact Rational, so the drop is compared with epsilon without
       # binary float error.
-      def percent_detected(candidates)
+      def detected_counts(candidates)
         scored = candidates.select { |entry| SCORED_STATUSES.include?(entry.fetch("status")) }
         return nil if scored.empty?
 
-        Rational(scored.count { |entry| DETECTED_STATUSES.include?(entry.fetch("status")) } * 100, scored.size)
+        [scored.count { |entry| DETECTED_STATUSES.include?(entry.fetch("status")) }, scored.size]
       end
 
       def score_change(baseline, current, epsilon)
-        accepted = percent_detected(baseline.fetch("candidates"))
-        measured = percent_detected(current.fetch("candidates"))
-        return nil unless accepted && measured
+        before = detected_counts(baseline.fetch("candidates"))
+        now = detected_counts(current.fetch("candidates"))
+        return nil unless before && now
 
+        accepted = Rational(before[0] * 100, before[1])
+        measured = Rational(now[0] * 100, now[1])
         drop = accepted - measured
-        # The epsilon as the decimal the user typed, not its binary float.
+        # The epsilon as the decimal the user typed, not its binary float. The
+        # counts let a reader recompute the verdict exactly.
         { "baseline" => accepted.to_f, "current" => measured.to_f, "drop" => drop.to_f, "epsilon" => epsilon,
-          "exceeded" => drop > Rational(epsilon.to_s) }
+          "exceeded" => drop > Rational(epsilon.to_s),
+          "baseline_detected" => before[0], "baseline_scored" => before[1],
+          "current_detected" => now[0], "current_scored" => now[1] }
       end
 
       def order(entry)
