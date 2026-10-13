@@ -648,6 +648,34 @@ per-process RSS, which counts shared pages more than once, and it was measured
 before the fork-memory work. Read it as history, not a ranking of physical
 memory.
 
+### Independent review, saboteur 0.4.0 vs mutineer 1.6.0
+
+A private consultant review ("saboteur 0.4.0 - Deep Review", 12 October 2026,
+not published) ran saboteur 0.4.0 at 38b1834 and mutineer 1.6.0 at a766c96 on
+the same machine and projects: Linux x86_64, 1 vCPU, 4 GB, Ruby 3.4.5, Prism
+1.2.0, RSpec 3.13, no Rails or sqlite3. mutineer ran with its default 5
+operators and with all 20. The project and timing rows are one run each. The
+rows describe saboteur at 38b1834; several of its findings have been fixed on
+main since. The rerun that replaces this table is still pending.
+
+| Measure | saboteur 0.4.0 | mutineer 1.6.0 |
+|---|---|---|
+| Snippets project (11 planted gaps) | 177 mutants, 14 s, 10/11 gaps found, 9 noise survivors | Default: 56 mutants, 18 s, about 5/11. All operators: 191 mutants, 51 s, 10/11, 8 noise and duplicates |
+| Dependency project (A tested only via B) | 239 mutants, 6 s | 254 mutants, 26 s (needed hand-ordered source files) |
+| dry-inflector (real gem) | 551 mutants, 24 survivors, 95.6 %, 133 s | 480 mutants, 47 survivors (31 distinct), 90.1 %, 134 s |
+| Test selection | Whole suite, per example, automatic | Only files passed with --test, per file |
+| Kill verification | Yes (re-runs killers on unchanged code) | No |
+| sorbet sig methods | Skipped at 0.4.0 | Mutated, 24/24 killed |
+| Data.define / Struct.new block methods | Absent at 0.4.0 | Mutated |
+| Load-time code | False survivors at 0.4.0 | ran_at_load status |
+| Endless defs | Tested ones reported as no coverage at 0.4.0 | Tested ones work; untested ones show as survived |
+| Order-dependent specs | Smell exposed, bogus kills rejected | Hidden (whole file runs) |
+| Destructive mutant | Project wiped except .saboteur | Project wiped |
+| Baseline stability | Race at 0.4.0: 4 of 30 green runs failed (13 %), 5 of 25 under CPU contention (20 %) | No failures observed (15/15) |
+
+Not in the review and still pending: a rerun on current main, memory and
+per-mutant time on the benchmark apps, and any mutineer release after 1.6.0.
+
 ### Memory after the fork-memory work (hashie @ 9c81e83)
 
 Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with
