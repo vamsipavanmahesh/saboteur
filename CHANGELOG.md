@@ -21,6 +21,10 @@ All notable changes are documented here. The format follows
   (serial only; the run is marked incomplete with exit cause `failFast` and
   lists the subjects it never reached). The CI progress line-break can
   misalign by a mark when parallel workers finish at the same moment.
+- Type-aware pruning: for a method with a Sorbet `sig` whose return type certainly excludes `nil`, the
+  `body_nil` and last-statement-removal mutants are no longer generated, since the type check would only
+  turn them into noise kills. Aliases, `T.any`, `T.nilable`, `T.untyped` and `void` keep every mutant.
+  RBS is not read yet. (#153)
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
