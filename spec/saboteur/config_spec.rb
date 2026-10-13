@@ -192,3 +192,14 @@ RSpec.describe Saboteur::Config, "details" do
     expect { described_class.new({ "html_report" => nil }, root: @root) }.not_to raise_error
   end
 end
+
+RSpec.describe Saboteur::Config, "#output_paths" do
+  it "lists saboteur's own outputs inside the root, relative to it, and drops those outside" do
+    Dir.mktmpdir do |dir|
+      root = File.realpath(dir)
+      config = described_class.new({ "cache_dir" => ".saboteur", "json_report" => "out/r.json",
+                                     "html_report" => "/elsewhere/r.html" }, root: root)
+      expect(config.output_paths).to eq([".saboteur", "out/r.json"])
+    end
+  end
+end
