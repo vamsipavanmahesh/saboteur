@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "json"
+require "tmpdir"
 require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
@@ -157,9 +158,40 @@ module Saboteur
     def scheduler_for(map, integration, cache)
       reevaluator = Execution::Reevaluator.new(config["reeval"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
-                                     supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"])
+                                     supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"],
+                                     sandbox: sandbox_hook)
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
                     cache: cache)
+    end
+
+    # The third C1 layer (#152): each mutant child makes the project tree
+    # read-only except tmp/, the cache dir and the system temp dir. Landlock
+    # needs Linux 5.13+; on an older kernel the guard and canary remain the
+    # only layers, which is worth saying once rather than hiding.
+    def sandbox_hook
+      return nil unless config["sandbox"]
+
+      unless Execution::Sandbox.available?
+        unless @sandbox_note_given
+          @sandbox_note_given = true
+          message = "sandbox is on but this kernel lacks Landlock (needs Linux 5.13+); " \
+                    "children run with the hazard guard and canary only"
+          @diagnostics.warn(message)
+          @diagnostics.inform(message)
+        end
+        return nil
+      end
+
+      writable = sandbox_writable_dirs
+      -> { Execution::Sandbox.restrict!(writable: writable) }
+    end
+
+    # The child can only create these if they exist before restrict!, so
+    # make sure they do.
+    def sandbox_writable_dirs
+      dirs = [File.join(@root, "tmp"), config.path("cache_dir")]
+      dirs.each { |dir| FileUtils.mkdir_p(dir) }
+      dirs.map { |dir| File.realpath(dir) } + [File.realpath(Dir.tmpdir)]
     end
 
     def result_cache
