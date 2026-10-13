@@ -55,12 +55,12 @@ module Saboteur
     # coverage map means "no estimate", never an exception.
     def cached_map
       path = File.join(@config.path("cache_dir"), "preview.json")
-      receipt = JSON.parse(File.read(path)) if File.file?(path)
-      return unless receipt.is_a?(Hash) && receipt["path"].is_a?(String) && receipt["fingerprint"].is_a?(String)
+      receipt = JSON.parse(File.read(path))
       return unless receipt["fingerprint"] == Engine::RunFingerprint.new(config: @config).snapshot.digest
 
       Selection::CoverageMap.load(receipt["path"])
-    rescue JSON::ParserError, SystemCallError
+    rescue StandardError
+      # An unreadable receipt or a map of the wrong shape (IndexError, TypeError, ...) is no estimate.
       nil
     end
 
