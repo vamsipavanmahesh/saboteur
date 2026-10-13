@@ -7,19 +7,28 @@ module Saboteur
     # ran against every mutant, so each killed mutant lists all of its
     # killers. A blind test covered mutants and killed none of them. A
     # redundant test killed some, and every one of those had another killer.
+    #
+    # Only mutants whose every planned test is known to have run (see
+    # MutantResult#complete?) count. A run that stopped early or could not
+    # report what it ran is an incomplete mutant: the tests planned for it
+    # are unverified, and no blind or redundant verdict is given for them.
     class TestMatrix
       MAX_LISTED = 20
 
-      attr_reader :blind, :redundant, :tests
+      attr_reader :blind, :redundant, :tests, :incomplete
 
       def initialize(results)
         executed = results.select { |result| %i[killed survived].include?(result.status) }
+        complete, partial = executed.partition(&:complete?)
+        @incomplete = partial.size
         @covered = Hash.new(0)
         @killed = Hash.new { |hash, test| hash[test] = [] }
-        executed.each { |result| tally(result) }
+        complete.each { |result| tally(result) }
+        @unverified = partial.flat_map(&:covered_by).uniq
         @tests = @covered.keys.sort
-        @blind = @tests.select { |test| @killed[test].empty? }
-        @redundant = @tests.select { |test| redundant?(test) }
+        judged = @tests - @unverified
+        @blind = judged.select { |test| @killed[test].empty? }
+        @redundant = judged.select { |test| redundant?(test) }
       end
 
       def mutants_covered(test)
