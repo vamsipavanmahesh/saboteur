@@ -186,7 +186,7 @@ module Saboteur
     end
 
     def contains_edit?(child, edit)
-      child.start_offset <= edit.start_byte && edit.end_byte <= child.end_offset
+      child.location.start_offset <= edit.start_byte && edit.end_byte <= child.location.end_offset
     end
 
     def validate_edit!(edit, previous_start)
