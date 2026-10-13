@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Runs `saboteur baseline check` for the saboteur GitHub Action (see action.yml).
+#
+# Input comes from environment variables, never from shell text:
+#   SABOTEUR_EVENT_NAME         GitHub event name; pull_request_target is refused
+#   SABOTEUR_COMMAND            how to start saboteur, for example "bundle exec saboteur"
+#   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on whitespace (no shell quoting)
+#   SABOTEUR_BASELINE           path of the accepted baseline file
+#   SABOTEUR_BASELINE_EPSILON   largest score drop in percentage points that still passes; empty
+#                               keeps only the survivor comparison
+#   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" fails the step when the check needs review
+# Exit codes of saboteur baseline check: 0 clean, 1 review needed, 2 invalid or incompatible, 3 incomplete.
+# This script exits 2 for input it refuses and 3 when the check's result cannot be read.
+set -uo pipefail
+
+event_name="${SABOTEUR_EVENT_NAME:-}"
+command_line="${SABOTEUR_COMMAND:-bundle exec saboteur}"
+extra_arguments="${SABOTEUR_ARGUMENTS:-}"
+baseline_path="${SABOTEUR_BASELINE:-}"
+epsilon="${SABOTEUR_BASELINE_EPSILON:-}"
+fail_on_survivors="${SABOTEUR_FAIL_ON_SURVIVORS:-false}"
+github_output="${GITHUB_OUTPUT:-/dev/null}"
+step_summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+
+write_output() { echo "$1=$2" >>"$github_output"; }
+
+# Percentage points with one decimal, as the action's score output has; empty stays empty.
+one_decimal() {
+  if [ -z "$1" ]; then
+    printf ''
+  else
+    awk -v value="$1" 'BEGIN { printf "%.1f", value }'
+  fi
+}
+
+stop_with_error() {
+  echo "::error::$1"
+  write_output ran false
+  exit "${2:-2}"
+}
+
+# pull_request_target runs with a write token and secrets; mutation testing
+# runs the project's code, so it must not run there.
+if [ "$event_name" = "pull_request_target" ]; then
+  stop_with_error "saboteur: this action does not run on pull_request_target events, which run with privileges. Use pull_request, push or schedule."
+fi
+
+case "$fail_on_survivors" in
+  true | false) ;;
+  *) stop_with_error "saboteur: fail-on-survivors must be exactly \"true\" or \"false\", not \"$fail_on_survivors\"." ;;
+esac
+
+if ! [[ "$baseline_path" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]]; then
+  stop_with_error "saboteur: baseline may only contain letters, digits, dot, underscore, slash and dash, and may not start with a dash."
+fi
+
+if [ ! -f "$baseline_path" ]; then
+  stop_with_error "saboteur: the baseline file $baseline_path does not exist. Create it with 'saboteur baseline propose' and 'saboteur baseline accept', and commit it."
+fi
+
+epsilon_arguments=()
+if [ -n "$epsilon" ]; then
+  if ! [[ "$epsilon" =~ ^[0-9]+(\.[0-9]+)?$ ]] || ! awk -v value="$epsilon" 'BEGIN { exit !(value <= 100) }'; then
+    stop_with_error "saboteur: baseline-epsilon must be a number from 0 to 100 (percentage points), not \"$epsilon\"."
+  fi
+  epsilon_arguments=(--epsilon "$epsilon")
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  stop_with_error "saboteur: the action needs jq to read the check result, and jq was not found on this runner." 3
+fi
+
+read -r -a command_words <<<"$command_line"
+read -r -a argument_words <<<"$extra_arguments"
+
+# The action owns --baseline and --epsilon. saboteur accepts unambiguous
+# prefixes of long options, so a word such as --base would also reach them.
+for word in ${argument_words[@]+"${argument_words[@]}"}; do
+  if [ "$word" = "--" ]; then
+    stop_with_error "saboteur: 'arguments' may not contain a bare --."
+  fi
+  option_name="${word%%=*}"
+  if [[ "$option_name" == --* ]] && { [[ "--baseline" == "$option_name"* ]] || [[ "--epsilon" == "$option_name"* ]] ||
+    [[ "--proposal" == "$option_name"* ]] || [[ "--previous" == "$option_name"* ]]; }; then
+    stop_with_error "saboteur: 'arguments' may not contain $option_name. The action sets --baseline and --epsilon from its inputs."
+  fi
+done
+
+result_file="$(mktemp)"
+"${command_words[@]}" baseline check --baseline "$baseline_path" ${epsilon_arguments[@]+"${epsilon_arguments[@]}"} \
+  ${argument_words[@]+"${argument_words[@]}"} >"$result_file"
+saboteur_status=$?
+
+state="" new=0 changed=0 unmatched=0 errors=0 baseline_score="" current_score="" drop="" exceeded=""
+if [ "$saboteur_status" -le 1 ]; then
+  if ! fields="$(jq -es -r '
+        if length != 1 then error("the output must hold exactly one JSON document")
+        else .[0] as $result
+          | if ($result | type) != "object" or ($result.state | type) != "string"
+               or ($result.categories | type) != "object"
+            then error("the output is not a baseline check result")
+            else [ $result.state,
+                   ($result.categories.new | length), ($result.categories.changed | length),
+                   ($result.categories.unmatched | length), ($result.categories.errors | length),
+                   ($result.score.baseline // "" | tostring), ($result.score.current // "" | tostring),
+                   ($result.score.drop // "" | tostring), ($result.score.exceeded // "" | tostring) ] | @tsv
+            end
+        end' "$result_file" 2>&1)"; then
+    echo "::error::saboteur baseline check exited with $saboteur_status but its result could not be read ($fields), so the outcome cannot be trusted."
+    write_output ran true
+    write_output exit-code "$saboteur_status"
+    exit 3
+  fi
+  IFS=$'\t' read -r state new changed unmatched errors baseline_score current_score drop exceeded <<<"$fields"
+  baseline_score="$(one_decimal "$baseline_score")"
+  current_score="$(one_decimal "$current_score")"
+  drop="$(one_decimal "$drop")"
+fi
+
+write_output ran true
+write_output exit-code "$saboteur_status"
+write_output baseline-state "$state"
+write_output baseline-new "$new"
+write_output baseline-changed "$changed"
+write_output baseline-unmatched "$unmatched"
+write_output baseline-score "$baseline_score"
+write_output baseline-current-score "$current_score"
+write_output baseline-score-drop "$drop"
+
+{
+  echo "## saboteur baseline check"
+  echo
+  echo "State: \`${state:-none}\` (exit $saboteur_status). New survivors: $new, changed: $changed, unmatched: $unmatched."
+  if [ -n "$drop" ]; then
+    echo
+    awk -v baseline="$baseline_score" -v current="$current_score" -v drop="$drop" -v epsilon="$epsilon" 'BEGIN {
+      printf "Score %.1f%% against %.1f%% in the baseline: a drop of %.1f points, limit %s.\n", current, baseline, drop, epsilon }'
+  fi
+} >>"$step_summary"
+
+case "$saboteur_status" in
+  0) exit 0 ;;
+  1)
+    if [ "$exceeded" = "true" ]; then
+      echo "::warning::saboteur: the score dropped by $drop points against the baseline, more than the allowed $epsilon."
+    fi
+    echo "::warning::saboteur: the baseline check needs review ($new new, $changed changed, $unmatched unmatched survivors)."
+    [ "$fail_on_survivors" = "true" ] && exit 1
+    exit 0
+    ;;
+  *)
+    echo "::error::saboteur baseline check failed with exit $saboteur_status."
+    exit "$saboteur_status"
+    ;;
+esac
