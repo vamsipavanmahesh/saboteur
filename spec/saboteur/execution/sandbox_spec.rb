@@ -14,9 +14,9 @@ RSpec.describe Saboteur::Execution::Sandbox do
   end
 
   # The probe only runs on Linux (linux? gate); stub the platform so these
-  # examples exercise it on macOS and BSD too.
+  # examples exercise it on macOS and BSD too (stub the predicate abi_version consults).
   context "probing the kernel as on Linux" do
-    before { stub_const("RUBY_PLATFORM", "x86_64-linux") }
+    before { allow(described_class).to receive(:linux?).and_return(true) }
 
     it "probes the kernel ABI with the create-ruleset version flag" do
       syscall = double("syscall", call: 2)
@@ -270,7 +270,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
   end
 
   context "without a usable libc, as on Linux" do
-    before { stub_const("RUBY_PLATFORM", "x86_64-linux") }
+    before { allow(described_class).to receive(:linux?).and_return(true) }
 
     it "reports ABI 0 rather than crash when no libc can be found" do
       reset_abi_memo
