@@ -380,6 +380,9 @@ module Saboteur
         set(:allow_hazardous, true)
       end
       opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
+      opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
+        set(:allow_focus, true)
+      end
     end
 
     def define_output_options(opts)

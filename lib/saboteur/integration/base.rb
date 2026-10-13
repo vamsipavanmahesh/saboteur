@@ -77,4 +77,5 @@ module Saboteur
   end
 end
 
+require_relative "focus_guard"
 require_relative "rspec"

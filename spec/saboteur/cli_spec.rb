@@ -337,6 +337,18 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(err.string).to eq("#{described_class::USAGE}\n")
   end
 
+  it "parses --allow-focus into the allow_focus config key" do
+    command = cli("run", "--allow-focus")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(allow_focus: true)
+    expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["allow_focus"]).to be(true)
+  end
+
+  it "refuses a focused suite unless allow_focus is set" do
+    expect(Saboteur::Config.new({})["allow_focus"]).to be(false)
+  end
+
   it "parses --config, --integration and --incremental" do
     command = cli("run", "--config", "x.yml", "--integration", "rspec", "--incremental")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
