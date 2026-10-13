@@ -41,7 +41,7 @@ RSpec.describe Saboteur::MutationSource::Builtin, "modern syntax fixtures" do
       "case/in with a guard" =>
         ["def m(a)\n    case a\n    in Integer => n if n > 1 then n + 1\n    in [x, *] then x\n    " \
          "else 0\n    end\n  end", [5], 6],
-      "numbered and it parameters" => ["def m(a) = a.map { _1 + 1 }.select { it > 1 }", [[1, 2, 3]], [3, 4]]
+      "numbered and it parameters" => ["def m(a) = a.map { _1 + 1 }.select { it > 2 }", [[1, 2, 3]], [3, 4]]
     }.each do |name, (body, args, expected)|
       %w[class_eval nesting].each do |strategy|
         it "re-evaluates and runs the mutants of #{name} with the #{strategy} strategy" do
