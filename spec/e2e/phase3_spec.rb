@@ -107,7 +107,10 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
       run = saboteur(dir, "--since", "HEAD")
       warning = "running the loaded suite unscoped: two baseline passes; coverage may add a pass (3 spec files). " \
-                "Pass --test to scope it, or --guess-tests to scope it to the specs named after the changed files."
+                "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
+                "only by those specs, so specs elsewhere that call this code are not run. " \
+                "--guess-tests does the same with the specs named after the changed files, " \
+                "a guess that can miss specs elsewhere."
       expect(run.err).to include(warning)
       expect(run.err.index("running the loaded suite unscoped")).to be < run.err.index("checking the unchanged suite")
     end

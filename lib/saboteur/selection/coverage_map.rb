@@ -16,24 +16,25 @@ module Saboteur
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
     class CoverageMap
-      FORMAT = 7
+      FORMAT = 8
 
       RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
 
-      attr_reader :lines, :tests, :build_seconds, :durations, :methods, :load_lines
+      attr_reader :lines, :tests, :build_seconds, :durations, :methods, :load_lines, :branches
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
       # methods: { "/abs/file.rb" => { 12 => ["id1", "id2"] } } keyed by the
       # def's first line; line coverage never counts an endless def's body,
       # so methods carry those subjects (issue #107).
       # durations: { "id1" => seconds }
-      def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {})
+      def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {}, branches: {})
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
         @durations = durations
         @methods = methods
         @load_lines = load_lines
+        @branches = branches
       end
 
       def tests_for(subject)
@@ -51,7 +52,7 @@ module Saboteur
       # Attach the parent's boot counters without losing the child's method coverage.
       def with_load_lines(load_lines)
         self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
-                       methods: methods, load_lines: load_lines)
+                       methods: methods, load_lines: load_lines, branches: branches)
       end
 
       # A requested line ran at load but no test later hit it.
@@ -72,6 +73,24 @@ module Saboteur
         return [] unless tests_for_lines(subject.file, subject.coverage_lines).empty?
 
         tests_for(subject)
+      end
+
+      # nil means Ruby supplied no arm evidence for this edit (including &&/||).
+      # An empty list means a known arm was never taken. Nested arms intersect.
+      def tests_for_branches(subject, edits)
+        arms = branches.fetch(CoverageMap.canonical(subject.file), {})
+        matching = edits.map do |edit|
+          first = position(subject.file_source, edit.start_byte)
+          last = position(subject.file_source, edit.end_byte)
+          selected = arms.select do |span, ids|
+            (span.first(2) <=> first) <= 0 && (last <=> span.last(2)) <= 0 &&
+              !ran_before_tests?(subject.file, span, ids)
+          end
+          selected.values.reduce { |ids, other| ids & other }
+        end
+        return nil if matching.include?(nil)
+
+        sort_test_ids(matching.flatten.uniq)
       end
 
       # True when neither boot nor tests recorded included code. Load-only
@@ -105,6 +124,7 @@ module Saboteur
         end
         JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encode.call(lines),
                       methods: encode.call(methods), load_lines: load_lines,
+                      branches: encode_branches(index),
                       durations: tests.map { |id| durations[id]&.round(6) })
       end
 
@@ -121,7 +141,14 @@ module Saboteur
         durations = tests.zip(data["durations"]).to_h.compact
         load_lines = (data["load_lines"] || {}).transform_values { |list| list.map(&:to_i) }
         new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
-            durations: durations, methods: decode.call(data["methods"] || {}), load_lines: load_lines)
+            durations: durations, methods: decode.call(data["methods"] || {}), load_lines: load_lines,
+            branches: decode_branches(data.fetch("branches"), tests))
+      end
+
+      def self.decode_branches(branches, tests)
+        branches.transform_values do |arms|
+          arms.to_h { |span, ids| [span, ids.map { |id| tests.fetch(id) }] }
+        end
       end
 
       # Cache key over every input that can change which test runs which line.
@@ -154,6 +181,30 @@ module Saboteur
       end
 
       private
+
+      def encode_branches(index)
+        branches.transform_values do |arms|
+          arms.map { |span, ids| [span, ids.map { |id| index.fetch(id) }] }
+        end
+      end
+
+      # An arm whose body the app ran while loading (a def inside an if) has no
+      # per-test hits, yet tests ran the lines inside it. Only lines strictly
+      # between the arm's first and last line count: the boundary lines can
+      # also hold code outside the arm. An arm with no interior line, such as
+      # a one-line arm, cannot be told apart, so its empty list still means
+      # "not taken".
+      def ran_before_tests?(file, span, ids)
+        return false unless ids.empty?
+
+        covered = lines[CoverageMap.canonical(file)] || {}
+        ((span[0] + 1)...span[2]).any? { |line| covered.key?(line) }
+      end
+
+      def position(source, offset)
+        prefix = source.byteslice(0, offset).b
+        [prefix.count("\n") + 1, offset - ((prefix.rindex("\n") || -1) + 1)]
+      end
 
       def sort_test_ids(ids)
         order = test_order
