@@ -14,6 +14,8 @@ module Saboteur
         @runner.setup($stderr, $stdout)
         configuration.order = "rand:#{config.fetch('seed', 1)}"
         raise Error, "rspec quit while loading spec files" if world.wants_to_quit
+
+        refuse_unintended_focus
       end
 
       # RSpec only adds its default "spec" path when $0 is `rspec`.
@@ -73,6 +75,20 @@ module Saboteur
       end
 
       private
+
+      def refuse_unintended_focus
+        return if config["allow_focus"]
+
+        FocusGuard.new(world:, explicit_filter_keys: explicit_inclusion_keys).check!
+      end
+
+      # Inclusion filters the user named in rspec_args or .rspec, such as
+      # `--tag slow`. Those narrow the run on purpose.
+      def explicit_inclusion_keys
+        filter_manager = ::RSpec::Core::FilterManager.new
+        configuration_options.configure_filter_manager(filter_manager)
+        filter_manager.inclusions.rules.keys
+      end
 
       def world
         ::RSpec.world
