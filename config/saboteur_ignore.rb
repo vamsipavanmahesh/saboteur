@@ -91,14 +91,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#execute",
              reason: "equivalent: counting each kill as 2 keeps the same order of killers"
 
-  i.mutation "0f79546512131b47",
-             subject: "Saboteur::MutationSource::Builtin#initialize",
-             reason: "equivalent: Base#initialize does nothing"
-
-  i.mutation "22d70abfce019634",
-             subject: "Saboteur::MutationSource::Builtin#initialize",
-             reason: "equivalent: Regexp.new(regexp) returns an equal Regexp"
-
   i.mutation "a7573a705c635da0",
              subject: "Saboteur::MutationSource::Builtin#rescues_everything?",
              reason: "equivalent: nil and false are both falsy for the caller"
