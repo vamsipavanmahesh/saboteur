@@ -64,7 +64,7 @@ RSpec.describe "script/preflight", :fixture do
     @fixture.git("add", "-f", "tmp")
     @fixture.commit("block tmp")
     out, err, status = run_fast
-    expect([status.exitstatus, err, out]).to match([3, /incomplete: output directory/, ""])
+    expect([status.exitstatus, err, out]).to match([3, /incomplete: .*tmp/, ""])
   end
 end
 
@@ -77,6 +77,11 @@ RSpec.describe "preflight invocation form" do
       direct = text.lines.grep(%r{(?<!ruby )(?<![\w/.])script/preflight --})
       expect(direct).to eq([]), "#{file} runs script/preflight directly: #{direct.first}"
     end
+  end
+
+  it "gives contributors a command that works: AGENTS.md names --base, --head and --base-ref" do
+    line = File.read(File.join(root, "AGENTS.md")).lines.find { |l| l.include?("ruby script/preflight") }
+    expect(line).to include("--base <full main sha>", "--head <full head sha>", "--base-ref main")
   end
 
   it "has no shebang, because it is not executable and Lint/ScriptPermission would flag one" do
