@@ -23,7 +23,6 @@ module Saboteur
           @interval = interval
           @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           @last_print = @started
-          @log = nil
         end
 
         # Reads progress from the end of this log on each print. Returns self.
