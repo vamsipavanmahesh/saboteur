@@ -82,7 +82,8 @@ RSpec.describe Saboteur::Baseline::Workflow do
     expect(workflow.check(path: path)).not_to have_key("score")
     payload = workflow.check(path: path, epsilon: 2.5)
     expect(payload.fetch("score")).to eq("baseline" => 0.0, "current" => 0.0, "drop" => 0.0, "epsilon" => 2.5,
-                                         "exceeded" => false)
+                                         "exceeded" => false, "baseline_detected" => 0, "baseline_scored" => 1,
+                                         "current_detected" => 0, "current_scored" => 1)
     expect(payload.fetch("state")).to eq("clean")
   end
 
