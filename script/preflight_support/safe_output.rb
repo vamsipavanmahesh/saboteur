@@ -6,9 +6,13 @@ module Preflight
   # harness has its output directory open, so a path that was checked once can be replaced by a symlink or a FIFO
   # later. Each write therefore re-checks the whole directory chain from the checkout root, and creates the file
   # with O_EXCL | O_NOFOLLOW | O_NONBLOCK: it must be new, it cannot be a link, and a FIFO cannot make it block.
-  # Limit: Ruby has no openat, so a directory swapped between the chain check and the open is narrowed, not
-  # excluded. The end-of-run tree check (verify_tree!) is what catches a swap that happened in that window.
+  # Limit: Ruby has no openat, so the chain check and the open are two steps. A directory swapped for a link
+  # between them is narrowed, not excluded, and a swap that is undone before the end of the run cannot be seen
+  # at all. The end-of-run tree check (verify_tree) only catches a bad state that is still there when it runs.
   module SafeOutput
+    MAX_DEPTH = 16
+    MAX_ENTRIES = 5_000
+    MAX_SECONDS = 20
     CREATE = File::WRONLY | File::CREAT | File::EXCL | File::NOFOLLOW | File::NONBLOCK
 
     module_function
@@ -39,14 +43,30 @@ module Preflight
     end
 
     # Every directory on the way down is a real directory, every entry below dir is a directory or a regular file.
-    def verify_tree(dir, root)
+    # Iterative and bounded: a tree that is too deep, too large or too slow to walk is an execution gap.
+    def verify_tree(dir, root, max_depth: MAX_DEPTH, max_entries: MAX_ENTRIES, max_seconds: MAX_SECONDS)
       require_chain(dir, root)
-      Dir.children(dir).each do |name|
-        path = File.join(dir, name)
-        stat = File.lstat(path)
-        raise ExecutionGap, "#{path} is not a directory or regular file" unless stat.directory? || stat.file?
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + max_seconds
+      pending = [[dir, 0]]
+      entries = 0
+      until pending.empty?
+        current, depth = pending.pop
+        raise ExecutionGap, "#{current} is nested deeper than #{max_depth} levels" if depth > max_depth
 
-        verify_tree(path, root) if stat.directory?
+        Dir.each_child(current) do |name|
+          entries += 1
+          raise ExecutionGap, "more than #{max_entries} entries below #{dir}" if entries > max_entries
+          if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+            raise ExecutionGap,
+                  "walking #{dir} took longer than #{max_seconds}s"
+          end
+
+          path = File.join(current, name)
+          stat = File.lstat(path)
+          raise ExecutionGap, "#{path} is not a directory or regular file" unless stat.directory? || stat.file?
+
+          pending << [path, depth + 1] if stat.directory?
+        end
       end
     rescue SystemCallError => e
       raise ExecutionGap, "cannot inspect #{dir}: #{e.class}"
@@ -73,7 +93,11 @@ module Preflight
       return [] if path == root
       raise ExecutionGap, "#{path} is outside #{root}" unless path.start_with?("#{root}/")
 
-      path.delete_prefix("#{root}/").split("/")
+      parts = path.delete_prefix("#{root}/").split("/", -1)
+      bad = parts.find { |part| part.empty? || part == "." || part == ".." }
+      raise ExecutionGap, "#{path} has an empty, '.' or '..' component" if bad
+
+      parts
     end
   end
 end
