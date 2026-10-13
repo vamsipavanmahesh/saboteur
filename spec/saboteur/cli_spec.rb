@@ -63,6 +63,13 @@ RSpec.describe Saboteur::CLI do
       expect(err.string).to include("clean, committed tree or a CI checkout")
     end
 
+    it "excludes saboteur's own output paths from the changes it counts" do
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 1))
+
+      expect(Saboteur::WorkingTree).to have_received(:new)
+        .with(anything, ignored: [".saboteur", ".saboteur/report.json", ".saboteur/report.html"])
+    end
+
     it "stays quiet on a clean tree" do
       run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: false, changed_files: 0))
 
