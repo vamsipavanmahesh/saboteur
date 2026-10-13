@@ -9,15 +9,16 @@ module Preflight
   class Runner
     attr_reader :output_directory
 
-    def initialize(options:, directory:, command_runner: nil, run_id: nil)
+    def initialize(options:, directory:, command_runner: nil, run_id: nil, env: nil)
       @options = options
       @directory = directory
       @run_id = run_id || "#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}-#{SecureRandom.hex(4)}"
       @output_directory = File.join(File.expand_path(OUTPUT_ROOT, directory), @run_id)
       @own_commands = command_runner.nil?
-      @commands = command_runner || CommandRunner.new(directory: directory)
+      @commands = command_runner || default_commands(directory, env)
       @repository = Repository.new(command_runner: @commands, options: options, directory: directory)
-      @inputs = ExecutionInputs.new(repository: @repository, directory: directory, command_runner: @commands)
+      @inputs = ExecutionInputs.new(repository: @repository, directory: directory, command_runner: @commands,
+                                    env: env || ENV)
     end
 
     # Order matters. Identity and the protected-path checks only read files and run git. Bundler, which evaluates
@@ -36,6 +37,16 @@ module Preflight
     end
 
     private
+
+    # An injected env is used for everything: probing, fingerprinting and every command the checks run.
+    def default_commands(directory, env)
+      if env
+        CommandRunner.new(directory: directory, env: env.to_h,
+                          isolate_env: true)
+      else
+        CommandRunner.new(directory: directory)
+      end
+    end
 
     # No report can exist without a writable output directory, so this stops the run (exit 3, message on stderr).
     # Command logs are switched on only after this, so no earlier command can write outside the verified root.
@@ -120,12 +131,15 @@ module Preflight
       CheckResult.new(name: name, status: :not_run, reason: "skipped: an earlier check did not pass")
     end
 
-    # Dependency preparation contract: after the cheap checks passed, `bundle list` runs. It may create the ignored
-    # lockfile in a fresh checkout. The "before" fingerprint is the one taken after that step, and only the
-    # lockfile appearing is accepted as a difference from the one taken before it. Anything else that
-    # changed (a tracked file, the tree, any other input) is a gap.
+    # Dependency preparation contract: after the cheap checks passed, `bundle lock --local` runs when the ignored
+    # lockfile is missing, then `bundle list` reads the dependency set. The "before" fingerprint is the one taken
+    # after that step, and only a lockfile that did not exist and now does is accepted as a difference from the
+    # one taken before it. Anything else that changed (a tracked file, the tree, any other input) is a gap.
     def prepare_dependencies(first, results)
       return [@inputs.digest_of(first), nil] if stops?(results)
+
+      prepared = capture_inputs { @inputs.prepare_lockfile }
+      return [prepared, nil] if prepared.is_a?(StandardError)
 
       dependencies = capture_inputs { @inputs.dependency_digest }
       return [dependencies, nil] unless dependencies.is_a?(String)
