@@ -67,6 +67,24 @@ RSpec.describe Saboteur::Engine::Candidates do
     expect(diagnostics.generation_events.map(&:reason)).not_to include("equivalent_bytecode")
   end
 
+  it "keeps a mutant that only flips the sign of a zero, bare or nested in a literal" do
+    [["0.0", "-0.0"], ["[0.0]", "[-0.0]"], ["{ a: 0.0 }", "{ a: -0.0 }"]].each do |original, mutated|
+      owner = subjects_in("class K\n  def m\n    #{original}\n  end\nend\n").first
+      source = Class.new(Saboteur::MutationSource::Base) do
+        define_method(:mutations_for) do |subject|
+          at = subject.file_source.index(original)
+          edit = Saboteur::MutationSource::Edit.new(file: owner.file, start_byte: at, end_byte: at + original.size,
+                                                    replacement: mutated)
+          [Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "literal_float", edits: [edit])]
+        end
+      end.new
+
+      found = described_class.new([source], diagnostics).for(owner)
+
+      expect(found.size).to eq(1), "#{original} -> #{mutated} was dropped as equivalent"
+    end
+  end
+
   it "compares bytecode under the file's frozen_string_literal comment" do
     bytecode = instance_double(Saboteur::Engine::BytecodeEquivalence, equivalent?: false)
     text = "# frozen_string_literal: true\nclass K\n  def m(a)\n    a + 1\n  end\nend\n"
