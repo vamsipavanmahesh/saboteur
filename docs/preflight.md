@@ -53,7 +53,7 @@ The report lists the manual obligations that no script checks. Read them.
 5. `spdx_headers`: files this change touches, same file set and fixture exemption as CI.
 6. `diff_check`: `git diff --check`.
 7. `rubocop`: full `bundle exec rubocop` with the repository's `.rubocop.yml`. The JSON report is parsed strictly
-   (no duplicate keys, exact shape, non-negative counts that match the file and offense lists, at least one file
+   (no duplicate keys, the required fields present with the right types, non-negative counts that match the file and offense lists, at least one file
    inspected) and must agree with the exit status.
 8. `harness_specs`: `bundle exec rspec spec/script/preflight`. The RSpec JSON is parsed strictly: counts match the
    example list, every status is known, no load errors, zero examples never passes.
@@ -80,7 +80,15 @@ The report lists the manual obligations that no script checks. Read them.
     Bundler file, or a `ruby`/`bundle` executable on `PATH`) is an `incomplete` gap, not a pass. Limit: a symlink
     retargeted between the resolve and the open changes only content, which the before/after comparison catches.
 12. Output safety: `tmp` and `tmp/preflight` must be real directories inside the checkout, verified with
-    read-only git calls before anything is created. Command logs are switched on only after that.
+    read-only git calls before anything is created. Candidate code (a Gemfile, a spec, a tool) runs while the output
+    directory is open, so every write goes through one routine that re-checks the directory chain from the checkout
+    root (real directories, owned by you, not world-writable) and creates the file with `O_EXCL | O_NOFOLLOW |
+    O_NONBLOCK`: it must be new, cannot be a link, and a FIFO cannot make it block. The raw RSpec report path is
+    created by the harness first and read back without following links. Before the report is written, every entry
+    under the run directory must still be a directory or a regular file, otherwise the run is `incomplete` (check
+    `output_safety`); a failed write after that is `report_output`. Limit: Ruby has no `openat`, so a directory
+    swapped between the chain check and the open is narrowed, not excluded, and the end-of-run tree check is what
+    catches it. The tool does not claim the output directory is tamper-proof against code running as the same user.
 
 The report also records the local `origin/main` snapshot (freshness unverified), a SHA-256 of the base policy file,
 the mode and blob of every changed file, every command run with its logs and hashes, and the exact rerun command.
