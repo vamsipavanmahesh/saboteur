@@ -246,4 +246,43 @@ RSpec.describe Saboteur::MutationSource::Builtin do
   it "does not mutate inside nested scopes" do
     expect(mutations("    class << a\n      def x = 1 + 1\n    end\n    a").map(&:first)).not_to include("arithmetic")
   end
+
+  describe "declared return types" do
+    def operators(sig, body)
+      source = "class K\n  #{sig}\n  def m(a)\n#{body}\n  end\nend\n"
+      mutated_texts(subjects_in(source).first).map(&:first)
+    end
+
+    it "does not return nil from a method whose sig excludes nil" do
+      found = operators("sig { params(a: Integer).returns(Integer) }", "    a + 1")
+      expect(found).not_to include("body_nil")
+      expect(found).to include("body_raise", "arithmetic")
+    end
+
+    it "keeps the true and false bodies of a predicate whose sig is T::Boolean" do
+      source = "class K\n  sig { returns(T::Boolean) }\n  def ok?(a)\n    a > 1\n  end\nend\n"
+      expect(mutated_texts(subjects_in(source).first).map(&:first)).to include("body_true", "body_false")
+    end
+
+    it "keeps body_nil when the sig allows nil, is void, or is missing" do
+      expect(operators("sig { returns(T.nilable(Integer)) }", "    a + 1")).to include("body_nil")
+      expect(operators("sig { void }", "    a + 1")).to include("body_nil")
+      expect(operators("", "    a + 1")).to include("body_nil")
+    end
+
+    def removals(sig, body)
+      source = "class K\n  #{sig}\n  def m(a)\n#{body}\n  end\nend\n"
+      mutated_texts(subjects_in(source).first).filter_map { |operator, text| text if operator == "statement_removal" }
+    end
+
+    it "does not remove the last statement into nil when the sig excludes nil, but removes earlier ones" do
+      removed = removals("sig { returns(Integer) }", "    log(a)\n    store(a)\n    a + 1")
+      expect(removed.size).to eq(2)
+      expect(removed).to all(include("a + 1"))
+    end
+
+    it "still removes the last statement when the sig allows nil" do
+      expect(removals("sig { returns(T.nilable(Integer)) }", "    store(a)\n    log(a)").size).to eq(2)
+    end
+  end
 end
