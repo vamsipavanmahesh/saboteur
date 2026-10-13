@@ -388,7 +388,8 @@ One interface (`Saboteur::Integration::Base`): `setup`, `all_tests`,
   loaded world to the selected ids and runs it, reporting through a custom
   formatter, not stdout. Fail-fast after the first failure.
 - Minitest: out of scope for v1 (maintainer decision, 2026-10-09). The
-  adapter interface stays public for third-party frameworks.
+  adapter interface stays public for third-party frameworks. The
+  [RSpec dependency measurement](minitest.md) lists what an adapter would touch.
 - rails (Phase 4, opt-in): `eager_load!` after boot, ActiveRecord reconnect
   after fork, refuse to start unless `RAILS_ENV=test` and every configured DB
   host is local (localhost / 127.0.0.1 / ::1 / unix socket).

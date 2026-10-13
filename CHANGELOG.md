@@ -34,6 +34,11 @@ All notable changes are documented here. The format follows
   fail closed. The C library lookup tolerates musl (soname fallbacks, then
   the process symbol table) and degrades to the one-time unsandboxed note
   when no libc resolves, instead of crashing.
+- [docs/minitest.md](docs/minitest.md) records that Minitest is unsupported and how much
+  of the engine depends on RSpec (#200).
+- [docs/scores.md](docs/scores.md) defines the covered score, the overall score a
+  Stryker dashboard shows, assertion and crash kills, and what makes a run
+  incomplete (#198).
 - A startup warning on stderr when the working tree has uncommitted changes,
   because mutants run your code and could alter or delete files. Saboteur's own
   output paths do not count as changes.

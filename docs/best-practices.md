@@ -128,6 +128,7 @@ limit on timeouts is on the [roadmap](../ROADMAP.md) but does not exist.
 ## Handling surviving mutants
 
 Every survivor is printed with a diff and a digest. Each needs a human look.
+For a worked example, see [How to read survivors](guides/reading-survivors.md).
 A survivor is one of four things:
 
 1. **A missing test.** The most common and the point of the tool. Write the
