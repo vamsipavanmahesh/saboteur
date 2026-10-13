@@ -7,6 +7,10 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Each finding in `--agent` output carries a `testHint` (`kind`, `text`, and for a
+  comparison swap that differs only for equal or unequal operands, a `case`
+  such as `left == right`) saying where a test could look (#154). It is a
+  suggestion, not a diagnosis: a survivor can also be an equivalent mutant.
 - `--dry-run` previews planned mutants per method and the max_mutants_per_method
   omissions without booting the app, running tests, forking or writing reports
   (#134). A file that does not parse marks the total INCOMPLETE. A cached
