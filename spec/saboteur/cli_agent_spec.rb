@@ -50,8 +50,8 @@ RSpec.describe Saboteur::CLI, "agent mode" do
   end
 
   it "keeps the classic exit code for a mixed run without --agent" do
-    engine = instance_double(Saboteur::Engine, call: report_of(result_for(:killed), result_for(:error,
-                                                                                               replacement: "<")))
+    report = report_of(result_for(:killed), result_for(:error, replacement: "<"))
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
     expect(cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
     expect(out.string).to include("score 100.0 %")
