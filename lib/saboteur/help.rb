@@ -75,16 +75,21 @@ module Saboteur
         description: "Check runs every mutant fresh and reports new, changed or unmatched accepted survivors. " \
                      "Propose writes a proposal with private local execution evidence. Edit only survivor reasons; " \
                      "accept verifies current inputs and publishes it. No scores or execution are suppressed. " \
+                     "With --epsilon POINTS, check also fails when the score drops more than POINTS percentage " \
+                     "points below the accepted baseline's score. " \
                      "Only whole or subject scope; no diff, replay, incremental reuse or score threshold.",
         takes_options: true,
-        exit_codes: { 0 => "Clean check, proposal written or accepted.", 1 => "New, changed or unmatched survivors.",
+        exit_codes: { 0 => "Clean check, proposal written or accepted.",
+                      1 => "New, changed or unmatched survivors, or a score drop beyond --epsilon.",
                       2 => "Invalid configuration, incompatible baseline or rejected acceptance.",
                       3 => "Incomplete execution or tool failure." },
         examples: [["Prepare a reasoned proposal",
                     "saboteur baseline propose --baseline baseline.json --proposal proposal.json"],
                    ["Publish reviewed reasons",
                     "saboteur baseline accept --baseline baseline.json --proposal proposal.json"],
-                   ["Check fresh outcomes", "saboteur baseline check --baseline baseline.json"]]
+                   ["Check fresh outcomes", "saboteur baseline check --baseline baseline.json"],
+                   ["Also fail on a score drop of more than 2 points",
+                    "saboteur baseline check --baseline baseline.json --epsilon 2"]]
       ),
       Command.new(
         name: "version",

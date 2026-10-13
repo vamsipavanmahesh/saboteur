@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Runs `saboteur baseline check` for the saboteur GitHub Action (see action.yml).
+#
+# Input comes from environment variables, never from shell text:
+#   SABOTEUR_EVENT_NAME         GitHub event name; pull_request_target is refused
+#   SABOTEUR_COMMAND            how to start saboteur, for example "bundle exec saboteur"
+#   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on whitespace (no shell quoting)
+#   SABOTEUR_BASELINE           path of the accepted baseline file
+#   SABOTEUR_BASELINE_EPSILON   largest score drop in percentage points that still passes; empty
+#                               keeps only the survivor comparison
+#   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" fails the step when the check needs review
+# Exit codes of saboteur baseline check: 0 clean, 1 review needed, 2 invalid or incompatible, 3 incomplete.
+# This script exits 2 for input it refuses and 3 when the check's result cannot be read.
+set -uo pipefail
+
+event_name="${SABOTEUR_EVENT_NAME:-}"
+command_line="${SABOTEUR_COMMAND:-bundle exec saboteur}"
+extra_arguments="${SABOTEUR_ARGUMENTS:-}"
+baseline_path="${SABOTEUR_BASELINE:-}"
+epsilon="${SABOTEUR_BASELINE_EPSILON:-}"
+fail_on_survivors="${SABOTEUR_FAIL_ON_SURVIVORS:-false}"
+github_output="${GITHUB_OUTPUT:-/dev/null}"
+step_summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+
+write_output() { echo "$1=$2" >>"$github_output"; }
+
+# Percentage points with one decimal, as the action's score output has; empty stays empty.
+one_decimal() {
+  if [ -z "$1" ]; then
+    printf ''
+  else
+    awk -v value="$1" 'BEGIN { printf "%.1f", value }'
+  fi
+}
+
+stop_with_error() {
+  echo "::error::$1"
+  write_output ran false
+  exit "${2:-2}"
+}
+
+# pull_request_target runs with a write token and secrets; mutation testing
+# runs the project's code, so it must not run there.
+if [ "$event_name" = "pull_request_target" ]; then
+  stop_with_error "saboteur: this action does not run on pull_request_target events, which run with privileges. Use pull_request, push or schedule."
+fi
+
+case "$fail_on_survivors" in
+  true | false) ;;
+  *) stop_with_error "saboteur: fail-on-survivors must be exactly \"true\" or \"false\", not \"$fail_on_survivors\"." ;;
+esac
+
+if ! [[ "$baseline_path" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]]; then
+  stop_with_error "saboteur: baseline may only contain letters, digits, dot, underscore, slash and dash, and may not start with a dash."
+fi
+
+if [ ! -f "$baseline_path" ]; then
+  stop_with_error "saboteur: the baseline file $baseline_path does not exist. Create it with 'saboteur baseline propose' and 'saboteur baseline accept', and commit it."
+fi
+
+epsilon_arguments=()
+score_gated=false
+if [ -n "$epsilon" ]; then
+  score_gated=true
+  if ! [[ "$epsilon" =~ ^[0-9]+(\.[0-9]{1,3})?$ ]] || ! awk -v value="$epsilon" 'BEGIN { exit !(value <= 100) }'; then
+    stop_with_error "saboteur: baseline-epsilon must be a number from 0 to 100 (percentage points, at most three decimals), not \"$epsilon\"."
+  fi
+  epsilon_arguments=(--epsilon "$epsilon")
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  stop_with_error "saboteur: the action needs jq to read the check result, and jq was not found on this runner." 3
+fi
+
+read -r -a command_words <<<"$command_line"
+read -r -a argument_words <<<"$extra_arguments"
+
+# The action owns --baseline and --epsilon. saboteur accepts unambiguous
+# prefixes of long options, so a word such as --base would also reach them.
+for word in ${argument_words[@]+"${argument_words[@]}"}; do
+  if [ "$word" = "--" ]; then
+    stop_with_error "saboteur: 'arguments' may not contain a bare --."
+  fi
+  option_name="${word%%=*}"
+  if [[ "$option_name" == --* ]] && { [[ "--baseline" == "$option_name"* ]] || [[ "--epsilon" == "$option_name"* ]] ||
+    [[ "--proposal" == "$option_name"* ]] || [[ "--previous" == "$option_name"* ]]; }; then
+    stop_with_error "saboteur: 'arguments' may not contain $option_name. The action sets --baseline and --epsilon from its inputs."
+  fi
+done
+
+# An epsilon of at most three decimals as an integer count of thousandths of a point.
+thousandths() {
+  [[ "$1" =~ ^([0-9]+)(\.([0-9]{1,3}))?$ ]] || return 1
+  local fraction="${BASH_REMATCH[3]:-}000"
+  echo $((10#${BASH_REMATCH[1]} * 1000 + 10#${fraction:0:3}))
+}
+
+unreadable() {
+  echo "::error::saboteur baseline check exited with $saboteur_status but its result could not be read ($1), so the outcome cannot be trusted."
+  write_output ran true
+  write_output exit-code "$saboteur_status"
+  exit 3
+}
+
+# The score verdict recomputed with exact integer arithmetic from the counts, against the epsilon
+# this step passed (never the one the result claims). With drop = (bd*cs - cd*bs) * 100 / (bs*cs),
+# the drop exceeds epsilon exactly when (bd*cs - cd*bs) * 100000 > epsilon_thousandths * bs * cs.
+verify_score() {
+  local reported_epsilon="$1" bd="$2" bs="$3" cd="$4" cs="$5" reported_exceeded="$6" wanted claimed expected=false
+  wanted="$(thousandths "$epsilon")" || unreadable "the epsilon input is not a decimal"
+  claimed="$(thousandths "$reported_epsilon")" || unreadable "the result's epsilon \"$reported_epsilon\" is missing or not a plain decimal"
+  [ "$claimed" = "$wanted" ] || unreadable "the result's epsilon $reported_epsilon is not the epsilon $epsilon this step passed"
+  if [ $(((bd * cs - cd * bs) * 100000)) -gt $((wanted * bs * cs)) ]; then expected=true; fi
+  [ "$reported_exceeded" = "$expected" ] || unreadable "the score says exceeded=$reported_exceeded but its counts give $expected"
+}
+
+result_file="$(mktemp)"
+"${command_words[@]}" baseline check --baseline "$baseline_path" ${epsilon_arguments[@]+"${epsilon_arguments[@]}"} \
+  ${argument_words[@]+"${argument_words[@]}"} >"$result_file"
+saboteur_status=$?
+
+state="" new=0 changed=0 unmatched=0 errors=0 baseline_score="" current_score="" drop="" exceeded=""
+if [ "$saboteur_status" -le 1 ]; then
+  # Fail closed: anything the check could not have produced is unreadable,
+  # so a broken or tampered result never turns into a green step.
+  if ! fields="$(jq -es -r --argjson status "$saboteur_status" --argjson gated "$score_gated" '
+        def finite: type == "number" and (isinfinite | not) and (isnan | not);
+        def percent: finite and . >= 0 and . <= 100;
+        def count: type == "number" and . == floor and . >= 0;
+        def full_score: type == "object" and (.baseline | percent) and (.current | percent)
+                        and (.drop | finite) and .drop >= -100 and .drop <= 100 and (.exceeded | type) == "boolean"
+                        and (.epsilon | finite) and (.baseline_detected | count) and (.baseline_scored | count)
+                        and (.current_detected | count) and (.current_scored | count)
+                        and .baseline_scored >= 1 and .current_scored >= 1
+                        and .baseline_scored <= 1000000 and .current_scored <= 1000000
+                        and .baseline_detected <= .baseline_scored and .current_detected <= .current_scored
+                        and ((.baseline - (.baseline_detected * 100 / .baseline_scored)) | fabs) < 1e-9
+                        and ((.current - (.current_detected * 100 / .current_scored)) | fabs) < 1e-9
+                        and ((.drop - (.baseline_detected * 100 / .baseline_scored
+                                       - .current_detected * 100 / .current_scored)) | fabs) < 1e-9;
+        if length != 1 then error("the output must hold exactly one JSON document")
+        else .[0] as $result
+          | if ($result | type) != "object" or ($result.state | type) != "string"
+               or ($result.categories | type) != "object"
+            then error("the output is not a baseline check result")
+            elif ($result.state != (if $status == 0 then "clean" else "review_required" end))
+            then error("the state \($result.state) does not match exit \($status)")
+            elif $result.exit_code != $status
+            then error("exit_code is missing or does not match the exit status")
+            elif $result.issues != []
+            then error("issues must be an empty list for a complete check")
+            elif ([$result.categories.new, $result.categories.changed, $result.categories.unmatched,
+                   $result.categories.errors] | any(type != "array"))
+            then error("the categories new, changed, unmatched and errors must be lists")
+            elif ($result.categories.errors | length) > 0
+            then error("a clean or review result cannot hold errors")
+            elif $gated and ($result.score | full_score | not)
+            then error("the score is missing or invalid although an epsilon was given")
+            elif ($gated | not) and $result.score != null
+            then error("the result holds a score although no epsilon was given")
+            else
+              (($result.score.exceeded // false) == true) as $exceeded
+              | ([$result.categories.new, $result.categories.changed, $result.categories.unmatched]
+                 | any(length > 0)) as $survivors
+              | if $status == 0 and ($exceeded or $survivors)
+                then error("exit 0 contradicts the survivors or score drop in the result")
+                elif $status == 1 and (($exceeded or $survivors) | not)
+                then error("exit 1 has no survivors or score drop in the result")
+                else [ $result.state,
+                       ($result.categories.new | length), ($result.categories.changed | length),
+                       ($result.categories.unmatched | length), ($result.categories.errors | length),
+                       ($result.score.baseline // "" | tostring), ($result.score.current // "" | tostring),
+                       ($result.score.drop // "" | tostring), ($result.score.exceeded | if . == null then "" else tostring end),
+                       ($result.score.epsilon // "" | tostring),
+                       ($result.score.baseline_detected // "" | tostring), ($result.score.baseline_scored // "" | tostring),
+                       ($result.score.current_detected // "" | tostring), ($result.score.current_scored // "" | tostring) ] | .[]
+                end
+            end
+        end' "$result_file" 2>&1)"; then
+    unreadable "$fields"
+  fi
+  # One field per line: a tab-separated read would collapse empty fields and shift the columns.
+  # The command substitution drops trailing empty lines, so a missing last field reads as empty.
+  # A read loop, not mapfile: macOS ships Bash 3.2, which has no mapfile.
+  parsed=()
+  while IFS= read -r line || [ -n "$line" ]; do parsed+=("$line"); done <<<"$fields"
+  state="${parsed[0]:-}" new="${parsed[1]:-0}" changed="${parsed[2]:-0}" unmatched="${parsed[3]:-0}"
+  errors="${parsed[4]:-0}" baseline_score="${parsed[5]:-}" current_score="${parsed[6]:-}" drop="${parsed[7]:-}"
+  exceeded="${parsed[8]:-}"
+  if [ "$score_gated" = true ]; then
+    verify_score "${parsed[9]:-}" "${parsed[10]:-}" "${parsed[11]:-}" "${parsed[12]:-}" "${parsed[13]:-}" "$exceeded"
+  fi
+  baseline_score="$(one_decimal "$baseline_score")"
+  current_score="$(one_decimal "$current_score")"
+  drop="$(one_decimal "$drop")"
+fi
+
+write_output ran true
+write_output exit-code "$saboteur_status"
+write_output baseline-state "$state"
+write_output baseline-new "$new"
+write_output baseline-changed "$changed"
+write_output baseline-unmatched "$unmatched"
+write_output baseline-score "$baseline_score"
+write_output baseline-current-score "$current_score"
+write_output baseline-score-drop "$drop"
+
+{
+  echo "## saboteur baseline check"
+  echo
+  echo "State: \`${state:-none}\` (exit $saboteur_status). New survivors: $new, changed: $changed, unmatched: $unmatched."
+  if [ -n "$drop" ]; then
+    echo
+    awk -v baseline="$baseline_score" -v current="$current_score" -v drop="$drop" -v epsilon="$epsilon" 'BEGIN {
+      printf "Score %.1f%% against %.1f%% in the baseline: a drop of %.1f points, limit %s.\n", current, baseline, drop, epsilon }'
+  fi
+} >>"$step_summary"
+
+case "$saboteur_status" in
+  0) exit 0 ;;
+  1)
+    if [ "$exceeded" = "true" ]; then
+      echo "::warning::saboteur: the score dropped by $drop points against the baseline, more than the allowed $epsilon."
+    fi
+    echo "::warning::saboteur: the baseline check needs review ($new new, $changed changed, $unmatched unmatched survivors)."
+    [ "$fail_on_survivors" = "true" ] && exit 1
+    exit 0
+    ;;
+  *)
+    echo "::error::saboteur baseline check failed with exit $saboteur_status."
+    exit "$saboteur_status"
+    ;;
+esac

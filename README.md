@@ -51,7 +51,8 @@ Every run with selected subjects runs the loaded unchanged suite twice (the spec
 supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
 a cache miss. Both baseline passes must be green, complete and in the same
-RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Long phases
+RSpec order at the run seed. A failure exits 3, stops mutation, prints the failing example ids and the first ten lines of the
+failure inline, and names the log and fix. Long phases
 print their elapsed time about every 30 seconds, with the examples finished so far, the percentage and a rough estimate of the time left (it assumes equally long examples) once the suite child has logged its first count, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
@@ -887,6 +888,20 @@ saboteur baseline check --baseline baseline.json
 Proposal writes independent owner-private execution evidence under the configured cache directory. Keep that directory until acceptance; deleting it prevents acceptance. Acceptance verifies the private record and current input fingerprint before atomically publishing the manifest. For replacement, give both propose and accept `--previous SHA256`, the hash you reviewed of the current baseline bytes. Output files must not overlap project inputs or the private evidence directory. A baseline normally lives in a separate JSON file outside fixture/config input trees.
 
 Check prints one JSON object: accepted, new, changed, resolved_kills, detected_timeouts, unmatched and errors are separate categories. Exit 0 means a compatible complete clean check; 1 needs survivor review; 2 means incompatible or invalid configuration; 3 means incomplete execution or tool failure. Propose and accept exit 0 only after their file operation succeeds. Context changes require fresh review. Timeouts remain a distinct detected category, not assertion kills.
+
+Score-drop gate: `saboteur baseline check --baseline baseline.json --epsilon POINTS` also fails (exit 1,
+state `review_required`) when the fresh score is more than POINTS percentage points below the score recorded in
+the baseline. Both scores use saboteur's own formula, (killed + timeout) / (killed + timeout + survived), over
+every candidate. The baseline already stores each candidate's status, so no new file format is needed. This
+catches what the survivor comparison cannot: a score that falls because killed mutants disappeared (deleted or
+rewritten code) while every accepted survivor is still matched. A drop of exactly POINTS passes; a rise never
+fails. The check prints a `score` object (`baseline`, `current`, `drop`, `epsilon`, `exceeded`) only when
+`--epsilon` is given. Without it, behavior is unchanged. POINTS is 0 to 100. It lives on `baseline check`,
+not on `run`: the delta gate needs the baseline's fresh whole-scope evidence, which `run` does not produce.
+It is not the same as `--threshold`, which gates an absolute score.
+
+In GitHub Actions, the action's `baseline` and `baseline-epsilon` inputs run this check; see
+[docs/github-action.md](docs/github-action.md).
 
 Local evidence protects against edits to the public proposal except review reasons. It is not remote attestation, a signature, or protection against the account owner changing their private files. File fingerprints cannot prove external database, network or environment stability. `config/saboteur_ignore.rb` remains a separate legacy ignore mechanism; this gate compares every survivor regardless of ignore status.
 
