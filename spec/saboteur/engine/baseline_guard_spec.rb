@@ -73,6 +73,55 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1 failed.*seed 42.*t1.*Fix/m)
   end
 
+  describe "the failure detail printed inline" do
+    def write_log(text)
+      path = File.join(@root, ".saboteur", "baseline-1.log")
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, text)
+    end
+
+    def failure_message
+      allow(supervisor).to receive(:run).and_return(response(passed: false, failed: ["t1"]))
+      guard.call
+    rescue Saboteur::Error => e
+      e.message
+    end
+
+    it "shows the first ten lines of RSpec's Failures section, not the progress lines before it" do
+      details = (1..14).map { |n| "detail #{n}" }.join("\n")
+      write_log("25/100 examples finished\nFailures:\n#{details}\n100 examples, 1 failure\n")
+      message = failure_message
+      expect(message).to include("The log says:\n  Failures:\n  detail 1\n")
+      expect(message).to include("  detail 9\n")
+      expect(message).not_to include("detail 10")
+      expect(message).not_to include("25/100 examples finished")
+      expect(message).to include("See the full log at #{File.join(@root, '.saboteur/baseline-1.log')}")
+    end
+
+    it "shows the last ten lines when the log has no Failures section, such as a crash while loading" do
+      write_log("#{(1..15).map { |n| "line #{n}" }.join("\n")}\n")
+      message = failure_message
+      expect(message).to include("  line 6\n  line 7").and include("  line 15\n")
+      expect(message).not_to include("line 5\n")
+    end
+
+    it "cuts a very long line and skips blank lines" do
+      write_log("Failures:\n\n#{'x' * 500}\n")
+      message = failure_message
+      expect(message).to include("  #{'x' * 200}\n")
+      expect(message).not_to include("x" * 201)
+      expect(message).not_to include("\n  \n")
+    end
+
+    it "prints no excerpt, and still names the log, when there is no log or it is empty" do
+      expect(failure_message).not_to include("The log says")
+      write_log("")
+      message = failure_message
+      expect(message).not_to include("The log says")
+      expect(message).to include("See the full log at")
+    end
+  end
+
   it "refuses a second run that fails after the first passed" do
     allow(supervisor).to receive(:run).and_return(response, response(passed: false, failed: ["t1"]))
     expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 2 failed/m)
