@@ -14,6 +14,11 @@ All notable changes are documented here. The format follows
   Custom sources are still required during a dry run. `--list-operators` and
   `--operators` list and select builtin operators. Inspired by mutineer
   (github.com/davidteren/mutineer, MIT, by David Teren).
+- [docs/minitest.md](docs/minitest.md) records that Minitest is unsupported and how much
+  of the engine depends on RSpec (#200).
+- [docs/scores.md](docs/scores.md) defines the covered score, the overall score a
+  Stryker dashboard shows, assertion and crash kills, and what makes a run
+  incomplete (#198).
 - A startup warning on stderr when the working tree has uncommitted changes,
   because mutants run your code and could alter or delete files. Saboteur's own
   output paths do not count as changes.

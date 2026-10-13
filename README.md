@@ -124,6 +124,7 @@ unified diff for every survivor, so you can read the exact change your tests
 missed. The JSON report lands in `.saboteur/report.json`.
 
 📋 Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
+Minitest is not supported; see [Minitest](docs/minitest.md) for why and what it would take.
 
 ## 🧠 Why it is built the way it is
 
@@ -292,6 +293,10 @@ in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
+[Scores](docs/scores.md) defines each number on this page: the covered score, the
+score a Stryker dashboard shows, the assertion and crash split, and what makes a run
+incomplete.
+
 The score is split by how the mutant was killed. A crash kill (a `NoMethodError`,
 a `TypeError`, a parse error) shows the code ran and broke, not that a test
 checked a value. The terminal prints
@@ -330,6 +335,8 @@ touches, and each finding carries them as `changedLines`. Use `changedLines`,
 not `line`, to put a note on a changed line of the pull-request diff. A
 whole-body mutant of a method whose only change is its signature touches no
 changed line and prints none.
+
+New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md) walks one from the diff to the test that kills it.
 
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `--threshold`; 1 survivors, or the score is below `--threshold` or missing;
