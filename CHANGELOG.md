@@ -10,9 +10,11 @@ All notable changes are documented here. The format follows
 - `whole_file` config: an opt-in list of subject ids or globs (for example
   `"Point#distance"`, `"Geometry::*"`). For those subjects the child evaluates the
   whole mutated file instead of re-evaluating the one method, so methods
-  surgical re-evaluation refuses (Data/Struct blocks, unknown wrappers) can be
-  mutated. The file's top-level code runs again in the child: load-time side
-  effects repeat and constants it assigns are rebuilt. Off by default (Refs #138).
+  surgical re-evaluation refuses can be mutated. It applies to methods already
+  found as subjects. The file's top-level code runs again in the child: load-time
+  side effects repeat and constants it assigns are rebuilt. A surviving
+  mutant whose definition a later definition in the file replaces is reported as
+  unreachable, not survived. Off by default (Refs #138).
 - `--dry-run` previews planned mutants per method and the max_mutants_per_method
   omissions without booting the app, running tests, forking or writing reports
   (#134). A file that does not parse marks the total INCOMPLETE. A cached
