@@ -18,7 +18,7 @@ module Saboteur
         raise ConfigError, "baseline cannot use a score threshold" if config["threshold"]
       end
 
-      def check(path:)
+      def check(path:, epsilon: nil)
         baseline = load_manifest(path)
         report = Engine.new(@config, err: @err, capture_evidence: true, evidence_files: [path]).call
         unless Digest::SHA256.file(path).hexdigest == @baseline_digest
@@ -30,9 +30,13 @@ module Saboteur
         Evidence.new(current) if current["complete"] == true
         # An incomplete producer report is useful for diagnosis, never acceptance.
         comparison = Comparison.new(baseline: { "compatibility" => baseline.compatibility,
-                                                "accepted" => baseline.accepted.values }, current: current)
-        { "state" => comparison.state, "exit_code" => comparison.exit_code,
-          "categories" => comparison.categories, "issues" => comparison.issues }
+                                                "accepted" => baseline.accepted.values,
+                                                "candidates" => baseline.candidates.values },
+                                    current: current, epsilon: epsilon)
+        payload = { "state" => comparison.state, "exit_code" => comparison.exit_code,
+                    "categories" => comparison.categories, "issues" => comparison.issues }
+        payload["score"] = comparison.score if comparison.score
+        payload
       end
 
       def propose(proposal:, destination:, previous: nil)
