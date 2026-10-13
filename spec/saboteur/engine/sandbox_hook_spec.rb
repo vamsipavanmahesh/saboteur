@@ -12,8 +12,13 @@ require "tmpdir"
 # c.sandbox = "strict", which refuses.
 RSpec.describe Saboteur::Engine, "sandbox hook" do
   around do |example|
-    Dir.mktmpdir("saboteur-sandbox-hook-") do |dir|
-      @root = dir
+    # Root fixtures outside Dir.tmpdir: the system temp dir is granted
+    # writable, so a fixture under it would trip the effective-write-set
+    # warning meant for real checkouts there.
+    parent = File.expand_path("../../../tmp/saboteur-hook-fixtures", __dir__)
+    FileUtils.mkdir_p(parent)
+    Dir.mktmpdir("hook-", parent) do |dir|
+      @root = File.realpath(dir)
       example.run
     end
   end
@@ -152,6 +157,49 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     engine.send(:sandbox_hook)
     warnings = engine.instance_variable_get(:@diagnostics).warnings
     expect(warnings).to be_empty
+  end
+
+  it "warns when the checkout sits inside the system temp dir" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    Dir.mktmpdir("saboteur-under-tmp-") do |tmp_root|
+      engine = described_class.new(Saboteur::Config.new({}, root: tmp_root), err: err)
+      engine.send(:sandbox_hook)
+      warnings = engine.instance_variable_get(:@diagnostics).warnings
+      expect(warnings.join).to include("contains the project root")
+    end
+  end
+
+  it "refuses under strict when the effective write set contains the project root" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    Dir.mktmpdir("saboteur-under-tmp-") do |tmp_root|
+      engine = described_class.new(Saboteur::Config.new({ "sandbox" => "strict" }, root: tmp_root), err: err)
+      expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error, /refusing under c.sandbox = "strict"/)
+    end
+  end
+
+  it "warns when the cache dir is the project root itself" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    engine = engine_for({ "cache_dir" => "." })
+    engine.send(:sandbox_hook)
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    expect(warnings.join).to include("contains the project root")
+  end
+
+  it "treats a grant of / as containing the project root" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    engine = engine_for({ "sandbox_writable" => ["/"] })
+    engine.send(:sandbox_hook)
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    expect(warnings.join).to include("contains the project root")
+  end
+
+  it "warns when a symlinked tmp resolves to the project root" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    File.symlink(@root, File.join(@root, "tmp"))
+    engine = engine_for({})
+    engine.send(:sandbox_hook)
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    expect(warnings.join).to include("contains the project root")
   end
 
   it "does not warn on the built-in grants alone" do
