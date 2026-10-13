@@ -7,6 +7,8 @@ module Saboteur
       # What makes a verdict cover less than the whole selection. Each reason has a
       # stable code, a count and a plain meaning.
       module Incomplete
+        NO_COVERAGE = "no coverage"
+
         class << self
           def reasons(report)
             reasons = []
@@ -14,6 +16,8 @@ module Saboteur
             load_only = report.counts[:ran_at_load] + report.skipped_subjects.values.count do |reason|
               reason == Selection::CoverageMap::RAN_AT_LOAD
             end
+            add(reasons, "unsupported", unsupported_subjects(report),
+                "subjects were skipped as unsupported (for example defined inside a block); no mutant was judged")
             add(reasons, "ran_at_load", load_only, "code ran only at load; no mutant was judged")
             add(reasons, "unreachable", report.counts[:unreachable], "tests did not call the replacement definition")
             add(reasons, "mutant_cap", omitted_by_cap(report), "mutants omitted by max_mutants_per_method")
@@ -31,8 +35,13 @@ module Saboteur
           end
 
           def skipped_for_coverage(report)
-            report.skipped_subjects.values.count { |reason| reason != Selection::CoverageMap::RAN_AT_LOAD } +
-              report.counts[:skipped]
+            report.skipped_subjects.values.count(NO_COVERAGE) + report.counts[:skipped]
+          end
+
+          def unsupported_subjects(report)
+            report.skipped_subjects.values.count do |reason|
+              reason != NO_COVERAGE && reason != Selection::CoverageMap::RAN_AT_LOAD
+            end
           end
 
           def omitted_by_cap(report)
