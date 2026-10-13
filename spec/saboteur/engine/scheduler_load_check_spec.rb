@@ -72,4 +72,14 @@ RSpec.describe Saboteur::Engine::Scheduler, "load check" do
                        extra: "LoadCheckTarget.prepend(Module.new { def m(a) = super })")
     expect(reasons(results)).not_to include(a_string_matching(/not loaded|shadowed/))
   end
+  it "reports a native runtime method with no Ruby source as shadowed" do
+    subject = subjects_in("class LoadCheckTarget\n  def m; end\nend\n").first
+    load subject.file
+    native = double("native method", source_location: [nil, nil])
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
+    scheduler = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                    reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics)
+    allow(scheduler).to receive(:own_method).and_return(native)
+    expect(scheduler.send(:load_problem, subject)).to eq(["shadowed definition (runtime method at :)", nil])
+  end
 end

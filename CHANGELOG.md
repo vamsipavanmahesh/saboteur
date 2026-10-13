@@ -19,6 +19,10 @@ All notable changes are documented here. The format follows
   with exit 3 when a file vanishes: detection after the damage, per method,
   with no restoration. Configure the list via `c.hazard`; `--allow-hazardous`
   opts out.
+- Endless defs (`def x = ...`) are no longer skipped as "no coverage": the
+  coverage map now also records per-test method calls, which is how Ruby
+  reports endless-def bodies. A whole-suite build that records neither a line
+  hit nor a method call still stops with a clearer cause message. (#107)
 
 ## [0.4.0] - 2026-10-12
 

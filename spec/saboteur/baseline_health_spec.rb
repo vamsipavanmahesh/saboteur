@@ -8,16 +8,27 @@ RSpec.describe Saboteur::BaselineHealth do
   let(:integration) { instance_double(Saboteur::Integration::Base, all_tests: [Saboteur::Integration::TestCase.new(id: "a", file: "spec/a.rb")]) }
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
 
-  def response(passed: true, executed: ["a"])
+  def response(passed: true, executed: ["a"], child_failed: false)
     instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
                                                              payload: JSON.generate(passed: passed, executed: executed),
-                                                             exit_status: nil, leftover_pids: [])
+                                                             child_failed?: child_failed, leftover_pids: [])
   end
 
   it "requires two green runs with the same executed sequence" do
     allow(supervisor).to receive(:run).and_return(response, response)
     expect(described_class.new(config, integration: integration, supervisor: supervisor).call).to eq(["a"])
     expect(supervisor).to have_received(:run).with(timeout: 300.0).twice
+  end
+
+  it "rejects a run whose child exited unsuccessfully by itself" do
+    allow(supervisor).to receive(:run).and_return(response(child_failed: true))
+    expect { described_class.new(config, integration: integration, supervisor: supervisor).call }
+      .to raise_error(Saboteur::Error, /exited unsuccessfully/)
+  end
+
+  it "accepts a delivered result when only the supervisor's own kill ended the child" do
+    allow(supervisor).to receive(:run).and_return(response(child_failed: false), response(child_failed: false))
+    expect(described_class.new(config, integration: integration, supervisor: supervisor).call).to eq(["a"])
   end
 
   it "rejects a red baseline" do
@@ -69,8 +80,9 @@ RSpec.describe Saboteur::BaselineHealth, "bad child evidence" do
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
 
   def check(payload:, exit_status: nil, leftover_pids: [])
-    result = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
-                                                                      payload: payload, exit_status: exit_status,
+    failed = exit_status ? !exit_status.success? : false
+    result = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil, payload: payload,
+                                                                      exit_status: exit_status, child_failed?: failed,
                                                                       leftover_pids: leftover_pids)
     allow(supervisor).to receive(:run).and_return(result)
     described_class.new(Saboteur::Config.new, integration: integration, supervisor: supervisor).call
@@ -117,7 +129,8 @@ RSpec.describe Saboteur::BaselineHealth, "baseline supervision wiring" do
     result = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
                                                                       payload: JSON.generate(passed: true,
                                                                                              executed: ["a"]),
-                                                                      exit_status: nil, leftover_pids: [])
+                                                                      exit_status: nil,
+                                                                      child_failed?: false, leftover_pids: [])
     expect(supervisor).to receive(:run).with(timeout: 42.0).twice.and_return(result)
     expect(described_class.new(config, integration: integration).call).to eq(["a"])
   end
@@ -131,10 +144,12 @@ RSpec.describe Saboteur::BaselineHealth, "baseline supervision wiring" do
     green = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
                                                                      payload: JSON.generate(passed: true,
                                                                                             executed: ["a"]),
-                                                                     exit_status: status, leftover_pids: [])
+                                                                     exit_status: status,
+                                                                     child_failed?: false, leftover_pids: [])
     red = instance_double(Saboteur::Execution::Supervisor::Result, stopped_by: nil,
                                                                    payload: JSON.generate(passed: true, executed: "a"),
-                                                                   exit_status: status, leftover_pids: [])
+                                                                   exit_status: status,
+                                                                   child_failed?: false, leftover_pids: [])
     allow(supervisor).to receive(:run).and_return(green, red)
     expect { described_class.new(Saboteur::Config.new, integration: integration, supervisor: supervisor).call }
       .to raise_error(Saboteur::Error, /baseline run 2 did not execute every/)

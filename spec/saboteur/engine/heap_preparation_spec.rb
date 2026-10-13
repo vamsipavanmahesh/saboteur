@@ -8,6 +8,11 @@ require "tmpdir"
 # candidate lists are retained and before the execution phase forks, on the
 # serial path and on the parallel path alike.
 RSpec.describe Saboteur::Engine, "heap preparation" do
+  before do
+    # This nested engine has a fake boot, not ownership of the outer run's Coverage.
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+  end
+
   around do |example|
     Dir.mktmpdir do |dir|
       @root = File.realpath(dir)

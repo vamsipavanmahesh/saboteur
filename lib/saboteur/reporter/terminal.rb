@@ -17,6 +17,7 @@ module Saboteur
       def call(report)
         summary(report)
         skipped_subjects(report)
+        outside_the_score(report)
         warnings(report)
         errors(report)
         survivors(report)
@@ -37,8 +38,11 @@ module Saboteur
         survived = "survived #{c[:survived]}"
         ignored = report.survivors.size - report.unignored_survivors.size
         survived += " (#{ignored} ignored)" if ignored.positive?
-        "killed #{c[:killed]}  #{survived}  timeout #{c[:timeout]}  resource limit #{c[:resource_limit]}  " \
-          "error #{c[:error]}  skipped #{c[:skipped]}"
+        line = "killed #{c[:killed]}  #{survived}  timeout #{c[:timeout]}  " \
+               "resource limit #{c[:resource_limit]}  error #{c[:error]}  skipped #{c[:skipped]}"
+        line += "  ran at load #{c[:ran_at_load]}" if c[:ran_at_load].positive?
+        line += "  unreachable #{c[:unreachable]}" if c[:unreachable].positive?
+        line
       end
 
       def hazard_suppressions(report)
@@ -124,6 +128,24 @@ module Saboteur
         end
         report.skipped_subjects.each do |subject, reason|
           @out.puts "  #{subject.id} #{relative(subject.file, report.root)}:#{subject.start_line}: #{reason}"
+        end
+      end
+
+      # Mutants no test can judge, listed apart so they are not read as
+      # misses: code that only ran while the app loaded, and methods a
+      # captured Method object still calls in their original form.
+      def outside_the_score(report)
+        { ran_at_load: "Ran at load (out of the score):",
+          unreachable: "Unreachable (out of the score):" }.each do |status, heading|
+          results = report.results.select { |result| result.status == status }
+          next if results.empty?
+
+          @out.puts heading
+          results.each do |result|
+            location = "#{relative(result.subject.file, report.root)}:#{result.subject.start_line}"
+            @out.puts "  #{result.subject.id} #{result.mutation.operator} #{result.digest} #{location}"
+          end
+          @out.puts "  hint: #{results.first.reason}" if results.first.reason
         end
       end
 

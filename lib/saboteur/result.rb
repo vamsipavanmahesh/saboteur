@@ -8,7 +8,11 @@ module Saboteur
   # resource_limit: the mutant's process tree hit the memory or process cap.
   # Like error it is outside the score: a mutant that eats all memory was
   # stopped by saboteur, not detected by a test.
-  STATUSES = %i[killed survived timeout resource_limit error skipped].freeze
+  # ran_at_load: the mutated code only ran while the app loaded; no forked
+  # test can observe a change there, so it is outside the score.
+  # unreachable: a Method object captured before re-evaluation still calls
+  # the original body, so no test can observe the mutant. Outside the score.
+  STATUSES = %i[killed survived timeout resource_limit error skipped ran_at_load unreachable].freeze
 
   # Outcome of one mutation. reason carries the skip reason, the error
   # message or the timeout limit. ignored is the ignore-list reason, if any.
