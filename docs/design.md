@@ -320,9 +320,8 @@ harness problem or a runaway mutant cannot raise the score silently.
   whose edit no test executed is "no coverage", not a survivor.
 - Diff mode (`--since`): subjects are the methods with a changed line; each
   keeps its coarse mutants, but fine mutants only on changed lines. The
-  terminal shows one survivor per line (live before ignored, then coarse,
-  then the earliest edit);
-  the JSON report keeps all.
+  terminal lists every survivor, grouped by file, method and line; the JSON
+  report holds the same ones.
 - Incremental mode (`--incremental`, opt-in): a stored verdict (killed,
   survived, timeout) is reused while the method source, the mutant, the set
   of covering tests, their files' contents, the lockfile, the verdict-

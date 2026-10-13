@@ -52,7 +52,7 @@ supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
 a cache miss. Both baseline passes must be green, complete and in the same
 RSpec order at the run seed. A failure exits 3, stops mutation and names the log and fix. Long phases
-print their elapsed time about every 30 seconds, and each phase's log holds
+print their elapsed time about every 30 seconds, with the examples finished so far, the percentage and a rough estimate of the time left (it assumes equally long examples) once the suite child has logged its first count, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
 uses `coverage_timeout` and configured memory/process limits (the suite memory
 budget is four times `max_memory_mb`, as for coverage). A suite child that has
@@ -131,7 +131,7 @@ Minitest is not supported; see [Minitest](docs/minitest.md) for why and what it 
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
-run. A change no test reaches is reported as "no coverage", not as a survivor. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
+run. A change no test reaches is reported as "no coverage", not as a survivor. Branch coverage separates arms on the same line: an edit inside an arm no test took reports "no coverage (branch not taken)". Ruby does not expose `&&`/`||` right operands as branches, so those keep line-based selection. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
 whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
@@ -180,6 +180,7 @@ bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_s
 bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
 bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
 bundle exec saboteur run --fail-fast              # stop after the first subject with a survivor
+bundle exec saboteur run --matrix                 # every covering test per mutant: blind and redundant tests
 bundle exec saboteur run --verbose --no-color     # add score split, timings and kill causes; no colour
 ```
 
@@ -304,6 +305,16 @@ in the denominator. A tool
 that reads the JSON report may show a different score, because the schema counts
 NoCoverage as undetected.
 
+`--matrix` runs every covering test against every mutant instead of stopping at
+the first failing one, so a killed mutant lists all of its killers. After the
+survivors the report prints two lists: blind tests (they covered mutants and
+killed none) and redundant tests (they killed some, and every one of those
+mutants had another killer). The run is slower, by up to the number of covering
+tests per mutant. `--matrix` cannot be combined with `--incremental`, because a
+reused verdict lists only the first killer. A redundant test is a lead, not a
+verdict: it may guard behavior no selected mutant touches. A selection with
+`--since` or `--subject` describes only the selected methods.
+
 [Scores](docs/scores.md) defines each number on this page: the covered score, the
 score a Stryker dashboard shows, the assertion and crash split, and what makes a run
 incomplete.
@@ -374,6 +385,7 @@ Saboteur.configure do |c|
   c.include = ["lib/**/*.rb"]
   c.exclude = ["lib/my_gem/version.rb"]
   c.require = []                 # boot files, e.g. ./config/environment
+  c.whole_file = []              # subject ids or globs to re-evaluate as a whole file (see below)
   c.reeval = "nesting"           # or "class_eval"; see docs/design.md 6.1
   c.timeout_factor = 3           # per-mutant deadline = factor x its tests' recorded time
   c.timeout_min = 5
@@ -524,6 +536,34 @@ Methods wrapped by `sorbet-runtime` signatures are checked rather than skipped
 as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
 changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
 preserve the loaded method semantics.
+
+### Whole-file re-evaluation (opt-in)
+
+Surgical re-evaluation refuses a method whose owner it cannot resolve or whose
+loaded definition is not the one in the file. The skip reason ends with a hint.
+List such subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
+`"Geometry::*"`) and the child evaluates the whole mutated file instead. This
+applies to methods saboteur already finds as subjects; it does not make new
+kinds of definitions selectable (methods inside `Data.define` or `Struct.new`
+blocks are still not found). The file's top-level code then runs again in every
+child, after the run's seed is set: load-time side effects repeat and constants
+it assigns are rebuilt, with redefinition warnings silenced. If a later
+definition in the same file replaces the mutated method, the mutant could never
+run, so a survivor there is reported as unreachable instead. It is off by
+default, and the cache key includes the list.
+Signature text alone does not remove mutants. `body_nil` and last-statement
+removal remain available even when `sig` declares a non-nil return type.
+`checked(:never)`, unchecked `checked(:tests)` signatures, configured default
+levels, custom validation handlers and wrapper shims can all allow nil to
+reach real assertions. saboteur does not verify enforcement, evaluate return
+type expressions or infer types from constant names. Aliases, enclosing
+namespace constants and transformed generic types therefore cannot change
+mutation generation. RBS signatures are not read yet. Type-only crash kills
+remain visible in the crash share, not silently pruned.
+
+The Sorbet E2E fixture is a wrapper/registry shim without runtime type checking.
+It tests re-evaluation and assertion detection, not real Sorbet enforcement or
+proof of type-check noise reduction.
 
 ### Skipped subjects and the mutant cap
 
@@ -797,6 +837,8 @@ Local evidence protects against edits to the public proposal except review reaso
 A baseline that changes during `check` is rejected as configuration/evidence error (exit 2), not an incomplete execution result. Acceptance leaves a private `baseline.json.lock` beside the destination: keep it for cooperating-process publication locks. It contains no evidence or results. Symlinked checkout parents are normalized; symlink artifacts themselves and private-store/lock symlinks are still refused.
 
 The builtin `endpoint_replacement` operator swaps explicit, no-argument `first`/`last` calls. It targets wrong-end/order-selection faults in collection handling. Argument-bearing slices, bare calls and block-bearing APIs are left unchanged. Receivers are not statically typed: a custom object may implement either name differently, so a crash remains a crash kill, not proof of a collection assertion.
+
+JSON findings are ordered by a deterministic [review ranking](docs/survivor-ranking.md): coarse first, then covering-test count, edited-line impact and changed-line proximity, with file/line/digest ties. The terminal groups survivors by file, method and line first; the ranking only orders the survivors on one line, and every survivor is listed, in review mode too. Only consecutive survivors with matching evidence share a test/evidence block; repeated evidence after another group is printed again to keep that order. Ranking does not change scores or execution.
 
 ### Preview and choose operators
 

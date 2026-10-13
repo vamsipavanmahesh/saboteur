@@ -412,6 +412,17 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["allow_focus"]).to be(true)
   end
 
+  it "parses --matrix into the matrix config key, and describes it in help" do
+    command = cli("run", "--matrix")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(matrix: true)
+    expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["matrix"]).to be(true)
+    out = StringIO.new
+    Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
+    expect(out.string).to include("--matrix", "Run every covering test per mutant and list blind and redundant tests")
+  end
+
   it "refuses a focused suite unless allow_focus is set" do
     expect(Saboteur::Config.new({})["allow_focus"]).to be(false)
   end
@@ -439,7 +450,7 @@ RSpec.describe Saboteur::CLI, "details" do
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       cli("run", "--json", path).call
-      expect(out.string).to include("saboteur #{Saboteur::VERSION}:", "JSON report: #{path}")
+      expect(out.string).to include("saboteur #{Saboteur::VERSION}:", "Reports: #{path} (JSON)")
       expect(File).to exist(path)
     end
   end
@@ -450,8 +461,32 @@ RSpec.describe Saboteur::CLI, "details" do
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       cli("run", "--json", File.join(dir, "r.json"), "--html", path).call
-      expect(out.string).to include("HTML report: #{path}")
+      expect(out.string).to include("Reports: #{File.join(dir, 'r.json')} (JSON), #{path} (HTML)")
+      expect(out.string.scan("Reports:").size).to eq(1)
       expect(File.read(path)).to start_with("<!DOCTYPE html>")
+    end
+  end
+
+  it "names both reports on one Reports line with paths relative to the root" do
+    Dir.mktmpdir do |dir|
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      Dir.chdir(dir) { cli("run").call }
+      expect(out.string).to include("\nReports: .saboteur/report.json (JSON), .saboteur/report.html (HTML)\n")
+      expect(out.string).not_to include("JSON report:")
+    end
+  end
+
+  it "prints no Reports line and writes nothing when both reports are null" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.html_report = nil; c.json_report = nil }\n")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      Dir.chdir(dir) { cli("run").call }
+      expect(out.string).not_to include("Reports:")
+      expect(Dir.glob("#{dir}/.saboteur/report.*")).to be_empty
     end
   end
 
@@ -462,7 +497,8 @@ RSpec.describe Saboteur::CLI, "details" do
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       Dir.chdir(dir) { cli("run").call }
-      expect(out.string).not_to include("HTML report:")
+      expect(out.string).to include("Reports: .saboteur/report.json (JSON)\n")
+      expect(out.string).not_to include("HTML")
       expect(Dir.glob("#{dir}/**/*.html")).to be_empty
     end
   end

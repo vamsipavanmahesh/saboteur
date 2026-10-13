@@ -27,6 +27,21 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
                                        replacement: replacement)
   end
 
+  it "keeps the tests the child reported as run on the result" do
+    subject = subjects_in("class ExecutedTarget\n  def m(a)\n    a + 1\n  end\nend\n").first
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => %w[t1 t2] } },
+                                               tests: %w[t1 t2], durations: { "t1" => 0.1, "t2" => 0.1 })
+    scheduler = scheduler_for(map)
+    allow(scheduler).to receive(:load_problem).and_return([nil, nil])
+    ran = Saboteur::Execution::Runner::Outcome.new(status: :killed, runtime: 0.5, failed_ids: %w[t1],
+                                                   executed_ids: %w[t1], kill_cause: "assertion")
+    allow(runner).to receive(:run).and_return(ran, outcome(:survived))
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison",
+                                                      edits: [edit_around(subject, "+", replacement: "-")])
+    result = scheduler.call(subject, [[mutation, subject.source]]).first
+    expect([result.executed, result.complete?, result.kill_cause]).to eq([%w[t1], false, "assertion"])
+  end
+
   it "marks mutants of load-only lines ran at load, without forking" do
     subject = subjects_in("class LoadOnlyTarget\n  def m(a)\n    b = a + 1\n    REGISTRY << b\n    b\n  end\nend\n")
               .first
