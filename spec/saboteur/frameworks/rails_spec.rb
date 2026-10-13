@@ -2,10 +2,15 @@
 # frozen_string_literal: true
 
 require "pathname"
-require "sqlite3"
+sqlite3_missing = begin
+  require "sqlite3"
+  nil
+rescue LoadError
+  "the sqlite3 gem is not installed"
+end
 require "tmpdir"
 
-RSpec.describe Saboteur::Frameworks::Rails do
+RSpec.describe Saboteur::Frameworks::Rails, skip: sqlite3_missing do
   describe ".worker_database" do
     # Names of their own, so a developer's parallel_tests databases
     # (app_test2, ...) are never dropped or overwritten.
