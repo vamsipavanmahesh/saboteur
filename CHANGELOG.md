@@ -17,11 +17,19 @@ All notable changes are documented here. The format follows
   filesystem only. On kernels 5.13-6.1 (ABI 1-2) `truncate()` cannot be
   restricted, and on kernels without Landlock there is no sandbox at all:
   both run with the guard and canary only, noted once. `c.sandbox = false`
-  opts out; `c.sandbox = "strict"` refuses to run degraded;
+  opts out (`/dev/shm` and `/dev/tty` are denied like any other
+  ungranted path; `/dev/null` stays writable); `c.sandbox = "strict"`
+  refuses to run degraded;
   `c.sandbox_writable` grants extra directories (suites writing `db/`,
-  `log/`, ... otherwise fail with EACCES in mutant children). A kernel
-  probe that errors (rather than cleanly reporting Landlock absent) refuses
-  the run.
+  `log/`, ... otherwise fail with EACCES in mutant children) and warns when
+  a grant contains the project root or another grant. A kernel probe that
+  errors (rather than cleanly reporting Landlock absent) refuses the run.
+  The descriptor sweep also closes stdio redirected to a writable regular
+  file (terminal, pipe and `/dev/null` stdio stays), inherited files
+  already deleted from the tree, and any descriptor it cannot inspect -
+  fail closed. The C library lookup tolerates musl (soname fallbacks, then
+  the process symbol table) and degrades to the one-time unsandboxed note
+  when no libc resolves, instead of crashing.
 - A startup warning on stderr when the working tree has uncommitted changes,
   because mutants run your code and could alter or delete files. Saboteur's own
   output paths do not count as changes.
