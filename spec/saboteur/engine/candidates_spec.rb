@@ -42,6 +42,11 @@ RSpec.describe Saboteur::Engine::Candidates do
     expect(diagnostics.generation_events.map(&:reason)).to eq(["invalid_syntax"])
   end
 
+  it "drops a mutation that compiles to the original's bytecode and records why" do
+    expect(candidates(source_proposing("(a + 1)", "a - 1")).map(&:last)).to eq(["def m(a)\n    a - 1\n  end"])
+    expect(diagnostics.generation_events.map(&:reason)).to eq(["equivalent_bytecode"])
+  end
+
   it "puts coarse mutations first" do
     found = candidates(source_proposing("a - 1"), source_proposing("nil", coarse: true))
     expect(found.map { |mutation, _| mutation.coarse }).to eq([true, false])
