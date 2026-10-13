@@ -47,6 +47,44 @@ RSpec.describe Saboteur::Engine::Candidates do
     expect(diagnostics.generation_events.map(&:reason)).to eq(["equivalent_bytecode"])
   end
 
+  it "keeps literal string mutants whose text looks like hex or a parenthesised number" do
+    subject_under_test = subjects_in("class K\n  def m\n    \"0xdead(123)\"\n  end\nend\n").first
+    owner = subject_under_test
+    source = Class.new(Saboteur::MutationSource::Base) do
+      define_method(:mutations_for) do |subject|
+        at = subject.file_source.index("\"0xdead(123)\"")
+        ["\"0xbeef(123)\"", "\"0xdead(124)\"", "\"\""].map do |text|
+          edit = Saboteur::MutationSource::Edit.new(file: owner.file, start_byte: at, end_byte: at + 13,
+                                                    replacement: text)
+          Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "literal_string", edits: [edit])
+        end
+      end
+    end.new
+
+    found = described_class.new([source], diagnostics).for(subject_under_test)
+
+    expect(found.size).to eq(3)
+    expect(diagnostics.generation_events.map(&:reason)).not_to include("equivalent_bytecode")
+  end
+
+  it "compares bytecode under the file's frozen_string_literal comment" do
+    bytecode = instance_double(Saboteur::Engine::BytecodeEquivalence, equivalent?: false)
+    text = "# frozen_string_literal: true\nclass K\n  def m(a)\n    a + 1\n  end\nend\n"
+    frozen_subject = subjects_in(text).first
+    source = Class.new(Saboteur::MutationSource::Base) do
+      define_method(:mutations_for) do |subject|
+        at = subject.file_source.index("a + 1")
+        edit = Saboteur::MutationSource::Edit.new(file: frozen_subject.file, start_byte: at, end_byte: at + 5,
+                                                  replacement: "a - 1")
+        [Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])]
+      end
+    end.new
+
+    described_class.new([source], diagnostics, bytecode: bytecode).for(frozen_subject)
+
+    expect(bytecode).to have_received(:equivalent?).with(anything, anything, frozen_string_literal: true)
+  end
+
   it "puts coarse mutations first" do
     found = candidates(source_proposing("a - 1"), source_proposing("nil", coarse: true))
     expect(found.map { |mutation, _| mutation.coarse }).to eq([true, false])
