@@ -219,4 +219,47 @@ RSpec.describe Preflight::ExecutionInputs, :fixture do
       end
     end
   end
+
+  describe "lockfile preparation" do
+    before do
+      @fixture.write(".gitignore", "Gemfile.lock\n")
+      @fixture.commit("ignore the lockfile")
+    end
+
+    def with_runner(&responder)
+      described_class.new(repository: @fixture.repository(base: @base), directory: @fixture.directory, env: env,
+                          command_runner: PreflightSupport::ScriptedRunner.new(&responder))
+    end
+
+    it "fails when preparation reports success but the effective lockfile is still missing" do
+      expect { with_runner { |argv| PreflightSupport::ScriptedRunner.new.result(argv, 0, "") }.prepare_lockfile }
+        .to raise_error(Preflight::ExecutionGap, /does not exist/)
+    end
+
+    it "fails when preparation itself fails" do
+      failing = with_runner { |argv| PreflightSupport::ScriptedRunner.new.result(argv, 1, "", stderr: "no gems") }
+      expect { failing.prepare_lockfile }.to raise_error(Preflight::ExecutionGap, /cannot prepare the lockfile/)
+    end
+
+    it "creates and then accepts the lockfile (valid control), without running anything when it exists" do
+      lock = File.join(@fixture.directory, "Gemfile.lock")
+      env["BUNDLE_GEMFILE"] = File.join(@fixture.directory, "Gemfile")
+      writer = with_runner do |argv|
+        File.write(lock, "locked\n") if argv == %w[bundle lock --local]
+        PreflightSupport::ScriptedRunner.new.result(argv, 0, "")
+      end
+      expect { writer.prepare_lockfile }.not_to raise_error
+      idle = PreflightSupport::ScriptedRunner.new
+      described_class.new(repository: @fixture.repository(base: @base), directory: @fixture.directory, env: env,
+                          command_runner: idle).prepare_lockfile
+      expect(idle.calls).to be_empty
+    end
+
+    it "keeps the final dependency identity read-only: it never runs a lock command" do
+      scripted = PreflightSupport::ScriptedRunner.new { |argv| PreflightSupport::ScriptedRunner.new.result(argv, 0, "") }
+      described_class.new(repository: @fixture.repository(base: @base), directory: @fixture.directory, env: env,
+                          command_runner: scripted).dependency_digest
+      expect(scripted.calls).not_to include(%w[bundle lock --local])
+    end
+  end
 end
