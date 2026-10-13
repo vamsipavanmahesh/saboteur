@@ -8,9 +8,20 @@ RSpec.describe "doctor", :e2e do
                    "doctor", *arguments, chdir: dir)
   end
 
-  it "checks the environment and two seeded baselines without writing caches or reports" do
+  it "checks the environment only by default, without running the suite or writing anything" do
     dir = copy_fixture("people")
-    out, err, status = doctor(dir, "--seed", "42")
+    File.write(File.join(dir, "spec", "failure_spec.rb"),
+               'RSpec.describe("red") { it("fails") { expect(true).to eq(false) } }')
+    out, err, status = doctor(dir)
+    expect(status.exitstatus).to eq(0), err
+    expect(out).to include("Ruby:", "Coverage: suspended", "Integration: rspec", "Baseline: not run", "--suite")
+    expect(out).not_to include("passed twice")
+    expect(File).not_to exist(File.join(dir, ".saboteur"))
+  end
+
+  it "checks two seeded baselines with --suite without writing caches or reports" do
+    dir = copy_fixture("people")
+    out, err, status = doctor(dir, "--suite", "--seed", "42")
     expect(status.exitstatus).to eq(0), err
     expect(out).to include("Ruby:", "Coverage: suspended", "Integration: rspec", "passed twice", "seed 42")
     expect(File).not_to exist(File.join(dir, ".saboteur"))
@@ -49,11 +60,20 @@ RSpec.describe "doctor", :e2e do
     expect(File.read(path)).to eq(contents)
   end
 
+  it "limits the suite runs to --test specs, which implies --suite" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "spec", "failure_spec.rb"),
+               'RSpec.describe("red") { it("fails") { expect(true).to eq(false) } }')
+    out, err, status = doctor(dir, "--test", "spec/person_spec.rb")
+    expect(status.exitstatus).to eq(0), err
+    expect(out).to match(/Baseline: \d+ tests passed twice/)
+  end
+
   it "fails plainly when the unchanged suite is red" do
     dir = copy_fixture("people")
     File.write(File.join(dir, "spec", "failure_spec.rb"),
                'RSpec.describe("red") { it("fails") { expect(true).to eq(false) } }')
-    out, err, status = doctor(dir)
+    out, err, status = doctor(dir, "--suite")
     expect(status.exitstatus).to eq(3), out
     expect(err).to include("baseline", "failed")
     expect(File).not_to exist(File.join(dir, ".saboteur"))
@@ -74,7 +94,7 @@ RSpec.describe "doctor diagnostics", :e2e do
   def doctor_check(dir)
     Open3.capture3({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
                    RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE,
-                   "doctor", chdir: dir)
+                   "doctor", "--suite", chdir: dir)
   end
 
   it "reports a missing boot file as a config error" do
@@ -113,7 +133,7 @@ RSpec.describe "doctor failure detail", :e2e do
   def diagnose(dir)
     Open3.capture3({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
                    RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE,
-                   "doctor", chdir: dir)
+                   "doctor", "--suite", chdir: dir)
   end
 
   it "names a failing example and its assertion message before removing temporary output" do
@@ -156,7 +176,7 @@ RSpec.describe "doctor read-only and hook boundaries", :e2e do
   def check_doctor(dir)
     Open3.capture3({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
                    RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE,
-                   "doctor", "--seed", "42", chdir: dir)
+                   "doctor", "--suite", "--seed", "42", chdir: dir)
   end
 
   it "does not call mutation-specific before_fork callbacks" do
