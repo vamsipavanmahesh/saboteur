@@ -92,21 +92,31 @@ covers: data committed by another connection, by a `before(:all)` or
 `before(:suite)` hook, or outside the transaction stays.
 
 Workers are isolated from each other only where saboteur makes a copy of the
-database per worker: SQLite and PostgreSQL, with `jobs` above 1 (see the
-Rails section of the README). MySQL is not supported above `jobs: 1`, and
+database per worker: the Rails profile is on (`c.rails = true`), the adapter
+is SQLite or PostgreSQL, and `jobs` is above 1 (see the Rails section of the
+README). MySQL is not supported above `jobs: 1`, and
 saboteur does not copy any other database. For those, use `jobs: 1`, or give
 each worker its own database in `before_fork` or `after_fork` hooks.
 
-A change to a fixture file changes the cache keys, so `--incremental` does not
-reuse verdicts after you edit one.
+Rails fixtures in `spec/fixtures` and `test/fixtures` are part of the cache
+fingerprint, so `--incremental` does not reuse verdicts after you edit one.
+Fixtures or data files anywhere else (for example `spec/support/data/*.csv`)
+are not seen: list them in `c.fingerprint_extra`.
+
+A suite that shares one database between processes (a shared test database, a
+database another job or developer also uses, or tests that commit) can see
+rows from a run that is not its own. A transaction or a cleaning strategy only
+undoes what it wraps and only for the connection that opened it. Give saboteur
+a database nothing else uses.
 
 ## DatabaseCleaner
 
 With `jobs: 1` the children write to your real test database. A cleaning
 strategy that truncates tables (`:truncation`) is safe there only because it
 is a test database; never point saboteur at a development database. With
-`jobs` above 1, each worker truncates its own copy on SQLite and PostgreSQL.
-On any other database, workers share one database, so the truncation of one
+`jobs` above 1 with the Rails profile on, each worker truncates its own copy
+on SQLite and PostgreSQL. Without the profile, or on any other adapter,
+workers share one database, so the truncation of one
 worker can wipe the rows another is using: use `jobs: 1` or per-worker
 databases from hooks.
 
