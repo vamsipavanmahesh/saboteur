@@ -91,9 +91,7 @@ module Saboteur
         # Before the evaluation: a whole-file subject runs the file's own
         # top-level code there, and it must see the run's random numbers.
         Kernel.srand(@seed)
-        @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
-        replaced = @reevaluator.replaced_definition(job.subject)
-        Protocol.emit(writer, "replaced", site: replaced) if replaced
+        evaluate_mutant(writer, job)
         stale = stale_captures(job)
         Protocol.emit(writer, "captures", site: stale.first, stale: stale.size) if stale.any?
         Protocol.emit(writer, "started")
@@ -102,6 +100,12 @@ module Saboteur
       rescue Exception => e # rubocop:disable Lint/RescueException
         Protocol.emit(writer, "error", message: "#{e.class}: #{e.message}", backtrace: e.backtrace&.first(5))
         exit!(1)
+      end
+
+      def evaluate_mutant(writer, job)
+        @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
+        replaced = @reevaluator.replaced_definition(job.subject)
+        Protocol.emit(writer, "replaced", site: replaced) if replaced
       end
 
       # Capture detection is best-effort: a subject shape it cannot scan
