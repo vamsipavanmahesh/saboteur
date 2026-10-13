@@ -44,6 +44,10 @@ module Preflight
     def baseline(before, after)
       raise ExecutionGap, "inputs changed while dependencies were prepared" unless same_but_new_lockfile?(before, after)
 
+      if @prepared_lock && absent?(JSON.parse(JSON.generate(after))["bundler_files"]["lockfile"].last)
+        raise ExecutionGap, "inputs changed while dependencies were prepared: #{@prepared_lock} is missing again"
+      end
+
       digest_of(after)
     end
 
@@ -90,7 +94,11 @@ module Preflight
       lock = original["bundler_files"]["lockfile"]
       return shaped unless lock.first == @prepared_lock && lock.last == "absent"
 
-      shaped["bundler_files"]["lockfile"] = lock if shaped["bundler_files"]["lockfile"].first == lock.first
+      final = shaped["bundler_files"]["lockfile"]
+      # A lockfile that is absent again at the end is a deletion, not a created lockfile: no exception applies.
+      return shaped unless final.first == lock.first && final.last != "absent"
+
+      shaped["bundler_files"]["lockfile"] = lock
       own = File.expand_path("Gemfile.lock", @directory)
       shaped["ignored_files"]["Gemfile.lock"] = original["ignored_files"]["Gemfile.lock"] if @prepared_lock == own
       shaped
