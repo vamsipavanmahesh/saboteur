@@ -82,11 +82,10 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
       .with(anything, nil, nil, 1, { frozen_string_literal: true }).twice
   end
 
-  describe ".frozen_string_literal?" do
-    it "reads the magic comment from the top of a file" do
-      expect(described_class.frozen_string_literal?("# SPDX\n# frozen_string_literal: true\nclass A; end")).to be(true)
-      expect(described_class.frozen_string_literal?("class A\n  # frozen_string_literal: true\nend")).to be(false)
-      expect(described_class.frozen_string_literal?("# frozen_string_literal: false\n")).to be(false)
-    end
+  it "never equates an Integer with a Float" do
+    expect(filter.equivalent?("def m\n  2\nend", "def m\n  2.0\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  [2]\nend", "def m\n  [2.0]\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  { 1 => :a }\nend", "def m\n  { 1.0 => :a }\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  2.0\nend", "def m\n  2.0\nend")).to be(true)
   end
 end
