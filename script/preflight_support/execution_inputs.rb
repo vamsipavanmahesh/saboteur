@@ -55,15 +55,17 @@ module Preflight
     # calls it, so a lockfile deleted during the checks is seen as a change, never silently recreated.
     def prepare_lockfile
       if bundler_files[:lockfile].last == "absent"
+        @prepared_lock = bundler_files[:lockfile].first
         result = @runner.run(%w[bundle lock --local], timeout: 120)
         unless result.succeeded?
           raise ExecutionGap,
                 "cannot prepare the lockfile: #{result.problem || result.stderr.strip}"
         end
       end
-      return unless bundler_files[:lockfile].last == "absent"
+      lock = bundler_files[:lockfile]
+      return unless lock.last == "absent"
 
-      raise ExecutionGap, "lock preparation succeeded but #{bundler_files[:lockfile].first} does not exist"
+      raise ExecutionGap, "lock preparation succeeded but #{lock.first} does not exist"
     end
 
     # Read-only: never writes the lockfile.
@@ -77,18 +79,20 @@ module Preflight
       JSON.generate(without_new_lockfile(before, after)) == JSON.generate(before)
     end
 
+    # The one allowed difference: the effective lockfile that preparation found missing and then created. Its entry
+    # in the ignored-files list is mirrored only when it is the checkout's own Gemfile.lock. Any other lockfile
+    # that appears (for example a default Gemfile.lock when BUNDLE_GEMFILE points elsewhere) stays a difference.
     def without_new_lockfile(before, after)
       shaped = JSON.parse(JSON.generate(after))
+      return shaped unless @prepared_lock
+
       original = JSON.parse(JSON.generate(before))
-      if absent?(original["ignored_files"]["Gemfile.lock"])
-        shaped["ignored_files"]["Gemfile.lock"] =
-          original["ignored_files"]["Gemfile.lock"]
-      end
       lock = original["bundler_files"]["lockfile"]
-      if lock.last == "absent" && shaped["bundler_files"]["lockfile"].first == lock.first
-        shaped["bundler_files"]["lockfile"] =
-          lock
-      end
+      return shaped unless lock.first == @prepared_lock && lock.last == "absent"
+
+      shaped["bundler_files"]["lockfile"] = lock if shaped["bundler_files"]["lockfile"].first == lock.first
+      own = File.expand_path("Gemfile.lock", @directory)
+      shaped["ignored_files"]["Gemfile.lock"] = original["ignored_files"]["Gemfile.lock"] if @prepared_lock == own
       shaped
     end
 
