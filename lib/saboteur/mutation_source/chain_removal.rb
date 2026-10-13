@@ -11,11 +11,17 @@ module Saboteur
     # on the original object.
     class ChainRemoval < Base
       BOUNDARIES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
-      # Calls that hand back the same value (or an equal copy). Dropping one changes
-      # only frozenness or object identity, which ordinary tests do not check, so the
-      # mutant is almost always equivalent noise. A frozen or copy contract needs its
-      # own operator.
+      # Links this operator leaves alone by design. They hand back their receiver or a
+      # copy of it (tap after running a block), so dropping one changes mutability,
+      # copying or a block's side effects. Tests can observe those, but they are other
+      # contracts than "a step in the query chain went missing", and removing them
+      # mostly yields noise, so they are out of scope here.
       IDENTITY_CALLS = %w[freeze dup clone itself tap].freeze
+
+      # Targets of a write: `a.b.c = 1`, `a.b.c += 1`, `a.b[0] ||= 1`. The whole receiver chain
+      # is the thing being assigned to, so no link of it is dropped.
+      WRITE_NODES = [Prism::CallOperatorWriteNode, Prism::CallOrWriteNode, Prism::CallAndWriteNode,
+                     Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode].freeze
 
       def initialize(arid: []) # rubocop:disable Lint/MissingSuper
         @arid = arid.map { |pattern| Regexp.new(pattern) }
@@ -41,7 +47,18 @@ module Saboteur
           return
         end
         remove_link(node, subject, found) if node.is_a?(Prism::CallNode)
-        node.compact_child_nodes.each { |child| visit(child, subject, found) }
+        children(node).each { |child| visit(child, subject, found) }
+      end
+
+      # Everything under the node except the receiver chain of a write target.
+      def children(node)
+        return node.compact_child_nodes unless write_target?(node)
+
+        node.compact_child_nodes.reject { |child| child.equal?(node.receiver) }
+      end
+
+      def write_target?(node)
+        WRITE_NODES.any? { |type| node.is_a?(type) } || (node.is_a?(Prism::CallNode) && node.attribute_write?)
       end
 
       def remove_link(call, subject, found)
