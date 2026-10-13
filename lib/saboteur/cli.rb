@@ -137,7 +137,7 @@ module Saboteur
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
     def warn_dirty_tree
-      tree = WorkingTree.new(config.root, ignored: output_paths).state
+      tree = WorkingTree.new(config.root, ignored: config.output_paths).state
       return unless tree.dirty
 
       @err.puts("saboteur: warning: #{tree.changed_files} uncommitted change(s) in the working tree. " \
@@ -183,9 +183,10 @@ module Saboteur
     # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
     # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
     def agent_run(arguments)
-      tree = WorkingTree.new(config.root, ignored: output_paths).state
-      report = stdout_on_stderr { Engine.new(config, **arguments).call }
-      payload = Reporter::Agent.call(report, agent_provenance(report, tree))
+      tree = WorkingTree.new(config.root, ignored: config.output_paths).state
+      engine = Engine.new(config, **arguments)
+      report = stdout_on_stderr { engine.call }
+      payload = Reporter::Agent.call(report, agent_provenance(report, tree, engine))
       rendered = Reporter::Agent.render(payload)
       # Same publish order as text_run: the JSON is the completion
       # evidence, so it is written only after every other fallible stage,
@@ -194,15 +195,6 @@ module Saboteur
       write_json(report, agent_exit_cause(report, payload), announce: false)
       @out.print(rendered)
       Reporter::Agent.exit_code(payload)
-    end
-
-    # Paths of saboteur's own output, relative to the root, that do not count as source changes.
-    def output_paths
-      root = File.join(File.realpath(config.root), "")
-      %w[cache_dir json_report html_report].filter_map { |key| config.path(key) }
-                                           .map { |path| File.expand_path(path) }
-                                           .select { |path| path.start_with?(root) }
-                                           .map { |path| path.delete_prefix(root) }
     end
 
     # Descriptor 1 points at stderr for the block, so Kernel#puts, system and forked
@@ -216,11 +208,12 @@ module Saboteur
       saved&.close
     end
 
-    def agent_provenance(report, tree)
+    def agent_provenance(report, tree, engine)
       Reporter::Agent::Provenance.new(
         ref: config["since"], seed: report.seed, head: tree.head, working_tree: tree.label,
         changed_files: tree.changed_files, mode: agent_mode, json_report: config.path("json_report"),
-        subjects: Array(config["subjects"]), tests: Array(options[:tests]), sources: @sources || [],
+        subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || options[:tests]),
+        sources: @sources || [],
         config_path: options[:config], digest: options[:id], cache: config["cache"],
         incremental: config["incremental"], settings: options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
       )
