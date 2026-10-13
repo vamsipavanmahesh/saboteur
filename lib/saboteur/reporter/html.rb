@@ -57,7 +57,7 @@ module Saboteur
           <title>saboteur report</title>
           <style>#{STYLE}</style></head><body>
           <h1>saboteur report</h1>
-          #{summary(report, data)}#{warnings(data[:warnings])}#{skipped_subjects(data[:skippedSubjects])}
+          #{summary(report, data)}#{inline_suppressions(report)}#{warnings(data[:warnings])}#{skipped_subjects(data[:skippedSubjects])}
           <h2>Files</h2>
           #{data[:files].map { |file, entry| file_section(file, entry, names, results) }.join("\n")}
           </body></html>
@@ -65,6 +65,17 @@ module Saboteur
       end
 
       private
+
+      def inline_suppressions(report)
+        return "" if report.inline_suppressions.empty?
+
+        items = report.inline_suppressions.map do |entry|
+          path = entry[:file].delete_prefix("#{report.root}/")
+          "<li>#{escape(path)}:#{entry[:line]} #{escape(entry[:subject])} " \
+            "#{escape(entry[:operator])} <code>#{escape(entry[:digest])}</code>: #{escape(entry[:reason])}</li>"
+        end
+        "<h2>Inline suppressions (#{items.size}, outside the score)</h2><ul>#{items.join}</ul>"
+      end
 
       def summary(report, data)
         seed = data.dig(:config, :seed)
