@@ -263,8 +263,16 @@ check may belong in one of them. Line coverage can overstate which tests
 exercise a line, so treat the list as a lead. A survivor reused with
 `--incremental` was not run again, and the list says its tests passed in an
 earlier run. `--fail-fast` (serial runs only) stops after the first subject
-that has a survivor the ignore list does not accept; the report then covers
-only the subjects that ran. The HTML page shows the same list in the
+that has a survivor the ignore list does not accept. The report then covers
+only the subjects that ran: the terminal says which subjects did not run, the
+JSON report has an `earlyStop` field naming them (`exitCause` is `failFast`),
+`--agent` reports status `partial` with the reason `fail_fast`, and the run
+always exits 1, so no `--threshold` can pass it. It cannot be used with
+`baseline` evidence. Survivors that share a line are printed together only
+when their covering tests, reuse status and changed lines are identical;
+otherwise each distinct set of evidence is printed above its own mutations.
+Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+mutant. The HTML page shows the same list in the
 survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
