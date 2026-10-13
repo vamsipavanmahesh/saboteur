@@ -1,15 +1,5 @@
 # Changelog
 
-- Add opt-in predicate negation. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
-
-- Add opt-in arithmetic compound assignment replacement. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
-
-- Add opt-in range endpoint replacement. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
-
-- Add audited inline suppression comments with required reasons. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
-
-- Add source-only --dry-run, --list-operators and --operators selection. Inspired by mutineer (github.com/davidteren/mutineer, MIT, by David Teren).
-
 All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
@@ -17,6 +7,7 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Opt-in extended `range`, `operator_assignment` and `condition_negation` operators (#135). Default core selection is unchanged.
 - `whole_file` config: an opt-in list of subject ids or globs (for example
   `"Point#distance"`, `"Geometry::*"`). For those subjects the child evaluates the
   whole mutated file instead of re-evaluating the one method, so methods
