@@ -198,6 +198,10 @@ module Saboteur
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
 
       validate_reeval!
+      validate_operator_config!
+    end
+
+    def validate_operator_config!
       MutationSource::OperatorRegistry.resolve(self["operators"])
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
