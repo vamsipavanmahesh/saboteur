@@ -753,6 +753,9 @@ fails. The check prints a `score` object (`baseline`, `current`, `drop`, `epsilo
 not on `run`: the delta gate needs the baseline's fresh whole-scope evidence, which `run` does not produce.
 It is not the same as `--threshold`, which gates an absolute score.
 
+In GitHub Actions, the action's `baseline` and `baseline-epsilon` inputs run this check; see
+[docs/github-action.md](docs/github-action.md).
+
 Local evidence protects against edits to the public proposal except review reasons. It is not remote attestation, a signature, or protection against the account owner changing their private files. File fingerprints cannot prove external database, network or environment stability. `config/saboteur_ignore.rb` remains a separate legacy ignore mechanism; this gate compares every survivor regardless of ignore status.
 
 A baseline that changes during `check` is rejected as configuration/evidence error (exit 2), not an incomplete execution result. Acceptance leaves a private `baseline.json.lock` beside the destination: keep it for cooperating-process publication locks. It contains no evidence or results. Symlinked checkout parents are normalized; symlink artifacts themselves and private-store/lock symlinks are still refused.
