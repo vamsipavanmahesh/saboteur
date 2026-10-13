@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "next_steps"
 require_relative "palette"
 require_relative "score_table"
 require_relative "survivor_list"
@@ -19,6 +20,7 @@ module Saboteur
         @verbose = verbose
         @palette = Palette.for(out, mode: color)
         @score_table = ScoreTable.new(out, @palette)
+        @next_steps = NextSteps.new(out, @palette)
       end
 
       def call(report)
@@ -41,6 +43,7 @@ module Saboteur
         details(report)
         @score_table.call(report)
         @out.puts @score_table.legend
+        @next_steps.call(report)
       end
 
       def status_line(report)
