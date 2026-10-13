@@ -23,10 +23,11 @@ module Saboteur
         end
       end
 
-      def initialize(sources, diagnostics, hazard_guard: nil)
+      def initialize(sources, diagnostics, hazard_guard: nil, bytecode: BytecodeEquivalence.new)
         @sources = sources
         @diagnostics = diagnostics
         @hazard_guard = hazard_guard
+        @bytecode = bytecode
       end
 
       def for(subject)
@@ -94,10 +95,16 @@ module Saboteur
           return record_drop(subject, mutation, "invalid_syntax")
         end
 
+        return record_drop(subject, mutation, "equivalent_bytecode") if equivalent?(subject, text)
+
         [mutation, text]
       rescue ArgumentError => e
         @diagnostics.warn("#{subject.id}: dropped #{mutation.source} mutation: #{e.message}")
         record_drop(subject, mutation, "invalid_edit")
+      end
+
+      def equivalent?(subject, text)
+        @bytecode.equivalent?(subject.source, text, frozen_string_literal: subject.frozen_literals)
       end
 
       def parses?(text)

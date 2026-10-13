@@ -33,10 +33,13 @@ RSpec.describe Saboteur::Execution::Runner do
 
         Process.kill("KILL", Process.pid) if text == "die_on_eval"
 
-        @mode = text
+        File.write(File.join(dir, "rand_on_eval"), rand(1_000_000_000).to_s) if text == "pass"
+        @replaced = "f.rb:9" if text.start_with?("replaced_")
+        @mode = text.delete_prefix("replaced_")
       end
 
       define_method(:mode) { @mode }
+      define_method(:replaced_definition) { |_subject| @replaced }
     end.new
   end
 
@@ -97,6 +100,41 @@ RSpec.describe Saboteur::Execution::Runner do
     expect(File.read(File.join(tmpdir, "prefix"))).to eq("sig { void }")
   end
 
+  describe "a mutant whose definition a later one in the file replaced" do
+    let(:mutation) do
+      edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")
+      Saboteur::MutationSource::Mutation.new(subject_id: "Stub#run", operator: "comparison", edits: [edit])
+    end
+
+    def run_replaced(mode, mutation: self.mutation)
+      runner.run(subject: subject_stub, text: "replaced_#{mode}", test_ids: %w[t1 t2], timeout: 5, mutation:)
+    end
+
+    it "is unreachable, not survived, naming where the other definition is" do
+      outcome = run_replaced("pass")
+      expect(outcome.status).to eq(:unreachable)
+      expect(outcome.message).to eq("the whole-file evaluation left another definition in place (f.rb:9), " \
+                                    "so this mutant never ran")
+    end
+
+    it "leaves a kill, other outcomes and the unchanged-method check alone" do
+      expect(run_replaced("fail").status).to eq(:killed)
+      expect(run_replaced("partial").status).to eq(:error)
+      expect(run_replaced("pass", mutation: nil).status).to eq(:survived)
+    end
+  end
+
+  it "seeds the random numbers before the method is evaluated, so top-level code sees them" do
+    rand
+    runner.run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    first = File.read(File.join(tmpdir, "rand_on_eval"))
+    rand
+    runner.run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    expect(File.read(File.join(tmpdir, "rand_on_eval"))).to eq(first)
+    Kernel.srand(seed)
+    expect(first).to eq(rand(1_000_000_000).to_s)
+  end
+
   it "keeps a survivor when replacement execution cannot be verified" do
     edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: "Stub#run", operator: "comparison",
@@ -142,6 +180,12 @@ RSpec.describe Saboteur::Execution::Runner do
 
   it "counts a test calling exit as killed" do
     expect(run_mode("exit").status).to eq(:killed)
+  end
+
+  it "reports which tests ran: all of them for a survivor, the ones before the stop for a kill, none after exit" do
+    expect(run_mode("pass").executed_ids).to eq(%w[t1 t2])
+    expect(run_mode("fail").executed_ids).to eq(%w[t1])
+    expect(run_mode("exit").executed_ids).to eq([])
   end
 
   it "reports error, never survived, when fewer tests ran than requested" do
@@ -279,5 +323,86 @@ RSpec.describe Saboteur::Execution::Runner, "replacement execution" do
                            test_ids: ["t1"], timeout: 5)
       expect(outcome.status).to eq(:unreachable)
     end
+  end
+end
+
+RSpec.describe "Runner sandbox wiring (#152)" do
+  let(:tmpdir) { Dir.mktmpdir("saboteur-runner-") }
+  let(:subject_stub) { Struct.new(:id).new("Stub#run") }
+
+  after { FileUtils.rm_rf(tmpdir) }
+
+  def passing_integration(&side_effect)
+    Class.new do
+      define_method(:run) do |ids|
+        side_effect&.call
+        Saboteur::Integration::RunResult.new(runtime: 0.01, passed: true, failed_ids: [], executed_ids: ids)
+      end
+    end.new
+  end
+
+  def build_runner(sandbox:, integration: passing_integration)
+    reevaluator = Class.new do
+      def call(_subject, _text, prefix: nil); end
+
+      def replaced_definition(_subject) = nil
+    end.new
+    Saboteur::Execution::Runner.new(integration: integration, reevaluator: reevaluator,
+                                    log_dir: tmpdir, sandbox: sandbox)
+  end
+
+  it "runs the sandbox hook in the child before the tests" do
+    order = File.join(tmpdir, "order")
+    integration = passing_integration { File.open(order, "a") { |f| f.puts("tests") } }
+    sandbox = ->(_keep_fds) { File.open(order, "a") { |f| f.puts("sandbox") } }
+    outcome = build_runner(sandbox: sandbox, integration: integration)
+              .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    expect(outcome.status).to eq(:survived)
+    expect(File.read(order).split).to eq(%w[sandbox tests])
+  end
+
+  it "hands the child's report-pipe fd to the sandbox hook" do
+    seen = File.join(tmpdir, "keep_fds")
+    sandbox = ->(keep_fds) { File.write(seen, keep_fds.inspect) }
+    outcome = build_runner(sandbox: sandbox).run(subject: subject_stub, text: "pass", test_ids: %w[t1],
+                                                 timeout: 5)
+    expect(outcome.status).to eq(:survived)
+    fds = eval(File.read(seen)) # rubocop:disable Security/Eval
+    expect(fds).to be_an(Array)
+    expect(fds.size).to eq(1)
+    expect(fds.first).to be_an(Integer).and(be > 2)
+  end
+
+  it "reports an error rather than run when the sandbox cannot be applied" do
+    outcome = build_runner(sandbox: ->(_keep_fds) { raise SystemCallError.new("landlock_restrict_self", 13) })
+              .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    expect(outcome.status).to eq(:error)
+    expect(outcome.message).to include("landlock_restrict_self")
+  end
+
+  it "denies a mutant's writes to the project tree while logs and tmp stay writable" do
+    skip "Landlock unavailable" unless Saboteur::Execution::Sandbox.available?
+    project = File.expand_path("../../../tmp/saboteur-runner-project", __dir__)
+    FileUtils.mkdir_p(File.join(project, "tmp"))
+    marker = File.join(tmpdir, "outcome")
+    integration = passing_integration do
+      result = begin
+        File.write(File.join(project, "evil.rb"), "x")
+        :writable
+      rescue SystemCallError
+        :denied
+      end
+      File.write(marker, result.to_s)
+    end
+    sandbox = lambda do |keep_fds|
+      Saboteur::Execution::Sandbox.restrict!(writable: [File.join(project, "tmp"), tmpdir], keep_fds: keep_fds)
+    end
+    outcome = build_runner(sandbox: sandbox, integration: integration)
+              .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    expect(outcome.status).to eq(:survived)
+    expect(File.read(marker)).to eq("denied")
+    expect(File.exist?(File.join(project, "evil.rb"))).to be(false)
+  ensure
+    FileUtils.rm_rf(project) if project
   end
 end

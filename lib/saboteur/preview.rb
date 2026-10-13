@@ -19,6 +19,7 @@ module Saboteur
       guard = MutationSource::HazardGuard.new(@config["hazard"]) unless @config["allow_hazardous"]
       candidates = Engine::Candidates.new(Engine::Candidates.build_sources(@config), @diagnostics, hazard_guard: guard)
       lists = subjects.map { |subject| planned(subject, candidates, scope) }
+      inline_suppressions
       incomplete = @diagnostics.discovery_failures.size
       @out.puts("Total: #{lists.sum(&:size)} mutants; #{@diagnostics.omissions.sum(&:count)} " \
                 "dropped by max_mutants_per_method#{incomplete_note(incomplete)}")
@@ -29,6 +30,21 @@ module Saboteur
 
     private
 
+    # Candidate filtering precedes diff restriction and the per-method cap.
+    # Name that scope rather than implying these rows were executed or scored.
+    def inline_suppressions
+      entries = @diagnostics.inline_suppressions
+      return if entries.empty?
+
+      @out.puts("Inline suppressions: #{entries.size} candidates in selected methods " \
+                "(before diff restriction and per-method cap; outside the planned total)")
+      entries.each do |entry|
+        path = entry[:file].delete_prefix("#{@config.root}/")
+        @out.puts("  #{path}:#{entry[:line]} #{entry[:subject]} #{entry[:operator]} " \
+                  "#{entry[:digest]}: #{entry[:reason]}")
+      end
+    end
+
     def incomplete_note(count)
       return "" if count.zero?
 
@@ -37,18 +53,30 @@ module Saboteur
 
     def estimate(subjects, lists)
       map = cached_map
-      unless map
-        @out.puts("no estimate: run once to build the coverage map")
-        return
-      end
-      seconds = subjects.zip(lists).sum do |subject, list|
-        runtime = map.recorded_runtime(map.tests_for(subject))
-        return @out.puts("no estimate: cached test durations are incomplete") unless runtime
+      return @out.puts("no estimate: run once to build the coverage map") unless map
 
-        runtime * list.size
-      end
+      seconds = work_seconds(map, subjects, lists)
+      return @out.puts("no estimate: cached test durations are incomplete") unless seconds
+
       @out.puts("Estimated baseline covering-test work: #{seconds.round(2)} s (cached original-test durations " \
                 "times planned mutants; not a bound on mutant runtime; excludes boot and forks)")
+    end
+
+    # Cached data is untrusted input: every duration must be a non-negative
+    # number, the total must stay finite (JSON text such as 1e999 parses to
+    # Infinity), and anything that fails while reading it, such as a string or
+    # null, is no estimate. Source generation has already finished, so this
+    # cannot hide its errors.
+    def work_seconds(map, subjects, lists)
+      return unless map.durations.values.all? { |seconds| seconds >= 0 }
+
+      total = subjects.zip(lists).sum do |subject, list|
+        # nil when a covering test has no recorded duration: the rescue below.
+        map.recorded_runtime(map.tests_for(subject)) * list.size
+      end
+      total if total.finite?
+    rescue StandardError
+      nil
     end
 
     # Any receipt that is not exactly a current, readable pointer to a

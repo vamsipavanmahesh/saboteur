@@ -13,8 +13,35 @@ module Saboteur
 
       module_function
 
+      # Fails before any boot work when REF is not a commit here, as a usage
+      # error (exit 2): the name is wrong, or a shallow checkout lacks it.
+      def verify_ref!(ref, root:)
+        raise ConfigError, "--since needs a git ref, not an option: #{ref}" if ref.start_with?("-")
+
+        _, _, inside = Open3.capture3("git", "rev-parse", "--git-dir", chdir: root)
+        raise ConfigError, "--since needs a git repository" unless inside.success?
+
+        _, _, found = Open3.capture3("git", "rev-parse", "--verify", "--quiet", "#{ref}^{commit}", chdir: root)
+        return if found.success?
+
+        raise ConfigError, "--since #{ref}: not a commit in this repository " \
+                           "(check the name; a shallow checkout may need a deeper fetch)"
+      end
+
+      def merge_base(ref, root:)
+        git(root, "merge-base", ref, "HEAD").strip
+      end
+
+      # The file's text at commit BASE, or nil when it did not exist there.
+      # path is relative to root.
+      def file_at(base, path, root:)
+        out, _, status = Open3.capture3("git", "show", "#{base}:./#{path}", chdir: root)
+        status.success? ? out.b : nil
+      end
+
       def changed_lines(ref, root:)
-        base = git(root, "merge-base", ref, "HEAD").strip
+        verify_ref!(ref, root: root)
+        base = merge_base(ref, root: root)
         top = git(root, "rev-parse", "--show-toplevel").strip
         parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff", base,
                   "--"), top)

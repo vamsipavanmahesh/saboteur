@@ -7,7 +7,8 @@ require "saboteur/doctor"
 RSpec.describe Saboteur::Doctor do
   let(:config) { Saboteur::Config.new }
   let(:out) { StringIO.new }
-  let(:doctor) { described_class.new(config, out: out) }
+  let(:suite) { true }
+  let(:doctor) { described_class.new(config, out: out, suite: suite) }
 
   before do
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
@@ -31,6 +32,26 @@ RSpec.describe Saboteur::Doctor do
     expect(out.string).to include("Ruby:", "Coverage: suspended", "Integration: rspec (loaded)", "Rails: disabled",
                                   "Baseline: 2 tests passed twice in the same order with seed 1", "does not prove",
                                   "SimpleCov: not loaded", "Custom map: none (optional)")
+  end
+
+  context "without --suite" do
+    let(:suite) { false }
+
+    it "checks the environment and does not run the suite" do
+      hide_const("SimpleCov")
+      allow(Saboteur::Engine::Boot).to receive(:new)
+        .and_return(instance_double(Saboteur::Engine::Boot, load_target: instance_double(Saboteur::Integration::Base)))
+      expect(Saboteur::BaselineHealth).not_to receive(:new)
+      expect(doctor.call).to be(true)
+      expect(out.string).to include("Ruby:", "Coverage: suspended", "Integration: rspec (loaded)",
+                                    "Baseline: not run. Pass --suite to run the unchanged suite twice " \
+                                    "(add --test PATH to limit it to some specs).")
+      expect(out.string).not_to include("passed twice")
+    end
+  end
+
+  it "defaults to environment checks only" do
+    expect(described_class.new(config, out: out).instance_variable_get(:@suite)).to be(false)
   end
 
   it "reports the loaded map and warns about duplicate keys" do
@@ -261,14 +282,16 @@ RSpec.describe Saboteur::CLI, "doctor command" do
     expect(Saboteur::Config).to receive(:load).with(root: Dir.pwd, path: "health.yml",
                                                     overrides: { seed: 42 }).and_return(config)
     expect(Saboteur::Doctor).to receive(:new).with(config,
-                                                   out: out).and_return(instance_double(Saboteur::Doctor, call: true))
+                                                   out: out, suite: false)
+                                             .and_return(instance_double(Saboteur::Doctor, call: true))
     expect(Saboteur::Engine).not_to receive(:new)
     expect(described_class.new(%w[doctor --config health.yml --seed 42], out: out, err: err).call).to eq(0)
   end
 
   it "describes doctor options in its own parser banner" do
     command = described_class.new(["doctor"], out: out, err: err)
-    expect(command.send(:doctor_parser).to_s).to include("Usage: saboteur doctor [--config PATH] [--seed N]")
+    expect(command.send(:doctor_parser).to_s)
+      .to include("Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH]")
   end
 
   it "returns usage for stray or invalid arguments, and reports config and tool failures" do

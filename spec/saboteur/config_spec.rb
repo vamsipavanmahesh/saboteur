@@ -27,6 +27,11 @@ RSpec.describe Saboteur::Config do
       .to eq(["rspec", 3.0, 5.0, 1, "nesting"])
   end
 
+  it "keeps whole_file as a list of subject id patterns, empty by default" do
+    expect(described_class.new({})["whole_file"]).to eq([])
+    expect(described_class.new({ "whole_file" => ["Gate#open", "Box*"] })["whole_file"]).to eq(["Gate#open", "Box*"])
+  end
+
   it "has no threshold or explicit tests by default, and reads both from the file" do
     expect(described_class.load(root: @root).to_h.values_at("threshold", "tests")).to eq([nil, []])
     write("config/saboteur.rb", "Saboteur.configure { |c| c.threshold = 90; c.tests = [\"spec/a_spec.rb\"] }")
@@ -41,6 +46,17 @@ RSpec.describe Saboteur::Config do
       expect { described_class.new({ "threshold" => value }, root: @root) }
         .to raise_error(Saboteur::ConfigError, /threshold must be between 0 and 100/)
     end
+  end
+
+  it "needs since for guess_tests and refuses it with tests" do
+    expect(described_class.new({}, root: @root)["guess_tests"]).to be(false)
+    expect(described_class.new({ "guess_tests" => true, "since" => "main" }, root: @root)["guess_tests"]).to be(true)
+    expect { described_class.new({ "guess_tests" => true }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /guess_tests needs since/)
+    expect do
+      described_class.new({ "guess_tests" => true, "since" => "main", "tests" => ["spec/a_spec.rb"] }, root: @root)
+    end
+      .to raise_error(Saboteur::ConfigError, /guess_tests cannot be combined with tests/)
   end
 
   it "rejects a threshold that is not a number" do
@@ -155,6 +171,13 @@ RSpec.describe Saboteur::Config, "details" do
     end
   end
 
+  it "leaves the count gates off by default and rejects a malformed limit" do
+    expect(described_class.new({}).to_h.values_at("max_timeouts", "max_errors")).to eq([nil, nil])
+    expect(described_class.new({ "max_errors" => "5%" })["max_errors"]).to eq("5%")
+    expect { described_class.new({ "max_timeouts" => "many" }) }
+      .to raise_error(Saboteur::ConfigError, /max_timeouts must be a count/)
+  end
+
   # A fixed default makes every run repeatable; --seed or seed: changes it.
   it "seeds runs with 1 by default and rejects a negative seed" do
     expect(described_class.new({})["seed"]).to eq(1)
@@ -190,5 +213,14 @@ RSpec.describe Saboteur::Config, "#output_paths" do
                                      "html_report" => "/elsewhere/r.html" }, root: root)
       expect(config.output_paths).to eq([".saboteur", "out/r.json"])
     end
+  end
+end
+
+RSpec.describe Saboteur::Config, "matrix" do
+  it "is off by default and refuses to combine with incremental reuse" do
+    expect(described_class.new({})["matrix"]).to be(false)
+    expect(described_class.new({ "matrix" => true })["matrix"]).to be(true)
+    expect { described_class.new({ "matrix" => true, "incremental" => true }) }
+      .to raise_error(Saboteur::ConfigError, /matrix cannot be combined with incremental/)
   end
 end

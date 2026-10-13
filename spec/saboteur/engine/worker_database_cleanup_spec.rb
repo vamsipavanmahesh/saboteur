@@ -82,7 +82,7 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
   end
 
   def stub_distribution(events, run_error)
-    distribution = instance_double(Saboteur::Engine::Distribution)
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     if run_error
       allow(distribution).to receive(:run) { events << :distribute and raise(run_error) }

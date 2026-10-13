@@ -7,7 +7,7 @@ require "tmpdir"
 # block in the Rails quickstart must load through the real Config.
 RSpec.describe "Rails quickstart snippet" do
   root = File.expand_path("../..", __dir__)
-  readme = File.read(File.join(root, "README.md"))
+  readme = File.read(File.join(root, "README.md"), encoding: "UTF-8")
   rails_section = readme[/^### Rails apps\n(.*?)^###? /m, 1].to_s
   snippet = rails_section[/```ruby\n(.*?)```/m, 1]
 
@@ -30,7 +30,7 @@ RSpec.describe "Rails quickstart snippet" do
   end
 
   it "matches the landing page Rails block" do
-    html = File.read(File.join(root, "docs/index.html"))
+    html = File.read(File.join(root, "docs/index.html"), encoding: "UTF-8")
     block = html[%r{<h3>Rails apps</h3>.*?<pre><code>(.*?)</code></pre>}m, 1]
     expect(assignments.call(block)).to eq(assignments.call(snippet))
   end
