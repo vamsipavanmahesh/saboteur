@@ -514,6 +514,13 @@ as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
 changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
 preserve the loaded method semantics.
 
+A mutant that would return `nil` from a method whose `sig` certainly excludes `nil` is not generated,
+because the signature check would only turn it into a type error. That covers `body_nil` and removing
+the last statement. A return type counts as excluding `nil` only when it is a class that `nil` is not an
+instance of, `T::Boolean`, or `T::Array`, `T::Hash`, `T::Set`, `T::Range`, `T::Enumerable`,
+`T::Enumerator` or `T::Class` with type arguments. `T.nilable`, `T.any`, `T.untyped`, aliases, `void` and
+a missing `sig` keep every mutant. RBS signatures are not read yet.
+
 ### Skipped subjects and the mutant cap
 
 Subjects with no test coverage are skipped before mutation sources run. They
