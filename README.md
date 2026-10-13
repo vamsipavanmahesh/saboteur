@@ -756,6 +756,14 @@ details are in [docs/design.md](docs/design.md), prior art in
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
 
+Before you ask for review, run the local preflight check on your exact head:
+
+```sh
+script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode full
+```
+
+It runs scope, sign-off, SPDX, full RuboCop and the specs, and writes a report under `tmp/preflight/`. A pass is not an approval; fast mode is partial. See [docs/preflight.md](docs/preflight.md).
+
 ## Acknowledgements
 
 Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build saboteur.
