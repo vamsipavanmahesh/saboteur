@@ -74,11 +74,17 @@ RSpec.describe Saboteur::Execution::Sandbox do
     allow(described_class::LibC).to receive(:open_fn).and_return(open_fn)
     allow(described_class::LibC).to receive(:close_fn).and_return(double("close", call: 0))
     allow(described_class::LibC).to receive(:prctl_fn).and_return(double("prctl", call: 0))
-    allow(described_class::LibC).to receive(:fcntl_fn).and_return(double("fcntl", call: 0)) # O_RDONLY: close nothing
     allow(described_class).to receive(:last_errno).and_return(0)
+    # The sweep is pinned by its own examples below; running it here would
+    # walk the live suite process's /proc/self/fd, whose contents are the
+    # runner's environment, not the example's (seen failing as this
+    # example on the GitHub dogfood runner).
+    allow(described_class::InheritedFds).to receive(:close_writable_files)
 
     described_class.restrict!(writable: ["/project/tmp", "/project/.saboteur"])
 
+    expect(described_class::InheritedFds).to have_received(:close_writable_files)
+      .with(["/project/tmp", "/project/.saboteur"], [])
     expect(open_fn).to have_received(:call).with("/project/tmp", 0o10000000)
     expect(open_fn).to have_received(:call).with("/project/.saboteur", 0o10000000)
     expect(open_fn).to have_received(:call).with(File::NULL, 0o10000000)
