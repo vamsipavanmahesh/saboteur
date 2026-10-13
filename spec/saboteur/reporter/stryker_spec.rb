@@ -33,6 +33,12 @@ RSpec.describe Saboteur::Reporter::Stryker do
       .to eq(["ran while the app loaded", "a captured Method still calls the original"])
   end
 
+  it "maps branch skips to NoCoverage and keeps a reasonless skip Ignored" do
+    report = report_of(result_for(:skipped, reason: "no coverage (branch not taken)"), result_for(:skipped))
+    statuses = described_class.build(report).dig(:files, "person.rb", :mutants).map { |mutant| mutant[:status] }
+    expect(statuses).to eq(%w[NoCoverage Ignored])
+  end
+
   it "records the seed, so the run can be repeated" do
     expect(json["config"]).to eq("seed" => 1)
   end
