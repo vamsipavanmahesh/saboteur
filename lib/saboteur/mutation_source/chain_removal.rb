@@ -11,7 +11,10 @@ module Saboteur
     # on the original object.
     class ChainRemoval < Base
       BOUNDARIES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
-      # Calls that return an equal object, so removing them changes nothing a test can see.
+      # Calls that hand back the same value (or an equal copy). Dropping one changes
+      # only frozenness or object identity, which ordinary tests do not check, so the
+      # mutant is almost always equivalent noise. A frozen or copy contract needs its
+      # own operator.
       IDENTITY_CALLS = %w[freeze dup clone itself tap].freeze
 
       def initialize(arid: []) # rubocop:disable Lint/MissingSuper
@@ -43,7 +46,7 @@ module Saboteur
 
       def remove_link(call, subject, found)
         link = call.receiver
-        return unless call.call_operator_loc && removable?(link)
+        return unless call.call_operator_loc && !call.attribute_write? && removable?(link)
 
         edit = Edit.new(file: subject.file, start_byte: link.receiver.end_offset,
                         end_byte: link.end_offset, replacement: "")
