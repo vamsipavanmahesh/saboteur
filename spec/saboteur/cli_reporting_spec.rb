@@ -42,7 +42,7 @@ RSpec.describe "finished run reporting" do
     tree = instance_double(Saboteur::WorkingTree, state: state)
     expect(Saboteur::WorkingTree).to receive(:new).with(config.root, ignored: config.output_paths).and_return(tree)
     report = report_of(result_for(:killed))
-    engine = instance_double(Saboteur::Engine, call: report)
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
     expect(Saboteur::Engine).to receive(:new).with(config, **arguments).and_return(engine)
     expect(cli).to receive(:validate_history).ordered
     expect(cli).to receive(:write_html).with(report).ordered
@@ -59,7 +59,7 @@ RSpec.describe "finished run reporting" do
       arguments = { err: err }
       arguments[:digest] = digest if digest
       report = report_of(result_for(:killed))
-      engine = instance_double(Saboteur::Engine, call: report)
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
       expect(Saboteur::Engine).to receive(:new).with(cli.config, **arguments).and_return(engine)
       expect(cli).to receive(:text_run).with(report).and_return(0)
       expect(cli.send(:execute_run)).to eq(0)
