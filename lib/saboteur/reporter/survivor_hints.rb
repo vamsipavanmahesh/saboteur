@@ -3,30 +3,31 @@
 
 module Saboteur
   module Reporter
-    # Says what kind of test would kill a surviving mutant, by operator. The
-    # hint is a lead, not proof: the survivor can also be an equivalent mutant.
+    # Suggests a check that might kill a surviving mutant, by operator. It does
+    # not say what is missing: the survivor can also be an equivalent mutant.
     module SurvivorHints
       BY_OPERATOR = {
-        "comparison" => "no example sits on the boundary: add one where the compared values are equal " \
-                        "or differ by one",
-        "arithmetic" => "no example checks the computed number: assert the exact result",
-        "boolean_logic" => "no example makes each side of the condition decide the outcome alone",
-        "negation_removal" => "no example where the negated value flips the result",
-        "literal_number" => "no example uses this number: assert something that depends on its value",
-        "literal_boolean" => "no example depends on this true/false value",
-        "literal_string" => "no assertion on this text",
-        "statement_removal" => "no example notices this statement is gone: assert its effect",
-        "or_assign" => "no example where the variable is already set (||= vs =)",
-        "safe_navigation" => "no example where the receiver is nil",
-        "argument_removal" => "no example checks this argument: use have_received(...).with(...) " \
-                              "or assert the result that depends on it",
-        "pair_removal" => "no example checks this key: assert the hash content that depends on it",
-        "endpoint_replacement" => "no example tells first from last: use a collection with 2 or more elements",
-        "filter_replacement" => "no example tells select from reject: include both matching and " \
-                                "non-matching items"
+        "comparison" => "try an example at the boundary: equal values, or values one apart",
+        "arithmetic" => "try asserting the exact computed number",
+        "boolean_logic" => "try an example where each side of the condition alone decides the result",
+        "negation_removal" => "try an example where the negated value changes the result",
+        "literal_number" => "try asserting something that depends on this number",
+        "literal_boolean" => "try an example that depends on this true/false value",
+        "literal_string" => "try asserting on this text",
+        "statement_removal" => "try asserting the effect of this statement",
+        "or_assign" => "try an example where the variable is already set (||= vs =)",
+        "safe_navigation" => "try an example where the receiver is nil",
+        "argument_removal" => "try have_received(...).with(...), or assert a result that depends on this argument",
+        "pair_removal" => "try asserting the hash content under this key",
+        "endpoint_replacement" => "try a collection with 2 or more elements, to tell first from last",
+        "filter_replacement" => "try items that match and items that do not, to tell select from reject"
       }.freeze
 
-      COARSE = "no example checks what this method returns or does: assert its result or its effect"
+      COARSE = "try asserting this method's result or its effect"
+
+      # Printed once after the survivors: a hint is a place to look, not a diagnosis.
+      CAVEAT = "Hints are suggestions, not diagnoses: a survivor can also be an equivalent mutant, or a change " \
+               "the selected tests cannot observe."
 
       module_function
 
