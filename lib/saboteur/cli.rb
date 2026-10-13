@@ -123,7 +123,7 @@ module Saboteur
     def run
       parser.parse!(@argv)
       use_explicit_sources
-      reject_threshold_with_agent_format
+      validate_run_options
       warn_dirty_tree
 
       return preview if options[:list_operators] || options[:dry_run]
@@ -143,6 +143,12 @@ module Saboteur
     # can change the tree. Say so up front when uncommitted work is at stake.
     def warn_dirty_tree
       WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
+    end
+
+    # Usage errors found before the target boots.
+    def validate_run_options
+      reject_threshold_with_agent_format
+      Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
     end
 
     # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
