@@ -7,6 +7,14 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `whole_file` config: an opt-in list of subject ids or globs (for example
+  `"Point#distance"`, `"Geometry::*"`). For those subjects the child evaluates the
+  whole mutated file instead of re-evaluating the one method, so methods
+  surgical re-evaluation refuses can be mutated. It applies to methods already
+  found as subjects. The file's top-level code runs again in the child: load-time
+  side effects repeat and constants it assigns are rebuilt. A surviving
+  mutant whose definition a later definition in the file replaces is reported as
+  unreachable, not survived. Off by default (Refs #138).
 - `--matrix` (#132) runs every covering test per mutant and lists blind and
   redundant tests after the survivors.
 - The 30-second heartbeat of the baseline and coverage phases now shows the examples finished so far, the percentage and a rough time left, read from the phase log, instead of only the elapsed time. (#56)

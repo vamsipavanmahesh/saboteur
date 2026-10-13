@@ -374,6 +374,7 @@ Saboteur.configure do |c|
   c.include = ["lib/**/*.rb"]
   c.exclude = ["lib/my_gem/version.rb"]
   c.require = []                 # boot files, e.g. ./config/environment
+  c.whole_file = []              # subject ids or globs to re-evaluate as a whole file (see below)
   c.reeval = "nesting"           # or "class_eval"; see docs/design.md 6.1
   c.timeout_factor = 3           # per-mutant deadline = factor x its tests' recorded time
   c.timeout_min = 5
@@ -525,6 +526,20 @@ as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
 changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
 preserve the loaded method semantics.
 
+### Whole-file re-evaluation (opt-in)
+
+Surgical re-evaluation refuses a method whose owner it cannot resolve or whose
+loaded definition is not the one in the file. The skip reason ends with a hint.
+List such subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
+`"Geometry::*"`) and the child evaluates the whole mutated file instead. This
+applies to methods saboteur already finds as subjects; it does not make new
+kinds of definitions selectable (methods inside `Data.define` or `Struct.new`
+blocks are still not found). The file's top-level code then runs again in every
+child, after the run's seed is set: load-time side effects repeat and constants
+it assigns are rebuilt, with redefinition warnings silenced. If a later
+definition in the same file replaces the mutated method, the mutant could never
+run, so a survivor there is reported as unreachable instead. It is off by
+default, and the cache key includes the list.
 Signature text alone does not remove mutants. `body_nil` and last-statement
 removal remain available even when `sig` declares a non-nil return type.
 `checked(:never)`, unchecked `checked(:tests)` signatures, configured default

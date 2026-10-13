@@ -14,7 +14,7 @@ module Saboteur
   class Engine
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators arid timeout_factor timeout_min
-                        max_memory_mb max_processes seed tests].freeze
+                        max_memory_mb max_processes seed tests whole_file].freeze
 
     attr_reader :config, :hooks
 
@@ -195,7 +195,7 @@ module Saboteur
     end
 
     def scheduler_for(map, integration, cache)
-      reevaluator = Execution::Reevaluator.new(config["reeval"])
+      reevaluator = Execution::Reevaluator.new(config["reeval"], whole_file: config["whole_file"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
                                      supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"])
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,

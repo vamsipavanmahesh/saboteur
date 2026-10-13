@@ -33,10 +33,13 @@ RSpec.describe Saboteur::Execution::Runner do
 
         Process.kill("KILL", Process.pid) if text == "die_on_eval"
 
-        @mode = text
+        File.write(File.join(dir, "rand_on_eval"), rand(1_000_000_000).to_s) if text == "pass"
+        @replaced = "f.rb:9" if text.start_with?("replaced_")
+        @mode = text.delete_prefix("replaced_")
       end
 
       define_method(:mode) { @mode }
+      define_method(:replaced_definition) { |_subject| @replaced }
     end.new
   end
 
@@ -95,6 +98,41 @@ RSpec.describe Saboteur::Execution::Runner do
   it "forwards the eval prefix to the re-evaluator" do
     runner.run(subject: subject_stub, text: "pass", test_ids: ["t1"], timeout: 5, eval_prefix: "sig { void }")
     expect(File.read(File.join(tmpdir, "prefix"))).to eq("sig { void }")
+  end
+
+  describe "a mutant whose definition a later one in the file replaced" do
+    let(:mutation) do
+      edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")
+      Saboteur::MutationSource::Mutation.new(subject_id: "Stub#run", operator: "comparison", edits: [edit])
+    end
+
+    def run_replaced(mode, mutation: self.mutation)
+      runner.run(subject: subject_stub, text: "replaced_#{mode}", test_ids: %w[t1 t2], timeout: 5, mutation:)
+    end
+
+    it "is unreachable, not survived, naming where the other definition is" do
+      outcome = run_replaced("pass")
+      expect(outcome.status).to eq(:unreachable)
+      expect(outcome.message).to eq("the whole-file evaluation left another definition in place (f.rb:9), " \
+                                    "so this mutant never ran")
+    end
+
+    it "leaves a kill, other outcomes and the unchanged-method check alone" do
+      expect(run_replaced("fail").status).to eq(:killed)
+      expect(run_replaced("partial").status).to eq(:error)
+      expect(run_replaced("pass", mutation: nil).status).to eq(:survived)
+    end
+  end
+
+  it "seeds the random numbers before the method is evaluated, so top-level code sees them" do
+    rand
+    runner.run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    first = File.read(File.join(tmpdir, "rand_on_eval"))
+    rand
+    runner.run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    expect(File.read(File.join(tmpdir, "rand_on_eval"))).to eq(first)
+    Kernel.srand(seed)
+    expect(first).to eq(rand(1_000_000_000).to_s)
   end
 
   it "keeps a survivor when replacement execution cannot be verified" do
