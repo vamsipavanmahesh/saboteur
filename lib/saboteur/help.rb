@@ -21,7 +21,7 @@ module Saboteur
            "errored. With --threshold: the score is at or above it, even if mutants survived.",
       1 => "Without --threshold: at least one mutant survived and is not on the ignore list. With --threshold " \
            "(survivors alone no longer fail the run): the score is below it, or no mutant was tested so " \
-           "there is no score.",
+           "there is no score. Also more timeout or errored mutants than --max-timeouts or --max-errors allow.",
       2 => "Usage or configuration error: fix the command or config/saboteur.rb. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
       3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \

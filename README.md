@@ -203,6 +203,17 @@ unignored survivor exits 1. Either way, a run where more than half of the
 executed mutants errored exits 3: errored mutants are outside the score,
 so such a run tested almost nothing.
 
+`--max-timeouts N` and `--max-errors N` (or `c.max_timeouts` / `c.max_errors`)
+are two more CI gates. Each takes a count or a percentage of the executed
+mutants (`--max-errors 5%`). The run exits 1 when the count (or share) is
+above the limit, with `exitCause` `maxTimeouts` or `maxErrors` in the JSON report.
+`--threshold` already compares the covered score, `(killed + timeout) /
+(killed + survived + timeout)`, so no separate score flag exists. With
+`--max-errors`, errored mutants are judged by that limit instead of making a
+`--threshold` run exit 3. Survivors and a score below the threshold keep
+their own causes when they fail too. The gates cannot be combined with `--agent`.
+The GitHub Action has no input for them yet.
+
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
 `--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.

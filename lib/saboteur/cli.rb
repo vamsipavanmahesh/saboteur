@@ -148,9 +148,9 @@ module Saboteur
 
     # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
     def reject_threshold_with_agent_format
-      return unless agent? && config["threshold"]
+      return unless agent? && (config["threshold"] || gates.any?)
 
-      raise UsageError, "--threshold cannot be combined with --agent: agent mode exits 0 only for a complete, clean run"
+      raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
     end
 
     def text_run(report)
@@ -365,6 +365,7 @@ module Saboteur
       opts.on("--threshold PERCENT", Float, "Exit 1 when the score is below PERCENT (0-100)") do |v|
         set(:threshold, v)
       end
+      Gates.define_options(opts) { |key, value| set(key, value) }
     end
 
     def add_subject(expr)

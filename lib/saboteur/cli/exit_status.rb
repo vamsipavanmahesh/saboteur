@@ -13,8 +13,10 @@ module Saboteur
 
         return EXIT_TOOL if incomplete_under_threshold?(report)
 
-        failed_quality_gate?(report) ? EXIT_SURVIVORS : EXIT_OK
+        failed_quality_gate?(report) || gates.failed?(report, @err) ? EXIT_SURVIVORS : EXIT_OK
       end
+
+      def gates = (@gates ||= Gates.new(config))
 
       def mostly_errored?(report)
         return false unless report.majority_errored?
@@ -53,7 +55,7 @@ module Saboteur
       def survivors_cause(report)
         return "failFast" if report.early_stop
 
-        config["threshold"].nil? ? "survivors" : "belowThreshold"
+        gates.cause || (config["threshold"].nil? ? "survivors" : "belowThreshold")
       end
 
       # With --threshold the score decides; without it any unignored survivor does.
@@ -81,7 +83,7 @@ module Saboteur
       def incomplete_under_threshold?(report)
         return false if config["threshold"].nil?
 
-        count = report.counts.values_at(:error, :resource_limit).sum
+        count = report.counts.values_at(*(gates.judges_errors? ? %i[resource_limit] : %i[error resource_limit])).sum
         @err.puts("saboteur: #{count} mutant(s) errored or hit a resource limit, so the score is incomplete") if
           count.positive?
         count.positive?

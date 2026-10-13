@@ -54,7 +54,9 @@ module Saboteur
       "seed" => 1,
       "tests" => [],
       "fingerprint_extra" => [],
-      "threshold" => nil
+      "threshold" => nil,
+      "max_timeouts" => nil,
+      "max_errors" => nil
     }.freeze
 
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed].freeze
@@ -165,6 +167,11 @@ module Saboteur
     def validate_modes!
       validate_fail_fast!
       validate_matrix!
+      validate_gates!
+    end
+
+    def validate_gates!
+      Gates::SETTINGS.each_key { |key| Gates.limit(self[key], key) }
     end
 
     def validate_fail_fast!
@@ -206,6 +213,10 @@ module Saboteur
       raise ConfigError, "timeout_min must be > 0" unless self["timeout_min"].positive?
 
       validate_reeval!
+      validate_operator_config!
+    end
+
+    def validate_operator_config!
       MutationSource::OperatorRegistry.resolve(self["operators"])
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
