@@ -64,10 +64,10 @@ module Preflight
         environment: @environment, checks: @results.map(&:to_h), manual_obligations: MANUAL_OBLIGATIONS }
     end
 
-    def write(directory)
-      FileUtils.mkdir_p(directory)
-      File.write(File.join(directory, "report.json"), JSON.pretty_generate(to_h))
-      File.write(File.join(directory, "report.md"), markdown)
+    def write(directory, root: directory)
+      SafeOutput.make_directories(directory, root)
+      SafeOutput.write_new(File.join(directory, "report.json"), JSON.pretty_generate(to_h), root)
+      SafeOutput.write_new(File.join(directory, "report.md"), markdown, root)
     end
 
     def markdown
