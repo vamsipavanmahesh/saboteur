@@ -25,5 +25,21 @@ RSpec.describe Saboteur::MutationSource::Builtin, "magic constant fixtures" do
       arithmetic = mutated_texts(subject).find { |operator, _| operator == "arithmetic" }
       expect(arithmetic.last).to include("a - 1", "__method__", "__dir__", "__FILE__")
     end
+
+    %w[class_eval nesting].each do |strategy|
+      it "keeps their values after re-evaluating a mutant with the #{strategy} strategy" do
+        source = "class MagicK\n  def m(a)\n    [__method__, __dir__, __FILE__, a + 1]\n  end\nend\n"
+        subject = subjects_in(source).first
+        load subject.file
+        mutated = mutated_texts(subject).find { |operator, _| operator == "arithmetic" }.last
+        expect(MagicK.new.m(5)).to eq([:m, File.dirname(subject.file), subject.file, 6])
+
+        Saboteur::Execution::Reevaluator.new(strategy).call(subject, mutated)
+
+        expect(MagicK.new.m(5)).to eq([:m, File.dirname(subject.file), subject.file, 4])
+      ensure
+        Object.send(:remove_const, :MagicK) if defined?(MagicK)
+      end
+    end
   end
 end
