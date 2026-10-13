@@ -118,11 +118,39 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
       expect(exact?({ a: 0.0 }, { a: -0.0 })).to be(false)
     end
 
+    it "compares the parts of a Complex or a Range, so a signed zero is a difference" do
+      expect(exact?(Complex(0, 0.0), Complex(0, -0.0))).to be(false)
+      expect(exact?(Complex(0.0, 1), Complex(-0.0, 1))).to be(false)
+      expect(exact?(Complex(0, 1), Complex(0, 1.0))).to be(false)
+      expect(exact?(Complex(0, 1.5), Complex(0, 1.5))).to be(true)
+      expect(exact?(0.0..1, -0.0..1)).to be(false)
+      expect(exact?(0..1.0, 0..-0.0)).to be(false)
+      expect(exact?(1..2, 1...2)).to be(false)
+      expect(exact?(1..2, 1..2)).to be(true)
+    end
+
+    it "treats operand types it cannot judge as different" do
+      token = Object.new
+
+      expect(exact?(token, token)).to be(false)
+      expect(exact?(token, Object.new)).to be(false)
+      expect(exact?(:a, :a)).to be(true)
+      expect(exact?("a", "a")).to be(true)
+      expect(exact?(nil, nil)).to be(true)
+      expect(exact?(Rational(1, 2), Rational(1, 2))).to be(true)
+    end
+
     it "separates a Float from an Integer and compares floats by their bytes" do
       expect(exact?(2.0, 2)).to be(false)
       expect(exact?(2.0, 2.0)).to be(true)
       expect(exact?(0.0, -0.0)).to be(false)
     end
+  end
+
+  it "never equates imaginary or range literals that differ in the sign of a zero" do
+    expect(filter.equivalent?("def m\n  0.0i\nend", "def m\n  -0.0i\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  (0..0.0)\nend", "def m\n  (0..-0.0)\nend")).to be(false)
+    expect(filter.equivalent?("def m\n  3i\nend", "def m\n  3i\nend")).to be(true)
   end
 
   it "keeps a mutant that holds NaN, which equals nothing" do
