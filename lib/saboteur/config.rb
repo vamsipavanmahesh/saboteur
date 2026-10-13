@@ -42,6 +42,7 @@ module Saboteur
       "cache_dir" => ".saboteur",
       "json_report" => ".saboteur/report.json",
       "html_report" => ".saboteur/report.html",
+      "score_history" => nil,
       "rspec_args" => [],
       "subjects" => [],
       "since" => nil,
@@ -132,10 +133,10 @@ module Saboteur
     # Paths of saboteur's own output, relative to the root, that do not count as source changes.
     def output_paths
       prefix = File.join(File.realpath(root), "")
-      %w[cache_dir json_report html_report].filter_map { |key| path(key) }
-                                           .map { |file| File.expand_path(file) }
-                                           .select { |file| file.start_with?(prefix) }
-                                           .map { |file| file.delete_prefix(prefix) }
+      %w[cache_dir json_report html_report score_history].filter_map { |key| path(key) }
+                                                         .map { |file| File.expand_path(file) }
+                                                         .select { |file| file.start_with?(prefix) }
+                                                         .map { |file| file.delete_prefix(prefix) }
     end
 
     private
@@ -155,9 +156,14 @@ module Saboteur
 
     def validate_report_paths!
       json = path("json_report")
-      return unless json && json == path("html_report")
+      if json && json == path("html_report")
+        raise ConfigError, "json_report and html_report both point to #{json}; give each report its own path"
+      end
 
-      raise ConfigError, "json_report and html_report both point to #{json}; give each report its own path"
+      paths = %w[json_report html_report score_history].filter_map { |key| path(key) }
+      return if paths.uniq.size == paths.size
+
+      raise ConfigError, "json_report, html_report and score_history must have distinct paths"
     end
 
     def validate_fail_fast!
