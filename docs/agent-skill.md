@@ -16,6 +16,9 @@ Read the JSON on stdout. `status` is `complete`, `partial` or `not_applicable`.
 The exit code is strict: 0 means complete and clean, 1 means a survivor needs
 review, 2 means a bad command or config, 3 means the run was incomplete or failed.
 
+To preview cost without booting the app or running tests, use `saboteur run --dry-run`.
+`--list-operators` shows names and tiers; `--operators arithmetic,comparison` restricts the run.
+
 When a mutant survives:
 
 1. Pick one live survivor from `findings.shown`.

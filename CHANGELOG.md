@@ -7,6 +7,13 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `--dry-run` previews planned mutants per method and the max_mutants_per_method
+  omissions without booting the app, running tests, forking or writing reports
+  (#134). A file that does not parse marks the total INCOMPLETE. A cached
+  estimate is baseline covering-test work, not a bound on mutant runtime.
+  Custom sources are still required during a dry run. `--list-operators` and
+  `--operators` list and select builtin operators. Inspired by mutineer
+  (github.com/davidteren/mutineer, MIT, by David Teren).
 - [docs/minitest.md](docs/minitest.md) records that Minitest is unsupported and how much
   of the engine depends on RSpec (#200).
 - [docs/scores.md](docs/scores.md) defines the covered score, the overall score a
