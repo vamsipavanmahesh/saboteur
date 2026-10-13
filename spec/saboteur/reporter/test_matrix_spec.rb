@@ -2,8 +2,8 @@
 # frozen_string_literal: true
 
 RSpec.describe Saboteur::Reporter::TestMatrix do
-  def result(status, killed_by:, covered_by:, replacement: ">")
-    result_for(status, replacement:, killed_by:, covered_by:)
+  def result(status, killed_by:, covered_by:, replacement: ">", executed: covered_by)
+    result_for(status, replacement:, killed_by:, covered_by:, executed:)
   end
 
   let(:results) do
@@ -45,5 +45,38 @@ RSpec.describe Saboteur::Reporter::TestMatrix do
   it "has no blind or redundant tests for an empty run" do
     empty = described_class.new([])
     expect([empty.tests, empty.blind, empty.redundant]).to all(be_empty)
+  end
+
+  context "when a mutant did not run every covering test" do
+    let(:results) do
+      [
+        result(:killed, killed_by: %w[a b], covered_by: %w[a b c], replacement: ">"),
+        result(:killed, killed_by: %w[a], covered_by: %w[a b c], replacement: "<=", executed: %w[a]),
+        result(:killed, killed_by: [], covered_by: %w[d e], replacement: "<", executed: [])
+      ]
+    end
+
+    it "counts the incomplete mutants and leaves them out of the tallies" do
+      expect(matrix.incomplete).to eq(2)
+      expect(matrix.tests).to eq(%w[a b c])
+      expect(matrix.mutants_covered("a")).to eq(1)
+    end
+
+    it "gives no blind or redundant verdict for a test planned in an incomplete mutant" do
+      expect(matrix.blind).to eq([])
+      expect(matrix.redundant).to eq([])
+    end
+
+    it "treats a result with no record of what ran as incomplete" do
+      unknown = result(:killed, killed_by: %w[a], covered_by: %w[a b], executed: nil)
+      expect(described_class.new([unknown]).incomplete).to eq(1)
+    end
+
+    it "still judges a test that only complete mutants planned" do
+      only_complete = result(:killed, killed_by: %w[a], covered_by: %w[a z], executed: %w[a z])
+      partial = result(:killed, killed_by: %w[a], covered_by: %w[a b], replacement: "<=", executed: %w[a])
+      matrix = described_class.new([only_complete, partial])
+      expect(matrix.blind).to eq(%w[z])
+    end
   end
 end
