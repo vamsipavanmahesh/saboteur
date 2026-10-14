@@ -82,6 +82,20 @@ RSpec.describe Preflight::ExecutionInputs, :fixture do
     expect { inputs.digest }.to raise_error(Preflight::ExecutionGap, /leaves the checkout/)
   end
 
+  it "stops when a tracked symlink leaves the checkout through a target that does not exist" do
+    File.symlink("/nonexistent-saboteur-preflight-target/file", File.join(@fixture.directory, "link"))
+    @fixture.git("add", "link")
+    @fixture.commit("link")
+    expect { inputs.digest }.to raise_error(Preflight::ExecutionGap, /leaves the checkout/)
+  end
+
+  it "still calls an in-checkout symlink whose target is missing broken, not a checkout escape" do
+    File.symlink("missing.txt", File.join(@fixture.directory, "link"))
+    @fixture.git("add", "link")
+    @fixture.commit("link")
+    expect { inputs.digest }.to raise_error(Preflight::ExecutionGap, /broken symlink/)
+  end
+
   it "binds the content a tracked in-checkout symlink resolves to" do
     File.symlink("a.txt", File.join(@fixture.directory, "link"))
     @fixture.git("add", "link")
