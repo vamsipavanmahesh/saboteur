@@ -481,6 +481,17 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["allow_focus"]).to be(true)
   end
 
+  it "describes --exclude-operators in run help" do
+    Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
+    expect(out.string).to include("--exclude-operators NAMES", "Exclude operator names from the selected set")
+  end
+
+  it "marks only the named operators on in --list-operators" do
+    expect(cli("run", "--list-operators", "--operators", "range").call).to eq(0)
+    expect(out.string).to match(/^range\s+on/)
+    expect(out.string).to match(/^arithmetic\s+off/)
+  end
+
   it "parses --matrix into the matrix config key, and describes it in help" do
     command = cli("run", "--matrix")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
