@@ -42,7 +42,8 @@ module Saboteur
                      "tests that cover each change, and reports survivors (changes no test noticed). Source files or " \
                      "directories after run replace include and exclude; --test limits the specs that run; " \
                      "--threshold PERCENT replaces the survivor check: exit 0 when the score is at or above " \
-                     "PERCENT, exit 1 when it is below. Inline comment syntax: " \
+                     "PERCENT, exit 1 when it is below. All operators run unless you select a smaller set; " \
+                     "exclusions always remove operators from that set. Inline comment syntax: " \
                      '# saboteur:disable-line [operator ...] reason="...". A reason is required.',
         takes_options: true,
         exit_codes: EXIT_CODE_MEANINGS,
