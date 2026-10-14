@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "open3"
+require_relative "../text"
 
 module Saboteur
   class Engine
@@ -55,8 +56,8 @@ module Saboteur
 
         # ls-files reads the index, which still names a deleted file; keep
         # only paths present in the worktree so a deletion shows up.
-        out.split("\0").reject { |rel| cache_path?(rel) }
-           .select { |rel| File.exist?(File.join(@root, rel)) || File.symlink?(File.join(@root, rel)) }
+        Text.utf8(out).split("\0").reject { |rel| cache_path?(rel) }
+            .select { |rel| File.exist?(File.join(@root, rel)) || File.symlink?(File.join(@root, rel)) }
       end
 
       def walk_files
