@@ -177,10 +177,14 @@ RSpec.describe "non-UTF-8 locale boundaries" do
     end
   end
 
+  # One complete corrupt object on its own line; the valid event after it
+  # must survive, so only the unreadable line is dropped.
   it "skips a protocol line whose bytes are not valid UTF-8" do
-    payload = %({"v": 1, "event": "result", "file": "bad-\xFF.rb"\n}).b
+    corrupt = %({"v": 1, "event": "result", "file": "bad-\xFF.rb"}\n).b
+    valid = %({"v": 1, "event": "beat", "file": "ok.rb"}\n)
+    payload = "#{corrupt}#{valid}"
     events = with_default_external(Encoding::US_ASCII) { Saboteur::Execution::Protocol.parse(payload) }
-    expect(events).to eq([])
+    expect(events).to eq([{ "v" => 1, "event" => "beat", "file" => "ok.rb" }])
   end
 
   it "reports a worker result line whose bytes are not valid UTF-8 as unreadable" do
