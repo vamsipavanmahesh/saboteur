@@ -1014,7 +1014,9 @@ RSpec.describe Saboteur::Frameworks::Rails, skip: sqlite3_missing do
 
   describe ".local_host?" do
     it "accepts local hosts and sockets only" do
-      expect(%w[localhost 127.0.0.1 ::1 0.0.0.0 /tmp/pg].map { |h| described_class.local_host?(h) }).to all(be(true))
+      expect(["localhost", "LOCALHOST", "127.0.0.1", "::1", "0.0.0.0", "/tmp/pg", :localhost].map do |host|
+        described_class.local_host?(host)
+      end).to all(be(true))
       expect([nil, ""].map { |h| described_class.local_host?(h) }).to all(be(true))
       expect(described_class.local_host?("db.example.com")).to be(false)
     end
@@ -1034,16 +1036,34 @@ RSpec.describe Saboteur::Frameworks::Rails, skip: sqlite3_missing do
       configs = [db_config("animals", "db.internal")]
       expect(described_class.remote_databases(configs, ["db.internal"])).to eq([])
     end
+
+    it "matches the allow list case-insensitively" do
+      configs = [db_config("animals", "DB.Internal")]
+      expect(described_class.remote_databases(configs, ["db.INTERNAL"])).to eq([])
+    end
   end
 
   describe "#check_databases" do
-    it "refuses a non-local database with a message that names c.allow_db_hosts" do
+    it "refuses non-local databases, naming them and c.allow_db_hosts" do
+      primary = double("primary", name: "primary", configuration_hash: { host: "db.internal" })
+      animals = double("animals", name: "animals", configuration_hash: { host: "zoo.internal" })
+      base = double("ActiveRecord::Base")
+      allow(base).to receive(:configurations).and_return(double("configurations", configs_for: [primary, animals]))
+      stub_const("ActiveRecord::Base", base)
+      rails = described_class.new(Saboteur::Config.new, Saboteur::Hooks.new)
+      expect { rails.send(:check_databases) }
+        .to raise_error(Saboteur::Error,
+                        /primary \(host db\.internal\), animals \(host zoo\.internal\).*c\.allow_db_hosts/)
+    end
+
+    it "accepts a host listed in allow_db_hosts" do
       db = double("db", name: "primary", configuration_hash: { host: "db.internal" })
       base = double("ActiveRecord::Base")
       allow(base).to receive(:configurations).and_return(double("configurations", configs_for: [db]))
       stub_const("ActiveRecord::Base", base)
-      rails = described_class.new(Saboteur::Config.new, Saboteur::Hooks.new)
-      expect { rails.send(:check_databases) }.to raise_error(Saboteur::Error, /c\.allow_db_hosts/)
+      config = Saboteur::Config.new({ "allow_db_hosts" => ["db.internal"] })
+      rails = described_class.new(config, Saboteur::Hooks.new)
+      expect { rails.send(:check_databases) }.not_to raise_error
     end
   end
 end
