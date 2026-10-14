@@ -38,10 +38,10 @@ RSpec.describe Saboteur::MutationSource::OperatorAssignment do
     expect(described_class.new(arid: ["a"]).mutations_for(target("a += 1"))).to be_empty
   end
 
-  it "is opt-in and wires arid through builtin" do
+  it "is default-on and wires arid through builtin" do
     subject = target("a += 1")
     expect(Saboteur::MutationSource::Builtin.new.mutations_for(subject).map(&:operator))
-      .not_to include("operator_assignment")
+      .to include("operator_assignment")
     expect(Saboteur::MutationSource::Builtin.new(operators: ["operator_assignment"])
       .mutations_for(subject).size).to eq(1)
     expect(Saboteur::MutationSource::Builtin.new(operators: ["operator_assignment"], arid: ["a"])
