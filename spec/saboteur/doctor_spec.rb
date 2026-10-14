@@ -28,6 +28,7 @@ RSpec.describe Saboteur::Doctor do
                                                                                  call: %w[a b]))
     expect(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     expect(doctor).to receive(:check_boot_files).and_call_original
+    expect(doctor).to receive(:check_database_hosts).and_call_original
     expect(doctor.call).to be(true)
     expect(out.string).to include("Ruby:", "Coverage: suspended", "Integration: rspec (loaded)", "Rails: disabled",
                                   "Baseline: 2 tests passed twice in the same order with seed 1", "does not prove",
@@ -257,6 +258,74 @@ RSpec.describe Saboteur::Doctor do
       File.unlink(File.join(root, "boot.rb"))
       expect { doctor.send(:check_boot_files) }.to raise_error(Saboteur::ConfigError, /require file missing/)
     end
+  end
+
+  it "accepts require and hooks paths that resolve with the .rb extension, the way require does" do
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "config"))
+      File.write(File.join(root, "config", "environment.rb"), "")
+      config = Saboteur::Config.new({ "require" => ["./config/environment"], "hooks" => ["./config/environment"] },
+                                    root: root)
+      doctor = described_class.new(config, out: out)
+      doctor.send(:check_boot_files)
+      expect(out.string).to include("require: ./config/environment (found)", "hooks: ./config/environment (found)")
+      File.unlink(File.join(root, "config", "environment.rb"))
+      expect { doctor.send(:check_boot_files) }.to raise_error(Saboteur::ConfigError, /require file missing/)
+    end
+  end
+
+  it "prints test database hosts and refuses ones that are neither local nor allowed" do
+    primary = double("primary", name: "primary", configuration_hash: { host: "0.0.0.0" })
+    animals = double("animals", name: "animals", configuration_hash: { host: "db.internal" })
+    cache = double("cache", name: "cache", configuration_hash: { host: "db2.internal" })
+    configurations = double("configurations")
+    base = double("ActiveRecord::Base")
+    allow(base).to receive(:configurations).and_return(configurations)
+    expect(configurations).to receive(:configs_for).with(env_name: "test").and_return([primary, animals, cache])
+    stub_const("ActiveRecord::Base", base)
+    config = Saboteur::Config.new({ "rails" => true })
+    doctor = described_class.new(config, out: out)
+    expect { doctor.send(:check_database_hosts) }
+      .to raise_error(Saboteur::ConfigError,
+                      /animals \(host db\.internal\), cache \(host db2\.internal\).*c\.allow_db_hosts/m)
+    expect(out.string).to include("Database: primary (host 0.0.0.0)", "Database: animals (host db.internal)",
+                                  "Database: cache (host db2.internal)")
+  end
+
+  it "accepts a database host the user lists in allow_db_hosts" do
+    animals = double("animals", name: "animals", configuration_hash: { host: "db.internal" })
+    base = double("ActiveRecord::Base")
+    allow(base).to receive(:configurations).and_return(double("configurations", configs_for: [animals]))
+    stub_const("ActiveRecord::Base", base)
+    config = Saboteur::Config.new({ "rails" => true, "allow_db_hosts" => ["db.internal"] })
+    doctor = described_class.new(config, out: out)
+    doctor.send(:check_database_hosts)
+    expect(out.string).to include("Database: animals (host db.internal)")
+  end
+
+  it "skips the database host check unless rails is enabled" do
+    doctor = described_class.new(Saboteur::Config.new, out: out)
+    doctor.send(:check_database_hosts)
+    expect(out.string).to be_empty
+  end
+
+  it "says so when rails is enabled but ActiveRecord did not load" do
+    hide_const("ActiveRecord")
+    config = Saboteur::Config.new({ "rails" => true })
+    doctor = described_class.new(config, out: out)
+    doctor.send(:check_database_hosts)
+    expect(out.string).to include("Databases: ActiveRecord did not load; host check skipped")
+  end
+
+  it "prints local socket for a database without a host" do
+    primary = double("primary", name: "primary", configuration_hash: { adapter: "sqlite3" })
+    base = double("ActiveRecord::Base")
+    allow(base).to receive(:configurations).and_return(double("configurations", configs_for: [primary]))
+    stub_const("ActiveRecord::Base", base)
+    config = Saboteur::Config.new({ "rails" => true })
+    doctor = described_class.new(config, out: out)
+    doctor.send(:check_database_hosts)
+    expect(out.string).to include("Database: primary (host local socket)")
   end
 
   it "wraps load, syntax, exit, and ordinary boot failures without swallowing interrupts" do

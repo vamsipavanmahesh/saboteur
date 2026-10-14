@@ -42,6 +42,8 @@ module Saboteur
       "exclude_operators" => [],
       "hooks" => [],
       "rails" => false,
+      # Hosts the user asserts are disposable test databases (issue #258).
+      "allow_db_hosts" => [],
       "reeval" => "nesting",
       "cache_dir" => ".saboteur",
       "json_report" => ".saboteur/report.json",
@@ -69,7 +71,7 @@ module Saboteur
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
-                   fingerprint_extra sandbox_writable operators exclude_operators whole_file].freeze
+                   fingerprint_extra sandbox_writable operators exclude_operators whole_file allow_db_hosts].freeze
 
     attr_reader :root
 

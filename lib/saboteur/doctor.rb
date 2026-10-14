@@ -25,6 +25,7 @@ module Saboteur
       integration = boot_target(hooks)
       @out.puts "Integration: #{@config['integration']} (loaded)"
       @out.puts "Rails: #{@config['rails'] ? 'enabled' : 'disabled'}"
+      check_database_hosts
       @out.puts "SimpleCov: #{defined?(::SimpleCov) ? 'present; start suppressed for this process' : 'not loaded'}"
       check_coverage
       check_suite(integration, hooks)
@@ -105,11 +106,33 @@ module Saboteur
       @out.puts "Custom map: #{map.entries.size} entries (loaded)"
     end
 
+    # Prints the test database hosts the booted app reports, so a non-local
+    # refusal names the host here instead of only at target boot (issue #258).
+    def check_database_hosts
+      return unless @config["rails"]
+      return @out.puts("Databases: ActiveRecord did not load; host check skipped") unless defined?(::ActiveRecord::Base)
+
+      configs = ::ActiveRecord::Base.configurations.configs_for(env_name: "test")
+      configs.each do |db|
+        host = db.configuration_hash[:host]
+        @out.puts "Database: #{db.name} (host #{host.to_s.empty? ? 'local socket' : host})"
+      end
+      remote = Frameworks::Rails.remote_databases(configs, @config["allow_db_hosts"])
+      return if remote.empty?
+
+      raise ConfigError, "non-local test databases: #{remote.join(', ')}; if they are disposable test databases, " \
+                         "allow them with c.allow_db_hosts in #{Config::FILE}"
+    end
+
     def check_boot_files
       %w[require hooks].each do |key|
         @config[key].each do |file|
           path = File.expand_path(file, @config.root)
-          raise ConfigError, "#{key} file missing: #{file}; fix config/saboteur.rb" unless File.file?(path)
+          # Resolve the way Kernel#require does: the path as given, or with
+          # .rb appended (the Rails quickstart sets ./config/environment, issue #257).
+          unless File.file?(path) || File.file?("#{path}.rb")
+            raise ConfigError, "#{key} file missing: #{file}; fix config/saboteur.rb"
+          end
 
           @out.puts "#{key}: #{file} (found)"
         end
