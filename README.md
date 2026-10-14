@@ -940,6 +940,8 @@ The builtin `endpoint_replacement` operator swaps explicit, no-argument `first`/
 
 JSON findings are ordered by a deterministic [review ranking](docs/survivor-ranking.md): coarse first, then covering-test count, edited-line impact and changed-line proximity, with file/line/digest ties. The terminal groups survivors by file, method and line first; the ranking only orders the survivors on one line, and every survivor is listed, in review mode too. Only consecutive survivors with matching evidence share a test/evidence block; repeated evidence after another group is printed again to keep that order. Ranking does not change scores or execution.
 
+Cache and baseline identities include the policy. Re-propose and review old survivor baselines with `baseline propose`; never auto-accept new survivors. Mutation digests for unchanged edits stay stable.
+
 ### Preview and choose operators
 
 `bundle exec saboteur run --dry-run` discovers source methods and generates candidates without booting the app, running tests, forking, or writing reports/caches. It honors `--since`, `--subject` and source arguments. It prints per-method counts and cap omissions. After a matching normal run, a cached estimate shows baseline covering-test work (cached original-test durations times planned mutants; it is not a bound on mutant runtime and excludes boot and fork costs). If any file cannot be parsed, the total is marked INCOMPLETE and no estimate is given.
@@ -948,6 +950,20 @@ Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `s
 
 `bundle exec saboteur run --list-operators` lists every builtin name and description. All builtin operators run by default, including [`range`](docs/operators/range.md), [`operator_assignment`](docs/operators/operator_assignment.md), and [`condition_negation`](docs/operators/condition_negation.md). `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` still selects a subset; `all` selects every name. There is no opt-in tier. `--exclude-operators range,condition_negation` or `c.exclude_operators = ["range", "condition_negation"]` removes named operators from that selection; exclusion wins if a name is in both lists. An empty selection means all, while an empty exclusion means none. CLI lists replace their corresponding config lists. These controls apply to builtin operators, not custom source plugins. Selection and exclusions invalidate cached verdict identity and are carried into agent rerun/replay commands.
 
+
+All operators run unless you select a smaller set; exclusions always remove operators from that set.
+Repeated `--operators` or `--exclude-operators` flags use the last list, not a union.
+To re-enable an operator excluded in config: `bundle exec saboteur run --operators range --exclude-operators ''`.
+To keep the 0.5.0 default inventory: `bundle exec saboteur run --exclude-operators range,operator_assignment,condition_negation`.
+The old `core` and `extended` names now give a migration error, not a changed selection in disguise.
+An empty effective selection is a usage error before boot. `--list-operators` loads current config and shows on/off plus examples; preview and the run header show the effective set.
+
+```ruby
+Saboteur.configure do |c|
+  c.operators = [] # all by default; or ["arithmetic", "range"] for a subset
+  c.exclude_operators = ["condition_negation"]
+end
+```
 
 Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).
 
@@ -966,9 +982,11 @@ step; the bundled Action's upload behavior is unchanged.
 
 Score history now refuses non-regular files, symlink paths and report/history
 inode aliases before running the engine or writing reports. Imported records
-have a 64 KiB per-line bound and strict version-one validation, including
-counts, scores and duplicate keys. History is an output, excluded from baseline
+have a 64 KiB per-line bound and strict validation of supported version 1
+and version 2 records, including counts, scores and duplicate keys. History is an output, excluded from baseline
 fingerprints. See [history safety and comparison limits](docs/scores.md).
+
+Operator policy version 2, selected names, excluded names and effective names are in JSON/agent/baseline evidence and fresh score-history v2 rows. Old history v1 rows remain readable but are not compared across policy versions.
 ### Inline suppression comments
 
 `total = a + b # saboteur:disable-line arithmetic reason="rounding checked elsewhere"` suppresses edits starting on that line, restricted to the named operators. Omit names to suppress all operators. Multiple names are space-separated. Only actual Ruby comments count; directive text in strings does not. A missing or blank reason or unknown operator is a usage error naming file:line. Terminal, JSON and HTML list every suppressed candidate with its reason and digest, outside the score. Moving the commented code keeps the suppression. Multi-line edits use their starting line.
@@ -978,18 +996,3 @@ Inspired by mutineer's inline suppression comments (github.com/davidteren/mutine
 Inline suppressions bound completeness: classic scores still exclude suppressed candidates, but baseline evidence is incomplete when any inline candidate is suppressed. Agent output reports `inline_suppressed` with its count and points to the full audit. Reasons are audited, not proof that suppressed work was checked.
 
 Source-only `--dry-run` lists the suppressed count and each audit row in selected methods, before diff restriction and the per-method cap. They are outside the planned total. Preview still does not boot the app or write reports.
-
-All operators run unless you select a smaller set; exclusions always remove operators from that set.
-Repeated `--operators` or `--exclude-operators` flags use the last list, not a union.
-To re-enable an operator excluded in config: `bundle exec saboteur run --operators range --exclude-operators ''`.
-To keep the 0.5.0 default inventory: `bundle exec saboteur run --exclude-operators range,operator_assignment,condition_negation`.
-The old `core` and `extended` names now give a migration error, not a changed selection in disguise.
-An empty effective selection is a usage error before boot. `--list-operators` loads current config and shows on/off plus examples; preview and the run header show the effective set.
-Operator policy version 2, selected names, excluded names and effective names are in JSON/agent/baseline evidence and fresh score-history v2 rows. Old history v1 rows remain readable but are not compared across policy versions. Cache and baseline identities include the policy. Re-propose and review old survivor baselines with `baseline propose`; never auto-accept new survivors. Mutation digests for unchanged edits stay stable.
-
-```ruby
-Saboteur.configure do |c|
-  c.operators = [] # all by default; or ["arithmetic", "range"] for a subset
-  c.exclude_operators = ["condition_negation"]
-end
-```
