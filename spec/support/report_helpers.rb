@@ -20,8 +20,9 @@ module ReportHelpers
     Saboteur::MutationSource::Mutation.new(subject_id: person_subject.id, operator:, edits: [edit], coarse:)
   end
 
-  def result_for(status, replacement: ">", coarse: false, **)
+  def result_for(status, replacement: ">", coarse: false, operator: nil, **)
     mutation = comparison_mutation(replacement:, coarse:)
+    mutation = mutation.with(operator:) if operator
     Saboteur::MutantResult.new(subject: person_subject, mutation:, status:,
                                mutated_source: person_subject.apply(mutation.edits), **)
   end

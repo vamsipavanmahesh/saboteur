@@ -8,9 +8,9 @@ module Saboteur
     # survived, so a clean run stays short.
     class NextSteps
       # replay_command: digest -> the full, copy-pasteable replay command
-      # carrying the run's own selection options, or nil when it would be
-      # too long; the digest-only hint (with its reassembly note) is the
-      # fallback (#261).
+      # carrying the run's own selection options, however long it gets
+      # (#261). When no builder is wired the digest-only hint (with its
+      # reassembly note) is the fallback.
       def initialize(out, palette, replay_command: nil)
         @out = out
         @palette = palette

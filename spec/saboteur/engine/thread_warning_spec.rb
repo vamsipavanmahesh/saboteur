@@ -30,7 +30,7 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     named = Thread.new { sleep }
     named.name = "AR Pool Reaper"
     Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
-    expect(warnings.last).to include("AR Pool Reaper", "harmless", "reconnect")
+    expect(warnings.last).to include("AR Pool Reaper", "expected harmless", "reconnect")
   ensure
     named.kill
     named.join
@@ -40,7 +40,8 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     named = Thread.new { sleep }
     named.name = "DEBUGGER__::SESSION@server"
     Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
-    expect(warnings.last).to include("DEBUGGER__::SESSION@server", "harmless", "RUBY_DEBUG_OPEN")
+    expect(warnings.last).to include("DEBUGGER__::SESSION@server", "not expected to affect results",
+                                     "RUBY_DEBUG_FORK_MODE", "RUBY_DEBUG_OPEN")
   ensure
     named.kill
     named.join

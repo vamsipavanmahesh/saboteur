@@ -10,13 +10,21 @@ module Saboteur
     # Known-harmless threads say so inline; an unknown thread gets the
     # generic caveat (#263).
     module ThreadWarnings
-      # Well-known fork-time threads that cannot hurt the run.
+      # Well-known fork-time threads, with the condition each assurance
+      # hangs on. Evidence: rails-mode children reconnect the database
+      # (lib/saboteur/frameworks/rails.rb, after_fork); the debug gem
+      # attaches its console to forked children only under fork mode
+      # :child/:both (SESSION.activate on_fork: true, ruby/debug's
+      # lib/debug/session.rb).
       KNOWN_FORK_THREADS = {
-        "AR Pool Reaper" => "ActiveRecord's connection-pool reaper: harmless - it only maintains the parent's " \
-                            "pool; children reconnect the database after fork (rails mode)",
-        "DEBUGGER__::SESSION@server" => "the debug gem's remote-console server: harmless for results - the " \
-                                        "console just cannot attach to children; to not start it, drop " \
-                                        "RUBY_DEBUG_OPEN or require \"debug\" without :open"
+        "AR Pool Reaper" => "ActiveRecord's connection-pool reaper: expected harmless when children " \
+                            "reconnect the database after fork (rails mode does) - it only maintains " \
+                            "the parent's pool",
+        "DEBUGGER__::SESSION@server" => "the debug gem's remote-console server: not expected to affect " \
+                                        "results - under the default fork mode children run no console, " \
+                                        "and RUBY_DEBUG_FORK_MODE=child/both attaches it to children on " \
+                                        "purpose; to not start it at all, drop RUBY_DEBUG_OPEN or require " \
+                                        "\"debug\" without :open"
       }.freeze
 
       def self.warn(diagnostics)

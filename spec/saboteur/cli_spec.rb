@@ -424,11 +424,13 @@ RSpec.describe Saboteur::CLI do
           File.write("config/saboteur.rb", "# config\n")
           FileUtils.mkdir_p("spec")
           File.write("spec/a_spec.rb", "# spec\n")
+          FileUtils.mkdir_p("spec/space dir")
+          File.write("spec/space dir/b_spec.rb", "# spec\n")
           system("git", "init", "-q", out: File::NULL, exception: true)
           system("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty",
                  "-m", "base", out: File::NULL, exception: true)
           cli("run", "--config", "config/saboteur.rb", "--since", "HEAD", "--subject", "Person#adult?", "--test",
-              "spec/a_spec.rb").call
+              "spec/a_spec.rb", "--test", "spec/space dir/b_spec.rb").call
         end
       end
       line = out.string.lines.find { |l| l.include?("replay one survivor:") }
@@ -436,6 +438,7 @@ RSpec.describe Saboteur::CLI do
       words = Shellwords.split(line.split(":", 2).last)
       expect(words).to include("saboteur", "run", "--id", "--config", "config/saboteur.rb", "--since", "HEAD",
                                "--subject", "Person#adult?", "--test", "spec/a_spec.rb")
+      expect(words.each_cons(2).to_a).to include(["--test", "spec/space dir/b_spec.rb"])
       expect(out.string).not_to include("add this run's own")
     end
 

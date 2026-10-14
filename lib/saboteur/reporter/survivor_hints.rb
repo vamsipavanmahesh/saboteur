@@ -19,8 +19,9 @@ module Saboteur
         "safe_navigation" => "try an example where the receiver is nil",
         "argument_removal" => "try have_received(...).with(...), or assert a result that depends on this argument",
         "pair_removal" => "try have_received(...).with(...), or assert the hash content under this key",
-        "chain_removal" => "try the shorter chain's value against the longer one: it may return the same " \
-                           "value (for example a duplicated column); if so, simplify the code or ignore the mutant",
+        "chain_removal" => "try the shorter chain's value against the longer one; if you confirm the " \
+                           "shorter chain is equivalent across the intended inputs (for example a duplicated " \
+                           "column), simplify the code or ignore the mutant",
         "endpoint_replacement" => "try a collection with 2 or more elements, to tell first from last",
         "filter_replacement" => "try items that match and items that do not, to tell select from reject"
       }.freeze

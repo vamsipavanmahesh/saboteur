@@ -14,7 +14,7 @@ RSpec.describe Saboteur::CLI, "terminal options" do
   before do
     engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
     allow(Saboteur::Engine).to receive(:new).and_return(engine)
-    allow(Saboteur::Reporter::Terminal).to receive(:new).and_return(reporter)
+    allow(Saboteur::Reporter::Terminal).to receive(:new) { |*_a, **_kw| reporter }
   end
 
   def run_with(*flags)
@@ -23,19 +23,23 @@ RSpec.describe Saboteur::CLI, "terminal options" do
 
   it "defaults to a quiet reporter with automatic colour" do
     run_with
-    expect(Saboteur::Reporter::Terminal).to have_received(:new).with(out, verbose: false, color: :auto)
+    expect(Saboteur::Reporter::Terminal).to have_received(:new)
+      .with(out, verbose: false, color: :auto, replay_command: kind_of(Proc))
   end
 
   it "passes --verbose to the reporter" do
     run_with("--verbose")
-    expect(Saboteur::Reporter::Terminal).to have_received(:new).with(out, verbose: true, color: :auto)
+    expect(Saboteur::Reporter::Terminal).to have_received(:new)
+      .with(out, verbose: true, color: :auto, replay_command: kind_of(Proc))
   end
 
   it "passes --color and --no-color to the reporter" do
     run_with("--color")
-    expect(Saboteur::Reporter::Terminal).to have_received(:new).with(out, verbose: false, color: :always)
+    expect(Saboteur::Reporter::Terminal).to have_received(:new)
+      .with(out, verbose: false, color: :always, replay_command: kind_of(Proc))
     run_with("--no-color")
-    expect(Saboteur::Reporter::Terminal).to have_received(:new).with(out, verbose: false, color: :never)
+    expect(Saboteur::Reporter::Terminal).to have_received(:new)
+      .with(out, verbose: false, color: :never, replay_command: kind_of(Proc))
   end
 
   describe "--fail-fast" do
