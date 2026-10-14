@@ -212,7 +212,8 @@ RSpec.describe Saboteur::CLI, "agent mode" do
       out, = agent_process(dir, "run", "--agent", "--subject", "A#b", "--id", "f" * 16, "lib/a.rb")
       payload = JSON.parse(out)
       expect(payload["provenance"]).to include("ref" => "HEAD", "mode" => "replay")
-      expect(payload["next"]["rerun"]).to eq("saboteur run --agent --since HEAD --subject A\\#b --id #{'f' * 16} " \
+      expect(payload["next"]["rerun"]).to eq("saboteur run --agent --since HEAD --subject A\\#b --operators '' " \
+                                             "--exclude-operators '' --id #{'f' * 16} " \
                                              "--seed 1 -- lib/a.rb")
     end
   end
