@@ -6,7 +6,25 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- `saboteur doctor` accepts `require` and `hooks` paths the way
+  `Kernel#require` resolves them: the path as given, or with `.rb`
+  appended, so the README's `c.require = ["./config/environment"]`
+  quickstart no longer fails the boot-file check (#257).
+
 ### Added
+- `allow_db_hosts` config (#258): hosts you assert are disposable test
+  databases. The Rails integration's local-database check accepts them,
+  and its refusal names the setting. `saboteur doctor` prints each test
+  database's host and fails on a non-local one, so the refusal shows up
+  before a mutation run. `0.0.0.0` now counts as a local host: compose
+  setups write it into database URLs, and connecting to it reaches this
+  machine.
+- `--guess-tests` now maps files in packwerk packs (any directory with a
+  `package.yml`) to the spec inside the same pack, and maps
+  `app/controllers` files to `spec/requests` specs (`users_spec.rb` or
+  `users_controller_spec.rb`). It still names the changed files it could
+  not match (#259).
 - `script/preflight`: a local pre-review check on one exact base and head
   (#210). It runs the protected-path scope check, sign-off, SPDX headers,
   whitespace, RuboCop and the specs (fast or full mode), writes every harness
