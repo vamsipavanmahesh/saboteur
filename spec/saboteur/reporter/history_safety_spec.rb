@@ -176,9 +176,19 @@ RSpec.describe "history safety" do
     expect(probe.reject_links("/one/two")).to be_nil
   end
   it "prints the exact unavailable messages for incompatible records and absent scores" do
-    base = { "selection" => "a", "inventory" => "b", "incomplete" => [], "coveredScore" => nil }
+    policy = { "version" => 2, "selected" => [], "excluded" => [], "effective" => ["arithmetic"] }
+    base = { "selection" => "a", "inventory" => "b", "incomplete" => [], "coveredScore" => nil,
+             "version" => 2, "operatorPolicy" => policy }
     expect(writer.send(:change, base, base.merge("selection" => "other")))
       .to eq("score history: change unavailable (different selection/inventory or incomplete run)")
+    expect(writer.send(:change, base, base.merge("version" => 1, "operatorPolicy" => nil)))
+      .to eq("score history: change unavailable (different record version or operator policy)")
+    expect(writer.send(:change, base, base.merge("version" => 1)))
+      .to eq("score history: change unavailable (different record version or operator policy)")
+    expect(writer.send(:change, base.merge("operatorPolicy" => nil), base))
+      .to eq("score history: change unavailable (different record version or operator policy)")
+    expect(writer.send(:change, base, base.merge("operatorPolicy" => nil)))
+      .to eq("score history: change unavailable (different record version or operator policy)")
     expect(writer.send(:change, base, base))
       .to eq("score history: change unavailable (no tested mutants)")
   end
