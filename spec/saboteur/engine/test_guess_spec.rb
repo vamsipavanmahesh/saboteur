@@ -201,6 +201,23 @@ RSpec.describe Saboteur::Engine::TestGuess do
       .to eq([["spec/a_spec.rb"], [], ["lib/c.rb"], 2])
   end
 
+  it "does not guess a spec for a file with no changed mutation subjects" do
+    write("spec/c_spec.rb")
+    write("lib/c.rb", "class Widget\n  def thing\n    # a note\n    1\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "c with spec")
+    write("lib/c.rb", "class Widget\n  def thing\n    # a better note\n    1\n  end\nend\n")
+    result = guess
+    expect([result.specs, result.unmatched, result.subjectless]).to eq([[], [], ["lib/c.rb"]])
+  end
+
+  it "falls back for a subjectful file without a spec when the other change is subjectless with a spec" do
+    write("lib/a.rb", "class Widget\n  def thing\n    # a better note\n    1\n  end\nend\n")
+    write("lib/c.rb", "class Widget\n  def thing\n    2\n  end\nend\n")
+    result = guess
+    expect([result.specs, result.unmatched, result.subjectless]).to eq([[], ["lib/c.rb"], ["lib/a.rb"]])
+  end
+
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
   end
