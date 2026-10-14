@@ -16,6 +16,67 @@ RSpec.describe Saboteur::Reporter::HistoryRecord do
     expect { described_class.validate(row) }.to raise_error(Saboteur::Error, message)
   end
 
+  it "strictly validates v2 policy while retaining exact legacy v1 fields" do
+    policy = Saboteur::Config.new({ "exclude_operators" => ["range"] }).operator_policy
+    current = record.merge("operatorPolicy" => policy, "version" => 2)
+    expect { described_class.validate(current) }.not_to raise_error
+    expect { described_class.validate(current.except("operatorPolicy").merge("version" => 1)) }.not_to raise_error
+    invalid(current.except("operatorPolicy"), /invalid record schema/)
+    invalid(current.merge("version" => 3), /invalid version/)
+    invalid([], /invalid version/)
+    [policy.merge("version" => 1), policy.merge("selected" => "range"),
+     policy.merge("selected" => [1]), policy.merge("excluded" => [1]),
+     policy.merge("effective" => [1]), policy.merge("effective" => []),
+     policy.merge("excluded" => ["typo"]), policy.except("version")].each do |value|
+      invalid(current.merge("operatorPolicy" => value), /invalid operator policy|invalid record schema/)
+    end
+  end
+
+  it "checks header dispatch and policy shape before comparing resolved values" do
+    validator = described_class
+    fields = validator::FIELDS
+    expect(validator).to receive(:fields).with({ "version" => 1 }, fields).ordered
+    validator.validate_header({ "version" => 1 }, fields)
+    value = { "version" => 2, "operatorPolicy" => nil }
+    expect(validator).to receive(:fields).with(value, fields + ["operatorPolicy"]).ordered
+    expect(validator).to receive(:validate_policy).with(nil).ordered
+    validator.validate_header(value, fields)
+    RSpec::Mocks.space.proxy_for(validator).reset
+    policy = Saboteur::Config.new.operator_policy
+    [policy.merge("version" => "2"), policy.merge("selected" => {}),
+     policy.merge("selected" => [nil]), policy.merge("excluded" => [nil]),
+     policy.merge("effective" => [nil])].each do |bad|
+      expect { validator.validate_policy(bad) }
+        .to raise_error(Saboteur::Error, "score history contains invalid operator policy")
+    end
+    expect { validator.validate_policy(policy.merge("excluded" => ["bad"])) }
+      .to raise_error(Saboteur::Error, "score history contains invalid operator policy")
+    expect(validator).to receive(:fields).with(policy, %w[version selected excluded effective])
+    validator.validate_policy(policy)
+  end
+
+  it "does not dispatch a policy for legacy rows and refuses version/type guards independently" do
+    validator = described_class
+    expect(validator).not_to receive(:validate_policy)
+    validator.validate_header(record.except("operatorPolicy").merge("version" => 1), validator::FIELDS)
+    RSpec::Mocks.space.proxy_for(validator).reset
+    policy = Saboteur::Config.new.operator_policy
+    validator.fields(policy, %w[version selected excluded effective])
+    expect { validator.validate_policy(policy.merge("version" => 3)) }.to raise_error(Saboteur::Error)
+    expect { validator.validate_policy(policy.merge("effective" => [Object.new])) }.to raise_error(Saboteur::Error)
+  end
+
+  it "validates every string list even when resolved policy equality would agree" do
+    validator = described_class
+    expected = Saboteur::Config.new.operator_policy
+    bad = expected.merge("effective" => [1])
+    allow(Saboteur::MutationSource::OperatorRegistry).to receive(:policy).and_return(bad)
+    expect { validator.validate_policy(bad) }.to raise_error(Saboteur::Error)
+    bad_array = expected.merge("selected" => "all")
+    allow(Saboteur::MutationSource::OperatorRegistry).to receive(:policy).and_return(bad_array)
+    expect { validator.validate_policy(bad_array) }.to raise_error(Saboteur::Error)
+  end
+
   it "rejects duplicate keys independently of the JSON library default" do
     object = described_class::UniqueObject.new
     object["key"] = 1
