@@ -160,6 +160,34 @@ RSpec.describe Saboteur::Execution::Sandbox do
     end
   end
 
+  # A mutant child runs with the suite's locale; under LANG=C its inherited fd
+  # targets arrive tagged US-ASCII. Grant checks must compare bytes, or a
+  # non-ASCII target raises Encoding::CompatibilityError before any test runs.
+  it "sweeps writable fds whose targets carry non-ASCII bytes under a US-ASCII locale" do
+    skip "needs /proc/self/fd" unless described_class.linux?
+    Dir.mktmpdir("saboteur-sweep-") do |base|
+      dir = File.join(base, "café")
+      other = File.join(base, "cåfé")
+      Dir.mkdir(dir)
+      Dir.mkdir(other)
+      File.write(File.join(dir, "ok"), "x")
+      File.write(File.join(other, "log"), "x")
+      granted = File.open(File.join(dir, "ok"), "r+") # rubocop:disable Style/FileOpen
+      ungranted = File.open(File.join(other, "log"), "r+") # rubocop:disable Style/FileOpen
+      begin
+        # keep_fds covers stdio only; every other writable regular-file fd is
+        # swept, so the two fixture fds exercise grant-vs-close by their paths.
+        with_default_external(Encoding::US_ASCII) do
+          described_class::InheritedFds.close_writable_files([File.realpath(dir)], [0, 1, 2])
+        end
+        expect(granted.write("y")).to eq(1)
+        expect { ungranted.write("y") }.to raise_error(IOError)
+      ensure
+        [granted, ungranted].each { |io| io.close unless io.closed? }
+      end
+    end
+  end
+
   it "sweeps stdio redirected to a writable regular file but keeps stdio on /dev/null" do
     skip "needs /proc/self/fd" unless described_class.linux?
     Dir.mktmpdir("saboteur-stdio-") do |root|
