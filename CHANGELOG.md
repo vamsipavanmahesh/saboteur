@@ -13,7 +13,13 @@ All notable changes are documented here. The format follows
   output through a symlink-safe writer under `tmp/preflight/`, and takes
   check reports through harness-owned pipes rather than checkout paths.
   It is not CI and a pass is not an approval.
-- Opt-in extended `range`, `operator_assignment` and `condition_negation` operators (#135). Default core selection is unchanged.
+
+## [0.5.0] - 2026-10-14
+
+### Added
+- Opt-in extended `range`, `operator_assignment` and `condition_negation` operators (#135). They run only
+  when selected with `--operators`; the default core set does gain the new `chain_removal`
+  operator (below).
 - `whole_file` config: an opt-in list of subject ids or globs (for example
   `"Point#distance"`, `"Geometry::*"`). For those subjects the child evaluates the
   whole mutated file instead of re-evaluating the one method, so methods
@@ -93,11 +99,45 @@ All notable changes are documented here. The format follows
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
+- The `chain_removal` operator drops one link from the middle of a method chain:
+  `a.b.c` becomes `a.c`. The first receiver and the last call stay, so the result
+  is still a call on the original object. It ships in the default core set; links
+  that hand back their receiver (`freeze`, `dup`, `clone`, `itself`, `tap`) and
+  chains that are assignment targets are left alone (#183).
+- `saboteur baseline check|propose|accept --baseline PATH`: record today's
+  survivors as a baseline file and fail only on new ones, so an existing project
+  adopts mutation testing without a cleanup week. `check --epsilon POINTS` also
+  fails when the score drops more than POINTS percentage points below the
+  baseline's, and the failure detail prints inline. The GitHub Action exposes the
+  drop as the `baseline-score-drop` output (#131, #148).
+- `--guess-tests` scopes a `--since` run to the specs named after the changed
+  files, for suites where full selection costs too much. A spec that reaches a
+  changed file only through another file does not run, so a mutant only it
+  would kill can survive, and a line no guessed spec executes is reported as
+  NoCoverage. A changed source file with no matching spec (or no changed source
+  at all) falls back to the whole suite with a warning. It cannot be combined
+  with `--test` (#185).
+- `--allow-focus` (#108): without it, a suite narrowed by a stray `fit`,
+  `fdescribe` or `:focus` filter stops the run, because mutation testing a
+  focused slice would report a score for the wrong suite.
+- Survivor findings are ranked in the JSON and `--agent` findings: coarse
+  mutants first, then more covering tests, a larger edited-line span and nearer
+  changed lines (#191). The terminal report keeps its file/method/line groups,
+  with the ranking applied within each live or accepted line group.
+- `--score-history PATH` appends each run's scores to a JSONL file. Opt-in (#145).
+- [docs/guides/reading-survivors.md](docs/guides/reading-survivors.md) is a guide
+  to reading survivors, and [docs/recipes/README.md](docs/recipes/README.md)
+  collects setups for factories, fixtures, DatabaseCleaner, Capybara and test
+  adapters.
 ### Changed
 - The text run prints one `Reports:` line naming the JSON and HTML reports, with
   paths relative to the project root when they are under it, instead of two
   lines with a blank line between them (#150). Scripts that read the old
   `JSON report:` and `HTML report:` lines must read `Reports:` instead.
+- `saboteur doctor` checks the environment only by default (Ruby version,
+  coverage setup and SimpleCov conflicts, boot files, the custom map and ignore
+  subjects). The two unchanged baseline suite passes are slow on a large suite
+  and now run only with `doctor --suite` (or `--test`, which implies it) (#53).
 
 ### Fixed
 - `--since` with a ref that is not a commit exits 2 as a usage error, naming the
@@ -129,6 +169,15 @@ All notable changes are documented here. The format follows
   coverage map now also records per-test method calls, which is how Ruby
   reports endless-def bodies. A whole-suite build that records neither a line
   hit nor a method call still stops with a clearer cause message. (#107)
+- Mutants that compile to the same bytecode as the original method are dropped
+  before they run, instead of surviving as untestable noise (#151).
+- Mutants on branch arms that no covering test takes are skipped, using per-test
+  branch coverage, instead of surviving as findings no test could kill (#184).
+- Diff mode lists every survivor on a changed line instead of only one (#146).
+- Methods with heredoc bodies select all of the method's tests again, and edits
+  to pattern-matching arms map to the line that executes, so `--since` selects
+  their killers (#130, #110).
+- The empty-coverage error names Bootsnap only when Bootsnap is loaded (#149).
 
 ## [0.4.0] - 2026-10-12
 
