@@ -43,9 +43,13 @@ module Saboteur
       def changed_lines(ref, root:)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
-        top = git(root, "rev-parse", "--show-toplevel").strip
-        parse(Text.utf8(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
-                            "--no-ext-diff", base, "--")), top)
+        # Root and paths are filesystem identity: strip as bytes and retag
+        # losslessly (strip raises on locale-tagged high bytes; a scrub
+        # would rename a raw-byte path). Parse the diff body as bytes and
+        # tag each extracted path UTF-8 at the boundary.
+        top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
+        parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
+                  "--no-ext-diff", base, "--").b, top)
       end
 
       def parse(diff, top)
@@ -53,9 +57,11 @@ module Saboteur
         file = nil
         diff.each_line do |line|
           if line.start_with?("+++ ")
-            path = unquote(line.chomp.delete_prefix("+++ ").delete_suffix("\t"))
+            path = Text.utf8_identity(unquote(line.chomp.delete_prefix("+++ ").delete_suffix("\t")))
             file = path == NO_FILE ? nil : File.join(top, path.delete_prefix("b/"))
-          elsif file && (match = HUNK.match(line))
+          # Hunk headers are ASCII; a raw-byte line must never reach the
+          # regex, which would raise on the invalid bytes.
+          elsif file && line.start_with?("@@") && (match = HUNK.match(line))
             start = match[1].to_i
             count = (match[2] || "1").to_i
             # A pure deletion touches the lines on either side of it.
