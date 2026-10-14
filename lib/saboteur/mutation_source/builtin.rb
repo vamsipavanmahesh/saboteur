@@ -53,9 +53,9 @@ module Saboteur
       CATCH_ALL = %w[StandardError ::StandardError Exception ::Exception].freeze
       SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
 
-      def initialize(arid: DEFAULT_ARID, operators: [])
+      def initialize(arid: DEFAULT_ARID, operators: [], exclude_operators: [])
         super()
-        @operators = OperatorRegistry.resolve(operators)
+        @operators = OperatorRegistry.select(operators, exclude_operators)
         @arid = arid.map { |pattern| pattern.is_a?(Regexp) ? pattern : Regexp.new(pattern) }
         @filter_replacement = FilterReplacement.new(arid: arid)
         @literal_replacement = LiteralReplacement.new(arid: arid)
