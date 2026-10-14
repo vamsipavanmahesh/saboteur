@@ -242,6 +242,12 @@ module Saboteur
       # resolved - otherwise the follow-up commands would carry both --all
       # and --test, which the CLI rejects.
       settings[:all] = true if (config["all"] || config["test_selection"] == "all") && config["tests"].empty?
+      # CLI-only switches that change candidate availability or boot, so a
+      # printed rerun/replay must keep them (config-file settings like
+      # arid/hazard patterns, whole-file, require, rspec_args and rails ride
+      # along through --config or the default config path).
+      settings[:allow_hazardous] = true if options[:allow_hazardous]
+      settings[:allow_focus] = true if options[:allow_focus]
       settings
     end
 

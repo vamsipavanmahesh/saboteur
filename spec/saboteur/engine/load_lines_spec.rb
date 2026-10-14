@@ -59,16 +59,16 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
   end
   it "passes the boot load lines and execution dependencies to the coverage store" do
     target = subjects_in("class WiringTarget\n  def value\n    1\n  end\nend\n").first
-    integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
+    integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
     boot = instance_double(Saboteur::Engine::Boot, rails: nil)
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
     load_lines = { target.file => [3] }
     allow(engine).to receive(:boot_target).with(boot).and_return([integration, [target.file], load_lines])
     allow(engine).to receive(:select_subjects).with([target.file]).and_return([[target], nil])
-    allow(engine).to receive(:check_baseline).with(integration)
+    allow(engine).to receive(:check_baseline).with(integration, 3)
     map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
-    store = instance_double(Saboteur::Engine::CoverageStore, fetch: map)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
     expect(Saboteur::Engine::CoverageStore).to receive(:new) do |config:, integration:, hooks:, load_lines:,
                                                               supervisor:, diagnostics:|
       expect(config).to equal(engine.config)
@@ -76,6 +76,7 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
       expect(hooks).to equal(engine.hooks)
       expect(load_lines).to eq(target.file => [3])
       expect(supervisor).to be_a(Saboteur::Execution::Supervisor)
+      expect(supervisor.instance_variable_get(:@limits).max_memory_mb).to eq(8192)
       expect(diagnostics).to be_a(Saboteur::Engine::Diagnostics)
       store
     end

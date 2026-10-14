@@ -25,9 +25,18 @@ module Saboteur
         @root = File.realpath(config.root)
       end
 
+      # True when fetch would reuse the cached map instead of running the
+      # suite pass that builds it: lets the run announce the real number of
+      # full passes up front (#260). Loads the map with the same validation
+      # fetch uses and retains it, so a corrupt or truncated cache announces
+      # a build pass, not a reuse it cannot keep.
+      def reusable?(files)
+        !cached_map(files).nil?
+      end
+
       def fetch(files)
-        path = File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}.json")
-        cached = @config["cache"] ? Selection::CoverageMap.load(path) : nil
+        path = cache_path(files)
+        cached = cached_map(files)
         return refuse_empty_map(cached, files) if cached
 
         map = refuse_empty_map(build(files), files)
@@ -38,6 +47,16 @@ module Saboteur
       end
 
       private
+
+      def cache_path(files)
+        File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}.json")
+      end
+
+      def cached_map(files)
+        return nil unless @config["cache"]
+
+        @cached_map ||= Selection::CoverageMap.load(cache_path(files))
+      end
 
       def cache_key(files)
         inputs = JSON.generate(CACHE_INPUTS.to_h { |key| [key, @config[key]] })

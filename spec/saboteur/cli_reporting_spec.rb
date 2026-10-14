@@ -15,7 +15,8 @@ RSpec.describe "finished run reporting" do
       cli.options[:id] = "digest" if replay
       terminal = instance_double(Saboteur::Reporter::Terminal)
       expect(Saboteur::Reporter::Terminal).to receive(:new)
-        .with(out, verbose: verbose || false, color: color || :auto).and_return(terminal)
+        .with(out, verbose: verbose || false, color: color || :auto, replay_command: kind_of(Proc))
+        .and_return(terminal)
       expect(terminal).to receive(:call).with(report)
       replay_report = instance_double(Saboteur::Reporter::Replay)
       if replay
@@ -29,7 +30,7 @@ RSpec.describe "finished run reporting" do
       expect(cli).to receive(:record_history).with(report).ordered
       expect(cli).to receive(:validate_history).ordered
       expect(cli).to receive(:write_json).with(report, "ok").ordered
-      expect(cli.send(:text_run, report)).to eq(0)
+      expect(cli.send(:text_run, report, nil)).to eq(0)
       expect(err.string).to eq("\n")
     end
   end
@@ -51,17 +52,28 @@ RSpec.describe "finished run reporting" do
     expect(cli).to receive(:write_json).with(report, "ok").ordered
     expect(cli.send(:agent_run, arguments)).to eq(0)
   end
+  it "builds survivor replay commands from a working tree that excludes output paths" do
+    cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+    config = cli.config
+    state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
+    tree = instance_double(Saboteur::WorkingTree, state: state)
+    expect(Saboteur::WorkingTree).to receive(:new).with(config.root, ignored: config.output_paths).and_return(tree)
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    command = cli.send(:survivor_replay_command, report_of(result_for(:survived)), engine).call("53b683c4659bb71c")
+    expect(command).to include("saboteur run", "--id", "53b683c4659bb71c")
+  end
+
   [nil, "digest"].each do |digest|
     it "forwards exact engine arguments for replay #{digest.inspect}" do
       err = StringIO.new
       cli = Saboteur::CLI.new([], out: StringIO.new, err: err)
       cli.options[:id] = digest if digest
-      arguments = { err: err }
+      arguments = { err: err, verbose: false }
       arguments[:digest] = digest if digest
       report = report_of(result_for(:killed))
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
       expect(Saboteur::Engine).to receive(:new).with(cli.config, **arguments).and_return(engine)
-      expect(cli).to receive(:text_run).with(report).and_return(0)
+      expect(cli).to receive(:text_run).with(report, engine).and_return(0)
       expect(cli.send(:execute_run)).to eq(0)
     end
   end

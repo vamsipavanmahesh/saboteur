@@ -10,9 +10,10 @@ module Saboteur
     module RunReporting
       private
 
-      def text_run(report)
+      def text_run(report, engine)
         @err.puts
-        Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto).call(report)
+        Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto,
+                                     replay_command: survivor_replay_command(report, engine)).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]
         code = exit_code(report)
         # The JSON carries the exit cause an outer harness trusts, so it is
@@ -50,7 +51,23 @@ module Saboteur
         validate_history
         arguments = { err: @err }
         arguments[:digest] = options[:id] if options[:id]
-        agent? ? agent_run(arguments) : text_run(Engine.new(config, **arguments).call)
+        return agent_run(arguments) if agent?
+
+        # Text mode only: the engine prints a per-subject marks line when
+        # --verbose is on (#262); --agent output stays as it is.
+        engine = Engine.new(config, **arguments, verbose: @verbose || false)
+        text_run(engine.call, engine)
+      end
+
+      # The full replay command for a survivor digest: this run's own
+      # selection options, assembled by the same code that writes the agent
+      # follow-ups, so the user never reassembles them by hand (#261).
+      # Computed lazily: only a run with survivors asks for it.
+      def survivor_replay_command(report, engine)
+        lambda do |digest|
+          tree = WorkingTree.new(config.root, ignored: config.output_paths).state
+          Reporter::Agent::Commands.replay(agent_provenance(report, tree, engine), digest, capped: false)
+        end
       end
 
       def validate_history

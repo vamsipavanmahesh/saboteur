@@ -15,12 +15,16 @@ module Saboteur
       EXCERPT_WIDTH = 200
       EXCERPT_SCAN_LINES = 5000
 
-      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:)
+      # full_passes: every full-suite pass the run will make, including the
+      # coverage build when the cache is cold, so the first timed pass can
+      # price the rest (#260).
+      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, full_passes: 2)
         @config = config
         @integration = integration
         @hooks = hooks
         @supervisor = supervisor
         @diagnostics = diagnostics
+        @full_passes = full_passes
       end
 
       def call
@@ -32,7 +36,9 @@ module Saboteur
         previous = nil
         2.times do |index|
           number = index + 1
+          started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           data = check(number)
+          announce_first_pass_cost(number, started)
           unless data["passed"] && data["failed"].empty?
             refuse(number,
                    "the suite failed: #{Array(data['failed']).join(', ')}")
@@ -47,6 +53,19 @@ module Saboteur
       end
 
       private
+
+      # Once the first pass is timed, the total cost stops being a guess:
+      # the remaining full passes cost roughly the same each.
+      def announce_first_pass_cost(number, started)
+        return unless number == 1
+
+        remaining = @full_passes - number
+        return if remaining.zero?
+
+        elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round
+        @diagnostics.inform("baseline check #{number} took #{elapsed} s; about #{elapsed * remaining} s left for " \
+                            "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'} at that rate")
+      end
 
       def check(number)
         Execution::ForkReadiness.prepare_heap

@@ -8,8 +8,10 @@ module Saboteur
     module Agent
       # The shell commands an agent is told to run next. Every word is escaped with
       # Shellwords, so a ref, path or subject holding shell syntax stays one literal
-      # argument. A command is never cut short: when it is longer than MAX_BYTES it
-      # is left out, because half a command could run something else.
+      # argument. A command for the agent protocol is never cut short: when it is
+      # longer than MAX_BYTES it is left out, because half a command could run
+      # something else. The text footer passes capped: false instead - there the
+      # promise is the complete command, however long (#261).
       module Commands
         MAX_BYTES = 1024
 
@@ -17,6 +19,9 @@ module Saboteur
         SETTING_FLAGS = { reeval: "--reeval", integration: "--integration", jobs: "--jobs",
                           timeout_factor: "--timeout-factor", json_report: "--json", html_report: "--html",
                           operators: "--operators", exclude_operators: "--exclude-operators" }.freeze
+
+        # CLI-only boolean switches recorded in settings, emitted as bare flags.
+        BOOLEAN_SETTING_FLAGS = { allow_hazardous: "--allow-hazardous", allow_focus: "--allow-focus" }.freeze
 
         class << self
           # Run the same selection again: ref, subjects, sources, tests, config,
@@ -26,19 +31,31 @@ module Saboteur
             finish(words, provenance)
           end
 
-          # Replay one survivor by digest in the same selection.
-          def replay(provenance, digest)
+          # Replay one survivor by digest in the same selection. capped: false
+          # skips the protocol byte cap, for callers that print to a terminal.
+          def replay(provenance, digest, capped: true)
             words = ["saboteur", "run", "--id", digest, *selection(provenance, replay: true), "--seed",
                      provenance.seed.to_s]
-            finish(words, provenance)
+            finish(words, provenance, capped: capped)
           end
 
           private
 
-          def finish(words, provenance)
+          def finish(words, provenance, capped: true)
             words += ["--", *provenance.sources] unless provenance.sources.empty?
             command = Shellwords.join(words)
-            command.bytesize <= MAX_BYTES ? command : nil
+            command if !capped || command.bytesize <= MAX_BYTES
+          end
+
+          def mode_words(provenance)
+            words = []
+            words << "--no-cache" if provenance.cache == false
+            words << "--incremental" if provenance.incremental
+            words.concat(boolean_words(provenance))
+          end
+
+          def boolean_words(provenance)
+            BOOLEAN_SETTING_FLAGS.filter_map { |key, flag| flag if provenance.settings[key] }
           end
 
           # An explicit scope is frozen as --test, which wins over inferred
@@ -66,8 +83,7 @@ module Saboteur
             words << "--all" if provenance.settings[:all] && provenance.tests.empty?
             words.push(*test_words(provenance.tests))
             words.concat(setting_words(provenance))
-            words << "--no-cache" if provenance.cache == false
-            words << "--incremental" if provenance.incremental
+            words.concat(mode_words(provenance))
             words.push("--id", provenance.digest) if provenance.digest && !replay
             words
           end

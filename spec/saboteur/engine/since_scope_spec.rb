@@ -29,7 +29,10 @@ RSpec.describe Saboteur::Engine, "test selection" do
   let(:map) do
     Saboteur::Selection::CoverageMap.new(lines: { subject_under_test.file => { 3 => ["t1"] } }, tests: ["t1"])
   end
-  let(:integration) { instance_double(Saboteur::Integration::RSpec, test_files: %w[a_spec.rb b_spec.rb c_spec.rb]) }
+  let(:integration) do
+    instance_double(Saboteur::Integration::RSpec, test_files: %w[a_spec.rb b_spec.rb c_spec.rb],
+                                                  all_tests: [double(id: "t1"), double(id: "t2"), double(id: "t3")])
+  end
   let(:err) { StringIO.new }
 
   def run_engine(overrides)
@@ -53,7 +56,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
     baseline = instance_double(Saboteur::Engine::BaselineGuard)
     allow(baseline).to receive(:call) { err.puts("saboteur: checking the unchanged suite twice (seed 1)") }
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
-    store = instance_double(Saboteur::Engine::CoverageStore)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     distribution = instance_double(Saboteur::Engine::Distribution, run: [], unreached: [])
@@ -81,15 +84,79 @@ RSpec.describe Saboteur::Engine, "test selection" do
 
   it "warns about the unscoped suite before the baseline passes start" do
     report = run_engine("since" => "origin/main", "all" => true)
-    warning = "running the loaded suite unscoped: two baseline passes; coverage may add a pass (3 spec files). " \
-              "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
-              "only by those specs, so specs elsewhere that call this code are not run. " \
-              "The default inferred selection runs the specs named after the mutated files, " \
-              "a guess that can miss specs elsewhere."
+    warning = "running the loaded suite unscoped: 3 examples in 3 spec files; " \
+              "3 full passes (2 baseline checks + 1 coverage map build)."
     expect(err.string).to include(warning)
     expect(err.string.index("running the loaded suite unscoped"))
       .to be < err.string.index("checking the unchanged suite")
     expect(report.warnings).to include(warning)
+  end
+
+  it "counts only the passes the run will really make when the cached coverage map is reusable" do
+    stub_boot_phase
+    stub_test_phases
+    allow(Saboteur::Engine::CoverageStore).to receive(:new)
+      .and_return(instance_double(Saboteur::Engine::CoverageStore, reusable?: true, fetch: map))
+    described_class.new(Saboteur::Config.new({ "jobs" => 2, "since" => "origin/main", "all" => true }, root: @root),
+                        err: err).call
+    expect(err.string).to include("2 full passes (2 baseline checks; the cached coverage map is reused)")
+    expect(err.string).not_to include("coverage map build")
+  end
+
+  it "suggests --test from the example-count threshold up" do
+    allow(integration).to receive(:all_tests).and_return(Array.new(1_000) { |i| double(id: "t#{i}") })
+    run_engine("since" => "origin/main", "all" => true)
+    expect(err.string).to include("1000 examples in 3 spec files", "Pass --test to run only the specs you name")
+  end
+
+  it "skips the --test suggestion just under the threshold" do
+    allow(integration).to receive(:all_tests).and_return(Array.new(999) { |i| double(id: "t#{i}") })
+    run_engine("since" => "origin/main", "all" => true)
+    expect(err.string).to include("running the loaded suite unscoped")
+    expect(err.string).not_to include("Pass --test to run only the specs you name")
+  end
+
+  it "suggests --test past the example-count threshold" do
+    allow(integration).to receive(:all_tests).and_return(Array.new(1_001) { |i| double(id: "t#{i}") })
+    run_engine("since" => "origin/main", "all" => true)
+    expect(err.string).to include("1001 examples in 3 spec files", "Pass --test to run only the specs you name")
+  end
+
+  it "does not nag a single-mutant replay about the whole suite's cost (#260)" do
+    stub_boot_phase
+    stub_test_phases
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => 2, "all" => true }, root: @root),
+                                 err: err, digest: "0" * 16)
+    expect { engine.call }.to raise_error(Saboteur::Error, /not found/)
+    expect(err.string).not_to include("running the loaded suite unscoped")
+  end
+
+  it "does not nag a replay that resolves and runs its mutant (#260)" do
+    stub_boot_phase
+    stub_test_phases
+    config = Saboteur::Config.new({ "jobs" => 2, "all" => true }, root: @root)
+    probe = described_class.new(config, err: err, digest: "0" * 16)
+    sources = Saboteur::Engine::Candidates.build_sources(config)
+    candidates = Saboteur::Engine::Candidates.new(sources, probe.instance_variable_get(:@diagnostics),
+                                                  hazard_guard: probe.send(:hazard_guard))
+    mutation, = candidates.for(subject_under_test).first
+    digest = mutation.digest(subject_start: subject_under_test.start_byte,
+                             original_source: subject_under_test.file_source)
+    described_class.new(config, err: err, digest: digest).call
+    expect(err.string).not_to include("running the loaded suite unscoped")
+  end
+
+  it "skips the --test suggestion below the example-count threshold" do
+    run_engine("since" => "origin/main", "all" => true)
+    expect(err.string).to include("running the loaded suite unscoped")
+    expect(err.string).not_to include("Pass --test to run only the specs you name")
+  end
+
+  it "says something while the application loads, before any pass starts" do
+    run_engine("since" => "origin/main", "all" => true)
+    expect(err.string).to include("loading the application")
+    expect(err.string.index("loading the application"))
+      .to be < err.string.index("checking the unchanged suite")
   end
 
   describe "inferred specs (the default)" do

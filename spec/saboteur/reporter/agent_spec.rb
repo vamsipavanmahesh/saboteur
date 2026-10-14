@@ -59,6 +59,24 @@ RSpec.describe Saboteur::Reporter::Agent do
     expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
   end
 
+  it "keeps CLI-only replay-driving switches in rerun and replay commands (#261)" do
+    source = provenance_with(settings: { allow_hazardous: true, allow_focus: true })
+    commands = described_class::Commands
+    [commands.rerun(source), commands.replay(source, "abc")].each do |command|
+      words = Shellwords.split(command)
+      expect(words).to include("--allow-hazardous", "--allow-focus")
+    end
+  end
+
+  it "leaves an over-long replay command out for the agent but prints it whole in the text footer (#261)" do
+    long_tests = Array.new(60) { |i| "spec/feature number #{i}/a_spec.rb" }
+    source = provenance_with(ref: nil, tests: long_tests, sources: [])
+    command = described_class::Commands.replay(source, "abc", capped: false)
+    expect(command.bytesize).to be > described_class::Commands::MAX_BYTES
+    expect(Shellwords.split(command)).to include("--test", "spec/feature number 3/a_spec.rb")
+    expect(described_class::Commands.replay(source, "abc")).to be_nil
+  end
+
   it "emits a runnable rerun for an inferred run without sources: --test stands alone" do
     source = provenance_with(ref: nil, tests: ["spec/a_spec.rb"], sources: [])
     words = Shellwords.split(described_class::Commands.rerun(source))
@@ -107,6 +125,12 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(coarse[:findings][:shown].first[:testHint]).to eq(
         kind: "method_result", text: "try asserting this method's result or its effect"
       )
+    end
+
+    it "appends the equivalence-confirmation hint for a chain_removal survivor (#264)" do
+      payload = payload_for(report_of(result_for(:survived, operator: "chain_removal")))
+      expect(payload[:findings][:shown].first[:hint])
+        .to include("if you confirm the shorter chain is equivalent across the intended inputs")
     end
 
     it "includes an operator hint with an honest caveat" do

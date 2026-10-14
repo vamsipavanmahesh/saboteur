@@ -93,6 +93,33 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text.index("legend:")).to be < text.index("Next steps:")
   end
 
+  it "prints the complete replay command when the run provides one (#261)" do
+    text = render(report_of(result_for(:survived)),
+                  replay_command: ->(digest) { "saboteur run --id #{digest} --since main --test spec/a_spec.rb" })
+    expect(text).to include("replay one survivor: saboteur run --id ")
+    expect(text).to include("--since main --test spec/a_spec.rb")
+    expect(text).not_to include("add this run's own")
+  end
+
+  it "falls back to the digest-only hint when no replay command builder is wired" do
+    text = render(report_of(result_for(:survived)), replay_command: ->(_digest) {})
+    expect(text).to include("(add this run's own --config, --since, --subject, --test and source options)")
+  end
+
+  it "prints the full replay command however long it gets (#261)" do
+    command = "saboteur run --id abc #{'--test spec/dir\\ with\\ spaces/a_spec.rb ' * 40}--seed 1"
+    text = render(report_of(result_for(:survived)), replay_command: ->(_digest) { command })
+    expect(command.bytesize).to be > 1024
+    expect(text).to include("replay one survivor: #{command}")
+    expect(text).not_to include("add this run's own")
+  end
+
+  it "appends the equivalence-confirmation hint to a chain_removal survivor (#264)" do
+    text = render(report_of(result_for(:survived, operator: "chain_removal")))
+    expect(text).to include("hint: try the shorter chain's value against the longer one; if you confirm the " \
+                            "shorter chain is equivalent across the intended inputs")
+  end
+
   it "leaves the next steps out of a clean run" do
     expect(render(report_of(result_for(:killed)))).not_to include("Next steps:")
   end

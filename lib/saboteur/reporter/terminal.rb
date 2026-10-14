@@ -17,12 +17,12 @@ module Saboteur
       MAX_ERRORS = 10
       MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
 
-      def initialize(out, verbose: false, color: :auto)
+      def initialize(out, verbose: false, color: :auto, replay_command: nil)
         @out = out
         @verbose = verbose
         @palette = Palette.for(out, mode: color)
         @score_table = ScoreTable.new(out, @palette)
-        @next_steps = NextSteps.new(out, @palette)
+        @next_steps = NextSteps.new(out, @palette, replay_command: replay_command)
       end
 
       def call(report)

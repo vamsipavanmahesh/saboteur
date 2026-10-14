@@ -7,9 +7,14 @@ module Saboteur
     # accept one, and how to hand the run to an agent. Silent when nothing
     # survived, so a clean run stays short.
     class NextSteps
-      def initialize(out, palette)
+      # replay_command: digest -> the full, copy-pasteable replay command
+      # carrying the run's own selection options, however long it gets
+      # (#261). When no builder is wired the digest-only hint (with its
+      # reassembly note) is the fallback.
+      def initialize(out, palette, replay_command: nil)
         @out = out
         @palette = palette
+        @replay_command = replay_command
       end
 
       def call(report)
@@ -17,9 +22,14 @@ module Saboteur
         return unless survivor
 
         @out.puts "\n#{@palette.paint(:bold, 'Next steps:')}"
-        seed = " --seed #{report.seed}" if report.seed
-        @out.puts "  replay one survivor: saboteur run --id #{survivor.digest}#{seed}"
-        @out.puts "    (add this run's own --config, --since, --subject, --test and source options)"
+        command = @replay_command&.call(survivor.digest)
+        if command
+          @out.puts "  replay one survivor: #{command}"
+        else
+          seed = " --seed #{report.seed}" if report.seed
+          @out.puts "  replay one survivor: saboteur run --id #{survivor.digest}#{seed}"
+          @out.puts "    (add this run's own --config, --since, --subject, --test and source options)"
+        end
         @out.puts "  accept an equivalent one: add to your ignore file (c.ignore_file, default #{Config::IGNORE_FILE}):"
         entry = %(i.mutation "#{survivor.digest}", subject: "#{survivor.subject.id}", reason: "why it is equivalent")
         @out.puts "    #{entry}"

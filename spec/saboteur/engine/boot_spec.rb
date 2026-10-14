@@ -14,6 +14,73 @@ RSpec.describe Saboteur::Engine::Boot do
     end
   end
 
+  describe "#load_hooks" do
+    it "loads an extensionless hooks path through its .rb file, the way require resolves it" do
+      Dir.mktmpdir do |dir|
+        root = File.realpath(dir)
+        FileUtils.mkdir_p(File.join(root, "config"))
+        File.write(File.join(root, "config", "saboteur_hooks.rb"),
+                   "File.write(File.join(File.dirname(__FILE__), 'loaded'), 'yes')\n")
+        config = Saboteur::Config.new({ "hooks" => ["./config/saboteur_hooks"] }, root: root)
+        described_class.new(config, Saboteur::Hooks.new).send(:load_hooks)
+        expect(File.exist?(File.join(root, "config", "loaded"))).to be(true)
+      end
+    end
+
+    it "loads the exact extensionless file when both it and its .rb exist" do
+      Dir.mktmpdir do |dir|
+        root = File.realpath(dir)
+        FileUtils.mkdir_p(File.join(root, "config"))
+        File.write(File.join(root, "config", "saboteur_hooks"),
+                   "File.write(File.join(File.dirname(__FILE__), 'loaded-bare'), 'yes')\n")
+        File.write(File.join(root, "config", "saboteur_hooks.rb"),
+                   "File.write(File.join(File.dirname(__FILE__), 'loaded-rb'), 'yes')\n")
+        config = Saboteur::Config.new({ "hooks" => ["./config/saboteur_hooks"] }, root: root)
+        described_class.new(config, Saboteur::Hooks.new).send(:load_hooks)
+        expect(File.exist?(File.join(root, "config", "loaded-bare"))).to be(true)
+        expect(File.exist?(File.join(root, "config", "loaded-rb"))).to be(false)
+      end
+    end
+
+    it "loads a dotted path itself even when a path.rb.rb exists beside it" do
+      Dir.mktmpdir do |dir|
+        root = File.realpath(dir)
+        FileUtils.mkdir_p(File.join(root, "config"))
+        File.write(File.join(root, "config", "saboteur_hooks.rb"),
+                   "File.write(File.join(File.dirname(__FILE__), 'loaded-rb'), 'yes')\n")
+        File.write(File.join(root, "config", "saboteur_hooks.rb.rb"),
+                   "File.write(File.join(File.dirname(__FILE__), 'loaded-rb-rb'), 'yes')\n")
+        config = Saboteur::Config.new({ "hooks" => ["./config/saboteur_hooks.rb"] }, root: root)
+        described_class.new(config, Saboteur::Hooks.new).send(:load_hooks)
+        expect(File.exist?(File.join(root, "config", "loaded-rb"))).to be(true)
+        expect(File.exist?(File.join(root, "config", "loaded-rb-rb"))).to be(false)
+      end
+    end
+
+    it "fails loudly on a dotted path that does not exist, even when a path.rb.rb does" do
+      Dir.mktmpdir do |dir|
+        root = File.realpath(dir)
+        FileUtils.mkdir_p(File.join(root, "config"))
+        File.write(File.join(root, "config", "saboteur_hooks.rb.rb"), "# not a hook\n")
+        config = Saboteur::Config.new({ "hooks" => ["./config/saboteur_hooks.rb"] }, root: root)
+        expect { described_class.new(config, Saboteur::Hooks.new).send(:load_hooks) }
+          .to raise_error(LoadError) { |error| expect(error.message).to include("saboteur_hooks.rb") }
+      end
+    end
+
+    it "still fails loudly when neither the path nor its .rb exists" do
+      Dir.mktmpdir do |dir|
+        root = File.realpath(dir)
+        config = Saboteur::Config.new({ "hooks" => ["./config/saboteur_hooks"] }, root: root)
+        expect { described_class.new(config, Saboteur::Hooks.new).send(:load_hooks) }
+          .to raise_error(LoadError) { |error|
+            expect(error.message).to include("saboteur_hooks")
+            expect(error.message).not_to include("saboteur_hooks.rb")
+          }
+      end
+    end
+  end
+
   describe ".watch_for_simplecov" do
     # saboteur needs Ruby's Coverage itself; an app that starts SimpleCov
     # unconditionally (as human-essentials does from config/environments)

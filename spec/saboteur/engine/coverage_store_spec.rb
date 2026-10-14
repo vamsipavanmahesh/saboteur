@@ -59,6 +59,48 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(receipt.fetch("fingerprint")).to eq(Saboteur::Engine::RunFingerprint.new(config: config).snapshot.digest)
   end
 
+  it "reusable? is true for a clean saved map, and fetch then skips the build" do
+    first = store
+    allow(first).to receive(:build).and_return(map)
+    first.fetch([file])
+
+    second = store
+    expect(second.reusable?([file])).to be(true)
+    allow(second).to receive(:build)
+    expect(second.fetch([file]).tests).to eq(["t1"])
+    expect(second).not_to have_received(:build)
+  end
+
+  it "loads the cached map once across reusable? and fetch" do
+    first = store
+    allow(first).to receive(:build).and_return(map)
+    first.fetch([file])
+
+    second = store
+    allow(Saboteur::Selection::CoverageMap).to receive(:load).and_call_original
+    expect(second.reusable?([file])).to be(true)
+    expect(second.fetch([file]).tests).to eq(["t1"])
+    expect(Saboteur::Selection::CoverageMap).to have_received(:load).once
+  end
+
+  it "reusable? is false for a corrupt cache, so the run announces and pays the build pass (#260)" do
+    corruptions = ["{ not json",
+                   JSON.generate("format" => "nope", "tests" => [], "lines" => {}),
+                   "prefix\xE4\x4Dinvalid".b]
+    corruptions.each do |garbage|
+      first = store
+      allow(first).to receive(:build).and_return(map)
+      first.fetch([file])
+      File.binwrite(cache_files.first, garbage)
+
+      second = store
+      expect(second.reusable?([file])).to be(false)
+      allow(second).to receive(:build).and_return(map)
+      expect(second.fetch([file]).tests).to eq(["t1"])
+      expect(second).to have_received(:build)
+    end
+  end
+
   it "builds once, saves, and reuses the cached map while inputs are unchanged" do
     first = store
     allow(first).to receive(:build).and_return(map)

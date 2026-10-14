@@ -14,6 +14,14 @@ RSpec.describe Saboteur::Reporter::SurvivorHints do
     expect(described_class.for("made_up")).to be_nil
     expect(described_class.for("made_up", coarse: false)).to be_nil
   end
+
+  it "appends a conditional equivalence confirmation to the chain_removal hint (#264)" do
+    expect(described_class.for("chain_removal")).to eq(
+      "try the shorter chain's value against the longer one; if you confirm the shorter chain is " \
+      "equivalent across the intended inputs (for example a duplicated column), simplify the code or " \
+      "ignore the mutant"
+    )
+  end
 end
 
 RSpec.describe Saboteur::Reporter::SurvivorHints, ".structured" do
