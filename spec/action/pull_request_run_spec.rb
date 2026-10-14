@@ -235,11 +235,11 @@ RSpec.describe "action/run-saboteur" do
   end
 
   def outputs
-    File.readlines(github_output, chomp: true).to_h { |line| line.split("=", 2) }
+    File.readlines(github_output, chomp: true, encoding: "UTF-8").to_h { |line| line.split("=", 2) }
   end
 
   def invocation
-    File.read(invocation_log)
+    File.read(invocation_log, encoding: "UTF-8")
   end
 
   describe "diff mode on a pull request" do
@@ -376,7 +376,7 @@ RSpec.describe "action/run-saboteur" do
     it "labels the covered score and its denominator in the outputs and the summary" do
       run_action
       expect(outputs).to include("score" => "66.7", "report-valid" => "true", "incomplete" => "false")
-      expect(File.read(step_summary)).to include("Covered score: **66.7 %**")
+      expect(File.read(step_summary, encoding: "UTF-8")).to include("Covered score: **66.7 %**")
         .and include("killed + timeout")
     end
 
@@ -491,7 +491,7 @@ RSpec.describe "action/run-saboteur" do
       expect(status).to eq(0)
       expect(output).to include("errored or hit a resource limit")
       expect(outputs).to include("incomplete" => "true", "errors" => "1")
-      expect(File.read(step_summary)).to include("Incomplete run")
+      expect(File.read(step_summary, encoding: "UTF-8")).to include("Incomplete run")
     end
 
     it "fails when enforcing, even with no survivors" do
@@ -581,7 +581,7 @@ RSpec.describe "action/run-saboteur" do
       report = report_with_findings(both, truncated: 3, statuses: %w[Killed Survived Survived])
       run_action({ "GITHUB_SERVER_URL" => "https://github.example", "GITHUB_REPOSITORY" => "o/r",
                    "GITHUB_RUN_ID" => "42" }, report:)
-      summary = File.read(step_summary)
+      summary = File.read(step_summary, encoding: "UTF-8")
       expect(summary).to include(
         "- `lib/a.rb`:3 `comparison`: `>=` became `>` in `Cart#total` (`698e4b7eca600583`)"
       )
@@ -591,12 +591,12 @@ RSpec.describe "action/run-saboteur" do
 
     it "names the artifact without a link when the run's location is unknown" do
       run_action({}, report: report_with_findings([finding]))
-      expect(File.read(step_summary)).to include("kept as this run's `saboteur-report` artifact")
+      expect(File.read(step_summary, encoding: "UTF-8")).to include("kept as this run's `saboteur-report` artifact")
     end
 
     it "keeps a backtick in source text inside a wider code span" do
       run_action({}, report: report_with_findings([finding(replacement: "a`b")]))
-      expect(File.read(step_summary)).to include("`` a`b ``")
+      expect(File.read(step_summary, encoding: "UTF-8")).to include("`` a`b ``")
     end
 
     it "folds a multi-line edit onto one summary line" do
@@ -609,18 +609,19 @@ RSpec.describe "action/run-saboteur" do
       expect(status).to eq(0)
       expect(output).to include("::warning")
       expect(output).not_to include("file=")
-      expect(File.read(step_summary)).not_to include("Surviving mutants, coarse mutants first")
+      expect(File.read(step_summary, encoding: "UTF-8")).not_to include("Surviving mutants, coarse mutants first")
     end
 
     it "keeps an empty original aligned, so a pure insertion does not shift fields" do
       output, = run_action({}, report: report_with_findings([finding(original: "", replacement: "raise")]))
       expect(output).to include("became raise (698e4b7eca600583)")
-      expect(File.read(step_summary)).to include("- `lib/a.rb`:3 `comparison`: (empty) became `raise`")
+      expect(File.read(step_summary, encoding: "UTF-8"))
+        .to include("- `lib/a.rb`:3 `comparison`: (empty) became `raise`")
     end
 
     it "widens the code span past any run of backticks in the source text" do
       run_action({}, report: report_with_findings([finding(replacement: "a``b")]))
-      expect(File.read(step_summary)).to include("``` a``b ```")
+      expect(File.read(step_summary, encoding: "UTF-8")).to include("``` a``b ```")
     end
 
     it "ignores a findings section from another version" do
@@ -649,7 +650,7 @@ RSpec.describe "action/run-saboteur" do
       output, = run_action({}, report: report_with_findings([good, bad], statuses: %w[Killed Survived Survived]))
       expect(output.scan(/^::warning file=/).size).to eq(1)
       expect(output).to include("skipped 1 findings whose fields did not match")
-      expect(File.read(step_summary)).to include("1 of the findings were skipped")
+      expect(File.read(step_summary, encoding: "UTF-8")).to include("1 of the findings were skipped")
     end
 
     it "treats a fractional truncation count as malformed findings" do
@@ -673,7 +674,7 @@ RSpec.describe "action/run-saboteur" do
 
     it "widens the span past three backticks and keeps HTML-looking text literal" do
       run_action({}, report: report_with_findings([finding(replacement: "a```b", subject: "<b>x</b>")]))
-      summary = File.read(step_summary)
+      summary = File.read(step_summary, encoding: "UTF-8")
       expect(summary).to include("```` a```b ````").and include("`<b>x</b>`")
     end
 
@@ -682,7 +683,7 @@ RSpec.describe "action/run-saboteur" do
       output, = run_action({}, report: report_with_findings(many, truncated: 2,
                                                                   statuses: ["Killed"] + (["Survived"] * 11)))
       expect(output.scan(/^::warning file=/).size).to eq(10)
-      expect(File.read(step_summary)).to include("Showing the first 10 of 13 surviving mutants")
+      expect(File.read(step_summary, encoding: "UTF-8")).to include("Showing the first 10 of 13 surviving mutants")
     end
 
     it "lists accepted survivors apart, with their reason, and no notes" do
@@ -690,7 +691,7 @@ RSpec.describe "action/run-saboteur" do
       output, = run_action({}, report: report_with_findings([finding], accepted: [ok],
                                                                        statuses: %w[Killed Survived]))
       expect(output.scan(/^::warning file=/).size).to eq(1)
-      summary = File.read(step_summary)
+      summary = File.read(step_summary, encoding: "UTF-8")
       expect(summary).to include("### Accepted survivors (on the ignore list)")
         .and include("accepted: `equivalent` (`fb645ab834991e60`)")
     end
@@ -732,7 +733,7 @@ RSpec.describe "action/run-saboteur" do
   describe "the job summary" do
     it "keeps a log that contains backticks inside its own code fence" do
       run_action({}, log_text: "before\n`````\n</details>\n# injected\n")
-      summary = File.read(step_summary)
+      summary = File.read(step_summary, encoding: "UTF-8")
       expect(summary).to include("``````\nbefore")
       expect(summary.scan(/^`{6}$/).size).to eq(2)
     end

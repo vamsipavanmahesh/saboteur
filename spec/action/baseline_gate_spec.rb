@@ -57,11 +57,11 @@ RSpec.describe "action/run-baseline-gate" do
   end
 
   def outputs
-    File.readlines(github_output, chomp: true).to_h { |line| line.split("=", 2) }
+    File.readlines(github_output, chomp: true, encoding: "UTF-8").to_h { |line| line.split("=", 2) }
   end
 
   def invocation
-    File.read(invocation_log).strip
+    File.read(invocation_log, encoding: "UTF-8").strip
   end
 
   it "runs the baseline check with the baseline path and passes on a clean result" do
@@ -81,7 +81,7 @@ RSpec.describe "action/run-baseline-gate" do
     expect(output).to include("::warning::saboteur: the score dropped by 30.0 points")
     expect(outputs).to include("baseline-state" => "review_required", "baseline-score-drop" => "30.0",
                                "baseline-score" => "80.0", "baseline-current-score" => "50.0")
-    expect(File.read(step_summary)).to include("a drop of 30.0 points, limit 5")
+    expect(File.read(step_summary, encoding: "UTF-8")).to include("a drop of 30.0 points, limit 5")
   end
 
   it "fails a review-needed result only when fail-on-survivors is true" do
@@ -285,7 +285,7 @@ RSpec.describe "action/run-baseline-gate" do
 
     %w[run-baseline-gate run-saboteur].each do |name|
       it "keeps action/#{name} free of Bash 4 constructs" do
-        lines = File.readlines(File.expand_path("../../action/#{name}", __dir__))
+        lines = File.readlines(File.expand_path("../../action/#{name}", __dir__), encoding: "UTF-8")
         offenders = lines.reject { |line| line.lstrip.start_with?("#") }.grep(bash4)
         expect(offenders).to eq([])
       end

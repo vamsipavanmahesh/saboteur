@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "text"
+
 module Saboteur
   # Explicit source-file -> spec-file mapping from config/saboteur_custom_map.rb:
   #
@@ -109,7 +111,7 @@ module Saboteur
     def duplicate_keys(path)
       seen = Hash.new(0)
       File.readlines(path).each do |line|
-        seen[::Regexp.last_match(1)] += 1 if line =~ /^\s*"(.+?)"\s*=>/
+        seen[::Regexp.last_match(1)] += 1 if Text.utf8(line) =~ /^\s*"(.+?)"\s*=>/
       end
       seen.select { |_, count| count > 1 }.keys
     end

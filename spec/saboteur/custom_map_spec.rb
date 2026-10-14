@@ -270,6 +270,17 @@ RSpec.describe Saboteur::CustomMap do
     expect(map.duplicate_keys(path)).to eq(["app/models/order.rb"])
   end
 
+  it "scans a map with non-ASCII content under a non-UTF-8 locale" do
+    touch("lib/a.rb")
+    touch("spec/a_spec.rb")
+    path = write_map("# caf\u00E9 comment\nSABOTEUR_CUSTOM_MAP = { \"lib/a.rb\" => [\"spec/a_spec.rb\"] }.freeze\n")
+    map = described_class.load(path, root: @root)
+    allow(File).to receive(:readlines).and_wrap_original do |original, *args|
+      original.call(*args).map { |line| line.force_encoding(Encoding::US_ASCII) }
+    end
+    expect(map.duplicate_keys(path)).to eq([])
+  end
+
   it "never treats a String key as a Regexp" do
     touch("spec/x_spec.rb")
     map = load("SABOTEUR_CUSTOM_MAP = { \"lib/userXrb\" => [\"spec/x_spec.rb\"] }.freeze\n")

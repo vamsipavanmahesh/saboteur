@@ -28,7 +28,10 @@ module E2EHelpers
       { "BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile") }.merge(env),
       RbConfig.ruby, "-I", File.join(ROOT, "lib"), EXE, "run", *, chdir: dir
     )
-    json = File.exist?(json_path) ? JSON.parse(File.read(json_path)) : nil
+    # The subprocess writes UTF-8; the pipe inherits the spec run's locale.
+    out.force_encoding(Encoding::UTF_8)
+    err.force_encoding(Encoding::UTF_8)
+    json = File.exist?(json_path) ? JSON.parse(File.read(json_path, encoding: "UTF-8")) : nil
     Run.new(out:, err:, status: status.exitstatus, json:, dir:)
   end
 

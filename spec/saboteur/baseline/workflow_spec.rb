@@ -123,6 +123,18 @@ RSpec.describe Saboteur::Baseline::Workflow do
     expect { workflow.check(path: path) }.to raise_error(Saboteur::ConfigError, /too large/)
   end
 
+  it "loads a manifest naming non-ASCII subjects under a non-UTF-8 locale" do
+    path = File.join(@root, "baseline.json")
+    manifest = JSON.parse(JSON.generate(Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")))
+    manifest["candidates"].first["kill_cause"] = "caf\u00E9"
+    File.write(path, JSON.generate(manifest))
+    allow(File).to receive(:read).and_wrap_original do |original, *args|
+      original.call(*args).force_encoding(Encoding::US_ASCII)
+    end
+    loaded = workflow.send(:load_manifest, path)
+    expect(loaded.to_h.fetch("candidates").first.fetch("kill_cause")).to eq("caf\u00E9")
+  end
+
   it "carries external declared evidence paths into acceptance verification" do
     document
     Dir.mktmpdir do |outside|
