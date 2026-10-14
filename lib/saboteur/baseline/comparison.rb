@@ -19,6 +19,7 @@ module Saboteur
         @issues = current.fetch("issues").dup
         @categories = {}
         unless baseline.fetch("compatibility") == current.fetch("compatibility")
+          @issues << "baseline inputs or operator policy changed; re-propose with baseline propose"
           @state = "incompatible"
           return
         end
