@@ -195,6 +195,18 @@ RSpec.describe Saboteur::BaselineHealth, "baseline supervision wiring" do
     expect(detail).to include("spec/a.rb[1:1]: #{'x' * 200}: short message")
     expect(detail).not_to include("other line")
   end
+
+  it "scrubs raw bytes from failure details so the JSON payload stays valid UTF-8" do
+    exception = RuntimeError.new("invalid path raw-\xFF.rb".b)
+    example = double(id: "spec/a.rb[1:1]", full_description: "raw bytes",
+                     execution_result: double(exception: exception))
+    allow(RSpec.world).to receive(:all_examples).and_return([example])
+    health = described_class.new(Saboteur::Config.new, integration: instance_double(Saboteur::Integration::Base))
+    detail = health.send(:failure_detail)
+    expect(detail.encoding).to eq(Encoding::UTF_8)
+    expect(detail).to be_valid_encoding
+    expect(JSON.generate(error: detail)).to include("raw-")
+  end
 end
 
 RSpec.describe Saboteur::BaselineHealth, "child record in process" do
