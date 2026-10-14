@@ -26,6 +26,12 @@ RSpec.describe Saboteur::Reporter::Agent do
                          skipped_subjects: skipped_subjects, warnings: warnings)
   end
 
+  it "carries the operator policy in the provenance payload" do
+    payload = payload_for(report_of(result_for(:killed)))
+    expected = JSON.parse(JSON.generate(Saboteur::Config.new({}).operator_policy), symbolize_names: true)
+    expect(payload.dig(:provenance, :operatorPolicy)).to eq(expected)
+  end
+
   it "preserves selected and excluded operator lists in rerun and replay commands" do
     source = provenance_with(settings: { operators: %w[range arithmetic], exclude_operators: ["range"] })
     commands = described_class::Commands
