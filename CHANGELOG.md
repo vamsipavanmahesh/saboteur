@@ -7,6 +7,71 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `script/preflight`: a local pre-review check on one exact base and head
+  (#210). It runs the protected-path scope check, sign-off, SPDX headers,
+  whitespace, RuboCop and the specs (fast or full mode), writes every harness
+  output through a symlink-safe writer under `tmp/preflight/`, and takes
+  check reports through harness-owned pipes rather than checkout paths.
+  It is not CI and a pass is not an approval.
+- Opt-in extended `range`, `operator_assignment` and `condition_negation` operators (#135). Default core selection is unchanged.
+- `whole_file` config: an opt-in list of subject ids or globs (for example
+  `"Point#distance"`, `"Geometry::*"`). For those subjects the child evaluates the
+  whole mutated file instead of re-evaluating the one method, so methods
+  surgical re-evaluation refuses can be mutated. It applies to methods already
+  found as subjects. The file's top-level code runs again in the child: load-time
+  side effects repeat and constants it assigns are rebuilt. A surviving
+  mutant whose definition a later definition in the file replaces is reported as
+  unreachable, not survived. Off by default (Refs #138).
+- `--matrix` (#132) runs every covering test per mutant and lists blind and
+  redundant tests after the survivors.
+- The 30-second heartbeat of the baseline and coverage phases now shows the examples finished so far, the percentage and a rough time left, read from the phase log, instead of only the elapsed time. (#56)
+- Each finding in `--agent` output carries a `testHint` (`kind`, `text`, and for a
+  comparison swap that differs only for equal or unequal operands, a `case`
+  such as `left == right`) saying where a test could look (#154). It is a
+  suggestion, not a diagnosis: a survivor can also be an equivalent mutant.
+- `--max-timeouts N` and `--max-errors N` CI gates (count or percent of executed
+  mutants). Exceeding one exits 1 with `exitCause` `maxTimeouts` or `maxErrors`.
+  The covered score is already gated by `--threshold`. No Action input yet.
+- A run that leaves a live survivor ends with a "Next steps" footer of command
+  templates: replay (`saboteur run --id DIGEST --seed N`, to be combined with the
+  run's own selection options), an ignore entry with the survivor's subject, and
+  `saboteur run --agent` (#147).
+- **Safety:** mutant children now run under a Landlock sandbox on Linux
+  6.2+ (Landlock ABI 3) (#152): the child cannot create, write, rename,
+  unlink or truncate files in the project tree except `tmp/`, the cache dir
+  and the system temp dir, and inherited descriptors already open for
+  writing elsewhere are closed before the sandbox engages. This is the
+  third layer behind the hazard guard and the canary, and the first one
+  that stops a destructive call before it acts. Landlock covers the
+  filesystem only. On kernels 5.13-6.1 (ABI 1-2) `truncate()` cannot be
+  restricted, and on kernels without Landlock there is no sandbox at all:
+  both run with the guard and canary only, noted once. `c.sandbox = false`
+  opts out (`/dev/shm` and `/dev/tty` are denied like any other
+  ungranted path; `/dev/null` stays writable); `c.sandbox = "strict"`
+  refuses to run degraded;
+  `c.sandbox_writable` grants extra directories (suites writing `db/`,
+  `log/`, ... otherwise fail with EACCES in mutant children) and warns when
+  a grant contains the project root or another grant. The root check covers
+  the effective write set - every grant realpath'd, the cache dir and the
+  system temp dir included - so `cache_dir = "."`, a symlinked `tmp`, a
+  `/` grant or a checkout inside the system temp dir cannot silently leave
+  the tree writable; `c.sandbox = "strict"` refuses to run then. A kernel probe that
+  errors (rather than cleanly reporting Landlock absent) refuses the run.
+  The descriptor sweep also closes stdio redirected to a writable regular
+  file (terminal, pipe and `/dev/null` stdio stays), inherited files
+  already deleted from the tree, and any descriptor it cannot inspect -
+  fail closed. The C library lookup tolerates musl (soname fallbacks, then
+  the process symbol table) and degrades to the one-time unsandboxed note
+  when no libc resolves, instead of crashing.
+- Audited inline suppression comments with required reasons (#133). Inspired by mutineer
+  (github.com/davidteren/mutineer, MIT, by David Teren).
+- `--dry-run` previews planned mutants per method and the max_mutants_per_method
+  omissions without booting the app, running tests, forking or writing reports
+  (#134). A file that does not parse marks the total INCOMPLETE. A cached
+  estimate is baseline covering-test work, not a bound on mutant runtime.
+  Custom sources are still required during a dry run. `--list-operators` and
+  `--operators` list and select builtin operators. Inspired by mutineer
+  (github.com/davidteren/mutineer, MIT, by David Teren).
 - [docs/minitest.md](docs/minitest.md) records that Minitest is unsupported and how much
   of the engine depends on RSpec (#200).
 - [docs/scores.md](docs/scores.md) defines the covered score, the overall score a
@@ -21,10 +86,31 @@ All notable changes are documented here. The format follows
   (serial only; the run is marked incomplete with exit cause `failFast` and
   lists the subjects it never reached). The CI progress line-break can
   misalign by a mark when parallel workers finish at the same moment.
+- Sorbet signature text does not prune nil-producing mutants. Runtime enforcement
+  is not verified: checked levels, custom handlers and shims can allow nil to
+  reach assertions. Type-aware pruning (#153) is deferred until enforcement can
+  be established without guessing from return-type text.
 - `endpoint_replacement` swaps explicit no-argument `first` and `last` calls,
   including safe navigation. Calls with arguments or blocks, bare calls,
   arid statements and nested scopes are excluded.
+### Changed
+- The text run prints one `Reports:` line naming the JSON and HTML reports, with
+  paths relative to the project root when they are under it, instead of two
+  lines with a blank line between them (#150). Scripts that read the old
+  `JSON report:` and `HTML report:` lines must read `Reports:` instead.
+
 ### Fixed
+- `--since` with a ref that is not a commit exits 2 as a usage error, naming the
+  ref, before the target boots. It used to exit 3 (tool failure) after boot (#115).
+- Diff mode skips a method whose only changes are comments, blank lines or
+  spacing, because its syntax tree matches the merge base. The run prints how many
+  it skipped. A method that uses `__LINE__` is compared by the line it stands
+  for, so moving it or adding a line above that use keeps it in the run.
+  Ambiguous cases (a new file or method, a name defined twice, a base
+  that does not parse) still run (#115).
+- The default arid logger pattern also matches `@logger`, `self.logger` and
+  `::Rails.logger`, so those calls no longer produce noise survivors (#111).
+- The unscoped `--since` warning now says what `--test` drops: the consumer specs of a changed method no longer run, which can turn kills into survivors. (#113)
 - **Safety:** mutants that would leave a directly-written destructive call
   running with altered inputs are suppressed (#102). A syntactic hazard
   guard matches calls written directly - `FileUtils.rm*`/`remove_entry*`
@@ -37,6 +123,8 @@ All notable changes are documented here. The format follows
   with exit 3 when a file vanishes: detection after the damage, per method,
   with no restoration. Configure the list via `c.hazard`; `--allow-hazardous`
   opts out.
+- Methods defined inside blocks (`Class.new do`, `Data.define do`, `included do`) are listed as
+  skipped ("defined inside a block") instead of being silently absent. They are not mutated yet. `X = Data.define` / `Struct.new` / `Class.new` / `Module.new` with a block name X as the owner; any other block keeps the enclosing owner or "(anonymous block)". (#114)
 - Endless defs (`def x = ...`) are no longer skipped as "no coverage": the
   coverage map now also records per-test method calls, which is how Ruby
   reports endless-def bodies. A whole-suite build that records neither a line
@@ -45,6 +133,8 @@ All notable changes are documented here. The format follows
 ## [0.4.0] - 2026-10-12
 
 ### Changed
+- The terminal report lists every survivor on a changed line in `--since` mode, instead of one
+  plus "N more survivors on this line in the JSON report" (#146).
 - **Breaking:** configuration moved from YAML to Ruby. `.saboteur.yml` becomes
   `config/saboteur.rb` (`Saboteur.configure do |c| ... end`, same key names),
   and `.saboteur-ignore.yml` becomes `config/saboteur_ignore.rb`
