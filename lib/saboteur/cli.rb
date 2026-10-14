@@ -7,6 +7,7 @@ require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
+require_relative "crash_report"
 require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
@@ -382,7 +383,8 @@ module Saboteur
       opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
                                                  "strict exit codes") { |v| @format = v }
       opts.on("--agent", "Same as --format agent") { @format = "agent" }
-      opts.on("--verbose", "Text report: also print score split, timings and kill causes") { @verbose = true }
+      opts.on("--verbose", "Text report: also print score split, timings and kill causes;",
+              "a crash prints its backtrace") { @verbose = true }
       opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
         @color = v ? :always : :never
       end

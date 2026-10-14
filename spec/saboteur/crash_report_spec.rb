@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+require "stringio"
+require "tmpdir"
+
+RSpec.describe Saboteur::CrashReport do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+  let(:error) do
+    RuntimeError.new("boom").tap do |e|
+      e.set_backtrace(["app/models/thing.rb:10:in `explode'", "app/models/thing.rb:20:in `run'"])
+    end
+  end
+
+  def report(error, log_path: nil, verbose: false, agent: false)
+    described_class.call(error, verbose:, agent:, err:, out:, log_path:)
+  end
+
+  it "returns the tool-failure exit code" do
+    expect(report(error)).to eq(3)
+  end
+
+  it "prints the one-line diagnostic with the report URL" do
+    report(error)
+    expect(err.string).to include("saboteur: internal error (RuntimeError: boom)")
+    expect(err.string).to include("please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
+  end
+
+  it "writes the backtrace to the log file and names the path" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      report(error, log_path:)
+      expect(err.string).to include("full backtrace: #{log_path}")
+      expect(File.read(log_path)).to eq(
+        "RuntimeError: boom\napp/models/thing.rb:10:in `explode'\napp/models/thing.rb:20:in `run'\n"
+      )
+    end
+  end
+
+  it "creates the log directory when it is missing" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      report(error, log_path:)
+      expect(File).to exist(log_path)
+    end
+  end
+
+  it "falls back to the bare one-liner when the log cannot be written" do
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).to include("internal error (RuntimeError: boom)")
+      expect(err.string).not_to include("full backtrace")
+    end
+  end
+
+  it "omits the log path when none is available" do
+    report(error)
+    expect(err.string).not_to include("full backtrace")
+  end
+
+  it "prints the backtrace to stderr with verbose" do
+    report(error, verbose: true)
+    expect(err.string).to include("app/models/thing.rb:10:in `explode'")
+  end
+
+  it "keeps the backtrace off stderr without verbose" do
+    report(error)
+    expect(err.string).not_to include("app/models/thing.rb:10")
+  end
+
+  it "renders the failure as agent JSON to stdout in agent mode" do
+    report(error, agent: true)
+    expect(out.string).to include("internal error (RuntimeError: boom)")
+    expect(err.string).not_to include('"verdict"')
+  end
+
+  it "keeps agent mode silent on stdout when not an agent" do
+    report(error)
+    expect(out.string).to eq("")
+  end
+
+  it "scrubs locale-invalid bytes in the log file" do
+    dirty = RuntimeError.new("broken \xFF byte".dup.force_encoding(Encoding::UTF_8))
+    dirty.set_backtrace(["x.rb:1"])
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      report(dirty, log_path:)
+      expect(File.read(log_path)).to include("broken ? byte")
+    end
+  end
+
+  it "collapses a multiline message in the one-liner but not in the log" do
+    multi = RuntimeError.new("first line\nsecond line")
+    multi.set_backtrace(["x.rb:1"])
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      report(multi, log_path:)
+      expect(err.string).to include("internal error (RuntimeError: first line second line)")
+      expect(File.read(log_path)).to include("first line\nsecond line")
+    end
+  end
+end

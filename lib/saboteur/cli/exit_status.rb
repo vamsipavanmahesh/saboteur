@@ -10,17 +10,17 @@ module Saboteur
 
       # Last resort: a bug must not escape as a bare stack trace and an accidental exit 1.
       def internal_error(error)
-        summary = "internal error (#{error.class}: #{one_line(error.message)})"
-        @err.puts("saboteur: #{summary} - please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
-        agent_failure(summary, EXIT_TOOL)
+        CrashReport.call(error, verbose: @verbose, agent: agent?, err: @err, out: @out, log_path: crash_log_path)
       end
 
-      # A crash message can span lines or carry bytes that are invalid in
-      # UTF-8 (a LANG=C failure, say); the one-line diagnostic must survive
-      # both, and stay one bounded line.
-      def one_line(message)
-        text = message.to_s.dup.force_encoding(Encoding::UTF_8).scrub("?").gsub(/\s+/, " ").strip
-        text.length > 160 ? "#{text[0...160]}..." : text
+      # The crash log lives with the other run state. A broken config (or a
+      # nil cache_dir) must not swallow the crash report itself, so fall
+      # back to no log.
+      def crash_log_path
+        dir = config.path("cache_dir")
+        dir && File.join(dir, "internal-error.log")
+      rescue StandardError
+        nil
       end
 
       def exit_code(report)

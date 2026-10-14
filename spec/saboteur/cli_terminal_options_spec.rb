@@ -97,8 +97,8 @@ RSpec.describe Saboteur::CLI, "terminal options" do
         out.string
       end
       expect(text).to include("--fail-fast", "Stop after the first subject with a survivor (needs --jobs 1)",
-                              "--verbose", "Text report: also print score split, timings and kill causes",
-                              "--[no-]color",
+                              "--verbose", "Text report: also print score split, timings and kill causes;",
+                              "a crash prints its backtrace", "--[no-]color",
                               "Colour the text report (default: on for a terminal unless NO_COLOR is set)")
     end
   end

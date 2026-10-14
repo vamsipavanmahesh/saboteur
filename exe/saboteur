@@ -13,4 +13,12 @@ Coverage.resume if ARGV.first == "run" && Coverage.state == :suspended
 
 require "saboteur/cli"
 
-exit Saboteur::CLI.new(ARGV).call
+# Last resort above the CLI itself: a crash while building or parsing the
+# command line escapes the CLI's rescue, so report it the same way here.
+begin
+  exit Saboteur::CLI.new(ARGV).call
+rescue StandardError => e
+  exit Saboteur::CrashReport.call(e, verbose: ARGV.include?("--verbose"), agent: false,
+                                     err: $stderr, out: $stdout,
+                                     log_path: File.join(Dir.pwd, ".saboteur", "internal-error.log"))
+end
