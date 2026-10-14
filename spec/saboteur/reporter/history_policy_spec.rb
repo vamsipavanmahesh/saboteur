@@ -19,6 +19,16 @@ RSpec.describe Saboteur::Reporter::HistoryPolicy do
     v1_record({ "version" => 2, "operatorPolicy" => policy }.merge(overrides))
   end
 
+  it "rejects a non-array policy list field by field, beyond resolved-policy equality" do
+    base = Saboteur::Config.new({}).operator_policy
+    { "selected" => {}, "excluded" => {}, "effective" => { "range" => true } }.each do |key, bad_value|
+      bad = base.merge(key => bad_value)
+      allow(Saboteur::MutationSource::OperatorRegistry).to receive(:policy).and_return(bad)
+      expect { record.validate_policy(bad) }
+        .to raise_error(Saboteur::Error, "score history contains invalid operator policy")
+    end
+  end
+
   it "accepts valid version 1 and version 2 headers" do
     expect { record.validate_header(v1_record, fields) }.not_to raise_error
     expect { record.validate_header(v2_record, fields) }.not_to raise_error
