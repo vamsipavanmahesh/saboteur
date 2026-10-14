@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "json"
+
 module Saboteur
   # Bytes arriving from outside the process (git output, cache and log files,
   # worker pipes) are tagged with the process locale. Under a non-UTF-8
@@ -24,6 +26,17 @@ module Saboteur
     # arbitrary content, JSON, terminal output) needs #utf8.
     def utf8_identity(string)
       string.dup.force_encoding(Encoding::UTF_8)
+    end
+
+    # Lossless + strict: retag without scrubbing, then reject bytes
+    # that are not valid UTF-8 with JSON::ParserError, so a JSON
+    # boundary's existing parse-error handling rejects corrupt input
+    # instead of silently accepting a rewritten version of it.
+    def utf8_strict(string)
+      tagged = utf8_identity(string)
+      raise JSON::ParserError, "invalid UTF-8" unless tagged.valid_encoding?
+
+      tagged
     end
   end
 end
