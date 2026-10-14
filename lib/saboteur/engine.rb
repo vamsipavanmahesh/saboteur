@@ -98,7 +98,7 @@ module Saboteur
       guess = TestGuess.new(config).call
       if guess.subjectless.any?
         @diagnostics.inform("--guess-tests: no spec is required for #{guess.subjectless.join(', ')}: " \
-                            "their changed lines touch no method")
+                            "they have no changed mutation subjects")
       end
       message = guess_message(guess)
       @diagnostics.warn(message)
@@ -113,7 +113,7 @@ module Saboteur
           "(name specs after their source files or pass --test)"
       elsif guess.specs.empty?
         "--guess-tests: no changed file has a mutation subject on its changed lines, " \
-          "so no spec is required; the whole suite runs"
+          "so there is nothing to mutate"
       else
         scope_to_guesses(guess)
       end
