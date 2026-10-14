@@ -160,7 +160,12 @@ module Saboteur
           return unless stat.file?
 
           granted = target.delete_suffix(" (deleted)")
-          return if writable.any? { |dir| granted == dir || granted.start_with?("#{dir}/") }
+          # readlink targets arrive tagged with default_external, so under
+          # LANG=C a non-ASCII target compared against a UTF-8 grant pattern
+          # raises Encoding::CompatibilityError before any test runs (CI #272).
+          # Compare bytes.
+          target_bytes = granted.b
+          return if writable.any? { |dir| target_bytes == dir.b || target_bytes.start_with?(dir.b + "/") } # rubocop:disable Style/StringConcatenation -- interpolation with a BINARY part raises on high bytes
 
           flags = LibC.fcntl_fn.call(descriptor, F_GETFL, 0)
           return close_fd(descriptor) if flags.negative?
