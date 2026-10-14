@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "open3"
+require_relative "../text"
 
 module Saboteur
   module Selection
@@ -43,8 +44,8 @@ module Saboteur
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
         top = git(root, "rev-parse", "--show-toplevel").strip
-        parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff", base,
-                  "--"), top)
+        parse(Text.utf8(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
+                            "--no-ext-diff", base, "--")), top)
       end
 
       def parse(diff, top)
