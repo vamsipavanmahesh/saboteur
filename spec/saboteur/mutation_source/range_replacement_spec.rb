@@ -43,9 +43,9 @@ RSpec.describe Saboteur::MutationSource::RangeReplacement do
     expect(Saboteur::Engine::Candidates.new([source], diagnostics).for(subject)).to be_empty
     expect(diagnostics.invalid_mutations).to eq(1)
   end
-  it "is opt-in and passes arid through builtin wiring without changing default operators" do
+  it "is default-on and passes arid through builtin wiring without changing default operators" do
     subject = target("1..3")
-    expect(Saboteur::MutationSource::Builtin.new.mutations_for(subject).map(&:operator)).not_to include("range")
+    expect(Saboteur::MutationSource::Builtin.new.mutations_for(subject).map(&:operator)).to include("range")
     expect(Saboteur::MutationSource::Builtin.new(operators: ["range"]).mutations_for(subject).map(&:operator))
       .to eq(["range"])
     expect(Saboteur::MutationSource::Builtin.new(operators: ["range"], arid: ["1"])
