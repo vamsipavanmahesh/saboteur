@@ -58,7 +58,7 @@ RSpec.describe "saboteur run under LANG=C with non-ASCII paths", :e2e do
     File.write(path, File.read(path).sub("héllo", "héllö"))
 
     run = saboteur(dir, "--since", "HEAD", env: { "LANG" => "C", "LC_ALL" => "C" })
-    expect(run.status).to eq(1), run.err
+    expect(run.status).to eq(1), other_outcomes(run)
     expect(run.json.fetch("files").keys).to eq(["lib/héllo.rb"])
     expect(mutants(run).map { |m| m["status"] }).to include("Survived")
     expect(run.out).not_to include("no subjects covering")
@@ -70,7 +70,7 @@ RSpec.describe "saboteur run under LANG=C with non-ASCII paths", :e2e do
     File.write(path, File.read(path).sub("KIND = :greeter", "KIND = :welcomer"))
 
     run = saboteur(dir, "--since", "HEAD", env: { "LANG" => "C", "LC_ALL" => "C" })
-    expect(run.status).to eq(0), run.err
+    expect(run.status).to eq(0), other_outcomes(run)
     expect(run.out).to include("0 subjects, 0 mutants")
     expect(run.out).to include("warning: --since: 1 changed Ruby file(s) have no subjects covering the changed lines")
     expect(run.out).to include("héllo.rb")
