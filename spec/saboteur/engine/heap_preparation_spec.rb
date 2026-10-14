@@ -50,7 +50,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   def expect_run_diagnostics(engine, subjects, map)
     return if subjects.empty?
 
-    expect(engine).to receive(:warn_about_threads).and_call_original
+    expect(Saboteur::Engine::ThreadWarnings).to receive(:warn).and_call_original
     expect(engine).to receive(:inform_about_run).with(subjects, map).and_call_original
   end
 
@@ -83,7 +83,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
 
   def stub_test_phase(events, box)
     stub_baseline_phase(events)
-    store = instance_double(Saboteur::Engine::CoverageStore)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
     allow(store).to receive(:fetch) { events << :map_retained and map }
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap) { events << :prepare }

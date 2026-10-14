@@ -19,8 +19,38 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
   it "names each thread alive at fork time" do
     named = Thread.new { sleep }
     named.name = "pool-reaper"
-    engine.send(:warn_about_threads)
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
     expect(warnings.last).to include("other thread(s) alive at fork time", "pool-reaper")
+  ensure
+    named.kill
+    named.join
+  end
+
+  it "explains ActiveRecord's pool reaper as harmless" do
+    named = Thread.new { sleep }
+    named.name = "AR Pool Reaper"
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
+    expect(warnings.last).to include("AR Pool Reaper", "harmless", "reconnect")
+  ensure
+    named.kill
+    named.join
+  end
+
+  it "explains the debug gem's server thread as harmless and names the off switch" do
+    named = Thread.new { sleep }
+    named.name = "DEBUGGER__::SESSION@server"
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
+    expect(warnings.last).to include("DEBUGGER__::SESSION@server", "harmless", "RUBY_DEBUG_OPEN")
+  ensure
+    named.kill
+    named.join
+  end
+
+  it "says what an unknown thread can break" do
+    named = Thread.new { sleep }
+    named.name = "my-sdk-flusher"
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
+    expect(warnings.last).to include("my-sdk-flusher", "background work")
   ensure
     named.kill
     named.join
@@ -33,7 +63,7 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
       sleep
     end
     ready.pop
-    engine.send(:warn_about_threads)
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
     expect(warnings.last).to include("thread_warning_spec.rb")
   ensure
     unnamed.kill
@@ -43,14 +73,14 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
   it "names a thread with neither name nor backtrace as unknown" do
     ghost = instance_double(Thread, name: nil, backtrace: nil)
     allow(Thread).to receive(:list).and_return([Thread.current, ghost])
-    engine.send(:warn_about_threads)
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
     expect(warnings.last).to include("unknown")
   end
 
   it "prefers the backtrace frame over unknown when the thread has no name" do
     ghost = instance_double(Thread, name: nil, backtrace: ["app/pool.rb:12:in 'reap'"])
     allow(Thread).to receive(:list).and_return([Thread.current, ghost])
-    engine.send(:warn_about_threads)
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
     expect(warnings.last).to include("app/pool.rb:12")
     expect(warnings.last).not_to include("unknown")
   end
@@ -60,7 +90,7 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     first.name = "reaper-a"
     second = Thread.new { sleep }
     second.name = "reaper-b"
-    engine.send(:warn_about_threads)
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
     expect(warnings.last).to include("reaper-a, reaper-b").or include("reaper-b, reaper-a")
   ensure
     first.kill
@@ -71,7 +101,7 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
 
   it "says nothing when no other thread is alive" do
     allow(Thread).to receive(:list).and_return([Thread.current])
-    engine.send(:warn_about_threads)
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
     expect(warnings).to be_empty
   end
 end

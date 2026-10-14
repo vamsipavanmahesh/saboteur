@@ -76,7 +76,7 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
       allow(baseline).to receive(:call)
     end
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
-    store = instance_double(Saboteur::Engine::CoverageStore)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
   end

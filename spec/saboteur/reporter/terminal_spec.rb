@@ -93,6 +93,19 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text.index("legend:")).to be < text.index("Next steps:")
   end
 
+  it "prints the complete replay command when the run provides one (#261)" do
+    text = render(report_of(result_for(:survived)),
+                  replay_command: ->(digest) { "saboteur run --id #{digest} --since main --test spec/a_spec.rb" })
+    expect(text).to include("replay one survivor: saboteur run --id ")
+    expect(text).to include("--since main --test spec/a_spec.rb")
+    expect(text).not_to include("add this run's own")
+  end
+
+  it "falls back to the digest-only hint when the full command would be too long" do
+    text = render(report_of(result_for(:survived)), replay_command: ->(_digest) {})
+    expect(text).to include("(add this run's own --config, --since, --subject, --test and source options)")
+  end
+
   it "leaves the next steps out of a clean run" do
     expect(render(report_of(result_for(:killed)))).not_to include("Next steps:")
   end

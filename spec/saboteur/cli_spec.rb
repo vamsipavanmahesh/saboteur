@@ -270,7 +270,8 @@ RSpec.describe Saboteur::CLI do
 
     it "keeps survivors and the threshold as the stated cause when they fail too" do
       report = report_of(result_for(:killed), result_for(:survived), result_for(:timeout))
-      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report,
+                                                                                            guessed_tests: nil))
       json = File.join(Dir.mktmpdir, "r.json")
       expect(cli("run", "--max-timeouts", "0", "--json", json).call).to eq(1)
       expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
@@ -412,6 +413,40 @@ RSpec.describe Saboteur::CLI do
         expect(provenance.settings).to eq(operators: [], exclude_operators: [])
         expect(provenance.tests).to eq(["spec/a_spec.rb"])
       end
+    end
+
+    it "prints the complete replay command for a survivor, carrying the run's own selection options (#261)" do
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("config")
+          File.write("config/saboteur.rb", "# config\n")
+          FileUtils.mkdir_p("spec")
+          File.write("spec/a_spec.rb", "# spec\n")
+          system("git", "init", "-q", out: File::NULL, exception: true)
+          system("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty",
+                 "-m", "base", out: File::NULL, exception: true)
+          cli("run", "--config", "config/saboteur.rb", "--since", "HEAD", "--subject", "Person#adult?", "--test",
+              "spec/a_spec.rb").call
+        end
+      end
+      line = out.string.lines.find { |l| l.include?("replay one survivor:") }
+      require "shellwords"
+      words = Shellwords.split(line.split(":", 2).last)
+      expect(words).to include("saboteur", "run", "--id", "--config", "config/saboteur.rb", "--since", "HEAD",
+                               "--subject", "Person#adult?", "--test", "spec/a_spec.rb")
+      expect(out.string).not_to include("add this run's own")
+    end
+
+    it "passes --verbose to the engine only for text runs (#262)" do
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      kwargs_seen = []
+      allow(Saboteur::Engine).to receive(:new) { |*_args, **kwargs| kwargs_seen << kwargs and engine }
+      cli("run", "--verbose").call
+      cli("run", "--agent", "--verbose").call
+      expect(kwargs_seen[0][:verbose]).to be(true)
+      expect(kwargs_seen[1]).not_to have_key(:verbose)
     end
 
     it "records config-defined tests in agent provenance so the rerun keeps them" do

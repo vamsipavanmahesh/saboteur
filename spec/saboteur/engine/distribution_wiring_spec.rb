@@ -50,7 +50,7 @@ RSpec.describe Saboteur::Engine, "distribution wiring" do
     selection = instance_double(Saboteur::Engine::SubjectSelection,
                                 select: [subject_under_test], changed_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
-    store = instance_double(Saboteur::Engine::CoverageStore, fetch: map)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
   end
 
@@ -79,6 +79,24 @@ RSpec.describe Saboteur::Engine, "distribution wiring" do
     engine.hooks.register(:worker_start) { |number| File.open(marks, "a") { |file| file.puts(number) } }
     engine.call
     expect(File.readlines(marks).map(&:strip)).not_to be_empty
+  end
+
+  it "prints each finished subject's result marks when --verbose is on (#262)" do
+    stub_front_end
+    err = StringIO.new
+    allow(Saboteur::Engine::Scheduler).to receive(:new).and_return(canned_scheduler)
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => 1 }, root: @root), err: err, verbose: true)
+    engine.call
+    expect(err.string).to include("WireTarget#value  .")
+  end
+
+  it "keeps per-subject marks out of the output without --verbose" do
+    stub_front_end
+    err = StringIO.new
+    allow(Saboteur::Engine::Scheduler).to receive(:new).and_return(canned_scheduler)
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => 1 }, root: @root), err: err)
+    engine.call
+    expect(err.string).not_to include("WireTarget#value  .")
   end
 
   it "records pooled results into the incremental result cache" do

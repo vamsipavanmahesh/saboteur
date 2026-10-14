@@ -24,6 +24,23 @@ RSpec.describe Saboteur::Engine::Diagnostics do
   end
 end
 
+RSpec.describe Saboteur::Engine::Diagnostics, "per-subject verbose lines" do
+  let(:err) { StringIO.new }
+  let(:subject) { Struct.new(:id).new("Lrs::ManualPaymentResolver#with_resolution_lock") }
+  let(:results) { [Struct.new(:status).new(:killed), Struct.new(:status).new(:survived)] }
+
+  it "prints one line per finished subject with its result marks when verbose" do
+    diagnostics = described_class.new(err, verbose: true)
+    diagnostics.subject_progress(subject, results)
+    expect(err.string).to include("Lrs::ManualPaymentResolver#with_resolution_lock  .S")
+  end
+
+  it "stays silent without verbose" do
+    described_class.new(err).subject_progress(subject, results)
+    expect(err.string).to eq("")
+  end
+end
+
 RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat" do
   let(:err) { StringIO.new }
   let(:diagnostics) { described_class.new(err) }

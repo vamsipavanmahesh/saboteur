@@ -50,7 +50,11 @@ accepted mutants or change their scores. See [Opt-in survivor baseline](#opt-in-
 Every run with selected subjects runs the loaded unchanged suite twice (the specs chosen with `--test`, if given) in fresh
 supervised children before coverage lookup or incremental verdict reuse. This
 costs two suite runs even on a cache hit, plus a coverage-building suite run on
-a cache miss. Both baseline passes must be green, complete and in the same
+a cache miss. Before the first pass, a run over the whole suite announces the example
+count and the real number of full passes (a reused coverage map is not
+counted); once the first baseline pass is timed, the run prices the
+remaining passes from it. Past 1,000 examples the announcement also names
+`--test` as the way to scope the run. Both baseline passes must be green, complete and in the same
 RSpec order at the run seed. A failure exits 3, stops mutation, prints the failing example ids and the first ten lines of the
 failure inline, and names the log and fix. Long phases
 print their elapsed time about every 30 seconds, with the examples finished so far, the percentage and a rough estimate of the time left (it assumes equally long examples) once the suite child has logged its first count, and each phase's log holds
@@ -349,8 +353,11 @@ printed once as `path:line in Subject`, with the source line and the tests that
 covered it, then one compact line per mutation: `operator original -> replacement digest`,
 and a hint on what kind of test would kill it. The summary has the counts per
 status, the score, a table of scores per file (worst first) and a one-line
-legend. `--verbose` adds the score split, mean time, whole-body score and
-kill causes. Colour is on when stdout is a terminal and `NO_COLOR` is not set;
+legend. When survivors remain, the Next steps footer prints the complete
+replay command - every selection option of the run included - so running it
+as-is replays the survivor with the same selection. `--verbose` adds the score split, mean time, whole-body score and
+kill causes, and prints one line per finished subject with its result
+marks, so a survivor is attributable to a method before the run ends. Colour is on when stdout is a terminal and `NO_COLOR` is not set;
 `--color` and `--no-color` override that. While mutants run, stderr shows
 `done/total (percent) eta`: a live counter on a terminal, and dots with a
 counter every 50 mutants otherwise. Skipped and reused mutants are not
@@ -693,6 +700,18 @@ An entry without a reason is rejected.
 saboteur needs Ruby's `Coverage` for itself. Disable SimpleCov for the run
 (most projects already guard it with an environment variable).
 
+### Threads alive at fork time
+
+Threads do not survive `fork`, so a run names any that are alive when the
+workers fork. Two are well known and harmless: `AR Pool Reaper` only
+maintains the parent's connection pool (children reconnect the database
+after fork in rails mode), and `DEBUGGER__::SESSION@server` is the debug
+gem's remote console (results are unaffected; the console just cannot
+attach to children - drop `RUBY_DEBUG_OPEN` or require `debug` without
+`:open` to not start it). Any other thread gets a generic caveat: a thread
+that does not run in a child cannot do background work a mutant's test may
+rely on, so results can differ when one is left behind.
+
 ## Filter mutations
 
 The built-in source also swaps `select` / `reject` and `select!` / `reject!`.
@@ -755,6 +774,10 @@ and `tap` links are never removed. Tests can observe frozenness, copies and a
 query chain, and dropping such a link mostly yields noise, so this operator
 leaves them out. Arid statements and nested definitions are skipped.
 
+A chain-removal survivor may be equivalent: the shorter chain may return
+the same value (for example a duplicated column). If so, simplify the code
+or ignore the mutant.
+
 Chain removal is on by default, like `argument_removal` and `pair_removal`.
 Its proposals follow the other fine proposals, with the same validation,
 deduplication and `max_mutants_per_method` cap.
@@ -809,7 +832,8 @@ Public API, stable across minor versions:
 - `Saboteur::Integration::Base` for other test frameworks (RSpec is the only one
   that ships).
 - `Saboteur.hook(:before_boot | :after_boot | :before_fork | :after_fork |
-  :around_mutant)` in files listed under `hooks:`.
+  :around_mutant)` in files listed under `hooks:`. An extensionless hooks
+  path resolves its `.rb`, the way `require` does.
 
 ## 🌍 Where it has run
 

@@ -14,6 +14,28 @@ RSpec.describe Saboteur::Engine::Boot do
     end
   end
 
+  describe "#load_hooks" do
+    it "loads an extensionless hooks path through its .rb file, the way require resolves it" do
+      Dir.mktmpdir do |dir|
+        root = File.realpath(dir)
+        FileUtils.mkdir_p(File.join(root, "config"))
+        File.write(File.join(root, "config", "saboteur_hooks.rb"),
+                   "File.write(File.join(File.dirname(__FILE__), 'loaded'), 'yes')\n")
+        config = Saboteur::Config.new({ "hooks" => ["./config/saboteur_hooks"] }, root: root)
+        described_class.new(config, Saboteur::Hooks.new).send(:load_hooks)
+        expect(File.exist?(File.join(root, "config", "loaded"))).to be(true)
+      end
+    end
+
+    it "still fails loudly when neither the path nor its .rb exists" do
+      Dir.mktmpdir do |dir|
+        root = File.realpath(dir)
+        config = Saboteur::Config.new({ "hooks" => ["./config/saboteur_hooks"] }, root: root)
+        expect { described_class.new(config, Saboteur::Hooks.new).send(:load_hooks) }.to raise_error(LoadError)
+      end
+    end
+  end
+
   describe ".watch_for_simplecov" do
     # saboteur needs Ruby's Coverage itself; an app that starts SimpleCov
     # unconditionally (as human-essentials does from config/environments)

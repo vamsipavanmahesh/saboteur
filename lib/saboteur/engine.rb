@@ -6,12 +6,17 @@ require "json"
 require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
+require_relative "engine/thread_warnings"
 
 module Saboteur
   # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
   # coverage map, then schedule each subject's mutants. The parts live in
   # engine/; this class only wires them together.
   class Engine
+    # A suite this size pays hours for an unscoped run; below it the cost
+    # summary alone is enough, without the --test lecture (#260).
+    COSTLY_SUITE_EXAMPLES = 1_000
+
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
                         timeout_factor timeout_min
@@ -21,10 +26,10 @@ module Saboteur
     # The specs inference narrowed the run to, or nil when it did not.
     attr_reader :guessed_tests
 
-    def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [])
+    def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [], verbose: false)
       @config = config
       @hooks = Hooks.new
-      @diagnostics = Diagnostics.new(err)
+      @diagnostics = Diagnostics.new(err, verbose: verbose)
       @root = File.realpath(config.root)
       @skipped_subjects = {}
       @replay = Replay.new(digest: digest) if digest
@@ -204,10 +209,12 @@ module Saboteur
     end
 
     def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
-      warn_about_unscoped_suite(integration)
-      check_baseline(integration)
-      map = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
-                              supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics).fetch(files)
+      store = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
+                                supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics)
+      full_passes = store.reusable?(files) ? 2 : 3
+      warn_about_unscoped_suite(integration, full_passes)
+      check_baseline(integration, full_passes)
+      map = store.fetch(files)
       inform_about_run(subjects, map)
       cache = result_cache
       scheduler = scheduler_for(map, integration, cache)
@@ -230,7 +237,7 @@ module Saboteur
       @diagnostics.start_progress(lists.sum(&:size))
       distribution = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
                                       cache: cache, on_start: method(:start_worker),
-                                      after_subject: canary_check, stop_after: fail_fast_check(ignore_list))
+                                      after_subject: after_subject_hook, stop_after: fail_fast_check(ignore_list))
       distribution.run(subjects, lists).tap { record_early_stop(distribution.unreached) }
     ensure
       @diagnostics.finish_progress
@@ -266,30 +273,36 @@ module Saboteur
 
     def inform_about_run(subjects, map)
       @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
-      warn_about_threads
+      ThreadWarnings.warn(@diagnostics)
     end
 
     # A whole-suite run (--all, c.test_selection = :all, or a --since diff
     # with nothing to infer from) runs the loaded suite twice for the
-    # baselines; a cold coverage cache adds one more pass. Say so
-    # before those hours pass, with the way to scope it.
-    def warn_about_unscoped_suite(integration)
+    # baselines; a cold coverage cache adds one more pass. Say so - with the
+    # example count and the real pass count - before those hours pass; past
+    # a size threshold, add the way to scope it.
+    def warn_about_unscoped_suite(integration, full_passes)
       return unless config["tests"].empty?
       return unless config["since"] || config["all"] || config["test_selection"] == "all"
 
-      message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
-                "(#{integration.test_files.size} spec files). " \
-                "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
-                "only by those specs, so specs elsewhere that call this code are not run. " \
-                "The default inferred selection runs the specs named after the mutated files, " \
-                "a guess that can miss specs elsewhere."
+      examples = integration.all_tests.size
+      coverage = full_passes == 2 ? "; the cached coverage map is reused" : " + 1 coverage map build"
+      message = "running the loaded suite unscoped: #{examples} examples in #{integration.test_files.size} " \
+                "spec files; #{full_passes} full passes (2 baseline checks#{coverage})."
+      if examples >= COSTLY_SUITE_EXAMPLES
+        message += " Pass --test to run only the specs you name: faster, but a mutant of a changed method is then " \
+                   "killed only by those specs, so specs elsewhere that call this code are not run. " \
+                   "The default inferred selection runs the specs named after the mutated files, " \
+                   "a guess that can miss specs elsewhere."
+      end
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end
 
-    def check_baseline(integration)
+    def check_baseline(integration, full_passes)
       BaselineGuard.new(config: config, integration: integration, hooks: hooks,
-                        supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics).call
+                        supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
+                        full_passes: full_passes).call
       @stable_suite = true
     end
 
@@ -344,6 +357,16 @@ module Saboteur
 
     # Checks the tree after each subject's mutants; a vanished file means a
     # mutant deleted it, so abort with the most recent mutant's digest.
+    # Per finished subject: the canary, then the --verbose marks line that
+    # makes a survivor attributable to its method mid-run (#262).
+    def after_subject_hook
+      canary = canary_check
+      lambda do |subject, results|
+        canary.call(subject, results)
+        @diagnostics.subject_progress(subject, results)
+      end
+    end
+
     def canary_check
       canary = Canary.new(@root, cache_dir: config["cache_dir"])
       lambda do |subject, results|
@@ -390,19 +413,6 @@ module Saboteur
       end
     end
 
-    # Threads do not survive fork, so name them: with the name the owner
-    # gave the thread, else the first frame of its backtrace, so the user
-    # can tell whether they matter (a connection pool reaper, Sidekiq, an
-    # SDK's background flusher).
-    def warn_about_threads
-      others = Thread.list - [Thread.current]
-      return if others.empty?
-
-      names = others.map { |thread| thread.name || thread.backtrace&.first || "unknown" }
-      list = names.join(", ")
-      @diagnostics.warn("#{others.size} other thread(s) alive at fork time; they do not run in children: #{list}")
-    end
-
     # The lines that ran while the app and spec files loaded: the executable
     # counts from its first line, so this snapshot holds the whole boot.
     # Read here, in the parent: a forked child does not inherit Coverage
@@ -434,6 +444,7 @@ module Saboteur
     # Loads the target and stops coverage, returning what the rest of the
     # run needs from that boot.
     def boot_target(boot)
+      @diagnostics.inform("loading the application")
       integration = boot.load_target
       files = config.included_files
       [integration, files, suspend_coverage(files)]

@@ -6,6 +6,26 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Usability fixes from 0.5.0 field feedback: an unscoped whole-suite run
+  announces the example count and the real number of full passes before
+  the first one (a reused coverage map is not counted) and prices the
+  remaining passes once the first baseline pass is timed; past 1,000
+  examples it also names `--test` as the way to scope (#260). The Next
+  steps footer prints the complete, shell-safe replay command carrying
+  the run's own selection options, instead of asking you to reassemble
+  them (#261). `--verbose` prints one line per finished subject with its
+  result marks, so a survivor is attributable to a method before the run
+  ends (#262). The threads-alive-at-fork warning explains the known
+  harmless threads (ActiveRecord's pool reaper, the debug gem's console
+  server) and says what an unknown thread can break (#263). A
+  `chain_removal` survivor's hint notes that the shorter chain may return
+  the same value, making the mutant equivalent (#264).
+
+### Fixed
+- An extensionless `hooks` path now boots: it resolves its `.rb` at load
+  time, the way `require` does and matching what doctor accepts (#267).
+
 ### Changed
 - Breaking: inferred test selection is now the default. Without `--test`,
   a run picks the spec named after each mutated file and runs only those

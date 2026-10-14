@@ -83,9 +83,20 @@ module Saboteur
 
       def load_hooks
         Saboteur.current_hooks = @hooks
-        @config["hooks"].each { |file| load File.expand_path(file, @root) }
+        @config["hooks"].each { |file| load hook_path(file) }
       ensure
         Saboteur.current_hooks = nil
+      end
+
+      # Kernel#load does not append .rb the way Kernel#require does, and
+      # doctor accepts the extensionless form (#257), so resolve it the same
+      # way here: the exact path first, then path.rb.
+      def hook_path(file)
+        path = File.expand_path(file, @root)
+        return path if File.extname(path) != "" || File.file?(path)
+
+        rb = "#{path}.rb"
+        File.file?(rb) ? rb : path
       end
     end
   end

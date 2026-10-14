@@ -32,7 +32,7 @@ RSpec.describe Saboteur::Engine, "uncovered subjects" do
                                   select: [subject_under_test], changed_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
-      store = instance_double(Saboteur::Engine::CoverageStore, fetch: map)
+      store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
       allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
       expect_any_instance_of(Saboteur::Engine::Candidates).not_to receive(:for)
       Dir.mktmpdir do |root|

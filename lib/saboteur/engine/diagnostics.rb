@@ -76,8 +76,9 @@ module Saboteur
       attr_reader :warnings, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
                   :hazard_suppressions, :inline_suppressions
 
-      def initialize(err)
+      def initialize(err, verbose: false)
         @err = err
+        @verbose = verbose
         @warnings = []
         @invalid_mutations = 0
         @generation_events = []
@@ -127,6 +128,17 @@ module Saboteur
 
       def inform(message)
         @err.puts("saboteur: #{message}")
+      end
+
+      # --verbose: one line per finished subject with its result marks, so a
+      # survivor is attributable to a method as soon as the subject
+      # completes, before the whole run ends (#262).
+      def subject_progress(subject, results)
+        return unless @verbose
+        return if results.empty?
+
+        marks = results.map { |result| MARKS.fetch(result.status, "?") }.join
+        inform("#{subject.id}  #{marks}")
       end
 
       # A message that is both a report warning and a stderr note.

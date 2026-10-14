@@ -25,6 +25,15 @@ module Saboteur
         @root = File.realpath(config.root)
       end
 
+      # True when fetch would reuse the cached map instead of running the
+      # suite pass that builds it: lets the run announce the real number of
+      # full passes up front (#260).
+      def reusable?(files)
+        return false unless @config["cache"]
+
+        File.file?(File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}.json"))
+      end
+
       def fetch(files)
         path = File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}.json")
         cached = @config["cache"] ? Selection::CoverageMap.load(path) : nil
