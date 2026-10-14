@@ -104,6 +104,7 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
       expect(@report.warnings).to include(a_string_starting_with("--guess-tests: running only"))
       expect(err.string).to include("is reported as NoCoverage")
       expect(@engine.guessed_tests).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
+      expect(err.string).not_to include("no spec is required")
     end
 
     it "narrows to the matched specs and warns when some files have no spec" do
@@ -158,6 +159,12 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
       guess(specs: [], unmatched: [], changed: 0)
       run_engine("since" => "origin/main", "guess_tests" => true)
       expect(err.string).to include("--guess-tests: no changed source file to guess specs for, so the whole suite runs")
+    end
+
+    it "names every subjectless file in the note" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 3, subjectless: ["lib/b.rb", "lib/c.rb"])
+      run_engine("since" => "origin/main", "guess_tests" => true)
+      expect(err.string).to include("no spec is required for lib/b.rb, lib/c.rb:")
     end
 
     it "does not guess without the flag" do
