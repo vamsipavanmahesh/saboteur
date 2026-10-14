@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# Newer pushes to a pull request cancel that PR's superseded runs. Runs on main
+# are keyed by commit, so a push to main is never cancelled.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Ruby ${{ matrix.ruby }} / ${{ matrix.os }}
