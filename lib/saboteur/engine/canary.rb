@@ -16,7 +16,9 @@ module Saboteur
       GIT_DIR = ".git"
 
       def initialize(root, cache_dir: ".saboteur")
-        @root = root
+        # Retag losslessly: path bytes are identity here, and later
+        # File.join calls must not mix encodings.
+        @root = Text.utf8_identity(root.to_s)
         @cache_dir = cache_dir.to_s
         @snapshot = inventory
       end
@@ -32,7 +34,7 @@ module Saboteur
         culprit = digest ? " The most recent mutant, #{digest}#{of}, is the likely cause." : ""
         raise Saboteur::CanaryTripped,
               "canary: #{missing.size} watched file(s) vanished from the working tree while mutants ran " \
-              "(first: #{missing.first}).#{culprit} The canary watches tracked files and .git presence " \
+              "(first: #{Text.utf8(missing.first)}).#{culprit} The canary watches tracked files and .git presence " \
               "and only detects the loss after the fact; it cannot restore anything. Recover from your " \
               "own backup, a fresh checkout, or a reclone - a deleted .git or uncommitted work is gone " \
               "unless you have another copy."
@@ -55,15 +57,19 @@ module Saboteur
         return walk_files unless status.success?
 
         # ls-files reads the index, which still names a deleted file; keep
-        # only paths present in the worktree so a deletion shows up.
-        Text.utf8(out).split("\0").reject { |rel| cache_path?(rel) }
-            .select { |rel| File.exist?(File.join(@root, rel)) || File.symlink?(File.join(@root, rel)) }
+        # only paths present in the worktree so a deletion shows up. Split
+        # the raw bytes first and retag each path losslessly: scrubbing a
+        # raw-byte name would make the File.exist? probe fail and drop the
+        # file from the watch, so its deletion would go unseen.
+        out.b.split("\0".b).map { |rel| Text.utf8_identity(rel) }
+           .reject { |rel| cache_path?(rel) }
+           .select { |rel| File.exist?(File.join(@root, rel)) || File.symlink?(File.join(@root, rel)) }
       end
 
       def walk_files
         Dir.glob(File.join(@root, "**", "*"), File::FNM_DOTMATCH)
            .select { |path| File.file?(path) }
-           .map { |path| path.delete_prefix("#{@root}/") }
+           .map { |path| Text.utf8_identity(path).delete_prefix("#{@root}/") }
            .reject { |rel| rel.start_with?("#{GIT_DIR}/") || cache_path?(rel) }
       end
 
