@@ -110,9 +110,11 @@ module Saboteur
 
       # Only one record version and one non-null operator policy compare:
       # scores never mix across v1/v2 or across policy configurations.
+      # A non-null previous policy forces a non-null equal current one, so
+      # only the previous record needs the null guard.
       def comparable_policy?(previous, current)
         previous["version"] == current["version"] &&
-          !previous["operatorPolicy"].nil? && !current["operatorPolicy"].nil? &&
+          !previous["operatorPolicy"].nil? &&
           previous["operatorPolicy"] == current["operatorPolicy"]
       end
 
