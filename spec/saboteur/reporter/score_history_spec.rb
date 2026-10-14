@@ -110,6 +110,33 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
     expect(append(report)).to include("change unavailable")
   end
 
+  it "rejects v2 records with a null or empty-effective operator policy" do
+    append(report_of(result_for(:killed)))
+    valid = records.first
+    [valid.merge("operatorPolicy" => nil),
+     valid.merge("operatorPolicy" => Saboteur::MutationSource::OperatorRegistry.policy(
+       [], Saboteur::MutationSource::OperatorRegistry::DESCRIPTIONS.keys
+     ))].each do |row|
+      text = "#{JSON.generate(row)}\n"
+      File.write(@path, text)
+      expect { append(report_of(result_for(:killed))) }.to raise_error(Saboteur::Error, /invalid operator policy/)
+      expect(File.read(@path)).to eq(text)
+    end
+  end
+
+  it "withholds deltas across record versions and operator policies, even with matching hashes" do
+    report = report_of(result_for(:killed))
+    append(report)
+    first = records.first
+    File.write(@path, "#{JSON.generate(first.except('operatorPolicy').merge('version' => 1))}\n")
+    expect(append(report)).to include("change unavailable")
+    other = Saboteur::Config.new({ "exclude_operators" => ["range"] }).operator_policy
+    File.write(@path, "#{JSON.generate(first.merge('operatorPolicy' => other))}\n")
+    expect(append(report)).to include("change unavailable")
+    File.write(@path, "#{JSON.generate(first)}\n")
+    expect(append(report_of(result_for(:survived)))).to include("-100.00 percentage points")
+  end
+
   it "isolates every prior-record schema guard" do
     append(report_of(result_for(:killed)))
     valid = records.first
