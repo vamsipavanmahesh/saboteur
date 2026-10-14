@@ -56,7 +56,7 @@ module Saboteur
         compatibility = document.fetch("compatibility")
         config = compatibility.fetch("config")
         runtime = compatibility.fetch("runtime")
-        fields!(config, Config::DEFAULTS.keys - RunEvidence::OUTPUT_SETTINGS)
+        validate_operator_policy(config)
         fields!(runtime, %w[engine version platform patchlevel saboteur])
         raise ConfigError, "baseline nonfresh config" if config["since"] || config["incremental"]
 
@@ -67,6 +67,16 @@ module Saboteur
         raise ConfigError, "baseline snapshot settings mismatch" unless valid
 
         validate_generator(compatibility.fetch("generator"), config, runtime)
+      end
+
+      def validate_operator_policy(config)
+        unless config["operator_policy"] && config["operator_policy"]["version"] == MutationSource::OperatorRegistry::POLICY_VERSION
+          raise ConfigError, "baseline operator policy is incompatible; re-propose with baseline propose"
+        end
+
+        fields!(config, Config::DEFAULTS.keys - RunEvidence::OUTPUT_SETTINGS + ["operator_policy"])
+        expected = Config.new(config.except("operator_policy")).operator_policy
+        raise ConfigError, "baseline operator policy mismatch" unless expected == config["operator_policy"]
       end
 
       def validate_generator(generator, config, runtime)

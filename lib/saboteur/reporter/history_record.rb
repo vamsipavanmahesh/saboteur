@@ -3,6 +3,7 @@
 
 require "json"
 require "time"
+require_relative "history_policy"
 
 module Saboteur
   module Reporter
@@ -21,6 +22,8 @@ module Saboteur
         end
       end
 
+      extend HistoryPolicy
+
       module_function
 
       def parse(line)
@@ -32,11 +35,7 @@ module Saboteur
       end
 
       def validate(record)
-        fields(record, FIELDS)
-        unless record.fetch("version").is_a?(Integer) && record.fetch("version") == 1
-          raise Error,
-                "score history contains an invalid version"
-        end
+        validate_header(record, FIELDS)
 
         date(record.fetch("date"))
         commit = record.fetch("commit")

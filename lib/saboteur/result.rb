@@ -112,13 +112,15 @@ module Saboteur
     MAX_ERROR_FRACTION = 0.5
 
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :root, :seed, :skipped_subjects,
-                :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop, :inline_suppressions
+                :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop, :inline_suppressions,
+                :operator_policy
 
     # REVIEW: diff mode; the terminal then shows one survivor per line.
     # seed: the random seed every test run started from (nil when unknown).
     def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [], review: false,
                    seed: nil, skipped_subjects: {}, diff_scope: nil, generation_events: [], omissions: [],
-                   run_evidence: nil, hazard_suppressions: 0, early_stop: nil, matrix: false, inline_suppressions: [])
+                   run_evidence: nil, hazard_suppressions: 0, early_stop: nil, matrix: false, inline_suppressions: [],
+                   operator_policy: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -136,6 +138,7 @@ module Saboteur
       @early_stop = early_stop
       @matrix = matrix
       @inline_suppressions = inline_suppressions.dup.freeze
+      @operator_policy = operator_policy
     end
 
     # A --matrix run: every covering test ran per mutant.

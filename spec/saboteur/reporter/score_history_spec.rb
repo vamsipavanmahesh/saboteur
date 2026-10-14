@@ -22,7 +22,7 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
   it "records one dated commit, score, covered score, counts and kill breakdown per run" do
     expect(append(report_of(result_for(:killed, kill_cause: "assertion")))).to include("first record")
     row = records.first
-    expect(row).to include("version" => 1, "commit" => "a" * 40, "score" => 1.0, "coveredScore" => 1.0)
+    expect(row).to include("version" => 2, "commit" => "a" * 40, "score" => 1.0, "coveredScore" => 1.0)
     expect(Time.iso8601(row.fetch("date"))).to be_a(Time)
     expect(row.fetch("counts")["killed"]).to eq(1)
     expect(row.fetch("breakdown")["assertionKills"]).to eq(1)
@@ -97,10 +97,63 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
     end
   end
 
+  it "records the operator policy and reads legacy v1 without comparing across policy versions" do
+    report = report_of(result_for(:killed))
+    config = Saboteur::Config.new({ "exclude_operators" => ["range"] })
+    allow(report).to receive(:operator_policy).and_return(config.operator_policy)
+    append(report)
+    row = records.first
+    expect(row["operatorPolicy"]).to eq(config.operator_policy)
+    legacy = row.except("operatorPolicy").merge("version" => 1, "selection" => "0" * 64)
+    File.write(@path, "#{JSON.generate(legacy)}\n")
+    expect { described_class.new(@path).validate_existing }.not_to raise_error
+    expect(append(report)).to include("change unavailable")
+  end
+
+  it "rejects v2 records with a null or empty-effective operator policy" do
+    append(report_of(result_for(:killed)))
+    valid = records.first
+    [valid.merge("operatorPolicy" => nil),
+     valid.merge("operatorPolicy" => Saboteur::MutationSource::OperatorRegistry.policy(
+       [], Saboteur::MutationSource::OperatorRegistry::DESCRIPTIONS.keys
+     ))].each do |row|
+      text = "#{JSON.generate(row)}\n"
+      File.write(@path, text)
+      expect { append(report_of(result_for(:killed))) }.to raise_error(Saboteur::Error, /invalid operator policy/)
+      expect(File.read(@path)).to eq(text)
+    end
+  end
+
+  it "withholds deltas across record versions and operator policies, even with matching hashes" do
+    report = report_of(result_for(:killed))
+    append(report)
+    first = records.first
+    File.write(@path, "#{JSON.generate(first.except('operatorPolicy').merge('version' => 1))}\n")
+    expect(append(report)).to include("change unavailable")
+    other = Saboteur::Config.new({ "exclude_operators" => ["range"] }).operator_policy
+    File.write(@path, "#{JSON.generate(first.merge('operatorPolicy' => other))}\n")
+    expect(append(report)).to include("change unavailable")
+    File.write(@path, "#{JSON.generate(first)}\n")
+    expect(append(report_of(result_for(:survived)))).to include("-100.00 percentage points")
+  end
+
+  it "compares policies only when both records carry one" do
+    history = described_class.new(@path)
+    policy = Saboteur::Config.new({}).operator_policy
+    with_policy = { "version" => 2, "operatorPolicy" => policy }
+    without_policy = { "version" => 2, "operatorPolicy" => nil }
+    expect(history.send(:comparable_policy?, without_policy, with_policy)).to be(false)
+    expect(history.send(:comparable_policy?, without_policy, without_policy)).to be(false)
+    expect(history.send(:comparable_policy?, with_policy, without_policy)).to be(false)
+    expect(history.send(:comparable_policy?, with_policy, with_policy)).to be(true)
+    other = with_policy.merge("version" => 1, "operatorPolicy" => nil)
+    expect(history.send(:comparable_policy?, other, other)).to be(false)
+  end
+
   it "isolates every prior-record schema guard" do
     append(report_of(result_for(:killed)))
     valid = records.first
-    variants = [{ "version" => 2 }, { "selection" => nil }, { "inventory" => nil },
+    variants = [{ "version" => 3 }, { "selection" => nil }, { "inventory" => nil },
                 { "incomplete" => nil }].map { |change| valid.merge(change) }
     variants << valid.except("coveredScore")
     variants.each do |row|

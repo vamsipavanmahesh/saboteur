@@ -13,6 +13,7 @@ module Saboteur
     # Opt-in append-only score observations, not a baseline or a CI gate.
     class ScoreHistory
       DIFFERENT_RUN = "score history: change unavailable (different selection/inventory or incomplete run)"
+      DIFFERENT_POLICY = "score history: change unavailable (different record version or operator policy)"
       MISSING_SCORE = "score history: change unavailable (no tested mutants)"
       MAX_RECORD_BYTES = 64 * 1024
       OPEN_FLAGS = File::RDWR | File::CREAT | File::NONBLOCK | File::NOFOLLOW
@@ -58,13 +59,13 @@ module Saboteur
       private
 
       def build(report, head, scope)
-        { "version" => 1, "date" => Time.now.utc.iso8601, "commit" => head,
+        { "version" => 2, "date" => Time.now.utc.iso8601, "commit" => head,
           "selection" => Digest::SHA256.hexdigest(JSON.generate(scope.sort_by { |key, _| key.to_s }.to_h)),
           "inventory" => Digest::SHA256.hexdigest(JSON.generate(report.results.map(&:digest).sort)),
           "score" => overall_score(report), "coveredScore" => report.score,
           "counts" => report.counts.transform_keys(&:to_s),
           "breakdown" => report.score_breakdown.to_h.transform_keys(&:to_s),
-          "incomplete" => incompleteness(report) }
+          "incomplete" => incompleteness(report), "operatorPolicy" => report.operator_policy }
       end
 
       def overall_score(report)
@@ -107,11 +108,22 @@ module Saboteur
         previous
       end
 
+      # Only one record version and one non-null operator policy compare:
+      # scores never mix across v1/v2 or across policy configurations.
+      # A non-null previous policy forces a non-null equal current one, so
+      # only the previous record needs the null guard.
+      def comparable_policy?(previous, current)
+        previous["version"] == current["version"] &&
+          !previous["operatorPolicy"].nil? &&
+          previous["operatorPolicy"] == current["operatorPolicy"]
+      end
+
       def change(previous, current)
         return "score history: first record" unless previous
         return DIFFERENT_RUN unless
           previous["selection"] == current["selection"] && previous["inventory"] == current["inventory"] &&
           previous["incomplete"].empty? && current["incomplete"].empty?
+        return DIFFERENT_POLICY unless comparable_policy?(previous, current)
         return MISSING_SCORE if
           previous["coveredScore"].nil? || current["coveredScore"].nil?
 

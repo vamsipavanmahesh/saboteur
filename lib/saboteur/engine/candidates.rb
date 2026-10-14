@@ -13,7 +13,10 @@ module Saboteur
       def self.build_sources(config)
         root = File.realpath(config.root)
         config["sources"].map do |entry|
-          next MutationSource::Builtin.new(arid: config["arid"], operators: config["operators"]) if entry == "builtin"
+          if entry == "builtin"
+            next MutationSource::Builtin.new(arid: config["arid"], operators: config["operators"],
+                                             exclude_operators: config["exclude_operators"])
+          end
 
           file, const = entry.split(":", 2)
           raise ConfigError, "mutation source #{entry.inspect} must be builtin or path.rb:ClassName" unless const

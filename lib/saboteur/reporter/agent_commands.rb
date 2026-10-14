@@ -15,7 +15,8 @@ module Saboteur
 
         # Options typed on the command line that change how a run behaves.
         SETTING_FLAGS = { reeval: "--reeval", integration: "--integration", jobs: "--jobs",
-                          timeout_factor: "--timeout-factor", json_report: "--json", html_report: "--html" }.freeze
+                          timeout_factor: "--timeout-factor", json_report: "--json", html_report: "--html",
+                          operators: "--operators", exclude_operators: "--exclude-operators" }.freeze
 
         class << self
           # Run the same selection again: ref, subjects, sources, tests, config,
@@ -46,15 +47,22 @@ module Saboteur
             tests.empty? ? [] : ["--no-guess-tests", *tests.flat_map { |test| ["--test", test] }]
           end
 
+          def setting_words(provenance)
+            SETTING_FLAGS.flat_map do |key, flag|
+              next [] unless provenance.settings.key?(key)
+
+              value = provenance.settings[key]
+              [flag, value.is_a?(Array) ? value.join(",") : value.to_s]
+            end
+          end
+
           def selection(provenance, replay: false)
             words = []
             words.push("--config", provenance.config_path) if provenance.config_path
             words.push("--since", provenance.ref) if provenance.ref
             provenance.subjects.each { |subject| words.push("--subject", subject) }
             words.push(*test_words(provenance.tests))
-            SETTING_FLAGS.each do |key, flag|
-              words.push(flag, provenance.settings[key].to_s) if provenance.settings.key?(key)
-            end
+            words.concat(setting_words(provenance))
             words << "--no-cache" if provenance.cache == false
             words << "--incremental" if provenance.incremental
             words.push("--id", provenance.digest) if provenance.digest && !replay

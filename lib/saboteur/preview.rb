@@ -13,6 +13,7 @@ module Saboteur
     end
 
     def call
+      announce_operators
       selection = Engine::SubjectSelection.new(@config, @diagnostics)
       subjects = selection.select(@config.included_files)
       scope = selection.changed_lines && Engine::DiffScope.new(selection.changed_lines)
@@ -24,11 +25,19 @@ module Saboteur
       @out.puts("Total: #{lists.sum(&:size)} mutants; #{@diagnostics.omissions.sum(&:count)} " \
                 "dropped by max_mutants_per_method#{incomplete_note(incomplete)}")
       incomplete.zero? ? estimate(subjects, lists) : @out.puts("no estimate: source discovery was incomplete")
-      @diagnostics.warnings.each { |warning| @out.puts("warning: #{warning}") }
+      print_warnings
       nil
     end
 
     private
+
+    def print_warnings
+      @diagnostics.warnings.each { |warning| @out.puts("warning: #{warning}") }
+    end
+
+    def announce_operators
+      @out.puts("Operators: #{@config.operator_policy['effective'].join(', ')}")
+    end
 
     # Candidate filtering precedes diff restriction and the per-method cap.
     # Name that scope rather than implying these rows were executed or scored.

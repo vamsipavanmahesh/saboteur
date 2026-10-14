@@ -22,7 +22,7 @@ module Saboteur
             verdict = verdict_of(report, status)
             {
               version: VERSION, status: status, verdict: verdict, exitCode: exit_code_for(verdict),
-              provenance: provenance_hash(provenance),
+              provenance: provenance_hash(provenance).merge(operatorPolicy: report.operator_policy),
               counts: counts(report), score: score(report),
               scoreDefinition: "(killed + timeout) / (killed + survived + timeout); null when nothing was tested",
               incomplete: incomplete, timeoutCountedAsDetected: report.counts[:timeout],

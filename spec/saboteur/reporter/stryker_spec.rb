@@ -24,6 +24,11 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("files", "person.rb", "language")).to eq("ruby")
   end
 
+  it "carries the operator policy under the saboteur key" do
+    expected = JSON.parse(JSON.generate(Saboteur::Config.new({}).operator_policy))
+    expect(json.dig("saboteur", "operatorPolicy")).to eq(expected)
+  end
+
   it "maps ran-at-load and unreachable to Ignored, carrying the reason" do
     report = report_of(result_for(:ran_at_load, reason: "ran while the app loaded"),
                        result_for(:unreachable, reason: "a captured Method still calls the original"))

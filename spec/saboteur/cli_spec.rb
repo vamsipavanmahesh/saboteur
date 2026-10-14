@@ -141,6 +141,18 @@ RSpec.describe Saboteur::CLI do
       cli("run", "--json", File.join(Dir.mktmpdir, "r.json")).call
     end
 
+    it "appends the run to the score history when --score-history is set" do
+      history = File.join(File.realpath(Dir.mktmpdir), "history.jsonl")
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      json = File.join(File.realpath(Dir.mktmpdir), "r.json")
+      expect(cli("run", "--score-history", history, "--json", json).call).to eq(0), "stderr: #{err.string}"
+      expect(err.string).to include("saboteur: score history: first record")
+      lines = File.readlines(history)
+      expect(lines.size).to eq(1)
+      expect(JSON.parse(lines[0])["operatorPolicy"]).to eq(Saboteur::Config.new({}).operator_policy)
+    end
+
     it "is 0 with no survivors" do
       expect(run_with(report_of(result_for(:killed)))).to eq(0)
     end
@@ -351,6 +363,17 @@ RSpec.describe Saboteur::CLI do
       end
     end
 
+    it "records only run-setting flags plus the resolved operator policy in agent settings" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      cli("run", "--agent", "--since", "HEAD", "--jobs", "2").call
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.settings).to eq(jobs: 2, operators: [], exclude_operators: [])
+      end
+    end
+
     it "writes no JSON report in agent mode when the payload build fails" do
       report = report_of(result_for(:killed), result_for(:error), result_for(:error))
       dir = Dir.mktmpdir
@@ -479,6 +502,17 @@ RSpec.describe Saboteur::CLI, "details" do
     command.call
     expect(command.options).to include(allow_focus: true)
     expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["allow_focus"]).to be(true)
+  end
+
+  it "describes --exclude-operators in run help" do
+    Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
+    expect(out.string).to include("--exclude-operators NAMES", "Exclude operator names from the selected set")
+  end
+
+  it "marks only the named operators on in --list-operators" do
+    expect(cli("run", "--list-operators", "--operators", "range").call).to eq(0)
+    expect(out.string).to match(/^range\s+on/)
+    expect(out.string).to match(/^arithmetic\s+off/)
   end
 
   it "parses --matrix into the matrix config key, and describes it in help" do

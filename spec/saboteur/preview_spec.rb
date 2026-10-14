@@ -29,6 +29,11 @@ RSpec.describe Saboteur::Preview do
     expect(out.string).to include("Total: #{full} mutants; 0 dropped")
   end
 
+  it "announces the effective operator set" do
+    preview(config).call
+    expect(out.string).to match(/^Operators: \w+(, \w+)+/)
+  end
+
   it "uses diff lines both to select methods and to restrict their candidates" do
     allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).with("base", root: root)
                                                                   .and_return(target.file => [4])

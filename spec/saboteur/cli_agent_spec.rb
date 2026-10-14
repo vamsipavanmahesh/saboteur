@@ -38,6 +38,14 @@ RSpec.describe Saboteur::CLI, "agent mode" do
     end
   end
 
+  it "carries only setting flags plus the operator lists in agent settings" do
+    _code, payload = run_agent(report_of(result_for(:killed)), "--agent", "--operators", "range")
+    settings = payload[:provenance][:selection][:settings]
+    expect(settings[:operators]).to eq('["range"]')
+    expect(settings).to have_key(:exclude_operators)
+    expect(settings).not_to have_key(:json)
+  end
+
   it "prints only the JSON payload on stdout, and still writes the report files" do
     Dir.mktmpdir do |dir|
       json = File.join(dir, "r.json")
@@ -212,7 +220,8 @@ RSpec.describe Saboteur::CLI, "agent mode" do
       out, = agent_process(dir, "run", "--agent", "--subject", "A#b", "--id", "f" * 16, "lib/a.rb")
       payload = JSON.parse(out)
       expect(payload["provenance"]).to include("ref" => "HEAD", "mode" => "replay")
-      expect(payload["next"]["rerun"]).to eq("saboteur run --agent --since HEAD --subject A\\#b --id #{'f' * 16} " \
+      expect(payload["next"]["rerun"]).to eq("saboteur run --agent --since HEAD --subject A\\#b --operators '' " \
+                                             "--exclude-operators '' --id #{'f' * 16} " \
                                              "--seed 1 -- lib/a.rb")
     end
   end

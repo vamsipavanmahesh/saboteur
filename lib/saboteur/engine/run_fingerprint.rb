@@ -127,7 +127,7 @@ module Saboteur
         issues = output_overlap_issues
         entries = inventory(issues).sort_by(&:path).freeze
         issues = issues.uniq.sort
-        settings_digest = hash_value(@config.to_h.except(*LOCATION_SETTINGS))
+        settings_digest = hash_value(@config.selection_settings.except(*LOCATION_SETTINGS))
         runtime_digest = hash_value(@runtime_identity)
         digest = hash_value(format: FORMAT_VERSION, files: entries.map(&:to_h),
                             settings: settings_digest, runtime: runtime_digest)

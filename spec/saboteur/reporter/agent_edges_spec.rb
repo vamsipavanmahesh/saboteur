@@ -348,6 +348,13 @@ RSpec.describe Saboteur::Reporter::Agent::Commands do
     )
   end
 
+  it "joins array-valued settings with commas" do
+    settings = { operators: %w[range comparison], exclude_operators: ["comparison"] }
+    expect(described_class.rerun(provenance_with(settings: settings))).to eq(
+      "saboteur run --agent --operators range,comparison --exclude-operators comparison --seed 7"
+    )
+  end
+
   it "leaves out --since without a ref and --config without a config path" do
     expect(described_class.rerun(provenance_with)).to eq("saboteur run --agent --seed 7")
   end

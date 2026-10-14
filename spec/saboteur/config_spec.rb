@@ -59,6 +59,13 @@ RSpec.describe Saboteur::Config do
       .to raise_error(Saboteur::ConfigError, /guess_tests cannot be combined with tests/)
   end
 
+  it "rejects an operator selection that leaves no effective operator" do
+    all = Saboteur::MutationSource::OperatorRegistry::DESCRIPTIONS.keys
+    expect { described_class.new({ "exclude_operators" => all }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /operator selection is empty/)
+    expect(described_class.new({ "operators" => ["range"] }, root: @root)["operators"]).to eq(["range"])
+  end
+
   it "rejects a threshold that is not a number" do
     expect { described_class.new({ "threshold" => "high" }, root: @root) }
       .to raise_error(Saboteur::ConfigError, /invalid config value/)

@@ -39,6 +39,7 @@ module Saboteur
       "custom_map" => "config/saboteur_custom_map.rb",
       "sources" => ["builtin"],
       "operators" => [],
+      "exclude_operators" => [],
       "hooks" => [],
       "rails" => false,
       "reeval" => "nesting",
@@ -68,7 +69,7 @@ module Saboteur
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
-                   fingerprint_extra sandbox_writable operators whole_file].freeze
+                   fingerprint_extra sandbox_writable operators exclude_operators whole_file].freeze
 
     attr_reader :root
 
@@ -236,8 +237,25 @@ module Saboteur
       validate_operator_config!
     end
 
+    public
+
+    def operator_policy
+      MutationSource::OperatorRegistry.policy(self["operators"], self["exclude_operators"])
+    end
+
+    # Versioned policy travels with every identity, not with mutation digests.
+    def selection_settings
+      to_h.merge("operator_policy" => operator_policy)
+    end
+
+    private
+
     def validate_operator_config!
-      MutationSource::OperatorRegistry.resolve(self["operators"])
+      effective = MutationSource::OperatorRegistry.select(self["operators"], self["exclude_operators"])
+      if effective.empty?
+        raise ConfigError,
+              "operator selection is empty: enable at least one operator or clear exclusions"
+      end
 
       self["arid"].each { |pattern| Regexp.new(pattern) }
     rescue RegexpError => e

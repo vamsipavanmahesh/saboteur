@@ -95,7 +95,7 @@ module Saboteur
                              entry.kind == "source_plugin"
                            end.map(&:to_h) },
           "runtime" => Engine::RunFingerprint.runtime_identity,
-          "config" => @config.to_h.except(*OUTPUT_SETTINGS),
+          "config" => @config.selection_settings.except(*OUTPUT_SETTINGS),
           "scope" => { "include" => @config["include"], "exclude" => @config["exclude"],
                        "subjects" => @config["subjects"] } }
       end
