@@ -97,7 +97,7 @@ module Saboteur
       end
 
       def parse(line)
-        JSON.parse(Text.utf8(line))
+        JSON.parse(Text.utf8_strict(line))
       rescue JSON::ParserError => e
         { "error" => "unreadable result from worker: #{e.message}" }
       end
