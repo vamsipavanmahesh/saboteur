@@ -22,7 +22,7 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
   it "records one dated commit, score, covered score, counts and kill breakdown per run" do
     expect(append(report_of(result_for(:killed, kill_cause: "assertion")))).to include("first record")
     row = records.first
-    expect(row).to include("version" => 1, "commit" => "a" * 40, "score" => 1.0, "coveredScore" => 1.0)
+    expect(row).to include("version" => 2, "commit" => "a" * 40, "score" => 1.0, "coveredScore" => 1.0)
     expect(Time.iso8601(row.fetch("date"))).to be_a(Time)
     expect(row.fetch("counts")["killed"]).to eq(1)
     expect(row.fetch("breakdown")["assertionKills"]).to eq(1)
@@ -97,10 +97,23 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
     end
   end
 
+  it "records the operator policy and reads legacy v1 without comparing across policy versions" do
+    report = report_of(result_for(:killed))
+    config = Saboteur::Config.new({ "exclude_operators" => ["range"] })
+    allow(report).to receive(:operator_policy).and_return(config.operator_policy)
+    append(report)
+    row = records.first
+    expect(row["operatorPolicy"]).to eq(config.operator_policy)
+    legacy = row.except("operatorPolicy").merge("version" => 1, "selection" => "0" * 64)
+    File.write(@path, "#{JSON.generate(legacy)}\n")
+    expect { described_class.new(@path).validate_existing }.not_to raise_error
+    expect(append(report)).to include("change unavailable")
+  end
+
   it "isolates every prior-record schema guard" do
     append(report_of(result_for(:killed)))
     valid = records.first
-    variants = [{ "version" => 2 }, { "selection" => nil }, { "inventory" => nil },
+    variants = [{ "version" => 3 }, { "selection" => nil }, { "inventory" => nil },
                 { "incomplete" => nil }].map { |change| valid.merge(change) }
     variants << valid.except("coveredScore")
     variants.each do |row|
