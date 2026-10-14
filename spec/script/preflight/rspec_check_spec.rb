@@ -98,7 +98,7 @@ RSpec.describe Preflight::Checks::Rspec do
       PreflightSupport::ScriptedRunner.new.result(argv, 0, "", data: JSON.generate(clean))
     end
     described_class.new(name: "x", command_runner: runner, paths: ["spec/a_spec.rb"]).call
-    expect(runner.calls.first).to start_with(%w[bundle exec rspec spec/a_spec.rb])
-    expect(runner.calls.first).to end_with(%w[--format json --out /dev/fd/3])
+    expect(runner.calls.first).to eq(["/bin/sh", "-c", 'exec bundle exec rspec "$@" --format json >&3',
+                                      "rspec", "spec/a_spec.rb"])
   end
 end
