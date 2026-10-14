@@ -783,7 +783,7 @@ Public API, stable across minor versions:
 
 ## 🌍 Where it has run
 
-An early release (0.4.0). Tested on the RSpec suites of plain gems
+An early release (0.5.0). Tested on the RSpec suites of plain gems
 (dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
 human-essentials on Postgres (4,080 mutants, 6 workers; the 2026-10-10 run, before
 the baseline check and the coarse-gate removal) and lobsters on SQLite,
