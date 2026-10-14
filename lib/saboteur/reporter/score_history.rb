@@ -13,6 +13,7 @@ module Saboteur
     # Opt-in append-only score observations, not a baseline or a CI gate.
     class ScoreHistory
       DIFFERENT_RUN = "score history: change unavailable (different selection/inventory or incomplete run)"
+      DIFFERENT_POLICY = "score history: change unavailable (different record version or operator policy)"
       MISSING_SCORE = "score history: change unavailable (no tested mutants)"
       MAX_RECORD_BYTES = 64 * 1024
       OPEN_FLAGS = File::RDWR | File::CREAT | File::NONBLOCK | File::NOFOLLOW
@@ -107,11 +108,20 @@ module Saboteur
         previous
       end
 
+      # Only one record version and one non-null operator policy compare:
+      # scores never mix across v1/v2 or across policy configurations.
+      def comparable_policy?(previous, current)
+        previous["version"] == current["version"] &&
+          !previous["operatorPolicy"].nil? && !current["operatorPolicy"].nil? &&
+          previous["operatorPolicy"] == current["operatorPolicy"]
+      end
+
       def change(previous, current)
         return "score history: first record" unless previous
         return DIFFERENT_RUN unless
           previous["selection"] == current["selection"] && previous["inventory"] == current["inventory"] &&
           previous["incomplete"].empty? && current["incomplete"].empty?
+        return DIFFERENT_POLICY unless comparable_policy?(previous, current)
         return MISSING_SCORE if
           previous["coveredScore"].nil? || current["coveredScore"].nil?
 
