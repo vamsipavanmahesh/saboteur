@@ -946,7 +946,8 @@ JSON findings are ordered by a deterministic [review ranking](docs/survivor-rank
 
 Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `sources` entries (`path.rb:ClassName`) are still `require`d to generate candidates, so their code runs. Only preview with sources you trust.
 
-`bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains the current default operators. Extended adds opt-in [`range`](docs/operators/range.md), [`operator_assignment`](docs/operators/operator_assignment.md), and [`condition_negation`](docs/operators/condition_negation.md). Empty/default selection keeps only core operators. Selection changes invalidate incremental verdict identity.
+`bundle exec saboteur run --list-operators` lists every builtin name and description. All builtin operators run by default, including [`range`](docs/operators/range.md), [`operator_assignment`](docs/operators/operator_assignment.md), and [`condition_negation`](docs/operators/condition_negation.md). `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` still selects a subset; `all` selects every name. There is no opt-in tier. `--exclude-operators range,condition_negation` or `c.exclude_operators = ["range", "condition_negation"]` removes named operators from that selection; exclusion wins if a name is in both lists. An empty selection means all, while an empty exclusion means none. CLI lists replace their corresponding config lists. These controls apply to builtin operators, not custom source plugins. Selection and exclusions invalidate cached verdict identity and are carried into agent rerun/replay commands.
+
 
 Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).
 
@@ -977,3 +978,18 @@ Inspired by mutineer's inline suppression comments (github.com/davidteren/mutine
 Inline suppressions bound completeness: classic scores still exclude suppressed candidates, but baseline evidence is incomplete when any inline candidate is suppressed. Agent output reports `inline_suppressed` with its count and points to the full audit. Reasons are audited, not proof that suppressed work was checked.
 
 Source-only `--dry-run` lists the suppressed count and each audit row in selected methods, before diff restriction and the per-method cap. They are outside the planned total. Preview still does not boot the app or write reports.
+
+All operators run unless you select a smaller set; exclusions always remove operators from that set.
+Repeated `--operators` or `--exclude-operators` flags use the last list, not a union.
+To re-enable an operator excluded in config: `bundle exec saboteur run --operators range --exclude-operators ''`.
+To keep the 0.5.0 default inventory: `bundle exec saboteur run --exclude-operators range,operator_assignment,condition_negation`.
+The old `core` and `extended` names now give a migration error, not a changed selection in disguise.
+An empty effective selection is a usage error before boot. `--list-operators` loads current config and shows on/off plus examples; preview and the run header show the effective set.
+Operator policy version 2, selected names, excluded names and effective names are in JSON/agent/baseline evidence and fresh score-history v2 rows. Old history v1 rows remain readable but are not compared across policy versions. Cache and baseline identities include the policy. Re-propose and review old survivor baselines with `baseline propose`; never auto-accept new survivors. Mutation digests for unchanged edits stay stable.
+
+```ruby
+Saboteur.configure do |c|
+  c.operators = [] # all by default; or ["arithmetic", "range"] for a subset
+  c.exclude_operators = ["condition_negation"]
+end
+```
