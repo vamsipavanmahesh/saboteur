@@ -12,16 +12,17 @@ module Saboteur
       module_function
 
       def local?(host)
-        host.nil? || host.to_s.empty? || host.to_s.start_with?("/") || LOCAL_HOSTS.include?(host.to_s.downcase)
+        host = host.to_s
+        host.empty? || host.start_with?("/") || LOCAL_HOSTS.include?(host.downcase)
       end
 
       # "name (host host)" per config whose host is not local and not in
       # extra_allowed. Shared by the boot refusal and doctor.
       def remote(configs, extra_allowed = [])
-        allowed = extra_allowed.map { |host| host.to_s.downcase }
+        allowed = extra_allowed.map(&:downcase)
         configs.filter_map do |db|
           host = db.configuration_hash[:host]
-          "#{db.name} (host #{host})" unless local?(host) || allowed.include?(host.to_s.downcase)
+          "#{db.name} (host #{host})" unless local?(host) || allowed.include?(host.downcase)
         end
       end
     end
