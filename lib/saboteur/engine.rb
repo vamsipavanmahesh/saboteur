@@ -41,9 +41,13 @@ module Saboteur
       Boot.refuse_recursion!
       refuse_fail_fast_evidence
       started = monotonic
+      # Capture evidence inputs before inference narrows the test list: the
+      # fingerprint must match what the baseline workflow recomputes from the
+      # declared config, and the inferred specs are pinned by the hashed
+      # source files anyway.
+      @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       select_tests
       announce_operators
-      @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
       warn_custom_map
       boot = Boot.new(config, hooks)
@@ -105,26 +109,23 @@ module Saboteur
 
       guess = TestGuess.new(config).call
       @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      raise ConfigError, guess.unmatched_message(since: config["since"]) if guess.unmatched.any?
+      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
       @diagnostics.announce(selection_message(guess))
     end
 
     # A --subject run infers only from the files holding the named subjects:
     # an unrelated spec-less file must not block a one-method run. A subject
-    # file without a conventional spec widens to the whole suite with a
-    # warning; it never narrows the run away from the named subject.
+    # file without a conventional spec stops the run before boot, like any
+    # other unmatched file.
     def select_subject_tests(patterns)
       files = SubjectSelection.files_matching(@root, config.included_files, patterns)
       return if files.empty? # unknown subjects are named later, in selection
 
       guess = TestGuess.new(config).call_for(files)
-      message = if guess.unmatched.any?
-                  "inferred specs: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs"
-                else
-                  scope_to_guesses(guess)
-                end
-      @diagnostics.announce(message)
+      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
+
+      @diagnostics.announce(scope_to_guesses(guess))
     end
 
     def selection_message(guess)

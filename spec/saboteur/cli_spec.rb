@@ -394,6 +394,43 @@ RSpec.describe Saboteur::CLI do
       end
     end
 
+    it "omits --all from agent settings when named tests win over a configured whole-suite selection" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("config")
+          File.write("config/saboteur.rb", "Saboteur.configure { |c| c.test_selection = :all }\n")
+          FileUtils.mkdir_p("spec")
+          File.write("spec/a_spec.rb", "# spec\n")
+          cli("run", "--agent", "--test", "spec/a_spec.rb").call
+        end
+      end
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.settings).to eq(operators: [], exclude_operators: [])
+        expect(provenance.tests).to eq(["spec/a_spec.rb"])
+      end
+    end
+
+    it "records a configured test_selection = :all in agent settings when no tests resolved" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("config")
+          File.write("config/saboteur.rb", "Saboteur.configure { |c| c.test_selection = :all }\n")
+          cli("run", "--agent").call
+        end
+      end
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.settings).to eq(all: true, operators: [], exclude_operators: [])
+      end
+    end
+
     it "records --all in agent settings so rerun and replay keep the whole-suite scope" do
       report = report_of(result_for(:killed))
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)

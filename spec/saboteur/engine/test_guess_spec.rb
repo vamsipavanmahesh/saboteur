@@ -291,5 +291,27 @@ RSpec.describe Saboteur::Engine::TestGuess do
       result = guess_all(include: ["nope/**/*.rb"])
       expect([result.specs, result.unmatched, result.subjectless, result.changed]).to eq([[], [], [], 0])
     end
+
+    it "counts every included file in the changed total" do
+      write("lib/nomethod.rb", "# only a comment\n")
+      result = guess_all(include: ["lib/**/*.rb"])
+      expect(result.specs).to eq(["spec/a_spec.rb", "spec/deep/b_spec.rb", "spec/lib/e_spec.rb"])
+      expect(result.unmatched).to eq(["lib/c.rb"])
+      expect(result.subjectless).to eq(["lib/nomethod.rb"])
+      expect(result.changed).to eq(5)
+    end
+
+    it "ignores included files outside the root" do
+      outside = File.realpath(Dir.mktmpdir("saboteur-outside"))
+      begin
+        File.write(File.join(outside, "ghost.rb"), "class Ghost\n  def m\n    1\n  end\nend\n")
+        result = guess_all(include: ["lib/**/*.rb", "../#{File.basename(outside)}/ghost.rb"])
+        expect(result.changed).to eq(4)
+        expect(result.unmatched + result.subjectless).to all(a_string_starting_with("lib/"))
+        expect(result.specs).to all(a_string_starting_with("spec/"))
+      ensure
+        FileUtils.remove_entry(outside)
+      end
+    end
   end
 end

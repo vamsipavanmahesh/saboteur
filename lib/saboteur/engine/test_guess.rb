@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "shellwords"
-
 module Saboteur
   class Engine
     # The specs that sit next to the mutated source files by
@@ -21,15 +19,13 @@ module Saboteur
       # the engine's specs formats exactly like a real one.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints) do
         # The stop-before-boot usage error: names each expected spec and the
-        # ways out. The ref is shell-quoted and pinned to --since with =, so a
-        # hostile or odd ref stays one literal argument.
-        def unmatched_message(since:)
+        # ways out as an append-only instruction - never a reconstructed
+        # command, which could carry a hostile ref or a wrong source scope.
+        def unmatched_message
           pairs = unmatched.map { |file| "#{file} (expected #{hints.fetch(file)})" }
-          scope = "saboteur run"
-          scope += " --since=#{Shellwords.escape(since)}" if since
-          "no spec found for #{pairs.join(', ')}, so nothing ran. Create the expected spec, or re-run " \
-            "your command with --test and your real spec paths, or with --all for the whole suite, e.g.:\n  " \
-            "#{scope} --all"
+          "no spec found for #{pairs.join(', ')}, so nothing ran. Re-run the same command with --test " \
+            "followed by your existing spec paths, or append --all to use the whole suite without " \
+            "changing the source scope."
         end
 
         # Why the subjectless files needed no spec.

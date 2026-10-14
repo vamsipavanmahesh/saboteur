@@ -17,14 +17,21 @@ All notable changes are documented here. The format follows
   `--guess-tests` is a deprecated alias for the default and
   `--no-guess-tests` warns and is ignored; both flags disappear in a
   future release (#270). A `--subject` run infers only from the named
-  subjects' files: an unrelated spec-less file no longer stops a
-  one-method run, and a subject file with no conventional spec widens to
-  the whole suite with a warning. The unmatched-file guidance now asks
-  for `--test` with the real spec paths or the expected spec, and shows a
-  runnable `--all` example with the `--since` ref shell-quoted. `--test`
-  may stand alone (the configured include names the sources), so agent
-  rerun/replay commands stay executable, and a whole-suite `--all` run is
-  recorded in the agent provenance and its follow-up commands (#275).
+  subjects' files, so an unrelated spec-less file no longer stops a
+  one-method run. The unmatched-file guidance names the expected specs
+  and tells you to re-run the same command with `--test` followed by your
+  existing spec paths, or to append `--all`, instead of printing a
+  reconstructed command. `--test` may stand alone (the configured include
+  names the sources), so agent rerun/replay commands stay executable; a
+  whole-suite `--all` run is recorded in the agent provenance only when
+  no tests resolved, so a configured `:all` combined with named tests
+  still produces runnable follow-up commands. Baseline evidence is
+  fingerprinted from the declared config before inference narrows the
+  test list, so `baseline propose` and `baseline check` agree again
+  (#275). Two stale ignore-list entries for
+  `Saboteur::CLI#define_execution_options` are gone: full runs no longer
+  generate those description-string mutants, so the entries could never
+  match again.
 
 ### Fixed
 - Fixed two encoding failures in mutant children running under a non-UTF-8

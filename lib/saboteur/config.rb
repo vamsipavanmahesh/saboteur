@@ -168,7 +168,7 @@ module Saboteur
     # is --all / c.test_selection = :all. guess_tests = true is the default
     # behavior spelled out, so it stays silent.
     def deprecations(values)
-      return [] unless values.key?("guess_tests") && values["guess_tests"] == false
+      return [] unless values["guess_tests"] == false
 
       ["guess_tests = false is deprecated: inferred specs are the default and it no longer restores the " \
        "whole suite; use --all or c.test_selection = :all to run every spec"]

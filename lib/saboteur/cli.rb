@@ -237,7 +237,12 @@ module Saboteur
     def agent_settings
       settings = options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
                         .merge(operators: config["operators"], exclude_operators: config["exclude_operators"])
-      config["all"] || config["test_selection"] == "all" ? settings.merge(all: true) : settings
+      # The effective mode: named tests win over a configured whole-suite
+      # selection by precedence, so all is recorded only when no tests
+      # resolved - otherwise the follow-up commands would carry both --all
+      # and --test, which the CLI rejects.
+      settings[:all] = true if (config["all"] || config["test_selection"] == "all") && config["tests"].empty?
+      settings
     end
 
     def agent_mode

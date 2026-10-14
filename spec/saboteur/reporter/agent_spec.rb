@@ -52,6 +52,13 @@ RSpec.describe Saboteur::Reporter::Agent do
     end
   end
 
+  it "never emits --all alongside named tests, however the provenance was recorded" do
+    source = provenance_with(ref: nil, settings: { all: true }, tests: ["spec/a_spec.rb"])
+    words = Shellwords.split(described_class::Commands.rerun(source))
+    expect(words).not_to include("--all")
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
+  end
+
   it "emits a runnable rerun for an inferred run without sources: --test stands alone" do
     source = provenance_with(ref: nil, tests: ["spec/a_spec.rb"], sources: [])
     words = Shellwords.split(described_class::Commands.rerun(source))

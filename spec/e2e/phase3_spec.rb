@@ -115,8 +115,8 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       run = saboteur(dir, "--since", "HEAD")
       expect(run.status).to eq(2)
       expect(run.err).to include("no spec found for lib/people.rb (expected spec/people_spec.rb), so nothing ran")
-      expect(run.err).to include("--test and your real spec paths")
-      expect(run.err).to include("saboteur run --since=HEAD --all")
+      expect(run.err).to include("Re-run the same command with --test followed by your existing spec paths")
+      expect(run.err).to include("append --all to use the whole suite without changing the source scope")
       expect(run.err).not_to include("checking the unchanged suite")
     end
 
@@ -124,19 +124,36 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       run = saboteur(dir)
       expect(run.status).to eq(2)
       expect(run.err).to include("no spec found for lib/people.rb (expected spec/people_spec.rb), so nothing ran")
-      expect(run.err).to include("saboteur run --all")
+      expect(run.err).to include("append --all to use the whole suite without changing the source scope")
       expect(run.err).not_to include("checking the unchanged suite")
     end
 
-    it "runs a one-method --subject first run without a spec-less file blocking it" do
+    it "scopes --subject inference to the named subjects' files" do
       run = saboteur(dir, "--subject", "Stage")
       expect(run.status).to be <= 1
       expect(run.err).to include("inferred specs: running only spec/stage_spec.rb")
       expect(run.err).not_to include("no spec found for lib/people.rb, so nothing ran")
 
       run = saboteur(dir, "--subject", "People::Person#adult?")
-      expect(run.status).to be <= 1
-      expect(run.err).to include("inferred specs: no spec found for lib/people.rb, so the whole suite runs")
+      expect(run.status).to eq(2)
+      expect(run.err).to include("no spec found for lib/people.rb (expected spec/people_spec.rb), so nothing ran")
+    end
+
+    it "rerun and replay from a config :all run with named tests carry no --all" do
+      config = File.join(dir, "config", "saboteur.rb")
+      File.write(config, File.read(config).sub("Saboteur.configure do |c|",
+                                               "Saboteur.configure do |c|\n  c.test_selection = :all"))
+      first = saboteur(dir, "--agent", "--test", "spec/stage_spec.rb")
+      expect(first.status).to be <= 1
+      payload = JSON.parse(first.out)
+      %w[rerun replay].each do |key|
+        command = payload.fetch("next").fetch(key, nil)
+        next unless command
+
+        words = Shellwords.split(command)
+        expect(words).not_to include("--all")
+        expect(saboteur(dir, *words[2..]).status).not_to eq(2)
+      end
     end
 
     it "rerun and replay commands from an --all run execute as-is, even with a spec-less source" do
