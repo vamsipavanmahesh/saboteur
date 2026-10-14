@@ -18,16 +18,16 @@ module Saboteur
         raise Error, "score history contains invalid operator policy" unless value.is_a?(Hash)
 
         fields(value, %w[version selected excluded effective])
-        %w[selected excluded effective].each do |key|
-          unless value[key].is_a?(Array) && value[key].all?(String)
-            raise Error, "score history contains invalid operator policy"
-          end
-        end
         raise Error, "score history contains invalid operator policy" if value["effective"].empty?
+
+        lists = value.values_at("selected", "excluded", "effective")
+        unless lists.all? { |list| list.is_a?(Array) && list.all?(String) }
+          raise Error, "score history contains invalid operator policy"
+        end
 
         expected = MutationSource::OperatorRegistry.policy(value["selected"], value["excluded"])
         raise Error, "score history contains invalid operator policy" unless value == expected
-      rescue ConfigError
+      rescue ConfigError, NoMethodError, TypeError
         raise Error, "score history contains invalid operator policy"
       end
     end
