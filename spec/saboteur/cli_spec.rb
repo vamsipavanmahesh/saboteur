@@ -142,11 +142,11 @@ RSpec.describe Saboteur::CLI do
     end
 
     it "appends the run to the score history when --score-history is set" do
-      history = File.join(Dir.mktmpdir, "history.jsonl")
+      history = File.join(File.realpath(Dir.mktmpdir), "history.jsonl")
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
-      json = File.join(Dir.mktmpdir, "r.json")
-      expect(cli("run", "--score-history", history, "--json", json).call).to eq(0)
+      json = File.join(File.realpath(Dir.mktmpdir), "r.json")
+      expect(cli("run", "--score-history", history, "--json", json).call).to eq(0), "stderr: #{err.string}"
       expect(err.string).to include("saboteur: score history: first record")
       lines = File.readlines(history)
       expect(lines.size).to eq(1)
