@@ -166,4 +166,61 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
                                                              ])
     expect(diagnostics.discovery_failures.first.file).to be_frozen
   end
+
+  describe "--since when a changed Ruby file yields no subjects (#232)" do
+    let(:err) { StringIO.new }
+    let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
+
+    def commit_all
+      [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+      end
+    end
+
+    it "warns when the changed lines sit outside every method" do
+      file = write("cart.rb", "class Cart\n  KIND = :cart\n\n  def total = 1\nend\n")
+      commit_all
+      File.write(file, "class Cart\n  KIND = :shop\n\n  def total = 1\nend\n")
+
+      expect(select([file], since: "HEAD")).to be_empty
+      expect(diagnostics.warnings.size).to eq(1)
+      expect(diagnostics.warnings.first).to include("--since: 1 changed Ruby file(s) have no subjects " \
+                                                    "covering the changed lines, so nothing is mutated " \
+                                                    "from them: cart.rb")
+    end
+
+    it "stays quiet when the diff touches no included Ruby file" do
+      file = write("cart.rb", source)
+      readme = write("README.md", "hi\n")
+      commit_all
+      File.write(readme, "hello\n")
+
+      expect(select([file], since: "HEAD")).to be_empty
+      expect(diagnostics.warnings).to be_empty
+      expect(err.string).to eq("")
+    end
+
+    it "names only the changed file without subjects when another file matched" do
+      cart = write("cart.rb", source)
+      note = write("note.rb", "class Note\n  KIND = :note\n\n  def text = \"n\"\nend\n")
+      commit_all
+      File.write(cart, source.sub("def total = 1", "def total = 2"))
+      File.write(note, "class Note\n  KIND = :memo\n\n  def text = \"n\"\nend\n")
+
+      expect(select([cart, note], since: "HEAD").map(&:id)).to eq(["Shop::Cart#total"])
+      expect(diagnostics.warnings.size).to eq(1)
+      expect(diagnostics.warnings.first).to include("1 changed Ruby file(s)").and include("note.rb")
+      expect(diagnostics.warnings.first).not_to include("cart.rb")
+    end
+
+    it "stays quiet when a --subject pattern, already warned about, filtered the subjects" do
+      file = write("cart.rb", source)
+      commit_all
+      File.write(file, source.sub("def total = 1", "def total = 2"))
+
+      expect(select([file], since: "HEAD", subjects: ["Other"])).to be_empty
+      expect(diagnostics.warnings.size).to eq(1)
+      expect(diagnostics.warnings.first).to include("--subject Other matches no subject")
+    end
+  end
 end
