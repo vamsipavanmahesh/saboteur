@@ -15,7 +15,7 @@ module Saboteur
       end
 
       def validate_policy(value)
-        return if value.nil?
+        raise Error, "score history contains invalid operator policy" unless value.is_a?(Hash)
 
         fields(value, %w[version selected excluded effective])
         %w[selected excluded effective].each do |key|
@@ -23,6 +23,8 @@ module Saboteur
             raise Error, "score history contains invalid operator policy"
           end
         end
+        raise Error, "score history contains invalid operator policy" if value["effective"].empty?
+
         expected = MutationSource::OperatorRegistry.policy(value["selected"], value["excluded"])
         raise Error, "score history contains invalid operator policy" unless value == expected
       rescue ConfigError
