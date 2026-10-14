@@ -99,7 +99,7 @@ module Preflight
       return shaped unless final.first == lock.first && final.last != "absent"
 
       shaped["bundler_files"]["lockfile"] = lock
-      own = File.expand_path("Gemfile.lock", @directory)
+      own = File.expand_path("Gemfile.lock", File.realpath(@directory))
       shaped["ignored_files"]["Gemfile.lock"] = original["ignored_files"]["Gemfile.lock"] if @prepared_lock == own
       shaped
     end
@@ -136,14 +136,22 @@ module Preflight
     # A symlink is identified by its target text and by the content it resolves to. A link that leaves the
     # checkout or does not lead to a regular file is unsupported, because its bytes could change unseen.
     def symlink_state(full, path, _required)
-      resolved = File.realpath(full)
       root = File.realpath(@directory)
+      resolved = begin
+        File.realpath(full)
+      rescue Errno::ENOENT, Errno::ELOOP
+        # The target does not exist, but the link text still says where it points: a link whose target
+        # sits outside the checkout leaves the checkout, existing or not. Resolve lexically from the
+        # link's real directory so a missing target cannot hide the escape behind "broken symlink".
+        lexical = File.expand_path(File.readlink(full), File.realpath(File.dirname(full)))
+        raise ExecutionGap, "#{path} is a symlink that leaves the checkout" unless lexical.start_with?("#{root}/")
+
+        raise ExecutionGap, "#{path} is a broken symlink"
+      end
       raise ExecutionGap, "#{path} is a symlink that leaves the checkout" unless resolved.start_with?("#{root}/")
       raise ExecutionGap, "#{path} is a symlink that does not lead to a regular file" unless File.file?(resolved)
 
       "symlink:#{File.readlink(full)}:#{StrictJson.digest(resolved)}"
-    rescue Errno::ENOENT, Errno::ELOOP
-      raise ExecutionGap, "#{path} is a broken symlink"
     end
 
     # The tools that actually run, found through PATH, by content digest.
@@ -181,9 +189,19 @@ module Preflight
     # and user config. Absent means the path does not exist; anything else unreadable stops the run. Only digests
     # are kept. Settings that Bundler takes from other BUNDLE_* variables are covered only by the environment list.
     def bundler_files
-      gemfile = File.expand_path(@env.fetch("BUNDLE_GEMFILE", "Gemfile"), @directory)
+      root = File.realpath(@directory)
+      gemfile = File.expand_path(@env.fetch("BUNDLE_GEMFILE", "Gemfile"), root)
+      # Canonical, so the same file compares equal whether it was named through a symlinked dir or not
+      # (macOS /var vs /private/var). The lockfile bundler writes sits next to it either way.
+      gemfile = if File.exist?(gemfile)
+                  File.realpath(gemfile)
+                elsif File.directory?(File.dirname(gemfile))
+                  File.join(File.realpath(File.dirname(gemfile)), File.basename(gemfile))
+                else
+                  gemfile
+                end
       lock = lockfile_for(gemfile)
-      app_config = File.join(File.expand_path(@env.fetch("BUNDLE_APP_CONFIG", ".bundle"), @directory), "config")
+      app_config = File.join(File.expand_path(@env.fetch("BUNDLE_APP_CONFIG", ".bundle"), root), "config")
       user_config = @env.fetch("BUNDLE_USER_CONFIG", File.join(Dir.home, ".bundle", "config"))
       { gemfile: gemfile, lockfile: lock, app_config: app_config, user_config: user_config }
         .transform_values { |path| [path, absolute_state(path)] }
