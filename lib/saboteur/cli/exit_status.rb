@@ -8,6 +8,13 @@ module Saboteur
     module ExitStatus
       private
 
+      # Last resort: a bug must not escape as a bare stack trace and an accidental exit 1.
+      def internal_error(error)
+        summary = "internal error (#{error.class}: #{error.message})"
+        @err.puts("saboteur: #{summary} - please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
+        agent_failure(summary, EXIT_TOOL)
+      end
+
       def exit_code(report)
         return EXIT_TOOL if mostly_errored?(report)
 

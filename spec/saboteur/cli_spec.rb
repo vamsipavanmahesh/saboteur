@@ -17,6 +17,15 @@ RSpec.describe Saboteur::CLI do
     expect(out.string.strip).to eq(Saboteur::VERSION)
   end
 
+  # B3: an unexpected failure must not escape as a bare stack trace and
+  # an accidental exit 1; it is reported as ours and exits 3.
+  it "reports an unexpected failure as an internal error and exits 3" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(NoMethodError, "undefined method `boom'")
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("saboteur: internal error (NoMethodError: undefined method `boom'")
+    expect(err.string).to include("please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
+  end
+
   it "parses run options into config overrides" do
     command = cli("run", "--since", "main", "--subject", "A#b", "--subject", "C.d",
                   "--timeout-factor", "2.5", "--jobs", "1", "--reeval", "nesting", "--no-cache", "--seed", "42")

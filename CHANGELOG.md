@@ -104,6 +104,12 @@ All notable changes are documented here. The format follows
   silent zero-subject scope used to pass as a clean run. Comment-only or
   formatting-only changes within discovered methods are skipped without
   this warning; the run reports those skipped methods.
+### Fixed
+- An unexpected internal error now prints `saboteur: internal error (...)
+  - please report it` and exits 3, instead of escaping as a bare stack
+  trace with an accidental exit 1.
+- CI now runs the whole suite under `LANG=C`, so a non-UTF-8 locale
+  regression in any external-byte boundary fails the build.
 
 ## [0.6.0] - 2026-10-14
 

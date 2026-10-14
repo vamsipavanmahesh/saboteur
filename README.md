@@ -460,7 +460,9 @@ New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md
 Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `--threshold`; 1 survivors, or the score is below `--threshold` or missing;
 2 bad configuration or a missing source or test; 3 the tool failed (with
-`--threshold`, also any errored or resource-limited mutant).
+`--threshold`, also any errored or resource-limited mutant). An unexpected
+bug prints `saboteur: internal error (...) - please report it` and exits 3
+rather than dying with a bare stack trace and an accidental exit code.
 
 ### Rejected kills
 
