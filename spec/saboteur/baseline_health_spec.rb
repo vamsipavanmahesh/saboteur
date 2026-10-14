@@ -59,6 +59,33 @@ RSpec.describe Saboteur::BaselineHealth do
   end
 end
 
+RSpec.describe Saboteur::BaselineHealth, "#failure_detail" do
+  let(:config) { Saboteur::Config.new }
+  let(:integration) { instance_double(Saboteur::Integration::Base, all_tests: []) }
+  let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
+
+  def health_with_example(exception:, description:)
+    example = instance_double(RSpec::Core::Example,
+                              execution_result: instance_double(RSpec::Core::Example::ExecutionResult,
+                                                                exception: exception),
+                              id: "./spec/caf\xE9_spec.rb[1:1]".b, full_description: description)
+    allow(RSpec).to receive(:world).and_return(instance_double(RSpec::Core::World, all_examples: [example]))
+    described_class.new(config, integration: integration, supervisor: supervisor)
+  end
+
+  it "sanitizes a locale-tagged message before stripping it" do
+    error = instance_double(RuntimeError, message: "boom caf\xE9 here".dup.force_encoding(Encoding::US_ASCII))
+    detail = health_with_example(exception: error, description: "a fails").send(:failure_detail)
+    expect(detail).to include("boom caf").and be_valid_encoding
+  end
+
+  it "sanitizes a UTF-8 description and a raw-byte message before interpolating them" do
+    error = instance_double(RuntimeError, message: "boom \xFF path".b)
+    detail = health_with_example(exception: error, description: "h\xC3\xA9llo fails".b).send(:failure_detail)
+    expect(detail).to include("héllo fails").and be_valid_encoding
+  end
+end
+
 RSpec.describe Saboteur::BaselineHealth, "stopped checks" do
   it "reports supervised resource and deadline stops" do
     config = Saboteur::Config.new
