@@ -147,6 +147,18 @@ RSpec.describe Preflight::ExecutionInputs, :fixture do
                                                                                     "alt/Gemfile"))
   end
 
+  it "names the lockfile after the lexical BUNDLE_GEMFILE, not the file it links to" do
+    @fixture.write("actual", "gem 'x'\n")
+    File.symlink("actual", File.join(@fixture.directory, "alias"))
+    @fixture.git("add", "actual", "alias")
+    @fixture.commit("gemfile alias")
+    env["BUNDLE_GEMFILE"] = "alias"
+    snapshot = inputs.snapshot
+    root = File.realpath(@fixture.directory)
+    expect(snapshot[:bundler_files][:gemfile].first).to eq(File.join(root, "alias"))
+    expect(snapshot[:bundler_files][:lockfile].first).to eq(File.join(root, "alias.lock"))
+  end
+
   it "stops when an effective Bundler file is a directory or a broken symlink, not treating it as absent" do
     config = File.join(Dir.mktmpdir, "config")
     env["BUNDLE_USER_CONFIG"] = config
