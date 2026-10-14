@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "../text"
+
 module Saboteur
   class Engine
     # The subjects to mutate: every def in the included files, narrowed by
@@ -17,7 +19,9 @@ module Saboteur
       end
 
       def select(files)
+        @files = files
         subjects = find(files)
+        @discovered = subjects
         subjects = by_pattern(subjects, @config["subjects"]) if @config["subjects"].any?
         subjects = by_change(subjects, @config["since"]) if @config["since"]
         subjects
@@ -56,10 +60,39 @@ module Saboteur
       def by_change(subjects, ref)
         @changed_lines = Selection::GitDiff.changed_lines(ref, root: @root)
                                            .transform_keys { |file| Selection::CoverageMap.canonical(file) }
-        changed = subjects.select do |subject|
-          @changed_lines[subject.file]&.any? { |line| subject.contains_line?(line) }
-        end
+        changed = changed_subjects(subjects)
+        warn_changed_files_without_subjects
         drop_unchanged_syntax(changed, ref)
+      end
+
+      # subject.file carries the locale tag under a non-UTF-8 locale
+      # while the diff keys are UTF-8; retag losslessly before lookup so
+      # a non-ASCII path matches by its exact bytes (#231).
+      def changed_subjects(subjects)
+        subjects.select do |subject|
+          key = Selection::CoverageMap.canonical(Text.utf8_identity(subject.file))
+          @changed_lines[key]&.any? { |line| subject.contains_line?(line) }
+        end
+      end
+
+      # A changed Ruby file in scope whose changed lines cover no subject
+      # silently contributes nothing to the run (#232): warn, or a typo, an
+      # unparseable file or a selection bug passes as a clean selection.
+      # Comment-only changes stay quiet: their file matched subjects before
+      # drop_unchanged_syntax pruned them, and that prune is reported. A
+      # diff touching no included Ruby file is a legitimate empty scope.
+      def warn_changed_files_without_subjects
+        canonical = ->(file) { Selection::CoverageMap.canonical(Text.utf8_identity(file)) }
+        included = @files.map(&canonical)
+        matched = changed_subjects(@discovered).map { |subject| canonical.call(subject.file) }
+        unmatched = (@changed_lines.keys.select { |file| file.end_with?(".rb") } & included) - matched
+        return if unmatched.empty?
+
+        names = unmatched.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
+        more = unmatched.size > 5 ? ", ..." : ""
+        @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
+                          "the changed lines, so nothing is mutated from them: #{names}#{more}. The " \
+                          "file may not parse, or every change may sit outside a method.")
       end
 
       # A method whose only changes are comments, blank lines or spacing has
