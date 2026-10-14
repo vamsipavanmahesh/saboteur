@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "../text"
 require_relative "process_tree"
 require_relative "supervisor"
 
@@ -96,7 +97,7 @@ module Saboteur
       end
 
       def parse(line)
-        JSON.parse(line)
+        JSON.parse(Text.utf8(line))
       rescue JSON::ParserError => e
         { "error" => "unreadable result from worker: #{e.message}" }
       end
