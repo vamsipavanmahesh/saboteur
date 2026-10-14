@@ -25,6 +25,22 @@ RSpec.describe Saboteur::Engine::RunFingerprint do
     expect(fingerprint.verify(snapshot).unchanged).to be(true)
   end
 
+  it "skips excluded directories instead of fingerprinting them" do
+    FileUtils.mkdir_p(File.join(@root, "vendor"))
+    File.write(File.join(@root, "vendor", "junk.rb"), "1\n")
+    paths = fingerprint.snapshot.inventory.map(&:path)
+    expect(paths).to include("lib/helper.rb")
+    expect(paths.grep(%r{\Avendor/})).to be_empty
+  end
+
+  it "retags locale-tagged child names as UTF-8 without losing bytes" do
+    File.binwrite(File.join(@root, "lib", "h\xC3\xA9llo.rb".b), "1\n")
+    allow(Dir).to receive(:children).and_wrap_original do |orig, dir|
+      orig.call(dir).map(&:b)
+    end
+    expect(fingerprint.snapshot.inventory.map(&:path)).to include("lib/h\xC3\xA9llo.rb")
+  end
+
   it "detects edits outside the selected subject/include and additions, removals and renames" do
     snapshot = fingerprint.snapshot
     File.write(File.join(@root, "lib/helper.rb"), "2\n")
