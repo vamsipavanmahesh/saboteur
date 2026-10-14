@@ -18,9 +18,11 @@ module Preflight
         @paths = paths
       end
 
-      # The JSON goes to a pipe the harness owns (file descriptor 3), not to a path in the checkout.
+      # The JSON goes to a pipe the harness owns (file descriptor 3), not to a path in the checkout. A
+      # shell redirect moves RSpec's stdout onto it: opening /dev/fd/3 as a path is not portable (macOS
+      # refuses to open a pipe through /dev/fd).
       def call(_context = nil)
-        result = @runner.run(%w[bundle exec rspec] + @paths + ["--format", "json", "--out", "/dev/fd/3"],
+        result = @runner.run(["/bin/sh", "-c", 'exec bundle exec rspec "$@" --format json >&3', "rspec"] + @paths,
                              data_pipe: true)
         return incomplete(result, "could not use RSpec: #{result.problem}") unless result.ran?
         return incomplete(result, "RSpec wrote no report") if result.data.to_s.empty?
