@@ -15,7 +15,10 @@ All notable changes are documented here. The format follows
   path carried non-ASCII bytes; and an exception message embedding such a
   path made failure reporting raise the same way, turning a killed mutant
   into an errored run. The sweep now compares raw bytes, and failure
-  messages are scrubbed before their first line is extracted (#272).
+  messages are scrubbed before their first line is extracted; if the
+  scrub itself raises - it is mutable code, and the mutant under test
+  may have broken it - an escaped fallback keeps the failure a clean
+  kill instead of an errored run (#272).
 - Fixed `--guess-tests` falling back to the whole suite when a changed
   file has no mutation subjects on its changed lines, such as a deletion
   whose remaining context is blank or comment lines or a comment-only
