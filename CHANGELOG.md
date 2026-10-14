@@ -6,6 +6,8 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-14
+
 ### Fixed
 - `saboteur doctor` accepts `require` and `hooks` paths the way
   `Kernel#require` resolves them: the path as given, or with `.rb`
