@@ -5,6 +5,7 @@ require "coverage"
 require "digest"
 require "fileutils"
 require "json"
+require_relative "../text"
 
 module Saboteur
   module Selection
@@ -168,7 +169,7 @@ module Saboteur
       end
 
       def self.load(path)
-        from_json(File.read(path)) if File.file?(path)
+        from_json(Text.utf8(File.read(path))) if File.file?(path)
       rescue JSON::ParserError, Error
         nil
       end
