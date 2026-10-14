@@ -917,7 +917,7 @@ JSON findings are ordered by a deterministic [review ranking](docs/survivor-rank
 
 Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `sources` entries (`path.rb:ClassName`) are still `require`d to generate candidates, so their code runs. Only preview with sources you trust.
 
-`bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains today's operators, extended is reserved for new opt-in operators. Empty/default selection keeps all current operators. Selection changes invalidate incremental verdict identity.
+`bundle exec saboteur run --list-operators` lists every builtin name and description. `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` selects names. Tiers are `core`, `extended`, and `all`; core contains the current default operators. Extended adds opt-in [`range`](docs/operators/range.md), [`operator_assignment`](docs/operators/operator_assignment.md), and [`condition_negation`](docs/operators/condition_negation.md). Empty/default selection keeps only core operators. Selection changes invalidate incremental verdict identity.
 
 Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).
 

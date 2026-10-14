@@ -7,6 +7,7 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Opt-in extended `range`, `operator_assignment` and `condition_negation` operators (#135). Default core selection is unchanged.
 - `whole_file` config: an opt-in list of subject ids or globs (for example
   `"Point#distance"`, `"Geometry::*"`). For those subjects the child evaluates the
   whole mutated file instead of re-evaluating the one method, so methods
