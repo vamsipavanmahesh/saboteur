@@ -262,4 +262,14 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings.first).to include("--subject Other matches no subject")
     end
   end
+
+  describe ".files_matching" do
+    it "returns the files holding a matching subject, relative to root and sorted" do
+      b = write("b.rb", "class Bee\n  def m\n    1\n  end\nend\n")
+      a = write("a.rb", "class Ay\n  def m\n    1\n  end\nend\n")
+      c = write("c.rb", "class Cee\n  def m\n    1\n  end\nend\n")
+      expect(described_class.files_matching(@root, [c, b, a], ["Bee", "Ay#m"])).to eq(["a.rb", "b.rb"])
+      expect(described_class.files_matching(@root, [c, a, b], ["Nope"])).to eq([])
+    end
+  end
 end

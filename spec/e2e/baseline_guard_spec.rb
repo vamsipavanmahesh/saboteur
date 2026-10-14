@@ -13,7 +13,7 @@ RSpec.describe "baseline stability guard", :e2e do
         it("fails unchanged") { expect(true).to be(false) }
       end
     RUBY
-    run = saboteur(directory, "--seed", "42")
+    run = saboteur(directory, "--all", "--seed", "42")
     expect(run.status).to eq(3)
     expect(run.json).to be_nil
     expect(run.err).to include("baseline check 1 failed at seed 42", "Fix the suite", "No mutants were started")
@@ -29,7 +29,7 @@ RSpec.describe "baseline stability guard", :e2e do
         it("runs") { expect(true).to be(true) }
       end
     RUBY
-    run = saboteur(directory, "--seed", "42")
+    run = saboteur(directory, "--all", "--seed", "42")
     expect(run.status).to eq(3)
     log = File.read(File.join(directory, ".saboteur/baseline-1.log"))
     expect(log).to include("hook exploded")
@@ -47,7 +47,7 @@ RSpec.describe "baseline stability guard", :e2e do
         end
       end
     RUBY
-    run = saboteur(directory, "--seed", "17")
+    run = saboteur(directory, "--all", "--seed", "17")
     expect(run.status).to eq(3)
     expect(run.err).to include("baseline check 2 failed at seed 17")
     expect(File.read(File.join(directory, "baseline-counter"))).to eq("2")
@@ -63,12 +63,12 @@ RSpec.describe "baseline stability guard", :e2e do
         end
       end
     RUBY
-    cached_run = saboteur(directory, "--seed", "19", "--incremental")
+    cached_run = saboteur(directory, "--all", "--seed", "19", "--incremental")
     expect(cached_run.json).not_to be_nil, "#{cached_run.err}\n#{cached_run.out}"
     cached_paths = Dir[File.join(directory, ".saboteur/coverage-*.json")]
     expect(cached_paths).not_to be_empty
     original_bytes = cached_paths.to_h { |path| [path, File.binread(path)] }
-    run = saboteur(directory, "--seed", "19", "--incremental", env: { "FAIL_BASELINE" => "1" })
+    run = saboteur(directory, "--all", "--seed", "19", "--incremental", env: { "FAIL_BASELINE" => "1" })
     expect(original_bytes.transform_values { |bytes| bytes }).to eq(
       cached_paths.to_h { |path| [path, File.binread(path)] }
     )
@@ -89,7 +89,7 @@ RSpec.describe "baseline stability guard", :e2e do
         end
       end
     RUBY
-    run = saboteur(directory, "--seed", "23")
+    run = saboteur(directory, "--all", "--seed", "23")
     expect(run.status).to eq(3)
     expect(run.json).to be_nil
     expect(run.err).to include("unchanged suite failed while building coverage", "Fix the suite", "seed 23")
@@ -109,7 +109,7 @@ RSpec.describe "baseline stability guard", :e2e do
         it("is pending") { pending "not implemented"; expect(1).to eq(2) }
       end
     RUBY
-    run = saboteur(directory, "--seed", "123")
+    run = saboteur(directory, "--all", "--seed", "123")
     expect(run.json).not_to be_nil, "#{run.err}\n#{run.out}"
     order = File.read(File.join(directory, "suite-orders")).lines.map(&:strip)
     expect(order.size).to eq(15)
@@ -135,7 +135,7 @@ RSpec.describe "baseline stability guard", :e2e do
         it("checks a child") { expect(described_class.new(17).adult?).to be(false) }
       end
     RUBY
-    run = saboteur(directory, "--seed", "123", "--subject", "People::Person#adult?")
+    run = saboteur(directory, "--all", "--seed", "123", "--subject", "People::Person#adult?")
     expect(run.json).not_to be_nil, "#{run.err}\n#{run.out}"
     expect(mutants(run).map { |entry| entry["status"] }).to include("Killed")
     expect(mutants(run).map { |entry| entry["status"] }).not_to include("RuntimeError")
@@ -151,7 +151,7 @@ RSpec.describe "baseline stability guard", :e2e do
         end
       end
     RUBY
-    run = saboteur(directory, "--seed", "123")
+    run = saboteur(directory, "--all", "--seed", "123")
     expect(run.json).not_to be_nil
     expect(run.err).not_to include("baseline check 1 failed", "baseline check 2 failed")
   end

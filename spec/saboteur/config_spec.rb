@@ -48,15 +48,24 @@ RSpec.describe Saboteur::Config do
     end
   end
 
-  it "needs since for guess_tests and refuses it with tests" do
+  it "keeps guess_tests as a no-op alias and warns only on an explicit opt-out" do
     expect(described_class.new({}, root: @root)["guess_tests"]).to be(false)
-    expect(described_class.new({ "guess_tests" => true, "since" => "main" }, root: @root)["guess_tests"]).to be(true)
-    expect { described_class.new({ "guess_tests" => true }, root: @root) }
-      .to raise_error(Saboteur::ConfigError, /guess_tests needs since/)
-    expect do
-      described_class.new({ "guess_tests" => true, "since" => "main", "tests" => ["spec/a_spec.rb"] }, root: @root)
-    end
-      .to raise_error(Saboteur::ConfigError, /guess_tests cannot be combined with tests/)
+    expect(described_class.new({}, root: @root).deprecation_warnings).to eq([])
+    expect(described_class.new({ "guess_tests" => true }, root: @root)["guess_tests"]).to be(true)
+    expect(described_class.new({ "guess_tests" => true }, root: @root).deprecation_warnings).to eq([])
+    opt_out = described_class.new({ "guess_tests" => false }, root: @root)
+    expect(opt_out.deprecation_warnings).to eq(
+      ["guess_tests = false is deprecated: inferred specs are the default and it no longer restores the " \
+       "whole suite; use --all or c.test_selection = :all to run every spec"]
+    )
+  end
+
+  it "defaults to inferred test selection and validates test_selection" do
+    expect(described_class.new({}, root: @root)["test_selection"]).to eq("auto")
+    expect(described_class.new({}, root: @root)["all"]).to be(false)
+    expect(described_class.new({ "test_selection" => :all }, root: @root)["test_selection"]).to eq("all")
+    expect { described_class.new({ "test_selection" => "sometimes" }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /test_selection must be one of: auto, all/)
   end
 
   it "rejects an operator selection that leaves no effective operator" do

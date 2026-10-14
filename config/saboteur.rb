@@ -4,6 +4,10 @@
 # saboteur on its own code (CI runs it in diff mode: --since origin/main).
 Saboteur.configure do |c|
   c.include = ["lib/**/*.rb"]
+  # Whole suite: engine.rb, agent_commands.rb and friends have no spec named
+  # after them, so the default test inference would reject the run.
+  c.test_selection = :all
+
   # These run inside every mutant child (fork supervision, hooks, the test
   # adapters, the orchestration around them). Mutating them breaks the
   # harness that reports the result, which shows up as errors, not as

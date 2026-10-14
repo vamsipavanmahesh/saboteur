@@ -253,4 +253,110 @@ RSpec.describe Saboteur::Engine::TestGuess do
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
   end
+
+  it "maps each unmatched file to the conventional spec path for the retry hint" do
+    write("lib/c.rb", changed_source)
+    result = guess
+    expect(result.hints).to eq("lib/c.rb" => "spec/c_spec.rb")
+  end
+
+  describe "call_for under --since (a --subject run stays inside the diff)" do
+    def guess_for(files, patterns)
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+      described_class.new(config).call_for(files, patterns)
+    end
+
+    it "drops a named subject whose file is unchanged, even when the file has no spec" do
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], [], 0])
+    end
+
+    it "drops a named subject when only another method in its file changed" do
+      write("lib/c.rb", "class Widget\n  def thing\n    1\n  end\n  def added\n    2\n  end\nend\n")
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], [], 0])
+    end
+
+    it "drops a named subject whose change is comment-only" do
+      write("lib/c.rb", "class Widget\n  def thing\n    # a comment, not code\n    1\n  end\nend\n")
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], [], 0])
+    end
+
+    it "infers the changed named subject's spec and skips an unchanged requested subject" do
+      write("lib/a.rb", changed_source)
+      result = guess_for(["lib/c.rb", "lib/a.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([["spec/a_spec.rb"], [], 1])
+    end
+
+    it "drops a named subject that only shifted when lines were added above it" do
+      write("lib/c.rb", "class Widget\n  def thing\n    __LINE__\n  end\nend\n")
+      git("add", ".")
+      git("commit", "-q", "-m", "line subject")
+      write("lib/c.rb", "class Widget\n  def added\n    2\n  end\n\n  def thing\n    __LINE__\n  end\nend\n")
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], [], 0])
+    end
+
+    it "still reports a changed named subject with no spec as unmatched" do
+      write("lib/c.rb", changed_source)
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], ["lib/c.rb"], 1])
+    end
+  end
+
+  describe "without --since (every included file is in scope)" do
+    def guess_all(include: ["lib/**/*.rb", "app/**/*.rb"])
+      config = Saboteur::Config.new({ "include" => include }, root: dir)
+      described_class.new(config).call
+    end
+
+    it "guesses a spec for every included file with a mutation subject" do
+      result = guess_all
+      expect(result.specs).to eq(%w[spec/a_spec.rb spec/deep/b_spec.rb spec/lib/e_spec.rb spec/models/d_spec.rb])
+      expect(result.unmatched).to eq(["lib/c.rb"])
+      expect(result.hints).to eq("lib/c.rb" => "spec/c_spec.rb")
+      expect(result.changed).to eq(5)
+    end
+
+    it "lists files with no mutation subjects as subjectless" do
+      write("lib/empty.rb", "# only a comment\n")
+      result = guess_all
+      expect(result.subjectless).to eq(["lib/empty.rb"])
+      expect(result.unmatched).not_to include("lib/empty.rb")
+    end
+
+    it "narrows to the files the include patterns name" do
+      result = guess_all(include: ["lib/a.rb"])
+      expect(result.specs).to eq(["spec/a_spec.rb"])
+      expect(result.changed).to eq(1)
+    end
+
+    it "reports nothing when no source file is included" do
+      result = guess_all(include: ["nope/**/*.rb"])
+      expect([result.specs, result.unmatched, result.subjectless, result.changed]).to eq([[], [], [], 0])
+    end
+
+    it "counts every included file in the changed total" do
+      write("lib/nomethod.rb", "# only a comment\n")
+      result = guess_all(include: ["lib/**/*.rb"])
+      expect(result.specs).to eq(["spec/a_spec.rb", "spec/deep/b_spec.rb", "spec/lib/e_spec.rb"])
+      expect(result.unmatched).to eq(["lib/c.rb"])
+      expect(result.subjectless).to eq(["lib/nomethod.rb"])
+      expect(result.changed).to eq(5)
+    end
+
+    it "ignores included files outside the root" do
+      outside = File.realpath(Dir.mktmpdir("saboteur-outside"))
+      begin
+        File.write(File.join(outside, "ghost.rb"), "class Ghost\n  def m\n    1\n  end\nend\n")
+        result = guess_all(include: ["lib/**/*.rb", "../#{File.basename(outside)}/ghost.rb"])
+        expect(result.changed).to eq(4)
+        expect(result.unmatched + result.subjectless).to all(a_string_starting_with("lib/"))
+        expect(result.specs).to all(a_string_starting_with("spec/"))
+      ensure
+        FileUtils.remove_entry(outside)
+      end
+    end
+  end
 end

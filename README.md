@@ -269,33 +269,47 @@ check compares what RSpec runs with what it would run without the stray focus, s
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
-configured project. To scope the specs as well, pass them with `--test` and no
+configured project. To scope the specs yourself, pass them with `--test` and no
 source operands: `bundle exec saboteur run --since origin/main --test spec/billing_spec.rb`.
-With `--since` and no `--test`, the run warns before it starts that the two baseline passes
-run the loaded suite (a cold coverage cache adds one more pass), and how to
-scope them.
 A changed Ruby file whose changed lines cover no method mutates nothing; the run
 warns and names the file instead of silently selecting zero subjects. Comment-only
 or formatting-only changes within discovered methods are skipped without this
 warning; the run reports those skipped methods.
 
-`--since origin/main --guess-tests` does that scoping for you: it picks the spec
-named after each changed source file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/`
-files and `spec/lib/` work too) and runs only those for the baseline passes, the
-coverage pass and every mutant, as `--test` would. It is a naming guess, not
-coverage: a spec that reaches the changed file only through another file does not
-run: a mutant only that spec would kill can survive, and a line that none of the
-guessed specs executes is reported as NoCoverage. The agent JSON records the guessed specs as its
-`tests`, so its follow-up commands keep the same `--test` scope (with `--no-guess-tests`, so a `guess_tests`
-in the config file cannot conflict) instead of widening to the whole suite. A changed file does not require a
-guessed spec if it has no changed mutation subjects, including comment-only changes within a
-method or deletions leaving only blank/comment context outside methods; the run says so and skips
-those files. When at least one matching spec is found, the run uses those specs and warns about
-unmatched files with changed mutation subjects. If no matching spec is found, it still runs the
-whole suite and explains why. When no changed file has a mutation subject at all, the run reports
-that there is nothing to mutate.
-`--guess-tests` needs `--since` and cannot be combined with `--test`. Keep whole-project runs on main: diff mode does not check every method affected by a
-dependency change. [The pull-request guide](docs/pull-requests.md) covers
+Without `--test`, the run infers the specs: the spec named after each mutated
+file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
+too) runs for the baseline passes, the coverage pass and every mutant, as
+`--test` would. With `--since` only the changed files count; without it every
+included file does. It is a naming guess, not coverage: a spec that reaches the
+mutated file only through another file does not run, so a mutant only that
+spec would kill can survive, and a line none of the inferred specs executes is
+reported as NoCoverage. A file needs no inferred spec when it has no mutation
+subjects (with `--since`: none on its changed lines), such as a comment-only
+change within a method or a deletion leaving only blank/comment context; the
+run says so and skips those files. When no file has a mutation subject at all,
+the run reports that there is nothing to mutate. A `--subject` run infers only
+from the named subjects' files: an unrelated spec-less file never stops a
+one-method run, and a subject file with no conventional spec stops the run
+like any other unmatched file. With `--since` only named subjects on changed
+lines count: an unchanged subject file, one whose changes sit in other
+methods, or one with a comment-only change is skipped, not stopped.
+
+A file that needs a spec and has none stops the run before it boots (exit 2)
+and names both ways out: `--test` with the specs to run, or `--all` for the
+whole suite. An unmatched file no longer silently narrows the selected source
+scope or widens the test run to the whole suite. Whole-project audits should
+use `--all` explicitly. The agent JSON records the inferred specs as its
+`tests`, so its follow-up commands keep the same scope.
+
+`--all` (config `c.test_selection = :all`) runs the whole configured suite.
+With `--since` or `--all` and no inferred or named specs, the run warns before
+it starts that the two baseline passes run the loaded suite (a cold coverage
+cache adds one more pass). `--guess-tests` is a deprecated alias for the
+default inference and `--no-guess-tests` warns and is ignored; use `--all` for
+the whole suite. `--all` cannot be combined with `--test` or `--guess-tests`,
+and `--guess-tests` cannot be combined with `--test`. Keep whole-project runs
+on main: diff mode does not check every method affected by a dependency change.
+[The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 
 Doctor warns when an ignore subject matches no method discovered in the included

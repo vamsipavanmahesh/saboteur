@@ -223,14 +223,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::IgnoreList.unknown_directive_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
 
-  i.mutation "e378487a3478079b",
-             subject: "Saboteur::CLI#define_execution_options",
-             reason: "user-facing copy: the option description string has no behavioural contract; the flag itself is spec'd (cli_spec parses --allow-hazardous into overrides)"
-
-  i.mutation "d9c188cb0ab4fa17",
-             subject: "Saboteur::CLI#define_execution_options",
-             reason: "user-facing copy: dropping the description argument leaves the flag working; behaviour is spec'd in cli_spec"
-
 
 
 

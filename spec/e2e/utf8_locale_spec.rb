@@ -16,9 +16,7 @@ RSpec.describe "saboteur run under LANG=C with non-ASCII paths", :e2e do
 
   def project
     root = File.join(Dir.mktmpdir("saboteur-e2e-"), "café")
-    FileUtils.mkdir_p(File.join(root, "lib"))
-    FileUtils.mkdir_p(File.join(root, "spec"))
-    FileUtils.mkdir_p(File.join(root, "config"))
+    %w[lib spec config].each { |dir| FileUtils.mkdir_p(File.join(root, dir)) }
     File.write(File.join(root, "lib", "héllo.rb"), <<~RUBY)
       class Hello
         KIND = :greeter
@@ -39,6 +37,9 @@ RSpec.describe "saboteur run under LANG=C with non-ASCII paths", :e2e do
       Saboteur.configure do |c|
         c.include = ["lib/**/*.rb"]
         c.timeout_min = 1
+        # The accented source name maps to spec/hello_spec.rb, not the
+        # conventional accented spec name, so inference would stop the run.
+        c.test_selection = :all
       end
     RUBY
     root

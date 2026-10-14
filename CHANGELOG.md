@@ -6,6 +6,39 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Breaking: inferred test selection is now the default. Without `--test`,
+  a run picks the spec named after each mutated file and runs only those
+  for the baseline passes, the coverage pass and every mutant, as `--test`
+  would; with `--since` only the changed files count. A file that needs a
+  spec and has none now stops the run before it boots (exit 2) and names
+  both ways out, instead of silently running the whole suite. Use `--all`
+  or `c.test_selection = :all` to keep the old whole-suite behavior.
+  `--guess-tests` is a deprecated alias for the default and
+  `--no-guess-tests` warns and is ignored; both flags disappear in a
+  future release (#270). A `--subject` run infers only from the named
+  subjects' files, so an unrelated spec-less file no longer stops a
+  one-method run. The unmatched-file guidance names the expected specs
+  and tells you to re-run the same command with `--test` followed by your
+  existing spec paths, or to append `--all`, instead of printing a
+  reconstructed command. `--test` may stand alone (the configured include
+  names the sources), so agent rerun/replay commands stay executable; a
+  whole-suite `--all` run is recorded in the agent provenance only when
+  no tests resolved, so a configured `:all` combined with named tests
+  still produces runnable follow-up commands. Baseline evidence is
+  fingerprinted from the declared config before inference narrows the
+  test list, so `baseline propose` and `baseline check` agree again
+  (#275). Two stale ignore-list entries for
+  `Saboteur::CLI#define_execution_options` are gone: full runs no longer
+  generate those description-string mutants, so the entries could never
+  match again.
+  A `--subject` run combined with `--since` now infers specs only for
+  named subjects inside the diff scope: an unchanged subject file, one
+  whose changes sit in other methods, or one with a comment-only change
+  no longer stops the run before boot. Agent provenance records tests
+  defined in the config file, so rerun and replay commands keep their
+  scope instead of falling back to inference.
+
 ### Fixed
 - Fixed two encoding failures in mutant children running under a non-UTF-8
   locale such as `LANG=C` (seen on CI, where the Landlock sandbox engages):

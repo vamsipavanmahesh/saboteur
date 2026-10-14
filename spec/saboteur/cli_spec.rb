@@ -64,6 +64,22 @@ RSpec.describe Saboteur::CLI do
     end
   end
 
+  it "rejects contradictory test selection flags as usage errors, before any file check" do
+    expect(cli("run", "--all", "--test", "spec/nope_spec.rb").call).to eq(2)
+    expect(err.string).to include("--all cannot be combined with --test")
+    expect(cli("run", "--all", "--guess-tests").call).to eq(2)
+    expect(err.string).to include("--all cannot be combined with --guess-tests")
+    expect(cli("run", "--guess-tests", "--test", "spec/nope_spec.rb").call).to eq(2)
+    expect(err.string).to include("--guess-tests cannot be combined with --test")
+  end
+
+  it "warns that --no-guess-tests is deprecated and no longer restores the whole suite" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    cli("run", "--no-guess-tests").call
+    expect(err.string).to include("guess_tests = false is deprecated: inferred specs are the default " \
+                                  "and it no longer restores the whole suite")
+  end
+
   it "exits 2 for config errors, without starting a run" do
     allow(Saboteur::Engine).to receive(:new)
     expect(cli("run", "--jobs", "0").call).to eq(2)
@@ -363,14 +379,88 @@ RSpec.describe Saboteur::CLI do
       end
     end
 
+    # A config-less directory: the repository's own dogfood config sets
+    # c.test_selection = :all, which agent settings record.
     it "records only run-setting flags plus the resolved operator policy in agent settings" do
       report = report_of(result_for(:killed))
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
-      cli("run", "--agent", "--since", "HEAD", "--jobs", "2").call
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) { cli("run", "--agent", "--jobs", "2").call }
+      end
       expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
         expect(provenance.settings).to eq(jobs: 2, operators: [], exclude_operators: [])
+      end
+    end
+
+    it "omits --all from agent settings when named tests win over a configured whole-suite selection" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("config")
+          File.write("config/saboteur.rb", "Saboteur.configure { |c| c.test_selection = :all }\n")
+          FileUtils.mkdir_p("spec")
+          File.write("spec/a_spec.rb", "# spec\n")
+          cli("run", "--agent", "--test", "spec/a_spec.rb").call
+        end
+      end
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.settings).to eq(operators: [], exclude_operators: [])
+        expect(provenance.tests).to eq(["spec/a_spec.rb"])
+      end
+    end
+
+    it "records config-defined tests in agent provenance so the rerun keeps them" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("config")
+          File.write("config/saboteur.rb", "Saboteur.configure { |c| c.tests = [\"spec/a_spec.rb\"] }\n")
+          FileUtils.mkdir_p("spec")
+          File.write("spec/a_spec.rb", "# spec\n")
+          cli("run", "--agent").call
+        end
+      end
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.tests).to eq(["spec/a_spec.rb"])
+        expect(Saboteur::Reporter::Agent::Commands.rerun(provenance)).to include("--test spec/a_spec.rb")
+      end
+    end
+
+    it "records a configured test_selection = :all in agent settings when no tests resolved" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("config")
+          File.write("config/saboteur.rb", "Saboteur.configure { |c| c.test_selection = :all }\n")
+          cli("run", "--agent").call
+        end
+      end
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.settings).to eq(all: true, operators: [], exclude_operators: [])
+      end
+    end
+
+    it "records --all in agent settings so rerun and replay keep the whole-suite scope" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) { cli("run", "--agent", "--all", "--jobs", "2").call }
+      end
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.settings).to eq(jobs: 2, all: true, operators: [], exclude_operators: [])
       end
     end
 
@@ -763,9 +853,21 @@ RSpec.describe Saboteur::CLI, "explicit files" do
     expect(command.options[:tests]).to eq(%w[spec/a_spec.rb:12 spec/b_spec.rb[1:2]])
   end
 
-  it "refuses --test without a source, with exit 2" do
-    expect(cli("run", "--test", "spec/a_spec.rb").call).to eq(2)
-    expect(err.string).to include("--test needs at least one source file")
+  # Since 0.7.0 the configured include names the sources, so --test may
+  # stand alone; agent follow-up commands rely on that.
+  it "accepts --test without a source, scoped by the configured include" do
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        FileUtils.mkdir_p("spec")
+        File.write("spec/a_spec.rb", "# spec\n")
+        command = cli("run", "--test", "spec/a_spec.rb")
+        allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+        expect(command.call).to eq(3)
+        expect(command.options[:tests]).to eq(%w[spec/a_spec.rb])
+        expect(err.string).not_to include("--test needs")
+        expect(err.string).not_to include("test file not found")
+      end
+    end
   end
 
   # A pull-request run: --since already names the sources (the changed

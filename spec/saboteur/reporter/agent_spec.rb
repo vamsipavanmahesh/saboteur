@@ -44,6 +44,28 @@ RSpec.describe Saboteur::Reporter::Agent do
     expect(Shellwords.split(cleared).each_cons(2).to_a).to include(["--exclude-operators", ""])
   end
 
+  it "records a whole-suite run as a bare --all so rerun and replay keep that scope" do
+    source = provenance_with(ref: nil, settings: { all: true })
+    commands = described_class::Commands
+    [commands.rerun(source), commands.replay(source, "abc")].each do |command|
+      expect(Shellwords.split(command)).to include("--all")
+    end
+  end
+
+  it "never emits --all alongside named tests, however the provenance was recorded" do
+    source = provenance_with(ref: nil, settings: { all: true }, tests: ["spec/a_spec.rb"])
+    words = Shellwords.split(described_class::Commands.rerun(source))
+    expect(words).not_to include("--all")
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
+  end
+
+  it "emits a runnable rerun for an inferred run without sources: --test stands alone" do
+    source = provenance_with(ref: nil, tests: ["spec/a_spec.rb"], sources: [])
+    words = Shellwords.split(described_class::Commands.rerun(source))
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
+    expect(words).not_to include("--")
+  end
+
   context "when every mutant was killed" do
     let(:payload) { payload_for(report_of(result_for(:killed))) }
 
@@ -232,7 +254,7 @@ RSpec.describe Saboteur::Reporter::Agent do
       steps = next_commands(config_path: "ci.yml", subjects: ["A#b"], tests: ["spec/a_spec.rb"], cache: false,
                             incremental: true, sources: ["lib/a.rb"], digest: "f" * 16)
       expect(steps[:rerun]).to eq("saboteur run --agent --config ci.yml --since origin/main --subject A\\#b " \
-                                  "--no-guess-tests --test spec/a_spec.rb --no-cache --incremental --id #{'f' * 16} " \
+                                  "--test spec/a_spec.rb --no-cache --incremental --id #{'f' * 16} " \
                                   "--seed 7 -- lib/a.rb")
     end
 

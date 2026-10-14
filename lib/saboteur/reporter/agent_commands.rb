@@ -41,10 +41,10 @@ module Saboteur
             command.bytesize <= MAX_BYTES ? command : nil
           end
 
-          # An explicit scope is frozen: --no-guess-tests keeps a config-file
-          # guess_tests from conflicting with the --test list.
+          # An explicit scope is frozen as --test, which wins over inferred
+          # selection by precedence, whatever the config file sets.
           def test_words(tests)
-            tests.empty? ? [] : ["--no-guess-tests", *tests.flat_map { |test| ["--test", test] }]
+            tests.flat_map { |test| ["--test", test] }
           end
 
           def setting_words(provenance)
@@ -56,11 +56,14 @@ module Saboteur
             end
           end
 
+          # Whole-suite scope is a bare --all, only when no tests resolved;
+          # --all never combines with --test.
           def selection(provenance, replay: false)
             words = []
             words.push("--config", provenance.config_path) if provenance.config_path
             words.push("--since", provenance.ref) if provenance.ref
             provenance.subjects.each { |subject| words.push("--subject", subject) }
+            words << "--all" if provenance.settings[:all] && provenance.tests.empty?
             words.push(*test_words(provenance.tests))
             words.concat(setting_words(provenance))
             words << "--no-cache" if provenance.cache == false

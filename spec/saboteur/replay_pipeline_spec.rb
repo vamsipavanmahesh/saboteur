@@ -9,7 +9,7 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
   end
 
-  let(:config) { Saboteur::Config.new({ "incremental" => true }) }
+  let(:config) { Saboteur::Config.new({ "incremental" => true, "all" => true }) }
   let(:subject) { person_subject }
   let(:mutation) { comparison_mutation }
   let(:digest) { mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source) }

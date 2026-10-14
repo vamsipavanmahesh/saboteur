@@ -30,12 +30,12 @@ RSpec.describe "--incremental cache invalidation by a new spec (end to end)", :e
   end
 
   it "judges every earlier survivor again and kills each one with the new spec" do
-    first = saboteur(dir, *subject_flags)
+    first = saboteur(dir, "--all", *subject_flags)
     prior_survivors = ids_with_status(first, "Survived")
     expect(prior_survivors).not_to be_empty
 
     write_boundary_spec
-    second = saboteur(dir, *subject_flags)
+    second = saboteur(dir, "--all", *subject_flags)
     new_test_ids = test_ids_in(second, "spec/boundary_edge_spec.rb")
     expect(new_test_ids.size).to eq(1)
 
@@ -47,18 +47,18 @@ RSpec.describe "--incremental cache invalidation by a new spec (end to end)", :e
   end
 
   it "does not reuse any verdict once the new spec changes what covers the method" do
-    saboteur(dir, *subject_flags)
+    saboteur(dir, "--all", *subject_flags)
     write_boundary_spec
-    second = saboteur(dir, *subject_flags)
+    second = saboteur(dir, "--all", *subject_flags)
 
     expect(second.out).not_to include("reused")
   end
 
   it "reuses every verdict when nothing changed (positive control)" do
-    first = saboteur(dir, *subject_flags)
+    first = saboteur(dir, "--all", *subject_flags)
     write_boundary_spec
-    second = saboteur(dir, *subject_flags)
-    third = saboteur(dir, *subject_flags)
+    second = saboteur(dir, "--all", *subject_flags)
+    third = saboteur(dir, "--all", *subject_flags)
     total = mutants(third).size
 
     expect(first.out).not_to include("reused")
