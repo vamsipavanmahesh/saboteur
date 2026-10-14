@@ -153,4 +153,40 @@ RSpec.describe "non-UTF-8 locale boundaries" do
       expect(changed.values.map(&:to_a)).to eq([[1]])
     end
   end
+
+  # JSON boundaries reject invalid bytes instead of scrubbing them into a
+  # different payload that then parses fine.
+  it "rejects a result cache whose bytes are not valid UTF-8" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "results.json")
+      File.binwrite(path, %({"format": #{Saboteur::Engine::ResultCache::FORMAT}, "entries": {"bad-\xFF": {}}}).b)
+      loaded = with_default_external(Encoding::US_ASCII) do
+        Saboteur::Engine::ResultCache.new(path: path, root: dir, inputs: "config-1")
+      end
+      expect(loaded.instance_variable_get(:@entries)).to eq({})
+    end
+  end
+
+  it "rejects a coverage map whose bytes are not valid UTF-8" do
+    Dir.mktmpdir do |dir|
+      map = Saboteur::Selection::CoverageMap.new(lines: { "/repo/héllo.rb" => { 3 => %w[t1] } }, tests: %w[t1])
+      path = File.join(dir, "coverage.json")
+      File.binwrite(path, map.to_json.b.sub("héllo".b, "bad-\xFF".b))
+      loaded = with_default_external(Encoding::US_ASCII) { Saboteur::Selection::CoverageMap.load(path) }
+      expect(loaded).to be_nil
+    end
+  end
+
+  it "skips a protocol line whose bytes are not valid UTF-8" do
+    payload = %({"v": 1, "event": "result", "file": "bad-\xFF.rb"\n}).b
+    events = with_default_external(Encoding::US_ASCII) { Saboteur::Execution::Protocol.parse(payload) }
+    expect(events).to eq([])
+  end
+
+  it "reports a worker result line whose bytes are not valid UTF-8 as unreadable" do
+    line = %({"file": "bad-\xFF.rb", "status": "killed"}).b
+    pool = Saboteur::Execution::WorkerPool.new(jobs: 1)
+    parsed = with_default_external(Encoding::US_ASCII) { pool.send(:parse, line) }
+    expect(parsed["error"]).to include("unreadable result from worker")
+  end
 end
