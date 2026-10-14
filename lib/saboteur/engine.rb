@@ -122,11 +122,10 @@ module Saboteur
     # needs no spec and cannot stop the run either.
     def select_subject_tests(patterns)
       files = SubjectSelection.files_matching(@root, config.included_files, patterns)
-      return if files.empty? # unknown subjects are named later, in selection
-
       guess = TestGuess.new(config).call_for(files, patterns)
-      # --since: every named subject sits outside the diff scope, so the run
-      # has nothing to mutate; like unknown subjects, selection says so later.
+      # No file in scope: the subjects are unknown (named later, in
+      # selection) or --since left every named subject outside the diff, so
+      # the run has nothing to mutate and needs no inferred spec.
       return if guess.changed.zero?
 
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?

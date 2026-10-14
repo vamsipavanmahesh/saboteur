@@ -289,6 +289,15 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect([result.specs, result.unmatched, result.changed]).to eq([["spec/a_spec.rb"], [], 1])
     end
 
+    it "drops a named subject that only shifted when lines were added above it" do
+      write("lib/c.rb", "class Widget\n  def thing\n    __LINE__\n  end\nend\n")
+      git("add", ".")
+      git("commit", "-q", "-m", "line subject")
+      write("lib/c.rb", "class Widget\n  def added\n    2\n  end\n\n  def thing\n    __LINE__\n  end\nend\n")
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], [], 0])
+    end
+
     it "still reports a changed named subject with no spec as unmatched" do
       write("lib/c.rb", changed_source)
       result = guess_for(["lib/c.rb"], ["Widget#thing"])

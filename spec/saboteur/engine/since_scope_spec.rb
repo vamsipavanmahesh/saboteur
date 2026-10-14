@@ -238,6 +238,17 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(err.string).not_to include("inferred specs:")
     end
 
+    it "stops before boot when the named subject sits on a changed line and has no spec" do
+      write_subject_project(with_spec: false)
+      people = File.join(@root, "lib", "people.rb")
+      allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).and_return({ people => Set[3] })
+      allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("HEAD")
+      comparison = instance_double(Saboteur::Engine::UnchangedSyntax, unchanged?: false)
+      allow(Saboteur::Engine::UnchangedSyntax).to receive(:new).and_return(comparison)
+      expect { run_engine("since" => "HEAD", "subjects" => ["Person#adult?"]) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/people\.rb})
+    end
+
     it "keeps the recorded tests in replay mode, skipping inference" do
       engine = described_class.new(Saboteur::Config.new({}, root: @root), err: err, digest: "0" * 16)
       expect(Saboteur::Engine::TestGuess).not_to receive(:new)
