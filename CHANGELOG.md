@@ -103,13 +103,19 @@ All notable changes are documented here. The format follows
   baseline's, and the failure detail prints inline. The GitHub Action exposes the
   drop as the `baseline-score-drop` output (#131, #148).
 - `--guess-tests` scopes a `--since` run to the specs named after the changed
-  files, for suites where full selection costs too much. It cannot be combined
+  files, for suites where full selection costs too much. A spec that reaches a
+  changed file only through another file does not run, so a mutant only it
+  would kill can survive, and a line no guessed spec executes is reported as
+  NoCoverage. A changed source file with no matching spec (or no changed source
+  at all) falls back to the whole suite with a warning. It cannot be combined
   with `--test` (#185).
 - `--allow-focus` (#108): without it, a suite narrowed by a stray `fit`,
   `fdescribe` or `:focus` filter stops the run, because mutation testing a
   focused slice would report a score for the wrong suite.
-- Survivor findings are ranked by deterministic review value, so the finding most
-  worth reading prints first (#191).
+- Survivor findings carry a deterministic review ranking: coarse mutants first,
+  then more covering tests, a larger edited-line span and nearer changed lines
+  (#191). The terminal report still groups survivors by file path; the ranking
+  orders the findings inside each file group.
 - `--score-history PATH` appends each run's scores to a JSONL file. Opt-in (#145).
 - [docs/guides/reading-survivors.md](docs/guides/reading-survivors.md) is a guide
   to reading survivors, and [docs/recipes/README.md](docs/recipes/README.md)
@@ -121,9 +127,9 @@ All notable changes are documented here. The format follows
   lines with a blank line between them (#150). Scripts that read the old
   `JSON report:` and `HTML report:` lines must read `Reports:` instead.
 - `saboteur doctor` checks the environment only by default (Ruby version,
-  coverage setup, SimpleCov conflicts, boot files, whether the baseline is
-  stable). The two unchanged baseline suite passes are slow on a large suite and
-  now run only with `doctor --suite` (or `--test`, which implies it) (#53).
+  coverage setup and SimpleCov conflicts, boot files, the custom map and ignore
+  subjects). The two unchanged baseline suite passes are slow on a large suite
+  and now run only with `doctor --suite` (or `--test`, which implies it) (#53).
 
 ### Fixed
 - `--since` with a ref that is not a commit exits 2 as a usage error, naming the
