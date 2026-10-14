@@ -87,6 +87,17 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.err).not_to include("running the loaded suite unscoped")
     end
 
+    it "narrows to the matched specs and skips files whose changed lines touch no method" do
+      people = File.join(dir, "lib", "people.rb")
+      File.write(people, File.read(people).sub("@age = age", "# a note\n      @age = age"))
+      stage = File.join(dir, "lib", "stage.rb")
+      File.write(stage, File.read(stage).sub("label.upcase", "label.downcase"))
+      run = saboteur(dir, "--since", "HEAD", "--guess-tests")
+      expect(run.err).to include("--guess-tests: running only spec/stage_spec.rb.")
+      expect(run.err).to include("no spec is required for lib/people.rb")
+      expect(run.err).not_to include("running the loaded suite unscoped")
+    end
+
     it "records the guessed specs in agent provenance and reports uncovered mutants as no coverage" do
       path = File.join(dir, "lib", "stage.rb")
       File.write(path, File.read(path).sub("label.upcase", "label.downcase"))
