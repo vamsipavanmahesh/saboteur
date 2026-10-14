@@ -274,6 +274,10 @@ source operands: `bundle exec saboteur run --since origin/main --test spec/billi
 With `--since` and no `--test`, the run warns before it starts that the two baseline passes
 run the loaded suite (a cold coverage cache adds one more pass), and how to
 scope them.
+A changed Ruby file whose changed lines cover no method mutates nothing; the run
+warns and names the file instead of silently selecting zero subjects. Changes that
+touch only comments or formatting are not a warning: the run reports the methods it
+skips for that reason.
 
 `--since origin/main --guess-tests` does that scoping for you: it picks the spec
 named after each changed source file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/`
