@@ -30,7 +30,7 @@ RSpec.describe Saboteur::Install do
   end
 
   it "matches the Rails block documented in the README" do
-    readme = File.read(File.expand_path("../../README.md", __dir__))
+    readme = File.read(File.expand_path("../../README.md", __dir__), encoding: "UTF-8")
     documented = readme[/^### Rails apps\n.*?```ruby\n(.*?)```/m, 1]
     code = ->(text) { text.scan(/^\s*(c\.\w+ = [^#\n]+)/).flatten.map { |line| line.strip.gsub(/\s+/, " ") } }
     expect(code.call(described_class::CONFIG)).to include(*code.call(documented))

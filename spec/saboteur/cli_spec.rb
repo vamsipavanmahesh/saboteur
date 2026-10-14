@@ -26,6 +26,32 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
   end
 
+  it "collapses a multiline crash message into the one-line diagnostic" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "first line\nsecond line")
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: first line second line)")
+    expect(err.string).not_to include("second line\n")
+  end
+
+  it "scrubs locale-invalid bytes out of a crash message" do
+    allow(Saboteur::Engine).to receive(:new)
+      .and_raise(RuntimeError, "broken \xFF byte".dup.force_encoding(Encoding::UTF_8))
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: broken ? byte)")
+  end
+
+  it "bounds a very long crash message to one line" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 500)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: #{'x' * 160}...)")
+  end
+
+  it "reports an unexpected failure in agent mode as an agent failure and exits 3" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    expect(cli("run", "--agent").call).to eq(3)
+    expect(out.string).to include("internal error (RuntimeError: boom)")
+  end
+
   it "parses run options into config overrides" do
     command = cli("run", "--since", "main", "--subject", "A#b", "--subject", "C.d",
                   "--timeout-factor", "2.5", "--jobs", "1", "--reeval", "nesting", "--no-cache", "--seed", "42")
