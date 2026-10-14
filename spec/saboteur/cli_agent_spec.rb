@@ -38,6 +38,14 @@ RSpec.describe Saboteur::CLI, "agent mode" do
     end
   end
 
+  it "carries only setting flags plus the operator lists in agent settings" do
+    _code, payload = run_agent(report_of(result_for(:killed)), "--agent", "--operators", "range")
+    settings = payload[:provenance][:selection][:settings]
+    expect(settings[:operators]).to eq('["range"]')
+    expect(settings).to have_key(:exclude_operators)
+    expect(settings).not_to have_key(:json)
+  end
+
   it "prints only the JSON payload on stdout, and still writes the report files" do
     Dir.mktmpdir do |dir|
       json = File.join(dir, "r.json")
