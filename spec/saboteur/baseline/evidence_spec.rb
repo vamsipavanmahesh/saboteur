@@ -74,7 +74,8 @@ RSpec.describe Saboteur::Baseline::Evidence do
   def rebuilt(changed)
     config = changed["compatibility"]["config"]
     runtime = changed["compatibility"]["runtime"]
-    snapshot = Saboteur::Engine::RunFingerprint.new(config: Saboteur::Config.new(config, root: @root),
+    settings = Saboteur::Config.new(config.except("operator_policy"), root: @root)
+    snapshot = Saboteur::Engine::RunFingerprint.new(config: settings,
                                                     runtime_identity: runtime).snapshot
     changed["snapshot"] = JSON.parse(JSON.generate(snapshot.to_h))
     changed
