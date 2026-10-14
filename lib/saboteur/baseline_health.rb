@@ -95,10 +95,12 @@ module Saboteur
         exception = example.execution_result.exception
         next unless exception
 
-        message = exception.message.to_s.lines.map(&:strip).find { |line| !line.empty? }.to_s[0, 200]
-        # Exception text can carry raw path bytes (e.g. Errno::EILSEQ);
-        # this detail ships in a JSON payload, so it must be valid UTF-8.
-        Text.utf8("#{example.id}: #{example.full_description.to_s[0, 200]}: #{message}")
+        # Exception text and example names can arrive locale-tagged or as
+        # raw path bytes (e.g. Errno::EILSEQ): scrub each field before any
+        # strip, truncation or interpolation - all three raise on bad tags.
+        # This detail ships in a JSON payload, so it must be valid UTF-8.
+        message = Text.utf8(exception.message.to_s).lines.map(&:strip).find { |line| !line.empty? }.to_s[0, 200]
+        "#{Text.utf8(example.id.to_s)}: #{Text.utf8(example.full_description.to_s)[0, 200]}: #{message}"
       end.first(5).join("; ")
     end
 
