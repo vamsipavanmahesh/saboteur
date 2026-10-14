@@ -71,8 +71,31 @@ module Preflight
       @history = []
     end
 
-    # With data_pipe the child gets an extra pipe as file descriptor 3 (redirect stdout onto it). It is read by
-    # the harness only: there is no path in the checkout that candidate code could swap for a link.
+    # The shim a data_pipe child loads through `rspec --require`: it points RSpec's report stream at
+    # file descriptor 3 (the pipe below) while stdout stays the suite's own channel, so output a spec
+    # prints cannot corrupt the report. No path names the pipe: macOS refuses to open one via /dev/fd.
+    DATA_SHIM = <<~RUBY
+      # SPDX-License-Identifier: MIT
+      # frozen_string_literal: true
+      RSpec.configure { |config| config.output_stream = IO.new(3, "w") }
+    RUBY
+
+    # Path of the shim, written next to the command logs behind the same swap protection. Needs the
+    # log directory: with nowhere harness-owned to write, there is no safe shim to load.
+    def data_shim_path
+      raise ExecutionGap, "a data pipe needs a log directory for the formatter shim" unless @log_directory
+
+      @data_shim_path ||= begin
+        root = @log_root || @log_directory
+        SafeOutput.make_directories(@log_directory, root)
+        path = File.join(@log_directory, "rspec_fd3_shim.rb")
+        SafeOutput.write_new(path, DATA_SHIM, root)
+        path
+      end
+    end
+
+    # With data_pipe the child gets an extra pipe as file descriptor 3. It is read by the
+    # harness only: there is no path in the checkout that candidate code could swap for a link.
     def run(argv, timeout: DEFAULT_TIMEOUT_SECONDS, data_pipe: false)
       raise ArgumentError, "argv must be an array of strings" unless argv.is_a?(Array) && argv.all?(String)
 
