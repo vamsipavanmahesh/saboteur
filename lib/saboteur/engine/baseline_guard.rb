@@ -3,6 +3,7 @@
 
 require "json"
 require "fileutils"
+require_relative "../text"
 
 module Saboteur
   class Engine
@@ -129,7 +130,8 @@ module Saboteur
       end
 
       def log_lines(number)
-        File.foreach(log_path(number), chomp: true).first(EXCERPT_SCAN_LINES).reject { |line| line.strip.empty? }
+        File.foreach(log_path(number), chomp: true).first(EXCERPT_SCAN_LINES)
+            .map { |line| Text.utf8(line) }.reject { |line| line.strip.empty? }
       rescue SystemCallError
         []
       end
