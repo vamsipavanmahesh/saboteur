@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "open3"
+require_relative "../text"
 
 module Saboteur
   module Selection
@@ -42,9 +43,13 @@ module Saboteur
       def changed_lines(ref, root:)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
-        top = git(root, "rev-parse", "--show-toplevel").strip
-        parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff", base,
-                  "--"), top)
+        # Root and paths are filesystem identity: strip as bytes and retag
+        # losslessly (strip raises on locale-tagged high bytes; a scrub
+        # would rename a raw-byte path). Parse the diff body as bytes and
+        # tag each extracted path UTF-8 at the boundary.
+        top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
+        parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
+                  "--no-ext-diff", base, "--").b, top)
       end
 
       def parse(diff, top)
@@ -52,8 +57,10 @@ module Saboteur
         file = nil
         diff.each_line do |line|
           if line.start_with?("+++ ")
-            path = unquote(line.chomp.delete_prefix("+++ ").delete_suffix("\t"))
+            path = Text.utf8_identity(unquote(line.chomp.delete_prefix("+++ ").delete_suffix("\t")))
             file = path == NO_FILE ? nil : File.join(top, path.delete_prefix("b/"))
+          # HUNK is anchored, so a non-hunk line - including a raw-byte
+          # content line - fails the match at its first byte.
           elsif file && (match = HUNK.match(line))
             start = match[1].to_i
             count = (match[2] || "1").to_i

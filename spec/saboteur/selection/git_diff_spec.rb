@@ -146,4 +146,91 @@ RSpec.describe Saboteur::Selection::GitDiff do
       end
     end
   end
+  it "marks only the changed lines, not their context, in a long file" do
+    Dir.mktmpdir do |dir|
+      git = lambda { |*args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: dir)
+      }
+      git.call("init", "-q")
+      File.write(File.join(dir, "a.rb"), (1..10).map { |n| "line#{n}\n" }.join)
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "base")
+      git.call("tag", "base")
+      File.write(File.join(dir, "a.rb"), (1..10).map { |n| n == 5 ? "CHANGED\n" : "line#{n}\n" }.join)
+      changed = described_class.changed_lines("base", root: dir)
+      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[5])
+    end
+  end
+
+  it "parses the diff when git is configured to always colorize" do
+    Dir.mktmpdir do |dir|
+      git = lambda { |*args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: dir)
+      }
+      git.call("init", "-q")
+      git.call("config", "color.ui", "always")
+      File.write(File.join(dir, "a.rb"), "1\n2\n")
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "base")
+      git.call("tag", "base")
+      File.write(File.join(dir, "a.rb"), "1\nTWO\n")
+      changed = described_class.changed_lines("base", root: dir)
+      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2])
+    end
+  end
+
+  it "ignores a configured external diff tool" do
+    Dir.mktmpdir do |dir|
+      git = lambda { |*args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: dir)
+      }
+      git.call("init", "-q")
+      script = File.join(dir, "fake-diff")
+      File.write(script, "#!/bin/sh\necho GARBAGE\n")
+      File.chmod(0o755, script)
+      git.call("config", "diff.external", script)
+      File.write(File.join(dir, "a.rb"), "1\n2\n")
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "base")
+      git.call("tag", "base")
+      File.write(File.join(dir, "a.rb"), "1\nTWO\n")
+      changed = described_class.changed_lines("base", root: dir)
+      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2])
+    end
+  end
+
+  it "separates the base rev from pathspecs when a file is named like it" do
+    Dir.mktmpdir do |dir|
+      git = lambda { |*args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: dir)
+      }
+      git.call("init", "-q")
+      File.write(File.join(dir, "a.rb"), "1\n")
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "base")
+      git.call("tag", "base")
+      sha = git.call("merge-base", "base", "HEAD").first.strip
+      File.write(File.join(dir, sha), "x\n")
+      File.write(File.join(dir, "a.rb"), "1\n2\n")
+      changed = described_class.changed_lines("base", root: dir)
+      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2])
+    end
+  end
+  it "compares against the merge base, not the index, so committed changes count" do
+    Dir.mktmpdir do |dir|
+      git = lambda { |*args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: dir)
+      }
+      git.call("init", "-q")
+      File.write(File.join(dir, "a.rb"), "1\n")
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "base")
+      git.call("tag", "base")
+      File.write(File.join(dir, "a.rb"), "1\n2\n")
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "change")
+      changed = described_class.changed_lines("base", root: dir)
+      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2])
+    end
+  end
 end

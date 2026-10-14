@@ -92,6 +92,26 @@ RSpec.describe Saboteur::Config do
     expect(config.included_files).to eq(%w[a.rb b.rb].map { |f| File.join(@root, "lib", f) })
   end
 
+  it "resolves a symlinked include entry to its real path once" do
+    write("lib/real.rb", "")
+    File.symlink("real.rb", File.join(@root, "lib", "link.rb"))
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "real.rb")])
+  end
+
+  it "keeps the exact bytes of a non-UTF-8 file name losslessly (#231)" do
+    bytes = "caf\xE9.rb".b
+    FileUtils.mkdir_p(File.join(@root, "lib"))
+    # APFS rejects filenames that are not valid UTF-8 at creation time.
+    begin
+      File.binwrite(File.join(@root, "lib", bytes), "")
+    rescue Errno::EILSEQ
+      skip "this filesystem rejects filenames that are not valid UTF-8"
+    end
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect(config.included_files.map(&:b)).to eq([File.join(@root, "lib", bytes).b])
+  end
+
   it "names include and exclude patterns that match no file, so a stale path is never silent" do
     write("lib/a.rb", "")
     config = described_class.new({ "include" => ["lib/**/*.rb", "app/**/*.rb"],
