@@ -218,7 +218,10 @@ module Saboteur
         private
 
         def first_line(message)
-          message.to_s.lines.map(&:strip).find { |line| !line.empty? }.to_s[0, MESSAGE_LIMIT]
+          # Exception messages can carry bytes invalid under the locale encoding
+          # (e.g. a path with raw bytes); scrub before splitting, or .lines/.strip
+          # raises Encoding::CompatibilityError and the run reports error (CI #272).
+          Text.utf8(message.to_s).lines.map(&:strip).find { |line| !line.empty? }.to_s[0, MESSAGE_LIMIT]
         end
       end
     end
