@@ -5,13 +5,25 @@ module Saboteur
   # Bytes arriving from outside the process (git output, cache and log files,
   # worker pipes) are tagged with the process locale. Under a non-UTF-8
   # locale such as LANG=C that tag is US-ASCII, where any non-ASCII byte
-  # raises on use. Re-tag everything crossing the boundary as UTF-8,
-  # replacing bytes that are not valid UTF-8.
+  # raises on use. Re-tag everything crossing the boundary as UTF-8.
   module Text
     module_function
 
+    # Lossy: bytes that are not valid UTF-8 become the replacement
+    # character. For log and message display only - never feed the result
+    # back into filesystem, cache or protocol identity: scrubbing rewrites
+    # raw bytes, which can alias two different names or make a path vanish
+    # from a File.exist? probe.
     def utf8(string)
       string.dup.force_encoding(Encoding::UTF_8).scrub
+    end
+
+    # Lossless: every byte survives; only the encoding tag changes. Use for
+    # paths and identity-bearing fields. File.* calls and String == then
+    # work on the exact bytes git reported; only rendering (regexes over
+    # arbitrary content, JSON, terminal output) needs #utf8.
+    def utf8_identity(string)
+      string.dup.force_encoding(Encoding::UTF_8)
     end
   end
 end
