@@ -26,9 +26,10 @@ module ReportHelpers
                                mutated_source: person_subject.apply(mutation.edits), **)
   end
 
-  def report_of(*results, warnings: [])
+  def report_of(*results, warnings: [], policy: nil)
     Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.25,
-                         root: File.dirname(person_subject.file), warnings:, seed: 1)
+                         root: File.dirname(person_subject.file), warnings:, seed: 1,
+                         operator_policy: policy || Saboteur::Config.new({}).operator_policy)
   end
 end
 
