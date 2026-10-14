@@ -21,17 +21,20 @@ module Saboteur
         @config = config
       end
 
-      # specs: existing spec files (relative paths); unmatched: changed
-      # source files with a mutation subject on their changed lines but no
-      # guessed spec; subjectless: changed files whose changed lines carry
-      # no mutation subject, so they need no spec; changed: how many source
-      # files changed.
+      # specs: existing spec files (relative paths) guessed for changed files
+      # with a changed mutation subject; unmatched: such files with no
+      # guessed spec; subjectless: changed files with no changed mutation
+      # subject, which neither need nor get a spec; changed: how many
+      # source files changed.
       def call
         lines_by_file = changed_lines_by_file
-        guesses = lines_by_file.keys.to_h { |file| [file, guess_for(file)] }
         subjectless = subjectless_files(lines_by_file)
+        # Only files with a changed mutation subject get a guessed spec: a
+        # subjectless file mutates nothing, so its spec would only narrow the
+        # run for no reason.
+        guesses = lines_by_file.except(*subjectless).to_h { |file| [file, guess_for(file)] }
         Result.new(specs: guesses.values.compact.uniq.sort,
-                   unmatched: guesses.except(*subjectless).select { |_, spec| spec.nil? }.keys,
+                   unmatched: guesses.select { |_, spec| spec.nil? }.keys,
                    subjectless: subjectless,
                    changed: lines_by_file.size)
       end
