@@ -117,6 +117,17 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.err).to include("running the loaded suite unscoped")
     end
 
+    it "reports nothing to mutate when the changed lines carry no mutation subject" do
+      path = File.join(dir, "lib", "people.rb")
+      File.write(path, File.read(path).sub("@age = age", "# a note\n      @age = age"))
+      run = saboteur(dir, "--since", "HEAD", "--guess-tests")
+      expect(run.status).to eq(0)
+      expect(run.err).to include("--guess-tests: no changed file has a mutation subject on its changed lines, " \
+                                 "so there is nothing to mutate")
+      expect(run.out).to include("0 subjects, 0 mutants")
+      expect(run.err).not_to include("checking the unchanged suite")
+    end
+
     it "refuses --guess-tests without --since or together with --test" do
       expect(saboteur(dir, "--guess-tests").err).to include("guess_tests needs since")
       run = saboteur(dir, "--since", "HEAD", "--guess-tests", "--test", "spec/stage_spec.rb")
