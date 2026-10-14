@@ -86,6 +86,10 @@ module PreflightSupport
       @calls = []
     end
 
+    def data_shim_path
+      "/harness/rspec_fd3_shim.rb"
+    end
+
     def run(argv, **_options)
       @calls << argv
       @responder.call(argv) || result(argv, 0, "")
