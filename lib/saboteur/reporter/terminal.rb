@@ -34,10 +34,19 @@ module Saboteur
         warnings(report)
         early_stop(report)
         test_matrix(report)
+        operator_policy(report)
         summary(report)
       end
 
       private
+
+      def operator_policy(report)
+        policy = report.operator_policy
+        return unless policy && policy["excluded"].any?
+
+        @out.puts("Excluded operators: #{policy['excluded'].join(', ')} " \
+                  "(policy #{policy['version']}; #{policy['effective'].size} enabled)")
+      end
 
       def test_matrix(report)
         return unless report.matrix?
