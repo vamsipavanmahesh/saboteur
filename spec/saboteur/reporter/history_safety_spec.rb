@@ -43,7 +43,7 @@ RSpec.describe "history safety" do
   it "rejects duplicate keys at top level and nested counts" do
     append
     original = File.read(@path)
-    [original.sub('"version":1', '"version":1,"version":1'),
+    [original.sub('"version":2', '"version":2,"version":2'),
      original.sub('"killed":1', '"killed":1,"killed":1')].each do |text|
       File.write(@path, text)
       expect { append }.to raise_error(Saboteur::Error, /duplicate/)
