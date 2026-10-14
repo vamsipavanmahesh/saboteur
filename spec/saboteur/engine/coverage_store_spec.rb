@@ -71,6 +71,18 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(second).not_to have_received(:build)
   end
 
+  it "loads the cached map once across reusable? and fetch" do
+    first = store
+    allow(first).to receive(:build).and_return(map)
+    first.fetch([file])
+
+    second = store
+    allow(Saboteur::Selection::CoverageMap).to receive(:load).and_call_original
+    expect(second.reusable?([file])).to be(true)
+    expect(second.fetch([file]).tests).to eq(["t1"])
+    expect(Saboteur::Selection::CoverageMap).to have_received(:load).once
+  end
+
   it "reusable? is false for a corrupt cache, so the run announces and pays the build pass (#260)" do
     corruptions = ["{ not json",
                    JSON.generate("format" => "nope", "tests" => [], "lines" => {}),

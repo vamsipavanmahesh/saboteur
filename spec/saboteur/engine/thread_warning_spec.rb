@@ -16,6 +16,30 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     engine.instance_variable_get(:@diagnostics).warnings
   end
 
+  it "appends no caveat when every alive thread is a known one" do
+    reaper = Thread.new { sleep }
+    reaper.name = "AR Pool Reaper"
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
+    expect(warnings.last).to include("AR Pool Reaper")
+    expect(warnings.last).not_to include("unknown thread")
+  ensure
+    reaper.kill
+    reaper.join
+  end
+
+  it "names an unnamed thread by the first frame of its backtrace" do
+    thread = Thread.new { sleep }
+    Thread.pass until thread.backtrace&.any?
+    first = thread.backtrace.first
+    last = thread.backtrace.last
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
+    expect(warnings.last).to include(first)
+    expect(warnings.last).not_to include(last) unless last == first
+  ensure
+    thread.kill
+    thread.join
+  end
+
   it "names each thread alive at fork time" do
     named = Thread.new { sleep }
     named.name = "pool-reaper"
@@ -41,7 +65,7 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     named.name = "DEBUGGER__::SESSION@server"
     Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
     expect(warnings.last).to include("DEBUGGER__::SESSION@server", "not expected to affect results",
-                                     "RUBY_DEBUG_FORK_MODE", "RUBY_DEBUG_OPEN")
+                                     "RUBY_DEBUG_FORK_MODE", "unattended", "RUBY_DEBUG_OPEN")
   ensure
     named.kill
     named.join

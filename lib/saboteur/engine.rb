@@ -212,7 +212,9 @@ module Saboteur
       store = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
                                 supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics)
       full_passes = store.reusable?(files) ? 2 : 3
-      warn_about_unscoped_suite(integration, full_passes)
+      # A --id replay targets one known mutant; the whole-suite cost summary
+      # and its --test lecture do not apply.
+      warn_about_unscoped_suite(integration, full_passes) unless @replay
       check_baseline(integration, full_passes)
       map = store.fetch(files)
       inform_about_run(subjects, map)

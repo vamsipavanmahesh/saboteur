@@ -93,10 +93,10 @@ module Saboteur
       # way here: the exact path first, then path.rb.
       def hook_path(file)
         path = File.expand_path(file, @root)
-        return path if File.extname(path) != "" || File.file?(path)
-
         rb = "#{path}.rb"
-        File.file?(rb) ? rb : path
+        return rb if !File.exist?(path) && File.extname(path).empty? && File.file?(rb)
+
+        path
       end
     end
   end

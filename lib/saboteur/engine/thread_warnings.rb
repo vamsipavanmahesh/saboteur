@@ -12,34 +12,36 @@ module Saboteur
     module ThreadWarnings
       # Well-known fork-time threads, with the condition each assurance
       # hangs on. Evidence: rails-mode children reconnect the database
-      # (lib/saboteur/frameworks/rails.rb, after_fork); the debug gem
-      # attaches its console to forked children only under fork mode
-      # :child/:both (SESSION.activate on_fork: true, ruby/debug's
-      # lib/debug/session.rb).
+      # (lib/saboteur/frameworks/rails.rb, after_fork); whether the debug
+      # gem's console also attaches to forked children depends on its
+      # fork_mode, whose default is :both, i.e. attach (RUBY_DEBUG_FORK_MODE;
+      # ruby/debug's config.rb and SESSION.activate on_fork: true in
+      # session.rb).
       KNOWN_FORK_THREADS = {
         "AR Pool Reaper" => "ActiveRecord's connection-pool reaper: expected harmless when children " \
                             "reconnect the database after fork (rails mode does) - it only maintains " \
                             "the parent's pool",
         "DEBUGGER__::SESSION@server" => "the debug gem's remote-console server: not expected to affect " \
-                                        "results - under the default fork mode children run no console, " \
-                                        "and RUBY_DEBUG_FORK_MODE=child/both attaches it to children on " \
-                                        "purpose; to not start it at all, drop RUBY_DEBUG_OPEN or require " \
-                                        "\"debug\" without :open"
+                                        "results; whether it attaches to children depends on " \
+                                        "RUBY_DEBUG_FORK_MODE (the gem's default, both, attaches; parent " \
+                                        "does not). For an unattended run, do not start the remote " \
+                                        "debugger at all: drop RUBY_DEBUG_OPEN or require \"debug\" " \
+                                        "without :open"
       }.freeze
 
       def self.warn(diagnostics)
         others = Thread.list - [Thread.current]
         return if others.empty?
 
-        unknown = 0
+        unknown = false
         list = others.map do |thread|
           name = thread.name || thread.backtrace&.first || "unknown"
           explanation = KNOWN_FORK_THREADS[name]
-          unknown += 1 unless explanation
+          unknown = true unless explanation
           explanation ? "#{name} (#{explanation})" : name
         end.join(", ")
         message = "#{others.size} other thread(s) alive at fork time; they do not run in children: #{list}"
-        if unknown.positive?
+        if unknown
           message += "; a thread that does not run in a child cannot do background work a mutant's test may " \
                      "rely on (a pool reaper, a flusher), so results can differ when one is left behind"
         end

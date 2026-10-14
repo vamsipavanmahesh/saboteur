@@ -20,6 +20,9 @@ module Saboteur
                           timeout_factor: "--timeout-factor", json_report: "--json", html_report: "--html",
                           operators: "--operators", exclude_operators: "--exclude-operators" }.freeze
 
+        # CLI-only boolean switches recorded in settings, emitted as bare flags.
+        BOOLEAN_SETTING_FLAGS = { allow_hazardous: "--allow-hazardous", allow_focus: "--allow-focus" }.freeze
+
         class << self
           # Run the same selection again: ref, subjects, sources, tests, config,
           # cache mode and replay digest, with the recorded seed.
@@ -42,6 +45,17 @@ module Saboteur
             words += ["--", *provenance.sources] unless provenance.sources.empty?
             command = Shellwords.join(words)
             command if !capped || command.bytesize <= MAX_BYTES
+          end
+
+          def mode_words(provenance)
+            words = []
+            words << "--no-cache" if provenance.cache == false
+            words << "--incremental" if provenance.incremental
+            words.concat(boolean_words(provenance))
+          end
+
+          def boolean_words(provenance)
+            BOOLEAN_SETTING_FLAGS.filter_map { |key, flag| flag if provenance.settings[key] }
           end
 
           # An explicit scope is frozen as --test, which wins over inferred
@@ -69,8 +83,7 @@ module Saboteur
             words << "--all" if provenance.settings[:all] && provenance.tests.empty?
             words.push(*test_words(provenance.tests))
             words.concat(setting_words(provenance))
-            words << "--no-cache" if provenance.cache == false
-            words << "--incremental" if provenance.incremental
+            words.concat(mode_words(provenance))
             words.push("--id", provenance.digest) if provenance.digest && !replay
             words
           end

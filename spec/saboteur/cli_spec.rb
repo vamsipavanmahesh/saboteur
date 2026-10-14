@@ -430,7 +430,7 @@ RSpec.describe Saboteur::CLI do
           system("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty",
                  "-m", "base", out: File::NULL, exception: true)
           cli("run", "--config", "config/saboteur.rb", "--since", "HEAD", "--subject", "Person#adult?", "--test",
-              "spec/a_spec.rb", "--test", "spec/space dir/b_spec.rb").call
+              "spec/a_spec.rb", "--test", "spec/space dir/b_spec.rb", "--allow-hazardous").call
         end
       end
       line = out.string.lines.find { |l| l.include?("replay one survivor:") }
@@ -439,7 +439,36 @@ RSpec.describe Saboteur::CLI do
       expect(words).to include("saboteur", "run", "--id", "--config", "config/saboteur.rb", "--since", "HEAD",
                                "--subject", "Person#adult?", "--test", "spec/a_spec.rb")
       expect(words.each_cons(2).to_a).to include(["--test", "spec/space dir/b_spec.rb"])
+      expect(words).to include("--allow-hazardous")
       expect(out.string).not_to include("add this run's own")
+    end
+
+    it "prints the footer command in full when the selection runs past the agent byte cap (#261)" do
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::WorkingTree).to receive(:new).and_call_original
+      tests = Array.new(40) { |i| "spec/padded selection #{i}/a_spec.rb" }
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("config")
+          File.write("config/saboteur.rb", "# config\n")
+          tests.each do |test|
+            FileUtils.mkdir_p(File.dirname(test))
+            File.write(test, "# spec\n")
+          end
+          system("git", "init", "-q", out: File::NULL, exception: true)
+          system("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty",
+                 "-m", "base", out: File::NULL, exception: true)
+          cli("run", "--config", "config/saboteur.rb", "--since", "HEAD",
+              *tests.flat_map { |test| ["--test", test] }).call
+        end
+      end
+      line = out.string.lines.find { |l| l.include?("replay one survivor:") }
+      expect(line.bytesize).to be > 1024
+      expect(line).to include("spec/padded\\ selection\\ 39/a_spec.rb")
+      expect(out.string).not_to include("add this run's own")
+      expect(Saboteur::WorkingTree).to have_received(:new)
+        .with(kind_of(String), ignored: kind_of(Array)).at_least(:once)
     end
 
     it "passes --verbose to the engine only for text runs (#262)" do

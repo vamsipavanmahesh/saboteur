@@ -76,6 +76,7 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
       expect(hooks).to equal(engine.hooks)
       expect(load_lines).to eq(target.file => [3])
       expect(supervisor).to be_a(Saboteur::Execution::Supervisor)
+      expect(supervisor.instance_variable_get(:@limits).max_memory_mb).to eq(8192)
       expect(diagnostics).to be_a(Saboteur::Engine::Diagnostics)
       store
     end

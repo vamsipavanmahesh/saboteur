@@ -357,10 +357,14 @@ and a hint on what kind of test would kill it. The summary has the counts per
 status, the score, a table of scores per file (worst first) and a one-line
 legend. When survivors remain, the Next steps footer prints the complete
 replay command - ref, subjects, specs, sources, seed and the run settings
-the agent protocol records, shell-escaped and printed in full however
-long it gets - so running it as-is replays the survivor with the same
-selection. Generation and output knobs that cannot change a by-digest
-replay (for example `--max-mutants-per-method`, `--fail-fast`,
+the agent protocol records, including the CLI-only switches that change
+candidate availability or boot (`--allow-hazardous`, `--allow-focus`) -
+shell-escaped and printed in full however long it gets, so running it
+as-is replays the survivor with the same selection. Framework and
+generation settings from the config file (arid/hazard patterns,
+whole-file, require, rspec_args, rails) ride along through the command's
+`--config` or the default config path. Only knobs that cannot change a
+by-digest replay (`--max-mutants-per-method`, `--fail-fast`,
 `--threshold`) are left out. The agent protocol instead omits a command
 longer than 1024 bytes, and the agent rebuilds it from the run's
 provenance. `--verbose` adds the score split, mean time, whole-body score and
@@ -715,14 +719,14 @@ workers fork. Two are well known:
 
 - `AR Pool Reaper` only maintains the parent's connection pool. It is
   expected harmless when children reconnect the database after fork -
-  saboteur's rails mode does exactly that; without that reconnection a
-  child simply has no database connection.
+  saboteur's rails mode does exactly that. Without verified
+  reconnection, do not assume the inherited connection state is safe.
 - `DEBUGGER__::SESSION@server` is the debug gem's remote console. It is
-  not expected to affect results: under the gem's default fork mode
-  children run no console, and `RUBY_DEBUG_FORK_MODE=child`/`both`
-  attaches it to children on purpose (ruby/debug's `on_fork`
-  activation). To not start it at all, drop `RUBY_DEBUG_OPEN` or
-  require `debug` without `:open`.
+  not expected to affect results; whether it also attaches to children
+  depends on `RUBY_DEBUG_FORK_MODE` (`both` - the gem's default - and
+  `child` attach; `parent` does not). For unattended runs, do not start
+  the remote debugger at all: drop `RUBY_DEBUG_OPEN` or require
+  `debug` without `:open`.
 
 Any other thread gets a generic caveat: a thread that does not run in a
 child cannot do background work a mutant's test may rely on, so results

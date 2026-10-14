@@ -39,6 +39,16 @@ RSpec.describe Saboteur::Engine::Diagnostics, "per-subject verbose lines" do
     described_class.new(err).subject_progress(subject, results)
     expect(err.string).to eq("")
   end
+
+  it "prints no subject line for an empty result set" do
+    described_class.new(err, verbose: true).subject_progress(subject, [])
+    expect(err.string).to eq("")
+  end
+
+  it "marks an unlisted status with a question mark" do
+    described_class.new(err, verbose: true).subject_progress(subject, [Struct.new(:status).new(:mystery)])
+    expect(err.string).to include("#{subject.id}  ?")
+  end
 end
 
 RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat" do

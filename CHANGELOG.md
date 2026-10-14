@@ -13,7 +13,8 @@ All notable changes are documented here. The format follows
   and estimates the remaining baseline and coverage time once the first
   baseline pass is timed; past 1,000 examples it also names `--test` as
   the way to scope (#260). The Next steps footer prints the complete,
-  shell-safe replay command carrying the run's own selection options,
+  shell-safe replay command carrying the run's own selection options
+  and the CLI-only switches that change candidate availability or boot,
   in full however long it gets, instead of asking you to reassemble
   them (#261). `--verbose` prints one line per finished subject with its
   result marks, so a survivor is attributable to a method before the run

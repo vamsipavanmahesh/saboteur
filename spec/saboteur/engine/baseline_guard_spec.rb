@@ -58,11 +58,32 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
 
   it "estimates the remaining full passes once the first baseline pass is timed (#260)" do
     err = StringIO.new
+    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
     allow(supervisor).to receive(:run).and_return(response)
     described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
                         full_passes: 3).call
-    expect(err.string).to match(/baseline check 1 took \d+ s; about \d+ s left for the remaining 2 full passes/)
+    expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
+    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 2 full passes")
+  end
+
+  it "announces the single remaining pass in the singular" do
+    err = StringIO.new
+    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        full_passes: 2).call
+    expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the remaining 1 full pass")
+  end
+
+  it "says nothing when the baseline passes are all the passes there are" do
+    err = StringIO.new
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        full_passes: 1).call
+    expect(err.string).not_to include("took")
   end
 
   it "refuses inconsistent pass/failure fields and invalid executed fields" do

@@ -57,12 +57,14 @@ module Saboteur
       # Once the first pass is timed, the total cost stops being a guess:
       # the remaining full passes cost roughly the same each.
       def announce_first_pass_cost(number, started)
-        return unless number == 1 && @full_passes > 1
+        return unless number == 1
+
+        remaining = @full_passes - number
+        return if remaining.zero?
 
         elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round
-        remaining = @full_passes - 1
-        @diagnostics.inform("baseline check 1 took #{elapsed} s; about #{elapsed * remaining} s left for the " \
-                            "remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'} at that rate")
+        @diagnostics.inform("baseline check #{number} took #{elapsed} s; about #{elapsed * remaining} s left for " \
+                            "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'} at that rate")
       end
 
       def check(number)
