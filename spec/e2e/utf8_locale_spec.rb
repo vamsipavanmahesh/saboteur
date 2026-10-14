@@ -56,7 +56,7 @@ RSpec.describe "saboteur run under LANG=C with non-ASCII paths", :e2e do
   it "finds and reports a survivor in the changed non-ASCII file, exiting 1" do
     dir = committed_project
     path = File.join(dir, "lib", "héllo.rb")
-    File.write(path, File.read(path).sub("héllo", "héllö"))
+    File.write(path, File.read(path, encoding: "UTF-8").sub("héllo", "héllö"))
 
     run = saboteur(dir, "--since", "HEAD", env: { "LANG" => "C", "LC_ALL" => "C" })
     expect(run.status).to eq(1), other_outcomes(run)

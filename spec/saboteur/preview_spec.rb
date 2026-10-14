@@ -4,6 +4,21 @@
 require "stringio"
 
 RSpec.describe Saboteur::Preview do
+  it "reads a receipt naming a non-ASCII map path under a non-UTF-8 locale" do
+    cfg = config
+    dir = cfg.path("cache_dir")
+    FileUtils.mkdir_p(dir)
+    digest = Saboteur::Engine::RunFingerprint.new(config: cfg).snapshot.digest
+    File.write(File.join(dir, "preview.json"),
+               JSON.generate({ "fingerprint" => digest, "path" => "/tmp/caf\u00E9/map.json" }))
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    allow(Saboteur::Selection::CoverageMap).to receive(:load).with("/tmp/caf\u00E9/map.json").and_return(map)
+    allow(File).to receive(:read).and_wrap_original do |original, *args|
+      original.call(*args).force_encoding(Encoding::US_ASCII)
+    end
+    expect(preview(cfg).send(:cached_map)).to be(map)
+  end
+
   let(:target) { subjects_in("class PreviewCases\n  def m(x)\n    x + 1\n    x * 2\n  end\nend\n").first }
   let(:root) { File.dirname(target.file) }
   let(:out) { StringIO.new }

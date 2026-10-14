@@ -51,6 +51,7 @@ module Saboteur
       end
     rescue OptionParser::ParseError => e
       usage_error(e.message)
+    rescue StandardError => e then internal_error(e)
     end
 
     def config

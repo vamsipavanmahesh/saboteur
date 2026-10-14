@@ -22,6 +22,19 @@ RSpec.describe Saboteur::Install do
     expect(read(".gitignore")).to eq(".saboteur/\n")
   end
 
+  it "reads a Gemfile and .gitignore with non-ASCII content under a non-UTF-8 locale" do
+    File.write(File.join(@root, "Gemfile"), "# caf\u00E9\ngem \"saboteur\"\n")
+    File.write(File.join(@root, ".gitignore"), "caf\u00E9\n")
+    allow(File).to receive(:read).and_wrap_original do |original, *args|
+      original.call(*args).force_encoding(Encoding::US_ASCII)
+    end
+    installer = described_class.new(root: @root)
+    expect(installer.gemfile_hint).to be_nil
+    ignore = installer.call.find { |result| result.path == ".gitignore" }
+    expect(ignore.status).to eq(:appended)
+    expect(File.binread(File.join(@root, ".gitignore"))).to eq("caf\xC3\xA9\n.saboteur/\n".b)
+  end
+
   it "writes a config that loads through the real Config with Rails defaults" do
     install
     config = Saboteur::Config.load(root: @root)
@@ -30,7 +43,7 @@ RSpec.describe Saboteur::Install do
   end
 
   it "matches the Rails block documented in the README" do
-    readme = File.read(File.expand_path("../../README.md", __dir__))
+    readme = File.read(File.expand_path("../../README.md", __dir__), encoding: "UTF-8")
     documented = readme[/^### Rails apps\n.*?```ruby\n(.*?)```/m, 1]
     code = ->(text) { text.scan(/^\s*(c\.\w+ = [^#\n]+)/).flatten.map { |line| line.strip.gsub(/\s+/, " ") } }
     expect(code.call(described_class::CONFIG)).to include(*code.call(documented))

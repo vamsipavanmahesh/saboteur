@@ -3,6 +3,7 @@
 
 require "digest"
 require "shellwords"
+require_relative "../text"
 require_relative "data_inputs"
 
 module Saboteur
@@ -56,7 +57,8 @@ module Saboteur
       # `--require name` resolves through RSpec's load path: spec/, lib/ and
       # any -I directory.
       def required_by_options
-        tokens = option_files.flat_map { |file| Shellwords.split(File.read(file)) } + @config["rspec_args"]
+        tokens = option_files.flat_map { |file| Shellwords.split(Text.utf8_identity(File.read(file))) } +
+                 @config["rspec_args"]
         load_path = LOAD_PATH + option_values(tokens, "-I", "--include")
         option_values(tokens, *REQUIRE_FLAGS).filter_map { |name| resolve(name, load_path) }
       end

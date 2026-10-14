@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require_relative "text"
 
 module Saboteur
   # Writes the Rails starter files: config/saboteur.rb, bin/saboteur and a
@@ -64,7 +65,7 @@ module Saboteur
     # Printed after install; the Gemfile is never edited.
     def gemfile_hint
       gemfile = File.join(@root, "Gemfile")
-      return nil if File.file?(gemfile) && File.read(gemfile).match?(/^\s*gem\s+["']saboteur["']/)
+      return nil if File.file?(gemfile) && Text.utf8(File.read(gemfile)).match?(/^\s*gem\s+["']saboteur["']/)
 
       GEMFILE_HINT
     end
@@ -108,8 +109,8 @@ module Saboteur
       link = symlink_component(".gitignore")
       return Result.new(:skipped, ".gitignore") if link && !@force
 
-      current = File.file?(path) ? File.read(path) : ""
-      listed = listed?(current)
+      current = File.file?(path) ? Text.utf8_identity(File.read(path)) : ""
+      listed = listed?(Text.utf8(current))
       return Result.new(:unchanged, ".gitignore") if listed && !link
 
       File.delete(link) if link

@@ -104,6 +104,25 @@ All notable changes are documented here. The format follows
   silent zero-subject scope used to pass as a clean run. Comment-only or
   formatting-only changes within discovered methods are skipped without
   this warning; the run reports those skipped methods.
+### Fixed
+- An unexpected internal error now prints `saboteur: internal error (...)
+  - please report it` and exits 3, instead of escaping as a bare stack
+  trace with an accidental exit 1. The crash message is normalized to one
+  bounded line first, and agent mode reports the same failure as agent
+  JSON. Errors raised before the CLI loads are not covered yet, and the
+  backtrace is not yet written to a log file or printed with `--verbose`;
+  #233 tracks the remainder.
+- The install spec reads the README as UTF-8, so the suite also passes
+  under `LANG=C`.
+- Tool and test reads of files that can carry non-ASCII text are decoded
+  as UTF-8 regardless of the process locale: the baseline manifest and
+  preview receipt, `.rspec` option files, the custom-map duplicate scan,
+  the installer's Gemfile and `.gitignore` probes (`.gitignore` is
+  rewritten losslessly), and the JSON reads in the test helpers.
+- CI now runs the suite on Ubuntu Ruby 3.4 with `LANG=C` and `LC_ALL=C`
+  to catch locale regressions exercised by the tests. The job is advisory
+  for now: it is not part of the required-check policy, and whether it
+  gates is a separate maintainer decision.
 
 ## [0.6.0] - 2026-10-14
 

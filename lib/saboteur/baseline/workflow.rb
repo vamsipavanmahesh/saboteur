@@ -4,6 +4,7 @@
 require_relative "acceptance"
 require_relative "comparison"
 require_relative "../engine"
+require_relative "../text"
 
 module Saboteur
   module Baseline
@@ -70,7 +71,7 @@ module Saboteur
 
         bytes = File.read(path)
         @baseline_digest = Digest::SHA256.hexdigest(bytes)
-        manifest = Manifest.new(JSON.parse(bytes))
+        manifest = Manifest.new(JSON.parse(Text.utf8_strict(bytes)))
         metadata = manifest.to_h.fetch("metadata")
         candidates = manifest.candidates.values
         restored = metadata.slice("snapshot", "subjects", "complete", "issues").merge(

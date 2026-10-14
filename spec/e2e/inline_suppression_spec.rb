@@ -11,7 +11,7 @@ RSpec.describe "inline suppression (end to end)", :e2e do
     expect(entries.size).to be >= 4
     expect(entries.map { |entry| entry["reason"] }.uniq).to eq(["validated elsewhere"])
     expect(run.out).to include("Inline suppressions:", "validated elsewhere")
-    html = File.read(File.join(dir, ".saboteur", "report.html"))
+    html = File.read(File.join(dir, ".saboteur", "report.html"), encoding: "UTF-8")
     expect(html).to include("Inline suppressions", "validated elsewhere")
   end
 
@@ -113,7 +113,7 @@ RSpec.describe "inline suppression (end to end)", :e2e do
     out, err, status = Open3.capture3({ "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") },
                                       RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), "-e", script, chdir: dir)
     expect(status.exitstatus).to eq(0), out + err
-    evidence = JSON.parse(File.read(File.join(dir, "evidence.json")))
+    evidence = JSON.parse(File.read(File.join(dir, "evidence.json"), encoding: "UTF-8"))
     expect(evidence.fetch("complete")).to be(false)
     expect(evidence.fetch("issues").grep(/inline_suppressed/).size).to eq(1)
     expect(evidence.fetch("inline_suppressions").first).to include("file" => "lib/inline_math.rb",

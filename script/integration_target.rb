@@ -13,7 +13,7 @@ module IntegrationTarget
   module_function
 
   def counts(report_path)
-    tally(mutants(JSON.parse(File.read(report_path))))
+    tally(mutants(JSON.parse(File.read(report_path, encoding: "UTF-8"))))
   end
 
   # Exit 3 has several causes: a boot or tool failure, an incomplete run
@@ -26,7 +26,7 @@ module IntegrationTarget
   def accept_error_majority?(code, allowance, report_path)
     return false unless code == 3 && allowance
 
-    document = JSON.parse(File.read(report_path))
+    document = JSON.parse(File.read(report_path, encoding: "UTF-8"))
     all = mutants(document)
     actual = tally(all)
     executed = actual.values_at("killed", "survived", "timeout", "error").sum

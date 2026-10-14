@@ -57,7 +57,7 @@ RSpec.describe "opt-in baseline commands", :e2e do
     expect(JSON.parse(out).fetch("state")).to eq("proposal")
     expect(err).to include("config diagnostic", "boot diagnostic", "hook diagnostic")
     proposal_path = File.join(dir, "proposal.json")
-    proposal = JSON.parse(File.read(proposal_path))
+    proposal = JSON.parse(File.read(proposal_path, encoding: "UTF-8"))
     expect(proposal.fetch("execution").fetch("complete")).to be(true)
     expect(proposal.fetch("document").fetch("accepted")).not_to be_empty
     reject_nested(dir, proposal_path, File.join(dir, "baseline.json"), proposal)
@@ -84,7 +84,7 @@ RSpec.describe "opt-in baseline commands", :e2e do
                                "--previous", previous)
     expect(status.exitstatus).to eq(0), out + err
     replacement = File.join(dir, "replacement.json")
-    revised = JSON.parse(File.read(replacement))
+    revised = JSON.parse(File.read(replacement, encoding: "UTF-8"))
     revised.fetch("document").fetch("accepted").each { |entry| entry["reason"] = "reviewed replacement" }
     File.write(replacement, JSON.generate(revised))
     reject_nested(dir, replacement, baseline_path, revised, previous: previous)

@@ -17,6 +17,61 @@ RSpec.describe Saboteur::CLI do
     expect(out.string.strip).to eq(Saboteur::VERSION)
   end
 
+  # B3: an unexpected failure must not escape as a bare stack trace and
+  # an accidental exit 1; it is reported as ours and exits 3.
+  it "reports an unexpected failure as an internal error and exits 3" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(NoMethodError, "undefined method `boom'")
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("saboteur: internal error (NoMethodError: undefined method `boom'")
+    expect(err.string).to include("please report it: https://github.com/vamsipavanmahesh/saboteur/issues")
+  end
+
+  it "collapses a multiline crash message into the one-line diagnostic" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "first line\nsecond line")
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: first line second line)")
+    expect(err.string).not_to include("second line\n")
+  end
+
+  it "scrubs locale-invalid bytes out of a crash message" do
+    allow(Saboteur::Engine).to receive(:new)
+      .and_raise(RuntimeError, "broken \xFF byte".dup.force_encoding(Encoding::UTF_8))
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: broken ? byte)")
+  end
+
+  it "leaves a crash message at the length cap untouched" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 160)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: #{'x' * 160})")
+    expect(err.string).not_to include("...")
+  end
+
+  it "truncates a crash message one character past the cap" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 161)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: #{'x' * 160}...)")
+  end
+
+  it "re-reads a byte-tagged crash message as UTF-8" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "caf\xC3\xA9\xFF".b)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: caf\u00E9?)")
+  end
+
+  it "renders a crash whose message is not a String" do
+    weird = stub_const("WeirdError", Class.new(StandardError) { def message = 42 })
+    allow(Saboteur::Engine).to receive(:new).and_raise(weird)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (WeirdError: 42)")
+  end
+
+  it "reports an unexpected failure in agent mode as an agent failure and exits 3" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    expect(cli("run", "--agent").call).to eq(3)
+    expect(out.string).to include("internal error (RuntimeError: boom)")
+  end
+
   it "parses run options into config overrides" do
     command = cli("run", "--since", "main", "--subject", "A#b", "--subject", "C.d",
                   "--timeout-factor", "2.5", "--jobs", "1", "--reeval", "nesting", "--no-cache", "--seed", "42")

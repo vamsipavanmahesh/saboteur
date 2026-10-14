@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "engine"
+require_relative "text"
 
 module Saboteur
   # Source-only planning. Never boots the host or executes its test suite.
@@ -92,7 +93,7 @@ module Saboteur
     # coverage map means "no estimate", never an exception.
     def cached_map
       path = File.join(@config.path("cache_dir"), "preview.json")
-      receipt = JSON.parse(File.read(path))
+      receipt = JSON.parse(Text.utf8_strict(File.read(path)))
       return unless receipt["fingerprint"] == Engine::RunFingerprint.new(config: @config).snapshot.digest
 
       Selection::CoverageMap.load(receipt["path"])

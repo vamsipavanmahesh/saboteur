@@ -73,7 +73,7 @@ RSpec.describe "preflight invocation form" do
 
   it "documents and reports only the `ruby script/preflight` form, never direct execution" do
     %w[README.md AGENTS.md docs/preflight.md].each do |file|
-      text = File.read(File.join(root, file))
+      text = File.read(File.join(root, file), encoding: "UTF-8")
       direct = text.lines.grep(%r{(?<!ruby )(?<![\w/.])script/preflight --})
       expect(direct).to eq([]), "#{file} runs script/preflight directly: #{direct.first}"
     end

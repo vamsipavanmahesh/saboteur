@@ -27,6 +27,10 @@ RSpec.describe Saboteur::Engine::TestGuess do
 
   before do
     git("init", "-q")
+    # Background gc/maintenance races the teardown's remove_entry (its lock
+    # file can vanish mid-delete on macOS).
+    git("config", "gc.auto", "0")
+    git("config", "maintenance.auto", "false")
     %w[lib/a.rb lib/deep/b.rb lib/c.rb app/models/d.rb lib/e.rb].each { |file| write(file, base_source) }
     %w[spec/a_spec.rb spec/deep/b_spec.rb spec/models/d_spec.rb spec/lib/e_spec.rb spec/stray_spec.rb].each do |f|
       write(f)
