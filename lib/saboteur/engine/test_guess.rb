@@ -6,8 +6,9 @@ module Saboteur
     # --guess-tests: the specs that sit next to the changed source files by
     # naming convention (lib/a/b.rb -> spec/a/b_spec.rb). A guess, not a
     # coverage fact: a spec that only reaches the file through another one
-    # is not found. The run scopes to the guesses only when every changed
-    # file has one.
+    # is not found. Packwerk packs (a directory with a package.yml) map to the
+    # spec directory inside the same pack, and controllers also map to request
+    # specs. The run scopes to the guesses only when every changed file has one.
     class TestGuess
       Result = Data.define(:specs, :unmatched, :changed)
 
@@ -40,12 +41,46 @@ module Saboteur
       end
 
       def guess_for(file)
-        stem = file.delete_suffix(".rb")
+        candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
+      end
+
+      # Candidate specs for a source file, most specific first: the nearest
+      # package.yml pack's own spec directory, then the app-wide one.
+      def candidates_for(file)
+        pack = pack_of(file)
+        base = pack ? file.delete_prefix("#{pack}/") : file
+        spec_root = pack ? "#{pack}/spec" : "spec"
+        stem = base.delete_suffix(".rb")
         rest = stem.split("/", 2)
-        candidates = ["spec/#{stem}_spec.rb"]
-        candidates.unshift("spec/#{rest.last}_spec.rb", "spec/lib/#{rest.last}_spec.rb") if
-          rest.size == 2 && SOURCE_ROOTS.include?(rest.first)
-        candidates.find { |path| File.file?(File.join(@root, path)) }
+        rooted = rest.size == 2 && SOURCE_ROOTS.include?(rest.first)
+        names = rooted ? [rest.last, "lib/#{rest.last}", stem] : [stem]
+        names = names.flat_map { |name| [name, *request_names(name)] }.uniq
+        names.map { |name| "#{spec_root}/#{name}_spec.rb" }
+      end
+
+      # Rails tests controllers as request specs: spec/requests/users_spec.rb
+      # or spec/requests/users_controller_spec.rb for controllers/users_controller.rb.
+      def request_names(name)
+        return [] unless name.start_with?("controllers/")
+
+        path = name.delete_prefix("controllers/")
+        ["requests/#{path}", "requests/#{path.delete_suffix('_controller')}"].uniq
+      end
+
+      # The nearest ancestor directory holding a package.yml (a packwerk
+      # pack), relative to the root. The root itself is not a pack here:
+      # its specs follow the plain mapping.
+      def pack_of(file)
+        dir = File.dirname(file)
+        until dir == "."
+          return dir if pack_dirs.include?(dir)
+
+          dir = File.dirname(dir)
+        end
+      end
+
+      def pack_dirs
+        @pack_dirs ||= Dir.glob("**/package.yml", base: @root).to_set { |path| File.dirname(path) }
       end
     end
   end
