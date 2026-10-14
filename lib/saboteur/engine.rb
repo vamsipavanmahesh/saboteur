@@ -13,7 +13,8 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     # Everything besides sources and tests that can change a verdict.
-    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators arid timeout_factor timeout_min
+    VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
+                        timeout_factor timeout_min
                         max_memory_mb max_processes seed tests whole_file].freeze
 
     attr_reader :config, :hooks
@@ -41,6 +42,7 @@ module Saboteur
       refuse_fail_fast_evidence
       started = monotonic
       guess_tests
+      announce_operators
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
       warn_custom_map
@@ -110,6 +112,10 @@ module Saboteur
     end
 
     # The run's immutable report, built once the last result is in.
+    def announce_operators
+      @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
+    end
+
     def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
@@ -117,7 +123,8 @@ module Saboteur
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
-                 matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions)
+                 matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
+                 operator_policy: config.operator_policy)
     end
 
     def complete_evidence(results, subjects)
@@ -249,7 +256,8 @@ module Saboteur
       return nil if @replay
       return nil unless config["incremental"]
 
-      inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] })
+      inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }
+                                            .merge("operator_policy" => config.operator_policy))
       ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
                       suite_digest: SuiteFiles.new(config).digest)
     end
