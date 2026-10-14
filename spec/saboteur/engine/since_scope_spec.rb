@@ -116,12 +116,33 @@ RSpec.describe Saboteur::Engine, "test selection" do
     expect(err.string).not_to include("Pass --test to run only the specs you name")
   end
 
+  it "suggests --test past the example-count threshold" do
+    allow(integration).to receive(:all_tests).and_return(Array.new(1_001) { |i| double(id: "t#{i}") })
+    run_engine("since" => "origin/main", "all" => true)
+    expect(err.string).to include("1001 examples in 3 spec files", "Pass --test to run only the specs you name")
+  end
+
   it "does not nag a single-mutant replay about the whole suite's cost (#260)" do
     stub_boot_phase
     stub_test_phases
     engine = described_class.new(Saboteur::Config.new({ "jobs" => 2, "all" => true }, root: @root),
                                  err: err, digest: "0" * 16)
     expect { engine.call }.to raise_error(Saboteur::Error, /not found/)
+    expect(err.string).not_to include("running the loaded suite unscoped")
+  end
+
+  it "does not nag a replay that resolves and runs its mutant (#260)" do
+    stub_boot_phase
+    stub_test_phases
+    config = Saboteur::Config.new({ "jobs" => 2, "all" => true }, root: @root)
+    probe = described_class.new(config, err: err, digest: "0" * 16)
+    sources = Saboteur::Engine::Candidates.build_sources(config)
+    candidates = Saboteur::Engine::Candidates.new(sources, probe.instance_variable_get(:@diagnostics),
+                                                  hazard_guard: probe.send(:hazard_guard))
+    mutation, = candidates.for(subject_under_test).first
+    digest = mutation.digest(subject_start: subject_under_test.start_byte,
+                             original_source: subject_under_test.file_source)
+    described_class.new(config, err: err, digest: digest).call
     expect(err.string).not_to include("running the loaded suite unscoped")
   end
 

@@ -17,14 +17,11 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
   end
 
   it "appends no caveat when every alive thread is a known one" do
-    reaper = Thread.new { sleep }
-    reaper.name = "AR Pool Reaper"
+    reaper = instance_double(Thread, name: "AR Pool Reaper", backtrace: ["pool.rb:1"])
+    allow(Thread).to receive(:list).and_return([Thread.current, reaper])
     Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
     expect(warnings.last).to include("AR Pool Reaper")
-    expect(warnings.last).not_to include("unknown thread")
-  ensure
-    reaper.kill
-    reaper.join
+    expect(warnings.last).not_to include("left behind")
   end
 
   it "names an unnamed thread by the first frame of its backtrace" do

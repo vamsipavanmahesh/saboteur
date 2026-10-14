@@ -52,6 +52,17 @@ RSpec.describe "finished run reporting" do
     expect(cli).to receive(:write_json).with(report, "ok").ordered
     expect(cli.send(:agent_run, arguments)).to eq(0)
   end
+  it "builds survivor replay commands from a working tree that excludes output paths" do
+    cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+    config = cli.config
+    state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
+    tree = instance_double(Saboteur::WorkingTree, state: state)
+    expect(Saboteur::WorkingTree).to receive(:new).with(config.root, ignored: config.output_paths).and_return(tree)
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    command = cli.send(:survivor_replay_command, report_of(result_for(:survived)), engine).call("53b683c4659bb71c")
+    expect(command).to include("saboteur run", "--id", "53b683c4659bb71c")
+  end
+
   [nil, "digest"].each do |digest|
     it "forwards exact engine arguments for replay #{digest.inspect}" do
       err = StringIO.new

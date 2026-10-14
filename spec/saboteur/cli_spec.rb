@@ -443,6 +443,24 @@ RSpec.describe Saboteur::CLI do
       expect(out.string).not_to include("add this run's own")
     end
 
+    it "carries --allow-focus into the survivor replay command (#261)" do
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("spec")
+          File.write("spec/a_spec.rb", "# spec\n")
+          system("git", "init", "-q", out: File::NULL, exception: true)
+          system("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty",
+                 "-m", "base", out: File::NULL, exception: true)
+          cli("run", "--subject", "Person#adult?", "--test", "spec/a_spec.rb", "--allow-focus").call
+        end
+      end
+      line = out.string.lines.find { |l| l.include?("replay one survivor:") }
+      require "shellwords"
+      expect(Shellwords.split(line.split(":", 2).last)).to include("--allow-focus")
+    end
+
     it "prints the footer command in full when the selection runs past the agent byte cap (#261)" do
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
