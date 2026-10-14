@@ -27,7 +27,7 @@ RSpec.describe "private module-function mutation", :e2e do
         end
       end
     RUBY
-    run = saboteur(dir, "--subject", "PrivateModuleProbe#secret")
+    run = saboteur(dir, "--all", "--subject", "PrivateModuleProbe#secret")
     expect(run.status).to eq(0), run.err
     expect(mutants(run)).not_to be_empty
     expect(mutants(run).map { |item| item["status"] }.uniq).to eq(["Killed"])

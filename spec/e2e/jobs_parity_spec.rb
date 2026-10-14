@@ -9,8 +9,8 @@ RSpec.describe "--jobs verdict parity (end to end)", :e2e, :slow do
     it "gives identical verdicts for #{project} with --jobs 1 and --jobs 3" do
       dir = copy_fixture(project)
       verdicts = ->(run) { mutants(run).to_h { |m| [m["id"], [m["status"], m["statusReason"]]] } }
-      serial = saboteur(dir, "--jobs", "1")
-      parallel = saboteur(dir, "--jobs", "3")
+      serial = saboteur(dir, "--all", "--jobs", "1")
+      parallel = saboteur(dir, "--all", "--jobs", "3")
       expect(serial.status).to be <= 1, other_outcomes(serial)
       one = verdicts.call(serial)
       many = verdicts.call(parallel)

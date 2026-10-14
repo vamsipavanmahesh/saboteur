@@ -253,4 +253,43 @@ RSpec.describe Saboteur::Engine::TestGuess do
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
   end
+
+  it "maps each unmatched file to the conventional spec path for the retry hint" do
+    write("lib/c.rb", changed_source)
+    result = guess
+    expect(result.hints).to eq("lib/c.rb" => "spec/c_spec.rb")
+  end
+
+  describe "without --since (every included file is in scope)" do
+    def guess_all(include: ["lib/**/*.rb", "app/**/*.rb"])
+      config = Saboteur::Config.new({ "include" => include }, root: dir)
+      described_class.new(config).call
+    end
+
+    it "guesses a spec for every included file with a mutation subject" do
+      result = guess_all
+      expect(result.specs).to eq(%w[spec/a_spec.rb spec/deep/b_spec.rb spec/lib/e_spec.rb spec/models/d_spec.rb])
+      expect(result.unmatched).to eq(["lib/c.rb"])
+      expect(result.hints).to eq("lib/c.rb" => "spec/c_spec.rb")
+      expect(result.changed).to eq(5)
+    end
+
+    it "lists files with no mutation subjects as subjectless" do
+      write("lib/empty.rb", "# only a comment\n")
+      result = guess_all
+      expect(result.subjectless).to eq(["lib/empty.rb"])
+      expect(result.unmatched).not_to include("lib/empty.rb")
+    end
+
+    it "narrows to the files the include patterns name" do
+      result = guess_all(include: ["lib/a.rb"])
+      expect(result.specs).to eq(["spec/a_spec.rb"])
+      expect(result.changed).to eq(1)
+    end
+
+    it "reports nothing when no source file is included" do
+      result = guess_all(include: ["nope/**/*.rb"])
+      expect([result.specs, result.unmatched, result.subjectless, result.changed]).to eq([[], [], [], 0])
+    end
+  end
 end

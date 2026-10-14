@@ -85,8 +85,8 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       expect(distribution).to receive(:run).and_return([result])
       allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
 
-      report = described_class.new(Saboteur::Config.new({ "include" => ["*.rb"] }, root: root), capture_evidence: true,
-                                                                                                err: StringIO.new).call
+      config = Saboteur::Config.new({ "include" => ["*.rb"], "all" => true }, root: root)
+      report = described_class.new(config, capture_evidence: true, err: StringIO.new).call
 
       expect(report.run_evidence.fetch("complete")).to be(false)
       expect(report.run_evidence.fetch("issues"))

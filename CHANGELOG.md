@@ -6,6 +6,18 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Breaking: inferred test selection is now the default. Without `--test`,
+  a run picks the spec named after each mutated file and runs only those
+  for the baseline passes, the coverage pass and every mutant, as `--test`
+  would; with `--since` only the changed files count. A file that needs a
+  spec and has none now stops the run before it boots (exit 2) and names
+  both ways out, instead of silently running the whole suite. Use `--all`
+  or `c.test_selection = :all` to keep the old whole-suite behavior.
+  `--guess-tests` is a deprecated alias for the default and
+  `--no-guess-tests` warns and is ignored; both flags disappear in a
+  future release (#270).
+
 ### Fixed
 - Fixed two encoding failures in mutant children running under a non-UTF-8
   locale such as `LANG=C` (seen on CI, where the Landlock sandbox engages):

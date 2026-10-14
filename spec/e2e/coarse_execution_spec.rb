@@ -21,15 +21,15 @@ RSpec.describe "coarse and fine execution", :e2e do
   end
 
   it "runs fine mutants after a nil survivor with serial/parallel and fresh/all-cache parity" do
-    serial = saboteur(dir, "--subject", "CoarseProbe#value", "--jobs", "1", "--incremental")
+    serial = saboteur(dir, "--all", "--subject", "CoarseProbe#value", "--jobs", "1", "--incremental")
     expect(mutants(serial).find { |item| item["mutatorName"] == "body_nil" }.fetch("status")).to eq("Survived")
     fine = mutants(serial).reject { |item| item["mutatorName"].start_with?("body_") }
     expect(fine).not_to be_empty
     expect(fine.map { |item| item["status"] }).not_to include("Ignored", "NoCoverage")
-    cached = saboteur(dir, "--subject", "CoarseProbe#value", "--jobs", "2", "--incremental")
+    cached = saboteur(dir, "--all", "--subject", "CoarseProbe#value", "--jobs", "2", "--incremental")
     expect(verdicts(cached)).to eq(verdicts(serial))
     expect(cached.out).to include("reused")
-    parallel = saboteur(dir, "--subject", "CoarseProbe#value", "--jobs", "2")
+    parallel = saboteur(dir, "--all", "--subject", "CoarseProbe#value", "--jobs", "2")
     expect(verdicts(parallel)).to eq(verdicts(serial))
   end
 
@@ -44,7 +44,7 @@ RSpec.describe "coarse and fine execution", :e2e do
         end
       end
     RUBY
-    run = saboteur(dir, "--subject", "CoarseProbe#value")
+    run = saboteur(dir, "--all", "--subject", "CoarseProbe#value")
     expect(mutants(run).find { |item| item["mutatorName"] == "body_nil" }.fetch("status")).to eq("Survived")
     fine = mutants(run).reject { |item| item["mutatorName"].start_with?("body_") }
     expect(fine.map { |item| item["status"] }).to include("Killed")

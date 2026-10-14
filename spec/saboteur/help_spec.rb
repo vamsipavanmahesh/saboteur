@@ -121,10 +121,12 @@ RSpec.describe Saboteur::Help do
     expect(text).to include("EXAMPLES").and include("EXIT CODES")
   end
 
-  it "describes --guess-tests in the run help" do
-    expect(help.command("run")).to include("--[no-]guess-tests", "With --since: run only the specs named after the " \
-                                                                 "changed files (lib/a.rb -> spec/a_spec.rb); " \
-                                                                 "narrows and warns if some have none")
+  it "describes --all and the --guess-tests alias in the run help" do
+    expect(help.command("run")).to include("--all", "Run the whole configured test suite instead of inferring " \
+                                                    "the specs named after the mutated files")
+    expect(help.command("run")).to include("--[no-]guess-tests", "Deprecated alias: inferred specs are already " \
+                                                                 "the default; --no-guess-tests warns and is " \
+                                                                 "ignored - use --all for the whole suite")
   end
 
   it "does not list options for a command that takes none" do

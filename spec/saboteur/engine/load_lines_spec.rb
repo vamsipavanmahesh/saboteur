@@ -4,7 +4,7 @@
 require "stringio"
 
 RSpec.describe Saboteur::Engine, "boot coverage lines" do
-  let(:engine) { described_class.new(Saboteur::Config.new({}), err: StringIO.new) }
+  let(:engine) { described_class.new(Saboteur::Config.new({ "all" => true }), err: StringIO.new) }
   let(:fake_coverage) { Module.new }
 
   before do

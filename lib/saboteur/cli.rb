@@ -17,7 +17,7 @@ module Saboteur
     include ExitStatus
     include RunReporting
 
-    USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
+    USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
 " \
             "Run 'saboteur help' for every command, option, config key and exit code."
@@ -129,9 +129,12 @@ module Saboteur
 
     def run
       parser.parse!(@argv)
+      reject_test_selection_conflicts
       use_explicit_sources
       validate_run_options
       warn_dirty_tree
+
+      config.deprecation_warnings.each { |warning| @err.puts("saboteur: #{warning}") }
 
       return preview if options[:list_operators] || options[:dry_run]
 
@@ -148,6 +151,18 @@ module Saboteur
     # can change the tree. Say so up front when uncommitted work is at stake.
     def warn_dirty_tree
       WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
+    end
+
+    # Contradictory selection flags are a usage error before any file or
+    # repository check: --test wins over inference by precedence, but only
+    # one of them may be named. Config-file combinations are not errors:
+    # --test wins there, so generated commands stay valid over any config.
+    def reject_test_selection_conflicts
+      raise UsageError, "--all cannot be combined with --test" if options[:all] && options[:tests]&.any?
+      raise UsageError, "--all cannot be combined with --guess-tests" if options[:all] && options[:guess_tests]
+      return unless options[:guess_tests] && options[:tests]&.any?
+
+      raise UsageError, "--guess-tests cannot be combined with --test"
     end
 
     # Usage errors found before the target boots.
@@ -332,8 +347,10 @@ module Saboteur
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
       end
-      opts.on("--[no-]guess-tests", "With --since: run only the specs named after the changed files " \
-                                    "(lib/a.rb -> spec/a_spec.rb); narrows and warns if some have none") do |v|
+      opts.on("--all", "Run the whole configured test suite instead of inferring the specs named after the " \
+                       "mutated files") { set(:all, true) }
+      opts.on("--[no-]guess-tests", "Deprecated alias: inferred specs are already the default; " \
+                                    "--no-guess-tests warns and is ignored - use --all for the whole suite") do |v|
         set(:guess_tests, v)
       end
     end

@@ -59,6 +59,8 @@ module Saboteur
       "allow_focus" => false,
       "fail_fast" => false,
       "guess_tests" => false,
+      "all" => false,
+      "test_selection" => "auto",
       "matrix" => false,
       "seed" => 1,
       "tests" => [],
@@ -98,6 +100,9 @@ module Saboteur
       hash.to_h { |key, value| [key.to_s, value] }.compact
     end
 
+    # Deprecations found while loading: printed by the CLI, never fatal.
+    attr_reader :deprecation_warnings
+
     def initialize(values = {}, root: Dir.pwd)
       # Retag the root losslessly: under a non-UTF-8 locale it arrives
       # locale-tagged, and every glob, join and expand below would mix
@@ -106,6 +111,7 @@ module Saboteur
       unknown = values.keys - DEFAULTS.keys
       raise ConfigError, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
 
+      @deprecation_warnings = deprecations(values)
       @values = DEFAULTS.merge(values)
       coerce!
       validate!
@@ -157,11 +163,23 @@ module Saboteur
 
     private
 
+    # An explicit guess_tests = false (config file or --no-guess-tests) used
+    # to keep the whole suite; inference is the default now, so the opt-out
+    # is --all / c.test_selection = :all. guess_tests = true is the default
+    # behavior spelled out, so it stays silent.
+    def deprecations(values)
+      return [] unless values.key?("guess_tests") && values["guess_tests"] == false
+
+      ["guess_tests = false is deprecated: inferred specs are the default and it no longer restores the " \
+       "whole suite; use --all or c.test_selection = :all to run every spec"]
+    end
+
     def coerce!
       INTEGER_KEYS.each { |key| @values[key] = Integer(@values[key]) }
       FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) }
       LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
       @values["threshold"] = Float(@values["threshold"]) unless @values["threshold"].nil?
+      @values["test_selection"] = @values["test_selection"].to_s
     rescue ArgumentError, TypeError => e
       raise ConfigError, "invalid config value: #{e.message}"
     end
@@ -185,7 +203,7 @@ module Saboteur
     def validate_modes!
       validate_fail_fast!
       validate_matrix!
-      validate_guess_tests!
+      validate_test_selection!
       validate_gates!
     end
 
@@ -214,11 +232,10 @@ module Saboteur
       raise ConfigError, "threshold must be between 0 and 100"
     end
 
-    def validate_guess_tests!
-      return unless self["guess_tests"]
+    def validate_test_selection!
+      return if %w[auto all].include?(self["test_selection"])
 
-      raise ConfigError, "guess_tests needs since" unless self["since"]
-      raise ConfigError, "guess_tests cannot be combined with tests" if self["tests"].any?
+      raise ConfigError, "test_selection must be one of: auto, all"
     end
 
     def validate_reeval!

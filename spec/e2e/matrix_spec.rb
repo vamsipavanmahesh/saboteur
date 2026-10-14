@@ -22,20 +22,20 @@ RSpec.describe "--matrix (end to end)", :e2e do
   end
 
   it "stops at the first failing test without --matrix" do
-    run = saboteur(dir, "--subject", subject_name)
+    run = saboteur(dir, "--all", "--subject", subject_name)
     expect(killers(run).max).to eq(1)
     expect(run.out).not_to include("test matrix:")
   end
 
   it "runs every covering test per mutant, so a duplicate test is a second killer and is reported redundant" do
-    run = saboteur(dir, "--matrix", "--subject", subject_name)
+    run = saboteur(dir, "--all", "--matrix", "--subject", subject_name)
     expect(killers(run).max).to be >= 2
     expect(run.out).to include("test matrix:", "redundant (every kill had another killer)")
     expect(run.out).to match(%r{spec/twin_spec\.rb\[1:1\]  \d+ kills})
   end
 
   it "refuses to combine with --incremental" do
-    run = saboteur(dir, "--matrix", "--incremental", "--subject", subject_name)
+    run = saboteur(dir, "--all", "--matrix", "--incremental", "--subject", subject_name)
     expect(run.status).not_to eq(0)
     expect(run.err).to include("matrix cannot be combined with incremental")
   end

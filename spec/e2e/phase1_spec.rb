@@ -12,7 +12,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
     end
 
     it "lets >= -> > survive with tests at 17 and 19, and kills it once 18 is tested" do
-      first = saboteur(dir)
+      first = saboteur(dir, "--all")
       expect(first.status).to eq(1), first.err
       expect(adult_comparison(first, ">")["status"]).to eq("Survived")
       expect(first.out).to include("14: def adult?; @age >= 18; end", "- comparison >= -> > ")
@@ -26,13 +26,13 @@ RSpec.describe "saboteur run (end to end)", :e2e do
           end
         end
       RUBY
-      second = saboteur(dir)
+      second = saboteur(dir, "--all")
       expect(adult_comparison(second, ">")["status"]).to eq("Killed")
       expect(test_names(second, adult_comparison(second, ">")["killedBy"])).to eq(["./spec/boundary_spec.rb[1:1]"])
     end
 
     it "reports errors, not kills, when the killing test fails with the method unchanged (class_eval scope)" do
-      run = saboteur(dir, "--reeval", "class_eval")
+      run = saboteur(dir, "--all", "--reeval", "class_eval")
       constant_mutants = mutants(run).select { |m| m["location"]["start"]["line"].between?(16, 18) }
       expect(constant_mutants.map { |m| m["status"] }.uniq).to eq(["RuntimeError"])
       expect(constant_mutants.map { |m| m["statusReason"] }.uniq.first)
@@ -41,7 +41,7 @@ RSpec.describe "saboteur run (end to end)", :e2e do
     end
 
     it "runs those subjects with the nesting strategy" do
-      run = saboteur(dir, "--reeval", "nesting")
+      run = saboteur(dir, "--all", "--reeval", "nesting")
       constant_mutants = mutants(run).select { |m| m["location"]["start"]["line"].between?(16, 18) }
       expect(constant_mutants.map { |m| m["status"] }).not_to include("Ignored")
     end
@@ -50,49 +50,49 @@ RSpec.describe "saboteur run (end to end)", :e2e do
     # each); the last run's child logs now live in .saboteur/logs.
     it "keeps child logs in .saboteur/logs, not in a new temporary directory" do
       Dir.mktmpdir do |tmp|
-        saboteur(dir, "--subject", "Stage", env: { "TMPDIR" => tmp })
+        saboteur(dir, "--all", "--subject", "Stage", env: { "TMPDIR" => tmp })
         expect(Dir.children(tmp).grep(/saboteur-/)).to be_empty
       end
       expect(File.directory?(File.join(dir, ".saboteur", "logs"))).to be(true)
     end
 
     it "reuses the cached coverage map on the second run" do
-      saboteur(dir)
-      second = saboteur(dir)
+      saboteur(dir, "--all")
+      second = saboteur(dir, "--all")
       expect(second.err).not_to include("building coverage map")
       expect(Dir.glob(File.join(dir, ".saboteur", "coverage-*.json")).size).to eq(1)
     end
 
     it "reports mutants in a branch no test executes as no coverage, not as survivors" do
-      run = saboteur(dir, "--subject", "Stage")
+      run = saboteur(dir, "--all", "--subject", "Stage")
       child_branch = mutants(run).select { |m| m["location"]["start"]["line"].between?(9, 10) }
       expect(child_branch).not_to be_empty
       expect(child_branch.map { |m| m["status"] }.uniq).to eq(["NoCoverage"])
     end
 
     it "runs the fastest covering test first, so it is the one that kills" do
-      run = saboteur(dir, "--subject", "Stage")
+      run = saboteur(dir, "--all", "--subject", "Stage")
       killed = mutants(run).select { |m| m["status"] == "Killed" }
       expect(killed).not_to be_empty
       expect(killed.map { |m| test_names(run, m["killedBy"]) }.uniq).to eq([["./spec/stage_spec.rb[1:1]"]])
     end
 
     it "tells assertion kills from crash kills through real RSpec" do
-      run = saboteur(dir, "--subject", "People::Person#adult?", "--verbose")
+      run = saboteur(dir, "--all", "--subject", "People::Person#adult?", "--verbose")
       by_operator = mutants(run).to_h { |m| [m["mutatorName"], m["statusReason"]] }
       expect(by_operator.values_at("body_true", "body_raise")).to eq(["assertion", "crash: RuntimeError"])
       expect(run.out).to include("kills:", "by a crash (RuntimeError 1)")
     end
 
     it "runs only the selected subject" do
-      run = saboteur(dir, "--subject", "People::Person#describe")
+      run = saboteur(dir, "--all", "--subject", "People::Person#describe")
       expect(mutants(run).map { |m| m["location"]["start"]["line"] }.uniq).to eq([21])
     end
   end
 
   describe "hazardous mutants" do
     let(:dir) { copy_fixture("hazards") }
-    let(:run) { saboteur(dir) }
+    let(:run) { saboteur(dir, "--all") }
 
     def status_of(operator)
       mutants(run).find { |m| m["mutatorName"] == "hazard_#{operator}" }&.fetch("status")

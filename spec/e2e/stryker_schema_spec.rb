@@ -12,7 +12,7 @@ RSpec.describe "report.json against the Stryker schema (end to end)", :e2e do
 
   %w[people endless shapes orderdep hazards].each do |fixture|
     it "validates the report of the #{fixture} fixture, whatever mix of statuses it holds" do
-      run = saboteur(copy_fixture(fixture))
+      run = saboteur(copy_fixture(fixture), "--all")
       expect(run.json).not_to be_nil, run.err
       errors = schemer.validate(run.json).map { |error| error.fetch("error") }
       expect(errors).to be_empty
@@ -20,7 +20,7 @@ RSpec.describe "report.json against the Stryker schema (end to end)", :e2e do
   end
 
   it "rejects a report with a status the schema does not know, so the check can fail" do
-    report = saboteur(copy_fixture("endless")).json
+    report = saboteur(copy_fixture("endless"), "--all").json
     report["files"].values.first["mutants"].first["status"] = "Exploded"
     expect(schemer.valid?(report)).to be(false)
   end

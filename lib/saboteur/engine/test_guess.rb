@@ -3,16 +3,20 @@
 
 module Saboteur
   class Engine
-    # --guess-tests: the specs that sit next to the changed source files by
+    # The specs that sit next to the mutated source files by
     # naming convention (lib/a/b.rb -> spec/a/b_spec.rb). A guess, not a
     # coverage fact: a spec that only reaches the file through another one
     # is not found. Packwerk packs (a directory with a package.yml) map to the
     # spec directory inside the same pack, and controllers also map to request
-    # specs. Only files whose changed lines carry a mutation subject need a
-    # guessed spec; when some of those have none, the run narrows to the
-    # specs it found and warns.
+    # specs. With --since, only files whose changed lines carry a mutation
+    # subject need a guessed spec; without --since, every included file with
+    # a mutation subject needs one. A file that needs a spec and has none
+    # stops the run before boot.
     class TestGuess
-      Result = Data.define(:specs, :unmatched, :subjectless, :changed)
+      # hints: unmatched file -> its conventional spec path (which does
+      # not exist; that is why the file is unmatched), for the retry
+      # command the stop-before-boot error prints.
+      Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints)
 
       SOURCE_ROOTS = %w[lib app].freeze
 
@@ -21,25 +25,57 @@ module Saboteur
         @config = config
       end
 
-      # specs: existing spec files (relative paths) guessed for changed files
-      # with a changed mutation subject; unmatched: such files with no
-      # guessed spec; subjectless: changed files with no changed mutation
-      # subject, which neither need nor get a spec; changed: how many
-      # source files changed.
       def call
+        @config["since"] ? call_diff : call_all
+      end
+
+      # specs: existing spec files (relative paths) guessed for the files in
+      # scope; unmatched: such files with no guessed spec; subjectless: files
+      # with no mutation subject the run checks, which neither need nor get a
+      # spec; changed: how many source files are in scope; hints: each
+      # unmatched file's conventional spec path.
+      def call_diff
         lines_by_file = changed_lines_by_file
         subjectless = subjectless_files(lines_by_file)
         # Only files with a changed mutation subject get a guessed spec: a
         # subjectless file mutates nothing, so its spec would only narrow the
         # run for no reason.
         guesses = lines_by_file.except(*subjectless).to_h { |file| [file, guess_for(file)] }
-        Result.new(specs: guesses.values.compact.uniq.sort,
-                   unmatched: guesses.select { |_, spec| spec.nil? }.keys,
-                   subjectless: subjectless,
-                   changed: lines_by_file.size)
+        result(guesses, subjectless, lines_by_file.size)
+      end
+
+      # Without --since every included file is in scope: a file needs its
+      # guessed spec unless it holds no mutation subject at all.
+      def call_all
+        finder = SubjectFinder.new
+        guesses = {}
+        subjectless = []
+        included_files.each do |file|
+          if finder.call(File.join(@root, file)).subjects.empty?
+            subjectless << file
+          else
+            guesses[file] = guess_for(file)
+          end
+        end
+        result(guesses, subjectless.sort, guesses.size + subjectless.size)
       end
 
       private
+
+      def result(guesses, subjectless, changed)
+        unmatched = guesses.select { |_, spec| spec.nil? }.keys
+        Result.new(specs: guesses.values.compact.uniq.sort,
+                   unmatched: unmatched,
+                   subjectless: subjectless,
+                   changed: changed,
+                   hints: unmatched.to_h { |file| [file, candidates_for(file).first] })
+      end
+
+      # Included files relative to the root, sorted for stable output.
+      def included_files
+        prefix = "#{@root}/"
+        @config.included_files.filter_map { |file| file.delete_prefix(prefix) if file.start_with?(prefix) }.sort
+      end
 
       # Changed files that saboteur would mutate, relative to the root, with
       # their changed line numbers.

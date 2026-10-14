@@ -18,7 +18,7 @@ module Saboteur
                         max_memory_mb max_processes seed tests whole_file].freeze
 
     attr_reader :config, :hooks
-    # The specs --guess-tests narrowed the run to, or nil when it did not.
+    # The specs inference narrowed the run to, or nil when it did not.
     attr_reader :guessed_tests
 
     def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [])
@@ -41,7 +41,7 @@ module Saboteur
       Boot.refuse_recursion!
       refuse_fail_fast_evidence
       started = monotonic
-      guess_tests
+      select_tests
       announce_operators
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
@@ -86,52 +86,68 @@ module Saboteur
 
     private
 
-    # --guess-tests with --since: scope the run to the specs found next to
-    # the changed files, as --test would. Only files whose changed lines
-    # carry a mutation subject need a guessed spec; when some of those have
-    # none, the run narrows to the specs it found and warns. The whole
-    # suite runs, as without the flag, when nothing changed or no changed
-    # file with a mutation subject has a matching spec.
-    def guess_tests
-      return unless config["guess_tests"]
+    # Inferred test selection, the default since 0.7.0: scope the run to the
+    # specs found next to the mutated files, as --test would. With --since
+    # only files whose changed lines carry a mutation subject need a spec;
+    # without it every included file with a subject does. A file that needs
+    # a spec and has none stops the run before boot: a silently narrowed run
+    # hides survivors, and a silently widened one costs hours. --all and
+    # c.test_selection = :all keep the whole suite.
+    def select_tests
+      return unless config["tests"].empty?
+      return if config["all"] || config["test_selection"] == "all"
 
       guess = TestGuess.new(config).call
       if guess.subjectless.any?
-        @diagnostics.inform("--guess-tests: no spec is required for #{guess.subjectless.join(', ')}: " \
-                            "they have no changed mutation subjects")
+        detail = config["since"] ? "no changed mutation subjects" : "no mutation subjects"
+        @diagnostics.inform("inferred specs: no spec is required for #{guess.subjectless.join(', ')}: " \
+                            "they have #{detail}")
       end
-      message = guess_message(guess)
+      raise ConfigError, unmatched_message(guess) if guess.unmatched.any?
+
+      message = selection_message(guess)
       @diagnostics.warn(message)
       @diagnostics.inform(message)
     end
 
-    def guess_message(guess)
+    def selection_message(guess)
       if guess.changed.zero?
-        "--guess-tests: no changed source file to guess specs for, so the whole suite runs"
-      elsif guess.specs.empty? && guess.unmatched.any?
-        "--guess-tests: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs " \
-          "(name specs after their source files or pass --test)"
+        target = config["since"] ? "no changed source file" : "no source file"
+        "inferred specs: #{target} to infer a spec for, so the whole suite runs"
       elsif guess.specs.empty?
-        "--guess-tests: no changed file has a mutation subject on its changed lines, " \
-          "so there is nothing to mutate"
+        if config["since"]
+          "inferred specs: no changed file has a mutation subject on its changed lines, " \
+            "so there is nothing to mutate"
+        else
+          "inferred specs: no source file has a mutation subject, so there is nothing to mutate"
+        end
       else
         scope_to_guesses(guess)
       end
     end
 
+    # Stop before boot: name the spec-less files and both ways out. Without
+    # --since the retry commands name the files as sources, because --test
+    # needs at least one source operand then.
+    def unmatched_message(guess)
+      base = %w[saboteur run]
+      base += ["--since", config["since"]] if config["since"]
+      base += guess.unmatched unless config["since"]
+      tests = base + guess.unmatched.flat_map { |file| ["--test", guess.hints.fetch(file)] }
+      "no spec found for #{guess.unmatched.join(', ')}, so nothing ran. Either name the specs to run:\n  " \
+        "#{tests.join(' ')}\n" \
+        "or run the whole suite:\n  #{(base + ['--all']).join(' ')}"
+    end
+
     def scope_to_guesses(guess)
-      # The guesses now stand as explicit tests, like --test.
-      @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
+      # The guesses now stand as explicit tests, like --test. guess_tests is
+      # dropped rather than set to false: an explicit false is the deprecated
+      # opt-out and would warn.
+      @config = Config.new(config.to_h.except("guess_tests").merge("tests" => guess.specs), root: config.root)
       @guessed_tests = guess.specs
-      unmatched_note = if guess.unmatched.any?
-                         " No spec found for #{guess.unmatched.join(', ')}: mutants there only run " \
-                           "if one of these specs reaches them."
-                       else
-                         ""
-                       end
-      "--guess-tests: running only #{guess.specs.join(', ')}.#{unmatched_note} A spec that reaches a " \
+      "inferred specs: running only #{guess.specs.join(', ')}. A spec that reaches a " \
         "changed file only through another file does not run, so a mutant only it would kill can " \
-        "survive, and a line no guessed spec executes is reported as NoCoverage"
+        "survive, and a line no inferred spec executes is reported as NoCoverage"
     end
 
     # The run's immutable report, built once the last result is in.
@@ -237,17 +253,19 @@ module Saboteur
       warn_about_threads
     end
 
-    # A --since run without --test runs the loaded suite twice for the
+    # A whole-suite run (--all, c.test_selection = :all, or a --since diff
+    # with nothing to infer from) runs the loaded suite twice for the
     # baselines; a cold coverage cache adds one more pass. Say so
     # before those hours pass, with the way to scope it.
     def warn_about_unscoped_suite(integration)
-      return unless config["since"] && config["tests"].empty?
+      return unless config["tests"].empty?
+      return unless config["since"] || config["all"] || config["test_selection"] == "all"
 
       message = "running the loaded suite unscoped: two baseline passes; coverage may add a pass " \
                 "(#{integration.test_files.size} spec files). " \
                 "Pass --test to run only the specs you name: faster, but a mutant of a changed method is then killed " \
                 "only by those specs, so specs elsewhere that call this code are not run. " \
-                "--guess-tests does the same with the specs named after the changed files, " \
+                "The default inferred selection runs the specs named after the mutated files, " \
                 "a guess that can miss specs elsewhere."
       @diagnostics.warn(message)
       @diagnostics.inform(message)

@@ -41,10 +41,10 @@ module Saboteur
             command.bytesize <= MAX_BYTES ? command : nil
           end
 
-          # An explicit scope is frozen: --no-guess-tests keeps a config-file
-          # guess_tests from conflicting with the --test list.
+          # An explicit scope is frozen as --test, which wins over inferred
+          # selection by precedence, whatever the config file sets.
           def test_words(tests)
-            tests.empty? ? [] : ["--no-guess-tests", *tests.flat_map { |test| ["--test", test] }]
+            tests.empty? ? [] : tests.flat_map { |test| ["--test", test] }
           end
 
           def setting_words(provenance)

@@ -64,6 +64,22 @@ RSpec.describe Saboteur::CLI do
     end
   end
 
+  it "rejects contradictory test selection flags as usage errors, before any file check" do
+    expect(cli("run", "--all", "--test", "spec/nope_spec.rb").call).to eq(2)
+    expect(err.string).to include("--all cannot be combined with --test")
+    expect(cli("run", "--all", "--guess-tests").call).to eq(2)
+    expect(err.string).to include("--all cannot be combined with --guess-tests")
+    expect(cli("run", "--guess-tests", "--test", "spec/nope_spec.rb").call).to eq(2)
+    expect(err.string).to include("--guess-tests cannot be combined with --test")
+  end
+
+  it "warns that --no-guess-tests is deprecated and no longer restores the whole suite" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    cli("run", "--no-guess-tests").call
+    expect(err.string).to include("guess_tests = false is deprecated: inferred specs are the default " \
+                                  "and it no longer restores the whole suite")
+  end
+
   it "exits 2 for config errors, without starting a run" do
     allow(Saboteur::Engine).to receive(:new)
     expect(cli("run", "--jobs", "0").call).to eq(2)
