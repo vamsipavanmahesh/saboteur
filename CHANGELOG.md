@@ -16,7 +16,15 @@ All notable changes are documented here. The format follows
   or `c.test_selection = :all` to keep the old whole-suite behavior.
   `--guess-tests` is a deprecated alias for the default and
   `--no-guess-tests` warns and is ignored; both flags disappear in a
-  future release (#270).
+  future release (#270). A `--subject` run infers only from the named
+  subjects' files: an unrelated spec-less file no longer stops a
+  one-method run, and a subject file with no conventional spec widens to
+  the whole suite with a warning. The unmatched-file guidance now asks
+  for `--test` with the real spec paths or the expected spec, and shows a
+  runnable `--all` example with the `--since` ref shell-quoted. `--test`
+  may stand alone (the configured include names the sources), so agent
+  rerun/replay commands stay executable, and a whole-suite `--all` run is
+  recorded in the agent provenance and its follow-up commands (#275).
 
 ### Fixed
 - Fixed two encoding failures in mutant children running under a non-UTF-8

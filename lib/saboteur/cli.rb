@@ -231,9 +231,13 @@ module Saboteur
       )
     end
 
+    # A whole-suite run records its scope as --all, so the generated rerun
+    # and replay commands do not default back to inference (which can exit
+    # 2 in a project with a spec-less source file).
     def agent_settings
-      options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
-             .merge(operators: config["operators"], exclude_operators: config["exclude_operators"])
+      settings = options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
+                        .merge(operators: config["operators"], exclude_operators: config["exclude_operators"])
+      config["all"] || config["test_selection"] == "all" ? settings.merge(all: true) : settings
     end
 
     def agent_mode
@@ -265,10 +269,8 @@ module Saboteur
     # so a typo is an error and not a run over zero subjects.
     def use_explicit_sources
       if @argv.empty?
-        raise UsageError, "--test needs at least one source file" if options[:tests] && !config["since"]
-
-        # With --since the changed files are the sources, so --test may
-        # stand alone; the files must still exist.
+        # --test may stand alone: the configured include (or the --since
+        # diff) names the sources. The files must still exist.
         options[:tests]&.each { |test| require_existing_test(test) }
         return
       end

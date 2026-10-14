@@ -129,6 +129,12 @@ module Saboteur
         @err.puts("saboteur: #{message}")
       end
 
+      # A message that is both a report warning and a stderr note.
+      def announce(message)
+        warn(message)
+        inform(message)
+      end
+
       # A heartbeat for a long phase: the supervisor's wait loop calls tick
       # in the parent after the fork, so no extra thread is ever alive at
       # fork time. Prints "<label>: N s elapsed" about every interval

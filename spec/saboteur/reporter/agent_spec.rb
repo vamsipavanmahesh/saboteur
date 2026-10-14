@@ -44,6 +44,21 @@ RSpec.describe Saboteur::Reporter::Agent do
     expect(Shellwords.split(cleared).each_cons(2).to_a).to include(["--exclude-operators", ""])
   end
 
+  it "records a whole-suite run as a bare --all so rerun and replay keep that scope" do
+    source = provenance_with(ref: nil, settings: { all: true })
+    commands = described_class::Commands
+    [commands.rerun(source), commands.replay(source, "abc")].each do |command|
+      expect(Shellwords.split(command)).to include("--all")
+    end
+  end
+
+  it "emits a runnable rerun for an inferred run without sources: --test stands alone" do
+    source = provenance_with(ref: nil, tests: ["spec/a_spec.rb"], sources: [])
+    words = Shellwords.split(described_class::Commands.rerun(source))
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
+    expect(words).not_to include("--")
+  end
+
   context "when every mutant was killed" do
     let(:payload) { payload_for(report_of(result_for(:killed))) }
 

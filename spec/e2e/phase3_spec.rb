@@ -114,18 +114,40 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
       run = saboteur(dir, "--since", "HEAD")
       expect(run.status).to eq(2)
-      expect(run.err).to include("no spec found for lib/people.rb, so nothing ran")
-      expect(run.err).to include("saboteur run --since HEAD --test spec/people_spec.rb")
-      expect(run.err).to include("saboteur run --since HEAD --all")
+      expect(run.err).to include("no spec found for lib/people.rb (expected spec/people_spec.rb), so nothing ran")
+      expect(run.err).to include("--test and your real spec paths")
+      expect(run.err).to include("saboteur run --since=HEAD --all")
       expect(run.err).not_to include("checking the unchanged suite")
     end
 
     it "stops before boot for a spec-less file even without --since" do
       run = saboteur(dir)
       expect(run.status).to eq(2)
-      expect(run.err).to include("no spec found for lib/people.rb, so nothing ran")
-      expect(run.err).to include("saboteur run lib/people.rb --all")
+      expect(run.err).to include("no spec found for lib/people.rb (expected spec/people_spec.rb), so nothing ran")
+      expect(run.err).to include("saboteur run --all")
       expect(run.err).not_to include("checking the unchanged suite")
+    end
+
+    it "runs a one-method --subject first run without a spec-less file blocking it" do
+      run = saboteur(dir, "--subject", "Stage")
+      expect(run.status).to be <= 1
+      expect(run.err).to include("inferred specs: running only spec/stage_spec.rb")
+      expect(run.err).not_to include("no spec found for lib/people.rb, so nothing ran")
+
+      run = saboteur(dir, "--subject", "People::Person#adult?")
+      expect(run.status).to be <= 1
+      expect(run.err).to include("inferred specs: no spec found for lib/people.rb, so the whole suite runs")
+    end
+
+    it "rerun and replay commands from an --all run execute as-is, even with a spec-less source" do
+      first = saboteur(dir, "--all", "--agent")
+      expect(first.status).to eq(1)
+      payload = JSON.parse(first.out)
+      rerun_words = Shellwords.split(payload.fetch("next").fetch("rerun"))
+      expect(rerun_words).to include("--all")
+      expect(saboteur(dir, *rerun_words[2..]).status).not_to eq(2)
+      replay_words = Shellwords.split(payload.fetch("next").fetch("replay"))
+      expect(saboteur(dir, *replay_words[2..]).status).not_to eq(2)
     end
 
     it "reports nothing to mutate when the changed lines carry no mutation subject" do

@@ -108,9 +108,9 @@ RSpec.describe Saboteur::Engine, "test selection" do
 
     it "stops before boot when a changed file has no spec named after it" do
       guess(specs: ["spec/a_spec.rb"], unmatched: %w[lib/b.rb lib/c.rb], changed: 3)
-      message = "no spec found for lib/b.rb, lib/c.rb, so nothing ran. Either name the specs to run:\n  " \
-                "saboteur run --since origin/main --test spec/b_spec.rb --test spec/c_spec.rb\n" \
-                "or run the whole suite:\n  saboteur run --since origin/main --all"
+      message = "no spec found for lib/b.rb (expected spec/b_spec.rb), lib/c.rb (expected spec/c_spec.rb), " \
+                "so nothing ran. Create the expected spec, or re-run your command with --test and your " \
+                "real spec paths, or with --all for the whole suite, e.g.:\n  saboteur run --since=origin/main --all"
       expect { run_engine("since" => "origin/main") }.to raise_error(Saboteur::ConfigError, message)
       expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
     end
@@ -118,7 +118,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
     it "stops before boot when no changed file has a spec" do
       guess(specs: [], unmatched: ["lib/b.rb"], changed: 1)
       expect { run_engine("since" => "origin/main") }
-        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb, so nothing ran})
+        .to raise_error(Saboteur::ConfigError,
+                        %r{no spec found for lib/b\.rb \(expected spec/b_spec\.rb\), so nothing ran})
       expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
     end
 
@@ -162,12 +163,17 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(err.string).not_to include("running the loaded suite unscoped")
     end
 
-    it "names the source in the stop-before-boot retry commands without --since" do
+    it "points at --all for the whole suite in the stop-before-boot example without --since" do
       guess(specs: [], unmatched: ["lib/b.rb"], changed: 1)
-      expect { run_engine({}) }
-        .to raise_error(Saboteur::ConfigError, %r{saboteur run lib/b\.rb --test spec/b_spec\.rb\n})
-      expect { run_engine({}) }
-        .to raise_error(Saboteur::ConfigError, %r{saboteur run lib/b\.rb --all})
+      expect { run_engine({}) }.to raise_error(Saboteur::ConfigError, /saboteur run --all/)
+    end
+
+    it "shell-quotes a hostile ref in the stop-before-boot example" do
+      guess(specs: [], unmatched: ["lib/b.rb"], changed: 1)
+      expect { run_engine("since" => "weird ref;$(rm -rf)") }
+        .to raise_error(Saboteur::ConfigError, /--since=weird\\ ref\\;\\\$\\\(rm\\ -rf\\\) --all/)
+      expect { run_engine("since" => "-rf") }
+        .to raise_error(Saboteur::ConfigError, /--since=-rf --all/)
     end
   end
 
@@ -187,6 +193,38 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(used).to eq([])
       expect(Saboteur::Engine::TestGuess).not_to have_received(:new)
       expect(err.string).to include("running the loaded suite unscoped")
+    end
+  end
+
+  describe "--subject runs" do
+    def write_subject_project(with_spec: true)
+      FileUtils.mkdir_p(File.join(@root, "lib"))
+      File.write(File.join(@root, "lib", "people.rb"), "class Person\n  def adult?\n    true\n  end\nend\n")
+      File.write(File.join(@root, "lib", "other.rb"), "class Other\n  def x\n    1\n  end\nend\n")
+      return unless with_spec
+
+      FileUtils.mkdir_p(File.join(@root, "spec"))
+      File.write(File.join(@root, "spec", "people_spec.rb"), "# spec\n")
+    end
+
+    it "infers only the named subject's spec, ignoring unrelated spec-less files" do
+      write_subject_project
+      used = tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
+      expect(used).to eq(["spec/people_spec.rb"])
+      expect(err.string).to include("inferred specs: running only spec/people_spec.rb")
+    end
+
+    it "widens to the whole suite with a warning when the subject's file has no spec" do
+      write_subject_project(with_spec: false)
+      used = tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
+      expect(used).to eq([])
+      expect(err.string).to include("inferred specs: no spec found for lib/people.rb, so the whole suite runs")
+    end
+
+    it "keeps the recorded tests in replay mode, skipping inference" do
+      engine = described_class.new(Saboteur::Config.new({}, root: @root), err: err, digest: "0" * 16)
+      expect(Saboteur::Engine::TestGuess).not_to receive(:new)
+      engine.send(:select_tests)
     end
   end
 

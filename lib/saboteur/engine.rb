@@ -90,24 +90,41 @@ module Saboteur
     # specs found next to the mutated files, as --test would. With --since
     # only files whose changed lines carry a mutation subject need a spec;
     # without it every included file with a subject does. A file that needs
-    # a spec and has none stops the run before boot: a silently narrowed run
-    # hides survivors, and a silently widened one costs hours. --all and
-    # c.test_selection = :all keep the whole suite.
+    # a spec and has none stops the run before boot, rather than silently
+    # narrowing the source scope or widening the test run to the whole
+    # suite. --all and c.test_selection = :all keep the whole suite.
+    # A replay keeps its recorded tests, and a --subject run infers only
+    # from the named subjects' files, so one unrelated spec-less file can
+    # never block a one-method run.
     def select_tests
       return unless config["tests"].empty?
-      return if config["all"] || config["test_selection"] == "all"
+      return if @replay || config["all"] || config["test_selection"] == "all"
+
+      subjects = config["subjects"]
+      return select_subject_tests(subjects) if subjects.any?
 
       guess = TestGuess.new(config).call
-      if guess.subjectless.any?
-        detail = config["since"] ? "no changed mutation subjects" : "no mutation subjects"
-        @diagnostics.inform("inferred specs: no spec is required for #{guess.subjectless.join(', ')}: " \
-                            "they have #{detail}")
-      end
-      raise ConfigError, unmatched_message(guess) if guess.unmatched.any?
+      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
+      raise ConfigError, guess.unmatched_message(since: config["since"]) if guess.unmatched.any?
 
-      message = selection_message(guess)
-      @diagnostics.warn(message)
-      @diagnostics.inform(message)
+      @diagnostics.announce(selection_message(guess))
+    end
+
+    # A --subject run infers only from the files holding the named subjects:
+    # an unrelated spec-less file must not block a one-method run. A subject
+    # file without a conventional spec widens to the whole suite with a
+    # warning; it never narrows the run away from the named subject.
+    def select_subject_tests(patterns)
+      files = SubjectSelection.files_matching(@root, config.included_files, patterns)
+      return if files.empty? # unknown subjects are named later, in selection
+
+      guess = TestGuess.new(config).call_for(files)
+      message = if guess.unmatched.any?
+                  "inferred specs: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs"
+                else
+                  scope_to_guesses(guess)
+                end
+      @diagnostics.announce(message)
     end
 
     def selection_message(guess)
@@ -126,28 +143,21 @@ module Saboteur
       end
     end
 
-    # Stop before boot: name the spec-less files and both ways out. Without
-    # --since the retry commands name the files as sources, because --test
-    # needs at least one source operand then.
-    def unmatched_message(guess)
-      base = %w[saboteur run]
-      base += ["--since", config["since"]] if config["since"]
-      base += guess.unmatched unless config["since"]
-      tests = base + guess.unmatched.flat_map { |file| ["--test", guess.hints.fetch(file)] }
-      "no spec found for #{guess.unmatched.join(', ')}, so nothing ran. Either name the specs to run:\n  " \
-        "#{tests.join(' ')}\n" \
-        "or run the whole suite:\n  #{(base + ['--all']).join(' ')}"
-    end
-
+    # Stop before boot: name the spec-less files and the ways out. The
+    # hinted spec paths are the conventional ones - they do not exist (that
+    # is why the files are unmatched), so the message never prints them as
+    # a runnable --test command, and it never reconstructs the source
+    # scope: the user appends --test or --all to their own command. The
+    # example is still shell-safe: the ref is user input, so it is quoted
+    # and pinned to the flag with = (a ref like "-x" must not become a
+    # switch).
     def scope_to_guesses(guess)
       # The guesses now stand as explicit tests, like --test. guess_tests is
       # dropped rather than set to false: an explicit false is the deprecated
       # opt-out and would warn.
       @config = Config.new(config.to_h.except("guess_tests").merge("tests" => guess.specs), root: config.root)
       @guessed_tests = guess.specs
-      "inferred specs: running only #{guess.specs.join(', ')}. A spec that reaches a " \
-        "changed file only through another file does not run, so a mutant only it would kill can " \
-        "survive, and a line no inferred spec executes is reported as NoCoverage"
+      guess.scope_message(since: config["since"])
     end
 
     # The run's immutable report, built once the last result is in.

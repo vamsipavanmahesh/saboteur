@@ -40,16 +40,20 @@ module Saboteur
         summary: "Mutate your code and report the mutants your tests do not catch",
         description: "Builds a per-test coverage map, makes small changes to your methods, runs only the " \
                      "tests that cover each change, and reports survivors (changes no test noticed). Source files or " \
-                     "directories after run replace include and exclude; --test limits the specs that run; " \
-                     "--threshold PERCENT replaces the survivor check: exit 0 when the score is at or above " \
-                     "PERCENT, exit 1 when it is below. All operators run unless you select a smaller set; " \
-                     "exclusions always remove operators from that set. Inline comment syntax: " \
+                     "directories after run replace include and exclude. Without --test, the run infers the " \
+                     "specs named after the mutated files and runs only those; a mutated file with no " \
+                     "conventional spec stops the run with exit 2 before anything boots, and --all keeps " \
+                     "the whole configured suite. --threshold PERCENT replaces the survivor check: exit 0 " \
+                     "when the score is at or above PERCENT, exit 1 when it is below. All operators run " \
+                     "unless you select a smaller set; exclusions always remove operators from that set. " \
+                     "Inline comment syntax: " \
                      '# saboteur:disable-line [operator ...] reason="...". A reason is required.',
         takes_options: true,
         exit_codes: EXIT_CODE_MEANINGS,
         examples: [
-          ["Pull request: only methods changed since the target branch", "saboteur run --since origin/main"],
-          ["Whole project, four workers, repeatable seed", "saboteur run --jobs 4 --seed 42"],
+          ["Pull request: only methods changed since the target branch, with the inferred specs",
+           "saboteur run --since origin/main"],
+          ["Whole project and whole suite, four workers, repeatable seed", "saboteur run --all --jobs 4 --seed 42"],
           ["One class or method", "saboteur run --subject 'Person#adult?'"],
           ["Replay one mutant by the digest printed next to a survivor", "saboteur run --id 1a2b3c4d5e6f7a8b"],
           ["Mutate named files against named specs, skipping the whole-suite coverage run",

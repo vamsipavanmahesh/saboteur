@@ -287,13 +287,17 @@ reported as NoCoverage. A file needs no inferred spec when it has no mutation
 subjects (with `--since`: none on its changed lines), such as a comment-only
 change within a method or a deletion leaving only blank/comment context; the
 run says so and skips those files. When no file has a mutation subject at all,
-the run reports that there is nothing to mutate.
+the run reports that there is nothing to mutate. A `--subject` run infers only
+from the named subjects' files: an unrelated spec-less file never stops a
+one-method run, and a subject file with no conventional spec widens to the
+whole suite with a warning instead.
 
 A file that needs a spec and has none stops the run before it boots (exit 2)
 and names both ways out: `--test` with the specs to run, or `--all` for the
-whole suite. A silently narrowed run hides survivors and a silently widened one
-costs hours, so neither happens by default. The agent JSON records the inferred
-specs as its `tests`, so its follow-up commands keep the same scope.
+whole suite. An unmatched file no longer silently narrows the selected source
+scope or widens the test run to the whole suite. Whole-project audits should
+use `--all` explicitly. The agent JSON records the inferred specs as its
+`tests`, so its follow-up commands keep the same scope.
 
 `--all` (config `c.test_selection = :all`) runs the whole configured suite.
 With `--since` or `--all` and no inferred or named specs, the run warns before

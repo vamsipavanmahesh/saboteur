@@ -32,6 +32,22 @@ module Saboteur
         id == pattern || %w[# . ::].any? { |separator| id.start_with?("#{pattern}#{separator}") }
       end
 
+      # The files (absolute paths) holding a subject matching any pattern,
+      # returned relative to root. --subject inference guesses specs for
+      # exactly these, so one unrelated spec-less file cannot block a
+      # one-method run.
+      def self.files_matching(root, files, patterns)
+        finder = SubjectFinder.new
+        prefix = "#{root}/"
+        files.filter_map do |file|
+          parsed = finder.call(file)
+          matching = parsed.subjects.any? do |subject|
+            patterns.any? { |pattern| match?(subject.id, pattern) }
+          end
+          file.delete_prefix(prefix) if matching
+        end.sort
+      end
+
       private
 
       def find(files)

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "shellwords"
+
 module Saboteur
   class Engine
     # The specs that sit next to the mutated source files by
@@ -14,9 +16,37 @@ module Saboteur
     # stops the run before boot.
     class TestGuess
       # hints: unmatched file -> its conventional spec path (which does
-      # not exist; that is why the file is unmatched), for the retry
-      # command the stop-before-boot error prints.
-      Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints)
+      # not exist; that is why the file is unmatched), for the stop-before-boot
+      # error. The result also builds its own messages, so a stubbed guess in
+      # the engine's specs formats exactly like a real one.
+      Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints) do
+        # The stop-before-boot usage error: names each expected spec and the
+        # ways out. The ref is shell-quoted and pinned to --since with =, so a
+        # hostile or odd ref stays one literal argument.
+        def unmatched_message(since:)
+          pairs = unmatched.map { |file| "#{file} (expected #{hints.fetch(file)})" }
+          scope = "saboteur run"
+          scope += " --since=#{Shellwords.escape(since)}" if since
+          "no spec found for #{pairs.join(', ')}, so nothing ran. Create the expected spec, or re-run " \
+            "your command with --test and your real spec paths, or with --all for the whole suite, e.g.:\n  " \
+            "#{scope} --all"
+        end
+
+        # Why the subjectless files needed no spec.
+        def subjectless_message(since:)
+          detail = since ? "no changed mutation subjects" : "no mutation subjects"
+          "inferred specs: no spec is required for #{subjectless.join(', ')}: they have #{detail}"
+        end
+
+        # The warning for a guess-scoped run: the guessed specs now stand as
+        # explicit tests, with the cross-file coverage caveat that brings.
+        def scope_message(since:)
+          what = since ? "a changed file" : "a source file"
+          "inferred specs: running only #{specs.join(', ')}. A spec that reaches " \
+            "#{what} only through another file does not run, so a mutant only it would kill can " \
+            "survive, and a line no inferred spec executes is reported as NoCoverage"
+        end
+      end
 
       SOURCE_ROOTS = %w[lib app].freeze
 
@@ -27,6 +57,14 @@ module Saboteur
 
       def call
         @config["since"] ? call_diff : call_all
+      end
+
+      # Subject-scoped inference (--subject runs): only the named subjects'
+      # files need a guessed spec; every one of them has a subject by
+      # construction, so there is no subjectless bucket.
+      def call_for(files)
+        guesses = files.to_h { |file| [file, guess_for(file)] }
+        result(guesses, [], files.size)
       end
 
       # specs: existing spec files (relative paths) guessed for the files in

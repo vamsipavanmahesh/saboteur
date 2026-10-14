@@ -15,8 +15,11 @@ run. A method whose only changes are comments, blank lines or spacing is
 skipped, and the run says so: its syntax tree is the same as at the merge
 base, so a mutant of it would test nothing the change touched. `__LINE__`
 counts as its line number, so a method that uses it and moves, or has a line
-added above that use, still runs. Plain `saboteur run` still means the whole
-configured project. Neither the CLI default nor the public API changes.
+added above that use, still runs. Plain `saboteur run` still mutates the whole
+configured project, but since 0.7.0 it infers the specs named after the
+mutated files and runs only those; a mutated file with no conventional spec
+stops the run (exit 2) with the ways out. Pass `--all` (config
+`c.test_selection = :all`) to keep the whole configured suite.
 
 ## GitHub Actions
 
@@ -87,15 +90,15 @@ the available coarse whole-method mutants (`nil`, or `true`/`false` for
 predicates, and `raise` where applicable). Keep new files tracked so git diff
 can see them.
 
-Diff mode still builds a per-test coverage map from the configured suite
-when there is no valid cached map. A smaller mutation scope does not remove
-that fixed cost. `--incremental` is a separate opt-in verdict cache, not a
-requirement for diff mode.
+Diff mode still builds a per-test coverage map from the inferred or named
+specs when there is no valid cached map. A smaller mutation scope does not
+remove that fixed cost. `--incremental` is a separate opt-in verdict cache,
+not a requirement for diff mode.
 
 This is not impact analysis: unchanged callers of changed dependencies,
 methods outside `include`, and deleted methods are not all rechecked.
-Run a whole-project audit on main without `since` or `--incremental`, and
-periodically while reviewing cross-cutting changes. A no-change PR can have
+Run a whole-project audit on main with `--all` and without `since` or
+`--incremental`, and periodically while reviewing cross-cutting changes. A no-change PR can have
 zero mutants; that is not a whole-project test-quality claim.
 
 ## Measured branch history

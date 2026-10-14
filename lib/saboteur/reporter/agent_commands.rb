@@ -56,11 +56,13 @@ module Saboteur
             end
           end
 
+          # Whole-suite scope is a bare --all; it never combines with --test.
           def selection(provenance, replay: false)
             words = []
             words.push("--config", provenance.config_path) if provenance.config_path
             words.push("--since", provenance.ref) if provenance.ref
             provenance.subjects.each { |subject| words.push("--subject", subject) }
+            words << "--all" if provenance.settings[:all]
             words.push(*test_words(provenance.tests))
             words.concat(setting_words(provenance))
             words << "--no-cache" if provenance.cache == false
