@@ -67,6 +67,24 @@ RSpec.describe Saboteur::Baseline::Evidence do
     expect { described_class.new(changed) }.to raise_error(Saboteur::ConfigError, /settings/)
   end
 
+  it "rejects missing, stale-version and mismatched operator policies" do
+    changed = Marshal.load(Marshal.dump(document))
+    changed["compatibility"]["config"].delete("operator_policy")
+    expect { described_class.new(rebuilt(changed)) }
+      .to raise_error(Saboteur::ConfigError,
+                      "baseline operator policy is incompatible; re-propose with baseline propose")
+
+    changed = Marshal.load(Marshal.dump(document))
+    changed["compatibility"]["config"]["operator_policy"]["version"] = 1
+    expect { described_class.new(rebuilt(changed)) }
+      .to raise_error(Saboteur::ConfigError, /operator policy is incompatible/)
+
+    changed = Marshal.load(Marshal.dump(document))
+    changed["compatibility"]["config"]["operators"] = ["range"]
+    expect { described_class.new(rebuilt(changed)) }
+      .to raise_error(Saboteur::ConfigError, /operator policy mismatch/)
+  end
+
   def identity_digest(value)
     Digest::SHA256.hexdigest(JSON.generate(Saboteur::Engine::RunFingerprint.canonical_value(value)))
   end
