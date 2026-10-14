@@ -72,6 +72,78 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guess(include: ["lib.rb"]).unmatched).to eq(["lib.rb"])
   end
 
+  context "with Rails request specs" do
+    before do
+      write("app/controllers/users_controller.rb", "1\n")
+      write("app/controllers/api/orders_controller.rb", "1\n")
+      write("app/controllers/api/items_controller.rb", "1\n")
+      write("spec/requests/users_spec.rb")
+      write("spec/requests/api/orders_controller_spec.rb")
+      write("spec/requests/api/items_spec.rb")
+      write("spec/requests/api/items_controller_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "controllers")
+    end
+
+    it "maps a controller to its request spec with or without the controller suffix" do
+      %w[users api/orders api/items].each { |name| write("app/controllers/#{name}_controller.rb", "2\n") }
+      result = guess
+      expect(result.specs).to eq(%w[spec/requests/api/items_controller_spec.rb
+                                    spec/requests/api/orders_controller_spec.rb spec/requests/users_spec.rb])
+      expect(result.unmatched).to eq([])
+    end
+
+    it "prefers a controller spec over a request spec" do
+      write("spec/controllers/users_controller_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "ctrl spec")
+      write("app/controllers/users_controller.rb", "2\n")
+      expect(guess.specs).to eq(["spec/controllers/users_controller_spec.rb"])
+    end
+  end
+
+  context "with packwerk packs" do
+    before do
+      write("packs/billing/package.yml", "enforce_dependencies: true\n")
+      write("packs/billing/app/models/invoice.rb", "1\n")
+      write("packs/billing/app/controllers/invoices_controller.rb", "1\n")
+      write("packs/billing/lib/tax.rb", "1\n")
+      write("packs/billing/app/models/orphan.rb", "1\n")
+      write("packs/billing/spec/models/invoice_spec.rb")
+      write("packs/billing/spec/requests/invoices_spec.rb")
+      write("packs/billing/spec/tax_spec.rb")
+      write("spec/models/orphan_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "packs")
+    end
+
+    it "maps a pack file to the spec inside the same pack" do
+      %w[app/models/invoice app/controllers/invoices_controller lib/tax].each do |name|
+        write("packs/billing/#{name}.rb", "2\n")
+      end
+      result = guess(include: ["packs/**/*.rb"])
+      expect(result.specs).to eq(%w[packs/billing/spec/models/invoice_spec.rb
+                                    packs/billing/spec/requests/invoices_spec.rb
+                                    packs/billing/spec/tax_spec.rb])
+      expect(result.unmatched).to eq([])
+    end
+
+    it "does not borrow a spec from another pack or the root" do
+      write("packs/billing/app/models/orphan.rb", "2\n")
+      expect(guess(include: ["packs/**/*.rb"]).unmatched).to eq(["packs/billing/app/models/orphan.rb"])
+    end
+
+    it "finds packs at any depth from package.yml, not a hardcoded packs directory" do
+      write("components/ledger/package.yml")
+      write("components/ledger/app/models/entry.rb", "1\n")
+      write("components/ledger/spec/models/entry_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "ledger")
+      write("components/ledger/app/models/entry.rb", "2\n")
+      expect(guess(include: ["components/**/*.rb"]).specs).to eq(["components/ledger/spec/models/entry_spec.rb"])
+    end
+  end
+
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
   end
