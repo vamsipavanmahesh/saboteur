@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "did_you_mean"
+require_relative "operator_examples"
+
 module Saboteur
   module MutationSource
     # Public names used by selection, help and inline suppression validation.
@@ -31,24 +34,46 @@ module Saboteur
         "endpoint_replacement" => "Swap explicit no-argument first and last",
         "chain_removal" => "Remove one call from a method chain"
       }.freeze
-      EXTENDED = %w[range operator_assignment condition_negation].freeze
-      TIERS = { "core" => (DESCRIPTIONS.keys - EXTENDED).freeze, "extended" => EXTENDED,
-                "all" => DESCRIPTIONS.keys.freeze }.freeze
+      POLICY_VERSION = 2
+      TIERS = { "all" => DESCRIPTIONS.keys.freeze }.freeze
 
-      def self.list(out)
+      def self.list(out, names: [], excluded: [])
+        active = select(names, excluded)
         DESCRIPTIONS.each do |name, description|
-          out.puts("#{name}  #{EXTENDED.include?(name) ? 'extended' : 'core'}  #{description}")
+          out.puts("#{name}  #{active.include?(name) ? 'on' : 'off'}  #{description}  #{OperatorExamples::EXAMPLES.fetch(name)}")
         end
         nil
       end
 
-      def self.resolve(names)
-        return TIERS.fetch("core") if names.empty?
+      def self.policy(names, excluded)
+        { "version" => POLICY_VERSION, "selected" => names, "excluded" => excluded,
+          "effective" => select(names, excluded) }
+      end
 
+      # Exclusion wins over explicit selection; empty exclusions remove nothing.
+      def self.select(names, excluded)
+        selected = resolve(names)
+        excluded.empty? ? selected : selected - resolve(excluded)
+      end
+
+      def self.suggestion(name)
+        matches = DidYouMean::SpellChecker.new(dictionary: DESCRIPTIONS.keys).correct(name)
+        matches.empty? ? "" : "Did you mean #{matches.first}?"
+      end
+
+      def self.resolve(names)
+        return TIERS.fetch("all") if names.empty?
+
+        legacy = names & %w[core extended]
+        unless legacy.empty?
+          raise ConfigError, "operator tiers #{legacy.join(', ')} were removed: use concrete names or all; " \
+                             "for the old core set exclude range,operator_assignment,condition_negation"
+        end
         unknown = names - DESCRIPTIONS.keys - TIERS.keys
         unless unknown.empty?
           raise ConfigError, "unknown operators: #{unknown.join(', ')}. Valid names: " \
-                             "#{(DESCRIPTIONS.keys + TIERS.keys).join(', ')}"
+                             "#{(DESCRIPTIONS.keys + TIERS.keys).join(', ')}. " \
+                             "#{suggestion(unknown.first)} See --list-operators."
         end
         names.flat_map { |name| TIERS.fetch(name) { [name] } }.uniq
       end
