@@ -6,6 +6,8 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-14
+
 ### Added
 - Opt-in extended `range`, `operator_assignment` and `condition_negation` operators (#135). Default core selection is unchanged.
 - `whole_file` config: an opt-in list of subject ids or globs (for example
