@@ -3,6 +3,7 @@
 
 require "digest"
 require "json"
+require_relative "../text"
 require_relative "data_inputs"
 
 module Saboteur
@@ -252,6 +253,9 @@ module Saboteur
       # undeclared dependency boundary, not a silently omitted source tree.
       def project_files(issues, directory = @root)
         Dir.children(directory).sort.flat_map do |name|
+          # Child names arrive locale-tagged; retag losslessly before
+          # joining with the UTF-8 root (#231).
+          name = Text.utf8_identity(name)
           path = File.join(directory, name)
           next [] if excluded?(path, name)
 
