@@ -102,7 +102,12 @@ RSpec.describe Saboteur::Config do
   it "keeps the exact bytes of a non-UTF-8 file name losslessly (#231)" do
     bytes = "caf\xE9.rb".b
     FileUtils.mkdir_p(File.join(@root, "lib"))
-    File.binwrite(File.join(@root, "lib", bytes), "")
+    # APFS rejects filenames that are not valid UTF-8 at creation time.
+    begin
+      File.binwrite(File.join(@root, "lib", bytes), "")
+    rescue Errno::EILSEQ
+      skip "this filesystem rejects filenames that are not valid UTF-8"
+    end
     config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
     expect(config.included_files.map(&:b)).to eq([File.join(@root, "lib", bytes).b])
   end
