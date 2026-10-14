@@ -7,6 +7,15 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- Fixed two encoding failures in mutant children running under a non-UTF-8
+  locale such as `LANG=C` (seen on CI, where the Landlock sandbox engages):
+  the inherited-fd sweep compared a locale-tagged descriptor target against
+  grant patterns with string semantics, raising
+  `Encoding::CompatibilityError` before any test ran when an open file's
+  path carried non-ASCII bytes; and an exception message embedding such a
+  path made failure reporting raise the same way, turning a killed mutant
+  into an errored run. The sweep now compares raw bytes, and failure
+  messages are scrubbed before their first line is extracted (#272).
 - Fixed `--guess-tests` falling back to the whole suite when a changed
   file has no mutation subjects on its changed lines, such as a deletion
   whose remaining context is blank or comment lines or a comment-only
