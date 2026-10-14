@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "benchmark"
 require_relative "support"
 
 RSpec.describe Preflight::CommandRunner do
@@ -60,8 +59,9 @@ RSpec.describe Preflight::CommandRunner do
 
   it "does not hang when the leader exits but a grandchild holds the output pipe" do
     script = "spawn('sleep 30', pgroup: false); puts :done"
-    result = nil
-    elapsed = Benchmark.realtime { result = runner.run(["ruby", "-e", script]) }
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    result = runner.run(["ruby", "-e", script])
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
     expect(elapsed).to be < 10
     expect([result.stray_processes, result.ran?]).to eq([true, false])
   end
@@ -77,7 +77,9 @@ RSpec.describe Preflight::CommandRunner do
   it "does not hang when a detached grandchild in its own group holds the pipe, and says output is incomplete" do
     script = "pid = spawn('sleep 20', pgroup: true); puts pid; $stdout.flush; sleep 30"
     result = nil
-    elapsed = Benchmark.realtime { result = runner.run(["ruby", "-e", script], timeout: 3) }
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    result = runner.run(["ruby", "-e", script], timeout: 3)
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
     expect(elapsed).to be < 12
     expect(result.stdout.to_i).to be_positive
     expect([result.truncated, result.ran?]).to eq([true, false])
