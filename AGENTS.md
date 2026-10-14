@@ -42,6 +42,12 @@ Names follow Uncle Bob's Clean Code conventions:
 - The author starts resolving each comment as soon as it is posted, without waiting for the rest of the panel. Fixes land as new commits, then the panel re-reviews.
 - Merge only when the panel and the author agree and CI is green.
 
+## Preflight
+
+- Before asking for review, run `ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode full` on the exact head. See [docs/preflight.md](docs/preflight.md).
+- A green preflight is not approval and does not replace the panel, CI or the live check of the PR base.
+- Fast mode is partial. Any new push needs a fresh run.
+
 ## Performance claims
 
 A claim about speed or memory needs reproducible proof in the pull request:

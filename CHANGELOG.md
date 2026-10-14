@@ -6,6 +6,14 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `script/preflight`: a local pre-review check on one exact base and head
+  (#210). It runs the protected-path scope check, sign-off, SPDX headers,
+  whitespace, RuboCop and the specs (fast or full mode), writes every harness
+  output through a symlink-safe writer under `tmp/preflight/`, and takes
+  check reports through harness-owned pipes rather than checkout paths.
+  It is not CI and a pass is not an approval.
+
 ## [0.5.0] - 2026-10-14
 
 ### Added
