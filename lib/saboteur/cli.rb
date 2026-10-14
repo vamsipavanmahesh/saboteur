@@ -212,8 +212,13 @@ module Saboteur
         subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || options[:tests]),
         sources: @sources || [],
         config_path: options[:config], digest: options[:id], cache: config["cache"],
-        incremental: config["incremental"], settings: options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
+        incremental: config["incremental"], settings: agent_settings
       )
+    end
+
+    def agent_settings
+      options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
+             .merge(operators: config["operators"], exclude_operators: config["exclude_operators"])
     end
 
     def agent_mode
@@ -286,17 +291,23 @@ module Saboteur
       raise UsageError, "--dry-run and --list-operators print text, not --agent JSON" if agent?
       raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
 
-      return MutationSource::OperatorRegistry.list(@out) || EXIT_OK if options[:list_operators]
+      if options[:list_operators]
+        MutationSource::OperatorRegistry.list(@out, names: config["operators"], excluded: config["exclude_operators"])
+        return EXIT_OK
+      end
 
       Preview.new(config, out: @out, err: @err).call
       EXIT_OK
     end
 
     def define_selection_options(opts)
-      opts.on("--operators NAMES", Array, "Choose operator names or tiers (core, extended, all)") do |v|
+      opts.on("--operators NAMES", Array, "Choose operator names (default: all)") do |v|
         set(:operators, v)
       end
-      opts.on("--list-operators", "List operator names, descriptions and tiers") { set(:list_operators, true) }
+      opts.on("--exclude-operators NAMES", Array, "Exclude operator names from the selected set") do |v|
+        set(:exclude_operators, v)
+      end
+      opts.on("--list-operators", "List operator names and descriptions") { set(:list_operators, true) }
       opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
       opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
       opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
