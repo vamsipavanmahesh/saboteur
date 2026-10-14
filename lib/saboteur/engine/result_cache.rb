@@ -4,6 +4,7 @@
 require "digest"
 require "fileutils"
 require "json"
+require_relative "../text"
 
 module Saboteur
   class Engine
@@ -65,7 +66,7 @@ module Saboteur
       private
 
       def load
-        data = JSON.parse(File.read(@path))
+        data = JSON.parse(Text.utf8(File.read(@path)))
         data["format"] == FORMAT ? data["entries"] : {}
       rescue SystemCallError, JSON::ParserError
         {}
