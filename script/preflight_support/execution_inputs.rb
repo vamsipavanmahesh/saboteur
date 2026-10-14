@@ -191,15 +191,13 @@ module Preflight
     def bundler_files
       root = File.realpath(@directory)
       gemfile = File.expand_path(@env.fetch("BUNDLE_GEMFILE", "Gemfile"), root)
-      # Canonical, so the same file compares equal whether it was named through a symlinked dir or not
-      # (macOS /var vs /private/var). The lockfile bundler writes sits next to it either way.
-      gemfile = if File.exist?(gemfile)
-                  File.realpath(gemfile)
-                elsif File.directory?(File.dirname(gemfile))
-                  File.join(File.realpath(File.dirname(gemfile)), File.basename(gemfile))
-                else
-                  gemfile
-                end
+      # Canonical directory, lexical filename. The directory goes through realpath so the same file
+      # compares equal whether it was named through a symlinked dir or not (macOS /var vs
+      # /private/var). The filename stays lexical because Bundler appends ".lock" to the effective
+      # Gemfile name without resolving links: BUNDLE_GEMFILE=alias (a link to actual) uses
+      # alias.lock, never actual.lock.
+      dir = File.dirname(gemfile)
+      gemfile = File.join(File.realpath(dir), File.basename(gemfile)) if File.directory?(dir)
       lock = lockfile_for(gemfile)
       app_config = File.join(File.expand_path(@env.fetch("BUNDLE_APP_CONFIG", ".bundle"), root), "config")
       user_config = @env.fetch("BUNDLE_USER_CONFIG", File.join(Dir.home, ".bundle", "config"))
