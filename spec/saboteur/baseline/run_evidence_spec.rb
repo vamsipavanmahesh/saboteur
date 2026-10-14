@@ -48,6 +48,21 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
     expect(captured.fetch("candidates")).to be_frozen
   end
 
+  it "binds versioned effective operators and rejects a 0.5.0 baseline without auto-acceptance" do
+    current = JSON.parse(JSON.generate(finish))
+    policy = current.fetch("compatibility").fetch("config").fetch("operator_policy")
+    expect(policy).to eq(config.operator_policy)
+    previous = Marshal.load(Marshal.dump(current.fetch("compatibility")))
+    previous["config"].delete("operator_policy")
+    previous["config"].delete("exclude_operators")
+    comparison = Saboteur::Baseline::Comparison.new(
+      baseline: { "compatibility" => previous, "accepted" => [], "candidates" => [] }, current: current
+    )
+    expect(comparison.state).to eq("incompatible")
+    expect(comparison.exit_code).to eq(2)
+    expect(comparison.issues.join).to include("re-propose with baseline propose")
+  end
+
   it "normalizes symlinked checkout paths for subjects, edits and missing discovery files" do
     subject
     Dir.mktmpdir do |parent|
@@ -176,8 +191,8 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
                                               Saboteur::Engine::RunFingerprint.runtime_identity
                                             ))
     expect(metadata.fetch("config")).to eq(Saboteur::Engine::RunFingerprint.canonical_value(
-                                             config.to_h.except("cache_dir", "json_report", "html_report",
-                                                                "score_history")
+                                             config.selection_settings.except("cache_dir", "json_report", "html_report",
+                                                                              "score_history")
                                            ))
     expect(metadata.fetch("scope")).to eq("include" => config["include"], "exclude" => config["exclude"],
                                           "subjects" => config["subjects"])
