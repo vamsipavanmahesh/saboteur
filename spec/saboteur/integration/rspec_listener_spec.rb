@@ -8,6 +8,15 @@ RSpec.describe Saboteur::Integration::RSpec::Listener do
     described_class.new.tap { |listener| listener.example_failed(Struct.new(:example).new(example)) }
   end
 
+  # Text.utf8 is mutable code: a mutant that breaks it must not flip the run
+  # to error - the recorded failure is what classifies the kill (CI #272).
+  it "falls back to an escaped message when the scrub itself is broken" do
+    allow(Saboteur::Text).to receive(:utf8).and_raise(RuntimeError, "mutant")
+    expect(failed("t1", RuntimeError.new("boom caf\u00e9")).failure_messages["t1"]).to include("boom")
+    allow(Saboteur::Text).to receive(:utf8).and_return(nil)
+    expect(failed("t2", RuntimeError.new("kaput")).failure_messages["t2"]).to include("kaput")
+  end
+
   # Exception messages can embed paths whose bytes are invalid under the locale
   # encoding; .lines/.strip on those raises and flips the whole run to error.
   it "scrubs failure messages whose bytes are invalid under the locale encoding" do
