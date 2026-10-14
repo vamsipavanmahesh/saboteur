@@ -218,6 +218,38 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect([result.specs, result.unmatched, result.subjectless]).to eq([[], ["lib/c.rb"], ["lib/a.rb"]])
   end
 
+  it "lists a spec guessed for two changed files once" do
+    write("lib/deep/dup.rb", base_source)
+    write("deep/dup.rb", base_source)
+    write("spec/deep/dup_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "two files one spec")
+    write("lib/deep/dup.rb", changed_source)
+    write("deep/dup.rb", changed_source)
+    result = guess(include: ["lib/**/*.rb", "deep/**/*.rb"])
+    expect(result.specs).to eq(["spec/deep/dup_spec.rb"])
+  end
+
+  it "lists unmatched files sorted, however git ordered the diff" do
+    write("lib/z.rb", base_source)
+    git("add", ".")
+    git("commit", "-q", "-m", "z")
+    write("lib/c.rb", changed_source)
+    write("lib/z.rb", changed_source)
+    lines = { File.join(dir, "lib/z.rb") => Set[3], File.join(dir, "lib/c.rb") => Set[3] }
+    allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).and_return(lines)
+    expect(guess.unmatched).to eq(["lib/c.rb", "lib/z.rb"])
+  end
+
+  it "stays subjectless when a comment added above a method shifts its __LINE__" do
+    write("lib/c.rb", "class Widget\n  def thing\n    __LINE__\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "line marker")
+    write("lib/c.rb", "# a note\nclass Widget\n  def thing\n    __LINE__\n  end\nend\n")
+    result = guess
+    expect([result.unmatched, result.subjectless]).to eq([[], ["lib/c.rb"]])
+  end
+
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
   end
