@@ -25,7 +25,8 @@ RSpec.describe "visibility matrix (end to end)", :e2e do
   it "ends every mutant as Killed or Survived, and only a raising body is killed" do
     killed = mutants(run).select { |m| m["status"] == "Killed" }
     expect(mutants(run).map { |m| m["status"] } - %w[Killed Survived]).to be_empty
-    expect(killed.map { |m| m["mutatorName"] }.uniq).to contain_exactly("body_raise", "argument_removal")
-    expect(mutants(run).size).to eq(66)
+    expect(killed.map { |m| m["mutatorName"] }.uniq)
+      .to contain_exactly("body_raise", "argument_removal", "chain_removal")
+    expect(mutants(run).size).to eq(68)
   end
 end
