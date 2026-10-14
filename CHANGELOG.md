@@ -13,9 +13,19 @@ All notable changes are documented here. The format follows
   regardless of the process locale. This prevents
   `Encoding::CompatibilityError` in the canary, baseline failure excerpts
   and worker results, and fixes `--since` silently skipping changed files
-  with non-ASCII names.
+  with non-ASCII names. Paths are identity, not display text: the canary
+  watch, `--since` diff parsing, source discovery and the run fingerprint
+  retag locale-tagged bytes losslessly, so a tracked file whose name is
+  not valid UTF-8 stays watched (its deletion still trips the canary) and
+  keeps its exact bytes through selection. Scrubbing stays for display
+  only: log excerpts and messages.
 
 ### Added
+- `--since` warns when a changed Ruby file in scope has no subjects
+  covering the changed lines, so nothing is mutated from it (#232). A
+  silent zero-subject scope used to pass as a clean run. Changes that
+  touch only comments or formatting stay quiet; the run already reports
+  the methods it skips for that reason.
 - `script/preflight`: a local pre-review check on one exact base and head
   (#210). It runs the protected-path scope check, sign-off, SPDX headers,
   whitespace, RuboCop and the specs (fast or full mode), writes every harness
