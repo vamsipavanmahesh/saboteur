@@ -28,7 +28,8 @@ module Saboteur
         "literal_boolean" => "Swap a boolean literal",
         "argument_removal" => "Remove a call argument",
         "pair_removal" => "Remove a hash pair",
-        "endpoint_replacement" => "Swap explicit no-argument first and last"
+        "endpoint_replacement" => "Swap explicit no-argument first and last",
+        "chain_removal" => "Remove one call from a method chain"
       }.freeze
       EXTENDED = %w[range operator_assignment condition_negation].freeze
       TIERS = { "core" => (DESCRIPTIONS.keys - EXTENDED).freeze, "extended" => EXTENDED,
