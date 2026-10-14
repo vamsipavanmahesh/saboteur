@@ -77,8 +77,8 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
   end
 
   describe "--guess-tests" do
-    def guess(specs:, unmatched:, changed:)
-      result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, changed:)
+    def guess(specs:, unmatched:, changed:, subjectless: [])
+      result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:)
       allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
                                                                                      call: result))
     end
@@ -106,14 +106,43 @@ RSpec.describe Saboteur::Engine, "--since without --test" do
       expect(@engine.guessed_tests).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
     end
 
-    it "runs the whole suite and names the files without a spec" do
+    it "narrows to the matched specs and warns when some files have no spec" do
       guess(specs: ["spec/a_spec.rb"], unmatched: %w[lib/b.rb lib/c.rb], changed: 3)
+      used = tests_the_run_used { @report = run_engine("since" => "origin/main", "guess_tests" => true) }
+      expect(used).to eq(["spec/a_spec.rb"])
+      expect(@engine.guessed_tests).to eq(["spec/a_spec.rb"])
+      expect(err.string).to include("--guess-tests: running only spec/a_spec.rb")
+      expect(err.string).to include("No spec found for lib/b.rb, lib/c.rb")
+      expect(err.string).not_to include("running the loaded suite unscoped")
+      expect(@report.warnings).to include(a_string_starting_with("--guess-tests: running only"))
+    end
+
+    it "runs the whole suite and names the files without a spec when none matched" do
+      guess(specs: [], unmatched: %w[lib/b.rb lib/c.rb], changed: 2)
       used = tests_the_run_used { run_engine("since" => "origin/main", "guess_tests" => true) }
       expect(used).to eq([])
       expect(@engine.guessed_tests).to be_nil
       expect(err.string).to include("--guess-tests: no spec found for lib/b.rb, lib/c.rb, so the whole suite runs " \
                                     "(name specs after their source files or pass --test)")
       expect(err.string).to include("running the loaded suite unscoped")
+    end
+
+    it "runs the whole suite without requiring specs when the changed lines touch no method" do
+      guess(specs: [], unmatched: [], changed: 1, subjectless: ["lib/errors.rb"])
+      used = tests_the_run_used { run_engine("since" => "origin/main", "guess_tests" => true) }
+      expect(used).to eq([])
+      expect(@engine.guessed_tests).to be_nil
+      expect(err.string).to include("--guess-tests: no changed file has a mutation subject on its changed lines")
+      expect(err.string).to include("no spec is required for lib/errors.rb")
+      expect(err.string).to include("running the loaded suite unscoped")
+    end
+
+    it "notes skipped subjectless files while scoping to the guessed specs" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 2, subjectless: ["lib/errors.rb"])
+      used = tests_the_run_used { run_engine("since" => "origin/main", "guess_tests" => true) }
+      expect(used).to eq(["spec/a_spec.rb"])
+      expect(err.string).to include("--guess-tests: running only spec/a_spec.rb")
+      expect(err.string).to include("no spec is required for lib/errors.rb")
     end
 
     it "runs the whole suite when nothing changed" do
