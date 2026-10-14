@@ -93,4 +93,64 @@ RSpec.describe "non-UTF-8 locale boundaries" do
     events = with_default_external(Encoding::US_ASCII) { Saboteur::Execution::Protocol.parse(payload) }
     expect(events.first["file"]).to eq("lib/héllo.rb")
   end
+
+  # A tracked file whose name is not valid UTF-8 must stay in the watch:
+  # scrubbing its bytes would make the existence probe fail and its later
+  # deletion invisible.
+  it "canary watches a tracked file whose name is not valid UTF-8, and sees its deletion" do
+    git_repo do |dir, git|
+      raw = "raw-\xFF.rb".b
+      File.binwrite(File.join(dir, raw), "x")
+      File.write(File.join(dir, "café.md"), "x")
+      git.call("add", ".")
+      with_default_external(Encoding::US_ASCII) do
+        canary = Saboteur::Engine::Canary.new(dir)
+        expect { canary.check! }.not_to raise_error
+        File.delete(File.join(dir, raw))
+        expect { canary.check! }.to raise_error(Saboteur::CanaryTripped, /1 watched file/)
+        File.delete(File.join(dir, "café.md"))
+        expect { canary.check! }.to raise_error(Saboteur::CanaryTripped, /2 watched file/)
+      end
+    end
+  end
+
+  # core.quotePath is off for the diff, so the raw name bytes reach the
+  # parser; identity must survive byte for byte.
+  it "--since keeps the raw bytes of a changed file whose name is not valid UTF-8" do
+    git_repo do |dir, git|
+      raw = "raw-\xFF.rb".b
+      File.binwrite(File.join(dir, raw), "1\n")
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "base")
+      File.binwrite(File.join(dir, raw), "2\n")
+      changed = with_default_external(Encoding::US_ASCII) do
+        Saboteur::Selection::GitDiff.changed_lines("HEAD", root: dir)
+      end
+      expect(changed.keys.map { |path| File.basename(path) }).to eq([raw.dup.force_encoding(Encoding::UTF_8)])
+      expect(changed.values.map(&:to_a)).to eq([[1]])
+    end
+  end
+
+  # rev-parse --show-toplevel arrives tagged US-ASCII under LANG=C: joining
+  # it with a UTF-8 relative path must not raise, and stripping the newline
+  # must not either.
+  it "--since joins a non-ASCII root and a non-ASCII changed file under a US-ASCII locale" do
+    Dir.mktmpdir do |dir|
+      root = File.join(dir, "pröj")
+      FileUtils.mkdir_p(root)
+      git = lambda { |*args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: root)
+      }
+      git.call("init", "-q")
+      File.write(File.join(root, "héllo.rb"), "1\n")
+      git.call("add", ".")
+      git.call("commit", "-q", "-m", "base")
+      File.write(File.join(root, "héllo.rb"), "2\n")
+      changed = with_default_external(Encoding::US_ASCII) do
+        Saboteur::Selection::GitDiff.changed_lines("HEAD", root: root)
+      end
+      expect(changed.keys).to eq([File.join(File.realpath(root), "héllo.rb")])
+      expect(changed.values.map(&:to_a)).to eq([[1]])
+    end
+  end
 end
