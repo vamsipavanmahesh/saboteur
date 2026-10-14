@@ -21,12 +21,13 @@ module Saboteur
         "AR Pool Reaper" => "ActiveRecord's connection-pool reaper: expected harmless when children " \
                             "reconnect the database after fork (rails mode does) - it only maintains " \
                             "the parent's pool",
-        "DEBUGGER__::SESSION@server" => "the debug gem's remote-console server: not expected to affect " \
-                                        "results; whether it attaches to children depends on " \
-                                        "RUBY_DEBUG_FORK_MODE (the gem's default, both, attaches; parent " \
-                                        "does not). For an unattended run, do not start the remote " \
-                                        "debugger at all: drop RUBY_DEBUG_OPEN or require \"debug\" " \
-                                        "without :open"
+        "DEBUGGER__::SESSION@server" => "the debug gem's remote-console server: what it does in " \
+                                        "children depends on RUBY_DEBUG_FORK_MODE - with parent no " \
+                                        "debugger runs in children; with child or both (the gem's " \
+                                        "default) the debugger activates in children and can pause or " \
+                                        "interfere with supervised mutation runs. For an unattended " \
+                                        "run, do not start the remote debugger at all: drop " \
+                                        "RUBY_DEBUG_OPEN or require \"debug\" without :open"
       }.freeze
 
       def self.warn(diagnostics)

@@ -60,12 +60,15 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     named.join
   end
 
-  it "explains the debug gem's server thread as harmless and names the off switch" do
+  it "describes the debug gem's server thread per fork mode and names the off switch" do
     named = Thread.new { sleep }
     named.name = "DEBUGGER__::SESSION@server"
     Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
-    expect(warnings.last).to include("DEBUGGER__::SESSION@server", "not expected to affect results",
-                                     "RUBY_DEBUG_FORK_MODE", "unattended", "RUBY_DEBUG_OPEN")
+    expect(warnings.last).to include("DEBUGGER__::SESSION@server", "RUBY_DEBUG_FORK_MODE",
+                                     "with parent no debugger runs in children",
+                                     "interfere with supervised mutation runs",
+                                     "unattended", "RUBY_DEBUG_OPEN")
+    expect(warnings.last).not_to include("not expected to affect results")
   ensure
     named.kill
     named.join

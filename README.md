@@ -721,11 +721,12 @@ workers fork. Two are well known:
   expected harmless when children reconnect the database after fork -
   saboteur's rails mode does exactly that. Without verified
   reconnection, do not assume the inherited connection state is safe.
-- `DEBUGGER__::SESSION@server` is the debug gem's remote console. It is
-  not expected to affect results; whether it also attaches to children
-  depends on `RUBY_DEBUG_FORK_MODE` (`both` - the gem's default - and
-  `child` attach; `parent` does not). For unattended runs, do not start
-  the remote debugger at all: drop `RUBY_DEBUG_OPEN` or require
+- `DEBUGGER__::SESSION@server` is the debug gem's remote console. What
+  it does in children depends on `RUBY_DEBUG_FORK_MODE`: with `parent`
+  no debugger runs in children; with `child` or `both` (the gem's
+  default) the debugger activates in children and can pause or
+  interfere with supervised mutation runs. For unattended runs, do not
+  start the remote debugger at all: drop `RUBY_DEBUG_OPEN` or require
   `debug` without `:open`.
 
 Any other thread gets a generic caveat: a thread that does not run in a
