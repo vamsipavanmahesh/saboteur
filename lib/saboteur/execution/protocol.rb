@@ -32,7 +32,7 @@ module Saboteur
       # Events in order; lines that are not this protocol's are ignored.
       def parse(payload)
         payload.each_line.filter_map do |line|
-          message = JSON.parse(Text.utf8(line))
+          message = JSON.parse(Text.utf8_strict(line))
           message if message.is_a?(Hash) && message["v"] == VERSION
         rescue JSON::ParserError
           nil
