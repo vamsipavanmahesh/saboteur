@@ -137,6 +137,19 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
     expect(append(report_of(result_for(:survived)))).to include("-100.00 percentage points")
   end
 
+  it "compares policies only when both records carry one" do
+    history = described_class.new(@path)
+    policy = Saboteur::Config.new({}).operator_policy
+    with_policy = { "version" => 2, "operatorPolicy" => policy }
+    without_policy = { "version" => 2, "operatorPolicy" => nil }
+    expect(history.send(:comparable_policy?, without_policy, with_policy)).to be(false)
+    expect(history.send(:comparable_policy?, without_policy, without_policy)).to be(false)
+    expect(history.send(:comparable_policy?, with_policy, without_policy)).to be(false)
+    expect(history.send(:comparable_policy?, with_policy, with_policy)).to be(true)
+    other = with_policy.merge("version" => 1, "operatorPolicy" => nil)
+    expect(history.send(:comparable_policy?, other, other)).to be(false)
+  end
+
   it "isolates every prior-record schema guard" do
     append(report_of(result_for(:killed)))
     valid = records.first
