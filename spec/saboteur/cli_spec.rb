@@ -40,10 +40,30 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("internal error (RuntimeError: broken ? byte)")
   end
 
-  it "bounds a very long crash message to one line" do
-    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 500)
+  it "leaves a crash message at the length cap untouched" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 160)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: #{'x' * 160})")
+    expect(err.string).not_to include("...")
+  end
+
+  it "truncates a crash message one character past the cap" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "x" * 161)
     expect(cli("run").call).to eq(3)
     expect(err.string).to include("internal error (RuntimeError: #{'x' * 160}...)")
+  end
+
+  it "re-reads a byte-tagged crash message as UTF-8" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "caf\xC3\xA9\xFF".b)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (RuntimeError: caf\u00E9?)")
+  end
+
+  it "renders a crash whose message is not a String" do
+    weird = stub_const("WeirdError", Class.new(StandardError) { def message = 42 })
+    allow(Saboteur::Engine).to receive(:new).and_raise(weird)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).to include("internal error (WeirdError: 42)")
   end
 
   it "reports an unexpected failure in agent mode as an agent failure and exits 3" do
