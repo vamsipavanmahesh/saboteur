@@ -66,7 +66,7 @@ module Saboteur
         return unless path
 
         tree = WorkingTree.new(config.root, ignored: config.output_paths).state
-        scope = config.to_h.except("json_report", "html_report", "score_history", "cache_dir")
+        scope = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir")
         message = Reporter::ScoreHistory.new(path).append(report, head: tree.head, scope: scope)
         @err.puts("saboteur: #{message}")
       end
