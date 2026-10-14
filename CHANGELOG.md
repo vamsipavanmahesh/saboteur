@@ -14,6 +14,10 @@ All notable changes are documented here. The format follows
   check reports through harness-owned pipes rather than checkout paths.
   It is not CI and a pass is not an approval.
 
+### Changed
+- All built-in operators now run by default, including range, operator_assignment and condition_negation, which were opt-in in 0.5.0. Use --exclude-operators (or c.exclude_operators) to omit operators, or --operators (or c.operators) to select a smaller set. Exclusions win; each CLI list replaces its matching config list. This changes the default mutation set: counts, runtime, survivors and scores may change. Review CI thresholds and survivor baselines before adopting the new results. To retain the 0.5.0 default operator set during migration, exclude range,operator_assignment,condition_negation.
+- Breaking selection policy change: old core/extended tier names are refused with migration guidance. Policy version 2 binds effective operators and exclusions to cache/verdict identity, reports, score-history v2 and baseline evidence. Old baselines are incompatible and need a fresh reviewed proposal; unchanged mutation IDs stay stable.
+
 ## [0.5.0] - 2026-10-14
 
 ### Added
