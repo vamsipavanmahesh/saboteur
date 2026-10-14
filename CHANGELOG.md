@@ -112,10 +112,10 @@ All notable changes are documented here. The format follows
 - `--allow-focus` (#108): without it, a suite narrowed by a stray `fit`,
   `fdescribe` or `:focus` filter stops the run, because mutation testing a
   focused slice would report a score for the wrong suite.
-- Survivor findings carry a deterministic review ranking: coarse mutants first,
-  then more covering tests, a larger edited-line span and nearer changed lines
-  (#191). The terminal report still groups survivors by file path; the ranking
-  orders the findings inside each file group.
+- Survivor findings are ranked in the JSON and `--agent` findings: coarse
+  mutants first, then more covering tests, a larger edited-line span and nearer
+  changed lines (#191). The terminal report keeps its file/method/line groups,
+  with the ranking applied within each live or accepted line group.
 - `--score-history PATH` appends each run's scores to a JSONL file. Opt-in (#145).
 - [docs/guides/reading-survivors.md](docs/guides/reading-survivors.md) is a guide
   to reading survivors, and [docs/recipes/README.md](docs/recipes/README.md)
