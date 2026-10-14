@@ -13,7 +13,7 @@ request without thinking about it. Three things decide that:
 2. **Trust.** A survivor must mean something, and a kill must be real.
 3. **Reach.** It must be easy to find, install and wire into CI.
 
-## Where we are (0.4.0)
+## Where we are (0.5.0)
 
 Already shipped:
 
@@ -25,8 +25,8 @@ Already shipped:
 - RSpec only, by design. Validated on four gems and two Rails 8.1 apps.
 
 Known gaps, taken from our own benchmark against
-[mutineer](https://github.com/davidteren/mutineer) (MIT): fewer operators, no
-baseline file. A self-contained HTML report and a ready-made GitHub Action
+[mutineer](https://github.com/davidteren/mutineer) (MIT): fewer operators. A
+self-contained HTML report and a ready-made GitHub Action
 now exist, but the Action is advisory and does not post a pull request
 comment yet.
 
@@ -211,7 +211,8 @@ invalidation rules and specs above.
   trusted workflow that reads the report and never runs the pull request's
   code.
 - **Survivors in the comment.** **Shipped:** in review mode the terminal
-  output lists every survivor, grouped by file, method and line. **Planned:** a cap
+  output lists every survivor, grouped by file, method and line and ranked by
+  deterministic review value. **Planned:** a cap
   on survivors per pull request, with the rest in the report. The order
   needs a measurable rule before it ships, for example coarse before fine,
   then by whether a covering test exists, and we publish the rule. Google
@@ -220,10 +221,14 @@ invalidation rules and specs above.
   ([Petrovic et al., 2021](https://arxiv.org/pdf/2102.11378)). Add a "not
   useful" label to the survivor diff so a team can turn a repeated complaint
   into an arid rule.
-- **Baseline file.** Accept today's survivors, fail only on new ones. This is
-  how an existing project adopts mutation testing without a cleanup week.
-- **Thresholds.** `--min-score`, `--min-covered-score` and a limit on
-  timeouts, so a loop-heavy change cannot pass by timing out. Infection
+- **Shipped: baseline file.** `saboteur baseline propose` records today's
+  survivors, `accept` blesses them, and `check` fails only on new ones - with
+  `--epsilon POINTS` also on a score drop of more than POINTS percentage
+  points. This is how an existing project adopts mutation testing without a
+  cleanup week.
+- **Thresholds.** **Shipped:** `--max-timeouts` and `--max-errors`, so a
+  loop-heavy change cannot pass by timing out. **Planned:** `--min-score` and
+  `--min-covered-score`. Infection
   offers
   [`--min-msi`, `--min-covered-msi` and `--max-timeouts`](https://infection.github.io/guide/command-line-options.html).
   The names follow the score definition from Milestone 2.
@@ -308,8 +313,8 @@ Exit criteria: no known correctness bugs, and an API we are willing to keep.
 Rails and RSpec teams are the first audience. The positioning: the easiest
 trustworthy pull request test-quality check for Rails and RSpec, not the tool
 with the most operators. The install generator, Rails doctor and fixture/schema cache
-fingerprints ship in 0.4.0. Doctor currently runs two suite passes; cheap
-environment-only diagnostics remain planned. The custom source/spec map is
+fingerprints ship in 0.4.0. Doctor checks the environment only by default; the
+two unchanged suite passes run on request (`doctor --suite`). The custom source/spec map is
 parsed and validated only: it does not select tests, and there is no init
 command or zero-setup selection in 0.4.0.
 
