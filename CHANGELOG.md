@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Fixed failures under non-UTF-8 locales such as `LANG=C` when project
+  paths contain non-ASCII characters. Git output, coverage maps, result
+  caches, baseline logs and worker messages are now decoded as UTF-8
+  regardless of the process locale. This prevents
+  `Encoding::CompatibilityError` in the canary, baseline failure excerpts
+  and worker results, and fixes `--since` silently skipping changed files
+  with non-ASCII names.
+
 ### Added
 - `script/preflight`: a local pre-review check on one exact base and head
   (#210). It runs the protected-path scope check, sign-off, SPDX headers,
