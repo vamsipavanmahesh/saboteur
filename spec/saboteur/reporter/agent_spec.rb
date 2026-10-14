@@ -26,6 +26,18 @@ RSpec.describe Saboteur::Reporter::Agent do
                          skipped_subjects: skipped_subjects, warnings: warnings)
   end
 
+  it "preserves selected and excluded operator lists in rerun and replay commands" do
+    source = provenance_with(settings: { operators: %w[range arithmetic], exclude_operators: ["range"] })
+    commands = described_class::Commands
+    [commands.rerun(source), commands.replay(source, "abc")].each do |command|
+      words = Shellwords.split(command)
+      expect(words.each_cons(2).to_a).to include(["--operators", "range,arithmetic"],
+                                                 ["--exclude-operators", "range"])
+    end
+    cleared = commands.rerun(provenance_with(settings: { exclude_operators: [] }))
+    expect(Shellwords.split(cleared).each_cons(2).to_a).to include(["--exclude-operators", ""])
+  end
+
   context "when every mutant was killed" do
     let(:payload) { payload_for(report_of(result_for(:killed))) }
 
