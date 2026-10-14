@@ -71,8 +71,8 @@ module Preflight
       @history = []
     end
 
-    # With data_pipe the child gets an extra pipe as file descriptor 3 (use `--out /dev/fd/3`). It is read by the
-    # harness only: there is no path in the checkout that candidate code could swap for a link.
+    # With data_pipe the child gets an extra pipe as file descriptor 3 (redirect stdout onto it). It is read by
+    # the harness only: there is no path in the checkout that candidate code could swap for a link.
     def run(argv, timeout: DEFAULT_TIMEOUT_SECONDS, data_pipe: false)
       raise ArgumentError, "argv must be an array of strings" unless argv.is_a?(Array) && argv.all?(String)
 
