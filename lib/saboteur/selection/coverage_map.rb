@@ -169,7 +169,7 @@ module Saboteur
       end
 
       def self.load(path)
-        from_json(Text.utf8(File.read(path))) if File.file?(path)
+        from_json(Text.utf8_strict(File.read(path))) if File.file?(path)
       rescue JSON::ParserError, Error
         nil
       end
