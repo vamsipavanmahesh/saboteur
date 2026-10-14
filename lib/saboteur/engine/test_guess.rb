@@ -58,8 +58,6 @@ module Saboteur
       # a deletion whose remaining context lines are blank or comments, or a
       # comment-only change inside a method, leaves the file subjectless.
       def subjectless_files(lines_by_file)
-        return [] if lines_by_file.empty?
-
         comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(@config["since"], root: @root), root: @root)
         finder = SubjectFinder.new
         lines_by_file.reject do |file, lines|
