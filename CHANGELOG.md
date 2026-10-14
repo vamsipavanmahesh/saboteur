@@ -16,6 +16,27 @@ All notable changes are documented here. The format follows
   Guesses come only from files with a changed mutation subject, and when
   no changed file has one the run reports that there is nothing to mutate
   (fixes #268).
+- Fixed failures under non-UTF-8 locales such as `LANG=C` when project
+  paths contain non-ASCII characters. Git output, coverage maps, result
+  caches, baseline logs and worker messages are now decoded as UTF-8
+  regardless of the process locale. This prevents
+  `Encoding::CompatibilityError` in the canary, baseline failure excerpts
+  and worker results, and fixes `--since` silently skipping changed files
+  with non-ASCII names. Paths are identity, not display text: the canary
+  watch, `--since` diff parsing, source discovery and the run fingerprint
+  retag locale-tagged bytes losslessly, so a tracked file whose name is
+  not valid UTF-8 stays watched (its deletion still trips the canary) and
+  keeps its exact bytes through selection. The canary and diff parser
+  preserve path bytes rather than replacing invalid UTF-8 bytes; the
+  cache, coverage-map and worker-message boundaries reject invalid UTF-8
+  instead of rewriting it.
+
+### Added
+- `--since` warns when a changed Ruby file in scope has no subjects
+  covering the changed lines, so nothing is mutated from it (#232). A
+  silent zero-subject scope used to pass as a clean run. Comment-only or
+  formatting-only changes within discovered methods are skipped without
+  this warning; the run reports those skipped methods.
 
 ## [0.6.0] - 2026-10-14
 
