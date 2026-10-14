@@ -88,6 +88,26 @@ RSpec.describe Preflight::CommandRunner do
     Process.kill("KILL", pid) if pid&.positive? && alive?(pid)
   end
 
+  it "carries the RSpec report on fd 3 through the shim while suite prints stay on stdout (real run)" do
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "noisy_spec.rb"), <<~RUBY)
+        RSpec.describe("noise") { it("passes") { puts "spec noise"; expect(1).to eq(1) } }
+      RUBY
+      loud = described_class.new(directory: dir, log_directory: File.join(dir, "logs"), grace: 1)
+      loud.log_root = dir
+      result = loud.run(["bundle", "exec", "rspec", "noisy_spec.rb", "--require", loud.data_shim_path,
+                         "--format", "json"], timeout: 120, data_pipe: true)
+      expect([result.ran?, result.problem]).to eq([true, nil])
+      expect(result.stdout).to include("spec noise")
+      document = Preflight::StrictJson.parse(result.data)
+      expect(document.fetch("summary").fetch("example_count")).to eq(1)
+    end
+  end
+
+  it "refuses a data pipe without a log directory, where no safe shim can be written" do
+    expect { runner.data_shim_path }.to raise_error(Preflight::ExecutionGap, /log directory/)
+  end
+
   it "keeps a clean run clean when nothing is left behind (valid control)" do
     expect(runner.run(["ruby", "-e", "puts 1"]).stray_processes).to be(false)
   end
