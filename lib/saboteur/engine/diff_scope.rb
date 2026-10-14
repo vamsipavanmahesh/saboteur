@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "../text"
+
 module Saboteur
   class Engine
     # Review-shaped diff mode (--since). A reviewer asks "do the tests check
@@ -14,7 +16,7 @@ module Saboteur
       end
 
       def restrict(subject, candidates)
-        changed = @changed_lines.fetch(subject.file, Set.new)
+        changed = lines_for(subject)
         candidates.select do |mutation, _|
           mutation.coarse || mutation.edits.any? { |edit| edited_lines(subject, edit).any? { changed.include?(_1) } }
         end
@@ -24,14 +26,14 @@ module Saboteur
       # several lines is mutated as one piece and reported at its first line,
       # which can sit above the line that changed; this names the changed line.
       def changed_lines_for(subject, mutation)
-        changed = @changed_lines.fetch(subject.file, Set.new)
+        changed = lines_for(subject)
         mutation.edits.flat_map { |edit| edited_lines(subject, edit).to_a }.uniq.select { changed.include?(_1) }.sort
       end
 
       # Distance to the nearest changed line in this file. Unknown outside
       # the diff is nil, not a made-up nearby location.
       def distance_for(subject, mutation)
-        changed = @changed_lines.fetch(subject.file, Set.new)
+        changed = lines_for(subject)
         mutation.edits.map do |edit|
           first, last = edited_lines(subject, edit).minmax
           changed.map { |line| (line - line.clamp(first, last)).abs }.min
@@ -39,6 +41,13 @@ module Saboteur
       end
 
       private
+
+      # subject.file carries the locale tag under a non-UTF-8 locale
+      # while the map keys are UTF-8; retag losslessly or a non-ASCII
+      # path never matches and every fine mutant is silently dropped.
+      def lines_for(subject)
+        @changed_lines.fetch(Text.utf8_identity(subject.file), Set.new)
+      end
 
       def edited_lines(subject, edit)
         first = subject.line_of(edit.start_byte)
