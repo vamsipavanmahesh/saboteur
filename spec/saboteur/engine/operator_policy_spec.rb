@@ -1,11 +1,15 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "coverage"
 require "tmpdir"
 require "stringio"
 
 RSpec.describe Saboteur::Engine, "operator policy" do
   it "announces the effective operators when a run starts" do
+    # An in-process engine call suspends Coverage after boot; a suite measured
+    # by Coverage (the self-dogfood map build) must not inherit the suspension.
+    resume_coverage = Coverage.running?
     stub_const("ENV", ENV.to_h.except(Saboteur::Execution::Supervisor::CHILD_ENV))
     Dir.mktmpdir do |dir|
       engine = described_class.new(Saboteur::Config.new({}, root: dir))
@@ -18,6 +22,8 @@ RSpec.describe Saboteur::Engine, "operator policy" do
       end
       expect(diagnostics).to have_received(:inform).with(/\AOperators: \w+(, \w+)+/)
     end
+  ensure
+    Coverage.resume if resume_coverage && Coverage.state == :suspended
   end
 
   it "binds the operator policy into the result-cache inputs" do
