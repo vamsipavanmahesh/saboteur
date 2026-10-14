@@ -500,6 +500,13 @@ Doctor boots your app, checks the config and the test database host, and runs
 your suite twice before any mutation. Fix whatever it reports first. Turn
 SimpleCov off for the run if you use it.
 
+The database check refuses any test database whose host is not local
+(`localhost`, `127.0.0.1`, `::1`, `0.0.0.0` or a socket), so a remote
+database is never mutated by accident. `0.0.0.0` counts as local: compose
+setups write it into database URLs, and connecting to it reaches this
+machine. For another disposable test database host, assert it yourself:
+`c.allow_db_hosts = ["db.internal"]` in `config/saboteur.rb`.
+
 **4. Test what your branch changed**
 
 ```sh
