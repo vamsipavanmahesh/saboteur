@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "prism"
+require_relative "../inline_suppression"
 
 module Saboteur
   class Engine
@@ -12,7 +13,7 @@ module Saboteur
       def self.build_sources(config)
         root = File.realpath(config.root)
         config["sources"].map do |entry|
-          next MutationSource::Builtin.new(arid: config["arid"]) if entry == "builtin"
+          next MutationSource::Builtin.new(arid: config["arid"], operators: config["operators"]) if entry == "builtin"
 
           file, const = entry.split(":", 2)
           raise ConfigError, "mutation source #{entry.inspect} must be builtin or path.rb:ClassName" unless const
@@ -22,10 +23,11 @@ module Saboteur
         end
       end
 
-      def initialize(sources, diagnostics, hazard_guard: nil)
+      def initialize(sources, diagnostics, hazard_guard: nil, bytecode: BytecodeEquivalence.new)
         @sources = sources
         @diagnostics = diagnostics
         @hazard_guard = hazard_guard
+        @bytecode = bytecode
       end
 
       def for(subject)
@@ -38,11 +40,21 @@ module Saboteur
         list = @sources.flat_map { |source| proposals(source, subject) }.filter_map do |mutation|
           candidate(subject, mutation, seen)
         end
+        list = suppress_inline(list, subject)
         list = suppress_hazards(list, subject)
         list.sort_by.with_index { |(mutation, _), index| [mutation.coarse ? 0 : 1, index] }
       end
 
       private
+
+      def suppress_inline(list, subject)
+        directives = InlineSuppression.new(subject.file, subject.file_source)
+        list.reject do |mutation, _text|
+          directive = directives.reason(subject, mutation)
+          @diagnostics.record_inline_suppression(subject, mutation, directive) if directive
+          directive
+        end
+      end
 
       # The hazard guard (issue #102) refuses mutants that would leave a
       # destructive call running with altered inputs; each refusal is counted.
@@ -83,10 +95,16 @@ module Saboteur
           return record_drop(subject, mutation, "invalid_syntax")
         end
 
+        return record_drop(subject, mutation, "equivalent_bytecode") if equivalent?(subject, text)
+
         [mutation, text]
       rescue ArgumentError => e
         @diagnostics.warn("#{subject.id}: dropped #{mutation.source} mutation: #{e.message}")
         record_drop(subject, mutation, "invalid_edit")
+      end
+
+      def equivalent?(subject, text)
+        @bytecode.equivalent?(subject.source, text, frozen_string_literal: subject.frozen_literals)
       end
 
       def parses?(text)

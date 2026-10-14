@@ -40,12 +40,18 @@ module Saboteur
             command.bytesize <= MAX_BYTES ? command : nil
           end
 
+          # An explicit scope is frozen: --no-guess-tests keeps a config-file
+          # guess_tests from conflicting with the --test list.
+          def test_words(tests)
+            tests.empty? ? [] : ["--no-guess-tests", *tests.flat_map { |test| ["--test", test] }]
+          end
+
           def selection(provenance, replay: false)
             words = []
             words.push("--config", provenance.config_path) if provenance.config_path
             words.push("--since", provenance.ref) if provenance.ref
             provenance.subjects.each { |subject| words.push("--subject", subject) }
-            provenance.tests.each { |test| words.push("--test", test) }
+            words.push(*test_words(provenance.tests))
             SETTING_FLAGS.each do |key, flag|
               words.push(flag, provenance.settings[key].to_s) if provenance.settings.key?(key)
             end

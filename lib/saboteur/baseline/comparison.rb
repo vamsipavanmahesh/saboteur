@@ -8,9 +8,14 @@ module Saboteur
       CATEGORY_NAMES = %w[accepted new changed resolved_kills detected_timeouts unmatched errors].freeze
       EXITS = { "clean" => 0, "review_required" => 1, "incompatible" => 2, "incomplete" => 3 }.freeze
 
-      attr_reader :state, :categories, :issues
+      SCORED_STATUSES = %w[killed timeout survived].freeze
+      DETECTED_STATUSES = %w[killed timeout].freeze
 
-      def initialize(baseline:, current:)
+      attr_reader :state, :categories, :issues, :score
+
+      # epsilon is the largest score drop, in percentage points, that still
+      # passes. nil turns the score gate off.
+      def initialize(baseline:, current:, epsilon: nil)
         @issues = current.fetch("issues").dup
         @categories = {}
         unless baseline.fetch("compatibility") == current.fetch("compatibility")
@@ -18,15 +23,8 @@ module Saboteur
           return
         end
 
-        @categories = CATEGORY_NAMES.to_h { |name| [name, []] }
-        previous = baseline.fetch("accepted").to_h { |entry| [entry.fetch("id"), entry] }
-        current.fetch("candidates").each do |entry|
-          accepted = previous.delete(entry.fetch("id"))
-          name = category(entry, accepted)
-          categories.fetch(name) << entry if name
-        end
-        categories["unmatched"] = previous.values
-        categories.each_value { |entries| entries.sort_by! { |entry| order(entry) } }
+        @categories = classify(baseline, current)
+        @score = score_change(baseline, current, epsilon) if epsilon
         @state = outcome(current)
       end
 
@@ -35,6 +33,19 @@ module Saboteur
       end
 
       private
+
+      def classify(baseline, current)
+        categories = CATEGORY_NAMES.to_h { |name| [name, []] }
+        previous = baseline.fetch("accepted").to_h { |entry| [entry.fetch("id"), entry] }
+        current.fetch("candidates").each do |entry|
+          accepted = previous.delete(entry.fetch("id"))
+          name = category(entry, accepted)
+          categories.fetch(name) << entry if name
+        end
+        categories["unmatched"] = previous.values
+        categories.each_value { |entries| entries.sort_by! { |entry| order(entry) } }
+        categories
+      end
 
       def category(entry, accepted)
         case entry.fetch("status")
@@ -53,8 +64,36 @@ module Saboteur
         return "incomplete" unless current.fetch("complete") && issues.empty? && !current.fetch("candidates").empty?
         return "incomplete" unless categories.fetch("errors").empty?
         return "review_required" if %w[new changed unmatched].any? { |name| !categories.fetch(name).empty? }
+        return "review_required" if score&.fetch("exceeded")
 
         "clean"
+      end
+
+      # Percent of scored mutants that were detected, as saboteur's own score
+      # counts them: killed and timed out over killed, timed out and survived.
+      # An exact Rational, so the drop is compared with epsilon without
+      # binary float error.
+      def detected_counts(candidates)
+        scored = candidates.select { |entry| SCORED_STATUSES.include?(entry.fetch("status")) }
+        return nil if scored.empty?
+
+        [scored.count { |entry| DETECTED_STATUSES.include?(entry.fetch("status")) }, scored.size]
+      end
+
+      def score_change(baseline, current, epsilon)
+        before = detected_counts(baseline.fetch("candidates"))
+        now = detected_counts(current.fetch("candidates"))
+        return nil unless before && now
+
+        accepted = Rational(before[0] * 100, before[1])
+        measured = Rational(now[0] * 100, now[1])
+        drop = accepted - measured
+        # The epsilon as the decimal the user typed, not its binary float. The
+        # counts let a reader recompute the verdict exactly.
+        { "baseline" => accepted.to_f, "current" => measured.to_f, "drop" => drop.to_f, "epsilon" => epsilon,
+          "exceeded" => drop > Rational(epsilon.to_s),
+          "baseline_detected" => before[0], "baseline_scored" => before[1],
+          "current_detected" => now[0], "current_scored" => now[1] }
       end
 
       def order(entry)

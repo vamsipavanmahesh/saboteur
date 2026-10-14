@@ -18,11 +18,11 @@ module Saboteur
   # message or the timeout limit. ignored is the ignore-list reason, if any.
   class MutantResult
     attr_reader :subject, :mutation, :status, :reason, :runtime, :killed_by, :covered_by, :mutated_source,
-                :kill_cause
+                :kill_cause, :executed
     attr_accessor :ignored
 
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
-                   covered_by: [], kill_cause: nil, reused: false, rejected_kill: false)
+                   covered_by: [], kill_cause: nil, reused: false, rejected_kill: false, executed: nil)
       raise ArgumentError, "unknown status #{status.inspect}" unless STATUSES.include?(status)
 
       @subject = subject
@@ -34,6 +34,7 @@ module Saboteur
       @covered_by = covered_by
       @mutated_source = mutated_source
       @kill_cause = kill_cause
+      @executed = executed
       @rejected_kill = rejected_kill
       @reused = reused
       @ignored = nil
@@ -43,7 +44,14 @@ module Saboteur
     def as_error(reason, rejected_kill: false)
       MutantResult.new(subject: subject, mutation: mutation, status: :error, mutated_source: mutated_source,
                        reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by,
-                       rejected_kill: rejected_kill)
+                       executed: executed, rejected_kill: rejected_kill)
+    end
+
+    # True when every test planned for this mutant is known to have run.
+    # A killed run that stopped early, a test that called exit, or a verdict
+    # whose executed tests were never recorded is not complete.
+    def complete?
+      !executed.nil? && (covered_by - executed).empty?
     end
 
     def rejected_kill?
@@ -104,13 +112,13 @@ module Saboteur
     MAX_ERROR_FRACTION = 0.5
 
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :root, :seed, :skipped_subjects,
-                :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop
+                :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop, :inline_suppressions
 
     # REVIEW: diff mode; the terminal then shows one survivor per line.
     # seed: the random seed every test run started from (nil when unknown).
     def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [], review: false,
                    seed: nil, skipped_subjects: {}, diff_scope: nil, generation_events: [], omissions: [],
-                   run_evidence: nil, hazard_suppressions: 0, early_stop: nil)
+                   run_evidence: nil, hazard_suppressions: 0, early_stop: nil, matrix: false, inline_suppressions: [])
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -126,6 +134,13 @@ module Saboteur
       @run_evidence = run_evidence
       @hazard_suppressions = hazard_suppressions
       @early_stop = early_stop
+      @matrix = matrix
+      @inline_suppressions = inline_suppressions.dup.freeze
+    end
+
+    # A --matrix run: every covering test ran per mutant.
+    def matrix?
+      @matrix
     end
 
     # In diff mode, the changed lines (sorted) that a mutant touches; empty
@@ -133,6 +148,10 @@ module Saboteur
     # of a method whose only change is its signature).
     def changed_lines_for(result)
       @diff_scope ? @diff_scope.changed_lines_for(result.subject, result.mutation) : []
+    end
+
+    def changed_line_distance(result)
+      @diff_scope&.distance_for(result.subject, result.mutation)
     end
 
     def rejected_kills

@@ -9,8 +9,13 @@ bundle exec saboteur run --since origin/main
 
 Replace `main` with the pull request's target branch. The ref must exist
 locally, and git must have enough history to find its merge base with HEAD.
-An unknown ref or missing merge base fails the run; it does not silently
-fall back to a whole-project run. Plain `saboteur run` still means the whole
+An unknown ref exits 2 (a usage error) before the target boots, and a
+missing merge base exits 3; neither silently falls back to a whole-project
+run. A method whose only changes are comments, blank lines or spacing is
+skipped, and the run says so: its syntax tree is the same as at the merge
+base, so a mutant of it would test nothing the change touched. `__LINE__`
+counts as its line number, so a method that uses it and moves, or has a line
+added above that use, still runs. Plain `saboteur run` still means the whole
 configured project. Neither the CLI default nor the public API changes.
 
 ## GitHub Actions

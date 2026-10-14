@@ -27,6 +27,24 @@ inputs:
       report, always fails the step.
     required: false
     default: "false"
+  baseline:
+    description: >-
+      Path of an accepted survivor baseline file (see "Opt-in survivor
+      baseline" in the README). When set, the action runs
+      `saboteur baseline check` on the whole project instead of the diff-mode
+      run, and the pull request diff, report and annotation outputs stay
+      empty. The check fails on new, changed or unmatched survivors. Empty
+      (the default) keeps the diff-mode run.
+    required: false
+    default: ""
+  baseline-epsilon:
+    description: >-
+      Only with `baseline`. The largest score drop, in percentage points
+      below the baseline's score, that still passes (0 to 100). A larger drop
+      is reported as needing review, like a new survivor. Empty keeps only the
+      survivor comparison.
+    required: false
+    default: ""
   cache:
     description: >-
       "true" or "false" (anything else fails the step). "false" skips restoring
@@ -82,12 +100,34 @@ outputs:
   report-path:
     description: Path of the JSON report.
     value: ${{ steps.run.outputs.report-path }}
+  baseline-state:
+    description: >-
+      Only with `baseline`: the check state (clean, review_required,
+      incompatible or incomplete).
+    value: ${{ steps.baseline.outputs.baseline-state }}
+  baseline-score-drop:
+    description: >-
+      Only with `baseline` and `baseline-epsilon`: baseline score minus the
+      fresh score, in percentage points. Negative when the score rose.
+    value: ${{ steps.baseline.outputs.baseline-score-drop }}
 
 runs:
   using: composite
   steps:
+    - name: Check the survivor baseline
+      if: inputs.baseline != ''
+      id: baseline
+      shell: bash
+      env:
+        SABOTEUR_EVENT_NAME: ${{ github.event_name }}
+        SABOTEUR_COMMAND: ${{ inputs.command }}
+        SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
+        SABOTEUR_BASELINE: ${{ inputs.baseline }}
+        SABOTEUR_BASELINE_EPSILON: ${{ inputs.baseline-epsilon }}
+        SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
+      run: bash "${{ github.action_path }}/action/run-baseline-gate"
     - name: Restore the coverage map
-      if: inputs.cache == 'true' && github.event_name == 'pull_request'
+      if: inputs.baseline == '' && inputs.cache == 'true' && github.event_name == 'pull_request'
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: .saboteur/coverage-*.json
@@ -95,6 +135,7 @@ runs:
         restore-keys: |
           saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
     - name: Mutate the changed methods
+      if: inputs.baseline == ''
       id: run
       shell: bash
       env:

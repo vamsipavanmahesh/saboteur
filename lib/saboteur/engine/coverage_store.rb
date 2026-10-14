@@ -32,6 +32,8 @@ module Saboteur
 
         map = refuse_empty_map(build(files), files)
         map.save(path)
+        File.write(File.join(@config.path("cache_dir"), "preview.json"),
+                   JSON.generate(path: path, fingerprint: RunFingerprint.new(config: @config).snapshot.digest))
         map
       end
 
@@ -58,7 +60,7 @@ module Saboteur
         # The suite child forked next inherits this heap; pack it first, to
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
-        heartbeat = @diagnostics.progress_heartbeat("building coverage map")
+        heartbeat = @diagnostics.progress_heartbeat("building coverage map").watch(log_path)
         result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
           record(writer, files)
         end

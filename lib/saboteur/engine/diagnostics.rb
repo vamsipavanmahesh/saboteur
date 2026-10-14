@@ -9,8 +9,14 @@ module Saboteur
     # count of mutations dropped for not parsing, and progress marks.
     class Diagnostics
       # See progress_heartbeat. Time-gated itself, so the supervisor can
-      # call tick on every poll.
+      # call tick on every poll. A phase whose child writes "N/M examples
+      # finished" lines to a log (the baseline and coverage children do) can
+      # be watched: the heartbeat then adds the count, the percentage and an
+      # estimate of the time left to its elapsed-time line.
       class ProgressHeartbeat
+        COUNT = %r{(\d+)/([1-9]\d*) examples finished}
+        TAIL_BYTES = 4096
+
         def initialize(diagnostics, label, interval: 30)
           @diagnostics = diagnostics
           @label = label
@@ -19,12 +25,43 @@ module Saboteur
           @last_print = @started
         end
 
+        # Reads progress from the end of this log on each print. Returns self.
+        def watch(log_path)
+          @log = log_path
+          self
+        end
+
         def tick
           now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           return if now - @last_print < @interval
 
           @last_print = now
-          @diagnostics.inform("#{@label}: #{(now - @started).round} s elapsed")
+          elapsed = now - @started
+          @diagnostics.inform("#{@label}: #{elapsed.round} s elapsed#{progress_note(elapsed)}")
+        end
+
+        private
+
+        # ", 250/1000 examples (25 %), about 90 s left", or "" when the log has
+        # no count yet. The estimate assumes examples take equally long, so it
+        # is rough: slow examples late in the order make it too low.
+        def progress_note(elapsed)
+          done, total = examples_finished
+          return "" if done.nil?
+
+          note = ", #{done}/#{total} examples (#{(done * 100.0 / total).floor} %)"
+          return note if done.zero? || done >= total
+
+          "#{note}, about #{(elapsed * (total - done) / done).ceil} s left"
+        end
+
+        def examples_finished
+          return unless @log
+
+          tail = File.read(@log, TAIL_BYTES, [File.size(@log) - TAIL_BYTES, 0].max).to_s.scrub
+          tail.scan(COUNT).last&.map(&:to_i)
+        rescue SystemCallError
+          nil
         end
       end
 
@@ -37,7 +74,7 @@ module Saboteur
       DiscoveryFailure = Data.define(:file, :reason)
 
       attr_reader :warnings, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
-                  :hazard_suppressions
+                  :hazard_suppressions, :inline_suppressions
 
       def initialize(err)
         @err = err
@@ -47,6 +84,7 @@ module Saboteur
         @omissions = []
         @discovery_failures = []
         @hazard_suppressions = 0
+        @inline_suppressions = []
       end
 
       def warn(message)
@@ -73,6 +111,14 @@ module Saboteur
       def record_hazard_suppression(subject, mutation)
         @hazard_suppressions += 1
         record_generation(subject, source: "hazard_guard", operator: mutation.operator, reason: "hazardous")
+      end
+
+      def record_inline_suppression(subject, mutation, directive)
+        @inline_suppressions << {
+          file: subject.file, line: directive.line, subject: subject.id,
+          operator: mutation.operator, reason: directive.reason,
+          digest: mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+        }
       end
 
       def record_omission(subject, count:, limit:)

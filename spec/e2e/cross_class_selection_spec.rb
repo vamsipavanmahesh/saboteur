@@ -27,13 +27,20 @@ RSpec.describe "cross-class test selection (end to end)", :e2e do
 
   it "kills every mutant and leaves no survivors" do
     expect(@run.status).to eq(0), other_outcomes(@run)
-    expect(mutants(@run).map { |m| m["status"] }.uniq).to eq(["Killed"])
+    unignored = mutants(@run).reject { |m| m["statusReason"].to_s.start_with?("ignored:") }
+    expect(unignored.map { |m| m["status"] }.uniq).to eq(["Killed"])
+  end
+
+  it "ignores only the three chain_removal mutants that drop to_s from a Symbol, which cannot change a result" do
+    ignored = mutants(@run).select { |m| m["statusReason"].to_s.start_with?("ignored:") }
+    expect(ignored.map { |m| m["mutatorName"] }).to eq(["chain_removal"] * 3)
   end
 
   cases.each do |description, text, group|
     it "kills a mutant in #{description} through the consumer's spec" do
       line = lines.index { |candidate| candidate.include?(text) } + 1
       on_line = mutants(@run).select { |m| m.dig("location", "start", "line") == line }
+      on_line = on_line.reject { |m| m["statusReason"].to_s.start_with?("ignored:") }
       expect(on_line).not_to be_empty
       expect(on_line.map { |m| m["status"] }.uniq).to eq(["Killed"])
       killers = test_names(@run, on_line.flat_map { |m| m["killedBy"].to_a }.uniq)

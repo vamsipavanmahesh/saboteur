@@ -8,11 +8,14 @@ require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
 require_relative "cli/exit_status"
+require_relative "preview"
+require_relative "cli/run_reporting"
 
 module Saboteur
   class CLI
     include Baseline::Command
     include ExitStatus
+    include RunReporting
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -60,6 +63,7 @@ module Saboteur
         define_selection_options(opts)
         define_explicit_file_options(opts)
         define_execution_options(opts)
+        define_matrix_option(opts)
         define_output_options(opts)
       end
     end
@@ -71,9 +75,13 @@ module Saboteur
 
     def doctor_parser
       OptionParser.new do |opts|
-        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N]"
+        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH]"
         opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |value| set(:config, value) }
         opts.on("--seed N", Integer, "Seed for the two baseline runs (default 1)") { |value| set(:seed, value) }
+        opts.on("--suite", "Also run the unchanged suite twice (slow on a large suite)") { set(:suite, true) }
+        opts.on("--test PATH", "Spec file or directory for the suite runs; repeatable. Implies --suite") do |value|
+          (options[:tests] ||= []) << value
+        end
       end
     end
 
@@ -122,12 +130,12 @@ module Saboteur
     def run
       parser.parse!(@argv)
       use_explicit_sources
-      reject_threshold_with_agent_format
+      validate_run_options
       warn_dirty_tree
 
-      arguments = { err: @err }
-      arguments[:digest] = options[:id] if options[:id]
-      agent? ? agent_run(arguments) : text_run(Engine.new(config, **arguments).call)
+      return preview if options[:list_operators] || options[:dry_run]
+
+      execute_run
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
       agent_failure(e.message, EXIT_USAGE)
@@ -139,40 +147,42 @@ module Saboteur
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
     def warn_dirty_tree
-      tree = WorkingTree.new(config.root, ignored: output_paths).state
-      return unless tree.dirty
+      WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
+    end
 
-      @err.puts("saboteur: warning: #{tree.changed_files} uncommitted change(s) in the working tree. " \
-                "Mutants run your code and could alter or delete files; run on a clean, committed tree " \
-                "or a CI checkout.")
+    # Usage errors found before the target boots.
+    def validate_run_options
+      reject_threshold_with_agent_format
+      Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
     end
 
     # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
     def reject_threshold_with_agent_format
-      return unless agent? && config["threshold"]
+      return unless agent? && (config["threshold"] || gates.any?)
 
-      raise UsageError, "--threshold cannot be combined with --agent: agent mode exits 0 only for a complete, clean run"
+      raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
     end
 
-    def text_run(report)
-      @err.puts
-      Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto).call(report)
-      Reporter::Replay.new(@out).call(report) if options[:id]
-      code = exit_code(report)
-      # The JSON carries the exit cause an outer harness trusts, so it is
-      # the completion evidence for the whole run: write it only after
-      # every other fallible reporting stage, or a late failure would
-      # leave a fresh, misleading report behind.
-      write_html(report)
-      write_json(report, exit_cause(report, code))
-      code
+    # One line naming the reports written, paths relative to the root when
+    # they sit under it (a blank line before it, as the old JSON line had).
+    def announce_reports(reports)
+      written = reports.select { |path, _label| path }
+      return if written.empty?
+
+      root = File.join(File.realpath(config.root), "")
+      names = written.map do |path, label|
+        shown = File.expand_path(path).delete_prefix(root)
+        "#{shown} (#{label})"
+      end
+      @out.puts "\nReports: #{names.join(', ')}"
     end
 
     def doctor
       doctor_parser.parse!(@argv)
       raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
 
-      Doctor.new(config, out: @out).call
+      options[:tests]&.each { |test| require_existing_test(test) }
+      Doctor.new(config, out: @out, suite: options[:suite] || options.key?(:tests)).call
       EXIT_OK
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
@@ -184,29 +194,6 @@ module Saboteur
 
     # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
     # files, hooks, spec loading, child processes) goes to stderr while the engine runs.
-    def agent_run(arguments)
-      tree = WorkingTree.new(config.root, ignored: output_paths).state
-      report = stdout_on_stderr { Engine.new(config, **arguments).call }
-      payload = Reporter::Agent.call(report, agent_provenance(report, tree))
-      rendered = Reporter::Agent.render(payload)
-      # Same publish order as text_run: the JSON is the completion
-      # evidence, so it is written only after every other fallible stage,
-      # including the agent payload itself.
-      write_html(report, announce: false)
-      write_json(report, agent_exit_cause(report, payload), announce: false)
-      @out.print(rendered)
-      Reporter::Agent.exit_code(payload)
-    end
-
-    # Paths of saboteur's own output, relative to the root, that do not count as source changes.
-    def output_paths
-      root = File.join(File.realpath(config.root), "")
-      %w[cache_dir json_report html_report].filter_map { |key| config.path(key) }
-                                           .map { |path| File.expand_path(path) }
-                                           .select { |path| path.start_with?(root) }
-                                           .map { |path| path.delete_prefix(root) }
-    end
-
     # Descriptor 1 points at stderr for the block, so Kernel#puts, system and forked
     # children cannot write into the JSON on stdout.
     def stdout_on_stderr
@@ -218,11 +205,12 @@ module Saboteur
       saved&.close
     end
 
-    def agent_provenance(report, tree)
+    def agent_provenance(report, tree, engine)
       Reporter::Agent::Provenance.new(
         ref: config["since"], seed: report.seed, head: tree.head, working_tree: tree.label,
         changed_files: tree.changed_files, mode: agent_mode, json_report: config.path("json_report"),
-        subjects: Array(config["subjects"]), tests: Array(options[:tests]), sources: @sources || [],
+        subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || options[:tests]),
+        sources: @sources || [],
         config_path: options[:config], digest: options[:id], cache: config["cache"],
         incremental: config["incremental"], settings: options.slice(*Reporter::Agent::Commands::SETTING_FLAGS.keys)
       )
@@ -235,20 +223,21 @@ module Saboteur
       @sources&.any? ? "files" : "full"
     end
 
-    def write_json(report, cause, announce: true)
+    # Writes the JSON report and returns its path, or nil when none is configured.
+    def write_json(report, cause)
       path = config.path("json_report")
       return unless path
 
       Reporter::Stryker.new(path).call(report, exit_cause: cause)
-      @out.puts "\nJSON report: #{path}" if announce
+      path
     end
 
-    def write_html(report, announce: true)
+    def write_html(report)
       path = config.path("html_report")
       return unless path
 
       Reporter::Html.new(path).call(report)
-      @out.puts "HTML report: #{path}" if announce
+      path
     end
 
     # Positional arguments name the files (or directories) to mutate. They
@@ -290,10 +279,25 @@ module Saboteur
     end
 
     def overrides
-      options.except(:config, :id)
+      options.except(:config, :id, :suite, :list_operators, :dry_run)
+    end
+
+    def preview
+      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON" if agent?
+      raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
+
+      return MutationSource::OperatorRegistry.list(@out) || EXIT_OK if options[:list_operators]
+
+      Preview.new(config, out: @out, err: @err).call
+      EXIT_OK
     end
 
     def define_selection_options(opts)
+      opts.on("--operators NAMES", Array, "Choose operator names or tiers (core, extended, all)") do |v|
+        set(:operators, v)
+      end
+      opts.on("--list-operators", "List operator names, descriptions and tiers") { set(:list_operators, true) }
+      opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
       opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
       opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
       opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
@@ -317,9 +321,20 @@ module Saboteur
       opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
         set(:allow_focus, true)
       end
+      opts.on("--[no-]guess-tests", "With --since: run only the specs named after the changed files " \
+                                    "(lib/a.rb -> spec/a_spec.rb); the whole suite if any has none") do |v|
+        set(:guess_tests, v)
+      end
+    end
+
+    def define_matrix_option(opts)
+      opts.on("--matrix", "Run every covering test per mutant and list blind and redundant tests") do
+        set(:matrix, true)
+      end
     end
 
     def define_output_options(opts)
+      opts.on("--score-history PATH", "Append score history JSONL (opt-in)") { |v| set(:score_history, v) }
       opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
       opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
       opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
@@ -338,6 +353,7 @@ module Saboteur
       opts.on("--threshold PERCENT", Float, "Exit 1 when the score is below PERCENT (0-100)") do |v|
         set(:threshold, v)
       end
+      Gates.define_options(opts) { |key, value| set(key, value) }
     end
 
     def add_subject(expr)

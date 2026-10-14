@@ -15,8 +15,12 @@ module Saboteur
     class Runner
       # kill_cause: "assertion" when the killing test failed an expectation,
       # else the class of the error it died with (a crash, not a check).
-      Outcome = Data.define(:status, :runtime, :failed_ids, :message, :leftover_pids, :kill_cause) do
-        def initialize(status:, runtime:, failed_ids: [], message: nil, leftover_pids: [], kill_cause: nil)
+      # executed_ids: the tests the child reports it ran; empty when it could
+      # not say (a test called exit).
+      Outcome = Data.define(:status, :runtime, :failed_ids, :message, :leftover_pids, :kill_cause,
+                            :executed_ids) do
+        def initialize(status:, runtime:, failed_ids: [], message: nil, leftover_pids: [], kill_cause: nil,
+                       executed_ids: [])
           super
         end
       end
@@ -41,13 +45,18 @@ module Saboteur
       # only when it ends in an error.
       # seed: every child seeds Ruby's random numbers with it before its
       # tests, so a test that uses rand sees the same values in every run.
-      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1)
+      # sandbox: when given, a callable run first in every child (Landlock
+      # makes the project tree read-only there, #152). It raises rather than
+      # run half-restricted, which the child reports as an error.
+      def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1,
+                     sandbox: nil)
         @integration = integration
         @reevaluator = reevaluator
         @hooks = hooks
         @log_dir = log_dir
         @supervisor = supervisor
         @seed = seed
+        @sandbox = sandbox
       end
 
       # text: method source to evaluate in the child (the unchanged source for
@@ -71,10 +80,18 @@ module Saboteur
       # --- child ----------------------------------------------------------
 
       def child(writer, job)
-        Process.setproctitle(title(job))
+        # Redirect before restricting: the sweep closes inherited stdio
+        # redirected to a regular file outside the grants (#178), and a
+        # reopened-afterwards $stdout would start from a closed stream.
+        # The log lives under the granted cache dir, so it survives.
         redirect_output(job.log_path)
+        @sandbox&.call([writer.fileno])
+        Process.setproctitle(title(job))
         @hooks.run(:after_fork)
-        @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
+        # Before the evaluation: a whole-file subject runs the file's own
+        # top-level code there, and it must see the run's random numbers.
+        Kernel.srand(@seed)
+        evaluate_mutant(writer, job)
         stale = stale_captures(job)
         Protocol.emit(writer, "captures", site: stale.first, stale: stale.size) if stale.any?
         Protocol.emit(writer, "started")
@@ -83,6 +100,12 @@ module Saboteur
       rescue Exception => e # rubocop:disable Lint/RescueException
         Protocol.emit(writer, "error", message: "#{e.class}: #{e.message}", backtrace: e.backtrace&.first(5))
         exit!(1)
+      end
+
+      def evaluate_mutant(writer, job)
+        @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
+        replaced = @reevaluator.replaced_definition(job.subject)
+        Protocol.emit(writer, "replaced", site: replaced) if replaced
       end
 
       # Capture detection is best-effort: a subject shape it cannot scan
@@ -183,25 +206,43 @@ module Saboteur
           unexpected = failed - test_ids
           return mismatch(runtime, "failed tests not requested: #{unexpected.first(3).join(', ')}") if unexpected.any?
 
-          return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed,
+          return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed, executed_ids: executed,
                              message: result.fetch("failure_messages", {})[failed.first],
                              kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
         end
-        return Outcome.new(status: :killed, runtime: runtime, message: "suite-level failure") unless result["passed"]
+        unless result["passed"]
+          return Outcome.new(status: :killed, runtime: runtime, executed_ids: executed,
+                             message: "suite-level failure")
+        end
 
         if executed.sort != test_ids.sort
           return mismatch(runtime, "executed #{executed.size} of #{test_ids.size} requested tests")
         end
 
-        Outcome.new(status: :survived, runtime: runtime)
+        Outcome.new(status: :survived, runtime: runtime, executed_ids: executed)
       end
 
       def classify_events(result, events, runtime, job)
         outcome = classify_result(result, runtime, job.test_ids)
+        replaced = events.find { |event| event["event"] == "replaced" }
+        return replaced_by_later_definition(outcome, replaced) if never_ran?(outcome, replaced, job)
+
         captures = events.find { |event| event["event"] == "captures" }
         return unreachable(outcome, captures) if unobservable?(outcome, captures, job, result["replacement_called"])
 
         outcome
+      end
+
+      # A surviving mutant whose definition a later one in the same file
+      # replaced: the tests could not have run it, so it is no verdict on them.
+      def never_ran?(outcome, replaced, job)
+        replaced && job.mutation && outcome.status == :survived
+      end
+
+      def replaced_by_later_definition(outcome, replaced)
+        Outcome.new(status: :unreachable, runtime: outcome.runtime,
+                    message: "the whole-file evaluation left another definition in place " \
+                             "(#{replaced['site']}), so this mutant never ran")
       end
 
       # Only mutant runs convert: the verdict check re-evaluates the

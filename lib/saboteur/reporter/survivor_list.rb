@@ -17,30 +17,30 @@ module Saboteur
         @palette = palette
       end
 
-      # entries: [[result, hidden_count]] in report order.
-      def call(report, entries)
-        return if entries.empty?
+      # Every survivor, in report order; the grouping keeps them readable.
+      def call(report, survivors)
+        return if survivors.empty?
 
-        @out.puts "Survivors (#{report.survivors.size}):"
-        entries.group_by { |result, _| result.subject.file }.sort_by { |file, _| file }.each do |file, in_file|
+        @out.puts "Survivors (#{survivors.size}):"
+        survivors.group_by { |result| result.subject.file }.sort_by { |file, _| file }.each do |file, in_file|
           file_section(report, relative(file, report.root), in_file)
         end
-        @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if entries.any? { |result, _| hint_for(result) }
+        @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if survivors.any? { |result| hint_for(result) }
       end
 
       private
 
       def file_section(report, path, in_file)
         @out.puts "\n#{@palette.paint(:bold, path)}"
-        in_file.group_by { |result, _| result.subject.id }.each do |subject_id, in_subject|
+        in_file.group_by { |result| result.subject.id }.each do |subject_id, in_subject|
           @out.puts "  #{subject_id}"
           lines(report, path, in_subject)
         end
       end
 
       def lines(report, path, in_subject)
-        in_subject.group_by { |result, _| MutationText.line(result) }.sort.each do |line, on_line|
-          first = on_line.first.first
+        in_subject.group_by { |result| MutationText.line(result) }.sort.each do |line, on_line|
+          first = on_line.first
           @out.puts "    #{path}:#{line} in #{first.subject.id}"
           @out.puts "      #{@palette.paint(:dim, "#{line}:")} #{source_line(first, line)}"
           evidence_groups(report, on_line).each { |group| evidence_group(report, path, group) }
@@ -49,33 +49,33 @@ module Saboteur
 
       # Mutants on one line share the printed evidence only when it is the
       # same for all of them: covering tests (in order), reuse and changed
-      # lines can each differ per mutant, so each distinct tuple is its own
-      # group and its evidence is printed once, above its own mutations.
+      # lines can each differ per mutant, so each run of neighbours with the
+      # same tuple is one group and shares evidence above its own mutations.
+      # Evidence that repeats after another group is printed again, which
+      # keeps the ranked order.
       def evidence_groups(report, on_line)
-        on_line.group_by { |result, _| [result.covered_by, result.reused?, report.changed_lines_for(result)] }
-               .values
+        on_line.chunk { |result| [result.covered_by, result.reused?, report.changed_lines_for(result)] }
+               .map(&:last)
       end
 
       def evidence_group(report, path, group)
-        first = group.first.first
+        first = group.first
         changed_lines(report, path, first)
         passing_tests(first)
-        group.each { |result, hidden| mutation(result, hidden) }
+        group.each { |result| mutation(result) }
       end
 
       def source_line(result, line)
         result.subject.file_source.lines[line - 1].to_s.strip
       end
 
-      def mutation(result, hidden)
+      def mutation(result)
         text = "      #{@palette.paint(:red, '-')} #{result.mutation.operator} " \
                "#{MutationText.original(result)} -> #{@palette.paint(:green, MutationText.replacement(result))} " \
                "#{result.digest}"
         text += " (ignored: #{result.ignored})" if result.ignored
         @out.puts text
         hint(result)
-        @out.puts "        #{hidden} more survivor#{'s' if hidden > 1} on this line in the JSON report" if
-          hidden.positive?
       end
 
       def hint(result)
