@@ -115,18 +115,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::Builtin#mutate_number",
              reason: "equivalent: add drops a replacement whose text equals the original"
 
-  i.mutation "9ac4abd82021b00e",
-             subject: "Saboteur::Selection::Recorder#test_finished",
-             reason: "equivalent: test_started always runs first, so @started_at is set"
-
-  i.mutation "0458d7ba8548398b",
-             subject: "Saboteur::Selection::CoverageMap#to_json",
-             reason: "equivalent: durations only order tests; a digit of rounding changes no order in practice"
-
-  i.mutation "888ad02d4ded3205",
-             subject: "Saboteur::Selection::CoverageMap#to_json",
-             reason: "equivalent: durations only order tests; a digit of rounding changes no order in practice"
-
   i.mutation "0bc08834912bc67d",
              subject: "Saboteur::Selection::CoverageMap#test_order",
              reason: "equivalent: memoization only; tests never change after construction"
@@ -307,10 +295,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#reuse",
              reason: "equivalent: no covering tests means no stored cache verdict; execute then returns the same uncoverable result"
 
-  i.mutation "7a02dc533bc53157",
-             subject: "Saboteur::Selection::CoverageMap.from_json",
-             reason: "equivalent: the FORMAT 4 writer always emits a methods key (to_json encodes methods unconditionally), so the missing-key fallback never fires"
-
   i.mutation "2775afca28a11bfe",
              subject: "Saboteur::Selection::CoverageMap#sort_test_ids",
              reason: "equivalent: ids come from by_method/by_line values, which store indices into tests, so order.fetch always hits and the default is unreachable"
@@ -322,6 +306,33 @@ Saboteur.ignore do |i|
   i.mutation "8f347a8e928e9ef5",
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent: Prism's sibling locations are disjoint, so at most one child contains the edit; returning its nil immediately is the same as finishing the loop with nil"
+
+  i.mutation "c52104bcd93c6fc2",
+             subject: "Saboteur::Selection::CoverageMap#tests_for_branches",
+             reason: "equivalent: branch spans always have four coordinates, so span[2, 3] and span[2, 2] both return the final two coordinates"
+  i.mutation "df73cda19a6c56f3",
+             subject: "Saboteur::Engine::Scheduler#uncoverable",
+             reason: "equivalent: unloadable receives exactly one candidate here, so first and last return the same result"
+
+  i.mutation "eb6af4aef069613b",
+             subject: "Saboteur::Engine::Scheduler#uncoverable",
+             reason: "equivalent: skip_all receives exactly one candidate here, so first and last return the same result"
+
+  i.mutation "560fd49376706c7c",
+             subject: "Saboteur::Config#validate_fail_fast!",
+             reason: "equivalent: jobs is validated as at least 1 before this check, so jobs > 1 and jobs != 1 agree for every value that reaches it"
+
+  i.mutation "da7d0b0cd48bc0f6",
+             subject: "Saboteur::Reporter::SurvivorList#lines",
+             reason: "equivalent: the mutants on one line belong to one subject and share its id and source line, so the first and the last print the same header"
+
+  i.mutation "bc3002bc8baaf16b",
+             subject: "Saboteur::Reporter::SurvivorList#evidence_group",
+             reason: "equivalent: a group is keyed by covering tests, reuse and changed lines, so every member prints the same evidence"
+
+  i.mutation "947651810f34ed47",
+             subject: "Saboteur::Preview#planned",
+             reason: "equivalent: at the exact cap, >= records a zero-count omission; preview only sums omission counts, so displayed counts and selected mutants are unchanged"
 
   i.mutation "dc44b78352b4ef54",
              subject: "Saboteur::Subject#pattern_coverage_lines",

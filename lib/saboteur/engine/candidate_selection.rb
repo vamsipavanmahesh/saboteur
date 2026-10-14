@@ -18,8 +18,9 @@ module Saboteur
       end
 
       def for(subject, scope: nil)
-        if @map.tests_for(subject).empty?
-          @skipped_subjects[subject] = skip_reason_for(subject)
+        reason = subject.skip_reason || (skip_reason_for(subject) if @map.tests_for(subject).empty?)
+        if reason
+          @skipped_subjects[subject] = reason
           return @selected[subject] = []
         end
 

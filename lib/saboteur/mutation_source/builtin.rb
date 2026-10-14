@@ -9,6 +9,10 @@ require_relative "argument_removal"
 require_relative "chain_removal"
 require_relative "pair_removal"
 require_relative "endpoint_replacement"
+require_relative "operator_registry"
+require_relative "range_replacement"
+require_relative "operator_assignment"
+require_relative "condition_negation"
 
 module Saboteur
   module MutationSource
@@ -17,7 +21,7 @@ module Saboteur
     class Builtin < Base
       DEFAULT_ARID = [
         '\A(puts|pp|p|print|warn)\b',
-        '\A(::)?(Rails\.)?logger\b',
+        '\A(@|self\.|::)?(Rails\.)?logger\b',
         '\A(::)?(StatsD|Statsd|Datadog|NewRelic)\b',
         '\.instrument\b'
       ].freeze
@@ -49,8 +53,9 @@ module Saboteur
       CATCH_ALL = %w[StandardError ::StandardError Exception ::Exception].freeze
       SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
 
-      def initialize(arid: DEFAULT_ARID)
+      def initialize(arid: DEFAULT_ARID, operators: [])
         super()
+        @operators = OperatorRegistry.resolve(operators)
         @arid = arid.map { |pattern| pattern.is_a?(Regexp) ? pattern : Regexp.new(pattern) }
         @filter_replacement = FilterReplacement.new(arid: arid)
         @literal_replacement = LiteralReplacement.new(arid: arid)
@@ -58,6 +63,9 @@ module Saboteur
         @pair_removal = PairRemoval.new(arid: arid)
         @chain_removal = ChainRemoval.new(arid: arid)
         @endpoint_replacement = EndpointReplacement.new(arid: arid)
+        @range_replacement = RangeReplacement.new(arid: arid)
+        @operator_assignment = OperatorAssignment.new(arid: arid)
+        @condition_negation = ConditionNegation.new(arid: arid)
       end
 
       def name
@@ -76,6 +84,10 @@ module Saboteur
         @found.concat(@pair_removal.mutations_for(subject))
         @found.concat(@chain_removal.mutations_for(subject))
         @found.concat(@endpoint_replacement.mutations_for(subject))
+        @found.concat(@range_replacement.mutations_for(subject))
+        @found.concat(@operator_assignment.mutations_for(subject))
+        @found.concat(@condition_negation.mutations_for(subject))
+        @found.select { |mutation| @operators.include?(mutation.operator) }
       ensure
         @subject = nil
       end
@@ -140,7 +152,8 @@ module Saboteur
         statements.each do |statement|
           next if arid?(statement)
 
-          add("statement_removal", statement, "nil") if statements.size > 1 && removable?(statement)
+          removable_here = statements.drop(1).any? && removable?(statement)
+          add("statement_removal", statement, "nil") if removable_here
           visit(statement)
         end
       end

@@ -56,6 +56,64 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat" do
   end
 end
 
+RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat with a watched log (issue #56)" do
+  let(:err) { StringIO.new }
+  let(:diagnostics) { described_class.new(err) }
+  let(:log) { Tempfile.new("phase-log") }
+
+  after { log.close! }
+
+  def beat(elapsed: 40, written: nil)
+    log.write(written) if written
+    log.flush
+    allow(Process).to receive(:clock_gettime).and_call_original
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0, 100.0 + elapsed)
+    heartbeat = diagnostics.progress_heartbeat("baseline check 1", interval: 30).watch(log.path)
+    heartbeat.tick
+    err.string
+  end
+
+  it "adds the count, the percentage and a time estimate from the last progress line" do
+    out = beat(written: "25/100 examples finished\n50/100 examples finished\n")
+    expect(out).to eq("saboteur: baseline check 1: 40 s elapsed, 50/100 examples (50 %), about 40 s left\n")
+  end
+
+  it "prints only the elapsed time while the log has no count" do
+    expect(beat(written: "starting\n")).to eq("saboteur: baseline check 1: 40 s elapsed\n")
+  end
+
+  it "prints only the elapsed time when the log does not exist yet" do
+    log.close!
+    allow(Process).to receive(:clock_gettime).and_call_original
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0, 140.0)
+    heartbeat = diagnostics.progress_heartbeat("coverage", interval: 30).watch("/nonexistent/phase.log")
+    heartbeat.tick
+    expect(err.string).to eq("saboteur: coverage: 40 s elapsed\n")
+  end
+
+  it "gives no estimate when every example finished or none did" do
+    expect(beat(written: "100/100 examples finished\n")).to end_with("100/100 examples (100 %)\n")
+  end
+
+  it "gives no estimate before the first example or past the total" do
+    expect(beat(written: "0/100 examples finished\n")).to end_with("0/100 examples (0 %)\n")
+    err.truncate(0)
+    err.rewind
+    log.truncate(0)
+    log.rewind
+    expect(beat(written: "150/100 examples finished\n")).to end_with("150/100 examples (150 %)\n")
+  end
+
+  it "ignores a zero total" do
+    expect(beat(written: "0/0 examples finished\n")).to eq("saboteur: baseline check 1: 40 s elapsed\n")
+  end
+
+  it "reads the end of a long log" do
+    out = beat(written: "#{'x' * 10_000}\n20/80 examples finished\n")
+    expect(out).to include("20/80 examples (25 %), about 120 s left")
+  end
+end
+
 RSpec.describe Saboteur::Engine::Diagnostics, "hazard suppressions (issue #102)" do
   it "counts each suppression and records a generation event" do
     diagnostics = described_class.new(StringIO.new)

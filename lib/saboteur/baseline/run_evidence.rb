@@ -11,7 +11,7 @@ module Saboteur
     # This does not attest external database, network or environment state.
     class RunEvidence
       SAFE_DROPS = %w[unchanged duplicate].freeze
-      OUTPUT_SETTINGS = %w[cache_dir json_report html_report].freeze
+      OUTPUT_SETTINGS = %w[cache_dir json_report html_report score_history].freeze
 
       def initialize(config:, extra_files: [])
         @config = config
@@ -32,25 +32,38 @@ module Saboteur
         end)
       end
 
-      def finish(results:, stable_suite:, skipped_subjects:, generation_events:, omissions:, discovery_failures: [])
+      def finish(results:, stable_suite:, skipped_subjects:, generation_events:, omissions:, discovery_failures: [],
+                 inline_suppressions: [])
         raise ConfigError, "baseline plan missing" unless @planned
 
         observed = results.map { |result| outcome(result) }
         generation = generation_events.map { |event| event.to_h.transform_keys(&:to_s) }
         discovery = discovery_failures.map { |failure| failure.to_h.transform_keys(&:to_s) }
-        errors = generation_issues(generation, results) + context_issues(observed) + discovery.map do |failure|
-          "discovery:#{failure.fetch('reason')}:#{relative(failure.fetch('file'))}"
-        end
+        errors = generation_issues(generation, results) + context_issues(observed) + discovery_issues(discovery)
+        suppressions = suppression_scope(inline_suppressions)
+        errors += suppression_issues(suppressions)
         completeness = assess(observed, stable_suite, skipped_subjects, omissions, errors)
         document = { "compatibility" => compatibility, "snapshot" => @snapshot.to_h, "subjects" => @subjects,
                      "candidates" => observed, "planned" => @planned,
                      "complete" => completeness.complete?, "issues" => completeness.issues,
                      "generation_events" => generation, "omissions" => omissions.map(&:to_h),
-                     "discovery_failures" => discovery }
+                     "discovery_failures" => discovery, "inline_suppressions" => suppressions }
         Engine::RunFingerprint.canonical_value(document)
       end
 
       private
+
+      def discovery_issues(entries)
+        entries.map { |entry| "discovery:#{entry.fetch('reason')}:#{relative(entry.fetch('file'))}" }
+      end
+
+      def suppression_scope(entries)
+        entries.map { |entry| entry.transform_keys(&:to_s).merge("file" => relative(entry.fetch(:file))) }
+      end
+
+      def suppression_issues(entries)
+        entries.map { |entry| "inline_suppressed:#{entry.fetch('subject')}:#{entry.fetch('digest')}" }
+      end
 
       def generation_issues(generation, results)
         errors = generation.reject { |event| SAFE_DROPS.include?(event.fetch("reason")) }.map do |event|

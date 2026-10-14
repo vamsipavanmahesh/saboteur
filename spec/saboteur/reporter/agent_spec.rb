@@ -56,9 +56,37 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(payload[:next][:replay]).to eq("saboteur run --id #{finding[:digest]} --since origin/main --seed 7")
     end
 
+    it "gives the finding a testHint with the boundary case, as data" do
+      hint = payload[:findings][:shown].first[:testHint]
+      expect(hint).to include(kind: "boundary", case: "left == right")
+      expect(hint[:text]).to start_with("try an example at the boundary")
+    end
+
+    it "gives a coarse survivor of an unlisted operator the method-result hint" do
+      coarse = payload_for(report_of(result_for(:survived, coarse: true)))
+      expect(coarse[:findings][:shown].first[:testHint]).to eq(
+        kind: "method_result", text: "try asserting this method's result or its effect"
+      )
+    end
+
+    it "includes an operator hint with an honest caveat" do
+      expect(payload[:findings][:shown].first[:hint]).to start_with("try an example at the boundary")
+      expect(payload[:findings][:hintCaveat]).to include("suggestions, not diagnoses")
+      expect(described_class.render(payload).bytesize).to be <= described_class::BYTE_BUDGET
+    end
+
     it "does not carry file sources" do
       expect(JSON.generate(payload)).not_to include("def adult?")
     end
+  end
+
+  it "uses coarse fallback hints but invents no hint for unknown fine operators" do
+    fine = result_for(:survived)
+    allow(fine).to receive(:mutation).and_return(fine.mutation.with(operator: "unknown_operator"))
+    expect(payload_for(report_of(fine))[:findings][:shown].first).not_to have_key(:hint)
+    coarse = result_for(:survived, coarse: true)
+    expect(payload_for(report_of(coarse))[:findings][:shown].first[:hint])
+      .to eq(Saboteur::Reporter::SurvivorHints::COARSE)
   end
 
   context "when the only survivor is accepted on the ignore list" do
@@ -186,7 +214,7 @@ RSpec.describe Saboteur::Reporter::Agent do
       steps = next_commands(config_path: "ci.yml", subjects: ["A#b"], tests: ["spec/a_spec.rb"], cache: false,
                             incremental: true, sources: ["lib/a.rb"], digest: "f" * 16)
       expect(steps[:rerun]).to eq("saboteur run --agent --config ci.yml --since origin/main --subject A\\#b " \
-                                  "--test spec/a_spec.rb --no-cache --incremental --id #{'f' * 16} " \
+                                  "--no-guess-tests --test spec/a_spec.rb --no-cache --incremental --id #{'f' * 16} " \
                                   "--seed 7 -- lib/a.rb")
     end
 
@@ -212,6 +240,18 @@ RSpec.describe Saboteur::Reporter::Agent do
       provenance = provenance_with(ref: "é" * 60_000, subjects: ["é" * 60_000] * 200)
       text = described_class.render(described_class.call(report_of(result_for(:killed)), provenance))
       expect(text.bytesize).to be <= described_class::BYTE_BUDGET
+    end
+  end
+  it "bounds completeness when any inline candidates were suppressed, including all-suppressed runs" do
+    [[], [result_for(:killed)]].each do |results|
+      report = Saboteur::Report.new(results: results, subjects: [person_subject], wall_time: 1,
+                                    root: File.dirname(person_subject.file),
+                                    inline_suppressions: [{ reason: "elsewhere" }])
+      payload = payload_for(report)
+      expect(payload).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+      meaning = "candidates were suppressed by inline directives; see the full report audit"
+      expect(payload[:incomplete]).to include(a_hash_including(reason: "inline_suppressed", count: 1, meaning: meaning))
+      expect(payload[:next][:fullReport]).to eq(".saboteur/report.json")
     end
   end
 end

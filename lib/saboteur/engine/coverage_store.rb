@@ -32,6 +32,8 @@ module Saboteur
 
         map = refuse_empty_map(build(files), files)
         map.save(path)
+        File.write(File.join(@config.path("cache_dir"), "preview.json"),
+                   JSON.generate(path: path, fingerprint: RunFingerprint.new(config: @config).snapshot.digest))
         map
       end
 
@@ -58,7 +60,7 @@ module Saboteur
         # The suite child forked next inherits this heap; pack it first, to
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
-        heartbeat = @diagnostics.progress_heartbeat("building coverage map")
+        heartbeat = @diagnostics.progress_heartbeat("building coverage map").watch(log_path)
         result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
           record(writer, files)
         end
@@ -98,12 +100,17 @@ module Saboteur
         if @config["tests"].empty?
           raise Error, "Coverage recorded nothing in #{files.size} included files during a whole-suite " \
                        "build. No test in the suite may exercise these files, or the setup hid the app " \
-                       "from Coverage (Bootsnap's compile cache is the default Rails case). " \
-                       "Run `saboteur doctor`."
+                       "from Coverage#{bootsnap_note}. Run `saboteur doctor`."
         end
         @diagnostics.warn("Coverage recorded nothing in #{files.size} included files; " \
                           "the selected specs may not exercise them.")
         map
+      end
+
+      # Bootsnap is named only when it is loaded: blaming a library the app
+      # does not use sends the reader to the wrong place.
+      def bootsnap_note
+        " (Bootsnap's compile cache is the default Rails case)" if defined?(::Bootsnap)
       end
 
       def died(status)
