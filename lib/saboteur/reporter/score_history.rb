@@ -58,13 +58,13 @@ module Saboteur
       private
 
       def build(report, head, scope)
-        { "version" => 1, "date" => Time.now.utc.iso8601, "commit" => head,
+        { "version" => 2, "date" => Time.now.utc.iso8601, "commit" => head,
           "selection" => Digest::SHA256.hexdigest(JSON.generate(scope.sort_by { |key, _| key.to_s }.to_h)),
           "inventory" => Digest::SHA256.hexdigest(JSON.generate(report.results.map(&:digest).sort)),
           "score" => overall_score(report), "coveredScore" => report.score,
           "counts" => report.counts.transform_keys(&:to_s),
           "breakdown" => report.score_breakdown.to_h.transform_keys(&:to_s),
-          "incomplete" => incompleteness(report) }
+          "incomplete" => incompleteness(report), "operatorPolicy" => report.operator_policy }
       end
 
       def overall_score(report)
