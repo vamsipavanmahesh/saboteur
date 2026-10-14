@@ -12,7 +12,9 @@ All notable changes are documented here. The format follows
   whose remaining context is blank or comment lines or a comment-only
   change: such files no longer require a guessed spec. And when some
   changed files still have no spec named after them, the run now narrows
-  to the specs it found and warns, instead of running the whole suite
+  to the specs it found and warns, instead of running the whole suite.
+  Guesses come only from files with a changed mutation subject, and when
+  no changed file has one the run reports that there is nothing to mutate
   (fixes #268).
 
 ## [0.6.0] - 2026-10-14
