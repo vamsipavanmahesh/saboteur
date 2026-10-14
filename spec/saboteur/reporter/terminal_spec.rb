@@ -28,6 +28,20 @@ RSpec.describe Saboteur::Reporter::Terminal do
     )
   end
 
+  it "prints excluded operators, and only when the policy excludes some" do
+    excluded = Saboteur::Config.new({ "exclude_operators" => %w[condition_negation range] }).operator_policy
+    text = render(report_of(result_for(:killed), policy: excluded))
+    expect(text).to include("Excluded operators: condition_negation, range (policy #{excluded['version']}; ")
+    out.truncate(0)
+    out.rewind
+    expect(render(report_of(result_for(:killed)))).not_to include("Excluded operators")
+    out.truncate(0)
+    out.rewind
+    plain = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                 root: File.dirname(person_subject.file), seed: 1)
+    expect(render(plain)).not_to include("Excluded operators")
+  end
+
   it "prints the test matrix before the summary only for a --matrix run, capped" do
     killed = result_for(:killed, killed_by: %w[a b], covered_by: %w[a b], executed: %w[a b])
     plain = report_of(killed)
