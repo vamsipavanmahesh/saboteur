@@ -222,6 +222,11 @@ module Saboteur
           # (e.g. a path with raw bytes); scrub before splitting, or .lines/.strip
           # raises Encoding::CompatibilityError and the run reports error (CI #272).
           Text.utf8(message.to_s).lines.map(&:strip).find { |line| !line.empty? }.to_s[0, MESSAGE_LIMIT]
+        rescue StandardError
+          # Text.utf8 is mutable code: when the mutant under test breaks it,
+          # the raise must not flip the run to error - the recorded failure
+          # is what classifies the kill. dump is ASCII-safe for any bytes.
+          message.to_s.dump[0, MESSAGE_LIMIT]
         end
       end
     end
