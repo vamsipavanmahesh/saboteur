@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "json"
+require "open3"
+require "rbconfig"
 require "tmpdir"
 require_relative "../../script/integration_target"
 
@@ -17,6 +19,31 @@ RSpec.describe IntegrationTarget do
   end
 
   let(:mostly_errored) { mutants("Killed", 70) + mutants("RuntimeError", 77) }
+
+  # The runner's hosts may not have a UTF-8 locale: the report reads must
+  # not depend on the process default external encoding.
+  def lang_c(snippet, *args)
+    script = File.expand_path("../../script/integration_target", __dir__)
+    Open3.capture3({ "LANG" => "C", "LC_ALL" => "C" }, RbConfig.ruby, "-rjson",
+                   "-e", "require #{script.dump}; #{snippet}", *args)
+  end
+
+  it "counts a non-ASCII report under LANG=C" do
+    report = report_file(mutants("Killed", 2, "note" => "caf\u00E9") + mutants("Survived", 1))
+    out, err, status = lang_c("print JSON.generate(IntegrationTarget.counts(ARGV[0]))", report)
+    expect(status.exitstatus).to eq(0), err
+    expect(JSON.parse(out)).to eq("killed" => 2, "survived" => 1)
+  end
+
+  it "accepts then rejects a non-ASCII majority-error report under LANG=C as the allowance tightens" do
+    report = report_file(mostly_errored.map { |mutant| mutant.merge("note" => "caf\u00E9") })
+    out, err, status = lang_c("print IntegrationTarget.accept_error_majority?(3, 0.6, ARGV[0])", report)
+    expect(status.exitstatus).to eq(0), err
+    expect(out).to eq("true")
+    out, err, status = lang_c("print IntegrationTarget.accept_error_majority?(3, 0.5, ARGV[0])", report)
+    expect(status.exitstatus).to eq(0), err
+    expect(out).to eq("false")
+  end
 
   it "accepts exit 3 when the fresh report shows the majority-error outcome within the allowance" do
     expect(described_class.accept_error_majority?(3, 0.6, report_file(mostly_errored))).to be(true)

@@ -50,12 +50,13 @@ RSpec.describe Saboteur::Engine::SuiteFiles do
     expect(listed).to include(glued, equals, custom)
   end
 
-  it "reads option files with non-ASCII tokens under a non-UTF-8 locale" do
+  it "requires a non-ASCII setup file from .rspec under a non-UTF-8 locale" do
     write(".rspec", "--require caf\u00E9_setup\n")
+    setup = write("lib/caf\u00E9_setup.rb")
     allow(File).to receive(:read).and_wrap_original do |original, *args|
       original.call(*args).force_encoding(Encoding::US_ASCII)
     end
-    expect { files }.not_to raise_error
+    expect(files).to include(setup)
   end
 
   it "digests the files' contents" do

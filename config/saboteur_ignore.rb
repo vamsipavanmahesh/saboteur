@@ -167,10 +167,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::ConfigFile#name_error_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
 
-  i.mutation "3f4731752cdbf4a2",
-             subject: "Saboteur::CustomMap#duplicate_keys",
-             reason: "equivalent: counts are always at least 1, so != 1 selects the same keys as > 1"
-
   i.mutation "2e6104adf15e225f",
              subject: "Saboteur::CustomMap#glob_entry",
              reason: "equivalent: best is never empty, so != 1 and > 1 agree"
