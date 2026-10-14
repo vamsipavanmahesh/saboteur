@@ -48,7 +48,9 @@ module Saboteur
       # package.yml pack's own spec directory, then the app-wide one.
       def candidates_for(file)
         pack = pack_of(file)
-        base = pack ? file.delete_prefix("#{pack}/") : file
+        # pack is nil for files outside packs: "#{nil}/" is "/", which
+        # never prefixes a relative path, so delete_prefix is a no-op there.
+        base = file.delete_prefix("#{pack}/")
         spec_root = pack ? "#{pack}/spec" : "spec"
         stem = base.delete_suffix(".rb")
         rest = stem.split("/", 2)
