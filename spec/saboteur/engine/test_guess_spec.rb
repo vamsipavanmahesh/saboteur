@@ -260,6 +260,42 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(result.hints).to eq("lib/c.rb" => "spec/c_spec.rb")
   end
 
+  describe "call_for under --since (a --subject run stays inside the diff)" do
+    def guess_for(files, patterns)
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+      described_class.new(config).call_for(files, patterns)
+    end
+
+    it "drops a named subject whose file is unchanged, even when the file has no spec" do
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], [], 0])
+    end
+
+    it "drops a named subject when only another method in its file changed" do
+      write("lib/c.rb", "class Widget\n  def thing\n    1\n  end\n  def added\n    2\n  end\nend\n")
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], [], 0])
+    end
+
+    it "drops a named subject whose change is comment-only" do
+      write("lib/c.rb", "class Widget\n  def thing\n    # a comment, not code\n    1\n  end\nend\n")
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], [], 0])
+    end
+
+    it "infers the changed named subject's spec and skips an unchanged requested subject" do
+      write("lib/a.rb", changed_source)
+      result = guess_for(["lib/c.rb", "lib/a.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([["spec/a_spec.rb"], [], 1])
+    end
+
+    it "still reports a changed named subject with no spec as unmatched" do
+      write("lib/c.rb", changed_source)
+      result = guess_for(["lib/c.rb"], ["Widget#thing"])
+      expect([result.specs, result.unmatched, result.changed]).to eq([[], ["lib/c.rb"], 1])
+    end
+  end
+
   describe "without --since (every included file is in scope)" do
     def guess_all(include: ["lib/**/*.rb", "app/**/*.rb"])
       config = Saboteur::Config.new({ "include" => include }, root: dir)

@@ -57,8 +57,12 @@ module Saboteur
 
       # Subject-scoped inference (--subject runs): only the named subjects'
       # files need a guessed spec; every one of them has a subject by
-      # construction, so there is no subjectless bucket.
-      def call_for(files)
+      # construction, so there is no subjectless bucket. With --since the
+      # diff narrows the scope further: a named subject whose file is
+      # unchanged, whose changed lines sit in other methods, or whose change
+      # is comment or formatting only is out of scope and needs no spec.
+      def call_for(files, patterns = [])
+        files = effective_subject_files(files, patterns) if @config["since"]
         guesses = files.to_h { |file| [file, guess_for(file)] }
         result(guesses, [], files.size)
       end
@@ -95,6 +99,25 @@ module Saboteur
       end
 
       private
+
+      # The named subjects' files inside the diff scope: the subject must
+      # sit on a changed line and survive the comment/formatting prune,
+      # mirroring the run's subject selection.
+      def effective_subject_files(files, patterns)
+        lines_by_file = changed_lines_by_file
+        comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(@config["since"], root: @root), root: @root)
+        finder = SubjectFinder.new
+        files.select do |file|
+          lines = lines_by_file[file]
+          next false unless lines
+
+          finder.call(File.join(@root, file)).subjects.any? do |subject|
+            patterns.any? { |pattern| SubjectSelection.match?(subject.id, pattern) } &&
+              lines.any? { |line| subject.contains_line?(line) } &&
+              !comparison.unchanged?(subject)
+          end
+        end
+      end
 
       def result(guesses, subjectless, changed)
         unmatched = guesses.select { |_, spec| spec.nil? }.keys

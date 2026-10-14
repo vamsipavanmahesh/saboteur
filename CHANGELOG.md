@@ -32,6 +32,12 @@ All notable changes are documented here. The format follows
   `Saboteur::CLI#define_execution_options` are gone: full runs no longer
   generate those description-string mutants, so the entries could never
   match again.
+  A `--subject` run combined with `--since` now infers specs only for
+  named subjects inside the diff scope: an unchanged subject file, one
+  whose changes sit in other methods, or one with a comment-only change
+  no longer stops the run before boot. Agent provenance records tests
+  defined in the config file, so rerun and replay commands keep their
+  scope instead of falling back to inference.
 
 ### Fixed
 - Fixed two encoding failures in mutant children running under a non-UTF-8

@@ -414,6 +414,26 @@ RSpec.describe Saboteur::CLI do
       end
     end
 
+    it "records config-defined tests in agent provenance so the rerun keeps them" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("config")
+          File.write("config/saboteur.rb", "Saboteur.configure { |c| c.tests = [\"spec/a_spec.rb\"] }\n")
+          FileUtils.mkdir_p("spec")
+          File.write("spec/a_spec.rb", "# spec\n")
+          cli("run", "--agent").call
+        end
+      end
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.tests).to eq(["spec/a_spec.rb"])
+        expect(Saboteur::Reporter::Agent::Commands.rerun(provenance)).to include("--test spec/a_spec.rb")
+      end
+    end
+
     it "records a configured test_selection = :all in agent settings when no tests resolved" do
       report = report_of(result_for(:killed))
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)

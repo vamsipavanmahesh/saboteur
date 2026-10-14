@@ -117,12 +117,18 @@ module Saboteur
     # A --subject run infers only from the files holding the named subjects:
     # an unrelated spec-less file must not block a one-method run. A subject
     # file without a conventional spec stops the run before boot, like any
-    # other unmatched file.
+    # other unmatched file. With --since only named subjects inside the diff
+    # scope count: an unchanged, comment-only or otherwise pruned subject
+    # needs no spec and cannot stop the run either.
     def select_subject_tests(patterns)
       files = SubjectSelection.files_matching(@root, config.included_files, patterns)
       return if files.empty? # unknown subjects are named later, in selection
 
-      guess = TestGuess.new(config).call_for(files)
+      guess = TestGuess.new(config).call_for(files, patterns)
+      # --since: every named subject sits outside the diff scope, so the run
+      # has nothing to mutate; like unknown subjects, selection says so later.
+      return if guess.changed.zero?
+
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
       @diagnostics.announce(scope_to_guesses(guess))

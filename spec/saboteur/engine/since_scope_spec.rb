@@ -229,6 +229,15 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(err.string).not_to include("inferred specs:")
     end
 
+    it "ignores named subjects outside the --since diff scope instead of stopping" do
+      write_subject_project(with_spec: false)
+      allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).and_return({})
+      allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("HEAD")
+      used = tests_the_run_used { run_engine("since" => "HEAD", "subjects" => ["Person#adult?"]) }
+      expect(used).to eq([])
+      expect(err.string).not_to include("inferred specs:")
+    end
+
     it "keeps the recorded tests in replay mode, skipping inference" do
       engine = described_class.new(Saboteur::Config.new({}, root: @root), err: err, digest: "0" * 16)
       expect(Saboteur::Engine::TestGuess).not_to receive(:new)

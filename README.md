@@ -290,7 +290,9 @@ run says so and skips those files. When no file has a mutation subject at all,
 the run reports that there is nothing to mutate. A `--subject` run infers only
 from the named subjects' files: an unrelated spec-less file never stops a
 one-method run, and a subject file with no conventional spec stops the run
-like any other unmatched file.
+like any other unmatched file. With `--since` only named subjects on changed
+lines count: an unchanged subject file, one whose changes sit in other
+methods, or one with a comment-only change is skipped, not stopped.
 
 A file that needs a spec and has none stops the run before it boots (exit 2)
 and names both ways out: `--test` with the specs to run, or `--all` for the

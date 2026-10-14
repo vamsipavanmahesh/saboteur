@@ -224,7 +224,7 @@ module Saboteur
       Reporter::Agent::Provenance.new(
         ref: config["since"], seed: report.seed, head: tree.head, working_tree: tree.label,
         changed_files: tree.changed_files, mode: agent_mode, json_report: config.path("json_report"),
-        subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || options[:tests]),
+        subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || config["tests"]),
         sources: @sources || [],
         config_path: options[:config], digest: options[:id], cache: config["cache"],
         incremental: config["incremental"], settings: agent_settings
