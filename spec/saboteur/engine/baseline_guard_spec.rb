@@ -289,6 +289,24 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1.*log.*Fix/m)
     end
   end
+
+  it "scans only the first EXCERPT_SCAN_LINES for the failure section" do
+    scan = described_class::EXCERPT_SCAN_LINES
+    lines = (["filler"] * scan) + ["Failures:", "  1) it broke"] + (["tail"] * 20)
+    FileUtils.mkdir_p(File.join(@root, ".saboteur"))
+    File.binwrite(File.join(@root, ".saboteur", "baseline-1.log"), "#{lines.join("\n")}\n")
+    excerpt = guard.send(:failure_excerpt, 1)
+    expect(excerpt).to include("filler")
+    expect(excerpt).not_to include("1) it broke")
+  end
+
+  it "leaves whitespace-only lines out of the excerpt" do
+    FileUtils.mkdir_p(File.join(@root, ".saboteur"))
+    File.binwrite(File.join(@root, ".saboteur", "baseline-1.log"), "boom\n   \nmore\n")
+    excerpt = guard.send(:failure_excerpt, 1)
+    expect(excerpt).to include("boom")
+    expect(excerpt).not_to include("   \n")
+  end
 end
 
 RSpec.describe Saboteur::Engine::BaselineGuard, "mutation hook compatibility" do
