@@ -283,8 +283,12 @@ coverage: a spec that reaches the changed file only through another file does no
 run: a mutant only that spec would kill can survive, and a line that none of the
 guessed specs executes is reported as NoCoverage. The agent JSON records the guessed specs as its
 `tests`, so its follow-up commands keep the same `--test` scope (with `--no-guess-tests`, so a `guess_tests`
-in the config file cannot conflict) instead of widening to the whole suite. If any changed file has no such
-spec, or nothing changed, the whole suite runs as before and the run says so.
+in the config file cannot conflict) instead of widening to the whole suite. A changed file only needs a guessed
+spec when its changed lines touch a method: a deletion that leaves blank or comment context, or a
+comment-only change, mutates nothing and is skipped. When some changed files have no such spec, the
+run narrows to the specs it found and warns which files are unmatched; the whole suite runs as
+before, and the run says so, only when nothing changed or no changed file with a mutation subject
+has a matching spec.
 `--guess-tests` needs `--since` and cannot be combined with `--test`. Keep whole-project runs on main: diff mode does not check every method affected by a
 dependency change. [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
