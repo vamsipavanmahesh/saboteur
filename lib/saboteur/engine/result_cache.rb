@@ -66,7 +66,7 @@ module Saboteur
       private
 
       def load
-        data = JSON.parse(Text.utf8(File.read(@path)))
+        data = JSON.parse(Text.utf8_strict(File.read(@path)))
         data["format"] == FORMAT ? data["entries"] : {}
       rescue SystemCallError, JSON::ParserError
         {}
