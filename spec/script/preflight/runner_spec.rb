@@ -277,7 +277,7 @@ RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
       fi
       if [ "$1" = "exec" ] && [ "$2" = "rspec" ]; then
         #{tamper == :raw_symlink ? 'ln -s "$OUTSIDE_FILE" "$RUN/logs/harness_specs.rspec.json"' : ':'}
-        cat "$RSPEC_JSON" > /dev/fd/3
+        cat "$RSPEC_JSON"
         exit 0
       fi
       echo "Bundler version stub"
