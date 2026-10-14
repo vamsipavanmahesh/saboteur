@@ -8,9 +8,11 @@ module Saboteur
     # coverage fact: a spec that only reaches the file through another one
     # is not found. Packwerk packs (a directory with a package.yml) map to the
     # spec directory inside the same pack, and controllers also map to request
-    # specs. The run scopes to the guesses only when every changed file has one.
+    # specs. Only files whose changed lines carry a mutation subject need a
+    # guessed spec; when some of those have none, the run narrows to the
+    # specs it found and warns.
     class TestGuess
-      Result = Data.define(:specs, :unmatched, :changed)
+      Result = Data.define(:specs, :unmatched, :subjectless, :changed)
 
       SOURCE_ROOTS = %w[lib app].freeze
 
@@ -19,25 +21,50 @@ module Saboteur
         @config = config
       end
 
-      # specs: existing spec files (relative paths); unmatched: changed
-      # source files with no guessed spec; changed: how many source files
-      # changed.
+      # specs: existing spec files (relative paths) guessed for changed files
+      # with a changed mutation subject; unmatched: such files with no
+      # guessed spec; subjectless: changed files with no changed mutation
+      # subject, which neither need nor get a spec; changed: how many
+      # source files changed.
       def call
-        changed = changed_sources
-        guesses = changed.to_h { |file| [file, guess_for(file)] }
-        Result.new(specs: guesses.values.compact.uniq.sort, unmatched: guesses.select { |_, spec| spec.nil? }.keys,
-                   changed: changed.size)
+        lines_by_file = changed_lines_by_file
+        subjectless = subjectless_files(lines_by_file)
+        # Only files with a changed mutation subject get a guessed spec: a
+        # subjectless file mutates nothing, so its spec would only narrow the
+        # run for no reason.
+        guesses = lines_by_file.except(*subjectless).to_h { |file| [file, guess_for(file)] }
+        Result.new(specs: guesses.values.compact.uniq.sort,
+                   unmatched: guesses.select { |_, spec| spec.nil? }.keys,
+                   subjectless: subjectless,
+                   changed: lines_by_file.size)
       end
 
       private
 
-      # Changed files that saboteur would mutate, relative to the root.
-      def changed_sources
+      # Changed files that saboteur would mutate, relative to the root, with
+      # their changed line numbers.
+      def changed_lines_by_file
         included = @config.included_files.to_set
-        changed = Selection::GitDiff.changed_lines(@config["since"], root: @root).keys
-        changed.map { |file| Selection::CoverageMap.canonical(file) }
-               .select { |file| included.include?(file) }
-               .map { |file| file.delete_prefix("#{@root}/") }.sort
+        Selection::GitDiff.changed_lines(@config["since"], root: @root)
+                          .each_with_object({}) do |(file, lines), map|
+          canonical = Selection::CoverageMap.canonical(file)
+          map[canonical.delete_prefix("#{@root}/")] = lines if included.include?(canonical)
+        end.sort.to_h
+      end
+
+      # Changed files whose changed lines carry no mutation subject: the run
+      # mutates nothing in them, so they cannot require a spec. Mirrors the
+      # run's subject selection, including its comment/formatting-only skip:
+      # a deletion whose remaining context lines are blank or comments, or a
+      # comment-only change inside a method, leaves the file subjectless.
+      def subjectless_files(lines_by_file)
+        comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(@config["since"], root: @root), root: @root)
+        finder = SubjectFinder.new
+        lines_by_file.reject do |file, lines|
+          subjects = finder.call(File.join(@root, file)).subjects
+          subjects.select { |subject| lines.any? { |line| subject.contains_line?(line) } }
+                  .any? { |subject| !comparison.unchanged?(subject) }
+        end.keys
       end
 
       def guess_for(file)

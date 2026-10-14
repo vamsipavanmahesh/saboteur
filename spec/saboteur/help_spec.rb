@@ -124,7 +124,7 @@ RSpec.describe Saboteur::Help do
   it "describes --guess-tests in the run help" do
     expect(help.command("run")).to include("--[no-]guess-tests", "With --since: run only the specs named after the " \
                                                                  "changed files (lib/a.rb -> spec/a_spec.rb); " \
-                                                                 "the whole suite if any has none")
+                                                                 "narrows and warns if some have none")
   end
 
   it "does not list options for a command that takes none" do

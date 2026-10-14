@@ -87,28 +87,51 @@ module Saboteur
     private
 
     # --guess-tests with --since: scope the run to the specs found next to
-    # the changed files, as --test would, but only when each changed file
-    # has one. Otherwise the whole suite runs, as without the flag.
+    # the changed files, as --test would. Only files whose changed lines
+    # carry a mutation subject need a guessed spec; when some of those have
+    # none, the run narrows to the specs it found and warns. The whole
+    # suite runs, as without the flag, when nothing changed or no changed
+    # file with a mutation subject has a matching spec.
     def guess_tests
       return unless config["guess_tests"]
 
       guess = TestGuess.new(config).call
-      message =
-        if guess.changed.zero?
-          "--guess-tests: no changed source file to guess specs for, so the whole suite runs"
-        elsif guess.unmatched.any?
-          "--guess-tests: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs " \
-            "(name specs after their source files or pass --test)"
-        else
-          # The guesses now stand as explicit tests, like --test.
-          @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
-          @guessed_tests = guess.specs
-          "--guess-tests: running only #{guess.specs.join(', ')}. A spec that reaches a changed file only " \
-            "through another file does not run, so a mutant only it would kill can survive, and a line " \
-            "no guessed spec executes is reported as NoCoverage"
-        end
+      if guess.subjectless.any?
+        @diagnostics.inform("--guess-tests: no spec is required for #{guess.subjectless.join(', ')}: " \
+                            "they have no changed mutation subjects")
+      end
+      message = guess_message(guess)
       @diagnostics.warn(message)
       @diagnostics.inform(message)
+    end
+
+    def guess_message(guess)
+      if guess.changed.zero?
+        "--guess-tests: no changed source file to guess specs for, so the whole suite runs"
+      elsif guess.specs.empty? && guess.unmatched.any?
+        "--guess-tests: no spec found for #{guess.unmatched.join(', ')}, so the whole suite runs " \
+          "(name specs after their source files or pass --test)"
+      elsif guess.specs.empty?
+        "--guess-tests: no changed file has a mutation subject on its changed lines, " \
+          "so there is nothing to mutate"
+      else
+        scope_to_guesses(guess)
+      end
+    end
+
+    def scope_to_guesses(guess)
+      # The guesses now stand as explicit tests, like --test.
+      @config = Config.new(config.to_h.merge("tests" => guess.specs, "guess_tests" => false), root: config.root)
+      @guessed_tests = guess.specs
+      unmatched_note = if guess.unmatched.any?
+                         " No spec found for #{guess.unmatched.join(', ')}: mutants there only run " \
+                           "if one of these specs reaches them."
+                       else
+                         ""
+                       end
+      "--guess-tests: running only #{guess.specs.join(', ')}.#{unmatched_note} A spec that reaches a " \
+        "changed file only through another file does not run, so a mutant only it would kill can " \
+        "survive, and a line no guessed spec executes is reported as NoCoverage"
     end
 
     # The run's immutable report, built once the last result is in.
