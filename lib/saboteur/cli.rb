@@ -333,7 +333,7 @@ module Saboteur
         set(:allow_focus, true)
       end
       opts.on("--[no-]guess-tests", "With --since: run only the specs named after the changed files " \
-                                    "(lib/a.rb -> spec/a_spec.rb); the whole suite if any has none") do |v|
+                                    "(lib/a.rb -> spec/a_spec.rb); narrows and warns if some have none") do |v|
         set(:guess_tests, v)
       end
     end
