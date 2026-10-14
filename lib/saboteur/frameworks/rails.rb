@@ -7,6 +7,8 @@ require "pathname"
 require "English"
 require "tmpdir"
 
+require_relative "database_hosts"
+
 module Saboteur
   module Frameworks
     # Opt-in Rails support (`c.rails = true` in config/saboteur.rb).
@@ -16,8 +18,6 @@ module Saboteur
     # forking, and drops database connections in the parent so each child opens
     # its own. Prints host names only, never credentials.
     class Rails
-      LOCAL_HOSTS = ["localhost", "127.0.0.1", "::1", "[::1]"].freeze
-
       # How many blocking session names the template-copy error lists.
       MAX_BLOCKER_NAMES = 5
 
@@ -170,9 +170,9 @@ module Saboteur
         db.adapter.to_s.match?(/sqlite/) && db.database.to_s == ":memory:"
       end
 
-      def self.local_host?(host)
-        host.nil? || host.to_s.empty? || host.to_s.start_with?("/") || LOCAL_HOSTS.include?(host.to_s.downcase)
-      end
+      def self.local_host?(host) = DatabaseHosts.local?(host)
+
+      def self.remote_databases(configs, extra_allowed = []) = DatabaseHosts.remote(configs, extra_allowed)
 
       private
 
@@ -197,13 +197,11 @@ module Saboteur
       def check_databases
         return unless defined?(::ActiveRecord::Base)
 
-        remote = ::ActiveRecord::Base.configurations.configs_for(env_name: "test").filter_map do |db|
-          host = db.configuration_hash[:host]
-          "#{db.name} (host #{host})" unless self.class.local_host?(host)
-        end
+        remote = self.class.remote_databases(test_configs, @config["allow_db_hosts"])
         return if remote.empty?
 
-        raise Error, "rails integration refuses to run against non-local databases: #{remote.join(', ')}"
+        raise Error, "rails integration refuses to run against non-local databases: #{remote.join(', ')}; " \
+                     "if they are disposable test databases, allow them with c.allow_db_hosts in #{Config::FILE}"
       end
 
       def test_configs
