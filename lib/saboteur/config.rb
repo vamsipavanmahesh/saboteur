@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "text"
+
 require_relative "mutation_source/builtin"
 require_relative "mutation_source/operator_registry"
 require_relative "mutation_source/hazard_guard"
@@ -97,7 +99,10 @@ module Saboteur
     end
 
     def initialize(values = {}, root: Dir.pwd)
-      @root = File.expand_path(root)
+      # Retag the root losslessly: under a non-UTF-8 locale it arrives
+      # locale-tagged, and every glob, join and expand below would mix
+      # encodings with the UTF-8 patterns from the config file (#231).
+      @root = Text.utf8_identity(File.expand_path(root))
       unknown = values.keys - DEFAULTS.keys
       raise ConfigError, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
 
@@ -124,7 +129,8 @@ module Saboteur
       matched = self["include"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       excluded = self["exclude"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       (matched - excluded).select { |file| file.end_with?(".rb") }
-                          .map { |file| File.realpath(File.expand_path(file, root)) }.uniq.sort
+                          .map { |file| File.realpath(File.expand_path(Text.utf8_identity(file), root)) }
+                          .uniq.sort
     end
 
     # Patterns that match no file. A pattern goes stale when files move;
