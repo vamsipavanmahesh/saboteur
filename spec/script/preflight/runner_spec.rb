@@ -30,6 +30,7 @@ RSpec.describe Preflight::Runner, :fixture do
     router.define_singleton_method(:run) do |argv, **options|
       argv.first == "git" ? real.run(argv, **options) : scripted.run(argv, **options)
     end
+    router.define_singleton_method(:data_shim_path) { "/harness/rspec_fd3_shim.rb" }
     options = @fixture.options(base: @base, mode: mode)
     described_class.new(options: options, directory: @fixture.directory, command_runner: router,
                         run_id: "test-run", env: { "PATH" => ENV.fetch("PATH") }).call
@@ -277,7 +278,8 @@ RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
       fi
       if [ "$1" = "exec" ] && [ "$2" = "rspec" ]; then
         #{tamper == :raw_symlink ? 'ln -s "$OUTSIDE_FILE" "$RUN/logs/harness_specs.rspec.json"' : ':'}
-        cat "$RSPEC_JSON"
+        echo "suite noise on stdout"
+        cat "$RSPEC_JSON" >&3
         exit 0
       fi
       echo "Bundler version stub"
