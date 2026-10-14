@@ -144,6 +144,27 @@ RSpec.describe Saboteur::Engine::TestGuess do
     end
   end
 
+  it "lists candidates most specific first, with the lib variant before the full stem" do
+    guesser = described_class.new(Saboteur::Config.new({}, root: dir))
+    expect(guesser.send(:candidates_for, "app/models/user.rb"))
+      .to eq(["spec/models/user_spec.rb", "spec/lib/models/user_spec.rb", "spec/app/models/user_spec.rb"])
+    expect(guesser.send(:candidates_for, "lib/a/b.rb"))
+      .to eq(["spec/a/b_spec.rb", "spec/lib/a/b_spec.rb"])
+  end
+
+  it "adds request spec names only for controllers" do
+    guesser = described_class.new(Saboteur::Config.new({}, root: dir))
+    expect(guesser.send(:request_names, "models/user")).to eq([])
+    expect(guesser.send(:request_names, "controllers/api/users_controller"))
+      .to eq(["requests/api/users_controller", "requests/api/users"])
+  end
+
+  it "detects pack directories once per run" do
+    guesser = described_class.new(Saboteur::Config.new({}, root: dir))
+    expect(Dir).to receive(:glob).with("**/package.yml", base: dir).once.and_return([])
+    2.times { guesser.send(:pack_dirs) }
+  end
+
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
   end
