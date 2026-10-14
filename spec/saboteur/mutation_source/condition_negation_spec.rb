@@ -33,10 +33,10 @@ RSpec.describe Saboteur::MutationSource::ConditionNegation do
     end
   end
 
-  it "is opt-in and honors arid through builtin" do
+  it "is default-on and honors arid through builtin" do
     subject = target("1 if x")
     expect(Saboteur::MutationSource::Builtin.new.mutations_for(subject).map(&:operator))
-      .not_to include("condition_negation")
+      .to include("condition_negation")
     expect(Saboteur::MutationSource::Builtin.new(operators: ["condition_negation"])
       .mutations_for(subject).size).to eq(1)
     expect(Saboteur::MutationSource::Builtin.new(operators: ["condition_negation"], arid: ["x"])
