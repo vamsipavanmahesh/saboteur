@@ -464,7 +464,8 @@ Exit codes: 0 no survivors (or all on the ignore list), or the score meets
 `StandardError` failures print `saboteur: internal
 error (...) - please report it` and exit 3, rather than dying with a
 bare stack trace and an accidental exit code. The full backtrace lands
-in `.saboteur/internal-error.log` (the message names the path) and
+in `<cache_dir>/internal-error.log` (default `.saboteur/`; the
+message names the path) and
 `--verbose` also prints it to stderr. The rescue covers the whole
 command line: a failure while the CLI is being built or parsed is
 caught by the executable itself and reported the same way.

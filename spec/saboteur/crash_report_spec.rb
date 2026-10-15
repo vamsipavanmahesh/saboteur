@@ -76,6 +76,13 @@ RSpec.describe Saboteur::CrashReport do
     expect(err.string).not_to include('"verdict"')
   end
 
+  it "skips the agent JSON when the agent reporter never loaded" do
+    hide_const("Saboteur::Reporter::Agent")
+    expect(report(error, agent: true)).to eq(3)
+    expect(out.string).to eq("")
+    expect(err.string).to include("internal error (RuntimeError: boom)")
+  end
+
   it "keeps agent mode silent on stdout when not an agent" do
     report(error)
     expect(out.string).to eq("")

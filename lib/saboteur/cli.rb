@@ -3,11 +3,11 @@
 
 require "optparse"
 require_relative "../saboteur"
+require_relative "crash_report"
 require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
 require_relative "baseline/command"
-require_relative "crash_report"
 require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
@@ -30,6 +30,13 @@ module Saboteur
     class UsageError < ConfigError; end
 
     attr_reader :options
+
+    # Found before parsing, so any error, even a bad option that comes first, still
+    # answers an agent with JSON. Class-level: the executable's fallback reads raw arguments.
+    def self.agent_requested?(argv)
+      argv.include?("--agent") || argv.include?("--format=agent") ||
+        argv.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }
+    end
 
     def initialize(argv, out: $stdout, err: $stderr)
       @argv = argv.dup
@@ -116,12 +123,7 @@ module Saboteur
       @format == "agent"
     end
 
-    # Found before parsing, so any error, even a bad option that comes first, still
-    # answers an agent with JSON.
-    def agent_requested?
-      @argv.include?("--agent") || @argv.include?("--format=agent") ||
-        @argv.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }
-    end
+    def agent_requested? = self.class.agent_requested?(@argv)
 
     # In agent mode the failure is also on stdout, where the agent reads its answer.
     def agent_failure(message, exit_code)

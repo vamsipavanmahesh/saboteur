@@ -13,6 +13,10 @@ module Saboteur
   module CrashReport
     ISSUES_URL = "https://github.com/vamsipavanmahesh/saboteur/issues"
 
+    # Same value as CLI::EXIT_TOOL, kept local so the reporter still works
+    # when the CLI itself never finished loading.
+    EXIT_TOOL = 3
+
     module_function
 
     def call(error, verbose:, agent:, err:, out:, log_path: nil)
@@ -22,8 +26,10 @@ module Saboteur
       line = "#{line}; full backtrace: #{display_path(written)}" if written
       err.puts(line)
       err.puts(full_text(error)) if verbose
-      out.print(Reporter::Agent.render(Reporter::Agent.failure(summary, CLI::EXIT_TOOL))) if agent
-      CLI::EXIT_TOOL
+      if agent && defined?(Reporter::Agent)
+        out.print(Reporter::Agent.render(Reporter::Agent.failure(summary, EXIT_TOOL)))
+      end
+      EXIT_TOOL
     end
 
     # A crash message can span lines or carry bytes that are invalid in

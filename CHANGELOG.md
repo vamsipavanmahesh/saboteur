@@ -110,10 +110,13 @@ All notable changes are documented here. The format follows
   trace with an accidental exit 1. The crash message is normalized to one
   bounded line first, and agent mode reports the same failure as agent
   JSON. The full backtrace is written to
-  `.saboteur/internal-error.log`, which the message names, and printed
-  to stderr with `--verbose`; the executable itself reports a failure
-  before the CLI finishes starting the same way, so no `StandardError`
-  escapes as a bare stack trace (#233).
+  `<cache_dir>/internal-error.log` (default `.saboteur/`), which the
+  message names, and printed to stderr with `--verbose`; an unset
+  `cache_dir` or a failed write leaves the one-liner standing alone.
+  The executable itself reports a failure before the CLI finishes
+  loading or starting the same way, so no `StandardError` escapes as a
+  bare stack trace; if even the crash reporter cannot load, a bare
+  one-liner still exits 3. Agent JSON needs the loaded CLI (#233).
 - The install spec reads the README as UTF-8, so the suite also passes
   under `LANG=C`.
 - Tool and test reads of files that can carry non-ASCII text are decoded
