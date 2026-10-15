@@ -137,6 +137,40 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
     scheduler.send(:calibrate, plan, nil, subject.source, ["t1"], 5)
   end
 
+  it "caps the verdict check at the remaining --max-duration budget (#245)" do
+    subject = subject_named("class CappedCheck\n  def m; end\nend\n", "CappedCheck#m")
+    plan = described_class::Plan.new(subject: subject, wrapper: nil)
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison",
+                                                      edits: [Saboteur::MutationSource::Edit.new(
+                                                        file: subject.file, start_byte: 0, end_byte: 1, replacement: "2"
+                                                      )])
+    result = Saboteur::MutantResult.new(subject: subject, mutation: mutation, mutated_source: "x", status: :killed,
+                                        covered_by: ["t1"], killed_by: ["t1"], runtime: 0.1)
+    scheduler = scheduler_for(nil)
+    scheduler.instance_variable_set(:@deadline, 600.0)
+    allow(Process).to receive(:clock_gettime).and_return(500.0)
+    expect(runner).to receive(:run).with(subject: subject, text: subject.source, test_ids: ["t1"],
+                                         timeout: 100.0, eval_prefix: nil)
+                                   .and_return(outcome(:survived))
+    scheduler.send(:checked, plan, [result])
+  end
+
+  it "caps calibration admissions at the remaining --max-duration budget (#245)" do
+    subject = subject_named("class CappedCal\n  def m; end\nend\n", "CappedCal#m")
+    map = double("map", recorded_runtime: 1.0)
+    plan = described_class::Plan.new(subject: subject, wrapper: nil, slowdown: 1.0)
+    scheduler = scheduler_for(map)
+    scheduler.instance_variable_set(:@deadline, 600.0)
+    allow(Process).to receive(:clock_gettime).and_return(500.0)
+    expect(runner).to receive(:run).with(subject: subject, text: subject.source, test_ids: ["t1"],
+                                         timeout: 100.0, eval_prefix: nil)
+                                   .and_return(outcome(:survived))
+    expect(runner).to receive(:run).with(subject: subject, text: "changed", test_ids: ["t1"],
+                                         timeout: 5.0, mutation: :probe, eval_prefix: nil)
+                                   .and_return(outcome(:killed))
+    expect(scheduler.send(:calibrate, plan, :probe, "changed", ["t1"], 1).status).to eq(:killed)
+  end
+
   it "keeps the signature prefix on a calibrated mutant retry" do
     subject = subject_named("class RetrySig\n  sig { void }\n  def m; end\nend\n", "RetrySig#m")
     map = double("map", recorded_runtime: 1.0)

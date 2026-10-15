@@ -77,7 +77,7 @@ module Saboteur
       def checked(plan, results)
         subject = plan.subject
         run_unchanged = lambda do |tests, timeout|
-          @runner.run(subject: subject, text: subject.source, test_ids: tests, timeout: timeout,
+          @runner.run(subject: subject, text: subject.source, test_ids: tests, timeout: budget_capped(timeout),
                       eval_prefix: eval_prefix(plan))
                  .tap { |outcome| note_leftovers(subject, "verdict check", outcome) }
         end
@@ -213,9 +213,18 @@ module Saboteur
       # baseline_timeout. If the deadline from that real runtime is longer,
       # the mutant runs again with it, and later mutants of the subject get
       # the measured slowdown. A timeout that remains is the mutant's own.
+      # A --max-duration deadline caps every admission the scheduler makes:
+      # verdict checks and timeout calibrations get only the time left.
+      def budget_capped(timeout)
+        return timeout unless @deadline
+
+        remaining = @deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        remaining.clamp(0.0, timeout)
+      end
+
       def calibrate(plan, mutation, text, tests, timeout)
         unchanged = @runner.run(subject: plan.subject, text: plan.subject.source, test_ids: tests,
-                                timeout: @config["baseline_timeout"], eval_prefix: eval_prefix(plan))
+                                timeout: budget_capped(@config["baseline_timeout"]), eval_prefix: eval_prefix(plan))
         note_leftovers(plan.subject, "timeout check", unchanged)
         return unchanged_failed(unchanged) unless unchanged.status == :survived
 
@@ -224,8 +233,8 @@ module Saboteur
         longer = deadline(unchanged.runtime)
         return Execution::Runner::Outcome.new(status: :timeout, runtime: timeout) if longer <= timeout
 
-        @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: longer, mutation: mutation,
-                    eval_prefix: eval_prefix(plan))
+        @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: budget_capped(longer),
+                    mutation: mutation, eval_prefix: eval_prefix(plan))
       end
 
       def unchanged_failed(unchanged)
