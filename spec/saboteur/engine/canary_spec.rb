@@ -178,6 +178,30 @@ RSpec.describe Saboteur::Engine::Canary do
     end
   end
 
+  it "probe! names the subject the just-ran mutant belongs to" do
+    in_tmpdir do |dir|
+      File.write(File.join(dir, "a.rb"), "x")
+      canary = described_class.new(dir)
+      File.delete(File.join(dir, "a.rb"))
+      subject = instance_double(Saboteur::Subject, id: "K#m")
+      expect { canary.probe!(subject: subject, digest: "1d76c921a41c2162") }
+        .to raise_error(Saboteur::CanaryTripped, /just ran, 1d76c921a41c2162 of K#m, is the likely cause/)
+    end
+  end
+
+  it "probe! names no culprit when no digest is given" do
+    in_tmpdir do |dir|
+      File.write(File.join(dir, "a.rb"), "x")
+      canary = described_class.new(dir)
+      File.delete(File.join(dir, "a.rb"))
+      expect { canary.probe! }.to raise_error(Saboteur::CanaryTripped) { |e|
+        expect(e.message).to include("a.rb")
+        expect(e.message).not_to include("just ran")
+        expect(e.message).not_to include("likely cause")
+      }
+    end
+  end
+
   it "ignores the contents of a .git directory while walking" do
     in_tmpdir do |dir|
       FileUtils.mkdir_p(File.join(dir, ".git"))
