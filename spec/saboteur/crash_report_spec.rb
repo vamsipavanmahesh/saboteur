@@ -70,12 +70,9 @@ RSpec.describe Saboteur::CrashReport do
     end
   end
 
-  it "uses the temp fallback when no log path is configured" do
-    fallback = described_class.tmp_log_path
-    FileUtils.rm_f(fallback)
+  it "omits the log path when none is available" do
     report(error)
-    expect(err.string).to include("full backtrace: #{fallback}")
-    FileUtils.rm_f(fallback)
+    expect(err.string).not_to include("full backtrace")
   end
 
   it "prints the backtrace to stderr with verbose" do

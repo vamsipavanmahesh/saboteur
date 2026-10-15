@@ -68,7 +68,9 @@ module Saboteur
     end
 
     def write_log(log_path, error)
-      [log_path, tmp_log_path].compact.uniq.each do |path|
+      return nil unless log_path
+
+      [log_path, tmp_log_path].uniq.each do |path|
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, "#{full_text(error)}\n")
         return path
@@ -78,10 +80,11 @@ module Saboteur
       nil
     end
 
-    # Where the log lands when the cache dir is not writable - a sandboxed
-    # child holds the project read-only, but the system temp dir is granted
-    # (#296). Keyed by pid so parallel children never share a file; the
-    # runner reads the same path back in the same process.
+    # Where the log lands when a configured cache dir is not writable - a
+    # sandboxed child holds the project read-only, but the system temp dir is
+    # granted (#296). Only a configured log path falls back: cache_dir = nil
+    # still means no log at all. Keyed by pid so parallel children never
+    # share a file; the runner reads the same path back in the same process.
     def tmp_log_path(pid: Process.pid)
       File.join(Dir.tmpdir, "saboteur-#{pid}-#{LOG_NAME}")
     end
