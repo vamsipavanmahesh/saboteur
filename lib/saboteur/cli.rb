@@ -254,6 +254,7 @@ module Saboteur
       # along through --config or the default config path).
       settings[:allow_hazardous] = true if options[:allow_hazardous]
       settings[:allow_focus] = true if options[:allow_focus]
+      settings[:max_duration_ok] = true if options[:max_duration_ok]
       settings
     end
 

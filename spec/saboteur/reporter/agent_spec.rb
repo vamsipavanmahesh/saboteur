@@ -59,6 +59,16 @@ RSpec.describe Saboteur::Reporter::Agent do
     expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
   end
 
+  it "keeps the run budget and baseline passes in rerun and replay commands (#245)" do
+    source = provenance_with(settings: { max_duration: 600.0, max_duration_ok: true, baseline_passes: 3 })
+    commands = described_class::Commands
+    [commands.rerun(source), commands.replay(source, "abc")].each do |command|
+      words = Shellwords.split(command)
+      expect(words.each_cons(2)).to include(["--max-duration", "600.0"], ["--baseline-passes", "3"])
+      expect(words).to include("--max-duration-ok")
+    end
+  end
+
   it "keeps CLI-only replay-driving switches in rerun and replay commands (#261)" do
     source = provenance_with(settings: { allow_hazardous: true, allow_focus: true })
     commands = described_class::Commands

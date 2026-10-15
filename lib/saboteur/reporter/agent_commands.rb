@@ -18,10 +18,12 @@ module Saboteur
         # Options typed on the command line that change how a run behaves.
         SETTING_FLAGS = { reeval: "--reeval", integration: "--integration", jobs: "--jobs",
                           timeout_factor: "--timeout-factor", json_report: "--json", html_report: "--html",
-                          operators: "--operators", exclude_operators: "--exclude-operators" }.freeze
+                          operators: "--operators", exclude_operators: "--exclude-operators",
+                          baseline_passes: "--baseline-passes", max_duration: "--max-duration" }.freeze
 
         # CLI-only boolean switches recorded in settings, emitted as bare flags.
-        BOOLEAN_SETTING_FLAGS = { allow_hazardous: "--allow-hazardous", allow_focus: "--allow-focus" }.freeze
+        BOOLEAN_SETTING_FLAGS = { allow_hazardous: "--allow-hazardous", allow_focus: "--allow-focus",
+                                  max_duration_ok: "--max-duration-ok" }.freeze
 
         class << self
           # Run the same selection again: ref, subjects, sources, tests, config,
