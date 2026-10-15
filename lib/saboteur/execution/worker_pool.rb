@@ -31,12 +31,13 @@ module Saboteur
 
       # on_start: called in each worker with its number before its first
       # item (per-worker database connections, for example).
-      def initialize(jobs:, on_start: nil, on_result: nil)
+      def initialize(jobs:, on_start: nil, on_result: nil, drain_timeout: 30)
         @jobs = jobs
         @on_start = on_start
         @on_result = on_result
         @start_failures = 0
         @halted = false
+        @drain_timeout = drain_timeout
       end
 
       # Stop handing queued items out while letting in-flight items finish
@@ -44,9 +45,25 @@ module Saboteur
       # before the worker whose mutant caused it, and the later report is
       # the one that names the culprit (#285). Unlike raising from
       # on_result, nothing in flight is killed. Unstarted items come back
-      # as nil holes in the result array.
+      # as nil holes in the result array. The drain is bounded: a wedged
+      # worker must not stall a safety abort, so drain_timeout seconds
+      # after the first halt the pool stops waiting, kills whatever is
+      # still running and leaves nil holes (#285 review).
       def halt!
         @halted = true
+        return if @drain_deadline
+
+        @drain_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @drain_timeout
+      end
+
+      # The serialized shape of a tool error row: the message plus the
+      # attribution flags the parent needs to rank reports - a per-mutant
+      # culprit digest first, then a canary trip (#283, #285).
+      def self.tool_error_row(error)
+        row = { "tool_error" => error.message }
+        row["canary"] = true if error.is_a?(CanaryTripped)
+        row["culprit"] = error.culprit_digest if error.respond_to?(:culprit_digest) && error.culprit_digest
+        row
       end
 
       def map(items, weights: nil, &work)
@@ -76,8 +93,20 @@ module Saboteur
 
       # Waits up to a second for results, then checks for workers that died
       # without closing their pipe (a stray grandchild may still hold it).
+      # While halted the wait is bounded by the drain deadline: past it the
+      # remaining workers are retired (stop kills a wedged one) and their
+      # items come back as nil holes.
       def collect(workers, queue, results, items, &work)
-        ready = IO.select(workers.map(&:results), nil, nil, 1)&.first || []
+        timeout = 1
+        if @drain_deadline
+          remaining = @drain_deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          if remaining <= 0
+            workers.each { |worker| retire(worker, workers) }
+            return
+          end
+          timeout = [timeout, remaining].min
+        end
+        ready = IO.select(workers.map(&:results), nil, nil, timeout)&.first || []
         ready.each do |io|
           worker = workers.find { |candidate| candidate.results == io }
           receive(worker, workers, queue, results, items, &work) if worker
@@ -242,12 +271,8 @@ module Saboteur
         # A tool error (a vanished cache dir, ...) aborts the run with
         # exit 3; it is not a per-mutant outcome. Serialize it so the
         # parent can re-raise it as itself (#283), with the flags the
-        # parent needs to prefer the report that names its mutant: a
-        # canary trip first, then an error that carries a digest (#285).
-        row = { "tool_error" => e.message }
-        row["canary"] = true if e.is_a?(CanaryTripped)
-        row["culprit"] = e.culprit_digest if e.respond_to?(:culprit_digest) && e.culprit_digest
-        row
+        # parent needs to rank reports by attribution quality (#285).
+        self.class.tool_error_row(e)
       rescue StandardError => e
         { "error" => "#{e.class}: #{e.message}" }
       end

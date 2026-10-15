@@ -17,7 +17,8 @@ module Saboteur
       # works on one process: parallel workers have already started the
       # other subjects.
       def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil, after_subject: nil,
-                     stop_after: nil)
+                     stop_after: nil,
+                     drain_timeout: 30) # seconds; two minimum-strength mutant deadlines at default settings
         @jobs = jobs
         @stop_after = stop_after
         @unreached = []
@@ -26,6 +27,7 @@ module Saboteur
         @diagnostics = diagnostics
         @cache = cache
         @after_subject = after_subject
+        @drain_timeout = drain_timeout
       end
 
       # lists: each subject's [[mutation, text]] candidates, in subject order.
@@ -39,26 +41,27 @@ module Saboteur
         # every worker, and a bystander whose current job ran no mutant
         # reports "an unknown mutant", which could land before the report
         # of the worker whose mutant did the damage (macOS CI on #285).
-        # The pool is halted instead - no new work, but in-flight workers
-        # still finish and report - and the abort raises the report that
-        # can name its mutant.
-        tool_errors = []
-        pool = nil
+        # The pool is halted instead - no new work, and the drain is
+        # bounded by drain_timeout so a wedged worker cannot stall the
+        # abort - and the abort raises the report with the best
+        # attribution.
+        # The abort reports and the pool are run state: a Distribution
+        # runs once.
+        @abort_reports = []
+        @pool = nil
         arrival = lambda do |i, row|
           if row["tool_error"]
-            tool_errors << row
-            # pool is always assigned here: arrivals only fire from inside
-            # pool.map, which runs after the assignment.
-            pool.halt!
+            collect_abort_report(row)
           else
-            @after_subject&.call(subjects[i], decode(row, subjects[i], lists[i]))
+            check_subject(subjects, lists, i, row)
           end
         end
-        pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start, on_result: arrival)
-        rows = pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
+        @pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start, on_result: arrival,
+                                          drain_timeout: @drain_timeout)
+        rows = @pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
           work(subjects[i], lists[i])
         end
-        raise_preferred_tool_error(tool_errors) if tool_errors.any?
+        raise_preferred_tool_error(@abort_reports) if @abort_reports.any?
         rows.each_with_index.flat_map do |row, i|
           raise_if_tool_error(row)
           rebuild(row, subjects[i], lists[i])
@@ -66,6 +69,23 @@ module Saboteur
       end
 
       private
+
+      # @pool is always assigned when an arrival fires: arrivals only fire
+      # from inside @pool.map, which runs after the assignment.
+      def collect_abort_report(row)
+        @abort_reports << row
+        @pool.halt!
+      end
+
+      # A canary trip from the end-of-subject check folds into the same
+      # record + halt + preferred-report path as a worker's own report:
+      # escaping the pool here would override a collected report that
+      # names the real culprit (#285 review).
+      def check_subject(subjects, lists, index, row)
+        @after_subject&.call(subjects[index], decode(row, subjects[index], lists[index]))
+      rescue Error => e
+        collect_abort_report(Execution::WorkerPool.tool_error_row(e))
+      end
 
       def run_serially(subjects, lists)
         results = []
@@ -117,11 +137,12 @@ module Saboteur
         raise Error, row["tool_error"] if row["tool_error"]
       end
 
-      # The abort names a culprit when any worker's report can: a canary
-      # trip first (the hazard report keeps winning, #283), then a report
-      # that carries its mutant's digest, then the first bare report.
+      # The abort names a culprit when any report can, ranked by
+      # attribution quality (#285 review): a report carrying its mutant's
+      # per-mutant digest first, then a canary trip (the hazard report
+      # still beats a bare report, #283), then the first bare report.
       def raise_preferred_tool_error(rows)
-        row = rows.find { |r| r["canary"] } || rows.find { |r| r["culprit"] } || rows.first
+        row = rows.find { |r| r["culprit"] } || rows.find { |r| r["canary"] } || rows.first
         raise Error, row["tool_error"]
       end
 

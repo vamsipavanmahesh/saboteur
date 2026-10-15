@@ -37,7 +37,7 @@ RSpec.describe Saboteur::Engine::Distribution do
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil, after_subject: after)
     lists = [[[mutation, "text"]], [[mutation, "text"]], [[mutation, "text"]]]
     expect { distribution.run([subject, subject, subject], lists) }
-      .to raise_error(Saboteur::CanaryTripped, "canary: trip")
+      .to raise_error(Saboteur::Error, "canary: trip")
     expect(trips.size).to be < 3
     expect(trips.first).to eq(["K#m", [:killed]])
   end
@@ -145,18 +145,17 @@ RSpec.describe Saboteur::Engine::Distribution do
       .to raise_error(Saboteur::Error, "first report: log dir gone")
   end
 
-  # The hazard report keeps winning (#283): a canary trip aborts the run
-  # even when a log-loss report naming a mutant arrived first.
-  it "lets a canary trip win over an earlier log-loss report that names a mutant" do
+  # The hazard report keeps winning over a bare log-loss report (#283): a
+  # canary trip aborts the run even when the bare report arrived first.
+  it "lets a canary trip win over an earlier bare log-loss report" do
     first = fixture_subject
     second = fixture_subject
     mutation = fixture_mutation(first)
     scheduler = lambda do |subject, _list|
       if subject.equal?(first)
-        raise Saboteur::Execution::Runner::LogVanished.new(
-          "the child log /x/b.log vanished mid-run - the mutant that just ran, 0123456789abcdef, is the likely cause",
-          culprit_digest: "0123456789abcdef"
-        )
+        raise Saboteur::Execution::Runner::LogVanished,
+              "the child log /x/b.log vanished mid-run - the mutant that just ran, an unknown mutant, " \
+              "is the likely cause"
       end
       sleep 0.2
       raise Saboteur::CanaryTripped,
@@ -166,6 +165,88 @@ RSpec.describe Saboteur::Engine::Distribution do
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
     expect { distribution.run([first, second], [[[mutation, "text"]], [[mutation, "text"]]]) }
       .to raise_error(Saboteur::Error, /canary: 1 watched file.*fedcba9876543210/m)
+  end
+
+  # Attribution quality beats report type (#285 review): a report that
+  # names its mutant outranks a subject-last canary trip, whose "most
+  # recent mutant" is only the likely cause.
+  it "prefers a report that names its mutant over a subject-last canary trip" do
+    canary_subject = fixture_subject
+    culprit = fixture_subject
+    mutation = fixture_mutation(culprit)
+    scheduler = lambda do |subject, _list|
+      if subject.equal?(canary_subject)
+        raise Saboteur::CanaryTripped,
+              "canary: 1 watched file(s) vanished from the working tree while mutants ran (first: lib/a.rb). " \
+              "The most recent mutant, fedcba9876543210, is the likely cause."
+      end
+      sleep 0.2
+      raise Saboteur::Execution::Runner::LogVanished.new(
+        "the child log /x/c.log vanished mid-run - the mutant that just ran, 0123456789abcdef, is the likely cause",
+        culprit_digest: "0123456789abcdef"
+      )
+    end
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
+    expect { distribution.run([canary_subject, culprit], [[[mutation, "text"]], [[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, /0123456789abcdef/)
+  end
+
+  # A canary trip from the subject callback (a normal row's end-of-subject
+  # check) must not escape the pool and override a collected report that
+  # names the real culprit: it folds into the same record + halt + prefer
+  # path as a worker's own report (#285 review).
+  it "folds a callback canary trip into the preferred reports instead of overriding a culprit" do
+    bystander = fixture_subject
+    culprit = fixture_subject
+    mutation = fixture_mutation(culprit)
+    bystander_mutation = fixture_mutation(bystander)
+    scheduler = lambda do |subject, _list|
+      unless subject.equal?(culprit)
+        return [Saboteur::MutantResult.new(subject:, mutation: bystander_mutation, status: :killed,
+                                           mutated_source: "text")]
+      end
+
+      sleep 0.2
+      raise Saboteur::Execution::Runner::LogVanished.new(
+        "the child log /x/c.log vanished mid-run - the mutant that just ran, 0123456789abcdef, is the likely cause",
+        culprit_digest: "0123456789abcdef"
+      )
+    end
+    after_subject = lambda do |_subject, _results|
+      raise Saboteur::CanaryTripped,
+            "canary: 1 watched file(s) vanished from the working tree while mutants ran (first: lib/a.rb). " \
+            "The most recent mutant, fedcba9876543210, is the likely cause."
+    end
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil, after_subject:)
+    expect { distribution.run([bystander, culprit], [[[bystander_mutation, "text"]], [[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, /0123456789abcdef/)
+  end
+
+  it "raises a folded callback canary trip when no report names a mutant" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "text")]
+    scheduler = ->(_subject, _list) { row }
+    after_subject = ->(_subject, _results) { raise Saboteur::CanaryTripped, "canary: trip at subject end" }
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil, after_subject:)
+    expect { distribution.run([subject], [[[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, "canary: trip at subject end")
+  end
+
+  # A wedged worker must not stall a safety abort: the pool stops waiting
+  # at the drain deadline and the abort raises the best report collected
+  # by then (#285 review).
+  it "stops waiting for a wedged worker at the drain deadline and raises the collected report" do
+    wedged = fixture_subject
+    reporter = fixture_subject
+    mutation = fixture_mutation(reporter)
+    scheduler = lambda do |subject, _list|
+      sleep 3600 if subject.equal?(wedged)
+      raise Saboteur::Error, "the child log /x/r.log vanished mid-run"
+    end
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil, drain_timeout: 0.2)
+    expect { distribution.run([wedged, reporter], [[[mutation, "text"]], [[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, "the child log /x/r.log vanished mid-run")
   end
 
   it "warns and returns error results when a worker row carries an error" do
@@ -193,7 +274,7 @@ RSpec.describe Saboteur::Engine::Distribution do
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil, on_start: starter,
                                        after_subject: ->(_seen, _results) {})
     expect(Saboteur::Execution::WorkerPool).to receive(:new)
-      .with(jobs: 2, on_start: starter, on_result: kind_of(Proc)).and_call_original
+      .with(jobs: 2, on_start: starter, on_result: kind_of(Proc), drain_timeout: 30).and_call_original
     distribution.run([subject], [[[mutation, "text"]]])
   end
 

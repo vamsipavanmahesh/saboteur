@@ -189,6 +189,26 @@ RSpec.describe Saboteur::Engine::Canary do
     end
   end
 
+  it "probe! carries the just-ran mutant's digest on the trip" do
+    in_tmpdir do |dir|
+      File.write(File.join(dir, "a.rb"), "x")
+      canary = described_class.new(dir)
+      File.delete(File.join(dir, "a.rb"))
+      expect { canary.probe!(digest: "1d76c921a41c2162") }
+        .to raise_error(Saboteur::CanaryTripped) { |e| expect(e.culprit_digest).to eq("1d76c921a41c2162") }
+    end
+  end
+
+  it "check! leaves the digest off the trip: its most-recent-mutant guess is weaker attribution" do
+    in_tmpdir do |dir|
+      File.write(File.join(dir, "a.rb"), "x")
+      canary = described_class.new(dir)
+      File.delete(File.join(dir, "a.rb"))
+      expect { canary.check!(digest: "1d76c921a41c2162") }
+        .to raise_error(Saboteur::CanaryTripped) { |e| expect(e.culprit_digest).to be_nil }
+    end
+  end
+
   it "probe! names no culprit when no digest is given" do
     in_tmpdir do |dir|
       File.write(File.join(dir, "a.rb"), "x")

@@ -36,8 +36,12 @@ All notable changes are documented here. The format follows
   before the worker whose mutant did it, and the first report won the
   abort. Tool-error reports now carry whether they name a mutant, the
   pool stops handing out new work but lets in-flight workers finish
-  and report, and the abort prefers a canary trip, then a report that
-  names its mutant (#235).
+  and report, and the abort ranks the reports by attribution quality:
+  a report that names its mutant first, then a canary trip, then the
+  earliest bare report. A canary trip from the end-of-subject check
+  folds into the same choice instead of overriding collected reports,
+  and the in-flight drain is bounded (two minimum-strength mutant
+  deadlines), so a wedged worker cannot stall the abort (#235).
 - The mutant sandbox no longer grants the cache dir: a mutant child
   cannot delete the baseline, the reports or other children's logs,
   and its own log is opened before the fork and inherited as a

@@ -49,7 +49,7 @@ module Saboteur
 
         of = " of #{subject.id}" if subject
         culprit = digest ? " The mutant that just ran, #{digest}#{of}, is the likely cause." : ""
-        raise Saboteur::CanaryTripped, message(missing, culprit)
+        raise Saboteur::CanaryTripped.new(message(missing, culprit), culprit_digest: digest)
       end
 
       private

@@ -10,7 +10,17 @@ module Saboteur
   class ConfigError < Error; end
 
   # Files vanished from the working tree while mutants ran (exit code 3).
-  class CanaryTripped < Error; end
+  class CanaryTripped < Error
+    # Set by the per-mutant probe (the mutant whose run just ended, #235);
+    # nil for a subject-end check, whose "most recent mutant" is only the
+    # likely cause and must not outrank a per-mutant report (#285).
+    attr_reader :culprit_digest
+
+    def initialize(message = nil, culprit_digest: nil)
+      @culprit_digest = culprit_digest
+      super(message)
+    end
+  end
 
   class << self
     # Set while hook files from config load, so they can call Saboteur.hook.
