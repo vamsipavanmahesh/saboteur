@@ -473,8 +473,9 @@ loading, being built, or parsing arguments gets the same report;
 failures earlier than that - coverage setup or the reporter's own load -
 get only the bare one-liner and still exit 3. Once the crash
 reporter has loaded, agent mode reports the same failure as agent
-JSON; before that, a minimal standalone failure payload in the same
-schema answers instead.
+JSON, using a standalone payload if the agent reporter has not
+loaded. Before the crash reporter loads, only the one-line
+diagnostic and exit 3 are available.
 
 ### Rejected kills
 
