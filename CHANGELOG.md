@@ -25,6 +25,13 @@ All notable changes are documented here. The format follows
   equivalent across the intended inputs, simplify or ignore (#264).
 
 ### Fixed
+- macOS CI flakes: the supervisor `on_tick` cleanup spec waits for a fully
+  written pid before triggering instead of racing the file's first bytes
+  (#277), fixture repositories disable Git background auto-maintenance so
+  teardown no longer races its lock deletion (#271), and a baseline child
+  that exits without a result now has its exit status or signal in the
+  error and its dying exception on stderr, so the next flake names its
+  cause (#255).
 - The canary no longer blames a method's last mutant for deleted files:
   a cheap per-mutant probe (snapshot stats only, about 1.3 ms for this
   repo's 692 watched files against a full inventory's 5 ms) runs after

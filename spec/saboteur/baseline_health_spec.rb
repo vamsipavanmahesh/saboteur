@@ -119,6 +119,20 @@ RSpec.describe Saboteur::BaselineHealth, "bad child evidence" do
     expect { check(payload: "") }.to raise_error(Saboteur::Error, /without a result/)
   end
 
+  it "reports the child's exit status when the payload is empty (#255)" do
+    pid = fork { exit! 1 }
+    _, status = Process.wait2(pid)
+    expect { check(payload: "", exit_status: status) }
+      .to raise_error(Saboteur::Error, /without a result \(exit 1\)/)
+  end
+
+  it "reports the child's signal when the payload is empty (#255)" do
+    pid = fork { Process.kill("KILL", Process.pid) }
+    _, status = Process.wait2(pid)
+    expect { check(payload: "", exit_status: status) }
+      .to raise_error(Saboteur::Error, /without a result \(signal KILL\)/)
+  end
+
   it "rejects malformed and non-object payloads" do
     ["{", "[]", "null"].each do |payload|
       expect { check(payload: payload) }.to raise_error(Saboteur::Error, /invalid result/)

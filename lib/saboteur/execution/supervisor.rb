@@ -152,7 +152,10 @@ module Saboteur
         watch_parent(supervisor)
         yield writer
         exit!(0)
-      rescue Exception # rubocop:disable Lint/RescueException
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        # The pipe stays empty when the child dies before answering, so this
+        # is the only place the cause survives (#255).
+        warn("saboteur: supervised child died: #{e.class}: #{e.message}")
         exit!(1)
       end
 

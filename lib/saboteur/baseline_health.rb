@@ -68,7 +68,10 @@ module Saboteur
 
     def read_result(result, number)
       raise Error, "baseline run #{number} stopped: #{result.detail}" if result.stopped_by
-      raise Error, "baseline run #{number} exited without a result; check suite boot and exits" if result.payload.empty?
+      if result.payload.empty?
+        raise Error, "baseline run #{number} exited without a result#{exit_detail(result.exit_status)}; " \
+                     "check suite boot and exits"
+      end
       if result.child_failed?
         raise Error, "baseline run #{number} exited unsuccessfully; fix suite cleanup and exit handlers"
       end
@@ -77,6 +80,15 @@ module Saboteur
       raise Error, "baseline run #{number} returned an invalid result" unless data.is_a?(Hash)
 
       data
+    end
+
+    # The child's ending when the supervisor reaped one ("exit 1",
+    # "signal SIGKILL", ...): an empty result's cause is usually there (#255).
+    def exit_detail(status)
+      return "" unless status.is_a?(Process::Status)
+      return " (signal #{Signal.signame(status.termsig)})" if status.signaled?
+
+      " (exit #{status.exitstatus})"
     end
 
     def verify_execution(data, number, expected)

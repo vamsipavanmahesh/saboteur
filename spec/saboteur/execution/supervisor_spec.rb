@@ -201,8 +201,10 @@ RSpec.describe Saboteur::Execution::Supervisor do
   # unsupervised: containment kills and reaps it before the error propagates.
   it "kills and reaps the child when on_tick raises" do
     pid_file = File.join(dir, "child.pid")
-    # Raise only once the child is up, so the kill has a live target.
-    on_tick = -> { raise Errno::EPIPE, "broken pipe" if File.exist?(pid_file) }
+    # Raise only once the child is up and its pid is fully written: the file's
+    # existence can precede its bytes, and triggering in that window reads an
+    # empty file (0) after the kill (#277).
+    on_tick = -> { raise Errno::EPIPE, "broken pipe" if File.exist?(pid_file) && File.read(pid_file).to_i.positive? }
     expect do
       supervisor.run(timeout: 30, on_tick: on_tick) do |_writer|
         File.write(pid_file, Process.pid)
@@ -213,6 +215,12 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect(pid).to be_positive
     expect { Process.kill(0, pid) }.to raise_error(Errno::ESRCH)
     expect(described_class.live).to be_empty
+  end
+
+  it "records a child exception on stderr before exiting, so an empty result has a cause (#255)" do
+    expect do
+      supervisor.run(timeout: 5) { |_writer| raise "boom in child" }
+    end.to output(/supervised child died: RuntimeError: boom in child/).to_stderr_from_any_process
   end
 
   it "records nesting depth in the child" do
