@@ -54,7 +54,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
     selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
-    baseline = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+    baseline = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
     allow(store).to receive(:fetch).and_return(map)
@@ -123,20 +123,35 @@ RSpec.describe Saboteur::Engine::BaselineGuard, "max-duration between passes (#2
                                                 detail: "deadline", runtime: 0.1, leftover_pids: [])
   end
 
-  it "skips the remaining passes when the budget check trips between passes" do
+  it "skips the remaining passes when the budget check trips between passes, and counts only completed ones" do
     allow(supervisor).to receive(:run).and_return(response)
-    described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
-                        full_passes: 3, between_passes: -> { true }).call
+    checks = 0
+    guard = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                full_passes: 3, between_passes: -> { (checks += 1) > 1 })
+    guard.call
     expect(supervisor).to have_received(:run).once
+    expect(guard.completed_passes).to eq(1)
+  end
+
+  it "starts no baseline at all when the budget is already spent at entry (boot admission)" do
+    allow(supervisor).to receive(:run).and_return(response)
+    guard = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                full_passes: 3, between_passes: -> { true })
+    guard.call
+    expect(supervisor).not_to have_received(:run)
+    expect(guard.completed_passes).to eq(0)
   end
 
   it "runs every pass while the budget check stays open" do
     allow(supervisor).to receive(:run).and_return(response)
-    described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
-                        full_passes: 3, between_passes: -> { false }).call
+    guard = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                full_passes: 3, between_passes: -> { false })
+    guard.call
     expect(supervisor).to have_received(:run).exactly(3).times
+    expect(guard.completed_passes).to eq(3)
   end
 end
 

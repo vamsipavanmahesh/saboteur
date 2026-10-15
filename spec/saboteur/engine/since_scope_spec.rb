@@ -53,7 +53,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
   def stub_test_phases
     # The real guard's first line; lets the ordering assertion see when the
     # baseline passes begin.
-    baseline = instance_double(Saboteur::Engine::BaselineGuard)
+    baseline = instance_double(Saboteur::Engine::BaselineGuard, completed_passes: 2)
     allow(baseline).to receive(:call) { err.puts("saboteur: checking the unchanged suite twice (seed 1)") }
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)

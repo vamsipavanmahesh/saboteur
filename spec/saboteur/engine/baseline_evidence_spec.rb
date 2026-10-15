@@ -36,7 +36,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
-      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
       allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
       map = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
       store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
@@ -73,7 +73,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       File.write(File.join(root, "broken.rb"), "class Broken; def ( ; end")
-      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
       allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
       map = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
       store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
@@ -119,7 +119,10 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
     end
   end
   it "certifies the suite stable only after repeated green passes, not one (#245)" do
-    [1, 2].each do |passes|
+    # [baseline_passes, reusable cache] - the cold coverage build is not a
+    # baseline pass, so --baseline-passes 1 stays unchecked even when a cold
+    # cache runs the suite again for the map.
+    [[1, true], [1, false], [2, true], [2, false]].each do |passes, reusable|
       Dir.mktmpdir do |directory|
         root = File.realpath(directory)
         file = File.join(root, "probe.rb")
@@ -135,12 +138,10 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
         selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
         allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
-        guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+        guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: passes)
         allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
         map = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
-        # A reusable store adds no extra pass, so full_passes is exactly the
-        # configured --baseline-passes.
-        store = instance_double(Saboteur::Engine::CoverageStore, reusable?: true, fetch: map)
+        store = instance_double(Saboteur::Engine::CoverageStore, reusable?: reusable, fetch: map)
         allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
         allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
           .and_return([[candidate, subject.apply(candidate.edits)]])

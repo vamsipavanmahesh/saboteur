@@ -292,13 +292,15 @@ module Saboteur
     end
 
     def check_baseline(integration, full_passes)
-      BaselineGuard.new(config: config, integration: integration, hooks: hooks,
-                        supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
-                        full_passes: full_passes,
-                        between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil).call
-      # One green pass proves the suite ran; only repeated passes certify it
-      # stable, so a single --baseline-passes run is reported unchecked.
-      @stable_suite = full_passes >= 2
+      guard = BaselineGuard.new(config: config, integration: integration, hooks: hooks,
+                                supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
+                                full_passes: full_passes,
+                                between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil)
+      guard.call
+      # Stability is the order comparison between completed checks: the cold
+      # coverage build is not a baseline pass, and a budget break shortens
+      # the loop, so certify only what actually ran.
+      @stable_suite = guard.completed_passes >= 2
     end
 
     def scheduler_for(map, integration, cache)

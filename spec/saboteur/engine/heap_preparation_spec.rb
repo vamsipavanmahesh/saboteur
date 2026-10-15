@@ -78,6 +78,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   def stub_baseline_phase(events)
     baseline = instance_double(Saboteur::Engine::BaselineGuard)
     allow(baseline).to receive(:call) { events << :baseline_checked }
+    allow(baseline).to receive(:completed_passes).and_return(2)
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
   end
 

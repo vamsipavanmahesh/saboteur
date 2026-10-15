@@ -11,6 +11,10 @@ module Saboteur
     # or mutation source is used. This catches observed instability, not all
     # possible flaky behaviour.
     class BaselineGuard
+      # How many unchanged-suite checks actually completed and validated:
+      # the number of order comparisons a run can claim is one less.
+      attr_reader :completed_passes
+
       EXCERPT_LINES = 10
       EXCERPT_WIDTH = 200
       EXCERPT_SCAN_LINES = 5000
@@ -26,6 +30,7 @@ module Saboteur
         @diagnostics = diagnostics
         @full_passes = full_passes
         @between_passes = between_passes
+        @completed_passes = 0
       end
 
       def call
@@ -52,16 +57,17 @@ module Saboteur
             executed.sort == expected.sort
           refuse(number, "test order changed between baseline checks") if previous && executed != previous
           previous = executed
+          @completed_passes += 1
         end
         nil
       end
 
       private
 
-      # A spent --max-duration budget skips the remaining passes: the
-      # pre-dispatch check stops the run before any subject anyway.
-      def budget_spent?(index)
-        index.positive? && @between_passes&.call
+      # A spent --max-duration budget skips the remaining passes - including
+      # the first, when boot alone already spent it (#245).
+      def budget_spent?(_index)
+        !@between_passes.nil? && @between_passes.call
       end
 
       def announce(passes)
