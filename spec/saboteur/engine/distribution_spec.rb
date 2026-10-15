@@ -16,6 +16,30 @@ RSpec.describe Saboteur::Engine::Distribution do
     expect(seen).to eq([[:a, [:a, ["la"]]], [:b, [:b, ["lb"]]]])
   end
 
+  it "flags a serial subject when any result is unverified, and records the shortfall (#296)" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "x"),
+           Saboteur::MutantResult.new(subject:, mutation:, status: :unverified, mutated_source: "x")]
+    scheduler = ->(_subject, _list) { row }
+    distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)
+    distribution.run([subject], [[[fixture_mutation(subject), "a"], [fixture_mutation(subject), "b"],
+                                  [fixture_mutation(subject), "c"]]])
+    expect(distribution.unverified).to eq([subject])
+    expect(distribution.truncated).to eq([[subject, 1]])
+  end
+
+  it "leaves the serial unverified and truncated lists empty when nothing was cut (#296)" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "x")]
+    scheduler = ->(_subject, _list) { row }
+    distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)
+    distribution.run([subject], [[[fixture_mutation(subject), "a"]]])
+    expect(distribution.unverified).to eq([])
+    expect(distribution.truncated).to eq([])
+  end
+
   it "runs serial without an after_subject callback" do
     scheduler = ->(subject, _list) { [subject] }
     distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)

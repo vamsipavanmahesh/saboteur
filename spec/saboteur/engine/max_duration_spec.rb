@@ -297,7 +297,29 @@ RSpec.describe Saboteur::Engine::BaselineGuard, "phase timeout cap (#296)" do
                                 supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
                                 full_passes: 1, timeout_cap: ->(timeout) { timeout / 2 })
     expect { guard.call }.to raise_error(Saboteur::BudgetPhaseTimeout,
-                                         /--max-duration budget stopped baseline check 1/)
+                                         "the --max-duration budget stopped baseline check 1 " \
+                                         "(admitted 1800.0s of the 3600.0s phase timeout)")
+  end
+
+  it "fails the baseline when the capped pass stops for a non-timeout reason (memory) even shortened (#296)" do
+    response = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :memory,
+                                                           detail: "over 512 MB", runtime: 0.1, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(response)
+    guard = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                full_passes: 1, timeout_cap: ->(timeout) { timeout / 2 })
+    expect { guard.call }.to raise_error(Saboteur::Error, /the suite stopped/)
+  end
+
+  it "fails the baseline when a timeout hits a full-length admission: cap present but not shortening (#296)" do
+    response = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :timeout,
+                                                           detail: "exceeded deadline", runtime: 0.1,
+                                                           leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(response)
+    guard = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                full_passes: 1, timeout_cap: ->(timeout) { timeout })
+    expect { guard.call }.to raise_error(Saboteur::Error, /the suite stopped/)
   end
 
   it "still fails the baseline when a full-length admission times out: the suite, not the budget (control)" do
@@ -742,7 +764,7 @@ RSpec.describe Saboteur::Engine::Scheduler, "per-check budget admission (#296)" 
     allow(runner).to receive(:run)
     allow(cache).to receive(:record)
     final = scheduler_with(150.0).send(:checked, plan, [kill])
-    expect([final.first.status, final.first.reason]).to eq([:unverified, Saboteur::Engine::VerdictCheck::BUDGET_REASON])
+    expect([final.first.status, final.first.reason]).to eq([:unverified, "the --max-duration budget is spent"])
     expect(runner).not_to have_received(:run)
     expect(cache).not_to have_received(:record)
   end

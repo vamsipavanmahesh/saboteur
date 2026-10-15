@@ -44,7 +44,34 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                  hooks: Saboteur::Hooks.new, supervisor: supervisor,
                                  diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
                                  timeout_cap: ->(timeout) { timeout / 2 })
-    expect { capped.fetch([file]) }.to raise_error(Saboteur::BudgetPhaseTimeout, /coverage map build/)
+    expect { capped.fetch([file]) }.to raise_error(Saboteur::BudgetPhaseTimeout,
+                                                   "the --max-duration budget stopped the coverage map build " \
+                                                   "(admitted 1800.0s of the 3600.0s phase timeout)")
+  end
+
+  it "still fails the build when a capped run stops for a non-timeout reason (memory) even shortened (#296)" do
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    stopped = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :memory,
+                                                          detail: "over 512 MB", runtime: 0.1, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(stopped)
+    capped = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
+                                 hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                 diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                 timeout_cap: ->(timeout) { timeout / 2 })
+    expect { capped.fetch([file]) }.to raise_error(Saboteur::Error, "coverage map build stopped: over 512 MB")
+  end
+
+  it "still fails the build when a timeout hits a full-length admission: cap present but not shortening (#296)" do
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    stopped = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :timeout,
+                                                          detail: "exceeded deadline", runtime: 0.1,
+                                                          leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(stopped)
+    uncapped = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
+                                   hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                   diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                   timeout_cap: ->(timeout) { timeout })
+    expect { uncapped.fetch([file]) }.to raise_error(Saboteur::Error, "coverage map build stopped: exceeded deadline")
   end
 
   it "still fails the build when a full-length admission times out: the suite, not the budget (control)" do

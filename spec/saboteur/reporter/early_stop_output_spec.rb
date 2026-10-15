@@ -34,6 +34,30 @@ RSpec.describe "early stop in the reports" do
     expect(terminal_text(stopped(*(1..11).map { |i| "S#{i}#m" }))).to include("  ... 1 more\n")
   end
 
+  # Singular already covered above: plurals decide the 's', and each kind
+  # appears only when its own list is non-empty (#296).
+  it "summarizes two unreached, two truncated and two unverified subjects in the plural (#296)" do
+    stop = Saboteur::EarlyStop.new(reason: "max_duration", unreached: ["A#x", "B#y"],
+                                   truncated: [{ subject: "C#z", omitted: 2 }, { subject: "D#w", omitted: 1 }],
+                                   unverified: ["E#u", "F#v"])
+    report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
+    text = terminal_text(report)
+    expect(text).to include("2 selected subjects did not run")
+    expect(text).to include("2 subjects stopped mid-way (3 mutants omitted)")
+    expect(text).to include("2 subjects left with unverified results")
+  end
+
+  it "mentions only the kinds that actually happened (#296)" do
+    stop = Saboteur::EarlyStop.new(reason: "max_duration", unreached: ["A#x", "B#y"], truncated: [], unverified: [])
+    report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
+    text = terminal_text(report)
+    expect(text).to include("2 selected subjects did not run")
+    expect(text).not_to include("stopped mid-way")
+    expect(text).not_to include("unverified results")
+  end
+
   it "adds no trailer for a handful of unreached subjects" do
     expect(terminal_text(stopped("A#x", "B#y", "C#z"))).not_to include("more\n")
   end

@@ -150,7 +150,8 @@ module Saboteur
           results.concat(subject_results)
           # A scheduler that stopped mid-list at the budget deadline: the
           # completed results stay, the omitted candidates are accounted.
-          @truncated << [subject, list.size - subject_results.size] if subject_results.size < list.size
+          omitted = list.size - subject_results.size
+          @truncated << [subject, omitted] if omitted.positive?
           @unverified << subject if subject_results.any? { |result| unverified_result?(result) }
           @after_subject&.call(subject, subject_results)
           next unless @stop_after&.call(subject_results)

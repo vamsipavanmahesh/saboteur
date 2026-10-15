@@ -10,8 +10,13 @@ module Saboteur
     # so a kill by a failed assertion can be told from a kill by a crash.
     # failure_messages: the first line of each failure, so a verdict that
     # does not hold up can say why the test failed.
-    RunResult = Data.define(:passed, :failed_ids, :executed_ids, :runtime, :failure_classes, :failure_messages) do
-      def initialize(passed:, failed_ids:, executed_ids:, runtime:, failure_classes: {}, failure_messages: {})
+    # failure_details: the full message and first backtrace frames of each
+    # failure, so a neutral re-run (the verdict check) can say exactly why
+    # the killer failed with the method unchanged (#296).
+    RunResult = Data.define(:passed, :failed_ids, :executed_ids, :runtime, :failure_classes, :failure_messages,
+                            :failure_details) do
+      def initialize(passed:, failed_ids:, executed_ids:, runtime:, failure_classes: {}, failure_messages: {},
+                     failure_details: {})
         super
       end
     end

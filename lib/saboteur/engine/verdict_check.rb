@@ -51,16 +51,16 @@ module Saboteur
       end
 
       # Runs each distinct kill sequence once. Returns [failing, unchecked]:
-      # failing maps a sequence to why it failed unchanged, unchecked lists
-      # the sequences the budget never let run - an unverified re-run is not
-      # a rejection (#296).
+      # failing maps a sequence to why it failed unchanged, unchecked maps
+      # the sequences the budget never let run to why - an unverified re-run
+      # is not a rejection (#296).
       def check_sequences(kills)
         failing = {}
-        unchecked = []
+        unchecked = {}
         kills.map { |result| sequence(result) }.uniq.each do |tests|
           outcome = @run_unchanged.call(tests, @baseline_timeout)
           if outcome.status == :unverified
-            unchecked << tests
+            unchecked[tests] = outcome.message
           elsif outcome.status != :survived
             failing[tests] = outcome.message
           end
@@ -69,15 +69,16 @@ module Saboteur
       end
 
       # Kills with no failing test named, checked on all their tests.
-      # Returns [failing, unchecked] result lists.
+      # Returns [failing, unchecked]: failing lists the rejected results,
+      # unchecked maps a result the budget never let run to why.
       def check_claims(claims)
         failing = []
-        unchecked = []
+        unchecked = {}
         claims.each do |result|
-          status = @run_unchanged.call(result.covered_by, @baseline_timeout).status
-          if status == :unverified
-            unchecked << result
-          elsif status != :survived
+          outcome = @run_unchanged.call(result.covered_by, @baseline_timeout)
+          if outcome.status == :unverified
+            unchecked[result] = outcome.message
+          elsif outcome.status != :survived
             failing << result
           end
         end
@@ -90,8 +91,8 @@ module Saboteur
 
         if failing.include?(result)
           result.as_error("tests also fail with the method unchanged", rejected_kill: true)
-        elsif unchecked.include?(result)
-          result.as_unverified(BUDGET_REASON)
+        elsif unchecked.key?(result)
+          result.as_unverified(unchecked[result] || BUDGET_REASON)
         else
           result
         end
@@ -103,8 +104,8 @@ module Saboteur
           why = failing_runs[tests]
           result.as_error("killing test #{tests.last} also fails with the method unchanged" \
                           "#{": #{why}" if why}", rejected_kill: true)
-        elsif unchecked_runs.include?(tests)
-          result.as_unverified(BUDGET_REASON)
+        elsif unchecked_runs.key?(tests)
+          result.as_unverified(unchecked_runs[tests] || BUDGET_REASON)
         else
           result
         end

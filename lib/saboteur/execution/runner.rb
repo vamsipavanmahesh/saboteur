@@ -175,7 +175,8 @@ module Saboteur
       def run_tests(test_ids)
         result = @integration.run(test_ids)
         { passed: result.passed, failed: result.failed_ids, executed: result.executed_ids, runtime: result.runtime,
-          failure_classes: result.failure_classes, failure_messages: result.failure_messages }
+          failure_classes: result.failure_classes, failure_messages: result.failure_messages,
+          failure_details: result.failure_details }
       rescue SystemExit => e
         # A test called `exit`. The tests noticed something; count it as a failure.
         { passed: false, failed: [], executed: [], runtime: 0.0, exited: e.status }
@@ -270,7 +271,7 @@ module Saboteur
         end
       end
 
-      def classify_result(result, runtime, test_ids)
+      def classify_result(result, runtime, test_ids, verbose_failure: false)
         failed = Array(result["failed"])
         executed = Array(result["executed"])
         return Outcome.new(status: :killed, runtime: runtime, message: "test called exit") if result.key?("exited")
@@ -279,9 +280,7 @@ module Saboteur
           unexpected = failed - test_ids
           return mismatch(runtime, "failed tests not requested: #{unexpected.first(3).join(', ')}") if unexpected.any?
 
-          return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed, executed_ids: executed,
-                             message: result.fetch("failure_messages", {})[failed.first],
-                             kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
+          return killed_outcome(result, runtime, failed, executed, verbose_failure)
         end
         unless result["passed"]
           return Outcome.new(status: :killed, runtime: runtime, executed_ids: executed,
@@ -295,8 +294,21 @@ module Saboteur
         Outcome.new(status: :survived, runtime: runtime, executed_ids: executed)
       end
 
+      def killed_outcome(result, runtime, failed, executed, verbose_failure)
+        Outcome.new(status: :killed, runtime: runtime, failed_ids: failed, executed_ids: executed,
+                    message: failure_message(result, failed.first, verbose_failure),
+                    kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
+      end
+
+      # A neutral check (the verdict re-run, no mutation) needs the full
+      # failure to explain why the killer fails unchanged (#296).
+      def failure_message(result, test_id, verbose_failure)
+        message = result.fetch("failure_messages", {})[test_id]
+        verbose_failure ? result.fetch("failure_details", {})[test_id] || message : message
+      end
+
       def classify_events(result, events, runtime, job)
-        outcome = classify_result(result, runtime, job.test_ids)
+        outcome = classify_result(result, runtime, job.test_ids, verbose_failure: job.mutation.nil?)
         replaced = events.find { |event| event["event"] == "replaced" }
         return replaced_by_later_definition(outcome, replaced) if never_ran?(outcome, replaced, job)
 

@@ -69,6 +69,71 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
     expect(unchanged_runs).to contain_exactly(%w[t1 t2], ["t2"])
   end
 
+  # The budget can run out mid-check: the first sequence's re-run proves
+  # its kills, the next never forks - its kills become unverified, naming
+  # the budget as the reason, and nothing unproven is cached (#296).
+  it "leaves later-sequence kills unverified, naming the budget, when it runs out mid-check (#296)" do
+    store = instance_double(Saboteur::Engine::ResultCache, record: nil, lookup: nil)
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                cache: store)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    first_mutant = true
+    unchanged_ran = false
+    allow(runner).to receive(:run) do |mutation: nil, **|
+      if mutation
+        killer = first_mutant ? "t1" : "t2"
+        first_mutant = false
+        outcome(:killed, failed_ids: [killer])
+      else
+        unchanged_ran = true
+        outcome(:survived)
+      end
+    end
+    allow(sched).to receive(:budget_spent?) { unchanged_ran }
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(results.map(&:status).uniq).to contain_exactly(:killed, :unverified)
+    unverified = results.find { |result| result.status == :unverified }
+    expect(unverified.reason).to eq("the --max-duration budget is spent")
+    expect(store).not_to have_received(:record).with(having_attributes(status: :unverified))
+  end
+
+  # A verdict check timing out at a timeout the budget did not shorten is a
+  # real rejected kill, not a budget artifact (#296).
+  it "rejects a kill whose unchanged check times out at a full-length timeout (#296)" do
+    results = schedule(mutant: ->(_) { outcome(:killed, failed_ids: ["t1"]) },
+                       unchanged: ->(_) { outcome(:timeout, runtime: 5.0) })
+    expect(results.map(&:status).uniq).to eq([:error])
+    expect(results.first.rejected_kill?).to be(true)
+  end
+
+  it "warns exactly once per verdict overturned by the unchanged re-run (#296)" do
+    io = StringIO.new
+    diagnostics = Saboteur::Engine::Diagnostics.new(io)
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    allow(runner).to receive(:run) { |**| outcome(:killed, failed_ids: ["t1"]) }
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(results.map(&:status).uniq).to eq([:error])
+    overturned = results.size
+    expect(diagnostics.warnings)
+      .to include("#{subject_under_test.id}: #{overturned} verdict(s) failed with the method unchanged")
+  end
+
+  it "does not warn when no verdict was overturned (#296)" do
+    io = StringIO.new
+    diagnostics = Saboteur::Engine::Diagnostics.new(io)
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    allow(runner).to receive(:run) do |mutation: nil, **|
+      mutation ? outcome(:killed, failed_ids: ["t1"]) : outcome(:survived)
+    end
+    sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(diagnostics.warnings.grep(/verdict.*failed/)).to be_empty
+  end
+
   it "turns a kill into an error when the killing test also fails with the method unchanged" do
     results = schedule(mutant: ->(_) { outcome(:killed, failed_ids: ["t1"]) },
                        unchanged: ->(_) { outcome(:killed, failed_ids: ["t1"]) })

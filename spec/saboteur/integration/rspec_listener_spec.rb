@@ -33,6 +33,21 @@ RSpec.describe Saboteur::Integration::RSpec::Listener do
     expect(failed("t2", RuntimeError.new("x" * 500)).failure_messages["t2"].size).to eq(200)
   end
 
+  # A neutral re-run (the verdict check) needs the whole failure to say why
+  # the killer failed with the method unchanged (#296).
+  it "keeps the full failure detail: class, message and first frames, capped and scrubbed" do
+    error = begin
+      raise "expected: 2\n     got: 3"
+    rescue RuntimeError => e
+      e
+    end
+    detail = failed("t1", error).failure_details["t1"]
+    expect(detail).to include("RuntimeError: expected: 2\n     got: 3")
+    expect(detail).to include(__FILE__)
+    expect(failed("t2", RuntimeError.new("x" * 5_000)).failure_details["t2"].size).to eq(2_000)
+    expect(failed("t3", nil).failure_details["t3"]).to be_nil
+  end
+
   it "records the exception class" do
     expect(failed("t1", NoMethodError.new("m")).failure_classes).to eq({ "t1" => "NoMethodError" })
   end

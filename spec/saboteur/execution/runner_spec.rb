@@ -10,7 +10,8 @@ RUNNER_SPEC_RESULTS = {
   "fail" => lambda { |ids|
     { passed: false, failed_ids: [ids.first], executed_ids: [ids.first],
       failure_classes: { ids.first => "RSpec::Expectations::ExpectationNotMetError" },
-      failure_messages: { ids.first => "expected: 2 got: 3" } }
+      failure_messages: { ids.first => "expected: 2 got: 3" },
+      failure_details: { ids.first => "ExpectationNotMetError: expected: 2\n     got: 3\n./spec/x_spec.rb:4" } }
   },
   "crash" => lambda { |ids|
     { passed: false, failed_ids: [ids.first], executed_ids: [ids.first],
@@ -159,7 +160,18 @@ RSpec.describe Saboteur::Execution::Runner do
   end
 
   it "keeps the killing test's failure message" do
-    expect(run_mode("fail").message).to eq("expected: 2 got: 3")
+    edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: "Stub#run", operator: "comparison", edits: [edit])
+    outcome = runner.run(subject: subject_stub, text: "fail", test_ids: %w[t1 t2], timeout: 5, mutation: mutation)
+    expect(outcome.message).to eq("expected: 2 got: 3")
+  end
+
+  # The verdict check re-runs without a mutation: its failures carry the
+  # full detail, so a rejected kill says why the killer failed unchanged -
+  # not just "expected: 0" (#296).
+  it "gives a neutral check the full failure detail, not just the first line" do
+    outcome = runner.run(subject: subject_stub, text: "fail", test_ids: %w[t1 t2], timeout: 5)
+    expect(outcome.message).to eq("ExpectationNotMetError: expected: 2\n     got: 3\n./spec/x_spec.rb:4")
   end
 
   it "records why the killing test failed: an assertion or a crash" do

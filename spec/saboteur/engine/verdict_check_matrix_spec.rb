@@ -69,7 +69,7 @@ RSpec.describe Saboteur::Engine::VerdictCheck, "with several killers" do
     end
     checked = described_class.new(run_unchanged: run, baseline_timeout: 1).call([result(killed_by: %w[t1])]).first
     expect([checked.status, checked.rejected_kill?]).to eq([:unverified, false])
-    expect(checked.reason).to eq(Saboteur::Engine::VerdictCheck::BUDGET_REASON)
+    expect(checked.reason).to eq("the --max-duration budget is spent")
   end
 
   it "marks an unnamed kill unverified when the budget stops its check" do
@@ -87,5 +87,46 @@ RSpec.describe Saboteur::Engine::VerdictCheck, "with several killers" do
     end
     checked = described_class.new(run_unchanged: run, baseline_timeout: 1).call([first, second])
     expect(checked.map(&:status)).to eq(%i[unverified killed])
+  end
+end
+
+# A re-run the budget stopped proves nothing: the kill is unverified, and
+# the verdict keeps the runner's own reason for it (#296).
+RSpec.describe Saboteur::Engine::VerdictCheck, "when the budget stops a check" do
+  let(:subject_under_test) { subjects_in("class Multi\n  def m\n    1\n  end\nend\n").first }
+  let(:mutation) { Saboteur::MutationSource::Builtin.new.mutations_for(subject_under_test).first }
+
+  def result(killed_by:, covered_by: %w[t1 t2])
+    Saboteur::MutantResult.new(subject: subject_under_test, mutation: mutation, status: :killed,
+                               mutated_source: "nil", killed_by: killed_by, covered_by: covered_by)
+  end
+
+  def check_with(results, outcome)
+    described_class.new(run_unchanged: ->(_tests, _timeout) { outcome }, baseline_timeout: 1).call(results)
+  end
+
+  def outcome(status, message = nil)
+    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: 0.1, message: message)
+  end
+
+  it "marks a named kill unverified with the runner's own reason" do
+    checked = check_with([result(killed_by: %w[t1])], outcome(:unverified, "the --max-duration budget is spent")).first
+    expect([checked.status, checked.reason]).to eq([:unverified, "the --max-duration budget is spent"])
+  end
+
+  it "falls back to the budget reason when the unverified re-run has no message" do
+    checked = check_with([result(killed_by: %w[t1])], outcome(:unverified)).first
+    expect(checked.reason).to eq(described_class::BUDGET_REASON)
+  end
+
+  it "marks an unnamed kill unverified with the runner's own reason" do
+    checked = check_with([result(killed_by: [])], outcome(:unverified, "the budget cut the check short")).first
+    expect([checked.status, checked.reason]).to eq([:unverified, "the budget cut the check short"])
+  end
+
+  it "keeps an unnamed kill whose unchanged run passes and rejects one whose run fails" do
+    expect(check_with([result(killed_by: [])], outcome(:survived)).first.status).to eq(:killed)
+    rejected = check_with([result(killed_by: [])], outcome(:killed, "boom")).first
+    expect([rejected.status, rejected.rejected_kill?]).to eq([:error, true])
   end
 end

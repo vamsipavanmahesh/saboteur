@@ -24,13 +24,13 @@ module Saboteur
 
       # "10m" -> 600.0; bare numbers are seconds. A bad value is a usage error.
       def parse_duration(value)
-        match = /\A(\d+(?:\.\d+)?)([smh])?\z/.match(value.to_s.strip)
+        match = /\A(?<amount>\d+(?:\.\d+)?)(?<unit>[smh])?\z/.match(value.to_s.strip)
         unless match
           raise ConfigError,
                 "invalid --max-duration #{value.inspect}: use seconds or an s/m/h suffix, e.g. 10m"
         end
 
-        match[1].to_f * { "s" => 1, "m" => 60, "h" => 3600, nil => 1 }.fetch(match[2])
+        match[:amount].to_f * { "s" => 1, "m" => 60, "h" => 3600, nil => 1 }.fetch(match[:unit])
       end
     end
   end

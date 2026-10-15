@@ -170,6 +170,12 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("invalid --max-duration")
   end
 
+  it "rejects an unparseable --max-duration with the full hint (#296)" do
+    command = cli("run", "--max-duration", "soon")
+    command.call
+    expect(err.string).to include('invalid --max-duration "soon": use seconds or an s/m/h suffix, e.g. 10m')
+  end
+
   it "expands the pr preset into its flag bundle, default ref main (#244)" do
     command = cli("pr")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
