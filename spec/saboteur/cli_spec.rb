@@ -217,6 +217,53 @@ RSpec.describe Saboteur::CLI do
     expect(command.options[:all]).to be_falsey
   end
 
+  it "never injects a --since ref for presets other than pr (#245)" do
+    command = cli("audit")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).not_to have_key(:since)
+  end
+
+  it "defaults the pr ref to main when only flags follow (#245)" do
+    command = cli("pr", "--baseline-passes", "2")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "main", baseline_passes: 2)
+  end
+
+  it "keeps the audit preset's --all when no explicit scope flag is given (#245)" do
+    command = cli("audit", "--seed", "7")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(all: true, seed: 7)
+  end
+
+  it "lets the --test=path form replace the audit preset's injected --all (#245)" do
+    command = cli("audit", "--test=spec/models/person_spec.rb")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(tests: ["spec/models/person_spec.rb"])
+    expect(command.options[:all]).to be_falsey
+  end
+
+  it "announces the expanded preset flags (#245)" do
+    command = cli("pr")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(err.string).to include("preset 'pr':").and include("--since main")
+  end
+
+  it "rejects a whitespace-padded --max-duration with the value in the message (#245)" do
+    command = cli("run", "--max-duration", " 10m ")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(max_duration: 600.0)
+    bad = cli("run", "--max-duration", "soon")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    bad.call
+    expect(err.string).to include('"soon"')
+  end
+
   it "keeps an explicit --no-max-duration-ok over a config true in the agent settings (#245)" do
     Dir.mktmpdir do |root|
       path = File.join(root, "saboteur.rb")

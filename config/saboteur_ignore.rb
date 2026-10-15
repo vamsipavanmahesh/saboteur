@@ -349,4 +349,8 @@ Saboteur.ignore do |i|
   i.mutation "1824b380776f6a59",
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
+
+  i.mutation "616b8ab8c90a0684",
+             subject: "Saboteur::CLI::RunBudgetOptions#parse_duration",
+             reason: "match[0] is the whole anchored numeric match, so match[0].to_f equals match[1].to_f for every input the regex accepts"
 end
