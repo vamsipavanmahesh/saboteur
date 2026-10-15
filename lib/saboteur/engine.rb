@@ -296,7 +296,9 @@ module Saboteur
                         supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
                         full_passes: full_passes,
                         between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil).call
-      @stable_suite = true
+      # One green pass proves the suite ran; only repeated passes certify it
+      # stable, so a single --baseline-passes run is reported unchecked.
+      @stable_suite = full_passes >= 2
     end
 
     def scheduler_for(map, integration, cache)
