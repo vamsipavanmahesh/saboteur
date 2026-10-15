@@ -27,7 +27,8 @@ module Saboteur
       3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \
            "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant.",
       4 => "Time budget spent: --max-duration stopped the run before the next subject, so the score is " \
-           "partial. --max-duration-ok leaves the exit to the plain verdict (0 or 1)."
+           "partial. --max-duration-ok leaves the exit to the plain verdict: 0, 1, or 3 when the budget " \
+           "stopped the run before any mutant was tested."
     }.freeze
 
     DOCTOR_EXIT_CODE_MEANINGS = {
@@ -69,9 +70,10 @@ module Saboteur
         summary: "Preset: the fast pull-request loop over the lines changed since a ref",
         description: "Expands to saboteur run --baseline-passes 1 --max-duration 10m --max-duration-ok " \
                      "--since REF, with REF the first operand (default main): one baseline check, a " \
-                     "ten-minute wall-clock budget that stops cleanly without failing the build, and " \
-                     "mutants limited to the changed methods. Every run option still works; an explicit " \
-                     "flag after the preset wins (#244).",
+                     "ten-minute wall-clock budget, and mutants limited to the changed methods. Spending " \
+                     "the budget never fails the build; the verdict still can - survivors exit 1, and a " \
+                     "budget stop before any mutant ran exits 3. Every run option still works; an " \
+                     "explicit flag after the preset wins (#244).",
         takes_options: true,
         exit_codes: EXIT_CODE_MEANINGS,
         examples: [["Changed lines since main", "saboteur pr"],
@@ -153,7 +155,7 @@ module Saboteur
 
     AGENT_EXIT_CODES = "  With --agent the codes are stricter: 0 only when the run was complete and clean; " \
                        "1 survivors to review;\n  2 usage or config error; 3 incomplete (no coverage, caps, errors, " \
-                       "nothing selected) or tool failure."
+                       "a budget stop before any mutant ran, nothing selected) or tool failure."
 
     FILES = [
       ["config/saboteur.rb", "Settings as Ruby (Saboteur.configure). Command line options override it."],
@@ -197,8 +199,16 @@ module Saboteur
       @commands.select(&:takes_options).map { |command| options_section(command) }
     end
 
+    # run, audit and pr share one exit-code table; the overview keeps every
+    # command's section but carries the agent note only on the first table
+    # that shares it, so the phrase appears exactly once.
     def exit_code_sections
-      @commands.select(&:exit_codes).map { |command| exit_codes_section(command.exit_codes, command.name) }
+      noted = []
+      @commands.select(&:exit_codes).map do |command|
+        first = noted.none? { |codes| codes.equal?(command.exit_codes) }
+        noted << command.exit_codes
+        exit_codes_section(command.exit_codes, command.name, agent_note: first)
+      end
     end
 
     def title
@@ -235,10 +245,10 @@ module Saboteur
       "EXAMPLES\n#{examples.map { |note, line| "  # #{note}\n  #{line}" }.join("\n")}\n"
     end
 
-    def exit_codes_section(codes, command_name = nil)
+    def exit_codes_section(codes, command_name = nil, agent_note: true)
       rows = codes.map { |code, meaning| "  #{code}  #{meaning}" }
       title = command_name ? "EXIT CODES (saboteur #{command_name})" : "EXIT CODES"
-      note = codes.equal?(EXIT_CODE_MEANINGS) ? "#{AGENT_EXIT_CODES}\n" : ""
+      note = agent_note && codes.equal?(EXIT_CODE_MEANINGS) ? "#{AGENT_EXIT_CODES}\n" : ""
       "#{title}\n#{rows.join("\n")}\n#{note}"
     end
 
