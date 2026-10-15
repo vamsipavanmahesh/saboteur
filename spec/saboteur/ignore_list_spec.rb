@@ -41,6 +41,36 @@ RSpec.describe Saboteur::IgnoreList do
     end
   end
 
+  # A scoped run (--since) drops mutants on unchanged lines before results
+  # exist; an entry matching one of those dropped mutants is not stale (#284).
+  it "does not call an entry stale when the digest survives in the subject's unscoped candidates" do
+    with_file(entry_for("0000000000000000", reason: "r")) do |path|
+      warnings = described_class.load(path)
+                                .apply([result_for(:survived)],
+                                       unscoped_digests: { "Person#adult?" => ["0000000000000000"] })
+      expect(warnings).to eq([])
+    end
+  end
+
+  it "still calls an entry stale when the digest is in no unscoped candidate set" do
+    with_file(entry_for("0000000000000000", reason: "r")) do |path|
+      warnings = described_class.load(path)
+                                .apply([result_for(:survived)],
+                                       unscoped_digests: { "Person#adult?" => ["ffffffffffffffff"] })
+      expect(warnings).to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation"])
+    end
+  end
+
+  # A subject with no unscoped candidate set at all (not built, say)
+  # must read as stale, not blow up the warning pass (#284).
+  it "calls an entry stale when the subject has no unscoped candidate set at all" do
+    with_file(entry_for("0000000000000000", reason: "r")) do |path|
+      warnings = described_class.load(path)
+                                .apply([result_for(:survived)], unscoped_digests: {})
+      expect(warnings).to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation"])
+    end
+  end
+
   it "warns about entries for examined subjects whose mutation no longer exists" do
     with_file(entry_for("0000000000000000", reason: "r")) do |path|
       expect(described_class.load(path).apply([result_for(:survived)]))

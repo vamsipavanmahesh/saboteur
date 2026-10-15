@@ -103,7 +103,10 @@ module Saboteur
 
     # Marks matching survivors as ignored. Returns warnings for stale entries:
     # entries whose subject was examined but whose mutation no longer exists.
-    def apply(results)
+    # unscoped_digests (subject id => every digest generated before a diff
+    # scope cut) keeps a scoped run from calling a scoped-out entry stale
+    # (#284).
+    def apply(results, unscoped_digests: nil)
       seen = {}
       results.each do |result|
         key = [result.subject.id, result.digest]
@@ -113,8 +116,15 @@ module Saboteur
         seen[key] = true
         result.ignored = entry.reason if result.survived?
       end
+      stale_warnings(results, seen, unscoped_digests)
+    end
+
+    private
+
+    def stale_warnings(results, seen, unscoped_digests)
       examined = results.to_set { |result| result.subject.id }
       entries.select { |entry| examined.include?(entry.subject) && !seen[[entry.subject, entry.mutation]] }
+             .reject { |entry| unscoped_digests&.fetch(entry.subject, nil)&.include?(entry.mutation) }
              .map { |entry| "stale ignore entry #{entry.subject} #{entry.mutation}: no such mutation" }
     end
   end

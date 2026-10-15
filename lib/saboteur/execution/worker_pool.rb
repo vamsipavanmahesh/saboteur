@@ -201,7 +201,10 @@ module Saboteur
           results[worker.current] = { "error" => "#{reason}, running this item" }
           @on_result&.call(worker.current, results[worker.current])
         end
-        give_up(reason) if worker.done.zero?
+        # Halted pools start nothing, so a start-failure storm cannot be the
+        # run's problem then; raising it would mask the rows that carry the
+        # real abort cause (#286).
+        give_up(reason) if worker.done.zero? && !@halted
         return if @halted || queue.empty?
 
         fresh = start(worker.number, items, workers, &)
