@@ -39,6 +39,74 @@ RSpec.describe Saboteur::MutationSource::HazardGuard do
     expect(suppressed).not_to be_empty
   end
 
+  # FileUtils.send(:rm_rf, x) is FileUtils.rm_rf with indirection (#240);
+  # a dynamic selector stays documented as out of scope.
+  # A literal argument to any other method is not a send selector:
+  # logger.info("rmtree") runs nothing destructive, so its mutants run.
+  it "does not resolve literal arguments of non-send methods as selectors" do
+    kept, suppressed, = partition('    logger.info("rmtree")')
+    expect(suppressed).to be_empty
+    expect(kept).to include("body_raise")
+  end
+
+  # Only send-family calls resolve their first argument as the selector:
+  # dropping the SEND_NAMES conjunct would treat any method's literal
+  # first argument as the call being made.
+  it "resolves the hazard selector only for send, public_send and __send__" do
+    kept, suppressed, = partition('    process(:system, "make clean")')
+    expect(suppressed).to be_empty
+    expect(kept).to include("body_raise")
+  end
+
+  it "suppresses mutants when send, public_send or __send__ names a hazard with a literal selector" do
+    ['    FileUtils.send(:rm_rf, File.join(Dir.pwd, "build"))',
+     '    FileUtils.public_send("rm_rf", File.join(Dir.pwd, "build"))',
+     '    __send__(:rm_rf, File.join(Dir.pwd, "build"))'].each do |call|
+      _kept, suppressed, = partition(call)
+      expect(suppressed).not_to be_empty, "expected mutants to be suppressed for #{call}"
+    end
+  end
+
+  # #294 review: the resolved selector must face the same direct-call
+  # semantics, with the arguments shifted past the selector - otherwise
+  # helper.send(:rmtree, x), a Pathname receiver and piped open slip through.
+  it "suppresses a send-indirected rmtree on any receiver, like the direct call" do
+    ['    helper.send(:rmtree, "build")',
+     '    path.public_send(:rmtree, "build")',
+     '    helpers.__send__("rmtree", "build")'].each do |call|
+      _kept, suppressed, = partition(call)
+      expect(suppressed).not_to be_empty, "expected mutants to be suppressed for #{call}"
+    end
+  end
+
+  it "suppresses a piped open reached through send, bare or on Kernel" do
+    ['    Kernel.send(:open, "| cmd")',
+     '    __send__(:open, "| cmd")',
+     '    send(:open, "| \#{cmd}")'].each do |call|
+      _kept, suppressed, = partition(call)
+      expect(suppressed).not_to be_empty, "expected mutants to be suppressed for #{call}"
+    end
+  end
+
+  it "keeps a literal send selector that names no hazard, even on a Kernel receiver" do
+    _kept, suppressed, = partition('    Kernel.send(:puts, "hi")')
+    expect(suppressed).to be_empty
+  end
+
+  it "keeps mutants when send names a benign method or the selector is dynamic" do
+    _kept, suppressed, = partition("    helper.send(:size)")
+    expect(suppressed).to be_empty
+    _kept, suppressed, = partition("    FileUtils.send(method, target)")
+    expect(suppressed).to be_empty
+  end
+
+  # system("rm -rf #{dir}") with the interpolation removed still runs a
+  # destructive call with altered inputs (#239 interaction).
+  it "suppresses interpolation_removal mutants inside a destructive call" do
+    _kept, suppressed, = partition('    system("rm -rf #{dir}")') # rubocop:disable Lint/InterpolationCheck
+    expect(suppressed).to include("interpolation_removal")
+  end
+
   it "keeps mutants on benign explicit-receiver calls that share a hazard name" do
     kept, suppressed, = partition('    helper.system("make clean")')
     expect(suppressed).to be_empty

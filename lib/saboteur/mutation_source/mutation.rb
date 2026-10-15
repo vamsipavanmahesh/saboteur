@@ -15,13 +15,15 @@ module Saboteur
       end
 
       # Stable id for the ignore list. Offsets are made relative to subject_start
-      # so edits elsewhere in the file do not change the id.
+      # so edits elsewhere in the file do not change the id. The digest hashes
+      # bytes, not encodings: a binary-read source and a UTF-8 replacement hold
+      # the same identity, and joining them without .b raises under LANG=C.
       def digest(subject_start:, original_source:)
         parts = edits.map do |edit|
           original = original_source.byteslice(edit.start_byte, edit.end_byte - edit.start_byte)
-          [edit.start_byte - subject_start, original, edit.replacement].join("\0")
+          [edit.start_byte - subject_start, original.to_s.b, edit.replacement.b].join("\0".b)
         end
-        Digest::SHA256.hexdigest([subject_id, operator, *parts].join("\x1F"))[0, 16]
+        Digest::SHA256.hexdigest([subject_id.to_s.b, operator.to_s.b, *parts].join("\x1F".b))[0, 16]
       end
     end
   end

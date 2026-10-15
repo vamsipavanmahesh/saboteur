@@ -138,6 +138,9 @@ RSpec.describe Saboteur::MutationSource::LiteralReplacement do
     subject = subject_for('[input + 1, true, "token"]')
     found = Saboteur::MutationSource::Builtin.new.mutations_for(subject)
     expect(found.first(2).map(&:operator)).to eq(%w[body_nil body_raise])
-    expect(found.last(2).map(&:operator)).to eq(%w[literal_boolean literal_string])
+    # Newer sources append after the literal operators; assert their
+    # relative order, not the absolute tail.
+    operators = found.map(&:operator)
+    expect(operators.index("literal_string")).to be > operators.index("literal_boolean")
   end
 end

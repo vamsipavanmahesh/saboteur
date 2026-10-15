@@ -13,6 +13,9 @@ require_relative "operator_registry"
 require_relative "range_replacement"
 require_relative "operator_assignment"
 require_relative "condition_negation"
+require_relative "method_swap"
+require_relative "operand_replacement"
+require_relative "interpolation_removal"
 
 module Saboteur
   module MutationSource
@@ -66,6 +69,9 @@ module Saboteur
         @range_replacement = RangeReplacement.new(arid: arid)
         @operator_assignment = OperatorAssignment.new(arid: arid)
         @condition_negation = ConditionNegation.new(arid: arid)
+        @method_swap = MethodSwap.new(arid: arid)
+        @operand_replacement = OperandReplacement.new(arid: arid)
+        @interpolation_removal = InterpolationRemoval.new(arid: arid)
       end
 
       def name
@@ -78,18 +84,18 @@ module Saboteur
         @found = []
         coarse(body)
         visit(body)
-        @found.concat(@filter_replacement.mutations_for(subject))
-        @found.concat(@literal_replacement.mutations_for(subject))
-        @found.concat(@argument_removal.mutations_for(subject))
-        @found.concat(@pair_removal.mutations_for(subject))
-        @found.concat(@chain_removal.mutations_for(subject))
-        @found.concat(@endpoint_replacement.mutations_for(subject))
-        @found.concat(@range_replacement.mutations_for(subject))
-        @found.concat(@operator_assignment.mutations_for(subject))
-        @found.concat(@condition_negation.mutations_for(subject))
+        @found.concat(delegated.flat_map { |source| source.mutations_for(subject) })
         @found.select { |mutation| @operators.include?(mutation.operator) }
       ensure
         @subject = nil
+      end
+
+      # The single-purpose sources run after the shared walk, in registration
+      # order; each filters its own operator through the same policy below.
+      def delegated
+        [@filter_replacement, @literal_replacement, @argument_removal, @pair_removal, @chain_removal,
+         @endpoint_replacement, @range_replacement, @operator_assignment, @condition_negation,
+         @method_swap, @operand_replacement, @interpolation_removal]
       end
 
       private
@@ -185,9 +191,12 @@ module Saboteur
         add("safe_navigation", node.call_operator_loc, ".") if node.safe_navigation?
       end
 
+      # Only the infix spelling is binary: an operator call has no call
+      # operator, and its receiver, message, single argument and lack of a
+      # block all follow from that (a block binds to the last operand's own
+      # call, never to the operator).
       def binary?(node)
-        node.receiver && node.message_loc && node.call_operator_loc.nil? &&
-          node.arguments&.arguments&.size == 1 && node.block.nil?
+        node.call_operator_loc.nil?
       end
 
       def numeric_operands?(node)

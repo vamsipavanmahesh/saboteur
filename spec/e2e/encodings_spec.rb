@@ -23,7 +23,13 @@ RSpec.describe "encodings and offsets (end to end)", :e2e do
       ["lib/bom.rb", "body_nil", 5, 5, 10], ["lib/bom.rb", "body_raise", 5, 5, 10],
       ["lib/bom.rb", "arithmetic", 5, 7, 8],
       ["lib/multibyte.rb", "body_nil", 7, 21, 40], ["lib/multibyte.rb", "body_raise", 7, 21, 40],
-      ["lib/multibyte.rb", "arithmetic", 7, 31, 32], ["lib/multibyte.rb", "literal_string", 7, 21, 25]
+      ["lib/multibyte.rb", "arithmetic", 7, 31, 32], ["lib/multibyte.rb", "literal_string", 7, 21, 25],
+      # operand_replacement (#238) replaces each operand of both + calls;
+      # columns still count characters across the multibyte text.
+      ["lib/crlf.rb", "operand_replacement", 5, 5, 10], ["lib/crlf.rb", "operand_replacement", 5, 5, 10],
+      ["lib/bom.rb", "operand_replacement", 5, 5, 10], ["lib/bom.rb", "operand_replacement", 5, 5, 10],
+      ["lib/multibyte.rb", "operand_replacement", 7, 21, 40], ["lib/multibyte.rb", "operand_replacement", 7, 21, 40],
+      ["lib/multibyte.rb", "operand_replacement", 7, 29, 34], ["lib/multibyte.rb", "operand_replacement", 7, 29, 34]
     ]
   end
 

@@ -20,6 +20,11 @@ RSpec.describe "visibility matrix (end to end)", :e2e do
     arithmetic = mutants(run).select { |m| m["mutatorName"] == "arithmetic" }
     expect(arithmetic.map { |m| m.dig("location", "start", "line") }).to match_array(value_lines)
     expect(arithmetic.map { |m| m["status"] }.uniq).to eq(["Survived"])
+    # operand_replacement (#238) replaces each operand of SEED + 1 in turn;
+    # with no value asserted, those mutants survive for the same reason.
+    operands = mutants(run).select { |m| m["mutatorName"] == "operand_replacement" }
+    expect(operands.map { |m| m.dig("location", "start", "line") }).to match_array(value_lines * 2)
+    expect(operands.map { |m| m["status"] }.uniq).to eq(["Survived"])
   end
 
   it "ends every mutant as Killed or Survived, and only a raising body is killed" do
@@ -27,6 +32,6 @@ RSpec.describe "visibility matrix (end to end)", :e2e do
     expect(mutants(run).map { |m| m["status"] } - %w[Killed Survived]).to be_empty
     expect(killed.map { |m| m["mutatorName"] }.uniq)
       .to contain_exactly("body_raise", "argument_removal", "chain_removal")
-    expect(mutants(run).size).to eq(68)
+    expect(mutants(run).size).to eq(92) # 68 + 24 operand_replacement (2 per value body)
   end
 end

@@ -107,10 +107,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::Builtin#mutate_call",
              reason: "equivalent: Prism always gives ! a receiver"
 
-  i.mutation "1356ffa727eb6c28",
-             subject: "Saboteur::MutationSource::Builtin#binary?",
-             reason: "equivalent: calls named as operators are binary in practice"
-
   i.mutation "557d74f40af55855",
              subject: "Saboteur::MutationSource::Builtin#mutate_number",
              reason: "equivalent: add drops a replacement whose text equals the original"
@@ -329,6 +325,26 @@ Saboteur.ignore do |i|
   i.mutation "2458d413d0870a98",
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
+
+  i.mutation "4feff1bd217add5d",
+             subject: "Saboteur::MutationSource::InterpolationRemoval#remove_parts",
+             reason: "equivalent: the parts loop runs in statement position, so the collected array from map is discarded exactly like the each return"
+
+  i.mutation "175c987f2f427da9",
+             subject: "Saboteur::MutationSource::OperandReplacement#replace_operands",
+             reason: "equivalent: the operand loop runs in statement position, so the collected array from map is discarded exactly like the each return"
+
+  i.mutation "b16e5029f4fc994c",
+             subject: "Saboteur::MutationSource::OperandReplacement#replace_operands",
+             reason: "equivalent: splatting the ArgumentsNode wraps it as one element (it has no to_a), and its slice yields the sole argument's source for the one-argument infix calls binary? admits"
+
+  i.mutation "fb3d8d74cffbaf81",
+             subject: "Saboteur::MutationSource::OperatorVisit#visit",
+             reason: "equivalent: the statement walk runs in statement position, so the collected array from map is discarded exactly like the each return"
+
+  i.mutation "423d477387f24abf",
+             subject: "Saboteur::MutationSource::OperatorVisit#visit",
+             reason: "equivalent: the child walk runs in statement position, so the collected array from map is discarded exactly like the each return"
 
   i.mutation "1824b380776f6a59",
              subject: "Saboteur::Subject#pattern_coverage_lines",

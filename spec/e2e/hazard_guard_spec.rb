@@ -17,6 +17,14 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
   # The fixture lives under the system temp dir, which the sandbox always
   # grants, so the destructive mutant really deletes - tracked files and
   # the run's own log. The hazard report must win over the log's absence:
+  it "suppresses mutants when send names the destructive call with a literal selector (#240)" do
+    send_dir = copy_fixture("danger_send")
+    run = saboteur(send_dir)
+    expect(run.status).to eq(0)
+    expect(run.out).to include("hazardous mutations suppressed")
+    expect(File).to exist(File.join(send_dir, "lib", "dispatcher.rb"))
+  end
+
   # exit 3, the canary naming the mutant as the likely cause, and never
   # the "killing test also fails" mislabel (#234).
   it "aborts with exit 3, the canary naming the culprit, when hazardous mutants are allowed" do

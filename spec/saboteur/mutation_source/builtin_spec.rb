@@ -11,6 +11,23 @@ RSpec.describe Saboteur::MutationSource::Builtin do
     mutations(body, **).select { |op, _| op == operator }.map(&:last)
   end
 
+  describe "binary shape" do
+    it "gives no comparison or arithmetic mutants to the explicit-receiver spelling" do
+      expect(texts("    a.+(b)", "arithmetic")).to be_empty
+      expect(texts("    a.==(b)", "comparison")).to be_empty
+    end
+  end
+
+  describe "operator wiring" do
+    it "wires arid into method_swap and interpolation_removal too" do
+      swap = subjects_in("class K\n  def m(xs)\n    xs.min { |x| x }\n  end\nend\n").first
+      expect(described_class.new(operators: ["method_swap"], arid: ["min"]).mutations_for(swap)).to be_empty
+      interp = subjects_in(%(class K\n  def m(name)\n    "Hello, \#{name}!"\n  end\nend\n)).first
+      expect(described_class.new(operators: ["interpolation_removal"], arid: ["name"])
+        .mutations_for(interp)).to be_empty
+    end
+  end
+
   describe "coarse" do
     it "replaces the body with nil and with raise, before anything else" do
       found = mutations("    a >= b")

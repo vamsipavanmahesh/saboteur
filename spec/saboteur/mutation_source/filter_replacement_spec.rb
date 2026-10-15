@@ -98,6 +98,9 @@ RSpec.describe Saboteur::MutationSource::FilterReplacement do
     subject = subject_for("items.select { |item| item == :remove }")
     found = Saboteur::MutationSource::Builtin.new.mutations_for(subject)
     expect(found.first(2).map(&:operator)).to eq(%w[body_nil body_raise])
-    expect(found.last.operator).to eq("filter_replacement")
+    operators = found.map(&:operator)
+    # Newer sources append after filter_replacement; assert relative order,
+    # not the absolute tail.
+    expect(operators.index("filter_replacement")).to be > operators.index("body_raise")
   end
 end

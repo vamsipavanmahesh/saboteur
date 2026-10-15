@@ -28,7 +28,10 @@ module Saboteur
         "chain_removal" => "x.first.to_s -> x.to_s",
         "range" => "1..3 -> 1...3",
         "operator_assignment" => "x += 1 -> x -= 1",
-        "condition_negation" => "x ? a : b -> !(x) ? a : b"
+        "condition_negation" => "x ? a : b -> !(x) ? a : b",
+        "method_swap" => "xs.min -> xs.max",
+        "operand_replacement" => "a + b -> a",
+        "interpolation_removal" => "\"hi \#{name}\" -> \"hi \""
       }.freeze
     end
   end
