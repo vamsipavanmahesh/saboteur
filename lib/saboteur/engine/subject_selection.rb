@@ -78,6 +78,7 @@ module Saboteur
                                            .transform_keys { |file| Selection::CoverageMap.canonical(file) }
         changed = changed_subjects(subjects)
         warn_changed_files_without_subjects
+        warn_excluded_changed_files
         drop_unchanged_syntax(changed, ref)
       end
 
@@ -109,6 +110,32 @@ module Saboteur
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
                           "the changed lines, so nothing is mutated from them: #{names}#{more}. The " \
                           "file may not parse, or every change may sit outside a method.")
+      end
+
+      # A changed Ruby file that an include pattern covers but c.exclude
+      # removes yields zero candidates with no other sign - this repo's own
+      # config excludes lib/saboteur/execution/**, so harness changes once
+      # dogfooded as a clean empty scope (#282). Names at most five.
+      def warn_excluded_changed_files
+        hits = excluded_territory & @changed_lines.keys
+        return if hits.empty?
+
+        names = hits.sort.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
+        more = hits.size > 5 ? ", ..." : ""
+        @diagnostics.warn("--since: #{hits.size} changed Ruby file(s) are covered by c.include but removed by " \
+                          "c.exclude, so nothing is mutated from them: #{names}#{more}. Fix the exclude, or " \
+                          "scope the run with --subject.")
+      end
+
+      # Ruby files an include pattern and an exclude pattern both match,
+      # canonicalized the way the diff map keys are.
+      def excluded_territory
+        canonical = lambda do |file|
+          Selection::CoverageMap.canonical(File.expand_path(Text.utf8_identity(file), @config.root))
+        end
+        territory = @config["include"].flat_map { |pattern| Dir.glob(pattern, base: @config.root) }
+        excluded = @config["exclude"].flat_map { |pattern| Dir.glob(pattern, base: @config.root) }
+        (territory & excluded).select { |file| file.end_with?(".rb") }.map(&canonical)
       end
 
       # A method whose only changes are comments, blank lines or spacing has

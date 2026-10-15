@@ -291,7 +291,10 @@ source operands: `bundle exec saboteur run --since origin/main --test spec/billi
 A changed Ruby file whose changed lines cover no method mutates nothing; the run
 warns and names the file instead of silently selecting zero subjects. Comment-only
 or formatting-only changes within discovered methods are skipped without this
-warning; the run reports those skipped methods.
+warning; the run reports those skipped methods. A changed Ruby file that an
+include pattern covers but `c.exclude` removes mutates nothing either, and the
+run warns and names up to five such files - fix the exclude or scope the run
+with `--subject`.
 
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work

@@ -173,7 +173,10 @@ All notable changes are documented here. The format follows
   covering the changed lines, so nothing is mutated from it (#232). A
   silent zero-subject scope used to pass as a clean run. Comment-only or
   formatting-only changes within discovered methods are skipped without
-  this warning; the run reports those skipped methods.
+  this warning; the run reports those skipped methods. `--since` also
+  warns when a changed Ruby file is covered by an include pattern but
+  removed by `c.exclude`, naming up to five such files, so a too-wide
+  exclude can no longer dogfood as a clean empty scope (#282).
 ### Fixed
 - An unexpected internal error now prints `saboteur: internal error (...)
   - please report it` and exits 3, instead of escaping as a bare stack
