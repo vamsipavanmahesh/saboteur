@@ -48,8 +48,8 @@ RSpec.describe Saboteur::Execution::Runner do
     reeval = reevaluator
     dir = tmpdir
     # The nested CLI's crash, as a fresh or an hour-old log (#296).
-    crash_writer = lambda do |stale:|
-      path = File.join(dir, "internal-error.log")
+    crash_writer = lambda do |stale:, tmp: false|
+      path = tmp ? Saboteur::CrashReport.tmp_log_path : File.join(dir, "internal-error.log")
       File.write(path, "KeyError: key not found: \"s\"\nlib/x.rb:1:in `fetch'")
       File.utime(Time.now - 3600, Time.now - 3600, path) if stale
     end
@@ -66,8 +66,8 @@ RSpec.describe Saboteur::Execution::Runner do
         when "hang"
           File.write(File.join(dir, "grandchild.pid"), Process.spawn("sleep", "300").to_s)
           loop { sleep 0.01 }
-        when "crashlog", "crashlog_stale"
-          crash_writer.call(stale: mode == "crashlog_stale")
+        when "crashlog", "crashlog_stale", "crashlog_tmp"
+          crash_writer.call(stale: mode == "crashlog_stale", tmp: mode == "crashlog_tmp")
           Saboteur::Integration::RunResult.new(runtime: 0.01, **RUNNER_SPEC_RESULTS.fetch("fail").call(ids))
         else Saboteur::Integration::RunResult.new(runtime: 0.01, **RUNNER_SPEC_RESULTS.fetch(mode).call(ids))
         end
@@ -100,6 +100,9 @@ RSpec.describe Saboteur::Execution::Runner do
   # reports its own crashes as exit 3 and logs them to internal-error.log.
   # A fresh log from this run explains the failure (#296).
   describe "the nested CLI's crash log (#296)" do
+    before { FileUtils.rm_f(Saboteur::CrashReport.tmp_log_path) }
+    after { FileUtils.rm_f(Saboteur::CrashReport.tmp_log_path) }
+
     let(:crash_path) { File.join(tmpdir, "internal-error.log") }
     let(:runner) do
       described_class.new(integration:, reevaluator:, hooks:, log_dir: tmpdir, seed:, crash_log: crash_path)
@@ -121,6 +124,12 @@ RSpec.describe Saboteur::Execution::Runner do
     it "appends nothing when there is no crash log" do
       outcome = run_mode("fail")
       expect(outcome.message).to eq("ExpectationNotMetError: expected: 2\n     got: 3\n./spec/x_spec.rb:4")
+    end
+
+    it "appends the temp fallback log when the cache-dir log is absent (sandboxed child, #296)" do
+      outcome = run_mode("crashlog_tmp")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).to include("KeyError: key not found")
     end
   end
 

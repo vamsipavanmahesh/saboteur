@@ -47,18 +47,35 @@ RSpec.describe Saboteur::CrashReport do
     end
   end
 
-  it "falls back to the bare one-liner when the log cannot be written" do
+  it "writes the log to the pid-keyed temp fallback when the cache dir cannot hold it (#296)" do
     Dir.mktmpdir do |root|
       File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      fallback = described_class.tmp_log_path
+      FileUtils.rm_f(fallback)
       report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File.read(fallback)).to include("RuntimeError: boom")
+      FileUtils.rm_f(fallback)
+    end
+  end
+
+  it "falls back to the bare one-liner when even the temp fallback cannot be written" do
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      blocked = File.join(root, ".saboteur", "internal-error.log")
+      allow(described_class).to receive(:tmp_log_path).and_return(blocked)
+      report(error, log_path: blocked)
       expect(err.string).to include("internal error (RuntimeError: boom)")
       expect(err.string).not_to include("full backtrace")
     end
   end
 
-  it "omits the log path when none is available" do
+  it "uses the temp fallback when no log path is configured" do
+    fallback = described_class.tmp_log_path
+    FileUtils.rm_f(fallback)
     report(error)
-    expect(err.string).not_to include("full backtrace")
+    expect(err.string).to include("full backtrace: #{fallback}")
+    FileUtils.rm_f(fallback)
   end
 
   it "prints the backtrace to stderr with verbose" do

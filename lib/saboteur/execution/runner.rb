@@ -180,14 +180,23 @@ module Saboteur
         result.merge(failure_details: details.transform_values { |detail| [detail, excerpt].compact.join("\n") })
       end
 
+      # The nested CLI writes its log to the cache dir, or to the pid-keyed
+      # temp fallback when the sandbox holds the cache dir read-only (#296).
       def crash_log_excerpt(started_at)
-        fresh = @crash_log && File.file?(@crash_log) && File.mtime(@crash_log) >= started_at - CRASH_LOG_CLOCK_SLACK
-        return unless fresh
+        candidates = [@crash_log, CrashReport.tmp_log_path].compact.uniq.select { |path| fresh_log?(path, started_at) }
+        path = candidates.max_by { |candidate| File.mtime(candidate) }
+        return unless path
 
-        text = File.read(@crash_log, CRASH_LOG_BYTES)
+        text = File.read(path, CRASH_LOG_BYTES)
         text ? text.lines.first(CRASH_LOG_LINES).join : nil
       rescue SystemCallError
         nil
+      end
+
+      def fresh_log?(path, started_at)
+        File.file?(path) && File.mtime(path) >= started_at - CRASH_LOG_CLOCK_SLACK
+      rescue SystemCallError
+        false
       end
 
       # Targeted tracing distinguishes the new Ruby body from an old Method

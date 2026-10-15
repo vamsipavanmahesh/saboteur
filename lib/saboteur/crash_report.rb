@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "json"
+require "tmpdir"
 require "pathname"
 
 module Saboteur
@@ -67,13 +68,22 @@ module Saboteur
     end
 
     def write_log(log_path, error)
-      return nil unless log_path
-
-      FileUtils.mkdir_p(File.dirname(log_path))
-      File.write(log_path, "#{full_text(error)}\n")
-      log_path
-    rescue SystemCallError, IOError
+      [log_path, tmp_log_path].compact.uniq.each do |path|
+        FileUtils.mkdir_p(File.dirname(path))
+        File.write(path, "#{full_text(error)}\n")
+        return path
+      rescue SystemCallError, IOError
+        next
+      end
       nil
+    end
+
+    # Where the log lands when the cache dir is not writable - a sandboxed
+    # child holds the project read-only, but the system temp dir is granted
+    # (#296). Keyed by pid so parallel children never share a file; the
+    # runner reads the same path back in the same process.
+    def tmp_log_path(pid: Process.pid)
+      File.join(Dir.tmpdir, "saboteur-#{pid}-#{LOG_NAME}")
     end
 
     # The message names the log; relative to the working directory when it
