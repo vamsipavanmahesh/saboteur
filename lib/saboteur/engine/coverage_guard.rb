@@ -8,13 +8,21 @@ module Saboteur
     # exits right after, so resume matters to hosts that embed the engine -
     # a spec, or the dogfood's own coverage-map build (#254).
     class CoverageGuard
+      def initialize(diagnostics)
+        @diagnostics = diagnostics
+      end
+
       def suspend
         @was_running = Coverage.state == :running
         Coverage.suspend if @was_running
       end
 
+      # Best-effort: a host that disturbed Coverage mid-run gets a warning,
+      # never a masked run outcome.
       def resume
         Coverage.resume if @was_running && Coverage.state == :suspended
+      rescue StandardError => e
+        @diagnostics.warn("coverage resume failed: #{e.class}: #{e.message}")
       end
     end
   end

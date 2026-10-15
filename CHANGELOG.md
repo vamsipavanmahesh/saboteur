@@ -39,7 +39,9 @@ All notable changes are documented here. The format follows
 - `Saboteur::Engine#call` restores the host process's Coverage state when
   it returns or raises: an embedded engine (a spec, the dogfood's own
   coverage-map build) no longer leaves Coverage suspended for everything
-  the host runs afterwards (#254). A scoped run (`--since`) no longer
+  the host runs afterwards, and a resume that fails because the host
+  disturbed Coverage mid-run warns instead of masking the run outcome,
+  with worker cleanup running either way (#254). A scoped run (`--since`) no longer
   calls an ignore entry stale when its mutation exists but sits on an
   unchanged line and was scoped out; staleness is judged against each
   examined subject's full, pre-scope candidate digests (#284). A worker

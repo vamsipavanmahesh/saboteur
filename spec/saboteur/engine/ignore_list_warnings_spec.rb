@@ -27,4 +27,20 @@ RSpec.describe Saboteur::Engine, "ignore list warnings" do
       expect(ignore_list).to have_received(:apply).with([], unscoped_digests: nil)
     end
   end
+
+  # A scoped run still judges staleness against the unscoped candidate set,
+  # so the engine must hand the selection's unscoped digests to the ignore
+  # list (#284).
+  it "threads the selection's unscoped digests through candidate_lists" do
+    Dir.mktmpdir do |root|
+      engine = described_class.new(Saboteur::Config.new({}, root: root), err: StringIO.new)
+      subject = instance_double(Saboteur::Subject, id: "K#m")
+      selection = instance_double(Saboteur::Engine::CandidateSelection,
+                                  for: [], skipped_subjects: {}, selected: {},
+                                  unscoped_digests: { "K#m" => %w[d1] })
+      allow(Saboteur::Engine::CandidateSelection).to receive(:new).and_return(selection)
+      engine.send(:candidate_lists, [subject], nil, instance_double(Saboteur::Selection::CoverageMap))
+      expect(engine.instance_variable_get(:@unscoped_digests)).to eq("K#m" => %w[d1])
+    end
+  end
 end

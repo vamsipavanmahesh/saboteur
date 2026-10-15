@@ -64,27 +64,23 @@ module Saboteur
         @diagnostics.warnings.concat(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
         build_report(results, subjects, scope, started)
       ensure
-        # The run boundary for the per-worker databases: cleanup runs however
-        # the call ends - a boot that raised partway through, a baseline or
-        # coverage failure, no subjects, no runnable work - so a host that
-        # embeds Engine and calls it repeatedly never holds copies or
-        # snapshots until process exit. cleanup_workers is idempotent; the
-        # Rails profile's at_exit handler stays as the fallback for an
-        # abrupt process exit.
-        @coverage_guard&.resume # an embedded host gets its coverage back (#254)
-        safely_cleanup_workers(boot.rails)
+        # Cleanup runs however the call ends - a partway boot failure, no
+        # subjects, no runnable work - so a host embedding Engine never
+        # holds worker copies until process exit. Idempotent; the Rails
+        # profile's at_exit handler stays the fallback for abrupt exit.
+        begin
+          @coverage_guard&.resume # an embedded host gets its coverage back (#254)
+        ensure
+          safely_cleanup_workers(boot.rails)
+        end
       end
     end
 
-    def warn_custom_map
-      @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
-    end
+    def warn_custom_map = @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
 
     # Stale entries and duplicate literals never fail a run; they warn so the
     # map does not rot silently. doctor fails on stale keys.
-    def load_custom_map
-      @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
-    end
+    def load_custom_map = @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
 
     def custom_map_warnings(map)
       path = config.path("custom_map")
@@ -457,7 +453,7 @@ module Saboteur
     end
 
     def suspend_coverage(files)
-      (@coverage_guard = CoverageGuard.new).suspend
+      (@coverage_guard = CoverageGuard.new(@diagnostics)).suspend
       capture_load_lines(files)
     end
 

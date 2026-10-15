@@ -50,4 +50,36 @@ RSpec.describe Saboteur::Engine, "coverage state restore" do
     engine_call
     expect(Coverage).not_to have_received(:resume)
   end
+
+  # The host resumed its own coverage while the engine ran: resuming again
+  # would raise and is not the engine's suspension to lift (#254).
+  it "does not resume when the host already resumed coverage itself" do
+    state = :running
+    allow(Coverage).to receive(:state) { state }
+    allow(Coverage).to receive(:suspend) { state = :suspended }
+    allow(Coverage).to receive(:resume) { state = :running }
+    allow(Coverage).to receive(:result).and_return({})
+    selection = instance_double(Saboteur::Engine::SubjectSelection, changed_lines: nil)
+    allow(selection).to receive(:select) do
+      state = :running # the host resumes mid-run
+      []
+    end
+    engine_call(selection: selection)
+    expect(Coverage).not_to have_received(:resume)
+  end
+
+  it "warns instead of failing the run when coverage resume raises" do
+    fake_coverage(:running)
+    allow(Coverage).to receive(:resume).and_raise(StandardError, "resume boom")
+    report = engine_call
+    expect(report.warnings.join).to include("coverage resume failed: StandardError: resume boom")
+  end
+
+  it "does not let a failing coverage resume mask the run's own error" do
+    fake_coverage(:running)
+    allow(Coverage).to receive(:resume).and_raise(StandardError, "resume boom")
+    selection = instance_double(Saboteur::Engine::SubjectSelection)
+    allow(selection).to receive(:select).and_raise(Saboteur::Error, "boom")
+    expect { engine_call(selection: selection) }.to raise_error(Saboteur::Error, "boom")
+  end
 end

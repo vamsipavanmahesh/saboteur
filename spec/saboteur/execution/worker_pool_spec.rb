@@ -165,14 +165,18 @@ RSpec.describe Saboteur::Execution::WorkerPool do
   # can never be the run's real problem; raising it over the drain would mask
   # the rows that carry the actual abort cause (#286).
   it "does not raise start failures over an abort that is already draining" do
+    release = Queue.new
     pool = nil
-    on_result = ->(_item, _row) { pool.halt! }
+    on_result = lambda do |_item, _row|
+      pool.halt!
+      3.times { release.push(true) } # barrier: the dying workers wait for the halt
+    end
     pool = described_class.new(jobs: 4, on_result: on_result)
     results = pool.map(%w[ok die1 die2 die3]) do |item|
       if item == "ok"
         { "ok" => true }
       else
-        sleep 0.2 # die only after the halt lands, before a first report
+        release.pop # die only after the halt lands, before a first report
         Process.kill("KILL", Process.pid)
       end
     end
