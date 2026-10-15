@@ -353,4 +353,8 @@ Saboteur.ignore do |i|
   i.mutation "616b8ab8c90a0684",
              subject: "Saboteur::CLI::RunBudgetOptions#parse_duration",
              reason: "match[0] is the whole anchored numeric match, so match[0].to_f equals match[1].to_f for every input the regex accepts"
+
+  i.mutation "9828ce53a89c31b6",
+             subject: "Saboteur::Engine::UnscopedSuiteWarning.checks_label",
+             reason: "config validates baseline_passes >= 1, where != 1 and > 1 agree on every value"
 end
