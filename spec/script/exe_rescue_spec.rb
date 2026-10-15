@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "json"
 require "open3"
 require "tmpdir"
 
@@ -37,18 +38,42 @@ RSpec.describe "exe/saboteur fallback rescue" do
     Dir.mktmpdir do |dir|
       out, err, status = run_exe("raise_in_constructor.rb", dir:, argv: ["run", "--agent"])
       expect(status.exitstatus).to eq(3)
-      expect(out).to include("injected constructor failure")
+      payload = JSON.parse(out)
+      expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 3)
+      expect(payload["message"]).to include("injected constructor failure")
       expect(err).to include("internal error")
     end
   end
 
-  it "still exits 3 with a bare one-liner when the CLI itself cannot be required" do
+  it "reports a require-time CLI failure with the log path" do
     Dir.mktmpdir do |dir|
       _out, err, status = run_exe("raise_on_cli_require.rb", dir:)
       expect(status.exitstatus).to eq(3)
       expect(err).to include("saboteur: internal error (StandardError: injected require failure)")
+      expect(err).to include("full backtrace: .saboteur/internal-error.log")
+      expect(File.read(File.join(dir, ".saboteur", "internal-error.log"))).to include("injected require failure")
+    end
+  end
+
+  it "falls back to a normalized one-liner when even the crash reporter cannot load" do
+    Dir.mktmpdir do |dir|
+      env = { "SABOTEUR_EXE_SPEC_REQUIRE_FAIL" => "saboteur/crash_report",
+              "SABOTEUR_EXE_SPEC_MESSAGE" => "first line\nsecond line" }
+      _out, err, status = run_exe("raise_on_cli_require.rb", dir:, env:)
+      expect(status.exitstatus).to eq(3)
+      expect(err).to include("saboteur: internal error (StandardError: first line second line)")
+      expect(err).not_to include("second line\n")
       expect(err).not_to include("full backtrace")
       expect(File).not_to exist(File.join(dir, ".saboteur", "internal-error.log"))
+    end
+  end
+
+  it "collapses a multiline crash message in the one-liner but keeps it in the log" do
+    Dir.mktmpdir do |dir|
+      _out, err, status = run_exe("raise_in_constructor.rb", dir:, env: { "SABOTEUR_EXE_SPEC_RAISE" => "multiline" })
+      expect(status.exitstatus).to eq(3)
+      expect(err).to include("internal error (StandardError: first line second line)")
+      expect(File.read(File.join(dir, ".saboteur", "internal-error.log"))).to include("first line\nsecond line")
     end
   end
 

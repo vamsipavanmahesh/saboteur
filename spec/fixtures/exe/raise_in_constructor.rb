@@ -8,6 +8,7 @@
 module SaboteurConstructorCrash
   def initialize(*)
     case ENV.fetch("SABOTEUR_EXE_SPEC_RAISE", nil)
+    when "multiline" then raise StandardError, "first line\nsecond line"
     when "interrupt" then raise Interrupt
     when "system_exit" then exit(4)
     else raise StandardError, "injected constructor failure"

@@ -113,9 +113,9 @@ All notable changes are documented here. The format follows
   `<cache_dir>/internal-error.log` (default `.saboteur/`), which the
   message names, and printed to stderr with `--verbose`; an unset
   `cache_dir` or a failed write leaves the one-liner standing alone.
-  The executable itself reports a failure before the CLI finishes
-  loading or starting the same way, so no `StandardError` escapes as a
-  bare stack trace; if even the crash reporter cannot load, a bare
+  The executable loads the crash reporter first, so a failure
+  while coverage or the CLI is loading or starting gets the same
+  report; if even the reporter cannot load, a bare normalized
   one-liner still exits 3. Agent JSON needs the loaded CLI (#233).
 - The install spec reads the README as UTF-8, so the suite also passes
   under `LANG=C`.

@@ -2,37 +2,42 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-# Last resort above the CLI itself: a crash while coverage is set up, while
-# the CLI is being required, or while the command line is being built or
-# parsed escapes the CLI's rescue, so the executable reports it the same
-# way. StandardError only - Interrupt and SystemExit keep their own meaning.
+# Coverage comes first because it only measures files loaded after it -
+# the crash reporter must stay measurable - and it loads inside the same
+# guarded begin as the reporter: every later failure, even while the CLI
+# is being required, gets the full report (the bounded one-liner, the log
+# file, the --verbose backtrace and agent JSON when the CLI loaded far
+# enough). If even the reporter cannot load, a bare normalized one-liner
+# (one line, invalid bytes scrubbed, bounded length) still exits 3.
 begin
-  # Line coverage must be set up before any target code loads, so it happens
-  # first. For `run` it also counts from here: what executes while the app and
-  # spec files load is how ran-at-load mutants are told apart from uncovered
-  # ones. The engine suspends counting right after boot and reads the
-  # counters as the map's load lines (a forked child would not inherit them).
   require "coverage"
   Coverage.setup(lines: true, methods: true, branches: true) if Coverage.state == :idle
+
+  require "saboteur/crash_report"
+rescue LoadError, StandardError => e
+  message = e.message.to_s.dup.force_encoding(Encoding::UTF_8).scrub("?").gsub(/\s+/, " ").strip
+  message = "#{message[0...160]}..." if message.length > 160
+  warn "saboteur: internal error (#{e.class}: #{message}) - please report it: " \
+       "https://github.com/vamsipavanmahesh/saboteur/issues"
+  exit 3
+end
+
+# For `run` coverage counts from here: what executes while the app and
+# spec files load is how ran-at-load mutants are told apart from uncovered
+# ones. The engine suspends counting right after boot and reads the
+# counters as the map's load lines (a forked child would not inherit them).
+begin
   Coverage.resume if ARGV.first == "run" && Coverage.state == :suspended
 
   require "saboteur/cli"
 
   exit Saboteur::CLI.new(ARGV).call
-rescue StandardError => e
-  # Agent mode is visible in the raw arguments, so a constructor failure
-  # still answers an agent with JSON - as long as the CLI got far enough
-  # to define the reporter.
-  agent = defined?(Saboteur::CLI) && Saboteur::CLI.respond_to?(:agent_requested?) &&
-          Saboteur::CLI.agent_requested?(ARGV)
-  if defined?(Saboteur::CrashReport)
-    exit Saboteur::CrashReport.call(e, verbose: ARGV.include?("--verbose"), agent: agent,
-                                       err: $stderr, out: $stdout,
-                                       log_path: File.join(Dir.pwd, ".saboteur", "internal-error.log"))
-  end
-
-  # Even the reporter failed to load: keep the promise that matters most.
-  warn "saboteur: internal error (#{e.class}: #{e.message}) - please report it: " \
-       "https://github.com/vamsipavanmahesh/saboteur/issues"
-  exit 3
+rescue LoadError, StandardError => e
+  # Agent mode is visible in the raw arguments; the CLI may never have
+  # loaded, so this scan must not depend on it.
+  agent = ARGV.include?("--agent") || ARGV.include?("--format=agent") ||
+          ARGV.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }
+  exit Saboteur::CrashReport.call(e, verbose: ARGV.include?("--verbose"), agent: agent,
+                                     err: $stderr, out: $stdout,
+                                     log_path: File.join(Dir.pwd, ".saboteur", "internal-error.log"))
 end
