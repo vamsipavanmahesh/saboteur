@@ -33,6 +33,21 @@ test('untrusted comment cannot fill missing lens or revoke a trusted approval', 
   assert.throws(() => panel(c, HEAD));
   assert.doesNotThrow(() => panel([...comments(), {id: 9, user: {id: 666}, body: '```panel-verdict BAD'}], HEAD));
 });
+test('CHANGES_REQUESTED spelling parses as CHANGES_REQUIRED, blockers still required (#278)', () => {
+  const requested = parse(body(marker({verdict: 'CHANGES_REQUESTED', blockers: ['bug']})));
+  assert.equal(requested.verdict, 'CHANGES_REQUIRED');
+  assert.throws(() => parse(body(marker({verdict: 'CHANGES_REQUESTED'}))));
+});
+test('a superseded CHANGES_REQUESTED marker does not poison newer approvals (#278)', () => {
+  const stale = {id: 0, created_at: '2026-10-09T00:00:00Z', user: {id: 1875074},
+    body: body(marker({lens: 'principal', verdict: 'CHANGES_REQUESTED', blockers: ['old bug']}))};
+  assert.deepEqual(Object.keys(panel([stale, ...comments()], HEAD)), ['principal', 'architect', 'qa']);
+});
+test('a latest CHANGES_REQUESTED marker still blocks (#278)', () => {
+  const c = [...comments(), {id: 10, user: {id: 1875074},
+    body: body(marker({lens: 'qa', verdict: 'CHANGES_REQUESTED', blockers: ['bug']}))}];
+  assert.throws(() => panel(c, HEAD));
+});
 test('latest ID wins even with old SHA; blocker, malformed edit, deletion invalidate', () => {
   for (const value of [marker({lens: 'qa', head: BASE}), marker({lens: 'qa', verdict: 'CHANGES_REQUIRED', blockers: ['bug']})]) {
     assert.throws(() => panel([...comments(), {id: 10, user: {id: 1875074}, body: body(value)}], HEAD));
