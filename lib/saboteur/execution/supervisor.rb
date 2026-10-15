@@ -160,7 +160,8 @@ module Saboteur
         # the exception unwind past the fork block into CLI code in the
         # child, where exit handlers could emit duplicate output (#289).
         begin
-          warn("saboteur: #{@child_label}: #{e.class}: #{e.message}")
+          frames = e.backtrace ? e.backtrace.first(8).join("\n  from ") : "(no backtrace)"
+          warn("saboteur: #{@child_label}: #{e.class}: #{e.message}\n  from #{frames}")
         rescue Exception # rubocop:disable Lint/RescueException
           nil
         end

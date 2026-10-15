@@ -221,6 +221,10 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect do
       supervisor.run(timeout: 5) { |_writer| raise "boom in child" }
     end.to output(/supervised child died: RuntimeError: boom in child/).to_stderr_from_any_process
+
+    expect do
+      supervisor.run(timeout: 5) { |_writer| raise "boom in child" }
+    end.to output(/from .*supervisor_spec\.rb/).to_stderr_from_any_process
   end
 
   it "still exits 1 when the dying child's stderr is closed, without running at_exit hooks (#289)" do
