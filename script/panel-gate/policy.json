@@ -21,6 +21,7 @@
       "Ruby 3.4 / macos-latest",
       "Ruby ruby / ubuntu-latest",
       "Ruby ruby / macos-latest",
+      "Ruby 3.4 / LANG=C",
       "lint",
       "dry-inflector (class_eval)",
       "dry-inflector (nesting)",
