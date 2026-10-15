@@ -68,8 +68,17 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     end
 
     engine = described_class.new(Saboteur::Config.new({ "max_duration" => 60 }, root: @root), err: StringIO.new)
-    times = ([100.0] + Array.new(50, 161.0)).each
-    allow(Process).to receive(:clock_gettime) { times.next }
+    anchored = false
+    allow(Process).to receive(:clock_gettime) do
+      if !anchored
+        anchored = true
+        100.0
+      elsif captured
+        161.0
+      else
+        120.0 # within budget: the pre-dispatch phases must not stop this run
+      end
+    end
     engine.call
 
     expect(captured).not_to be_nil
@@ -105,6 +114,38 @@ RSpec.describe Saboteur::Engine::Scheduler, "max-duration deadline (#245)" do
               .send(:run_candidates, [candidate, candidate(coarse: true)]) { |mutation, _| (ran << mutation) && :ok }
     expect(results).to eq(%i[ok ok])
     expect(ran.map(&:coarse)).to eq([true, false])
+  end
+end
+
+RSpec.describe Saboteur::Engine, "budget spent before the coverage map (#245)" do
+  it "stops before a cold coverage build and marks every selected subject unrun" do
+    Dir.mktmpdir do |directory|
+      root = File.realpath(directory)
+      file = File.join(root, "probe.rb")
+      File.write(file, "class Probe; def value; 1; end; end")
+      subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+      allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+      integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
+      boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+      allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+      allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+      guard = instance_double(Saboteur::Engine::BaselineGuard, completed_passes: 0)
+      allow(guard).to receive(:call) { sleep 0.01 }
+      allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
+      store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
+      allow(store).to receive(:fetch)
+      allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
+
+      # The millisecond budget is spent by the baseline phase alone.
+      report = described_class.new(Saboteur::Config.new({ "max_duration" => 0.001 }, root: root),
+                                   err: StringIO.new).call
+
+      expect(store).not_to have_received(:fetch)
+      stop = report.early_stop
+      expect(stop.reason).to eq("max_duration")
+      expect(stop.unreached).to eq([subject.id])
+    end
   end
 end
 

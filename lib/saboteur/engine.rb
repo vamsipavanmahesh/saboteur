@@ -213,10 +213,10 @@ module Saboteur
       store = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
                                 supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics)
       full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
-      # A --id replay targets one known mutant; the whole-suite cost summary
-      # and its --test lecture do not apply.
-      UnscopedSuiteWarning.call(config:, diagnostics: @diagnostics, integration:, full_passes:) unless @replay
+      warn_unscoped(integration, full_passes)
       check_baseline(integration, full_passes)
+      return [] if abandon_for_budget(subjects)
+
       map = store.fetch(files)
       inform_about_run(subjects, map)
       cache = result_cache
@@ -301,6 +301,12 @@ module Saboteur
       # coverage build is not a baseline pass, and a budget break shortens
       # the loop, so certify only what actually ran.
       @stable_suite = guard.completed_passes >= 2
+    end
+
+    # A --id replay targets one known mutant; the whole-suite cost summary
+    # and its --test lecture do not apply.
+    def warn_unscoped(integration, full_passes)
+      UnscopedSuiteWarning.call(config:, diagnostics: @diagnostics, integration:, full_passes:) unless @replay
     end
 
     def scheduler_for(map, integration, cache)

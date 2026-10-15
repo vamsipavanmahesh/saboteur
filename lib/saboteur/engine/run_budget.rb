@@ -32,6 +32,16 @@ module Saboteur
         config["max_duration"] && (@run_started + config["max_duration"])
       end
 
+      # Boot and baselines can spend the budget by themselves: stop before
+      # an expensive cold coverage build and mark every selected subject
+      # unrun.
+      def abandon_for_budget(subjects)
+        return false unless budget_exceeded?
+
+        @early_stop = EarlyStop.new(reason: "max_duration", unreached: subjects.map(&:id))
+        true
+      end
+
       def announce_budget_once
         return if @budget_announced
 
