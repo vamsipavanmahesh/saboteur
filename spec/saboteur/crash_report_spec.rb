@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "json"
 require "stringio"
 require "tmpdir"
 
@@ -71,15 +72,21 @@ RSpec.describe Saboteur::CrashReport do
   end
 
   it "renders the failure as agent JSON to stdout in agent mode" do
+    expect(Saboteur::Reporter::Agent).to receive(:failure).and_call_original
     report(error, agent: true)
     expect(out.string).to include("internal error (RuntimeError: boom)")
     expect(err.string).not_to include('"verdict"')
   end
 
-  it "skips the agent JSON when the agent reporter never loaded" do
+  it "emits a standalone agent failure JSON when the agent reporter never loaded" do
     hide_const("Saboteur::Reporter::Agent")
     expect(report(error, agent: true)).to eq(3)
-    expect(out.string).to eq("")
+    payload = JSON.parse(out.string)
+    expect(payload).to include(
+      "version" => 1, "status" => "error", "verdict" => "tool_failure",
+      "exitCode" => 3, "next" => { "help" => "saboteur help run" }
+    )
+    expect(payload["message"]).to include("internal error (RuntimeError: boom)")
     expect(err.string).to include("internal error (RuntimeError: boom)")
   end
 

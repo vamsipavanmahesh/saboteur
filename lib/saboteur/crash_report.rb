@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "json"
 require "pathname"
 
 module Saboteur
@@ -26,9 +27,7 @@ module Saboteur
       line = "#{line}; full backtrace: #{display_path(written)}" if written
       err.puts(line)
       err.puts(full_text(error)) if verbose
-      if agent && defined?(Reporter::Agent)
-        out.print(Reporter::Agent.render(Reporter::Agent.failure(summary, EXIT_TOOL)))
-      end
+      out.print(agent_json(summary)) if agent
       EXIT_TOOL
     end
 
@@ -49,6 +48,20 @@ module Saboteur
     # Writes the log next to the other run state; returns the written path,
     # or nil when the log cannot be written - the crash itself must still
     # be reported, so an unwritable directory is not a second failure.
+    # Reporter::Agent.failure's payload, reproduced minimally for crashes
+    # before the CLI's reporter files load: same schema and pretty rendering;
+    # the summary is already normalized, so no message cap is needed here.
+    def agent_json(summary)
+      payload =
+        if defined?(Reporter::Agent)
+          Reporter::Agent.failure(summary, EXIT_TOOL)
+        else
+          { version: 1, status: "error", verdict: "tool_failure", exitCode: EXIT_TOOL,
+            message: summary, next: { help: "saboteur help run" } }
+        end
+      "#{JSON.pretty_generate(payload)}\n"
+    end
+
     def write_log(log_path, error)
       return nil unless log_path
 

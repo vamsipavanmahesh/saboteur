@@ -114,9 +114,13 @@ All notable changes are documented here. The format follows
   message names, and printed to stderr with `--verbose`; an unset
   `cache_dir` or a failed write leaves the one-liner standing alone.
   The executable loads the crash reporter first, so a failure
-  while coverage or the CLI is loading or starting gets the same
-  report; if even the reporter cannot load, a bare normalized
-  one-liner still exits 3. Agent JSON needs the loaded CLI (#233).
+  while the CLI is loading, being built, or running gets the full
+  report. Coverage setup and the reporter's own load happen before
+  it, so those failures get only the bare normalized one-liner plus
+  exit 3. When agent mode was requested but the agent reporter never
+  loaded, a minimal standalone failure JSON in the agent reporter's
+  schema (status `error`, verdict `tool_failure`, exit code 3)
+  answers instead (#233).
 - The install spec reads the README as UTF-8, so the suite also passes
   under `LANG=C`.
 - Tool and test reads of files that can carry non-ASCII text are decoded

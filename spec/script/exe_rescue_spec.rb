@@ -68,6 +68,18 @@ RSpec.describe "exe/saboteur fallback rescue" do
     end
   end
 
+  it "answers require-time failures with standalone agent JSON for every agent flag spelling" do
+    Dir.mktmpdir do |dir|
+      [%w[run --agent], %w[run --format agent], %w[run --format=agent]].each do |argv|
+        out, _err, status = run_exe("raise_on_cli_require.rb", dir:, argv:)
+        expect(status.exitstatus).to eq(3)
+        payload = JSON.parse(out)
+        expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 3)
+        expect(payload["message"]).to include("injected require failure")
+      end
+    end
+  end
+
   it "collapses a multiline crash message in the one-liner but keeps it in the log" do
     Dir.mktmpdir do |dir|
       _out, err, status = run_exe("raise_in_constructor.rb", dir:, env: { "SABOTEUR_EXE_SPEC_RAISE" => "multiline" })

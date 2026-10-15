@@ -457,18 +457,23 @@ changed line and prints none.
 
 New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md) walks one from the diff to the test that kills it.
 
-Exit codes: 0 no survivors (or all on the ignore list), or the score meets
-`--threshold`; 1 survivors, or the score is below `--threshold` or missing;
-2 bad configuration or a missing source or test; 3 the tool failed (with
-`--threshold`, also any errored or resource-limited mutant). Unexpected
-`StandardError` failures print `saboteur: internal
-error (...) - please report it` and exit 3, rather than dying with a
-bare stack trace and an accidental exit code. The full backtrace lands
-in `<cache_dir>/internal-error.log` (default `.saboteur/`; the
-message names the path) and
-`--verbose` also prints it to stderr. The rescue covers the whole
-command line: a failure while the CLI is being built or parsed is
-caught by the executable itself and reported the same way.
+Exit codes: 0 no survivors (or all on the ignore list), or the score
+meets `--threshold`; 1 survivors, or the score is below `--threshold` or
+missing; 2 bad configuration or a missing source or test; 3 the tool
+failed (with `--threshold`, also any errored or resource-limited
+mutant). Unexpected `StandardError` or `LoadError` failures print
+`saboteur: internal error (...) - please report it` and exit 3, rather
+than dying with a bare stack trace and an accidental exit code. The full
+backtrace lands in `<cache_dir>/internal-error.log` (default
+`.saboteur/`), and `--verbose` also prints it to stderr. The message
+names the log only after a successful write: an unset `cache_dir` or an
+unwritable directory leaves the one-liner standing alone. The executable
+loads the crash reporter before anything else, so a failure while the
+CLI is loading, being built, or parsing arguments gets the same report;
+failures earlier than that - coverage setup or the reporter's own load -
+get only the bare one-liner and still exit 3. In agent mode the same
+failure is reported as agent JSON, falling back to a minimal standalone
+failure payload when the agent reporter never loaded.
 
 ### Rejected kills
 
