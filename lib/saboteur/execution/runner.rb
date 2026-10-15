@@ -223,7 +223,9 @@ module Saboteur
       # loss surfaces at subject end. Runs before the log check, so the
       # hazard report still wins when a mutant took both (#283).
       def check_tree_still_there(job)
-        @canary&.probe!(subject: job.subject, digest: culprit(job))
+        # culprit_digest, not the display fallback: the digest doubles as
+        # trip metadata, and "an unknown mutant" must not rank as one (#285).
+        @canary&.probe!(subject: job.subject, digest: culprit_digest(job))
       end
 
       def check_log_still_there(job)

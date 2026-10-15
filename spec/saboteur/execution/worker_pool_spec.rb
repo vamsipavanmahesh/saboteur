@@ -86,6 +86,21 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect(elapsed).to be < 30
   end
 
+  it "cleans up several wedged workers in one round, not one grace each" do
+    pool = nil
+    on_result = ->(_item, _row) { pool.halt! }
+    pool = described_class.new(jobs: 3, on_result: on_result, drain_timeout: 0.2)
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    results = pool.map([0.01, 3600, 3600]) do |seconds|
+      sleep seconds
+      {}
+    end
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    expect(results[0]).to eq({})
+    expect(results[1..]).to eq([nil, nil])
+    expect(elapsed).to be < 8
+  end
+
   it "numbers its workers the way Rails parallel test databases expect" do
     numbers = described_class.new(jobs: 2).map([0.1, 0.1]) do |seconds|
       sleep seconds

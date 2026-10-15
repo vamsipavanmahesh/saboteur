@@ -40,8 +40,9 @@ All notable changes are documented here. The format follows
   a report that names its mutant first, then a canary trip, then the
   earliest bare report. A canary trip from the end-of-subject check
   folds into the same choice instead of overriding collected reports,
-  and the in-flight drain is bounded (two minimum-strength mutant
-  deadlines), so a wedged worker cannot stall the abort (#235).
+  and the in-flight drain is bounded (a 30-second default drain
+  window, followed by worker cleanup), so a wedged worker cannot
+  stall the abort (#235).
 - The mutant sandbox no longer grants the cache dir: a mutant child
   cannot delete the baseline, the reports or other children's logs,
   and its own log is opened before the fork and inherited as a

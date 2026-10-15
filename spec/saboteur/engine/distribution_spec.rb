@@ -145,6 +145,19 @@ RSpec.describe Saboteur::Engine::Distribution do
       .to raise_error(Saboteur::Error, "first report: log dir gone")
   end
 
+  # Biggest subjects first (#283 review): the pool gets each subject's
+  # candidate count as its weight.
+  it "hands the pool each subject's candidate count as its weight" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    pool = instance_double(Saboteur::Execution::WorkerPool)
+    allow(Saboteur::Execution::WorkerPool).to receive(:new).and_return(pool)
+    expect(pool).to receive(:map).with([0, 1], weights: [1, 2]).and_return([{ "tool_error" => "stop here" }, nil])
+    distribution = described_class.new(jobs: 2, scheduler: ->(_s, _l) { [] }, diagnostics:, cache: nil)
+    expect { distribution.run([subject, subject], [[[mutation, "text"]], [[mutation, "text"], [mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, "stop here")
+  end
+
   # The hazard report keeps winning over a bare log-loss report (#283): a
   # canary trip aborts the run even when the bare report arrived first.
   it "lets a canary trip win over an earlier bare log-loss report" do
@@ -179,6 +192,29 @@ RSpec.describe Saboteur::Engine::Distribution do
         raise Saboteur::CanaryTripped,
               "canary: 1 watched file(s) vanished from the working tree while mutants ran (first: lib/a.rb). " \
               "The most recent mutant, fedcba9876543210, is the likely cause."
+      end
+      sleep 0.2
+      raise Saboteur::Execution::Runner::LogVanished.new(
+        "the child log /x/c.log vanished mid-run - the mutant that just ran, 0123456789abcdef, is the likely cause",
+        culprit_digest: "0123456789abcdef"
+      )
+    end
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
+    expect { distribution.run([canary_subject, culprit], [[[mutation, "text"]], [[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, /0123456789abcdef/)
+  end
+
+  # A neutral job's canary trip names no mutant ("an unknown mutant" is
+  # display text, not metadata): it must not outrank a delayed report
+  # carrying a real digest (#285 review).
+  it "prefers a delayed real digest over an unknown-mutant canary trip" do
+    canary_subject = fixture_subject
+    culprit = fixture_subject
+    mutation = fixture_mutation(culprit)
+    scheduler = lambda do |subject, _list|
+      if subject.equal?(canary_subject)
+        raise Saboteur::CanaryTripped,
+              "canary: 1 watched file(s) vanished from the working tree while mutants ran (first: lib/a.rb)."
       end
       sleep 0.2
       raise Saboteur::Execution::Runner::LogVanished.new(

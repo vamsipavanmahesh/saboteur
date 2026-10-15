@@ -101,7 +101,7 @@ module Saboteur
         if @drain_deadline
           remaining = @drain_deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
           if remaining <= 0
-            workers.each { |worker| retire(worker, workers) }
+            abandon_all(workers)
             return
           end
           timeout = [timeout, remaining].min
@@ -166,6 +166,28 @@ module Saboteur
         pending.each_line { |line| take_and_report(worker, line, results) if line.end_with?("\n") }
       rescue IOError
         nil
+      end
+
+      # Past the drain deadline nothing more is coming: kill every wedged
+      # worker's tree first, then reap, so the cleanup costs one round
+      # instead of one stop grace per worker (#285 review). Items in
+      # flight come back as nil holes.
+      def abandon_all(workers)
+        wedged = workers.dup
+        wedged.each do |worker|
+          worker.commands.close unless worker.commands.closed?
+          Supervisor.live.delete(worker.pid)&.kill_all
+        end
+        # Every wedged tree dies before any wait: one cleanup round.
+        # rubocop:disable-next Style/CombinableLoops
+        wedged.each do |worker|
+          worker.status ||= Process.wait2(worker.pid).last unless reaped?(worker)
+          worker.results.close unless worker.results.closed?
+        rescue Errno::ECHILD
+          nil
+        ensure
+          workers.delete(worker)
+        end
       end
 
       def replace(worker, workers, queue, results, items, &)

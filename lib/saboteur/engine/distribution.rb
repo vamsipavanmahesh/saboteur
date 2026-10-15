@@ -46,9 +46,9 @@ module Saboteur
         # abort - and the abort raises the report with the best
         # attribution.
         # The abort reports and the pool are run state: a Distribution
-        # runs once.
+        # runs once. @pool is only read from arrivals, which fire inside
+        # @pool.map after the assignment.
         @abort_reports = []
-        @pool = nil
         arrival = lambda do |i, row|
           if row["tool_error"]
             collect_abort_report(row)
