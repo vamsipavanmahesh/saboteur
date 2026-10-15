@@ -43,10 +43,11 @@ module Saboteur
       end
 
       # A run stopped before any mutant was tested has no verdict to fall
-      # back on: --max-duration-ok must not turn it green. Exit 3, like the
-      # other incomplete shapes.
+      # back on: --max-duration-ok must not turn it green. Unverified
+      # results are not tested verdicts, so an unverified-only stop has no
+      # score either (#296). Exit 3, like the other incomplete shapes.
       def untested_partial?(report)
-        return false unless report.early_stop && report.executed.empty?
+        return false unless report.early_stop && report.score_breakdown.tested.zero?
 
         @err.puts("saboteur: the run stopped before any mutant was tested, so there is no score to judge")
         true
@@ -89,7 +90,7 @@ module Saboteur
           if report.majority_errored?
             "errorMajority"
           else
-            report.early_stop && report.executed.empty? ? "incomplete" : "incompleteUnderThreshold"
+            report.early_stop && report.score_breakdown.tested.zero? ? "incomplete" : "incompleteUnderThreshold"
           end
         end
       end

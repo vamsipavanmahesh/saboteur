@@ -254,7 +254,7 @@ module Saboteur
                    "(#{omitted} mutants omitted)"
         end
         if stop.unverified.any?
-          parts << "#{stop.unverified.size} subject#{'s' unless stop.unverified.one?} left with unverified kills"
+          parts << "#{stop.unverified.size} subject#{'s' unless stop.unverified.one?} left with unverified results"
         end
         parts.join("; ")
       end

@@ -34,6 +34,28 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     Dir[File.join(@root, ".saboteur", "coverage-*.json")]
   end
 
+  it "raises BudgetPhaseTimeout when a budget-capped build hits its shortened deadline (#296)" do
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    stopped = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :timeout,
+                                                          detail: "exceeded deadline", runtime: 0.1,
+                                                          leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(stopped)
+    capped = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
+                                 hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                 diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                 timeout_cap: ->(timeout) { timeout / 2 })
+    expect { capped.fetch([file]) }.to raise_error(Saboteur::BudgetPhaseTimeout, /coverage map build/)
+  end
+
+  it "still fails the build when a full-length admission times out: the suite, not the budget (control)" do
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    stopped = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :timeout,
+                                                          detail: "exceeded deadline", runtime: 0.1,
+                                                          leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(stopped)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, "coverage map build stopped: exceeded deadline")
+  end
+
   it "merges the parent's load lines into the built map and caches them" do
     payload = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"]).to_json
     allow(Coverage).to receive(:state).and_return(:suspended)

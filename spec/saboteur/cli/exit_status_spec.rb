@@ -8,7 +8,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     Class.new do
       include Saboteur::CLI::ExitStatus
 
-      attr_reader :config
+      attr_reader :config, :err
 
       def initialize(config)
         @config = config
@@ -51,6 +51,31 @@ RSpec.describe Saboteur::CLI::ExitStatus do
         report = report_stopped("max_duration", truncated: [{ subject: "K#m", omitted: 2 }])
         expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_BUDGET)
         expect(harness.agent_cause(report, "clean")).to eq("budgetExhausted")
+      end
+    end
+
+    context "with --max-duration-ok and nothing verified (#296)" do
+      let(:config) { { "max_duration_ok" => true } }
+
+      def unverified_stop(tested)
+        instance_double(
+          Saboteur::Report,
+          early_stop: Saboteur::EarlyStop.new(reason: "max_duration", unreached: %w[K#m], truncated: [],
+                                              unverified: []),
+          score_breakdown: instance_double(Saboteur::Score, tested: tested),
+          majority_errored?: false,
+          unignored_survivors: [instance_double(Saboteur::MutantResult)]
+        )
+      end
+
+      it "exits 3 when the budget stop left only unverified results: no verified verdict, no score" do
+        report = unverified_stop(0)
+        expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_TOOL)
+        expect(harness.err.string).to include("no score to judge")
+      end
+
+      it "lets a run with verified verdicts through to the verdict (control)" do
+        expect(harness.code(unverified_stop(3))).to eq(Saboteur::CLI::EXIT_SURVIVORS)
       end
     end
 

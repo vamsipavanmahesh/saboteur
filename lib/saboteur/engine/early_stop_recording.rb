@@ -31,6 +31,16 @@ module Saboteur
       def run_early_stop_reason
         @budget_announced ? "max_duration" : "fail_fast"
       end
+
+      # A baseline or coverage phase stopped because --max-duration ate its
+      # allowance: budget exhaustion, not a broken suite. The run reports
+      # partial with every selected subject unreached (exit 4) (#296).
+      def budget_phase_stop(error, subjects)
+        @diagnostics.warn(error.message)
+        @early_stop = EarlyStop.new(reason: "max_duration", unreached: subjects.map(&:id), truncated: [],
+                                    unverified: [])
+        []
+      end
     end
   end
 end

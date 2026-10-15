@@ -104,6 +104,16 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       expect(payload_for(report)[:status]).to eq("partial")
     end
 
+    it "reports budget-unverified mutants as an incomplete reason (#296)" do
+      report = Saboteur::Report.new(results: [result_for(:unverified)], subjects: [person_subject], wall_time: 1.0,
+                                    root: File.dirname(person_subject.file), seed: 1)
+      expect(reasons(report)).to include(
+        reason: "unverified", count: 1,
+        meaning: "mutants the --max-duration budget left unverified; their kills are not confirmed"
+      )
+      expect(payload_for(report)).to include(status: "partial", verdict: "incomplete")
+    end
+
     it "says what no coverage means, adding skipped subjects and skipped mutants" do
       report = Saboteur::Report.new(results: [result_for(:skipped, reason: "no coverage"),
                                               result_for(:skipped, replacement: "<", reason: "no coverage")],

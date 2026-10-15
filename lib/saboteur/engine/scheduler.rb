@@ -83,19 +83,42 @@ module Saboteur
         return results.map { |result| unverifiable(result) } if budget_spent?
 
         subject = plan.subject
-        run_unchanged = lambda do |tests, timeout|
-          @runner.run(subject: subject, text: subject.source, test_ids: tests, timeout: budget_capped(timeout),
-                      eval_prefix: eval_prefix(plan))
-                 .tap { |outcome| note_leftovers(subject, "verdict check", outcome) }
-        end
-        check = VerdictCheck.new(run_unchanged: run_unchanged, baseline_timeout: @config["baseline_timeout"])
+        check = VerdictCheck.new(run_unchanged: unchanged_runner(subject, plan),
+                                 baseline_timeout: @config["baseline_timeout"])
         final = check.call(results)
-        final.reject(&:reused?).each { |result| @cache&.record(result) }
-        overturned = final.zip(results).count { |after, before| !after.equal?(before) }
+        # Unverified verdicts are never cached: a budget-cut check proves
+        # nothing, and a stored copy would read as confirmed next run.
+        final.reject { |result| result.reused? || result.status == :unverified }.each { |r| @cache&.record(r) }
+        overturned = final.zip(results).count { |after, before| after.status == :error && !after.equal?(before) }
         if overturned.positive?
           @diagnostics.warn("#{subject.id}: #{overturned} verdict(s) failed with the method unchanged")
         end
         final
+      end
+
+      # Admission is per sequence, not just at checked() entry: a check
+      # admitted with time left can hit its capped timeout mid-check, and a
+      # later sequence can arrive after the budget is spent. Neither may
+      # fork with no time left, and neither outcome is a rejected kill -
+      # the check never got its answer (#296).
+      def unchanged_runner(subject, plan)
+        lambda do |tests, timeout|
+          if budget_spent?
+            Execution::Runner::Outcome.new(status: :unverified, runtime: 0.0,
+                                           message: "the --max-duration budget is spent")
+          else
+            capped = budget_capped(timeout)
+            outcome = @runner.run(subject: subject, text: subject.source, test_ids: tests, timeout: capped,
+                                  eval_prefix: eval_prefix(plan))
+            note_leftovers(subject, "verdict check", outcome)
+            if outcome.status == :timeout && capped < timeout
+              Execution::Runner::Outcome.new(status: :unverified, runtime: outcome.runtime,
+                                             message: "the --max-duration budget cut the verdict check short")
+            else
+              outcome
+            end
+          end
+        end
       end
 
       # When every verdict can be reused, nothing forks: not even the neutral
@@ -274,6 +297,11 @@ module Saboteur
         plan.slowdown = [plan.slowdown, unchanged_runtime / recorded].max if recorded&.positive?
         longer = deadline(unchanged_runtime)
         return Execution::Runner::Outcome.new(status: :timeout, runtime: timeout) if longer <= timeout
+        # The unchanged timing may have used the final allowance: no
+        # zero-time retry fork (#296).
+        if budget_spent?
+          return unverified_outcome(timeout, "the --max-duration budget is spent before the mutant retry")
+        end
 
         retry_timeout = budget_capped(longer)
         retried = @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: retry_timeout,

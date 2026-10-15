@@ -22,11 +22,14 @@ module Saboteur
         @baseline_timeout = baseline_timeout
       end
 
+      # Why a result the budget never let the check run is not a verdict.
+      BUDGET_REASON = "the --max-duration budget stopped the verdict check before it could run"
+
       def call(results)
         fresh = results.reject(&:reused?)
-        failing_runs = failing_sequences(fresh.select { |result| named_kill?(result) })
-        failing = failing_claims(fresh.select { |result| unnamed_kill?(result) })
-        results.map { |result| checked(result, failing_runs, failing) }
+        failing_runs, unchecked_runs = check_sequences(fresh.select { |result| named_kill?(result) })
+        failing, unchecked = check_claims(fresh.select { |result| unnamed_kill?(result) })
+        results.map { |result| checked(result, failing_runs, failing, unchecked_runs, unchecked) }
       end
 
       private
@@ -47,31 +50,61 @@ module Saboteur
         position ? result.covered_by.first(position + 1) : [result.killed_by.first]
       end
 
-      # Runs each distinct kill sequence once. Returns those that fail, each
-      # with why (the failure message, when there is one).
-      def failing_sequences(kills)
-        kills.map { |result| sequence(result) }.uniq.each_with_object({}) do |tests, failing|
+      # Runs each distinct kill sequence once. Returns [failing, unchecked]:
+      # failing maps a sequence to why it failed unchanged, unchecked lists
+      # the sequences the budget never let run - an unverified re-run is not
+      # a rejection (#296).
+      def check_sequences(kills)
+        failing = {}
+        unchecked = []
+        kills.map { |result| sequence(result) }.uniq.each do |tests|
           outcome = @run_unchanged.call(tests, @baseline_timeout)
-          failing[tests] = outcome.message unless outcome.status == :survived
+          if outcome.status == :unverified
+            unchecked << tests
+          elsif outcome.status != :survived
+            failing[tests] = outcome.message
+          end
         end
+        [failing, unchecked]
       end
 
-      # Kills with no failing test named. Returns those that fail unchanged.
-      def failing_claims(claims)
-        claims.reject do |result|
-          @run_unchanged.call(result.covered_by, @baseline_timeout).status == :survived
+      # Kills with no failing test named, checked on all their tests.
+      # Returns [failing, unchecked] result lists.
+      def check_claims(claims)
+        failing = []
+        unchecked = []
+        claims.each do |result|
+          status = @run_unchanged.call(result.covered_by, @baseline_timeout).status
+          if status == :unverified
+            unchecked << result
+          elsif status != :survived
+            failing << result
+          end
         end
+        [failing, unchecked]
       end
 
-      def checked(result, failing_runs, failing)
+      def checked(result, failing_runs, failing, unchecked_runs, unchecked)
         return result if result.reused?
+        return checked_named(result, failing_runs, unchecked_runs) if named_kill?(result)
 
-        if named_kill?(result) && failing_runs.key?(sequence(result))
-          why = failing_runs[sequence(result)]
-          result.as_error("killing test #{sequence(result).last} also fails with the method unchanged" \
-                          "#{": #{why}" if why}", rejected_kill: true)
-        elsif failing.include?(result)
+        if failing.include?(result)
           result.as_error("tests also fail with the method unchanged", rejected_kill: true)
+        elsif unchecked.include?(result)
+          result.as_unverified(BUDGET_REASON)
+        else
+          result
+        end
+      end
+
+      def checked_named(result, failing_runs, unchecked_runs)
+        tests = sequence(result)
+        if failing_runs.key?(tests)
+          why = failing_runs[tests]
+          result.as_error("killing test #{tests.last} also fails with the method unchanged" \
+                          "#{": #{why}" if why}", rejected_kill: true)
+        elsif unchecked_runs.include?(tests)
+          result.as_unverified(BUDGET_REASON)
         else
           result
         end

@@ -235,6 +235,8 @@ module Saboteur
       results = run_candidates(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
       cache&.save
       results
+    rescue BudgetPhaseTimeout => e
+      budget_phase_stop(e, subjects)
     end
 
     def run_candidates(subjects, lists, scheduler, cache, ignore_list)

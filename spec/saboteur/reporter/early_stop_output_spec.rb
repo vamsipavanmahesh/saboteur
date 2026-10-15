@@ -96,7 +96,7 @@ RSpec.describe "early stop detail lines (#296)" do
                             unverified: ["C#z"])
     text = terminal_text(report)
     expect(text).to include("stopped early (--max-duration spent): 1 selected subject did not run; " \
-                            "1 subject stopped mid-way (2 mutants omitted); 1 subject left with unverified kills; " \
+                            "1 subject stopped mid-way (2 mutants omitted); 1 subject left with unverified results; " \
                             "the score below covers only completed work")
     expect(text).to include("  not run: A#x")
     expect(text).to include("  stopped mid-way: B#y (2 mutants omitted)")

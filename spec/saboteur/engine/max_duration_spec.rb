@@ -288,6 +288,29 @@ RSpec.describe Saboteur::Engine::BaselineGuard, "phase timeout cap (#296)" do
   let(:integration) { double("adapter", all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "spec/a.rb")]) }
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
 
+  it "raises BudgetPhaseTimeout when a budget-capped pass hits its shortened deadline (#296)" do
+    response = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :timeout,
+                                                           detail: "exceeded deadline", runtime: 0.1,
+                                                           leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(response)
+    guard = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                full_passes: 1, timeout_cap: ->(timeout) { timeout / 2 })
+    expect { guard.call }.to raise_error(Saboteur::BudgetPhaseTimeout,
+                                         /--max-duration budget stopped baseline check 1/)
+  end
+
+  it "still fails the baseline when a full-length admission times out: the suite, not the budget (control)" do
+    response = Saboteur::Execution::Supervisor::Result.new(payload: "", exit_status: nil, stopped_by: :timeout,
+                                                           detail: "exceeded deadline", runtime: 0.1,
+                                                           leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(response)
+    guard = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                full_passes: 1)
+    expect { guard.call }.to raise_error(Saboteur::Error, /the suite stopped/)
+  end
+
   it "caps an admitted pass at the time the budget leaves" do
     contents = JSON.generate(passed: true, executed: ["t1"], failed: [], error: nil)
     response = Saboteur::Execution::Supervisor::Result.new(payload: contents, exit_status: nil, stopped_by: nil,
@@ -682,5 +705,89 @@ RSpec.describe Saboteur::Engine::Scheduler, "budget cap boundaries (#296)" do
     allow(Process).to receive(:clock_gettime).and_return(1000.0)
     expect(scheduler_with(1010.0).send(:budget_capped, 60.0)).to eq(10.0)
     expect(scheduler_with(1100.0).send(:budget_capped, 60.0)).to eq(60.0)
+  end
+end
+
+RSpec.describe Saboteur::Engine::Scheduler, "per-check budget admission (#296)" do
+  let(:err) { StringIO.new }
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
+  let(:runner) { instance_double(Saboteur::Execution::Runner) }
+  let(:cache) { instance_double(Saboteur::Engine::ResultCache) }
+  let(:config) { Saboteur::Config.new({}) }
+  let(:subject_under_test) { subjects_in("class K\n  def m\n    1\n  end\nend\n").first }
+
+  def scheduler_with(deadline, map: nil)
+    described_class.new(config: config, runner: runner, map: map, reevaluator: nil,
+                        diagnostics: diagnostics, cache: cache, deadline: deadline)
+  end
+
+  def plan
+    Saboteur::Engine::Scheduler::Plan.new(subject: subject_under_test, tests: %w[t1], killers: Hash.new(0),
+                                          slowdown: 1.0, wrapper: nil)
+  end
+
+  def kill
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject_under_test.id, operator: "test",
+                                                      edits: [Saboteur::MutationSource::Edit.new(
+                                                        file: subject_under_test.file, start_byte: 0, end_byte: 1,
+                                                        replacement: "2"
+                                                      )])
+    Saboteur::MutantResult.new(subject: subject_under_test, mutation: mutation, status: :killed,
+                               mutated_source: "2", killed_by: %w[t1], covered_by: %w[t1])
+  end
+
+  it "marks a fresh kill unverified without forking once the budget is spent mid-check, and never caches it" do
+    times = [100.0, 200.0].each
+    allow(Process).to receive(:clock_gettime) { times.next }
+    allow(runner).to receive(:run)
+    allow(cache).to receive(:record)
+    final = scheduler_with(150.0).send(:checked, plan, [kill])
+    expect([final.first.status, final.first.reason]).to eq([:unverified, Saboteur::Engine::VerdictCheck::BUDGET_REASON])
+    expect(runner).not_to have_received(:run)
+    expect(cache).not_to have_received(:record)
+  end
+
+  it "marks a kill unverified when its check only timed out under a budget-shortened cap" do
+    allow(Process).to receive(:clock_gettime).and_return(100.0)
+    allow(runner).to receive(:run).and_return(Saboteur::Execution::Runner::Outcome.new(status: :timeout,
+                                                                                       runtime: 5.0))
+    allow(cache).to receive(:record)
+    final = scheduler_with(105.0).send(:checked, plan, [kill])
+    expect(final.first.status).to eq(:unverified)
+    expect(runner).to have_received(:run).with(hash_including(timeout: 5.0))
+    expect(cache).not_to have_received(:record)
+  end
+
+  it "still caches a kill the unchanged check confirmed (control)" do
+    allow(Process).to receive(:clock_gettime).and_return(100.0)
+    allow(runner).to receive(:run).and_return(Saboteur::Execution::Runner::Outcome.new(status: :survived,
+                                                                                       runtime: 0.1))
+    allow(cache).to receive(:record)
+    final = scheduler_with(150.0).send(:checked, plan, [kill])
+    expect(final.first.status).to eq(:killed)
+    expect(cache).to have_received(:record)
+  end
+
+  it "warns about genuine rejections only, not unverified checks" do
+    allow(Process).to receive(:clock_gettime).and_return(100.0)
+    allow(runner).to receive(:run).and_return(Saboteur::Execution::Runner::Outcome.new(status: :killed,
+                                                                                       runtime: 0.1,
+                                                                                       message: "boom"))
+    allow(cache).to receive(:record)
+    final = scheduler_with(150.0).send(:checked, plan, [kill])
+    expect(final.first.status).to eq(:error)
+    expect(diagnostics.warnings).to include("#{subject_under_test.id}: 1 verdict(s) failed with the method unchanged")
+  end
+
+  it "does not fork the mutant retry once the unchanged timing used the final allowance" do
+    times = [100.0, 100.0, 200.0].each
+    allow(Process).to receive(:clock_gettime) { times.next }
+    allow(runner).to receive(:run).and_return(Saboteur::Execution::Runner::Outcome.new(status: :survived,
+                                                                                       runtime: 2.0))
+    map = instance_double(Saboteur::Selection::CoverageMap, recorded_runtime: 1.0)
+    outcome = scheduler_with(150.0, map: map).send(:calibrate, plan, kill.mutation, "text", %w[t1], 0.5)
+    expect(outcome.status).to eq(:unverified)
+    expect(outcome.message).to include("spent before the mutant retry")
+    expect(runner).to have_received(:run).once
   end
 end

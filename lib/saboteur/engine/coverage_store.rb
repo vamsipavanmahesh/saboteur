@@ -87,14 +87,16 @@ module Saboteur
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("building coverage map").watch(log_path)
-        result = @supervisor.run(timeout: build_timeout, on_tick: heartbeat.method(:tick),
+        admitted = build_timeout
+        result = @supervisor.run(timeout: admitted, on_tick: heartbeat.method(:tick),
                                  label: "coverage child died during the map build") do |writer|
           record(writer, files)
         end
-        map_from(result)
+        map_from(result, admitted)
       end
 
-      def map_from(result)
+      def map_from(result, admitted = @config["coverage_timeout"])
+        raise_budget_stop(admitted) if budget_stopped?(result, admitted)
         raise Error, "coverage map build stopped: #{result.detail}" if result.stopped_by
         raise Error, "coverage map build failed: #{died(result.exit_status)}" if result.payload.empty?
 
@@ -102,6 +104,19 @@ module Saboteur
         raise Error, "coverage map build failed: #{data['error']}" if data["error"]
 
         with_parent_load_lines(Selection::CoverageMap.from_json(result.payload))
+      end
+
+      # A build that hit its deadline only because --max-duration shortened
+      # the admission below the configured phase timeout: the budget ended
+      # the run, the suite is not broken (see BaselineGuard#budget_stopped?).
+      def budget_stopped?(result, admitted)
+        result.stopped_by == :timeout && admitted < @config["coverage_timeout"]
+      end
+
+      def raise_budget_stop(admitted)
+        raise BudgetPhaseTimeout, "the --max-duration budget stopped the coverage map build " \
+                                  "(admitted #{admitted.round(1)}s of the #{@config['coverage_timeout']}s " \
+                                  "phase timeout)"
       end
 
       # The parent's load lines merge into the freshly built map: the forked

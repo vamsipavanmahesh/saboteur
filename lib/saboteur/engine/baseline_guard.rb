@@ -104,13 +104,28 @@ module Saboteur
         @timeout_cap ? @timeout_cap.call(@config["coverage_timeout"]) : @config["coverage_timeout"]
       end
 
+      # A pass that hit its deadline only because --max-duration shortened
+      # the admission below the configured phase timeout: the budget ended
+      # the run, the suite is not broken (#296).
+      def budget_stopped?(result, admitted)
+        result.stopped_by == :timeout && admitted < @config["coverage_timeout"]
+      end
+
+      def refuse_budget_stop(number, admitted)
+        raise BudgetPhaseTimeout, "the --max-duration budget stopped baseline check #{number} " \
+                                  "(admitted #{admitted.round(1)}s of the #{@config['coverage_timeout']}s " \
+                                  "phase timeout)"
+      end
+
       def check(number)
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
-        result = @supervisor.run(timeout: phase_timeout, on_tick: heartbeat.method(:tick),
+        admitted = phase_timeout
+        result = @supervisor.run(timeout: admitted, on_tick: heartbeat.method(:tick),
                                  label: "baseline child died during setup/run") do |writer|
           record(writer, number)
         end
+        refuse_budget_stop(number, admitted) if budget_stopped?(result, admitted)
         refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
         # Before the payload checks: a child killed by a signal (the OOM
         # killer, say) writes nothing, and the signal is the explanation. A

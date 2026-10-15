@@ -10,14 +10,24 @@ All notable changes are documented here. The format follows
 - `--max-duration` budget-exhaustion semantics (#296): a verdict check or
   timeout calibration the budget cannot admit is skipped rather than run
   with a zero-length timeout, so genuine kills are no longer misclassified
-  as errors and cached. Affected mutants report as `unverified` - outside
-  the score - the early stop lists their subjects (`unverifiedSubjects`
-  in the JSON report), and the run exits 4. Baseline checks and the
-  coverage map build are now capped at the time left in the budget, and
-  the early-stop reason comes from the actual truncation state, so
-  mid-subject budget stops report `max_duration` even with `--fail-fast`.
+  as errors and cached. Admission is per check and per sequence: a check
+  admitted with time left that hits its budget-shortened cap mid-check is
+  `unverified`, not a rejected kill, later sequences never fork once the
+  budget is spent, and unverified verdicts are never cached. Affected
+  mutants report as `unverified` - outside the score - the early stop
+  lists their subjects (`unverifiedSubjects` in the JSON report), and the
+  run exits 4. Baseline checks and the coverage map build are now capped
+  at the time left in the budget, and the early-stop reason comes from the
+  actual truncation state, so mid-subject budget stops report
+  `max_duration` even with `--fail-fast`. Agent output names unverified
+  mutants in `incomplete[]`, and `--max-duration-ok` only passes a run
+  whose verified verdicts (kills, survivors, timeouts) can carry a score.
 
 ### Fixed
+- A baseline check or coverage map build that hit only its
+  budget-shortened timeout failed the run as a suite error (exit 3) with
+  no partial report; it now reports budget exhaustion with every selected
+  subject unreached and exits 4 (#296).
 - The unscoped-suite warning pluralizes zero baseline checks correctly
   ("0 baseline checks", not "0 baseline check") (#296).
 

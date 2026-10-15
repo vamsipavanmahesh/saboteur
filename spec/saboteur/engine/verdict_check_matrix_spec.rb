@@ -58,4 +58,34 @@ RSpec.describe Saboteur::Engine::VerdictCheck, "with several killers" do
     check([result(killed_by: %w[other t2])])
     expect(sequences).to eq([%w[t1 t2]])
   end
+
+  # The budget can stop a check before it forks or cut its admission short;
+  # the run_unchanged side reports that as :unverified. That is not a
+  # rejection: the check never got its answer (#296).
+  it "marks a kill unverified when the budget stops its check, not a rejected kill" do
+    run = lambda do |_tests, _timeout|
+      Saboteur::Execution::Runner::Outcome.new(status: :unverified, runtime: 0.0,
+                                               message: "the --max-duration budget is spent")
+    end
+    checked = described_class.new(run_unchanged: run, baseline_timeout: 1).call([result(killed_by: %w[t1])]).first
+    expect([checked.status, checked.rejected_kill?]).to eq([:unverified, false])
+    expect(checked.reason).to eq(Saboteur::Engine::VerdictCheck::BUDGET_REASON)
+  end
+
+  it "marks an unnamed kill unverified when the budget stops its check" do
+    run = ->(_tests, _timeout) { Saboteur::Execution::Runner::Outcome.new(status: :unverified, runtime: 0.0) }
+    checked = described_class.new(run_unchanged: run, baseline_timeout: 1).call([result(killed_by: [])]).first
+    expect(checked.status).to eq(:unverified)
+  end
+
+  it "still checks later sequences after a budget-stopped one: each gets its own admission" do
+    first = result(killed_by: %w[t1])
+    second = result(killed_by: %w[t3])
+    run = lambda do |tests, _timeout|
+      status = tests == %w[t1] ? :unverified : :survived
+      Saboteur::Execution::Runner::Outcome.new(status: status, runtime: 0.1)
+    end
+    checked = described_class.new(run_unchanged: run, baseline_timeout: 1).call([first, second])
+    expect(checked.map(&:status)).to eq(%i[unverified killed])
+  end
 end
