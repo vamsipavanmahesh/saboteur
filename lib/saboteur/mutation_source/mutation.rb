@@ -23,7 +23,7 @@ module Saboteur
           original = original_source.byteslice(edit.start_byte, edit.end_byte - edit.start_byte)
           [edit.start_byte - subject_start, original.to_s.b, edit.replacement.b].join("\0".b)
         end
-        Digest::SHA256.hexdigest([subject_id, operator, *parts].join("\x1F".b))[0, 16]
+        Digest::SHA256.hexdigest([subject_id.to_s.b, operator.to_s.b, *parts].join("\x1F".b))[0, 16]
       end
     end
   end
