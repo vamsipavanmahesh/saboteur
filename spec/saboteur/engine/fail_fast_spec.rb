@@ -159,7 +159,7 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     expect(run.send(:run_candidates, [person], [[1, 2], [3]], :scheduler, nil, :ignores)).to eq([:result])
     expect(diagnostics).to have_received(:start_progress).with(3)
     expect(Saboteur::Engine::Distribution).to have_received(:new)
-      .with(hash_including(after_subject: kind_of(Proc), stop_after: :stopper, scheduler: :scheduler))
+      .with(hash_including(after_subject: kind_of(Proc), stop_after: kind_of(Proc), scheduler: :scheduler))
     expect(run.send(:build_report, [], [], nil, 0).early_stop.unreached).to eq(["Person#adult?"])
   end
 end

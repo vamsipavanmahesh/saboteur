@@ -29,6 +29,30 @@ RSpec.describe Saboteur::Engine, "--max-duration budget (#245)" do
     expect(engine.send(:budget_exceeded?)).to eq(false)
   end
 
+  it "trips at the exact budget boundary" do
+    engine = engine_with({ "max_duration" => 60 }, StringIO.new)
+    engine.instance_variable_set(:@run_started, 100.0)
+    allow(Process).to receive(:clock_gettime).and_return(160.0)
+    expect(engine.send(:budget_exceeded?)).to eq(true)
+  end
+
+  it "announces the spent budget only once it is actually spent" do
+    err = StringIO.new
+    engine = engine_with({ "max_duration" => 60 }, err)
+    engine.instance_variable_set(:@run_started, 100.0)
+    allow(Process).to receive(:clock_gettime).and_return(120.0)
+    expect(engine.send(:budget_exceeded?)).to eq(false)
+    expect(err.string).not_to include("--max-duration reached")
+  end
+
+  it "reads the monotonic clock explicitly for the budget" do
+    engine = engine_with({ "max_duration" => 60 }, StringIO.new)
+    engine.instance_variable_set(:@run_started, 100.0)
+    allow(Process).to receive(:clock_gettime).and_return(120.0)
+    engine.send(:budget_exceeded?)
+    expect(Process).to have_received(:clock_gettime).with(Process::CLOCK_MONOTONIC).at_least(:once)
+  end
+
   it "hands the schedulers an absolute deadline from the anchored start" do
     engine = engine_with({ "max_duration" => 60 }, StringIO.new)
     engine.instance_variable_set(:@run_started, 100.0)
@@ -84,6 +108,110 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     expect(captured).not_to be_nil
     expect(captured.call).to eq(true)
   end
+
+  it "hands the scheduler the budget deadline and the result cache (#245)" do
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
+    integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+    boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+    allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+    allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+    baseline = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
+    allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
+    allow(store).to receive(:fetch).and_return(map)
+    allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
+    allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
+    allow(Saboteur::Engine::Distribution).to receive(:new)
+      .and_return(instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], run: []))
+    scheduler_kwargs = nil
+    allow(Saboteur::Engine::Scheduler).to receive(:new) { |**keywords| scheduler_kwargs = keywords and :scheduler }
+
+    engine = described_class.new(Saboteur::Config.new({ "max_duration" => 60 }, root: @root), err: StringIO.new)
+    allow(Process).to receive(:clock_gettime).and_return(100.0)
+    engine.call
+
+    expect(scheduler_kwargs[:deadline]).to eq(160.0)
+    expect(scheduler_kwargs).to have_key(:cache)
+  end
+
+  it "installs no budget halt check without a configured budget (#245)" do
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
+    integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+    boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+    allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+    allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+    baseline = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
+    allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
+    allow(store).to receive(:fetch).and_return(map)
+    allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
+    allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
+    distribution_kwargs = nil
+    allow(Saboteur::Engine::Distribution).to receive(:new) do |**keywords|
+      distribution_kwargs = keywords
+      instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], run: [])
+    end
+    engine = described_class.new(Saboteur::Config.new({}, root: @root), err: StringIO.new)
+    engine.call
+    expect(distribution_kwargs[:halt_check]).to be_nil
+  end
+
+  it "installs the budget check between baseline passes (#245)" do
+    guard_keywords = nil
+    allow(Saboteur::Engine::BaselineGuard).to receive(:new) do |**keywords|
+      guard_keywords = keywords
+      instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
+    end
+    integration = instance_double(Saboteur::Integration::RSpec)
+    engine = described_class.new(Saboteur::Config.new({ "max_duration" => 60 }, root: @root), err: StringIO.new)
+    engine.send(:check_baseline, integration, 2)
+
+    expect(guard_keywords[:between_passes]).to be_a(Method)
+  end
+
+  it "reports a budget stop as max_duration even without fail_fast (#245)" do
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
+    integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+    boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+    allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+    allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+    baseline = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
+    allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
+    allow(store).to receive(:fetch).and_return(map)
+    allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
+    allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [subject], truncated: [], run: [])
+    allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
+
+    err = StringIO.new
+    engine = described_class.new(Saboteur::Config.new({ "max_duration" => 60 }, root: @root), err: err)
+    anchored = false
+    allow(Process).to receive(:clock_gettime) do
+      if anchored
+        161.0 # past the budget once the clock is anchored: the run announces the stop
+      else
+        anchored = true
+        100.0
+      end
+    end
+    engine.call
+
+    expect(err.string).to include("--max-duration reached")
+    expect(engine.instance_variable_get(:@early_stop).reason).to eq("max_duration")
+  end
 end
 
 RSpec.describe Saboteur::Engine::Scheduler, "max-duration deadline (#245)" do
@@ -104,6 +232,15 @@ RSpec.describe Saboteur::Engine::Scheduler, "max-duration deadline (#245)" do
     ran = []
     results = scheduler_with(Process.clock_gettime(Process::CLOCK_MONOTONIC) - 1)
               .send(:run_candidates, [candidate, candidate(coarse: true)]) { |mutation, _| ran << mutation }
+    expect(results).to eq([])
+    expect(ran).to eq([])
+  end
+
+  it "runs no mutant when the clock is exactly at the deadline" do
+    deadline = 500.0
+    allow(Process).to receive(:clock_gettime).and_return(deadline)
+    ran = []
+    results = scheduler_with(deadline).send(:run_candidates, [candidate]) { |mutation, _| ran << mutation }
     expect(results).to eq([])
     expect(ran).to eq([])
   end
@@ -248,6 +385,19 @@ RSpec.describe Saboteur::Engine::Distribution, "max-duration halt (#245)" do
     expect(distribution.unreached).not_to be_empty
     expect(distribution.unreached.size).to be < 6
     expect(results.size + distribution.unreached.size).to eq(6)
+  end
+
+  it "runs every subject when the halt check never fires" do
+    subject = subject_with("m")
+    mutation = mutation_for(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "x")]
+    scheduler = ->(_subject, _list) { row }
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil, halt_check: -> { false })
+    subjects = Array.new(6) { subject }
+    lists = Array.new(6) { [[mutation, "text"]] }
+    results = distribution.run(subjects, lists)
+    expect(results.size).to eq(6)
+    expect(distribution.unreached).to be_empty
   end
 
   it "launches no subject when the budget is already spent, serial" do

@@ -67,6 +67,11 @@ RSpec.describe Saboteur::Help do
     end
   end
 
+  it "appends the stricter --agent exit code note to the general exit codes (#245)" do
+    section = overview[/^EXIT CODES \(saboteur run\)\n(.*?)(?=\n[A-Z]|\z)/m, 1]
+    expect(section).to include(described_class::AGENT_EXIT_CODES)
+  end
+
   it "lists the doctor exit codes under the doctor heading" do
     section = overview[/^EXIT CODES \(saboteur doctor\)\n(.*?)\n\n/m, 1]
     expect(section.lines.map(&:strip)).to eq(described_class::DOCTOR_EXIT_CODE_MEANINGS.map { |c, m| "#{c}  #{m}" })

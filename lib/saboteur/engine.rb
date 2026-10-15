@@ -262,10 +262,7 @@ module Saboteur
     # --fail-fast and --max-duration both stop before the next subject; the
     # distribution records whatever they leave unreached.
     def stop_checks(ignore_list)
-      checks = [fail_fast_check(ignore_list),
-                config["max_duration"] ? ->(_results) { budget_exceeded? } : nil].compact
-      return checks.first if checks.size <= 1
-
+      checks = [fail_fast_check(ignore_list), ->(_results) { budget_exceeded? }].compact
       ->(results) { checks.any? { |check| check.call(results) } }
     end
 

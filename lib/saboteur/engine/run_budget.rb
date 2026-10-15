@@ -11,7 +11,7 @@ module Saboteur
       private
 
       def start_budget_clock(started)
-        @run_started = started if config["max_duration"]
+        @run_started = started
       end
 
       # The whole run is budgeted, baselines included: an oversized
