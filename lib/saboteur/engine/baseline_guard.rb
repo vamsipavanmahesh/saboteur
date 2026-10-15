@@ -70,7 +70,8 @@ module Saboteur
       def check(number)
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
-        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
+        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick),
+                                 label: "baseline child died during setup/run") do |writer|
           record(writer, number)
         end
         refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by

@@ -119,7 +119,7 @@ module Saboteur
       # on_tick is called from the parent's wait loop after the fork, about
       # every poll, so callers can report progress without a thread alive
       # at fork time.
-      def run(timeout:, cpu_seconds: nil, on_tick: nil, &block)
+      def run(timeout:, cpu_seconds: nil, on_tick: nil, label: "supervised child died", &block)
         depth = ENV.fetch(CHILD_ENV, "0").to_i
         raise Error, "refusing to fork: saboteur children nested #{depth} deep (limit #{MAX_DEPTH})" if
           depth >= MAX_DEPTH
@@ -131,6 +131,7 @@ module Saboteur
         started = monotonic
         @peak_growth_kb = 0
         supervisor = Process.pid
+        @child_label = label
         pid = fork { child(reader, writer, supervisor, cpu_seconds, depth + 1, &block) }
         writer.close
         contain(pid, reader, started, timeout, on_tick)
@@ -159,7 +160,7 @@ module Saboteur
         # the exception unwind past the fork block into CLI code in the
         # child, where exit handlers could emit duplicate output (#289).
         begin
-          warn("saboteur: supervised child died: #{e.class}: #{e.message}")
+          warn("saboteur: #{@child_label}: #{e.class}: #{e.message}")
         rescue Exception # rubocop:disable Lint/RescueException
           nil
         end

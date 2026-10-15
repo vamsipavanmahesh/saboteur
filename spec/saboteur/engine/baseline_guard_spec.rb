@@ -96,7 +96,8 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
 
   it "runs two independent supervised checks with the configured suite deadline" do
     expect(supervisor).to receive(:run).twice.with(
-      timeout: config["coverage_timeout"], on_tick: anything
+      timeout: config["coverage_timeout"], on_tick: anything,
+      label: "baseline child died during setup/run"
     ).and_return(response)
     expect(guard.call).to be_nil
   end

@@ -17,7 +17,8 @@ RSpec.describe Saboteur::BaselineHealth do
   it "requires two green runs with the same executed sequence" do
     allow(supervisor).to receive(:run).and_return(response, response)
     expect(described_class.new(config, integration: integration, supervisor: supervisor).call).to eq(["a"])
-    expect(supervisor).to have_received(:run).with(timeout: 300.0).twice
+    expect(supervisor).to have_received(:run)
+      .with(timeout: 300.0, label: "baseline child died during setup/run").twice
   end
 
   it "rejects a run whose child exited unsuccessfully by itself" do
@@ -56,10 +57,26 @@ RSpec.describe Saboteur::BaselineHealth do
     end
     expect { described_class.new(config, integration: integration).call }
       .to raise_error(Saboteur::Error) do |error|
+        expect(error.message).to include("baseline child died during setup/run")
         expect(error.message).to include("without a result (exit 1)")
         expect(error.message).to include("message broke")
+        expect(error.message).to include("baseline child died during setup/run: RuntimeError")
         expect(error.message.length).to be < 4096
       end
+  end
+
+  it "keeps the original exit error when the child log cannot be read (#289)" do
+    health = described_class.new(config, integration: integration)
+    path = nil
+    broken = Tempfile.create("saboteur-baseline") do |log|
+      path = log.path
+      log.write("last words")
+      log
+    end
+    broken.close
+    expect(health.send(:log_tail, broken)).to eq("")
+  ensure
+    File.unlink(path) if path && File.exist?(path)
   end
 
   it "rejects different order on the second run" do
@@ -191,7 +208,8 @@ RSpec.describe Saboteur::BaselineHealth, "baseline supervision wiring" do
                                                                                              executed: ["a"]),
                                                                       exit_status: nil,
                                                                       child_failed?: false, leftover_pids: [])
-    expect(supervisor).to receive(:run).with(timeout: 42.0).twice.and_return(result)
+    expect(supervisor).to receive(:run)
+      .with(timeout: 42.0, label: "baseline child died during setup/run").twice.and_return(result)
     expect(described_class.new(config, integration: integration).call).to eq(["a"])
   end
 

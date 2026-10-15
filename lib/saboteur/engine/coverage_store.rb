@@ -80,7 +80,8 @@ module Saboteur
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("building coverage map").watch(log_path)
-        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick)) do |writer|
+        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick),
+                                 label: "coverage child died during the map build") do |writer|
           record(writer, files)
         end
         map_from(result)

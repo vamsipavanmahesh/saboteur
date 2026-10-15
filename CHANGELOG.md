@@ -31,7 +31,11 @@ All notable changes are documented here. The format follows
   teardown no longer races its lock deletion (#271), and a baseline child
   that exits without a result now has its exit status or signal in the
   error and its dying exception on stderr, so the next flake names its
-  cause (#255).
+  cause (#255). The same error carries a bounded tail of the child's
+  redirected log, the dying-child warning names its stage ("baseline
+  child died during setup/run", "coverage child died during the map
+  build"), and a broken child stderr can no longer swallow the exit
+  (#289).
 - The canary no longer blames a method's last mutant for deleted files:
   a cheap per-mutant probe (snapshot stats only, about 1.3 ms for this
   repo's 692 watched files against a full inventory's 5 ms) runs after
