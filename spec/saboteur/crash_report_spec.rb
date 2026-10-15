@@ -98,7 +98,9 @@ RSpec.describe Saboteur::CrashReport do
       FileUtils.rm_f(fallback)
       report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
       expect(err.string).to include("full backtrace: #{fallback}")
-      expect(File.read(fallback)).to include("RuntimeError: boom")
+      expect(File.read(fallback)).to eq(
+        "RuntimeError: boom\napp/models/thing.rb:10:in `explode'\napp/models/thing.rb:20:in `run'\n"
+      )
       FileUtils.rm_f(fallback)
     end
   end
@@ -111,6 +113,46 @@ RSpec.describe Saboteur::CrashReport do
       expect(err.string).to include("full backtrace: #{log_path}")
       expect(File.read(log_path)).to include("RuntimeError: boom")
     end
+  end
+
+  it "skips the primary log write where safe log IO is unavailable, keeping the temp fallback (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      fallback = described_class.tmp_log_path
+      FileUtils.rm_f(fallback)
+      allow(described_class).to receive(:safe_log_io?).and_return(false)
+      report(error, log_path:)
+      expect(File).not_to exist(log_path)
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File.read(fallback)).to include("RuntimeError: boom")
+    ensure
+      FileUtils.rm_f(fallback)
+    end
+  end
+
+  it "opens logs with O_NOFOLLOW and O_NONBLOCK where the platform defines them (#296)" do
+    expect(described_class.nofollow_flag).to eq(File::NOFOLLOW)
+    expect(described_class.nonblock_flag).to eq(File::NONBLOCK)
+  end
+
+  it "omits each open flag where the platform lacks it (#296)" do
+    allow(File).to receive(:const_defined?).and_call_original
+    allow(File).to receive(:const_defined?).with(:NOFOLLOW).and_return(false)
+    allow(File).to receive(:const_defined?).with(:NONBLOCK).and_return(false)
+    expect(described_class.nofollow_flag).to eq(0)
+    expect(described_class.nonblock_flag).to eq(0)
+  end
+
+  it "treats log IO as unsafe without O_NOFOLLOW (#296)" do
+    allow(File).to receive(:const_defined?).and_call_original
+    allow(File).to receive(:const_defined?).with(:NOFOLLOW).and_return(false)
+    expect(described_class.safe_log_io?).to be(false)
+  end
+
+  it "treats log IO as unsafe without O_NONBLOCK (#296)" do
+    allow(File).to receive(:const_defined?).and_call_original
+    allow(File).to receive(:const_defined?).with(:NONBLOCK).and_return(false)
+    expect(described_class.safe_log_io?).to be(false)
   end
 
   it "creates the temp fallback privately, pinned to 0600 (#296)" do

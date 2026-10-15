@@ -35,6 +35,16 @@ RSpec.describe Saboteur::Config do
     expect(clone.explicit?("subjects")).to be(true)
   end
 
+  it "tracks explicit keys given as symbols (#296)" do
+    config = described_class.new({ "json_report" => "custom.json" }, root: @root, explicit: [:json_report])
+    expect(config.explicit?("json_report")).to be(true)
+  end
+
+  it "drops explicitness for symbol except keys in a clone (#296)" do
+    config = described_class.new({ "json_report" => "custom.json" }, root: @root)
+    expect(config.with({}, except: [:json_report]).explicit?("json_report")).to be(false)
+  end
+
   it "keeps the root it is loaded with" do
     expect(described_class.load(root: @root).root).to eq(@root)
   end

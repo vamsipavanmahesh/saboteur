@@ -1127,6 +1127,23 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  it "warns and still exits by the results when the default JSON report cannot be written (#296)" do
+    Dir.mktmpdir do |dir|
+      cache = File.join(dir, ".saboteur")
+      FileUtils.mkdir_p(cache)
+      FileUtils.chmod(0o555, cache)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = Dir.chdir(dir) { cli("run").call }
+      expect(status).to eq(0)
+      # The CLI resolves the root with realpath; on macOS the tmpdir is a
+      # symlink (/var -> /private/var), so compare against the resolved path.
+      json = File.join(File.realpath(dir), ".saboteur", "report.json")
+      expect(err.string).to include("saboteur: could not write the JSON report to #{json} " \
+                                    "(Permission denied @ rb_sysopen - #{json}); continuing without it\n")
+    end
+  end
+
   it "fails the run when the explicitly requested JSON report cannot be written (#296)" do
     Dir.mktmpdir do |dir|
       readonly = File.join(dir, "readonly")
@@ -1138,8 +1155,8 @@ RSpec.describe Saboteur::CLI, "details" do
       status = cli("run", "--json", json, "--html", File.join(dir, "r.html")).call
       expect(status).to eq(3)
       expect(err.string).to include("saboteur: could not write the JSON report to #{json}: " \
-                                    "Permission denied @ rb_sysopen - #{json}")
-      expect(err.string).to include("stale or incomplete")
+                                    "Permission denied @ rb_sysopen - #{json} - " \
+                                    "any file at that path may be stale or incomplete")
       expect(out.string).not_to include("Reports:")
       expect(File).to exist(File.join(dir, "r.html"))
     end
@@ -1172,8 +1189,8 @@ RSpec.describe Saboteur::CLI, "details" do
                                                                           call: report_of(result_for(:killed))))
       status = cli("run", "--json", json).call
       expect(status).to eq(3)
-      expect(err.string).to include("could not write the JSON report to #{json}: stream closed")
-      expect(err.string).to include("stale or incomplete")
+      expect(err.string).to include("could not write the JSON report to #{json}: stream closed - " \
+                                    "any file at that path may be stale or incomplete")
       expect(out.string).not_to include("Reports:")
     end
   end
@@ -1190,6 +1207,7 @@ RSpec.describe Saboteur::CLI, "details" do
       payload = JSON.parse(out.string)
       expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 3)
       expect(payload["message"]).to include("could not write the JSON report")
+      expect(payload["message"]).to include(" - any file at that path may be stale or incomplete")
     end
   end
 

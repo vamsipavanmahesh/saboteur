@@ -417,4 +417,28 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI::RunBudgetOptions#parse_duration",
              reason: "equivalent: OptionParser declares no coercion for --max-duration, so parse_duration always receives a String and the defensive .to_s never changes the result"
 
+  i.mutation "68d07df4d8b32282",
+             subject: "Saboteur::CrashReport#write_log",
+             reason: "equivalent: the fd chmod(0o600) right after the open pins the final mode, so the create-mode " \
+                     "argument only narrows the unobservable pre-chmod window"
+
+  i.mutation "5892f32a822cce09",
+             subject: "Saboteur::CrashReport#write_log",
+             reason: "equivalent: the fd chmod(0o600) right after the open pins the final mode, so the create-mode " \
+                     "argument only narrows the unobservable pre-chmod window"
+
+  i.mutation "ce954a247769b167",
+             subject: "Saboteur::CrashReport#write_log",
+             reason: "equivalent: the fd chmod(0o600) right after the open pins the final mode, so the create-mode " \
+                     "argument only narrows the unobservable pre-chmod window"
+
+  i.mutation "4971619fcd31fde8",
+             subject: "Saboteur::CrashReport#write_log",
+             reason: "equivalent: dropping the create-mode argument defaults to 0666, and the fd chmod(0o600) " \
+                     "right after the open pins the final mode either way"
+
+  i.mutation "a00e405c28e686a0",
+             subject: "Saboteur::Config#with",
+             reason: "equivalent: initialize rejects non-string keys as unknown before the explicit list matters, " \
+                     "and map(&:to_s) is the identity on the string keys that remain"
 end
