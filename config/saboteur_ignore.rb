@@ -338,6 +338,14 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::OperandReplacement#replace_operands",
              reason: "equivalent: splatting the ArgumentsNode wraps it as one element (it has no to_a), and its slice yields the sole argument's source for the one-argument infix calls binary? admits"
 
+  i.mutation "fb3d8d74cffbaf81",
+             subject: "Saboteur::MutationSource::OperatorVisit#visit",
+             reason: "equivalent: the statement walk runs in statement position, so the collected array from map is discarded exactly like the each return"
+
+  i.mutation "423d477387f24abf",
+             subject: "Saboteur::MutationSource::OperatorVisit#visit",
+             reason: "equivalent: the child walk runs in statement position, so the collected array from map is discarded exactly like the each return"
+
   i.mutation "1824b380776f6a59",
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
