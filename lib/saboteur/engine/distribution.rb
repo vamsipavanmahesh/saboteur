@@ -35,14 +35,30 @@ module Saboteur
         # The watcher runs as each subject's row arrives, before the pool
         # hands out more work, so a tripped canary stops the queue (jobs>1
         # used to check only after the whole batch returned, issue #102).
+        # A tool error no longer raises on sight: one wiped log dir hits
+        # every worker, and a bystander whose current job ran no mutant
+        # reports "an unknown mutant", which could land before the report
+        # of the worker whose mutant did the damage (macOS CI on #285).
+        # The pool is halted instead - no new work, but in-flight workers
+        # still finish and report - and the abort raises the report that
+        # can name its mutant.
+        tool_errors = []
+        pool = nil
         arrival = lambda do |i, row|
-          raise_if_tool_error(row)
-          @after_subject&.call(subjects[i], decode(row, subjects[i], lists[i]))
+          if row["tool_error"]
+            tool_errors << row
+            # pool is always assigned here: arrivals only fire from inside
+            # pool.map, which runs after the assignment.
+            pool.halt!
+          else
+            @after_subject&.call(subjects[i], decode(row, subjects[i], lists[i]))
+          end
         end
         pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start, on_result: arrival)
         rows = pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
           work(subjects[i], lists[i])
         end
+        raise_preferred_tool_error(tool_errors) if tool_errors.any?
         rows.each_with_index.flat_map do |row, i|
           raise_if_tool_error(row)
           rebuild(row, subjects[i], lists[i])
@@ -99,6 +115,14 @@ module Saboteur
       # the whole run with exit 3; it is not a per-mutant outcome (#283).
       def raise_if_tool_error(row)
         raise Error, row["tool_error"] if row["tool_error"]
+      end
+
+      # The abort names a culprit when any worker's report can: a canary
+      # trip first (the hazard report keeps winning, #283), then a report
+      # that carries its mutant's digest, then the first bare report.
+      def raise_preferred_tool_error(rows)
+        row = rows.find { |r| r["canary"] } || rows.find { |r| r["culprit"] } || rows.first
+        raise Error, row["tool_error"]
       end
 
       def decode(row, subject, list)

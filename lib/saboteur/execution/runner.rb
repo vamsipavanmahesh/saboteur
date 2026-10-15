@@ -39,6 +39,19 @@ module Saboteur
         end
       end
 
+      # The child log (or its whole directory) vanished mid-job (#234).
+      # Carries the digest of the mutant whose run just ended when the job
+      # had one, so a parallel parent can prefer this report over a
+      # bystander's bare "unknown mutant" report (#285).
+      class LogVanished < Error
+        attr_reader :culprit_digest
+
+        def initialize(message, culprit_digest: nil)
+          @culprit_digest = culprit_digest
+          super(message)
+        end
+      end
+
       LOG_TAIL_BYTES = 2000
 
       # log_dir: where children write their output; a child's log is kept
@@ -178,7 +191,14 @@ module Saboteur
       # Names the just-run mutant when there is one (a verdict-check rerun
       # has none): the most likely culprit, worth naming for the report.
       def culprit(job)
-        return "an unknown mutant" unless job.mutation && job.subject.respond_to?(:start_byte)
+        culprit_digest(job) || "an unknown mutant"
+      end
+
+      # The 16-hex digest of the just-run mutant, or nil when the job ran
+      # none (a neutral or verdict-check rerun): a parallel parent prefers
+      # the vanished-log report that carries one (#285).
+      def culprit_digest(job)
+        return unless job.mutation && job.subject.respond_to?(:start_byte)
 
         job.mutation.digest(subject_start: job.subject.start_byte,
                             original_source: job.subject.file_source)
@@ -209,10 +229,10 @@ module Saboteur
       def check_log_still_there(job)
         return if File.exist?(job.log_path)
 
-        digest = culprit(job)
         cause = "a mutant's tests may have hit saboteur's files"
-        raise Error, "the child log #{job.log_path} vanished mid-run - the mutant that just ran, " \
-                     "#{digest}, is the likely cause: #{cause}"
+        raise LogVanished.new("the child log #{job.log_path} vanished mid-run - the mutant that just ran, " \
+                              "#{culprit(job)}, is the likely cause: #{cause}",
+                              culprit_digest: culprit_digest(job))
       end
 
       # --- parent ---------------------------------------------------------

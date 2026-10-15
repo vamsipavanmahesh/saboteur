@@ -36,6 +36,17 @@ module Saboteur
         @on_start = on_start
         @on_result = on_result
         @start_failures = 0
+        @halted = false
+      end
+
+      # Stop handing queued items out while letting in-flight items finish
+      # and report: a worker that merely noticed the damage can report
+      # before the worker whose mutant caused it, and the later report is
+      # the one that names the culprit (#285). Unlike raising from
+      # on_result, nothing in flight is killed. Unstarted items come back
+      # as nil holes in the result array.
+      def halt!
+        @halted = true
       end
 
       def map(items, weights: nil, &work)
@@ -83,7 +94,7 @@ module Saboteur
         take_and_report(worker, line, results) if line
         return replace(worker, workers, queue, results, items, &) if line.nil? || worker.last_words
 
-        assign(worker, queue)
+        assign(worker, queue) unless @halted
         retire(worker, workers) unless worker.current
       end
 
@@ -140,7 +151,7 @@ module Saboteur
           @on_result&.call(worker.current, results[worker.current])
         end
         give_up(reason) if worker.done.zero?
-        return if queue.empty?
+        return if @halted || queue.empty?
 
         fresh = start(worker.number, items, workers, &)
         workers << fresh
@@ -230,8 +241,13 @@ module Saboteur
       rescue Error => e
         # A tool error (a vanished cache dir, ...) aborts the run with
         # exit 3; it is not a per-mutant outcome. Serialize it so the
-        # parent can re-raise it as itself (#283).
-        { "tool_error" => e.message }
+        # parent can re-raise it as itself (#283), with the flags the
+        # parent needs to prefer the report that names its mutant: a
+        # canary trip first, then an error that carries a digest (#285).
+        row = { "tool_error" => e.message }
+        row["canary"] = true if e.is_a?(CanaryTripped)
+        row["culprit"] = e.culprit_digest if e.respond_to?(:culprit_digest) && e.culprit_digest
+        row
       rescue StandardError => e
         { "error" => "#{e.class}: #{e.message}" }
       end

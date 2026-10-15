@@ -31,6 +31,13 @@ All notable changes are documented here. The format follows
   every mutant, so the abort names the mutant whose run just ended when
   the loss was detected as the likely cause - with the per-method check
   as the backstop for losses outside a mutant's window (#235).
+- Parallel runs aborted by a wiped log dir now name the culprit: a
+  worker that only noticed the damage could report "an unknown mutant"
+  before the worker whose mutant did it, and the first report won the
+  abort. Tool-error reports now carry whether they name a mutant, the
+  pool stops handing out new work but lets in-flight workers finish
+  and report, and the abort prefers a canary trip, then a report that
+  names its mutant (#235).
 - The mutant sandbox no longer grants the cache dir: a mutant child
   cannot delete the baseline, the reports or other children's logs,
   and its own log is opened before the fork and inherited as a

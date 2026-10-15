@@ -461,6 +461,32 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     FileUtils.rm_rf(root) if root
   end
 
+  it "carries the just-run mutant's digest on the vanished-log error" do
+    integration = passing_integration { FileUtils.rm_rf(tmpdir) }
+    subject = Struct.new(:id, :start_byte, :file_source).new("Stub#run", 0, "def run; 1; end")
+    mutation = instance_double(Saboteur::MutationSource::Mutation, operator: "test")
+    allow(mutation).to receive(:digest)
+      .with(subject_start: 0, original_source: "def run; 1; end").and_return("0123456789abcdef")
+    expect do
+      build_runner(sandbox: nil, integration: integration)
+        .run(subject: subject, text: "pass", test_ids: %w[t1], timeout: 5, mutation: mutation)
+    end.to raise_error(Saboteur::Execution::Runner::LogVanished) { |e|
+      expect(e.culprit_digest).to eq("0123456789abcdef")
+      expect(e.message).to include("vanished mid-run - the mutant that just ran, 0123456789abcdef, is the likely cause")
+    }
+  end
+
+  it "carries no digest on the vanished-log error when the job ran no mutant" do
+    integration = passing_integration { FileUtils.rm_rf(tmpdir) }
+    expect do
+      build_runner(sandbox: nil, integration: integration).run(subject: subject_stub, text: "pass",
+                                                               test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::Execution::Runner::LogVanished) { |e|
+      expect(e.culprit_digest).to be_nil
+      expect(e.message).to include("an unknown mutant")
+    }
+  end
+
   it "reports an error rather than run when the sandbox cannot be applied" do
     outcome = build_runner(sandbox: ->(_keep_fds) { raise SystemCallError.new("landlock_restrict_self", 13) })
               .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
