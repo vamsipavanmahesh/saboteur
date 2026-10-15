@@ -272,7 +272,10 @@ module Saboteur
       # Runs in the worker until the parent closes its command pipe. If it
       # crashes, its last line says why.
       def serve(number, items, commands, results, &)
-        Process.setpgid(0, 0)
+        # Grouping helps tree cleanup find the worker's descendants; macOS
+        # can refuse it (EPERM), and a refused setpgid must not crash the
+        # worker - parent-link tracking still finds the tree (#296).
+        own_group(0)
         Supervisor.reset_in_worker!
         Supervisor.close_in_child.push(commands, results)
         ENV["SABOTEUR_WORKER"] = number.to_s

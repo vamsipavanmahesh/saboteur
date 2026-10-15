@@ -26,8 +26,9 @@ All notable changes are documented here. The format follows
   write and a planted FIFO cannot block it - and the runner reads it
   back the same way, accepting only a regular file owned by the same uid
   with no group/other bits. Where the platform lacks `O_NOFOLLOW` or
-  `O_NONBLOCK`, the log and the excerpt are omitted rather than opened
-  unsafely. The appended
+  `O_NONBLOCK`, the primary log and the excerpt are omitted rather than
+  opened unsafely; the `O_EXCL`-created temp fallback stays safe and can
+  still be written. The appended
   excerpt is scrubbed to valid UTF-8 and labelled as freshness-matched,
   not certainly that run's.
 

@@ -147,7 +147,9 @@ module Saboteur
         reader.close
         self.class.close_in_child.each { |io| io.close unless io.closed? }
         ENV[CHILD_ENV] = depth.to_s
-        Process.setpgid(0, 0)
+        # Best-effort like the parent-side own_group: macOS can refuse the
+        # group change (EPERM), and the child must still run (#296).
+        own_group(0)
         limit_cpu(cpu_seconds)
         trap("TERM") { exit!(143) }
         watch_parent(supervisor)

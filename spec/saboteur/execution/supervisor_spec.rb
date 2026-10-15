@@ -259,6 +259,12 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect { supervisor.run(timeout: 5) { nil } }.to raise_error(Saboteur::Error, /nested .* deep/)
   end
 
+  it "still runs the child when its process-group change is refused (#296)" do
+    allow(Process).to receive(:setpgid).and_raise(Errno::EPERM)
+    result = supervisor.run(timeout: 5) { |writer| writer.write("ok") }
+    expect(result.payload).to eq("ok")
+  end
+
   it "marks the child so a nested saboteur run can refuse to start" do
     before = ENV.fetch(described_class::CHILD_ENV, nil) # set when this suite itself runs under saboteur
     result = supervisor.run(timeout: 5) { |writer| writer.write(ENV.fetch(described_class::CHILD_ENV, "unset")) }

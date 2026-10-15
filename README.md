@@ -497,7 +497,8 @@ dir takes it (created with `O_EXCL | O_NOFOLLOW`, mode 0600, so it never
 follows or overwrites a pre-existing path). Logs are always written
 private, and a nested run reads them back only through a no-follow,
 non-blocking descriptor - a regular file, same owner, no group/other
-bits (or no log at all, where the platform lacks those flags). The message names the log only
+bits (or, where the platform lacks those flags, only the `O_EXCL` temp
+fallback is written and no excerpt is read). The message names the log only
 after a successful write: an unset `cache_dir`, or a log writable nowhere,
 leaves the one-liner standing alone. The executable
 loads the crash reporter before the CLI, so a failure while it is
