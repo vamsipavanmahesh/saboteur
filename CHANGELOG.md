@@ -16,8 +16,8 @@ All notable changes are documented here. The format follows
   run, baselines included: past the budget the run stops before the next
   subject, reports which selected subjects never ran, marks the JSON and
   agent output partial, and exits 4; `--max-duration-ok` leaves the exit
-  to the plain verdict. Works with `--jobs` by halting the worker pool
-  (#245).
+  to the plain verdict (which can still fail the run). Works with
+  `--jobs` by halting the worker pool (#245).
 - `baseline_passes` (config and `--baseline-passes`) sets how many times the
   unchanged suite runs before mutation (default 2). `1` is the fast PR
   loop; the run announces that it gives up the order-stability
@@ -41,6 +41,22 @@ All notable changes are documented here. The format follows
   equivalent across the intended inputs, simplify or ignore (#264).
 
 ### Fixed
+- Review hardening for the 0.5.0 loop flags (#245): the `--max-duration`
+  clock starts when the run starts (boot, baselines and the coverage map
+  all spend the budget) and is checked before dispatching every subject,
+  between mutants inside a subject, and between baseline passes, in
+  serial and `--jobs` runs alike; a parallel budget halt kills in-flight
+  subjects instead of mislabeling them "never ran". `--max-duration-ok`
+  no longer exits 0 when the budget stopped the run before any mutant
+  was tested - there is no score to judge, so the run is incomplete
+  (exit 3), in agent mode too. Agent output records `failFast` only for
+  a real `--fail-fast` stop, `--baseline-passes 1` no longer certifies
+  the suite stable in the baseline evidence, and the rerun/replay
+  commands keep `--max-duration`, `--max-duration-ok` and
+  `--baseline-passes`. `saboteur audit` bundles the `--operators all
+  --baseline-passes 2` its help advertises, an explicit `--test`
+  replaces its injected `--all`, and `--no-max-duration-ok` overrides
+  the pr preset's budget pass.
 - macOS CI flakes: the supervisor `on_tick` cleanup spec waits for a fully
   written pid before triggering instead of racing the file's first bytes
   (#277), fixture repositories disable Git background auto-maintenance so
