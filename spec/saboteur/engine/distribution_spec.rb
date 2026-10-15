@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "tmpdir"
 
 RSpec.describe Saboteur::Engine::Distribution do
   let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
@@ -58,6 +59,48 @@ RSpec.describe Saboteur::Engine::Distribution do
     edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: subject.file_source.index("1"),
                                               end_byte: subject.file_source.index("1") + 1, replacement: "2")
     Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
+  end
+
+  it "propagates a worker's tool error as a run-aborting error, not per-mutant errors" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    scheduler = ->(_subject, _list) { raise Saboteur::Error, "cannot open the child log /x/child-1-1.log (Errno::ENOENT)" }
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
+    expect { distribution.run([subject], [[[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, /cannot open the child log/)
+  end
+
+  it "aborts as the tool-error row arrives, before the pool hands out the remaining work" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    # A file marker, not an array: the scheduler runs inside forked workers,
+    # so only the filesystem carries the record back into the parent.
+    marker = File.join(Dir.mktmpdir, "scheduled")
+    scheduler = lambda do |_subject, _list|
+      File.open(marker, "a") { |file| file.puts("ran") }
+      raise Saboteur::Error, "the child log /x/child-1-1.log vanished mid-run"
+    end
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil,
+                                       after_subject: ->(_s, _r) {})
+    lists = [[[mutation, "text"]], [[mutation, "text"]], [[mutation, "text"]]]
+    expect { distribution.run([subject, subject, subject], lists) }
+      .to raise_error(Saboteur::Error, /vanished mid-run/)
+    # The pool assigns the first two subjects up front and the third only
+    # after a row arrives - and the arriving tool error raises first, so it
+    # is never scheduled. A fast abort can stop the second worker before it
+    # records, so one or two entries are valid; three never are.
+    expect(File.readlines(marker).size).to be_between(1, 2)
+  end
+
+  it "aborts a row the callback path missed: a tool error still stops the rebuild" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    pool = instance_double(Saboteur::Execution::WorkerPool)
+    allow(Saboteur::Execution::WorkerPool).to receive(:new).and_return(pool)
+    allow(pool).to receive(:map).and_return([{ "tool_error" => "the child log /x/c-1.log vanished mid-run" }])
+    distribution = described_class.new(jobs: 2, scheduler: ->(_s, _l) { [] }, diagnostics:, cache: nil)
+    expect { distribution.run([subject], [[[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, /vanished mid-run/)
   end
 
   it "warns and returns error results when a worker row carries an error" do

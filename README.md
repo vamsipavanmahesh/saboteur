@@ -110,8 +110,15 @@ forms the syntactic guard cannot see.
 
 On Linux 6.2 and later (Landlock ABI 3) each mutant child also runs under
 a Landlock sandbox: the child cannot create, write, rename, unlink or
-truncate files in the project tree, except `tmp/`, the cache dir and the
-system temp dir, plus anything in `c.sandbox_writable`. Every other path
+truncate files in the project tree, except `tmp/` and the
+system temp dir, plus anything in `c.sandbox_writable`. The cache dir
+is denied too - a mutant cannot delete the baseline, the reports or
+other children's logs; its own log is opened before the fork and
+arrives as an inherited descriptor. Grants are additive, though: a
+cache dir placed inside `tmp/`, the system temp dir or a
+`c.sandbox_writable` entry stays writable, and the tool cannot deny
+what another grant allows - keep the cache outside every grant for
+the isolation to bite. Every other path
 is denied for writing, `/dev/shm` and `/dev/tty` included; `/dev/null`
 stays writable. Inherited
 descriptors already open for writing outside the granted dirs are closed
@@ -129,9 +136,9 @@ grant that directory with `c.sandbox_writable` or opt out with
 sockets and IPC are never restricted - and a checkout inside the system
 temp dir cannot be protected, because everything under it stays writable
 so that real test suites keep working - the run warns when the effective
-write set (every grant realpath'd, the cache dir and the system temp dir
+write set (every grant realpath'd, the system temp dir
 included) contains the project root, however it happened: a checkout
-inside the system temp dir, `cache_dir = "."`, a symlinked `tmp`, or an
+inside the system temp dir, a symlinked `tmp`, or an
 overlapping `c.sandbox_writable` grant. `c.sandbox = "strict"` refuses to
 run at all in that situation, since the sandbox would protect nothing.
 The sandbox applies to every mutant

@@ -4,7 +4,13 @@
 require "stringio"
 
 RSpec.describe Saboteur::Engine, "boot coverage lines" do
-  let(:engine) { described_class.new(Saboteur::Config.new({ "all" => true }), err: StringIO.new) }
+  # An isolated root, never the ambient cwd: the engine.call test reaches
+  # scheduler_for, whose fresh_log_dir wipes <root>/.saboteur/logs - under an
+  # enclosing saboteur run a cwd-rooted engine deletes the outer run's logs.
+  let(:root) { Dir.mktmpdir("saboteur-load-lines-") }
+  let(:engine) { described_class.new(Saboteur::Config.new({ "all" => true }, root: root), err: StringIO.new) }
+
+  after { FileUtils.rm_rf(root) }
   let(:fake_coverage) { Module.new }
 
   before do

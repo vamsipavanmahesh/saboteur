@@ -36,13 +36,17 @@ module Saboteur
         # hands out more work, so a tripped canary stops the queue (jobs>1
         # used to check only after the whole batch returned, issue #102).
         arrival = lambda do |i, row|
+          raise_if_tool_error(row)
           @after_subject&.call(subjects[i], decode(row, subjects[i], lists[i]))
         end
         pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start, on_result: arrival)
         rows = pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
           work(subjects[i], lists[i])
         end
-        rows.each_with_index.flat_map { |row, i| rebuild(row, subjects[i], lists[i]) }
+        rows.each_with_index.flat_map do |row, i|
+          raise_if_tool_error(row)
+          rebuild(row, subjects[i], lists[i])
+        end
       end
 
       private
@@ -91,6 +95,12 @@ module Saboteur
 
       # Turns a worker row back into results, without diagnostics or caching:
       # used both at result arrival (the canary) and at rebuild time.
+      # A tool error from the worker (a vanished cache dir, ...) aborts
+      # the whole run with exit 3; it is not a per-mutant outcome (#283).
+      def raise_if_tool_error(row)
+        raise Error, row["tool_error"] if row["tool_error"]
+      end
+
       def decode(row, subject, list)
         return failed(row["error"], subject, list) if row["error"]
 

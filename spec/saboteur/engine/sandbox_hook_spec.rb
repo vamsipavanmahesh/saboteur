@@ -35,7 +35,7 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     expect(hook).to be_a(Proc)
     expect(err.string).to eq("")
     expect(Dir.exist?(File.join(@root, "tmp"))).to be(true)
-    expect(Dir.exist?(File.join(@root, ".saboteur"))).to be(true)
+    expect(Dir.exist?(File.join(@root, ".saboteur"))).to be(false)
   end
 
   it "hands no hook when the layer is configured off" do
@@ -85,14 +85,13 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
       .to raise_error(Saboteur::ConfigError, /sandbox must be/)
   end
 
-  it "restricts each child to the project tmp, the cache dir and the system temp dir" do
+  it "restricts each child to the project tmp and the system temp dir, not the cache dir (#234)" do
     allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(4)
     allow(Saboteur::Execution::Sandbox).to receive(:restrict!)
     hook = engine_for({}).send(:sandbox_hook)
     hook.call([9])
     expect(Saboteur::Execution::Sandbox).to have_received(:restrict!)
       .with(writable: [File.realpath(File.join(@root, "tmp")),
-                       File.realpath(File.join(@root, ".saboteur")),
                        File.realpath(Dir.tmpdir)],
             keep_fds: [9])
   end
@@ -104,7 +103,6 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     hook.call([9])
     expect(Saboteur::Execution::Sandbox).to have_received(:restrict!)
       .with(writable: [File.realpath(File.join(@root, "tmp")),
-                       File.realpath(File.join(@root, ".saboteur")),
                        File.realpath(File.join(@root, "db")),
                        File.realpath(Dir.tmpdir)],
             keep_fds: [9])
@@ -123,6 +121,7 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     expect(captured[:supervisor]).to be_a(Saboteur::Execution::Supervisor)
     expect(captured[:seed]).to eq(7)
     expect(captured[:sandbox]).to be_a(Proc)
+    expect(captured[:canary]).to be_a(Saboteur::Engine::Canary)
     expect(captured[:log_dir]).to include(".saboteur")
   end
   it "warns when a user grant contains the project root" do
@@ -175,14 +174,6 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
       engine = described_class.new(Saboteur::Config.new({ "sandbox" => "strict" }, root: tmp_root), err: err)
       expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error, /refusing under c.sandbox = "strict"/)
     end
-  end
-
-  it "warns when the cache dir is the project root itself" do
-    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
-    engine = engine_for({ "cache_dir" => "." })
-    engine.send(:sandbox_hook)
-    warnings = engine.instance_variable_get(:@diagnostics).warnings
-    expect(warnings.join).to include("contains the project root")
   end
 
   it "treats a grant of / as containing the project root" do

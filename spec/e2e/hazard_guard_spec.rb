@@ -14,17 +14,48 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
     expect(File).to exist(File.join(dir, "config", "saboteur.rb"))
   end
 
-  it "aborts with exit 3 from the canary when hazardous mutants are allowed" do
+  # The fixture lives under the system temp dir, which the sandbox always
+  # grants, so the destructive mutant really deletes - tracked files and
+  # the run's own log. The hazard report must win over the log's absence:
+  # exit 3, the canary naming the mutant as the likely cause, and never
+  # the "killing test also fails" mislabel (#234).
+  it "aborts with exit 3, the canary naming the culprit, when hazardous mutants are allowed" do
     run = saboteur(dir, "--allow-hazardous")
     expect(run.status).to eq(3)
     expect(run.err).to include("canary")
     expect(run.err).to match(/[0-9a-f]{16}/)
+    expect(run.err).not_to include("killing test")
   end
 
-  it "fails fast in parallel: the canary trips on result arrival, not after the batch" do
+  it "fails fast in parallel: the hazard report aborts the run, not just the subject" do
     run = saboteur(dir, "--allow-hazardous", "--jobs", "2")
     expect(run.status).to eq(3)
     expect(run.err).to include("canary")
     expect(run.err).to match(/[0-9a-f]{16}/)
+    expect(run.err).not_to include("killing test")
+  end
+
+  # The logloss fixture's unchanged code deletes only the project's own
+  # .saboteur/trash: a literal mutation redirects the deletion onto the
+  # tool's cache, so a vanished run file is the mutant's doing alone. An
+  # earlier subject's mutants die normally, so the aborted run still shows
+  # real kills (the dot line) alongside the tool error - exit 3, the mutant
+  # named, and never the "killing test also fails" mislabel (#234).
+  it "aborts with a tool error when only the tool's own files vanish" do
+    run = saboteur(copy_fixture("logloss"), "--allow-hazardous")
+    expect(run.status).to eq(3)
+    expect(run.err).to include("vanished mid-run")
+    expect(run.err).to match(/[0-9a-f]{16}/)
+    expect(run.err).to match(/^\.+$/)
+    expect(run.err).not_to include("killing test")
+  end
+
+  it "aborts the same way in parallel, with kills still landing alongside" do
+    run = saboteur(copy_fixture("logloss"), "--allow-hazardous", "--jobs", "2")
+    expect(run.status).to eq(3)
+    expect(run.err).to include("vanished mid-run")
+    expect(run.err).to match(/[0-9a-f]{16}/)
+    expect(run.err).to match(/^\.+$/)
+    expect(run.err).not_to include("killing test")
   end
 end
