@@ -183,14 +183,23 @@ module Saboteur
       # The nested CLI writes its log to the cache dir, or to the pid-keyed
       # temp fallback when the sandbox holds the cache dir read-only (#296).
       def crash_log_excerpt(started_at)
-        candidates = [@crash_log, CrashReport.tmp_log_path].compact.uniq.select { |path| fresh_log?(path, started_at) }
+        candidates = tmp_log_candidates.select { |path| fresh_log?(path, started_at) }
         path = candidates.max_by { |candidate| File.mtime(candidate) }
         return unless path
 
         text = File.read(path, CRASH_LOG_BYTES)
         text ? text.lines.first(CRASH_LOG_LINES).join : nil
-      rescue SystemCallError
+      rescue StandardError
         nil
+      end
+
+      # The excerpt is diagnostic enrichment: when CrashReport itself is the
+      # mutated file, tmp_log_path can raise or return garbage - keep the
+      # primary candidate and never let the lookup change a verdict (#296).
+      def tmp_log_candidates
+        [@crash_log, CrashReport.tmp_log_path].compact.uniq.grep(String)
+      rescue StandardError
+        [@crash_log].compact
       end
 
       def fresh_log?(path, started_at)

@@ -100,8 +100,17 @@ RSpec.describe Saboteur::Execution::Runner do
   # reports its own crashes as exit 3 and logs them to internal-error.log.
   # A fresh log from this run explains the failure (#296).
   describe "the nested CLI's crash log (#296)" do
-    before { FileUtils.rm_f(Saboteur::CrashReport.tmp_log_path) }
-    after { FileUtils.rm_f(Saboteur::CrashReport.tmp_log_path) }
+    # Some examples stub tmp_log_path itself (raise/garbage) to prove the
+    # runner tolerates a mutated CrashReport; cleanup must tolerate it too.
+    def clean_tmp_log
+      path = Saboteur::CrashReport.tmp_log_path
+      FileUtils.rm_f(path) if path.is_a?(String)
+    rescue StandardError
+      nil
+    end
+
+    before { clean_tmp_log }
+    after { clean_tmp_log }
 
     let(:crash_path) { File.join(tmpdir, "internal-error.log") }
     let(:runner) do
@@ -130,6 +139,20 @@ RSpec.describe Saboteur::Execution::Runner do
       outcome = run_mode("crashlog_tmp")
       expect(outcome.status).to eq(:killed)
       expect(outcome.message).to include("KeyError: key not found")
+    end
+
+    it "still reads the primary log when CrashReport.tmp_log_path itself is mutated to raise (#296)" do
+      allow(Saboteur::CrashReport).to receive(:tmp_log_path).and_raise(RuntimeError)
+      outcome = run_mode("crashlog")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).to include("KeyError: key not found")
+    end
+
+    it "treats a mutated tmp_log_path returning garbage as no log at all (#296)" do
+      allow(Saboteur::CrashReport).to receive(:tmp_log_path).and_return(true)
+      outcome = run_mode("fail")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).to eq("ExpectationNotMetError: expected: 2\n     got: 3\n./spec/x_spec.rb:4")
     end
   end
 
