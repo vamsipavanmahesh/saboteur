@@ -57,6 +57,19 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
     calls
   end
 
+  # >=, not >: at the exact deadline no further check may fork (#296).
+  it "counts the budget as spent at the exact deadline, not only past it (#296)" do
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                deadline: 100.0)
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(99.9)
+    expect(sched.send(:budget_spent?)).to be(false)
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0)
+    expect(sched.send(:budget_spent?)).to be(true)
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.1)
+    expect(sched.send(:budget_spent?)).to be(true)
+  end
+
   it "runs no mutant-free check before the mutants" do
     schedule(mutant: ->(_) { outcome(:survived) })
     expect(unchanged_runs).to be_empty

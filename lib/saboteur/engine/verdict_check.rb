@@ -69,17 +69,18 @@ module Saboteur
       end
 
       # Kills with no failing test named, checked on all their tests.
-      # Returns [failing, unchecked]: failing lists the rejected results,
-      # unchecked maps a result the budget never let run to why.
+      # Returns [failing, unchecked]: failing maps a rejected result to why
+      # it failed unchanged, unchecked maps a result the budget never let
+      # run to why.
       def check_claims(claims)
-        failing = []
+        failing = {}
         unchecked = {}
         claims.each do |result|
           outcome = @run_unchanged.call(result.covered_by, @baseline_timeout)
           if outcome.status == :unverified
             unchecked[result] = outcome.message
           elsif outcome.status != :survived
-            failing << result
+            failing[result] = outcome.message
           end
         end
         [failing, unchecked]
@@ -89,8 +90,9 @@ module Saboteur
         return result if result.reused?
         return checked_named(result, failing_runs, unchecked_runs) if named_kill?(result)
 
-        if failing.include?(result)
-          result.as_error("tests also fail with the method unchanged", rejected_kill: true)
+        if failing.key?(result)
+          why = failing[result]
+          result.as_error("tests also fail with the method unchanged#{": #{why}" if why}", rejected_kill: true)
         elsif unchecked.key?(result)
           result.as_unverified(unchecked[result] || BUDGET_REASON)
         else

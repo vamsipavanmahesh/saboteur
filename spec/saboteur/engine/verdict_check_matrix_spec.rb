@@ -131,9 +131,12 @@ RSpec.describe Saboteur::Engine::VerdictCheck, "when the budget stops a check" d
     expect([checked.status, checked.reason]).to eq([:unverified, described_class::BUDGET_REASON])
   end
 
-  it "keeps an unnamed kill whose unchanged run passes and rejects one whose run fails" do
+  it "keeps an unnamed kill whose unchanged run passes and rejects one whose run fails, saying why (#296)" do
     expect(check_with([result(killed_by: [])], outcome(:survived)).first.status).to eq(:killed)
     rejected = check_with([result(killed_by: [])], outcome(:killed, "boom")).first
     expect([rejected.status, rejected.rejected_kill?]).to eq([:error, true])
+    expect(rejected.reason).to eq("tests also fail with the method unchanged: boom")
+    bare = check_with([result(killed_by: [])], outcome(:killed)).first
+    expect(bare.reason).to eq("tests also fail with the method unchanged")
   end
 end

@@ -19,10 +19,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#unchanged_timing",
              reason: "budget_capped clamps its result to <= the baseline timeout, so < and != agree on every reachable value"
 
-  i.mutation "1f596a4e5a0685f7",
-             subject: "Saboteur::Engine::Scheduler#budget_spent?",
-             reason: ">= and > differ only when the monotonic clock reads the deadline exactly; the deadline is computed before the check runs, so equality is not observable"
-
   i.mutation "452346af9d7dfcf0",
              subject: "Saboteur::Engine::Scheduler#unchanged_runner",
              reason: "the 0.0 runtime of a check that never forked is discarded: as_unverified keeps the kill's own runtime"
