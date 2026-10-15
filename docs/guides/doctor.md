@@ -14,6 +14,15 @@ even on a large suite. `--suite` also runs the unchanged suite twice, and
 Doctor checks Ruby 3.3+ and fork support, suspended line coverage, configured
 require/hook files, and the RSpec integration. It prints the Rails setting and
 whether SimpleCov was loaded and its start suppressed by saboteur's normal boot.
+It reports the sandbox status as a kernel capability probe, not verified
+isolation: the kernel's Landlock ABI when the mutant sandbox can be
+enforced, or the gap when it cannot. Then `c.sandbox = "strict"` refuses
+to run rather than let children run without the sandbox - children never
+run degraded under strict - while a non-strict run notes once that
+children run with the hazard guard and canary only. `c.sandbox = false`
+reports off. A probe the kernel refuses (EPERM under a seccomp policy,
+for example) is an actionable tool error with exit 3, not a crash
+report, and doctor stays read-only.
 It does not certify a Rails/database version; successful boot and tests are the
 check. Unmatched include/exclude patterns are warnings, not failures.
 

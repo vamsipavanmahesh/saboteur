@@ -16,6 +16,8 @@ RSpec.describe "doctor", :e2e do
     expect(status.exitstatus).to eq(0), err
     expect(out).to include("Ruby:", "Coverage: suspended", "Integration: rspec", "Baseline: not run", "--suite")
     expect(out).not_to include("passed twice")
+    expect(out.scan(/^Coverage:/).size).to eq(1)
+    expect(out.scan(/^Sandbox:/).size).to eq(1)
     expect(File).not_to exist(File.join(dir, ".saboteur"))
   end
 

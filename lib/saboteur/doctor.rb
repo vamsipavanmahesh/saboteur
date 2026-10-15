@@ -3,6 +3,8 @@
 
 require "coverage"
 require_relative "baseline_health"
+require_relative "engine/sandbox_policy"
+require_relative "execution/sandbox"
 
 module Saboteur
   # Reports the current environment, never mutations. The two unchanged suite
@@ -27,7 +29,8 @@ module Saboteur
       @out.puts "Rails: #{@config['rails'] ? 'enabled' : 'disabled'}"
       check_database_hosts
       @out.puts "SimpleCov: #{defined?(::SimpleCov) ? 'present; start suppressed for this process' : 'not loaded'}"
-      check_coverage
+      verify_coverage
+      check_sandbox
       check_suite(integration, hooks)
       true
     end
@@ -63,13 +66,49 @@ module Saboteur
             "doctor supports the rspec integration; set integration: rspec"
     end
 
+    # Printed once; verified twice. Boot must not wake coverage up, so the
+    # post-boot check re-reads the state without printing a second line.
     def check_coverage
       state = Coverage.state
       @out.puts "Coverage: #{state}"
+      verify_coverage(state)
+    end
+
+    def verify_coverage(state = Coverage.state)
       return if Coverage.supported?(:lines) && Coverage.supported?(:methods) && state == :suspended
 
       raise Error, "Coverage must be suspended with line and method support before boot; use the saboteur " \
                    "executable, disable SimpleCov and remove other Coverage.start calls"
+    end
+
+    # A kernel capability probe, not verified isolation: what the kernel
+    # would let mutant children do, and what the run does with that - the
+    # engine's sandbox policy owns the refusal or degradation itself.
+    def check_sandbox
+      if @config["sandbox"] == false
+        @out.puts "Sandbox: off (c.sandbox = false)"
+        return
+      end
+      abi = sandbox_abi
+      if abi >= 3
+        @out.puts "Sandbox: kernel Landlock ABI #{abi} - capability probe only, not verified isolation"
+      elsif @config["sandbox"] == "strict"
+        @out.puts "Sandbox: #{Engine::SandboxPolicy.sandbox_gap(abi)}; " \
+                  'c.sandbox = "strict" refuses to run - children never run degraded'
+      else
+        @out.puts "Sandbox: #{Engine::SandboxPolicy.sandbox_gap(abi)}; " \
+                  "children would run with the hazard guard and canary only"
+      end
+    end
+
+    # The probe contract the engine's policy already keeps: an errored probe
+    # (EPERM under a seccomp policy, ...) is an actionable tool error, not a
+    # CLI internal error - doctor stays read-only.
+    def sandbox_abi
+      Execution::Sandbox.abi_version
+    rescue SystemCallError => e
+      raise Error, "sandbox is on but the Landlock probe failed (#{e.message}); a run would refuse the same way - " \
+                   "set c.sandbox = false to check without the sandbox"
     end
 
     # Match against all included source definitions, not the current diff or

@@ -34,7 +34,7 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     hook = engine_for({}).send(:sandbox_hook)
     expect(hook).to be_a(Proc)
     expect(err.string).to eq("")
-    expect(Dir.exist?(File.join(@root, "tmp"))).to be(true)
+    expect(Dir.exist?(File.join(@root, "tmp"))).to be(false)
     expect(Dir.exist?(File.join(@root, ".saboteur"))).to be(false)
   end
 
@@ -86,6 +86,7 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
   end
 
   it "restricts each child to the project tmp and the system temp dir, not the cache dir (#234)" do
+    FileUtils.mkdir_p(File.join(@root, "tmp"))
     allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(4)
     allow(Saboteur::Execution::Sandbox).to receive(:restrict!)
     hook = engine_for({}).send(:sandbox_hook)
@@ -102,10 +103,19 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     hook = engine_for({ "sandbox_writable" => ["db"] }).send(:sandbox_hook)
     hook.call([9])
     expect(Saboteur::Execution::Sandbox).to have_received(:restrict!)
-      .with(writable: [File.realpath(File.join(@root, "tmp")),
-                       File.realpath(File.join(@root, "db")),
+      .with(writable: [File.realpath(File.join(@root, "db")),
                        File.realpath(Dir.tmpdir)],
             keep_fds: [9])
+  end
+
+  it "grants only the system temp dir, creating nothing, when the project has no tmp dir" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(4)
+    allow(Saboteur::Execution::Sandbox).to receive(:restrict!)
+    hook = engine_for({}).send(:sandbox_hook)
+    hook.call([9])
+    expect(Saboteur::Execution::Sandbox).to have_received(:restrict!)
+      .with(writable: [File.realpath(Dir.tmpdir)], keep_fds: [9])
+    expect(Dir.exist?(File.join(@root, "tmp"))).to be(false)
   end
 
   it "hands the runner the engine supervisor, the configured seed and the sandbox hook" do

@@ -177,6 +177,19 @@ RSpec.describe Saboteur::CLI do
       expect(cli("doctor", "--test", "spec/nope_spec.rb").call).to eq(2)
       expect(err.string).to include("test file not found: spec/nope_spec.rb")
     end
+
+    it "exits 3 with a plain diagnostic and writes nothing when the sandbox probe is refused" do
+      failing = instance_double(Saboteur::Doctor)
+      message = "sandbox is on but the Landlock probe failed (EPERM); a run would refuse the same way - " \
+                "set c.sandbox = false to check without it"
+      allow(failing).to receive(:call).and_raise(Saboteur::Error, message)
+      allow(Saboteur::Doctor).to receive(:new).and_return(failing)
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) { expect(cli("doctor").call).to eq(3) }
+        expect(File).not_to exist(File.join(dir, ".saboteur"))
+      end
+      expect(err.string).to include("saboteur: sandbox is on but the Landlock probe failed (EPERM)")
+    end
   end
 
   it "rejects contradictory test selection flags as usage errors, before any file check" do
