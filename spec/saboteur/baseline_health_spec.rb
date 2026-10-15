@@ -65,6 +65,44 @@ RSpec.describe Saboteur::BaselineHealth do
       end
   end
 
+  describe "#log_tail boundaries (#289)" do
+    def tail_of(content)
+      log = Tempfile.create("saboteur-baseline")
+      log.write(content)
+      log.flush
+      described_class.new(config, integration: integration).send(:log_tail, log)
+    ensure
+      path = log&.path
+      log&.close
+      File.unlink(path) if path && File.exist?(path)
+    end
+
+    it "returns an empty string for a nil log" do
+      expect(described_class.new(config, integration: integration).send(:log_tail, nil)).to eq("")
+    end
+
+    it "returns an empty string for an empty log" do
+      expect(tail_of("")).to eq("")
+    end
+
+    it "reads a small log in full, joined on one line" do
+      expect(tail_of("alpha\nbeta\n")).to eq("; child log tail: alpha / beta")
+    end
+
+    it "starts a large log at exactly the 2 KB boundary" do
+      content = ("A" * 52) + ("B" * 2048)
+      expect(tail_of(content)).to eq("; child log tail: #{'B' * 2048}")
+    end
+
+    it "keeps exactly the last 20 lines" do
+      content = (1..25).map { |n| "line#{n}" }.join("\n")
+      tail = tail_of(content)
+      expect(tail).to start_with("; child log tail: line6 / line7")
+      expect(tail).to end_with("line24 / line25")
+      expect(tail).not_to include("line5")
+    end
+  end
+
   it "keeps the original exit error when the child log cannot be read (#289)" do
     health = described_class.new(config, integration: integration)
     path = nil

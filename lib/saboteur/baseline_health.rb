@@ -91,17 +91,9 @@ module Saboteur
     def log_tail(log)
       return "" unless log
 
-      size = log.size
-      return "" if size.zero?
-
-      offset = [size - 2048, 0].max
-      log.seek(offset)
-      lines = Text.utf8(log.read(2048).to_s).lines.map(&:chomp)
-      lines.shift if offset.positive? && lines.size > 1
-      lines = lines.reject(&:empty?).last(20)
-      return "" if lines.empty?
-
-      "; child log tail: #{lines.join(' / ')}"
+      log.seek([log.size - 2048, 0].max)
+      tail = Text.utf8(log.read.to_s).lines.last(20).map(&:chomp).join(" / ")
+      tail.empty? ? "" : "; child log tail: #{tail}"
     rescue SystemCallError, IOError
       ""
     end
