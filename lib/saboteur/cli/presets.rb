@@ -22,9 +22,11 @@ module Saboteur
           ref = @argv.first.nil? || @argv.first.start_with?("-") ? "main" : @argv.shift
           flags += ["--since", ref]
         end
-        # Named tests are an explicit scope: the injected whole-suite --all
-        # would reject the run, so it stays out (#245).
-        flags.delete("--all") if @argv.any? { |arg| arg == "--test" || arg.start_with?("--test=") }
+        # An explicit scope beats the injected whole-suite --all, which
+        # would otherwise reject the combination: named tests, and the
+        # deprecated inference alias (#245).
+        explicit_scope = @argv.any? { |arg| arg == "--test" || arg.start_with?("--test=") || arg == "--guess-tests" }
+        flags.delete("--all") if explicit_scope
         @err.puts("saboteur: preset '#{name}': #{flags.join(' ')} (explicit flags override)")
         @argv = flags + @argv
         run_command

@@ -70,10 +70,11 @@ module Saboteur
         summary: "Preset: the fast pull-request loop over the lines changed since a ref",
         description: "Expands to saboteur run --baseline-passes 1 --max-duration 10m --max-duration-ok " \
                      "--since REF, with REF the first operand (default main): one baseline check, a " \
-                     "ten-minute wall-clock budget, and mutants limited to the changed methods. Spending " \
-                     "the budget never fails the build; the verdict still can - survivors exit 1, and a " \
-                     "budget stop before any mutant ran exits 3. Every run option still works; an " \
-                     "explicit flag after the preset wins (#244).",
+                     "ten-minute wall-clock budget, and mutants limited to the changed methods. The " \
+                     "preset opts out of the budget-specific exit 4; the normal and incomplete " \
+                     "verdicts still fail the run (survivors exit 1, a budget stop before any mutant " \
+                     "ran exits 3). Every run option still works; an explicit flag after the preset " \
+                     "wins (#244).",
         takes_options: true,
         exit_codes: EXIT_CODE_MEANINGS,
         examples: [["Changed lines since main", "saboteur pr"],
@@ -86,8 +87,9 @@ module Saboteur
         description: "Expands to saboteur run --all --operators all --baseline-passes 2 " \
                      "--json .saboteur/audit-report.json --html .saboteur/audit-report.html: every " \
                      "subject against the whole suite, all operators, both baseline checks, writing " \
-                     "the Stryker JSON and HTML reports. An explicit flag after the preset wins " \
-                     "(#244); an explicit --test replaces the injected --all.",
+                     "the Stryker JSON and HTML reports. Configured selection limits (since, " \
+                     "subjects, exclude_operators, max_duration) still apply; an explicit flag after " \
+                     "the preset wins (#244), and an explicit --test replaces the injected --all.",
         takes_options: true,
         exit_codes: EXIT_CODE_MEANINGS,
         examples: [["Full project audit with JSON and HTML reports", "saboteur audit"]]

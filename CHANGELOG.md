@@ -45,8 +45,10 @@ All notable changes are documented here. The format follows
   clock starts when the run starts (boot, baselines and the coverage map
   all spend the budget) and is checked before dispatching every subject,
   between mutants inside a subject, and between baseline passes, in
-  serial and `--jobs` runs alike; a parallel budget halt kills in-flight
-  subjects instead of mislabeling them "never ran". `--max-duration-ok`
+  serial and `--jobs` runs alike; a parallel budget halt stops handing
+  out new work and lets in-flight subjects finish and report, so their
+  completed outcomes are kept instead of abandoned as nil holes
+  mislabeled "never ran". `--max-duration-ok`
   no longer exits 0 when the budget stopped the run before any mutant
   was tested - there is no score to judge, so the run is incomplete
   (exit 3), in agent mode too. Agent output records `failFast` only for

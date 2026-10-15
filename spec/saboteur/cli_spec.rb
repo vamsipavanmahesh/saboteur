@@ -202,6 +202,13 @@ RSpec.describe Saboteur::CLI do
     expect(command.options).to include(operators: ["all"], baseline_passes: 2)
   end
 
+  it "lets an explicit --guess-tests replace the audit preset's injected --all too (#245)" do
+    command = cli("audit", "--guess-tests")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options[:all]).to be_falsey
+  end
+
   it "lets an explicit --test replace the audit preset's injected --all (#245)" do
     command = cli("audit", "--test", "spec/models/person_spec.rb")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")

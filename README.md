@@ -278,7 +278,7 @@ Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`, `--baseline-
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
 `--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
 
-Two presets bundle the common loops (#244): `saboteur pr [REF]` is the pull-request loop - `--since REF` (default `main`), one baseline check and a ten-minute `--max-duration` that does not fail the build; `saboteur audit` is the whole project: `--all`, all operators, both baseline checks and both reports (an explicit `--test` replaces the injected `--all`). The run prints the expansion up front, and an explicit flag after the preset wins.
+Two presets bundle the common loops (#244): `saboteur pr [REF]` is the pull-request loop - `--since REF` (default `main`), one baseline check and a ten-minute `--max-duration` that opts out of the budget-specific exit 4 (normal and incomplete verdicts still fail the run); `saboteur audit` is the whole project: `--all`, all operators, both baseline checks and both reports (an explicit `--test` replaces the injected `--all`; configured selection limits such as `since`, subjects, exclusions and a configured budget still apply). The run prints the expansion up front, and an explicit flag after the preset wins.
 
 A stray `fit`, `fdescribe` or `:focus` example, with `filter_run_when_matching :focus`, makes RSpec skip
 every other example. The baseline stays green and the score would cover only the focused ones, so
@@ -496,7 +496,7 @@ reporter has loaded, agent mode reports the same failure as agent
 JSON, using a standalone payload if the agent reporter has not
 loaded. Before the crash reporter loads, only the one-line
 diagnostic and exit 3 are available.
-`--max-duration 10m` budgets the whole run, baselines included: past the budget the run stops before the next subject, reports which selected subjects never ran, marks the JSON and agent output partial (`earlyStop.reason: "max_duration"`), and exits 4; `--max-duration-ok` (or `c.max_duration_ok = true`) leaves the exit to the plain verdict instead, which can still fail the run - 1 on survivors, 3 when the budget stopped the run before any mutant was tested. In agent mode the exit code stays verdict-driven and the budget shows up in `incomplete[]` and `earlyStop` (#245).
+`--max-duration 10m` budgets the whole run, baselines included: the budget is checked before every subject and between mutants inside one, so past the budget the run finishes only the mutant in flight (bounded by its timeout) and the current subject's verdict check (bounded by `baseline_timeout`), then stops before the next subject, reports which selected subjects never ran and which mutants were omitted, marks the JSON and agent output partial (`earlyStop.reason: "max_duration"`), and exits 4; `--max-duration-ok` (or `c.max_duration_ok = true`) leaves the exit to the plain verdict instead, which can still fail the run - 1 on survivors, 3 when the budget stopped the run before any mutant was tested. In agent mode the exit code stays verdict-driven and the budget shows up in `incomplete[]` and `earlyStop` (#245).
 
 ### Rejected kills
 
