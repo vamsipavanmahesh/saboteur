@@ -39,6 +39,31 @@ RSpec.describe Saboteur::MutationSource::HazardGuard do
     expect(suppressed).not_to be_empty
   end
 
+  # FileUtils.send(:rm_rf, x) is FileUtils.rm_rf with indirection (#240);
+  # a dynamic selector stays documented as out of scope.
+  it "suppresses mutants when send, public_send or __send__ names a hazard with a literal selector" do
+    ['    FileUtils.send(:rm_rf, File.join(Dir.pwd, "build"))',
+     '    FileUtils.public_send("rm_rf", File.join(Dir.pwd, "build"))',
+     '    __send__(:rm_rf, File.join(Dir.pwd, "build"))'].each do |call|
+      _kept, suppressed, = partition(call)
+      expect(suppressed).not_to be_empty, "expected mutants to be suppressed for #{call}"
+    end
+  end
+
+  it "keeps mutants when send names a benign method or the selector is dynamic" do
+    _kept, suppressed, = partition("    helper.send(:size)")
+    expect(suppressed).to be_empty
+    _kept, suppressed, = partition("    FileUtils.send(method, target)")
+    expect(suppressed).to be_empty
+  end
+
+  # system("rm -rf #{dir}") with the interpolation removed still runs a
+  # destructive call with altered inputs (#239 interaction).
+  it "suppresses interpolation_removal mutants inside a destructive call" do
+    _kept, suppressed, = partition('    system("rm -rf #{dir}")') # rubocop:disable Lint/InterpolationCheck
+    expect(suppressed).to include("interpolation_removal")
+  end
+
   it "keeps mutants on benign explicit-receiver calls that share a hazard name" do
     kept, suppressed, = partition('    helper.system("make clean")')
     expect(suppressed).to be_empty

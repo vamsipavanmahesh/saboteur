@@ -88,12 +88,14 @@ hazard guard is a syntactic filter. It recognizes destructive calls written
 as direct calls: `FileUtils.rm*`/`remove_entry*` (also as bare names under
 `include FileUtils`), `File.delete`/`unlink`, `Dir.rmdir`/`delete`/`unlink`,
 `rmtree`, `system`/`exec`/`spawn` (bare or on `Kernel`/`Process`), backticks
-and `%x`, `IO.popen`, any `Open3` method, and `open` with a leading `|`. It
+and `%x`, `IO.popen`, any `Open3` method, `open` with a leading `|`, and
+`send`/`public_send`/`__send__` with a literal symbol or string selector
+naming one of these (dynamic selectors stay out of scope). It
 suppresses any mutant that would leave such a call in place while altering
 code inside it or anywhere else in the same method. A mutant that removes
 every hazardous call in the method still runs, provided its replacement
 introduces no new hazard. The match is by name on the written call: calls
-reached through aliases, variables, `send` or other indirection are not
+reached through aliases, variables or other indirection are not
 recognized, so the guard cannot promise to find every destructive call. The
 summary reports how many mutants were suppressed. Extend or replace the list
 with `c.hazard` (same tag shapes: `"FileUtils.rm_rf"`, or a bare name like
@@ -1054,7 +1056,7 @@ Cache and baseline identities include the policy. Re-propose and review old surv
 
 Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `sources` entries (`path.rb:ClassName`) are still `require`d to generate candidates, so their code runs. Only preview with sources you trust.
 
-`bundle exec saboteur run --list-operators` lists every builtin name and description. All builtin operators run by default, including [`range`](docs/operators/range.md), [`operator_assignment`](docs/operators/operator_assignment.md), and [`condition_negation`](docs/operators/condition_negation.md). `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` still selects a subset; `all` selects every name. There is no opt-in tier. `--exclude-operators range,condition_negation` or `c.exclude_operators = ["range", "condition_negation"]` removes named operators from that selection; exclusion wins if a name is in both lists. An empty selection means all, while an empty exclusion means none. CLI lists replace their corresponding config lists. These controls apply to builtin operators, not custom source plugins. Selection and exclusions invalidate cached verdict identity and are carried into agent rerun/replay commands.
+`bundle exec saboteur run --list-operators` lists every builtin name and description. All builtin operators run by default, including [`range`](docs/operators/range.md), [`operator_assignment`](docs/operators/operator_assignment.md), [`condition_negation`](docs/operators/condition_negation.md), [`method_swap`](docs/operators/method_swap.md), [`operand_replacement`](docs/operators/operand_replacement.md), and [`interpolation_removal`](docs/operators/interpolation_removal.md). `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` still selects a subset; `all` selects every name. There is no opt-in tier. `--exclude-operators range,condition_negation` or `c.exclude_operators = ["range", "condition_negation"]` removes named operators from that selection; exclusion wins if a name is in both lists. An empty selection means all, while an empty exclusion means none. CLI lists replace their corresponding config lists. These controls apply to builtin operators, not custom source plugins. Selection and exclusions invalidate cached verdict identity and are carried into agent rerun/replay commands.
 
 
 All operators run unless you select a smaller set; exclusions always remove operators from that set.

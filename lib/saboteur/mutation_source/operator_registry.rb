@@ -32,7 +32,10 @@ module Saboteur
         "argument_removal" => "Remove a call argument",
         "pair_removal" => "Remove a hash pair",
         "endpoint_replacement" => "Swap explicit no-argument first and last",
-        "chain_removal" => "Remove one call from a method chain"
+        "chain_removal" => "Remove one call from a method chain",
+        "method_swap" => "Swap a method with its semantic opposite",
+        "operand_replacement" => "Replace a binary operation with one operand",
+        "interpolation_removal" => "Remove part of an interpolated string"
       }.freeze
       POLICY_VERSION = 2
       TIERS = { "all" => DESCRIPTIONS.keys.freeze }.freeze

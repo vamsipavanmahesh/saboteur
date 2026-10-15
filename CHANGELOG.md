@@ -169,6 +169,17 @@ All notable changes are documented here. The format follows
   instead of rewriting it.
 
 ### Added
+- Three new default-on operators: `method_swap` swaps a method with its
+  semantic opposite (`min`/`max`, `any?`/`all?`, `map`/`each`; a receiver
+  is required, so bare `max(a, b)` is untouched) (#237),
+  `operand_replacement` replaces an arithmetic or comparison operation
+  with each operand in turn (`a + b` yields `a` and `b`; boolean
+  connectors stay with `boolean_logic`) (#238), and
+  `interpolation_removal` removes each `#{expr}` and each literal segment
+  of an interpolated string (#239). The hazard guard now also recognizes
+  `send`, `public_send` and `__send__` with a literal symbol or string
+  selector naming a destructive method, closing the dynamic-dispatch
+  bypass; dynamic selectors stay out of scope as documented (#240).
 - `--since` warns when a changed Ruby file in scope has no subjects
   covering the changed lines, so nothing is mutated from it (#232). A
   silent zero-subject scope used to pass as a clean run. Comment-only or

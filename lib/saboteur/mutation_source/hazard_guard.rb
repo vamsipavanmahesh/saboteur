@@ -31,6 +31,7 @@ module Saboteur
       ].freeze
 
       OPEN3 = /\A(::)?Open3\z/
+      SEND_NAMES = %w[send public_send __send__].freeze
       ALWAYS_NAMES = %w[rmtree].freeze
       KERNEL_RECEIVERS = %w[Kernel Process].freeze
 
@@ -82,6 +83,7 @@ module Saboteur
         receiver = node.receiver&.slice&.sub(/\A::/, "")
         return true if OPEN3.match?(receiver.to_s)
         return true if ALWAYS_NAMES.include?(name)
+        return true if SEND_NAMES.include?(name) && literal_selector_hazard?(node)
 
         tag = receiver ? "#{receiver}.#{name}" : name
         return true if @tags.include?(tag)
@@ -90,6 +92,19 @@ module Saboteur
         return true if KERNEL_RECEIVERS.include?(receiver) && @tags.include?(name)
 
         piped_open?(node, name, receiver)
+      end
+
+      # FileUtils.send(:rm_rf, x) is FileUtils.rm_rf with indirection:
+      # a literal symbol or string selector names the real call (#240).
+      # A dynamic selector stays out of scope, as documented.
+      def literal_selector_hazard?(node)
+        first = node.arguments&.arguments&.first
+        selector = first.unescaped if first.is_a?(Prism::SymbolNode) || first.is_a?(Prism::StringNode)
+        return false unless selector
+
+        receiver = node.receiver&.slice&.sub(/\A::/, "")
+        tag = receiver ? "#{receiver}.#{selector}" : selector
+        @tags.include?(tag) || (KERNEL_RECEIVERS.include?(receiver) && @tags.include?(selector))
       end
 
       # Kernel#open with a "| command" argument spawns a process.
