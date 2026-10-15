@@ -17,6 +17,10 @@ function parse(body) {
   demand(JSON.stringify(value, null, 2) === match[1], 'noncanonical JSON');
   demand(value.schema === 1 && Object.hasOwn(policy.reviewers, value.lens), 'schema/lens');
   demand(SHA.test(value.head) && typeof value.head === 'string', 'full lowercase head SHA required');
+  // CHANGES_REQUESTED is the GitHub review-state spelling; it is the same
+  // verdict, so a superseded marker in that spelling cannot poison a PR
+  // whose newer markers are valid (#278). Normalize before the demands.
+  if (value.verdict === 'CHANGES_REQUESTED') value.verdict = 'CHANGES_REQUIRED';
   demand(['APPROVE', 'CHANGES_REQUIRED'].includes(value.verdict), 'verdict');
   demand(typeof value.scope === 'string' && value.scope.trim().length > 0, 'scope required');
   for (const field of keys.slice(5)) {
