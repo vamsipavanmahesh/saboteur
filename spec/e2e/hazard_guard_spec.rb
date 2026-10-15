@@ -50,6 +50,23 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
     expect(run.err).not_to include("killing test")
   end
 
+  # The treewipe fixture's mid-subject literal mutant deletes lib/ (tracked)
+  # but spares the run's own log: only a per-mutant canary probe names the
+  # culprit - the per-subject check would blame the subject's last mutant
+  # (#235).
+  it "names the culprit mutant, not the last mutant of the subject" do
+    run = saboteur(copy_fixture("treewipe"), "--allow-hazardous")
+    culprit = fixture_mutation_digest(
+      File.join(__dir__, "..", "fixtures", "projects", "treewipe", "lib", "sweeper.rb"),
+      "Sweeper#sweep", '"generated"'
+    )
+    expect(run.status).to eq(3)
+    expect(run.err).to include("canary")
+    expect(run.err).to include("just ran, #{culprit}")
+    expect(run.err).not_to include("most recent mutant")
+    expect(run.err).not_to include("killing test")
+  end
+
   it "aborts the same way in parallel, with kills still landing alongside" do
     run = saboteur(copy_fixture("logloss"), "--allow-hazardous", "--jobs", "2")
     expect(run.status).to eq(3)
@@ -57,5 +74,19 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
     expect(run.err).to match(/[0-9a-f]{16}/)
     expect(run.err).to match(/^\.+$/)
     expect(run.err).not_to include("killing test")
+  end
+
+  # The digest a real run prints for one mutation of a fixture subject:
+  # content-based, so the source fixture and its copied run agree.
+  def fixture_mutation_digest(path, subject_id, original)
+    path = File.expand_path(path)
+    subject = Saboteur::SubjectFinder.new.call(path).subjects.find { |s| s.id == subject_id }
+    mutation = Saboteur::MutationSource::Builtin.new(arid: [], operators: [], exclude_operators: [])
+                                                .mutations_for(subject).find do |m|
+      m.edits.any? do |edit|
+        subject.file_source.byteslice(edit.start_byte, edit.end_byte - edit.start_byte) == original
+      end
+    end
+    mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
   end
 end

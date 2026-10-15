@@ -51,6 +51,56 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     end
   end
 
+  it "halt! stops new assignments but lets in-flight items finish and report" do
+    Dir.mktmpdir do |dir|
+      log = File.join(dir, "ran")
+      arrivals = []
+      pool = nil
+      on_result = lambda do |item, _row|
+        arrivals << item
+        pool.halt! if item.zero?
+      end
+      pool = described_class.new(jobs: 2, on_result: on_result)
+      pool.map([0.01, 0.3, 0.01, 0.01]) do |seconds|
+        sleep seconds
+        File.open(log, "a") { |f| f.puts(seconds) }
+        {}
+      end
+      expect(arrivals).to contain_exactly(0, 1)
+      expect(File.read(log).split.size).to eq(2)
+    end
+  end
+
+  it "halt! stops waiting for a wedged worker after the drain deadline" do
+    pool = nil
+    on_result = ->(_item, _row) { pool.halt! }
+    pool = described_class.new(jobs: 2, on_result: on_result, drain_timeout: 0.2)
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    results = pool.map([0.01, 3600]) do |seconds|
+      sleep seconds
+      {}
+    end
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    expect(results[0]).to eq({})
+    expect(results[1]).to be_nil
+    expect(elapsed).to be < 30
+  end
+
+  it "cleans up several wedged workers in one round, not one grace each" do
+    pool = nil
+    on_result = ->(_item, _row) { pool.halt! }
+    pool = described_class.new(jobs: 3, on_result: on_result, drain_timeout: 0.2)
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    results = pool.map([0.01, 3600, 3600]) do |seconds|
+      sleep seconds
+      {}
+    end
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    expect(results[0]).to eq({})
+    expect(results[1..]).to eq([nil, nil])
+    expect(elapsed).to be < 8
+  end
+
   it "numbers its workers the way Rails parallel test databases expect" do
     numbers = described_class.new(jobs: 2).map([0.1, 0.1]) do |seconds|
       sleep seconds

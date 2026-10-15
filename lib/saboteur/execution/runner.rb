@@ -39,6 +39,19 @@ module Saboteur
         end
       end
 
+      # The child log (or its whole directory) vanished mid-job (#234).
+      # Carries the digest of the mutant whose run just ended when the job
+      # had one, so a parallel parent can prefer this report over a
+      # bystander's bare "unknown mutant" report (#285).
+      class LogVanished < Error
+        attr_reader :culprit_digest
+
+        def initialize(message, culprit_digest: nil)
+          @culprit_digest = culprit_digest
+          super(message)
+        end
+      end
+
       LOG_TAIL_BYTES = 2000
 
       # log_dir: where children write their output; a child's log is kept
@@ -73,6 +86,7 @@ module Saboteur
         log_file = open_log(job)
         result = @supervisor.run(timeout: timeout) { |writer| child(writer, job, log_file) }
         outcome = outcome_for(result, job)
+        check_tree_still_there(job)
         check_log_still_there(job)
         File.delete(job.log_path) if outcome.status != :error
         outcome
@@ -177,7 +191,14 @@ module Saboteur
       # Names the just-run mutant when there is one (a verdict-check rerun
       # has none): the most likely culprit, worth naming for the report.
       def culprit(job)
-        return "an unknown mutant" unless job.mutation && job.subject.respond_to?(:start_byte)
+        culprit_digest(job) || "an unknown mutant"
+      end
+
+      # The 16-hex digest of the just-run mutant, or nil when the job ran
+      # none (a neutral or verdict-check rerun): a parallel parent prefers
+      # the vanished-log report that carries one (#285).
+      def culprit_digest(job)
+        return unless job.mutation && job.subject.respond_to?(:start_byte)
 
         job.mutation.digest(subject_start: job.subject.start_byte,
                             original_source: job.subject.file_source)
@@ -197,17 +218,23 @@ module Saboteur
       # worthless, so fail as a tool error instead of trusting the run.
       # The mutant that just ran is the likely - not proven - cause: a
       # leftover process from an earlier mutant could have done it.
+      # The per-mutant probe (#235): names the mutant whose run just wiped
+      # tracked files, instead of blaming the subject's last mutant when the
+      # loss surfaces at subject end. Runs before the log check, so the
+      # hazard report still wins when a mutant took both (#283).
+      def check_tree_still_there(job)
+        # culprit_digest, not the display fallback: the digest doubles as
+        # trip metadata, and "an unknown mutant" must not rank as one (#285).
+        @canary&.probe!(subject: job.subject, digest: culprit_digest(job))
+      end
+
       def check_log_still_there(job)
         return if File.exist?(job.log_path)
 
-        # The hazard report wins (#283): when the mutant also wiped
-        # tracked files, the canary's message says more than the absence
-        # of the log, so it is consulted before the log error is raised.
-        digest = culprit(job)
-        @canary&.check!(subject: job.subject, digest: digest)
         cause = "a mutant's tests may have hit saboteur's files"
-        raise Error, "the child log #{job.log_path} vanished mid-run - the mutant that just ran, " \
-                     "#{digest}, is the likely cause: #{cause}"
+        raise LogVanished.new("the child log #{job.log_path} vanished mid-run - the mutant that just ran, " \
+                              "#{culprit(job)}, is the likely cause: #{cause}",
+                              culprit_digest: culprit_digest(job))
       end
 
       # --- parent ---------------------------------------------------------

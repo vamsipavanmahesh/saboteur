@@ -25,6 +25,24 @@ All notable changes are documented here. The format follows
   equivalent across the intended inputs, simplify or ignore (#264).
 
 ### Fixed
+- The canary no longer blames a method's last mutant for deleted files:
+  a cheap per-mutant probe (snapshot stats only, about 1.3 ms for this
+  repo's 692 watched files against a full inventory's 5 ms) runs after
+  every mutant, so the abort names the mutant whose run just ended when
+  the loss was detected as the likely cause - with the per-method check
+  as the backstop for losses outside a mutant's window (#235).
+- Parallel runs aborted by a wiped log dir now name the culprit: a
+  worker that only noticed the damage could report "an unknown mutant"
+  before the worker whose mutant did it, and the first report won the
+  abort. Tool-error reports now carry whether they name a mutant, the
+  pool stops handing out new work but lets in-flight workers finish
+  and report, and the abort ranks the reports by attribution quality:
+  a report that names its mutant first, then a canary trip, then the
+  earliest bare report. A canary trip from the end-of-subject check
+  folds into the same choice instead of overriding collected reports,
+  and the in-flight drain is bounded (a 30-second default drain
+  window, followed by worker cleanup), so a wedged worker cannot
+  stall the abort (#235).
 - The mutant sandbox no longer grants the cache dir: a mutant child
   cannot delete the baseline, the reports or other children's logs,
   and its own log is opened before the fork and inherited as a

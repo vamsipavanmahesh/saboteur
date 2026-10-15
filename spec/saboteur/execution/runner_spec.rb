@@ -435,6 +435,32 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     FileUtils.rm_rf(root) if root
   end
 
+  it "trips the canary right after the mutant whose run wiped tracked files" do
+    root = Dir.mktmpdir("saboteur-canary-root-")
+    File.write(File.join(root, "tracked.rb"), "x")
+    canary = Saboteur::Engine::Canary.new(root, cache_dir: ".saboteur")
+    integration = passing_integration { File.delete(File.join(root, "tracked.rb")) }
+    expect do
+      build_runner(sandbox: nil, integration: integration, canary: canary)
+        .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::CanaryTripped, /watched file\(s\) vanished/)
+  ensure
+    FileUtils.rm_rf(root) if root
+  end
+
+  it "carries no digest metadata on the canary trip when the job ran no mutant" do
+    root = Dir.mktmpdir("saboteur-canary-root-")
+    File.write(File.join(root, "tracked.rb"), "x")
+    canary = Saboteur::Engine::Canary.new(root, cache_dir: ".saboteur")
+    integration = passing_integration { File.delete(File.join(root, "tracked.rb")) }
+    expect do
+      build_runner(sandbox: nil, integration: integration, canary: canary)
+        .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::CanaryTripped) { |e| expect(e.culprit_digest).to be_nil }
+  ensure
+    FileUtils.rm_rf(root) if root
+  end
+
   it "still reports the vanished log when the canary's watched files survive" do
     root = Dir.mktmpdir("saboteur-canary-root-")
     File.write(File.join(root, "tracked.rb"), "x")
@@ -446,6 +472,32 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     end.to raise_error(Saboteur::Error, /vanished mid-run - the mutant that just ran/)
   ensure
     FileUtils.rm_rf(root) if root
+  end
+
+  it "carries the just-run mutant's digest on the vanished-log error" do
+    integration = passing_integration { FileUtils.rm_rf(tmpdir) }
+    subject = Struct.new(:id, :start_byte, :file_source).new("Stub#run", 0, "def run; 1; end")
+    mutation = instance_double(Saboteur::MutationSource::Mutation, operator: "test")
+    allow(mutation).to receive(:digest)
+      .with(subject_start: 0, original_source: "def run; 1; end").and_return("0123456789abcdef")
+    expect do
+      build_runner(sandbox: nil, integration: integration)
+        .run(subject: subject, text: "pass", test_ids: %w[t1], timeout: 5, mutation: mutation)
+    end.to raise_error(Saboteur::Execution::Runner::LogVanished) { |e|
+      expect(e.culprit_digest).to eq("0123456789abcdef")
+      expect(e.message).to include("vanished mid-run - the mutant that just ran, 0123456789abcdef, is the likely cause")
+    }
+  end
+
+  it "carries no digest on the vanished-log error when the job ran no mutant" do
+    integration = passing_integration { FileUtils.rm_rf(tmpdir) }
+    expect do
+      build_runner(sandbox: nil, integration: integration).run(subject: subject_stub, text: "pass",
+                                                               test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::Execution::Runner::LogVanished) { |e|
+      expect(e.culprit_digest).to be_nil
+      expect(e.message).to include("an unknown mutant")
+    }
   end
 
   it "reports an error rather than run when the sandbox cannot be applied" do
