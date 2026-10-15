@@ -312,7 +312,7 @@ module Saboteur
       reevaluator = Execution::Reevaluator.new(config["reeval"], whole_file: config["whole_file"])
       runner = Execution::Runner.new(integration: integration, reevaluator: reevaluator, hooks: hooks,
                                      supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"],
-                                     sandbox: sandbox_hook)
+                                     sandbox: sandbox_hook, canary: canary)
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
                     cache: cache)
     end
@@ -370,7 +370,6 @@ module Saboteur
     end
 
     def canary_check
-      canary = Canary.new(@root, cache_dir: config["cache_dir"])
       lambda do |subject, results|
         last = results.reject(&:reused?).last || results.last
         digest = last&.mutation&.digest(subject_start: subject.start_byte,
@@ -378,6 +377,9 @@ module Saboteur
         canary.check!(subject: subject, digest: digest)
       end
     end
+
+    # Shared with the runner so the hazard report wins over a log loss (#283).
+    def canary = (@canary ||= Canary.new(@root, cache_dir: config["cache_dir"]))
 
     def candidate_lists(subjects, scope, map)
       return [@replay_candidate] if @replay

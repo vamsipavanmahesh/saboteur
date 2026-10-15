@@ -114,7 +114,11 @@ truncate files in the project tree, except `tmp/` and the
 system temp dir, plus anything in `c.sandbox_writable`. The cache dir
 is denied too - a mutant cannot delete the baseline, the reports or
 other children's logs; its own log is opened before the fork and
-arrives as an inherited descriptor. Every other path
+arrives as an inherited descriptor. Grants are additive, though: a
+cache dir placed inside `tmp/`, the system temp dir or a
+`c.sandbox_writable` entry stays writable, and the tool cannot deny
+what another grant allows - keep the cache outside every grant for
+the isolation to bite. Every other path
 is denied for writing, `/dev/shm` and `/dev/tty` included; `/dev/null`
 stays writable. Inherited
 descriptors already open for writing outside the granted dirs are closed

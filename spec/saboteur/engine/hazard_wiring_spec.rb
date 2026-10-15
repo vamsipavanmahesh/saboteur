@@ -100,7 +100,7 @@ RSpec.describe Saboteur::Engine, "hazard guard wiring (issue #102)" do
   it "snapshots the tree excluding the configured cache directory" do
     canary = instance_double(Saboteur::Engine::Canary, check!: nil)
     allow(Saboteur::Engine::Canary).to receive(:new).and_return(canary)
-    engine.send(:canary_check)
+    engine.send(:canary_check).call(Struct.new(:id).new("S#m"), [])
     expect(Saboteur::Engine::Canary).to have_received(:new).with(anything, cache_dir: ".saboteur")
   end
 

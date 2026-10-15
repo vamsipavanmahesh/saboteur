@@ -341,14 +341,14 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     end.new
   end
 
-  def build_runner(sandbox:, integration: passing_integration)
+  def build_runner(sandbox:, integration: passing_integration, log_dir: tmpdir, canary: nil)
     reevaluator = Class.new do
       def call(_subject, _text, prefix: nil); end
 
       def replaced_definition(_subject) = nil
     end.new
     Saboteur::Execution::Runner.new(integration: integration, reevaluator: reevaluator,
-                                    log_dir: tmpdir, sandbox: sandbox)
+                                    log_dir: log_dir, sandbox: sandbox, canary: canary)
   end
 
   it "runs the sandbox hook in the child before the tests" do
@@ -361,7 +361,7 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     expect(File.read(order).split).to eq(%w[sandbox tests])
   end
 
-  it "hands the child's report-pipe and log fds to the sandbox hook" do
+  it "hands the child's report-pipe, log and stdio fds to the sandbox hook" do
     seen = File.join(tmpdir, "keep_fds")
     sandbox = ->(keep_fds) { File.write(seen, keep_fds.inspect) }
     outcome = build_runner(sandbox: sandbox).run(subject: subject_stub, text: "pass", test_ids: %w[t1],
@@ -369,15 +369,41 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     expect(outcome.status).to eq(:survived)
     fds = eval(File.read(seen)) # rubocop:disable Security/Eval
     expect(fds).to be_an(Array)
-    expect(fds.size).to eq(2)
-    expect(fds).to all(be_an(Integer).and(be > 2))
+    expect(fds.size).to eq(4)
+    # 1 and 2 were reopened onto the log: keeping only the log's own fd
+    # would let the sweep close the child's actual stdout and stderr (#283).
+    expect(fds).to include(1, 2)
+  end
+
+  it "keeps child stdio alive on a log outside the grants" do
+    skip "Landlock unavailable" unless Saboteur::Execution::Sandbox.available?
+    project = File.expand_path("../../../tmp/saboteur-runner-stdio", __dir__)
+    FileUtils.mkdir_p(File.join(project, "tmp"))
+    cache = Dir.mktmpdir("saboteur-runner-cache-")
+    integration = Class.new do
+      define_method(:run) do |_ids|
+        puts "child-alive"
+        raise "boom from tests"
+      end
+    end.new
+    sandbox = lambda do |keep_fds|
+      Saboteur::Execution::Sandbox.restrict!(writable: [File.join(project, "tmp"), tmpdir], keep_fds: keep_fds)
+    end
+    outcome = build_runner(sandbox: sandbox, integration: integration, log_dir: cache)
+              .run(subject: subject_stub, text: "x", test_ids: %w[t1], timeout: 5)
+    expect(outcome.status).to eq(:error)
+    log = Dir.glob(File.join(cache, "child-*.log")).first
+    expect(File.read(log)).to include("child-alive")
+  ensure
+    FileUtils.rm_rf(project) if project
+    FileUtils.rm_rf(cache) if cache
   end
 
   it "raises a tool error when the log directory is gone before the run" do
     FileUtils.rm_rf(tmpdir)
     expect do
       build_runner(sandbox: nil).run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
-    end.to raise_error(Saboteur::Error, /log dir is gone/)
+    end.to raise_error(Saboteur::Error, /cannot open the child log .*ENOENT/)
   end
 
   it "raises a tool error when the child's log vanishes during the run" do
@@ -385,7 +411,37 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     expect do
       build_runner(sandbox: nil, integration: integration).run(subject: subject_stub, text: "pass",
                                                                test_ids: %w[t1], timeout: 5)
-    end.to raise_error(Saboteur::Error, /log .* vanished/i)
+    end.to raise_error(Saboteur::Error, /vanished mid-run - the mutant that just ran/)
+  end
+
+  it "lets the canary's report win when the mutant also wiped tracked files" do
+    root = Dir.mktmpdir("saboteur-canary-root-")
+    FileUtils.mkdir_p(File.join(root, "lib"))
+    File.write(File.join(root, "lib", "tracked.rb"), "x")
+    canary = Saboteur::Engine::Canary.new(root, cache_dir: ".saboteur")
+    integration = passing_integration do
+      FileUtils.rm_rf(tmpdir)
+      File.delete(File.join(root, "lib", "tracked.rb"))
+    end
+    expect do
+      build_runner(sandbox: nil, integration: integration, canary: canary)
+        .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::CanaryTripped, /watched file\(s\) vanished/)
+  ensure
+    FileUtils.rm_rf(root) if root
+  end
+
+  it "still reports the vanished log when the canary's watched files survive" do
+    root = Dir.mktmpdir("saboteur-canary-root-")
+    File.write(File.join(root, "tracked.rb"), "x")
+    canary = Saboteur::Engine::Canary.new(root, cache_dir: ".saboteur")
+    integration = passing_integration { FileUtils.rm_rf(tmpdir) }
+    expect do
+      build_runner(sandbox: nil, integration: integration, canary: canary)
+        .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::Error, /vanished mid-run - the mutant that just ran/)
+  ensure
+    FileUtils.rm_rf(root) if root
   end
 
   it "reports an error rather than run when the sandbox cannot be applied" do
@@ -400,23 +456,27 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     project = File.expand_path("../../../tmp/saboteur-runner-project", __dir__)
     FileUtils.mkdir_p(File.join(project, "tmp"))
     marker = File.join(tmpdir, "outcome")
-    cache_marker = File.join(tmpdir, "cache_outcome")
+    cache = File.join(project, ".saboteur")
+    FileUtils.mkdir_p(File.join(cache, "logs"))
+    File.write(File.join(cache, "report.json"), "{}")
+    File.write(File.join(cache, "coverage-abc.json"), "{}")
+    File.write(File.join(cache, "baseline-1.log"), "baseline")
+    File.write(File.join(cache, "logs", "child-1-1.log"), "other child")
     integration = passing_integration do
-      result = begin
-        File.write(File.join(project, "evil.rb"), "x")
+      attempts = [
+        -> { File.write(File.join(project, "evil.rb"), "x") },
+        -> { File.delete(File.join(cache, "report.json")) },
+        -> { File.write(File.join(cache, "coverage-abc.json"), "X") },
+        # rm_rf swallows the denial, so its probe is the files surviving.
+        -> { FileUtils.rm_rf(File.join(cache, "logs")) }
+      ]
+      results = attempts.map do |attempt|
+        attempt.call
         :writable
       rescue SystemCallError
         :denied
       end
-      File.write(marker, result.to_s)
-      cache_result = begin
-        FileUtils.mkdir_p(File.join(project, ".saboteur"))
-        File.write(File.join(project, ".saboteur", "report.json"), "{}")
-        :writable
-      rescue SystemCallError
-        :denied
-      end
-      File.write(cache_marker, cache_result.to_s)
+      File.write(marker, results.join(","))
     end
     sandbox = lambda do |keep_fds|
       Saboteur::Execution::Sandbox.restrict!(writable: [File.join(project, "tmp"), tmpdir], keep_fds: keep_fds)
@@ -424,8 +484,11 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     outcome = build_runner(sandbox: sandbox, integration: integration)
               .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
     expect(outcome.status).to eq(:survived)
-    expect(File.read(marker)).to eq("denied")
-    expect(File.read(cache_marker)).to eq("denied")
+    expect(File.read(marker)).to eq("denied,denied,denied,writable")
+    expect(File.read(File.join(cache, "report.json"))).to eq("{}")
+    expect(File.read(File.join(cache, "coverage-abc.json"))).to eq("{}")
+    expect(File.read(File.join(cache, "baseline-1.log"))).to eq("baseline")
+    expect(File.read(File.join(cache, "logs", "child-1-1.log"))).to eq("other child")
     expect(File.exist?(File.join(project, "evil.rb"))).to be(false)
   ensure
     FileUtils.rm_rf(project) if project

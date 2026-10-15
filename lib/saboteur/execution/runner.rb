@@ -49,7 +49,7 @@ module Saboteur
       # makes the project tree read-only there, #152). It raises rather than
       # run half-restricted, which the child reports as an error.
       def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1,
-                     sandbox: nil)
+                     sandbox: nil, canary: nil)
         @integration = integration
         @reevaluator = reevaluator
         @hooks = hooks
@@ -57,6 +57,7 @@ module Saboteur
         @supervisor = supervisor
         @seed = seed
         @sandbox = sandbox
+        @canary = canary
       end
 
       # text: method source to evaluate in the child (the unchanged source for
@@ -89,9 +90,12 @@ module Saboteur
         # reopened-afterwards $stdout would start from a closed stream.
         # The parent opened the log before the fork, so the inherited
         # descriptor survives on the keep list - the cache dir itself
-        # stays read-only inside the sandbox (#234).
+        # stays read-only inside the sandbox (#234). stdio was just
+        # reopened onto that log, so 1 and 2 point at a regular file
+        # outside the grants and the sweep would close them; keep them
+        # explicitly - keeping only the log's own fd is not enough (#283).
         redirect_output(log_file)
-        @sandbox&.call([writer.fileno, log_file.fileno])
+        @sandbox&.call([writer.fileno, log_file.fileno, $stdout.fileno, $stderr.fileno])
         Process.setproctitle(title(job))
         @hooks.run(:after_fork)
         # Before the evaluation: a whole-file subject runs the file's own
@@ -170,22 +174,40 @@ module Saboteur
         $stderr.sync = true
       end
 
+      # Names the just-run mutant when there is one (a verdict-check rerun
+      # has none): the most likely culprit, worth naming for the report.
+      def culprit(job)
+        return "an unknown mutant" unless job.mutation && job.subject.respond_to?(:start_byte)
+
+        job.mutation.digest(subject_start: job.subject.start_byte,
+                            original_source: job.subject.file_source)
+      end
+
       # Opened in the parent, not the sandboxed child: the cache dir is
       # not writable inside the sandbox (#234), and a log directory that
       # is already gone is a tool problem to report, not a mutant result.
       def open_log(job)
         File.open(job.log_path, "w")
       rescue SystemCallError => e
-        raise Error, "cannot open the child log #{job.log_path} (#{e.class}: #{e.message}) - the log dir is gone"
+        raise Error, "cannot open the child log #{job.log_path} (#{e.class}: #{e.message})"
       end
 
       # A mutant's tests can delete saboteur's own files when the sandbox
       # is off or degraded (#234): a vanished log makes the verdict
       # worthless, so fail as a tool error instead of trusting the run.
+      # The mutant that just ran is the likely - not proven - cause: a
+      # leftover process from an earlier mutant could have done it.
       def check_log_still_there(job)
         return if File.exist?(job.log_path)
 
-        raise Error, "the child log #{job.log_path} vanished during the run - the mutant's tests hit saboteur's files"
+        # The hazard report wins (#283): when the mutant also wiped
+        # tracked files, the canary's message says more than the absence
+        # of the log, so it is consulted before the log error is raised.
+        digest = culprit(job)
+        @canary&.check!(subject: job.subject, digest: digest)
+        cause = "a mutant's tests may have hit saboteur's files"
+        raise Error, "the child log #{job.log_path} vanished mid-run - the mutant that just ran, " \
+                     "#{digest}, is the likely cause: #{cause}"
       end
 
       # --- parent ---------------------------------------------------------

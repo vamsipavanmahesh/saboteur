@@ -60,6 +60,44 @@ RSpec.describe Saboteur::Engine::Distribution do
     Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
   end
 
+  it "propagates a worker's tool error as a run-aborting error, not per-mutant errors" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    scheduler = ->(_subject, _list) { raise Saboteur::Error, "cannot open the child log /x/child-1-1.log (Errno::ENOENT)" }
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
+    expect { distribution.run([subject], [[[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, /cannot open the child log/)
+  end
+
+  it "aborts as the tool-error row arrives, before the pool hands out the remaining work" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    calls = []
+    scheduler = lambda do |_subject, _list|
+      calls << 1
+      raise Saboteur::Error, "the child log /x/child-1-1.log vanished mid-run" if calls.size == 1
+
+      [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "x")]
+    end
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil,
+                                       after_subject: ->(_s, _r) {})
+    lists = [[[mutation, "text"]], [[mutation, "text"]], [[mutation, "text"]]]
+    expect { distribution.run([subject, subject, subject], lists) }
+      .to raise_error(Saboteur::Error, /vanished mid-run/)
+    expect(calls.size).to be < 3
+  end
+
+  it "aborts a row the callback path missed: a tool error still stops the rebuild" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    pool = instance_double(Saboteur::Execution::WorkerPool)
+    allow(Saboteur::Execution::WorkerPool).to receive(:new).and_return(pool)
+    allow(pool).to receive(:map).and_return([{ "tool_error" => "the child log /x/c-1.log vanished mid-run" }])
+    distribution = described_class.new(jobs: 2, scheduler: ->(_s, _l) { [] }, diagnostics:, cache: nil)
+    expect { distribution.run([subject], [[[mutation, "text"]]]) }
+      .to raise_error(Saboteur::Error, /vanished mid-run/)
+  end
+
   it "warns and returns error results when a worker row carries an error" do
     subject = fixture_subject
     mutation = fixture_mutation(subject)

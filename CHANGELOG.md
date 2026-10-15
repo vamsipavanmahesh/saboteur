@@ -28,10 +28,20 @@ All notable changes are documented here. The format follows
 - The mutant sandbox no longer grants the cache dir: a mutant child
   cannot delete the baseline, the reports or other children's logs,
   and its own log is opened before the fork and inherited as a
-  descriptor. A child log that cannot be opened, or that vanishes
-  mid-run with the sandbox off or degraded, is a tool error with
-  exit 3 rather than a mutant verdict such as "killing test also
-  fails with the method unchanged" (#234).
+  descriptor, with stdio kept explicitly through the sandbox sweep.
+  A child log that cannot be opened, or that vanishes mid-run with
+  the sandbox off or degraded, aborts the run with exit 3 - the
+  canary's hazard report names the culprit when tracked files
+  vanished too, otherwise the tool error does - never a mutant
+  verdict such as "killing test also fails with the method
+  unchanged"; in parallel runs the error aborts the whole run
+  instead of degrading into per-mutant errors. The grants are
+  additive, so a cache dir placed inside
+  `tmp/`, the system temp dir or a `c.sandbox_writable` entry stays
+  writable. Note the sandbox prevents the damage, not the verdict:
+  with `--allow-hazardous`, a destructive mutant whose test swallows
+  the denial (EACCES) can still read as a survivor; by default the
+  hazard guard suppresses such mutants and reports the hazard (#234).
 - An extensionless `hooks` path now boots: it resolves its `.rb` at load
   time, the way `require` does and matching what doctor accepts (#267).
 

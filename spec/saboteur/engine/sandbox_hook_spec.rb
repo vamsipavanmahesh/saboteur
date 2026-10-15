@@ -121,6 +121,7 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     expect(captured[:supervisor]).to be_a(Saboteur::Execution::Supervisor)
     expect(captured[:seed]).to eq(7)
     expect(captured[:sandbox]).to be_a(Proc)
+    expect(captured[:canary]).to be_a(Saboteur::Engine::Canary)
     expect(captured[:log_dir]).to include(".saboteur")
   end
   it "warns when a user grant contains the project root" do

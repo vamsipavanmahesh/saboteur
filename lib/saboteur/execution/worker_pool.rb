@@ -227,6 +227,11 @@ module Saboteur
 
       def run_one(item, &work)
         work.call(item)
+      rescue Error => e
+        # A tool error (a vanished cache dir, ...) aborts the run with
+        # exit 3; it is not a per-mutant outcome. Serialize it so the
+        # parent can re-raise it as itself (#283).
+        { "tool_error" => e.message }
       rescue StandardError => e
         { "error" => "#{e.class}: #{e.message}" }
       end
