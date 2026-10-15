@@ -92,7 +92,7 @@ module Saboteur
       return "" unless log
 
       log.seek([log.size - 2048, 0].max)
-      tail = Text.utf8(log.read.to_s).lines.last(20).map(&:chomp).join(" / ")
+      tail = Text.utf8(log.read(2048).to_s).lines.last(20).map(&:chomp).join(" / ")
       tail.empty? ? "" : "; child log tail: #{tail}"
     rescue SystemCallError, IOError
       ""

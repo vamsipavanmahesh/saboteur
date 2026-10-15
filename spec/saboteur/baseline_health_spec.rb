@@ -94,6 +94,14 @@ RSpec.describe Saboteur::BaselineHealth do
       expect(tail_of(content)).to eq("; child log tail: #{'B' * 2048}")
     end
 
+    it "bounds the read to 2 KB even if the file grows after the size check (#289)" do
+      log = instance_double(File, size: 10, read: "x")
+      allow(log).to receive(:seek)
+      expect(described_class.new(config, integration: integration).send(:log_tail, log))
+        .to eq("; child log tail: x")
+      expect(log).to have_received(:read).with(2048)
+    end
+
     it "keeps exactly the last 20 lines" do
       content = (1..25).map { |n| "line#{n}" }.join("\n")
       tail = tail_of(content)
