@@ -3,6 +3,7 @@
 
 require "optparse"
 require_relative "../saboteur"
+require_relative "crash_report"
 require_relative "doctor"
 require_relative "help"
 require_relative "reporter/replay"
@@ -29,6 +30,13 @@ module Saboteur
     class UsageError < ConfigError; end
 
     attr_reader :options
+
+    # Found before parsing, so any error, even a bad option that comes first, still
+    # answers an agent with JSON. Class-level: the executable's fallback reads raw arguments.
+    def self.agent_requested?(argv)
+      argv.include?("--agent") || argv.include?("--format=agent") ||
+        argv.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }
+    end
 
     def initialize(argv, out: $stdout, err: $stderr)
       @argv = argv.dup
@@ -115,12 +123,7 @@ module Saboteur
       @format == "agent"
     end
 
-    # Found before parsing, so any error, even a bad option that comes first, still
-    # answers an agent with JSON.
-    def agent_requested?
-      @argv.include?("--agent") || @argv.include?("--format=agent") ||
-        @argv.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }
-    end
+    def agent_requested? = self.class.agent_requested?(@argv)
 
     # In agent mode the failure is also on stdout, where the agent reads its answer.
     def agent_failure(message, exit_code)
@@ -382,7 +385,8 @@ module Saboteur
       opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
                                                  "strict exit codes") { |v| @format = v }
       opts.on("--agent", "Same as --format agent") { @format = "agent" }
-      opts.on("--verbose", "Text report: also print score split, timings and kill causes") { @verbose = true }
+      opts.on("--verbose", "Text report: also print score split, timings and kill causes;",
+              "a crash prints its backtrace") { @verbose = true }
       opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
         @color = v ? :always : :never
       end

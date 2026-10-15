@@ -3,6 +3,7 @@
 
 require "open3"
 require "stringio"
+require "tmpdir"
 
 RSpec.describe Saboteur::CLI do
   let(:out) { StringIO.new }
@@ -64,6 +65,65 @@ RSpec.describe Saboteur::CLI do
     allow(Saboteur::Engine).to receive(:new).and_raise(weird)
     expect(cli("run").call).to eq(3)
     expect(err.string).to include("internal error (WeirdError: 42)")
+  end
+
+  it "writes the crash backtrace to .saboteur/internal-error.log and names the path" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    Dir.mktmpdir do |root|
+      Dir.chdir(root) do
+        expect(cli("run").call).to eq(3)
+        expect(err.string).to include("full backtrace: .saboteur/internal-error.log")
+        expect(File.read(File.join(root, ".saboteur", "internal-error.log"))).to include("RuntimeError")
+      end
+    end
+  end
+
+  it "writes the crash log under the configured cache_dir" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, "custom.rb"), "Saboteur.configure { |c| c.cache_dir = '.custom-cache' }\n")
+      Dir.chdir(root) do
+        expect(cli("run", "--config", "custom.rb").call).to eq(3)
+        expect(err.string).to include("full backtrace: .custom-cache/internal-error.log")
+        expect(File.read(File.join(root, ".custom-cache", "internal-error.log"))).to include("RuntimeError")
+      end
+    end
+  end
+
+  it "falls back to the bare one-liner when cache_dir is unset" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, "custom.rb"), "Saboteur.configure { |c| c.cache_dir = nil }\n")
+      Dir.chdir(root) do
+        expect(cli("run", "--config", "custom.rb").call).to eq(3)
+        expect(err.string).to include("internal error (RuntimeError: boom)")
+        expect(err.string).not_to include("full backtrace")
+      end
+    end
+  end
+
+  it "does not build a log path when cache_dir is nil" do
+    command = cli("run")
+    allow(command).to receive(:config).and_return(instance_double(Saboteur::Config, path: nil))
+    allow(File).to receive(:join).and_call_original
+    expect(command.send(:crash_log_path)).to be_nil
+    expect(File).not_to have_received(:join)
+  end
+
+  it "prints the crash backtrace to stderr with --verbose" do
+    error = RuntimeError.new("boom")
+    error.set_backtrace(["app/models/thing.rb:10:in `explode'"])
+    allow(Saboteur::Engine).to receive(:new).and_raise(error)
+    expect(cli("run", "--verbose").call).to eq(3)
+    expect(err.string).to include("app/models/thing.rb:10:in `explode'")
+  end
+
+  it "keeps the crash backtrace off stderr without --verbose" do
+    error = RuntimeError.new("boom")
+    error.set_backtrace(["app/models/thing.rb:10:in `explode'"])
+    allow(Saboteur::Engine).to receive(:new).and_raise(error)
+    expect(cli("run").call).to eq(3)
+    expect(err.string).not_to include("app/models/thing.rb:10")
   end
 
   it "reports an unexpected failure in agent mode as an agent failure and exits 3" do

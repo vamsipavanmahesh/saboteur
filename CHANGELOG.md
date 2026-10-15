@@ -109,9 +109,18 @@ All notable changes are documented here. The format follows
   - please report it` and exits 3, instead of escaping as a bare stack
   trace with an accidental exit 1. The crash message is normalized to one
   bounded line first, and agent mode reports the same failure as agent
-  JSON. Errors raised before the CLI loads are not covered yet, and the
-  backtrace is not yet written to a log file or printed with `--verbose`;
-  #233 tracks the remainder.
+  JSON. The full backtrace is written to
+  `<cache_dir>/internal-error.log` (default `.saboteur/`), which the
+  message names, and printed to stderr with `--verbose`; an unset
+  `cache_dir` or a failed write leaves the one-liner standing alone.
+  The executable loads the crash reporter before the CLI,
+  so a failure while it is loading, being built, or running gets
+  the full report. Coverage setup and the reporter's own load happen before
+  it, so those failures get only the bare normalized one-liner plus
+  exit 3. When agent mode was requested but the agent reporter never
+  loaded, a minimal standalone failure JSON in the agent reporter's
+  schema (status `error`, verdict `tool_failure`, exit code 3)
+  answers instead (#233).
 - The install spec reads the README as UTF-8, so the suite also passes
   under `LANG=C`.
 - Tool and test reads of files that can carry non-ASCII text are decoded
