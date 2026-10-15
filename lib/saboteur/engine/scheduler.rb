@@ -27,8 +27,9 @@ module Saboteur
         tests.sort_by.with_index { |id, index| [-killers.fetch(id, 0), index] }
       end
 
-      def initialize(config:, runner:, map:, reevaluator:, diagnostics:, cache: nil)
+      def initialize(config:, runner:, map:, reevaluator:, diagnostics:, cache: nil, deadline: nil)
         @config = config
+        @deadline = deadline
         @runner = runner
         @map = map
         @reevaluator = reevaluator
@@ -100,10 +101,16 @@ module Saboteur
         end
       end
 
+      # The budget deadline is checked between mutants, so a spent
+      # --max-duration stops inside a long subject too; completed results
+      # are kept and the distribution marks what follows as unreached.
       def run_candidates(candidates, &run_one)
         coarse, fine = candidates.partition { |mutation, _| mutation.coarse }
-        results = coarse.map { |mutation, text| run_one.call(mutation, text) }
-        results + fine.map { |mutation, text| run_one.call(mutation, text) }
+        (coarse + fine).each_with_object([]) do |(mutation, text), results|
+          break results if @deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC) >= @deadline
+
+          results << run_one.call(mutation, text)
+        end
       end
 
       # A stored verdict that still holds, as a result; nil when it must run.

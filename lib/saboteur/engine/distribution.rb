@@ -49,6 +49,13 @@ module Saboteur
         # The abort reports and the pool are run state: a Distribution
         # runs once. @pool is only read from arrivals, which fire inside
         # @pool.map after the assignment.
+        # A budget already spent by boot, baselines or the coverage map
+        # launches nothing: every subject comes back unreached (#245).
+        if @halt_check&.call
+          @unreached = subjects
+          return []
+        end
+
         @abort_reports = []
         arrival = arrival_for(subjects, lists)
         @pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start, on_result: arrival,
@@ -70,15 +77,16 @@ module Saboteur
 
       # @pool is only read here from arrivals, which fire inside @pool.map
       # after the assignment. A spent --max-duration budget stops the queue
-      # the same way a canary does: in-flight subjects finish, unstarted
-      # ones come back as nil holes and count as unreached (#245).
+      # without the safety-abort drain: in-flight subjects finish and
+      # report, and only never-started ones come back as nil holes, so
+      # unreached never mislabels an interrupted subject as unrun (#245).
       def arrival_for(subjects, lists)
         lambda do |i, row|
           if row["tool_error"]
             collect_abort_report(row)
           else
             check_subject(subjects, lists, i, row)
-            @pool.halt! if @halt_check&.call
+            @pool.halt!(drain: false) if @halt_check&.call
           end
         end
       end
@@ -107,6 +115,13 @@ module Saboteur
       def run_serially(subjects, lists)
         results = []
         subjects.zip(lists).each_with_index do |(subject, list), index|
+          # Same pre-dispatch budget check as the parallel first wave: an
+          # already-spent baseline starts no further subjects (#245).
+          if @halt_check&.call
+            @unreached = subjects.drop(index)
+            break
+          end
+
           subject_results = @scheduler.call(subject, list)
           results.concat(subject_results)
           @after_subject&.call(subject, subject_results)

@@ -26,6 +26,8 @@ module Saboteur
       def exit_code(report)
         return EXIT_BUDGET if budget_exhausted?(report)
 
+        return EXIT_TOOL if untested_partial?(report)
+
         return EXIT_TOOL if mostly_errored?(report)
 
         return EXIT_TOOL if incomplete_under_threshold?(report)
@@ -38,6 +40,16 @@ module Saboteur
       # the plain verdict.
       def budget_exhausted?(report)
         report.early_stop&.reason == "max_duration" && !config["max_duration_ok"]
+      end
+
+      # A run stopped before any mutant was tested has no verdict to fall
+      # back on: --max-duration-ok must not turn it green. Exit 3, like the
+      # other incomplete shapes.
+      def untested_partial?(report)
+        return false unless report.early_stop && report.executed.empty?
+
+        @err.puts("saboteur: the run stopped before any mutant was tested, so there is no score to judge")
+        true
       end
 
       def gates = (@gates ||= Gates.new(config))
@@ -73,7 +85,12 @@ module Saboteur
         when EXIT_OK then "ok"
         when EXIT_BUDGET then "budgetExhausted"
         when EXIT_SURVIVORS then survivors_cause(report)
-        else report.majority_errored? ? "errorMajority" : "incompleteUnderThreshold"
+        else
+          if report.majority_errored?
+            "errorMajority"
+          else
+            report.early_stop && report.executed.empty? ? "incomplete" : "incompleteUnderThreshold"
+          end
         end
       end
 

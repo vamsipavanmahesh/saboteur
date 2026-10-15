@@ -6,6 +6,7 @@ require "json"
 require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
+require_relative "engine/run_budget"
 require_relative "engine/thread_warnings"
 
 module Saboteur
@@ -13,6 +14,8 @@ module Saboteur
   # coverage map, then schedule each subject's mutants. The parts live in
   # engine/; this class only wires them together.
   class Engine
+    include RunBudget
+
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
                         timeout_factor timeout_min
@@ -39,9 +42,9 @@ module Saboteur
     end
 
     def call
-      Boot.refuse_recursion!
-      refuse_fail_fast_evidence
+      preflight!
       started = monotonic
+      start_budget_clock(started)
       # Capture evidence inputs before inference narrows the test list: the
       # fingerprint must match what the baseline workflow recomputes from the
       # declared config, and the inferred specs are pinned by the hashed
@@ -70,6 +73,11 @@ module Saboteur
           safely_cleanup_workers(boot.rails)
         end
       end
+    end
+
+    def preflight!
+      Boot.refuse_recursion!
+      refuse_fail_fast_evidence
     end
 
     def warn_custom_map = @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
@@ -268,20 +276,6 @@ module Saboteur
       ->(results) { checks.any? { |check| check.call(results) } }
     end
 
-    # The whole run is budgeted, baselines included: the clock starts when the
-    # engine starts, so an oversized baseline spends the budget by itself.
-    def budget_exceeded?
-      return false unless config["max_duration"]
-
-      @run_started ||= Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      exceeded = Process.clock_gettime(Process::CLOCK_MONOTONIC) - @run_started >= config["max_duration"]
-      if exceeded && !@budget_announced
-        @budget_announced = true
-        @diagnostics.inform("--max-duration reached: stopping before the next subject; the report marks it partial")
-      end
-      exceeded
-    end
-
     def fail_fast_check(ignore_list)
       return nil unless config["fail_fast"]
 
@@ -300,7 +294,8 @@ module Saboteur
     def check_baseline(integration, full_passes)
       BaselineGuard.new(config: config, integration: integration, hooks: hooks,
                         supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
-                        full_passes: full_passes).call
+                        full_passes: full_passes,
+                        between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil).call
       @stable_suite = true
     end
 
@@ -310,7 +305,7 @@ module Saboteur
                                      supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"],
                                      sandbox: sandbox_hook, canary: canary)
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
-                    cache: cache)
+                    cache: cache, deadline: budget_deadline)
     end
 
     # The sandbox hook for each mutant child (#152); the policy and its

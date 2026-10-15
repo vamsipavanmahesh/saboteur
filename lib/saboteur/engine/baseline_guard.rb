@@ -18,13 +18,14 @@ module Saboteur
       # full_passes: every full-suite pass the run will make, including the
       # coverage build when the cache is cold, so the first timed pass can
       # price the rest (#260).
-      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, full_passes: 2)
+      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, full_passes: 2, between_passes: nil)
         @config = config
         @integration = integration
         @hooks = hooks
         @supervisor = supervisor
         @diagnostics = diagnostics
         @full_passes = full_passes
+        @between_passes = between_passes
       end
 
       def call
@@ -36,6 +37,8 @@ module Saboteur
         @diagnostics.inform(announce(passes))
         previous = nil
         passes.times do |index|
+          break if budget_spent?(index)
+
           number = index + 1
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           data = check(number)
@@ -54,6 +57,12 @@ module Saboteur
       end
 
       private
+
+      # A spent --max-duration budget skips the remaining passes: the
+      # pre-dispatch check stops the run before any subject anyway.
+      def budget_spent?(index)
+        index.positive? && @between_passes&.call
+      end
 
       def announce(passes)
         case passes

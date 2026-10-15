@@ -45,13 +45,18 @@ module Saboteur
       # before the worker whose mutant caused it, and the later report is
       # the one that names the culprit (#285). Unlike raising from
       # on_result, nothing in flight is killed. Unstarted items come back
-      # as nil holes in the result array. The drain is bounded: a wedged
-      # worker must not stall a safety abort, so drain_timeout seconds
-      # after the first halt the pool stops waiting, kills whatever is
-      # still running and leaves nil holes (#285 review).
-      def halt!
+      # as nil holes in the result array.
+      #
+      # drain: true bounds the wait for a safety abort (tool error, canary):
+      # a wedged worker must not stall it, so drain_timeout seconds after
+      # the first halt the pool stops waiting, kills whatever is still
+      # running and leaves nil holes (#285 review). drain: false is the
+      # ordinary --max-duration halt: in-flight subjects always finish and
+      # report, so a nil hole only ever means "never started"; the
+      # overshoot stays bounded by each worker's own mutant deadlines.
+      def halt!(drain: true)
         @halted = true
-        return if @drain_deadline
+        return if @drain_deadline || !drain
 
         @drain_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @drain_timeout
       end
