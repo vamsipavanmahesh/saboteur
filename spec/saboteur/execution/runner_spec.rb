@@ -361,7 +361,7 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     expect(File.read(order).split).to eq(%w[sandbox tests])
   end
 
-  it "hands the child's report-pipe fd to the sandbox hook" do
+  it "hands the child's report-pipe and log fds to the sandbox hook" do
     seen = File.join(tmpdir, "keep_fds")
     sandbox = ->(keep_fds) { File.write(seen, keep_fds.inspect) }
     outcome = build_runner(sandbox: sandbox).run(subject: subject_stub, text: "pass", test_ids: %w[t1],
@@ -369,8 +369,23 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     expect(outcome.status).to eq(:survived)
     fds = eval(File.read(seen)) # rubocop:disable Security/Eval
     expect(fds).to be_an(Array)
-    expect(fds.size).to eq(1)
-    expect(fds.first).to be_an(Integer).and(be > 2)
+    expect(fds.size).to eq(2)
+    expect(fds).to all(be_an(Integer).and(be > 2))
+  end
+
+  it "raises a tool error when the log directory is gone before the run" do
+    FileUtils.rm_rf(tmpdir)
+    expect do
+      build_runner(sandbox: nil).run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::Error, /log dir is gone/)
+  end
+
+  it "raises a tool error when the child's log vanishes during the run" do
+    integration = passing_integration { FileUtils.rm_rf(tmpdir) }
+    expect do
+      build_runner(sandbox: nil, integration: integration).run(subject: subject_stub, text: "pass",
+                                                               test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::Error, /log .* vanished/i)
   end
 
   it "reports an error rather than run when the sandbox cannot be applied" do
@@ -385,6 +400,7 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     project = File.expand_path("../../../tmp/saboteur-runner-project", __dir__)
     FileUtils.mkdir_p(File.join(project, "tmp"))
     marker = File.join(tmpdir, "outcome")
+    cache_marker = File.join(tmpdir, "cache_outcome")
     integration = passing_integration do
       result = begin
         File.write(File.join(project, "evil.rb"), "x")
@@ -393,6 +409,14 @@ RSpec.describe "Runner sandbox wiring (#152)" do
         :denied
       end
       File.write(marker, result.to_s)
+      cache_result = begin
+        FileUtils.mkdir_p(File.join(project, ".saboteur"))
+        File.write(File.join(project, ".saboteur", "report.json"), "{}")
+        :writable
+      rescue SystemCallError
+        :denied
+      end
+      File.write(cache_marker, cache_result.to_s)
     end
     sandbox = lambda do |keep_fds|
       Saboteur::Execution::Sandbox.restrict!(writable: [File.join(project, "tmp"), tmpdir], keep_fds: keep_fds)
@@ -401,6 +425,7 @@ RSpec.describe "Runner sandbox wiring (#152)" do
               .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
     expect(outcome.status).to eq(:survived)
     expect(File.read(marker)).to eq("denied")
+    expect(File.read(cache_marker)).to eq("denied")
     expect(File.exist?(File.join(project, "evil.rb"))).to be(false)
   ensure
     FileUtils.rm_rf(project) if project

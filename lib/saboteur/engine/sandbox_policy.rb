@@ -16,7 +16,10 @@ module Saboteur
       end
 
       # The third C1 layer (#152): each mutant child makes the project tree
-      # read-only except tmp/, the cache dir and the system temp dir. The
+      # read-only except tmp/ and the system temp dir - the cache dir stays
+      # read-only too, so a mutant cannot delete the baseline, the reports
+      # or other children's logs; its own log arrives as an inherited open
+      # descriptor (#234). The
       # claim needs Landlock ABI 3 (Linux 6.2+): earlier ABIs cannot restrict
       # truncate(), so the run degrades honestly - children run with the
       # guard and canary only, noted once - unless c.sandbox = "strict",
@@ -64,18 +67,18 @@ module Saboteur
       # ...): without a grant, writes there fail with EACCES in the child.
       def sandbox_writable_dirs
         user_dirs = @config["sandbox_writable"].map { |dir| File.expand_path(dir, @root) }
-        dirs = [File.join(@root, "tmp"), @config.path("cache_dir")] + user_dirs
+        dirs = [File.join(@root, "tmp")] + user_dirs
         dirs.each { |dir| FileUtils.mkdir_p(dir) }
         real = (dirs.map { |dir| File.realpath(dir) } + [File.realpath(Dir.tmpdir)]).uniq
         check_sandbox_write_set(real, user_dirs.map { |dir| File.realpath(dir) })
         real
       end
 
-      # The effective write set - every grant realpath'd, cache_dir, the
-      # project tmp and the system temp dir included - must not contain the
-      # project root: cache_dir = ".", a tmp symlink or a checkout inside the
-      # system temp dir would otherwise leave the whole tree writable without
-      # a word. c.sandbox = "strict" refuses: strict guards the effective
+      # The effective write set - every grant realpath'd, the project tmp
+      # and the system temp dir included - must not contain the project
+      # root: a tmp symlink or a checkout inside the system temp dir would
+      # otherwise leave the whole tree writable without a word.
+      # c.sandbox = "strict" refuses: strict guards the effective
       # policy, not only the kernel ABI. A user grant containing another
       # grant only makes the narrower one redundant, so that stays a warning.
       def check_sandbox_write_set(all_dirs, user_dirs)

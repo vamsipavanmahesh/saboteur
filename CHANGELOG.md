@@ -25,6 +25,13 @@ All notable changes are documented here. The format follows
   equivalent across the intended inputs, simplify or ignore (#264).
 
 ### Fixed
+- The mutant sandbox no longer grants the cache dir: a mutant child
+  cannot delete the baseline, the reports or other children's logs,
+  and its own log is opened before the fork and inherited as a
+  descriptor. A child log that cannot be opened, or that vanishes
+  mid-run with the sandbox off or degraded, is a tool error with
+  exit 3 rather than a mutant verdict such as "killing test also
+  fails with the method unchanged" (#234).
 - An extensionless `hooks` path now boots: it resolves its `.rb` at load
   time, the way `require` does and matching what doctor accepts (#267).
 
