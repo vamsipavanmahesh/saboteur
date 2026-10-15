@@ -395,7 +395,7 @@ Saboteur.ignore do |i|
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
 
   i.mutation "981ed4f132e27c49",
-             subject: "Saboteur::CrashReport.write_log",
+             subject: "Saboteur::CrashReport#write_log",
              reason: "equivalent: write_log returns via an explicit return inside the block or nil after it; " \
                      "the block's write/rescue side effects are the whole behavior and the enumerator's return value is never used"
 

@@ -1153,7 +1153,9 @@ RSpec.describe Saboteur::CLI, "details" do
                                                                           call: report_of(result_for(:killed))))
       status = Dir.chdir(dir) { cli("run").call }
       expect(status).to eq(0)
-      history = File.join(dir, ".saboteur", "history.jsonl")
+      # The CLI resolves the root with realpath; on macOS the tmpdir is a
+      # symlink (/var -> /private/var), so compare against the resolved path.
+      history = File.join(File.realpath(dir), ".saboteur", "history.jsonl")
       expect(err.string).to include("saboteur: could not write the score history to #{history} " \
                                     "(score history was not recorded: Permission denied @ rb_sysopen - " \
                                     "#{history}); continuing without it\n")
