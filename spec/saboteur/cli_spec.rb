@@ -992,6 +992,14 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(out.string).to include("--exclude-operators NAMES", "Exclude operator names from the selected set")
   end
 
+  it "describes the seed, baseline and budget switches in run help (#296)" do
+    Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
+    expect(out.string).to include("Seed for Ruby's random numbers in every test run (default 1)",
+                                  "Unchanged-suite checks (default 2)",
+                                  "Wall-clock budget for the whole run, e.g. 10m; exit 4 when spent",
+                                  "An exhausted --max-duration budget does not fail the run")
+  end
+
   it "marks only the named operators on in --list-operators" do
     expect(cli("run", "--list-operators", "--operators", "range").call).to eq(0)
     expect(out.string).to match(/^range\s+on/)
@@ -1110,9 +1118,11 @@ RSpec.describe Saboteur::CLI, "details" do
       FileUtils.chmod(0o555, readonly)
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
-      status = cli("run", "--json", File.join(dir, "r.json"), "--html", File.join(readonly, "r.html")).call
+      html = File.join(readonly, "r.html")
+      status = cli("run", "--json", File.join(dir, "r.json"), "--html", html).call
       expect(status).to eq(0)
-      expect(err.string).to include("could not write the HTML report")
+      expect(err.string).to include("saboteur: could not write the HTML report to #{html} " \
+                                    "(Permission denied @ rb_sysopen - #{html}); continuing without it\n")
       expect(File).to exist(File.join(dir, "r.json"))
     end
   end
@@ -1143,7 +1153,11 @@ RSpec.describe Saboteur::CLI, "details" do
                                                                           call: report_of(result_for(:killed))))
       status = Dir.chdir(dir) { cli("run").call }
       expect(status).to eq(0)
-      expect(err.string).to include("could not write the score history")
+      history = File.join(dir, ".saboteur", "history.jsonl")
+      expect(err.string).to include("saboteur: could not write the score history to #{history} " \
+                                    "(score history was not recorded: Permission denied @ rb_sysopen - " \
+                                    "#{history}); continuing without it\n")
+      expect(err.string).not_to include("saboteur: \n")
     end
   end
 

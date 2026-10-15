@@ -19,6 +19,12 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       def agent_cause(report, verdict) = agent_exit_cause(report, { verdict: verdict })
 
       def code(report) = exit_code(report)
+
+      def cause(report, code) = exit_cause(report, code)
+
+      def surv_cause(report) = survivors_cause(report)
+
+      def quality_gate?(report) = failed_quality_gate?(report)
     end.new(config)
   end
 
@@ -85,6 +91,62 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       it "records budgetExhausted even though survivors ran (control: budget outranks the verdict)" do
         expect(harness.agent_cause(report_stopped("max_duration"), "survivors")).to eq("budgetExhausted")
       end
+    end
+  end
+
+  describe "exit_cause for an incomplete run" do
+    let(:config) { {} }
+
+    def partial_report(early_stop:, tested:, majority_errored: false)
+      instance_double(
+        Saboteur::Report,
+        early_stop: early_stop,
+        score_breakdown: instance_double(Saboteur::Score, tested: tested),
+        majority_errored?: majority_errored
+      )
+    end
+
+    let(:stop) { Saboteur::EarlyStop.new(reason: "max_duration", unreached: [], truncated: [], unverified: []) }
+
+    it "is incomplete when an early stop left nothing tested (#296)" do
+      expect(harness.cause(partial_report(early_stop: stop, tested: 0), Saboteur::CLI::EXIT_TOOL)).to eq("incomplete")
+    end
+
+    it "is incompleteUnderThreshold when the stop left some results tested (#296)" do
+      expect(harness.cause(partial_report(early_stop: stop, tested: 3), Saboteur::CLI::EXIT_TOOL))
+        .to eq("incompleteUnderThreshold")
+    end
+
+    it "is incompleteUnderThreshold without an early stop, even with nothing tested (#296)" do
+      expect(harness.cause(partial_report(early_stop: nil, tested: 0), Saboteur::CLI::EXIT_TOOL))
+        .to eq("incompleteUnderThreshold")
+    end
+
+    it "is errorMajority when errors dominate (control)" do
+      expect(harness.cause(partial_report(early_stop: nil, tested: 0, majority_errored: true),
+                           Saboteur::CLI::EXIT_TOOL)).to eq("errorMajority")
+    end
+  end
+
+  describe "fail-fast vs other early-stop reasons (#296)" do
+    let(:config) { {} }
+
+    def gate_report(reason)
+      instance_double(
+        Saboteur::Report,
+        early_stop: Saboteur::EarlyStop.new(reason: reason, unreached: [], truncated: [], unverified: []),
+        unignored_survivors: []
+      )
+    end
+
+    it "names failFast in survivors_cause only for a fail_fast stop" do
+      expect(harness.surv_cause(gate_report("fail_fast"))).to eq("failFast")
+      expect(harness.surv_cause(gate_report("max_duration"))).to eq("survivors")
+    end
+
+    it "fails the quality gate automatically only for a fail_fast stop" do
+      expect(harness.quality_gate?(gate_report("fail_fast"))).to be(true)
+      expect(harness.quality_gate?(gate_report("max_duration"))).to be(false)
     end
   end
 end

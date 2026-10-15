@@ -240,6 +240,26 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "./spec/x_spec.rb:9:in `block'")
   end
 
+  it "prints the error header format and every continuation line exactly once, stripped (#296)" do
+    detail = "RuntimeError: boom\n  ./spec/x_spec.rb:4:in `block'\n    ./spec/x_spec.rb:9:in `block'"
+    result = result_for(:error, reason: detail)
+    text = render(report_of(result))
+    header = "  #{result.subject.id} #{result.mutation.operator} #{result.digest}: RuntimeError: boom"
+    block = "\nErrors (not counted as killed):\n#{header}\n    ./spec/x_spec.rb:4:in `block'\n    " \
+            "./spec/x_spec.rb:9:in `block'\n"
+    expect(text).to include(block)
+  end
+
+  it "adds an unverified count to the summary line when some mutants ran unverified (#296)" do
+    line = render(report_of(result_for(:killed), result_for(:unverified))).lines.find { |l| l.include?("killed ") }
+    expect(line).to include("unverified 1")
+  end
+
+  it "omits the unverified count from the summary line when none ran unverified (#296)" do
+    line = render(report_of(result_for(:killed))).lines.find { |l| l.include?("killed ") }
+    expect(line).not_to include("unverified")
+  end
+
   it "shows skip reasons, warnings and ignored survivors" do
     survivor = result_for(:survived)
     survivor.ignored = "equivalent: ages are integers"

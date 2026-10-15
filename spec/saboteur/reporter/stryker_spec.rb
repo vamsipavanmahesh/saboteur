@@ -110,6 +110,12 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(mutant["statusReason"]).to eq(detail)
   end
 
+  it "omits statusReason when the surviving reason is blank (#296)" do
+    report = report_of(result_for(:survived, reason: "   "))
+    mutant = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants").first
+    expect(mutant["statusReason"]).to be_nil
+  end
+
   it "carries the bounded findings a code-review surface annotates from" do
     findings = json.fetch("saboteur").fetch("findings")
     expect(findings["version"]).to eq(1)

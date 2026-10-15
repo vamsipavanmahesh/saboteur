@@ -394,10 +394,20 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
 
-  i.mutation "ea2d81dd0ac9dd1c",
+  i.mutation "981ed4f132e27c49",
              subject: "Saboteur::CrashReport.write_log",
              reason: "equivalent: write_log returns via an explicit return inside the block or nil after it; " \
                      "the block's write/rescue side effects are the whole behavior and the enumerator's return value is never used"
+
+  i.mutation "57afcef173eb2eee",
+             subject: "Saboteur::Config#coerce!",
+             reason: "equivalent: the block's @values[key] assignment is the whole behavior and the enumerator's " \
+                     "return is unused: coerce! ends with the test_selection assignment"
+
+  i.mutation "23716ea3873be11e",
+             subject: "Saboteur::Reporter::Terminal#errors",
+             reason: "equivalent: the block's @out.puts side effects are the whole behavior and the enumerator's " \
+                     "return value is unused"
 
   i.mutation "69ce317bab249ed6",
              subject: "Saboteur::Engine::Scheduler#checked",
