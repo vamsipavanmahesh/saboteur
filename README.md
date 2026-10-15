@@ -468,12 +468,13 @@ backtrace lands in `<cache_dir>/internal-error.log` (default
 `.saboteur/`), and `--verbose` also prints it to stderr. The message
 names the log only after a successful write: an unset `cache_dir` or an
 unwritable directory leaves the one-liner standing alone. The executable
-loads the crash reporter before anything else, so a failure while the
-CLI is loading, being built, or parsing arguments gets the same report;
+loads the crash reporter before the CLI, so a failure while it is
+loading, being built, or parsing arguments gets the same report;
 failures earlier than that - coverage setup or the reporter's own load -
-get only the bare one-liner and still exit 3. In agent mode the same
-failure is reported as agent JSON, falling back to a minimal standalone
-failure payload when the agent reporter never loaded.
+get only the bare one-liner and still exit 3. Once the crash
+reporter has loaded, agent mode reports the same failure as agent
+JSON; before that, a minimal standalone failure payload in the same
+schema answers instead.
 
 ### Rejected kills
 

@@ -113,9 +113,9 @@ All notable changes are documented here. The format follows
   `<cache_dir>/internal-error.log` (default `.saboteur/`), which the
   message names, and printed to stderr with `--verbose`; an unset
   `cache_dir` or a failed write leaves the one-liner standing alone.
-  The executable loads the crash reporter first, so a failure
-  while the CLI is loading, being built, or running gets the full
-  report. Coverage setup and the reporter's own load happen before
+  The executable loads the crash reporter before the CLI,
+  so a failure while it is loading, being built, or running gets
+  the full report. Coverage setup and the reporter's own load happen before
   it, so those failures get only the bare normalized one-liner plus
   exit 3. When agent mode was requested but the agent reporter never
   loaded, a minimal standalone failure JSON in the agent reporter's
