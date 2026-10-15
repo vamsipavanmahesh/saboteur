@@ -27,10 +27,10 @@ All notable changes are documented here. The format follows
 ### Fixed
 - The canary no longer blames a method's last mutant for deleted files:
   a cheap per-mutant probe (snapshot stats only, about 1.3 ms for this
-  repo's 689 watched files against a full inventory's 5 ms) runs after
-  every mutant, so the abort names the mutant whose run just wiped
-  tracked files - with the per-method check as the backstop for losses
-  outside a mutant's window (#235).
+  repo's 692 watched files against a full inventory's 5 ms) runs after
+  every mutant, so the abort names the mutant whose run just ended when
+  the loss was detected as the likely cause - with the per-method check
+  as the backstop for losses outside a mutant's window (#235).
 - The mutant sandbox no longer grants the cache dir: a mutant child
   cannot delete the baseline, the reports or other children's logs,
   and its own log is opened before the fork and inherited as a
