@@ -3,6 +3,8 @@
 
 require "coverage"
 require_relative "baseline_health"
+require_relative "engine/sandbox_policy"
+require_relative "execution/sandbox"
 
 module Saboteur
   # Reports the current environment, never mutations. The two unchanged suite
@@ -27,7 +29,8 @@ module Saboteur
       @out.puts "Rails: #{@config['rails'] ? 'enabled' : 'disabled'}"
       check_database_hosts
       @out.puts "SimpleCov: #{defined?(::SimpleCov) ? 'present; start suppressed for this process' : 'not loaded'}"
-      check_coverage
+      verify_coverage
+      check_sandbox
       check_suite(integration, hooks)
       true
     end
@@ -63,13 +66,33 @@ module Saboteur
             "doctor supports the rspec integration; set integration: rspec"
     end
 
+    # Printed once; verified twice. Boot must not wake coverage up, so the
+    # post-boot check re-reads the state without printing a second line.
     def check_coverage
       state = Coverage.state
       @out.puts "Coverage: #{state}"
+      verify_coverage(state)
+    end
+
+    def verify_coverage(state = Coverage.state)
       return if Coverage.supported?(:lines) && Coverage.supported?(:methods) && state == :suspended
 
       raise Error, "Coverage must be suspended with line and method support before boot; use the saboteur " \
                    "executable, disable SimpleCov and remove other Coverage.start calls"
+    end
+
+    # Status only: the run itself refuses or degrades in the sandbox policy.
+    def check_sandbox
+      if @config["sandbox"] == false
+        @out.puts "Sandbox: off (c.sandbox = false)"
+        return
+      end
+      abi = Execution::Sandbox.abi_version
+      if abi >= 3
+        @out.puts "Sandbox: Landlock ABI #{abi}"
+      else
+        @out.puts "Sandbox: degraded - #{Engine::SandboxPolicy.sandbox_gap(abi)}"
+      end
     end
 
     # Match against all included source definitions, not the current diff or

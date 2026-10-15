@@ -31,14 +31,15 @@ module Saboteur
         return restrict_hook if abi >= 3
 
         if @config["sandbox"] == "strict"
-          raise Error, "sandbox is strict but #{sandbox_gap(abi)}; refusing to run without the promised " \
+          raise Error, "sandbox is strict but #{self.class.sandbox_gap(abi)}; refusing to run without the promised " \
                        "sandbox - set c.sandbox = true to run degraded, or false to opt out"
         end
         # Once, through the report's warnings only: warn + inform printed the
         # same line twice (D's review, #178).
         unless @sandbox_note_given
           @sandbox_note_given = true
-          @diagnostics.warn("sandbox is on but #{sandbox_gap(abi)}; children run with the hazard guard and canary only")
+          @diagnostics.warn("sandbox is on but #{self.class.sandbox_gap(abi)}; children run with the hazard guard " \
+                            "and canary only")
         end
         nil
       end
@@ -52,7 +53,7 @@ module Saboteur
                      "unsandboxed - set c.sandbox = false to proceed without it"
       end
 
-      def sandbox_gap(abi)
+      def self.sandbox_gap(abi)
         return "this kernel lacks Landlock (needs Linux 6.2+)" if abi.zero?
 
         "this kernel's Landlock ABI is #{abi} but ABI 3 (Linux 6.2+) is needed to restrict truncate()"
@@ -65,10 +66,13 @@ module Saboteur
 
       # c.sandbox_writable adds the dirs a suite genuinely needs (db/, log/,
       # ...): without a grant, writes there fail with EACCES in the child.
+      # Only the user grants are created: the project tmp is granted when it
+      # already exists, never made for it (#236).
       def sandbox_writable_dirs
         user_dirs = @config["sandbox_writable"].map { |dir| File.expand_path(dir, @root) }
-        dirs = [File.join(@root, "tmp")] + user_dirs
-        dirs.each { |dir| FileUtils.mkdir_p(dir) }
+        user_dirs.each { |dir| FileUtils.mkdir_p(dir) }
+        tmp = File.join(@root, "tmp")
+        dirs = Dir.exist?(tmp) ? [tmp] + user_dirs : user_dirs
         real = (dirs.map { |dir| File.realpath(dir) } + [File.realpath(Dir.tmpdir)]).uniq
         check_sandbox_write_set(real, user_dirs.map { |dir| File.realpath(dir) })
         real

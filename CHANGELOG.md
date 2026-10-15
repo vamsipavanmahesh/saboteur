@@ -66,6 +66,13 @@ All notable changes are documented here. The format follows
   and the in-flight drain is bounded (a 30-second default drain
   window, followed by worker cleanup), so a wedged worker cannot
   stall the abort (#235).
+- `saboteur doctor` prints the coverage line once instead of twice (it is
+  still verified before and after target boot), and reports the sandbox
+  status: the Landlock ABI when the kernel can deliver it, the gap when
+  it cannot, or off when `c.sandbox = false` (#236). The sandbox policy
+  no longer creates the project's `tmp/` directory to grant it: the
+  grant applies when `tmp/` already exists and only `c.sandbox_writable`
+  entries are created (#236).
 - The mutant sandbox no longer grants the cache dir: a mutant child
   cannot delete the baseline, the reports or other children's logs,
   and its own log is opened before the fork and inherited as a

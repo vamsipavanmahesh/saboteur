@@ -35,6 +35,63 @@ RSpec.describe Saboteur::Doctor do
                                   "SimpleCov: not loaded", "Custom map: none (optional)")
   end
 
+  it "prints the coverage line once while verifying it before and after boot" do
+    hide_const("SimpleCov")
+    allow(Saboteur::Engine::Boot).to receive(:new)
+      .and_return(instance_double(Saboteur::Engine::Boot, load_target: instance_double(Saboteur::Integration::Base)))
+    allow(Saboteur::BaselineHealth).to receive(:new)
+      .and_return(instance_double(Saboteur::BaselineHealth, call: %w[a]))
+    doctor.call
+    expect(out.string.scan("Coverage:").size).to eq(1)
+  end
+
+  context "sandbox status" do
+    let(:suite) { false }
+
+    before do
+      hide_const("SimpleCov")
+      allow(Saboteur::Engine::Boot).to receive(:new)
+        .and_return(instance_double(Saboteur::Engine::Boot, load_target: instance_double(Saboteur::Integration::Base)))
+    end
+
+    it "reports the Landlock ABI when the sandbox can deliver" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(4)
+      doctor.call
+      expect(out.string).to include("Sandbox: Landlock ABI 4")
+    end
+
+    it "reports the gap when the kernel cannot deliver ABI 3" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      doctor.call
+      expect(out.string).to include("Sandbox: degraded - this kernel lacks Landlock (needs Linux 6.2+)")
+    end
+
+    it "reports the sandbox as off when configured off" do
+      configured = Saboteur::Config.new({ "sandbox" => false })
+      described_class.new(configured, out: out).call
+      expect(out.string).to include("Sandbox: off")
+    end
+
+    it "prints no further sandbox verdict when configured off" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(4)
+      configured = Saboteur::Config.new({ "sandbox" => false })
+      described_class.new(configured, out: out).call
+      expect(out.string).not_to include("Landlock ABI")
+    end
+
+    it "reports the Landlock ABI at the minimum supported version" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+      doctor.call
+      expect(out.string).to include("Sandbox: Landlock ABI 3")
+    end
+
+    it "reports the gap one ABI below the minimum" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(2)
+      doctor.call
+      expect(out.string).to include("Sandbox: degraded - this kernel's Landlock ABI is 2 but ABI 3")
+    end
+  end
+
   context "without --suite" do
     let(:suite) { false }
 

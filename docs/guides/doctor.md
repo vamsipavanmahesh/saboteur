@@ -14,6 +14,9 @@ even on a large suite. `--suite` also runs the unchanged suite twice, and
 Doctor checks Ruby 3.3+ and fork support, suspended line coverage, configured
 require/hook files, and the RSpec integration. It prints the Rails setting and
 whether SimpleCov was loaded and its start suppressed by saboteur's normal boot.
+It reports the sandbox status: the kernel's Landlock ABI when the mutant
+sandbox can be enforced, the gap when it cannot (children then run with the
+hazard guard and canary only), or off when `c.sandbox = false`.
 It does not certify a Rails/database version; successful boot and tests are the
 check. Unmatched include/exclude patterns are warnings, not failures.
 
