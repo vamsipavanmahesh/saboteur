@@ -435,6 +435,19 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     FileUtils.rm_rf(root) if root
   end
 
+  it "trips the canary right after the mutant whose run wiped tracked files" do
+    root = Dir.mktmpdir("saboteur-canary-root-")
+    File.write(File.join(root, "tracked.rb"), "x")
+    canary = Saboteur::Engine::Canary.new(root, cache_dir: ".saboteur")
+    integration = passing_integration { File.delete(File.join(root, "tracked.rb")) }
+    expect do
+      build_runner(sandbox: nil, integration: integration, canary: canary)
+        .run(subject: subject_stub, text: "pass", test_ids: %w[t1], timeout: 5)
+    end.to raise_error(Saboteur::CanaryTripped, /watched file\(s\) vanished/)
+  ensure
+    FileUtils.rm_rf(root) if root
+  end
+
   it "still reports the vanished log when the canary's watched files survive" do
     root = Dir.mktmpdir("saboteur-canary-root-")
     File.write(File.join(root, "tracked.rb"), "x")

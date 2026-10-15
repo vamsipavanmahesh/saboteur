@@ -129,6 +129,55 @@ RSpec.describe Saboteur::Engine::Canary do
     end
   end
 
+  it "probes cheaply: stats the snapshot without walking the tree again" do
+    in_tmpdir do |dir|
+      File.write(File.join(dir, "a.rb"), "x")
+      canary = described_class.new(dir)
+      expect(Open3).not_to receive(:capture2)
+      expect(Dir).not_to receive(:glob)
+      expect(canary.probe).to eq([])
+    end
+  end
+
+  it "probe does not flag a tracked dangling symlink that is still there" do
+    in_tmpdir do |dir|
+      system("git", "-C", dir, "init", "-q") or raise "git init failed"
+      File.symlink("nowhere", File.join(dir, "dangling"))
+      system("git", "-C", dir, "add", "dangling") or raise "git add failed"
+      canary = described_class.new(dir)
+      expect(canary.probe).to eq([])
+    end
+  end
+
+  it "probe reports a tracked dangling symlink once it is gone" do
+    in_tmpdir do |dir|
+      system("git", "-C", dir, "init", "-q") or raise "git init failed"
+      File.symlink("nowhere", File.join(dir, "dangling"))
+      system("git", "-C", dir, "add", "dangling") or raise "git add failed"
+      canary = described_class.new(dir)
+      File.delete(File.join(dir, "dangling"))
+      expect(canary.probe).to eq(["dangling"])
+    end
+  end
+
+  it "probe! passes when nothing vanished" do
+    in_tmpdir do |dir|
+      File.write(File.join(dir, "a.rb"), "x")
+      canary = described_class.new(dir)
+      expect { canary.probe!(digest: "1d76c921a41c2162") }.not_to raise_error
+    end
+  end
+
+  it "probe! names the mutant that just ran as the likely cause" do
+    in_tmpdir do |dir|
+      File.write(File.join(dir, "a.rb"), "x")
+      canary = described_class.new(dir)
+      File.delete(File.join(dir, "a.rb"))
+      expect { canary.probe!(digest: "1d76c921a41c2162") }
+        .to raise_error(Saboteur::CanaryTripped, /1 watched file.*a\.rb.*just ran, 1d76c921a41c2162/m)
+    end
+  end
+
   it "ignores the contents of a .git directory while walking" do
     in_tmpdir do |dir|
       FileUtils.mkdir_p(File.join(dir, ".git"))

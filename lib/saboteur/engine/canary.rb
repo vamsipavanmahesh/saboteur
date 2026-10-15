@@ -32,15 +32,39 @@ module Saboteur
 
         of = " of #{subject.id}" if subject
         culprit = digest ? " The most recent mutant, #{digest}#{of}, is the likely cause." : ""
-        raise Saboteur::CanaryTripped,
-              "canary: #{missing.size} watched file(s) vanished from the working tree while mutants ran " \
-              "(first: #{Text.utf8(missing.first)}).#{culprit} The canary watches tracked files and .git presence " \
-              "and only detects the loss after the fact; it cannot restore anything. Recover from your " \
-              "own backup, a fresh checkout, or a reclone - a deleted .git or uncommitted work is gone " \
-              "unless you have another copy."
+        raise Saboteur::CanaryTripped, message(missing, culprit)
+      end
+
+      # The cheap per-mutant probe (#235): stats the snapshot paths only -
+      # no git, no glob - so it can run after every mutant.
+      def probe
+        @snapshot.reject { |rel| present?(rel) }
+      end
+
+      # Like check!, but for the per-mutant probe: the mutant whose run just
+      # ended is named, never the subject's most recent mutant.
+      def probe!(subject: nil, digest: nil)
+        missing = probe
+        return if missing.empty?
+
+        of = " of #{subject.id}" if subject
+        culprit = digest ? " The mutant that just ran, #{digest}#{of}, is the likely cause." : ""
+        raise Saboteur::CanaryTripped, message(missing, culprit)
       end
 
       private
+
+      def present?(rel)
+        File.exist?(File.join(@root, rel)) || File.symlink?(File.join(@root, rel))
+      end
+
+      def message(missing, culprit)
+        "canary: #{missing.size} watched file(s) vanished from the working tree while mutants ran " \
+          "(first: #{Text.utf8(missing.first)}).#{culprit} The canary watches tracked files and .git presence " \
+          "and only detects the loss after the fact; it cannot restore anything. Recover from your " \
+          "own backup, a fresh checkout, or a reclone - a deleted .git or uncommitted work is gone " \
+          "unless you have another copy."
+      end
 
       def inventory
         files = git? ? git_tracked_files : walk_files

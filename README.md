@@ -100,9 +100,10 @@ with `c.hazard` (same tag shapes: `"FileUtils.rm_rf"`, or a bare name like
 `"system"`); `--allow-hazardous` runs the suppressed mutants anyway.
 
 Behind the guard, a canary snapshots the tracked files (or every file,
-outside a repository) before mutating and re-checks after each method's
-mutants. If anything vanished, the run aborts with exit 3 and names the most
-recent mutant's digest. That check happens after the damage and restores
+outside a repository) before mutating and probes the snapshot after every
+mutant - a cheap stat pass, no tree walk. If anything vanished, the run
+aborts with exit 3 and names the digest of the mutant that just ran, not
+the method's last mutant. A fuller check still runs after each method. That check happens after the damage and restores
 nothing; it limits how far a bad mutant gets. Recover from your own backup,
 a fresh checkout or a reclone - a deleted `.git` or uncommitted work is gone
 unless you have another copy. The canary is the backstop for the destructive

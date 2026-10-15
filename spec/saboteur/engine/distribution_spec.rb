@@ -75,21 +75,23 @@ RSpec.describe Saboteur::Engine::Distribution do
     mutation = fixture_mutation(subject)
     # A file marker, not an array: the scheduler runs inside forked workers,
     # so only the filesystem carries the record back into the parent.
-    marker = File.join(Dir.mktmpdir, "scheduled")
-    scheduler = lambda do |_subject, _list|
-      File.open(marker, "a") { |file| file.puts("ran") }
-      raise Saboteur::Error, "the child log /x/child-1-1.log vanished mid-run"
+    Dir.mktmpdir do |dir|
+      marker = File.join(dir, "scheduled")
+      scheduler = lambda do |_subject, _list|
+        File.open(marker, "a") { |file| file.puts("ran") }
+        raise Saboteur::Error, "the child log /x/child-1-1.log vanished mid-run"
+      end
+      distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil,
+                                         after_subject: ->(_s, _r) {})
+      lists = [[[mutation, "text"]], [[mutation, "text"]], [[mutation, "text"]]]
+      expect { distribution.run([subject, subject, subject], lists) }
+        .to raise_error(Saboteur::Error, /vanished mid-run/)
+      # The pool assigns the first two subjects up front and the third only
+      # after a row arrives - and the arriving tool error raises first, so it
+      # is never scheduled. A fast abort can stop the second worker before it
+      # records, so one or two entries are valid; three never are.
+      expect(File.readlines(marker).size).to be_between(1, 2)
     end
-    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil,
-                                       after_subject: ->(_s, _r) {})
-    lists = [[[mutation, "text"]], [[mutation, "text"]], [[mutation, "text"]]]
-    expect { distribution.run([subject, subject, subject], lists) }
-      .to raise_error(Saboteur::Error, /vanished mid-run/)
-    # The pool assigns the first two subjects up front and the third only
-    # after a row arrives - and the arriving tool error raises first, so it
-    # is never scheduled. A fast abort can stop the second worker before it
-    # records, so one or two entries are valid; three never are.
-    expect(File.readlines(marker).size).to be_between(1, 2)
   end
 
   it "aborts a row the callback path missed: a tool error still stops the rebuild" do
