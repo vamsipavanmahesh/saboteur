@@ -212,8 +212,7 @@ module Saboteur
     end
 
     def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
-      store = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
-                                supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics)
+      store = coverage_store(integration, load_lines)
       full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
       warn_unscoped(integration, full_passes)
       check_baseline(integration, full_passes)
@@ -281,10 +280,16 @@ module Saboteur
       ThreadWarnings.warn(@diagnostics)
     end
 
+    def coverage_store(integration, load_lines)
+      CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
+                        supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
+                        timeout_cap: method(:budget_capped_timeout))
+    end
+
     def check_baseline(integration, full_passes)
       guard = BaselineGuard.new(config: config, integration: integration, hooks: hooks,
                                 supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
-                                full_passes: full_passes,
+                                full_passes: full_passes, timeout_cap: method(:budget_capped_timeout),
                                 between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil)
       guard.call
       # Stability is the order comparison between completed checks: the cold

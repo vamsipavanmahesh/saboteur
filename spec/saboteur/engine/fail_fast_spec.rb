@@ -114,8 +114,8 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     expect([plain.matrix?, matrix.matrix?]).to eq([false, true])
   end
 
-  def distribution_double(unreached: [], truncated: [])
-    instance_double(Saboteur::Engine::Distribution, unreached: unreached, truncated: truncated)
+  def distribution_double(unreached: [], truncated: [], unverified: [])
+    instance_double(Saboteur::Engine::Distribution, unreached: unreached, truncated: truncated, unverified: unverified)
   end
 
   it "records the subjects a stop left unrun, and nothing when none were left" do
@@ -123,7 +123,7 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     stopped.send(:record_early_stop, distribution_double(unreached: [person]))
     report = stopped.send(:build_report, [], [], nil, 0)
     expect(report.early_stop)
-      .to eq(Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ["Person#adult?"], truncated: []))
+      .to eq(Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ["Person#adult?"], truncated: [], unverified: []))
     whole = engine
     whole.send(:record_early_stop, distribution_double(unreached: []))
     expect(whole.send(:build_report, [], [], nil, 0).early_stop).to be_nil
@@ -154,7 +154,8 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     diagnostics = run.instance_variable_get(:@diagnostics)
     allow(diagnostics).to receive(:start_progress)
     allow(run).to receive_messages(canary_check: :canary, fail_fast_check: :stopper)
-    distribution = instance_double(Saboteur::Engine::Distribution, run: [:result], unreached: [person], truncated: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, run: [:result], unreached: [person],
+                                                                   truncated: [], unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     expect(run.send(:run_candidates, [person], [[1, 2], [3]], :scheduler, nil, :ignores)).to eq([:result])
     expect(diagnostics).to have_received(:start_progress).with(3)

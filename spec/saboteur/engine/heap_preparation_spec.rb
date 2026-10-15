@@ -88,7 +88,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     allow(store).to receive(:fetch) { events << :map_retained and map }
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap) { events << :prepare }
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     allow(distribution).to receive(:run) { |*args| box[:run_args] = args and events << :distribute and [] }
   end

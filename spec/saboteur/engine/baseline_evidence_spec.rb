@@ -43,7 +43,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
       allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
         .and_return([[candidate, subject.apply(candidate.edits)]])
-      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [])
+      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
       allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
       expect(distribution).to receive(:run).and_return([result])
       allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
@@ -80,7 +80,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
       allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
         .and_return([[candidate, subject.apply(candidate.edits)]])
-      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [])
+      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
       allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
       expect(distribution).to receive(:run).and_return([result])
       allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
@@ -122,7 +122,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
     # [baseline_passes, reusable cache] - the cold coverage build is not a
     # baseline pass, so --baseline-passes 1 stays unchecked even when a cold
     # cache runs the suite again for the map.
-    [[1, true], [1, false], [2, true], [2, false]].each do |passes, reusable|
+    [[1, true], [1, false], [2, true], [2, false], [3, true], [3, false]].each do |passes, reusable|
       Dir.mktmpdir do |directory|
         root = File.realpath(directory)
         file = File.join(root, "probe.rb")
@@ -145,7 +145,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
         allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
           .and_return([[candidate, subject.apply(candidate.edits)]])
-        distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [])
+        distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
         allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
         allow(distribution).to receive(:run).and_return([result])
         allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)

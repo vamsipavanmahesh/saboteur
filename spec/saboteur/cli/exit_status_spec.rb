@@ -25,7 +25,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
   def report_stopped(reason, truncated: [])
     instance_double(
       Saboteur::Report,
-      early_stop: Saboteur::EarlyStop.new(reason: reason, unreached: [], truncated: truncated),
+      early_stop: Saboteur::EarlyStop.new(reason: reason, unreached: [], truncated: truncated, unverified: []),
       executed: [instance_double(Saboteur::MutantResult, status: :alive)],
       majority_errored?: false
     )

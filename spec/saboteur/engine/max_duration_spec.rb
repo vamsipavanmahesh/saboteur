@@ -85,7 +85,8 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
     captured = nil
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], run: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [],
+                                                                   run: [])
     allow(Saboteur::Engine::Distribution).to receive(:new) do |**keywords|
       captured = keywords[:halt_check]
       distribution
@@ -126,7 +127,8 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
     allow(Saboteur::Engine::Distribution).to receive(:new)
-      .and_return(instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], run: []))
+      .and_return(instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [],
+                                                                  run: []))
     scheduler_kwargs = nil
     allow(Saboteur::Engine::Scheduler).to receive(:new) { |**keywords| scheduler_kwargs = keywords and :scheduler }
 
@@ -157,7 +159,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     distribution_kwargs = nil
     allow(Saboteur::Engine::Distribution).to receive(:new) do |**keywords|
       distribution_kwargs = keywords
-      instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], run: [])
+      instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [], run: [])
     end
     engine = described_class.new(Saboteur::Config.new({}, root: @root), err: StringIO.new)
     engine.call
@@ -193,7 +195,8 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [subject], truncated: [], run: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [subject], truncated: [], unverified: [],
+                                                                   run: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
 
     err = StringIO.new
@@ -260,7 +263,7 @@ RSpec.describe Saboteur::Engine, "mid-subject budget truncation (#245)" do
     engine.instance_variable_set(:@budget_announced, true)
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     distribution = instance_double(Saboteur::Engine::Distribution,
-                                   unreached: [], truncated: [[subject, 3]])
+                                   unreached: [], truncated: [[subject, 3]], unverified: [])
     engine.send(:record_early_stop, distribution)
     stop = engine.instance_variable_get(:@early_stop)
     expect(stop.reason).to eq("max_duration")
@@ -270,9 +273,31 @@ RSpec.describe Saboteur::Engine, "mid-subject budget truncation (#245)" do
 
   it "still records nothing when the selection ran to completion (control)" do
     engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
     engine.send(:record_early_stop, distribution)
     expect(engine.instance_variable_get(:@early_stop)).to be_nil
+  end
+end
+
+RSpec.describe Saboteur::Engine::BaselineGuard, "phase timeout cap (#296)" do
+  around do |example|
+    Dir.mktmpdir { |root| @root = root and example.run }
+  end
+
+  let(:config) { Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 1 }, root: @root) }
+  let(:integration) { double("adapter", all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "spec/a.rb")]) }
+  let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
+
+  it "caps an admitted pass at the time the budget leaves" do
+    contents = JSON.generate(passed: true, executed: ["t1"], failed: [], error: nil)
+    response = Saboteur::Execution::Supervisor::Result.new(payload: contents, exit_status: nil, stopped_by: nil,
+                                                           detail: "deadline", runtime: 0.1, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(response)
+    guard = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                full_passes: 1, timeout_cap: ->(timeout) { timeout / 2 })
+    guard.call
+    expect(supervisor).to have_received(:run).with(hash_including(timeout: 1800.0))
   end
 end
 
@@ -464,5 +489,198 @@ RSpec.describe Saboteur::Engine::Distribution, "max-duration halt (#245)" do
     expect(results.map(&:subject)).to include(slow)
     expect(results.map(&:subject)).to include(fast)
     expect(distribution.unreached).to eq([queued])
+  end
+end
+
+RSpec.describe Saboteur::Engine::Scheduler, "budget-spent verdict checks (#296)" do
+  let(:subject_obj) { subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m") }
+  let(:mutation) do
+    at = subject_obj.file_source.index("1")
+    Saboteur::MutationSource::Mutation.new(subject_id: subject_obj.id, operator: "test",
+                                           edits: [Saboteur::MutationSource::Edit.new(file: subject_obj.file,
+                                                                                      start_byte: at,
+                                                                                      end_byte: at + 1,
+                                                                                      replacement: "2")])
+  end
+  let(:plan) do
+    described_class::Plan.new(subject: subject_obj, tests: ["t1"], killers: Hash.new(0), slowdown: 1.0, wrapper: nil)
+  end
+  let(:runner) { instance_double(Saboteur::Execution::Runner) }
+  let(:expired) { Process.clock_gettime(Process::CLOCK_MONOTONIC) - 1 }
+
+  def scheduler(deadline, runner:, cache: nil, map: nil)
+    described_class.new(config: { "baseline_timeout" => 60, "timeout_factor" => 4, "timeout_min" => 1 },
+                        runner: runner, map: map, reevaluator: nil,
+                        diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new), cache: cache,
+                        deadline: deadline)
+  end
+
+  def kill(killed_by: ["t1"], reused: false)
+    Saboteur::MutantResult.new(subject: subject_obj, mutation: mutation, status: :killed, mutated_source: "x",
+                               killed_by: killed_by, covered_by: ["t1"], reused: reused)
+  end
+
+  def outcome(status, runtime: 0.1)
+    Saboteur::Execution::Runner::Outcome.new(status: status, runtime: runtime)
+  end
+
+  it "marks a named kill unverified without forking the unchanged check, and caches nothing" do
+    cache = double("cache")
+    allow(cache).to receive(:record)
+    allow(runner).to receive(:run)
+    results = scheduler(expired, runner: runner, cache: cache).send(:checked, plan, [kill])
+    expect(results.map(&:status)).to eq([:unverified])
+    expect(results.first.reason).to include("budget is spent")
+    expect(runner).not_to have_received(:run)
+    expect(cache).not_to have_received(:record)
+  end
+
+  it "marks an unnamed kill unverified too (no zero-time fork)" do
+    allow(runner).to receive(:run)
+    results = scheduler(expired, runner: runner).send(:checked, plan, [kill(killed_by: [])])
+    expect(results.map(&:status)).to eq([:unverified])
+    expect(runner).not_to have_received(:run)
+  end
+
+  it "leaves reused verdicts and survivors as they are" do
+    survivor = Saboteur::MutantResult.new(subject: subject_obj, mutation: mutation, status: :survived,
+                                          mutated_source: "x")
+    results = scheduler(expired, runner: runner).send(:checked, plan, [kill(reused: true), survivor])
+    expect(results.map(&:status)).to eq(%i[killed survived])
+  end
+
+  it "runs the check while the deadline is open (control)" do
+    allow(runner).to receive(:run).and_return(outcome(:survived))
+    open_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 60
+    results = scheduler(open_deadline, runner: runner).send(:checked, plan, [kill])
+    expect(results.map(&:status)).to eq([:killed])
+    expect(runner).to have_received(:run).with(hash_including(text: subject_obj.source))
+  end
+
+  it "skips the calibration retry once the budget is spent: no zero-time fork, timeout not detected" do
+    allow(runner).to receive(:run)
+    result = scheduler(expired, runner: runner).send(:calibrate, plan, mutation, "text", ["t1"], 1.0)
+    expect(result.status).to eq(:unverified)
+    expect(runner).not_to have_received(:run)
+  end
+
+  it "reports a calibration the shrinking budget cut short as unverified, never as a detected timeout" do
+    allow(Process).to receive(:clock_gettime).and_return(1000.0)
+    allow(runner).to receive(:run).and_return(outcome(:timeout))
+    # 5 s left against a 60 s baseline_timeout: the unchanged run times out under the cap.
+    result = scheduler(1005.0, runner: runner).send(:calibrate, plan, mutation, "text", ["t1"], 1.0)
+    expect(result.status).to eq(:unverified)
+    expect(result.message).to include("cut the timeout calibration short")
+    expect(runner).to have_received(:run).with(hash_including(timeout: 5.0))
+  end
+
+  it "reports a mutant retry the budget cut short as unverified, not detected" do
+    allow(Process).to receive(:clock_gettime).and_return(1000.0)
+    allow(runner).to receive(:run).and_return(outcome(:survived, runtime: 2.0), outcome(:timeout))
+    map = instance_double(Saboteur::Selection::CoverageMap, recorded_runtime: nil)
+    # A longer deadline (8 s) beats the original timeout, but only 3 s remain: the retry is shortened.
+    result = scheduler(1003.0, runner: runner, map: map).send(:calibrate, plan, mutation, "text", ["t1"], 1.0)
+    expect(result.status).to eq(:unverified)
+    expect(result.message).to include("cut the mutant retry short")
+  end
+
+  it "counts a retry killed inside the admitted window as a kill (control)" do
+    allow(Process).to receive(:clock_gettime).and_return(1000.0)
+    allow(runner).to receive(:run).and_return(outcome(:survived, runtime: 2.0), outcome(:killed))
+    map = instance_double(Saboteur::Selection::CoverageMap, recorded_runtime: nil)
+    result = scheduler(1003.0, runner: runner, map: map).send(:calibrate, plan, mutation, "text", ["t1"], 1.0)
+    expect(result.status).to eq(:killed)
+  end
+end
+
+RSpec.describe Saboteur::Engine, "budget-left checks (#296)" do
+  it "records an unverified-only stop as budget-partial even when every candidate ran" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [subject])
+    engine.send(:record_early_stop, distribution)
+    stop = engine.instance_variable_get(:@early_stop)
+    expect(stop.reason).to eq("max_duration")
+    expect(stop.unreached).to eq([])
+    expect(stop.unverified).to eq([subject.id])
+  end
+
+  it "names the budget stop even when fail_fast also fired: a truncated list is budget work (#296)" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    distribution = instance_double(Saboteur::Engine::Distribution,
+                                   unreached: [subject], truncated: [[subject, 2]], unverified: [])
+    engine.send(:record_early_stop, distribution)
+    expect(engine.instance_variable_get(:@early_stop).reason).to eq("max_duration")
+  end
+end
+
+RSpec.describe Saboteur::Engine, "phase timeout cap (#296)" do
+  it "caps an admitted phase at the time left in the budget" do
+    engine = described_class.new(Saboteur::Config.new({ "max_duration" => 60 }), err: StringIO.new)
+    engine.send(:start_budget_clock, 100.0)
+    allow(Process).to receive(:clock_gettime).and_return(140.0)
+    expect(engine.send(:budget_capped_timeout, 3600)).to eq(20.0)
+  end
+
+  it "clamps a spent budget to zero rather than a negative timeout" do
+    engine = described_class.new(Saboteur::Config.new({ "max_duration" => 60 }), err: StringIO.new)
+    engine.send(:start_budget_clock, 100.0)
+    allow(Process).to receive(:clock_gettime).and_return(200.0)
+    expect(engine.send(:budget_capped_timeout, 3600)).to eq(0.0)
+  end
+
+  it "passes the phase timeout through with no budget (control)" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    expect(engine.send(:budget_capped_timeout, 3600)).to eq(3600)
+  end
+end
+
+RSpec.describe Saboteur::Engine, "budget accounting boundaries (#296)" do
+  it "abandons with the subject ids and a strictly true verdict once the budget is spent" do
+    engine = described_class.new(Saboteur::Config.new({ "max_duration" => 60 }), err: StringIO.new)
+    engine.send(:start_budget_clock, 100.0)
+    allow(Process).to receive(:clock_gettime).and_return(200.0)
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    expect(engine.send(:abandon_for_budget?, [subject])).to be(true)
+    expect(engine.instance_variable_get(:@early_stop).unreached).to eq(["K#m"])
+  end
+
+  it "does not abandon while the budget is open (control)" do
+    engine = described_class.new(Saboteur::Config.new({ "max_duration" => 60 }), err: StringIO.new)
+    engine.send(:start_budget_clock, 100.0)
+    allow(Process).to receive(:clock_gettime).and_return(120.0)
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    expect(engine.send(:abandon_for_budget?, [subject])).to be(false)
+    expect(engine.instance_variable_get(:@early_stop)).to be_nil
+  end
+
+  it "stops when any check trips, not only when all do" do
+    engine = described_class.new(Saboteur::Config.new({ "fail_fast" => true }), err: StringIO.new)
+    ignore_list = instance_double(Saboteur::IgnoreList, accepts?: false)
+    survivor = instance_double(Saboteur::MutantResult, survived?: true)
+    killed = instance_double(Saboteur::MutantResult, survived?: false)
+    stop = engine.send(:stop_checks, ignore_list)
+    expect(stop.call([survivor])).to be(true)
+    expect(stop.call([killed])).to be(false)
+  end
+end
+
+RSpec.describe Saboteur::Engine::Scheduler, "budget cap boundaries (#296)" do
+  def scheduler_with(deadline)
+    described_class.new(config: {}, runner: nil, map: nil, reevaluator: nil,
+                        diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new), deadline: deadline)
+  end
+
+  it "clamps a spent budget to exactly zero" do
+    allow(Process).to receive(:clock_gettime).and_return(1000.0)
+    expect(scheduler_with(999.0).send(:budget_capped, 60.0)).to eq(0.0)
+    expect(scheduler_with(1000.0).send(:budget_capped, 60.0)).to eq(0.0)
+  end
+
+  it "caps at the remaining time, and passes the timeout through when it fits" do
+    allow(Process).to receive(:clock_gettime).and_return(1000.0)
+    expect(scheduler_with(1010.0).send(:budget_capped, 60.0)).to eq(10.0)
+    expect(scheduler_with(1100.0).send(:budget_capped, 60.0)).to eq(60.0)
   end
 end

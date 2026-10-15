@@ -179,6 +179,21 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("preset 'pr':")
   end
 
+  it "announces the pr preset expansion in full (#296)" do
+    command = cli("pr")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(err.string).to include("saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m " \
+                                  "--max-duration-ok --since main (explicit flags override)")
+  end
+
+  it "takes the pr ref from the first operand even with trailing flags (#296)" do
+    command = cli("pr", "v1.0", "--verbose")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "v1.0")
+  end
+
   it "takes the pr ref as the first operand and lets explicit flags override the bundle (#244)" do
     command = cli("pr", "origin/develop", "--baseline-passes", "2")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")

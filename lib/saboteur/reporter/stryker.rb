@@ -60,7 +60,8 @@ module Saboteur
         stop = report.early_stop
         return unless stop
 
-        { reason: stop.reason, unreachedSubjects: stop.unreached, truncatedSubjects: truncated_subjects(stop) }
+        { reason: stop.reason, unreachedSubjects: stop.unreached, truncatedSubjects: truncated_subjects(stop),
+          unverifiedSubjects: stop.unverified }
       end
 
       def self.truncated_subjects(stop)
@@ -121,8 +122,9 @@ module Saboteur
         when :error, :resource_limit then "RuntimeError"
         when :skipped then result.reason&.start_with?("no coverage") ? "NoCoverage" : "Ignored"
         # The schema has no status for "ran, but no test can observe a
-        # change here". Ignored with the reason is the honest mapping.
-        when :ran_at_load, :unreachable then "Ignored"
+        # change here", nor for a verdict the budget left unchecked.
+        # Ignored with the reason is the honest mapping.
+        when :ran_at_load, :unreachable, :unverified then "Ignored"
         end
       end
 

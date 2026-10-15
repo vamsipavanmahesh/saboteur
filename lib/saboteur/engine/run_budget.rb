@@ -24,6 +24,15 @@ module Saboteur
         exceeded
       end
 
+      # A phase admitted inside the budget still gets only the time left
+      # in it: baseline passes and coverage builds cap at the deadline.
+      def budget_capped_timeout(timeout)
+        deadline = budget_deadline
+        return timeout unless deadline
+
+        (deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)).clamp(0.0, timeout)
+      end
+
       # Absolute monotonic deadline shared with the schedulers (forked
       # workers inherit it): a subject's remaining mutants stop once it
       # passes, so the overshoot after a spent budget stays under one
@@ -38,7 +47,8 @@ module Saboteur
       def abandon_for_budget?(subjects)
         return false unless budget_exceeded?
 
-        @early_stop = EarlyStop.new(reason: "max_duration", unreached: subjects.map(&:id), truncated: [])
+        @early_stop = EarlyStop.new(reason: "max_duration", unreached: subjects.map(&:id), truncated: [],
+                                    unverified: [])
         true
       end
 

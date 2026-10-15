@@ -11,8 +11,9 @@ module Saboteur
       # After run: the subjects a stop_after callable left unrun (always empty
       # without one), and the subjects that started but stopped mid-list as
       # [subject, omitted_candidate_count] pairs (a spent --max-duration
-      # breaking a subject's scheduler loop).
-      attr_reader :unreached, :truncated
+      # breaking a subject's scheduler loop). unverified lists the subjects
+      # whose fresh kills the spent budget left unchecked (#296).
+      attr_reader :unreached, :truncated, :unverified
 
       # stop_after: nil, or a callable that gets one subject's results and
       # returns true to stop before the next subject (--fail-fast). It only
@@ -26,6 +27,7 @@ module Saboteur
         @halt_check = halt_check
         @unreached = []
         @truncated = []
+        @unverified = []
         @on_start = on_start
         @scheduler = scheduler
         @diagnostics = diagnostics
@@ -97,15 +99,23 @@ module Saboteur
       # nil rows never started; a short results list is a subject whose
       # scheduler stopped mid-list at the budget deadline. Worker-level error
       # rows synthesize an error per candidate, so they never look truncated.
+      def unverified_result?(result)
+        result.is_a?(MutantResult) && result.status == :unverified
+      end
+
       def record_unreached(rows, subjects, lists)
         @unreached = []
         @truncated = []
+        @unverified = []
         rows.each_with_index do |row, i|
           if row.nil?
             @unreached << subjects[i]
-          elsif row["results"] && !row["error"] && row["results"].size < lists[i].size
-            @truncated << [subjects[i], lists[i].size - row["results"].size]
+            next
           end
+          next unless row["results"] && !row["error"]
+
+          @truncated << [subjects[i], lists[i].size - row["results"].size] if row["results"].size < lists[i].size
+          @unverified << subjects[i] if row["results"].any? { |result| result["status"] == "unverified" }
         end
       end
 
@@ -141,6 +151,7 @@ module Saboteur
           # A scheduler that stopped mid-list at the budget deadline: the
           # completed results stay, the omitted candidates are accounted.
           @truncated << [subject, list.size - subject_results.size] if subject_results.size < list.size
+          @unverified << subject if subject_results.any? { |result| unverified_result?(result) }
           @after_subject&.call(subject, subject_results)
           next unless @stop_after&.call(subject_results)
 

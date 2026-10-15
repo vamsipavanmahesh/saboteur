@@ -76,11 +76,12 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
     expect(Saboteur::Engine::CoverageStore).to receive(:new) do |config:, integration:, hooks:, load_lines:,
-                                                              supervisor:, diagnostics:|
+                                                              supervisor:, diagnostics:, timeout_cap:|
       expect(config).to equal(engine.config)
       expect(integration.test_files).to eq([])
       expect(hooks).to equal(engine.hooks)
       expect(load_lines).to eq(target.file => [3])
+      expect(timeout_cap).to respond_to(:call)
       expect(supervisor).to be_a(Saboteur::Execution::Supervisor)
       expect(supervisor.instance_variable_get(:@limits).max_memory_mb).to eq(8192)
       expect(diagnostics).to be_a(Saboteur::Engine::Diagnostics)

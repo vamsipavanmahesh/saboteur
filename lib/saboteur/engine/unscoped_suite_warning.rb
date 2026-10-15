@@ -34,7 +34,7 @@ module Saboteur
       end
 
       def self.checks_label(config)
-        "#{config['baseline_passes']} baseline check#{'s' if config['baseline_passes'] > 1}"
+        "#{config['baseline_passes']} baseline check#{'s' unless config['baseline_passes'] == 1}"
       end
     end
   end

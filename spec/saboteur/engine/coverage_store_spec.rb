@@ -156,6 +156,21 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(again).to have_received(:build)
   end
 
+  it "caps the supervised build at the time a timeout cap leaves (#296)" do
+    built = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
+    result = Saboteur::Execution::Supervisor::Result.new(payload: built.to_json, exit_status: nil, stopped_by: nil,
+                                                         detail: nil, runtime: 1.0, leftover_pids: [])
+    allow(supervisor).to receive(:run).and_return(result)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    capped = described_class.new(config: Saboteur::Config.new({}, root: @root), integration: integration,
+                                 hooks: Saboteur::Hooks.new, supervisor: supervisor,
+                                 diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                 timeout_cap: ->(timeout) { timeout / 2 })
+    capped.fetch([file])
+    expect(supervisor).to have_received(:run).with(timeout: 1800.0, on_tick: anything,
+                                                   label: "coverage child died during the map build")
+  end
+
   it "builds the map in a supervised child and says so" do
     err = StringIO.new
     built = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])

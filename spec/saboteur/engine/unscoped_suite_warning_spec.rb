@@ -55,3 +55,10 @@ RSpec.describe Saboteur::Engine::UnscopedSuiteWarning do
     expect(warn({}, full_passes: 3)).to eq("")
   end
 end
+
+RSpec.describe Saboteur::Engine::UnscopedSuiteWarning, "check count edge (#296)" do
+  it "pluralizes zero baseline checks too" do
+    expect(described_class.send(:checks_label, { "baseline_passes" => 0 })).to eq("0 baseline checks")
+    expect(described_class.send(:checks_label, { "baseline_passes" => 1 })).to eq("1 baseline check")
+  end
+end

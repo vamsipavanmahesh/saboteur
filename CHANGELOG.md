@@ -7,6 +7,21 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `--max-duration` budget-exhaustion semantics (#296): a verdict check or
+  timeout calibration the budget cannot admit is skipped rather than run
+  with a zero-length timeout, so genuine kills are no longer misclassified
+  as errors and cached. Affected mutants report as `unverified` - outside
+  the score - the early stop lists their subjects (`unverifiedSubjects`
+  in the JSON report), and the run exits 4. Baseline checks and the
+  coverage map build are now capped at the time left in the budget, and
+  the early-stop reason comes from the actual truncation state, so
+  mid-subject budget stops report `max_duration` even with `--fail-fast`.
+
+### Fixed
+- The unscoped-suite warning pluralizes zero baseline checks correctly
+  ("0 baseline checks", not "0 baseline check") (#296).
+
+### Added
 - `saboteur pr [REF]` and `saboteur audit` presets: opinionated bundles of
   existing flags - the PR loop (changed lines since REF, one baseline
   check, a ten-minute non-failing budget) and the full audit (whole

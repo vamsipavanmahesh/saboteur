@@ -15,12 +15,13 @@ module Saboteur
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
 
-      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, load_lines: {})
+      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, load_lines: {}, timeout_cap: nil)
         @config = config
         @integration = integration
         @hooks = hooks
         @supervisor = supervisor
         @diagnostics = diagnostics
+        @timeout_cap = timeout_cap
         @load_lines = load_lines
         @root = File.realpath(config.root)
       end
@@ -68,6 +69,12 @@ module Saboteur
         LOCKFILES.map { |file| File.join(@root, file) }.select { |file| File.file?(file) }
       end
 
+      # An admitted build still gets only the time left in the run budget
+      # (see BaselineGuard#phase_timeout).
+      def build_timeout
+        @timeout_cap ? @timeout_cap.call(@config["coverage_timeout"]) : @config["coverage_timeout"]
+      end
+
       def build(files)
         unless Coverage.respond_to?(:state) && Coverage.state == :suspended
           raise Error, "Coverage is #{Coverage.state}; saboteur must set it up before the app loads. " \
@@ -80,7 +87,7 @@ module Saboteur
         # reduce later copying of shared pages.
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("building coverage map").watch(log_path)
-        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick),
+        result = @supervisor.run(timeout: build_timeout, on_tick: heartbeat.method(:tick),
                                  label: "coverage child died during the map build") do |writer|
           record(writer, files)
         end

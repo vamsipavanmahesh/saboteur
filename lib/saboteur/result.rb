@@ -12,7 +12,10 @@ module Saboteur
   # test can observe a change there, so it is outside the score.
   # unreachable: a Method object captured before re-evaluation still calls
   # the original body, so no test can observe the mutant. Outside the score.
-  STATUSES = %i[killed survived timeout resource_limit error skipped ran_at_load unreachable].freeze
+  # unverified: the --max-duration budget ran out before the verdict check
+  # or timeout calibration could run, so the kill or timeout proves
+  # nothing. Outside the score; the run reports budget-partial.
+  STATUSES = %i[killed survived timeout resource_limit error skipped ran_at_load unreachable unverified].freeze
 
   # Outcome of one mutation. reason carries the skip reason, the error
   # message or the timeout limit. ignored is the ignore-list reason, if any.
@@ -38,6 +41,14 @@ module Saboteur
       @rejected_kill = rejected_kill
       @reused = reused
       @ignored = nil
+    end
+
+    # The same mutant, marked unverified: the budget ran out before its
+    # verdict could be checked, so it must not count as detected (#296).
+    def as_unverified(reason)
+      MutantResult.new(subject: subject, mutation: mutation, status: :unverified, mutated_source: mutated_source,
+                       reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by,
+                       kill_cause: kill_cause, executed: executed)
     end
 
     # The same mutant, marked as an error: its verdict did not hold up.
@@ -101,10 +112,12 @@ module Saboteur
   end
 
   # A run that stopped before every selected subject was mutated (--fail-fast,
-  # --max-duration). unreached lists the subject ids that never ran; truncated
-  # lists the subjects that started but stopped mid-way as
-  # {subject:, omitted:} entries; the verdict covers only completed work.
-  EarlyStop = Data.define(:reason, :unreached, :truncated)
+  # --max-duration), or whose budget ran out before every verdict check.
+  # unreached lists the subject ids that never ran; truncated lists the
+  # subjects that started but stopped mid-way as {subject:, omitted:}
+  # entries; unverified lists the subjects whose kills the budget left
+  # unchecked. The verdict covers only completed, verified work.
+  EarlyStop = Data.define(:reason, :unreached, :truncated, :unverified)
 
   # Everything one run produced.
   class Report

@@ -22,7 +22,8 @@ module Saboteur
       # full_passes: every full-suite pass the run will make, including the
       # coverage build when the cache is cold, so the first timed pass can
       # price the rest (#260).
-      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, full_passes: 2, between_passes: nil)
+      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, full_passes: 2, between_passes: nil,
+                     timeout_cap: nil)
         @config = config
         @integration = integration
         @hooks = hooks
@@ -30,6 +31,7 @@ module Saboteur
         @diagnostics = diagnostics
         @full_passes = full_passes
         @between_passes = between_passes
+        @timeout_cap = timeout_cap
         @completed_passes = 0
       end
 
@@ -95,10 +97,17 @@ module Saboteur
                             "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'} at that rate")
       end
 
+      # An admitted pass still gets only the time left in the run budget:
+      # without the cap it would overrun a spent --max-duration by its
+      # whole coverage_timeout.
+      def phase_timeout
+        @timeout_cap ? @timeout_cap.call(@config["coverage_timeout"]) : @config["coverage_timeout"]
+      end
+
       def check(number)
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
-        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick),
+        result = @supervisor.run(timeout: phase_timeout, on_tick: heartbeat.method(:tick),
                                  label: "baseline child died during setup/run") do |writer|
           record(writer, number)
         end

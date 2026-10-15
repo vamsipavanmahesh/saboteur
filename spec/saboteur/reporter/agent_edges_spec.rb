@@ -51,7 +51,7 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
                          result_for(:timeout, replacement: "!="), result_for(:resource_limit, replacement: "=="),
                          result_for(:error, replacement: "<="), result_for(:skipped, replacement: "+", reason: "x"))
       expect(payload_for(report)[:counts]).to eq(killed: 1, survived: 1, timeout: 1, resourceLimit: 1, error: 1,
-                                                 skipped: 1, ranAtLoad: 0, unreachable: 0, executed: 5)
+                                                 skipped: 1, ranAtLoad: 0, unreachable: 0, unverified: 0, executed: 5)
     end
 
     it "counts ignored survivors apart from live ones" do
@@ -80,7 +80,7 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
     end
 
     it "names the subjects a --fail-fast stop left unrun" do
-      stop = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y], truncated: [])
+      stop = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y], truncated: [], unverified: [])
       report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1.0,
                                     root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
       expect(reasons(report)).to include(
@@ -93,7 +93,7 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
 
     it "marks a run partial when the budget stopped a subject mid-way and no subject was skipped (#245)" do
       stop = Saboteur::EarlyStop.new(reason: "max_duration", unreached: [],
-                                     truncated: [{ subject: "Person#adult?", omitted: 3 }])
+                                     truncated: [{ subject: "Person#adult?", omitted: 3 }], unverified: [])
       report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
                                     root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
       expect(reasons(report)).to include(
