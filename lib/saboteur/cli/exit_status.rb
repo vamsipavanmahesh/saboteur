@@ -73,7 +73,7 @@ module Saboteur
 
         case payload[:verdict]
         when "clean" then "ok"
-        when "survivors" then report.early_stop ? "failFast" : "survivors"
+        when "survivors" then report.early_stop&.reason == "fail_fast" ? "failFast" : "survivors"
         else report.majority_errored? ? "errorMajority" : "incomplete"
         end
       end
