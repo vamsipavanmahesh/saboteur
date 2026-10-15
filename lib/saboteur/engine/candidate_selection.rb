@@ -6,7 +6,7 @@ module Saboteur
     # Selects a bounded list for each covered subject before workers fork.
     # Subject skips are not mutants and do not enter the mutation score.
     class CandidateSelection
-      attr_reader :skipped_subjects, :selected
+      attr_reader :skipped_subjects, :selected, :unscoped_digests
 
       def initialize(candidates:, map:, limit:, diagnostics:)
         @candidates = candidates
@@ -15,6 +15,7 @@ module Saboteur
         @diagnostics = diagnostics
         @skipped_subjects = {}
         @selected = {}
+        @unscoped_digests = {}
       end
 
       def for(subject, scope: nil)
@@ -25,6 +26,13 @@ module Saboteur
         end
 
         list = @candidates.for(subject)
+        # The full pre-scope digests let IgnoreList#apply tell "mutation gone"
+        # from "mutation scoped out of this run" (#284).
+        if scope
+          @unscoped_digests[subject.id] = list.map do |mutation, _|
+            mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+          end
+        end
         list = scope.restrict(subject, list) if scope
         omitted = list.size - @limit
         if omitted.positive?

@@ -161,6 +161,25 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect(results[1]["error"]).to match(/\Aworker \d+ died \(signal KILL\)/)
   end
 
+  # While halted the pool starts nothing, so "workers keep failing to start"
+  # can never be the run's real problem; raising it over the drain would mask
+  # the rows that carry the actual abort cause (#286).
+  it "does not raise start failures over an abort that is already draining" do
+    pool = nil
+    on_result = ->(_item, _row) { pool.halt! }
+    pool = described_class.new(jobs: 4, on_result: on_result)
+    results = pool.map(%w[ok die1 die2 die3]) do |item|
+      if item == "ok"
+        { "ok" => true }
+      else
+        sleep 0.2 # die only after the halt lands, before a first report
+        Process.kill("KILL", Process.pid)
+      end
+    end
+    expect(results[0]).to eq({ "ok" => true })
+    expect(results[1..]).to all(include("error"))
+  end
+
   it "stops with the reason when workers keep dying before their first item" do
     failing = described_class.new(jobs: 2, on_start: ->(_) { raise "no database" })
     expect { failing.map([1, 2, 3, 4, 5]) { |n| { "n" => n } } }

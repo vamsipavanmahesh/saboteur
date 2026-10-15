@@ -61,7 +61,7 @@ module Saboteur
         @rails = boot.rails
         subjects, scope = select_subjects(files)
         results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, ignore_list, load_lines:)
-        @diagnostics.warnings.concat(ignore_list.apply(results))
+        @diagnostics.warnings.concat(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
         build_report(results, subjects, scope, started)
       ensure
         # The run boundary for the per-worker databases: cleanup runs however
@@ -71,6 +71,7 @@ module Saboteur
         # snapshots until process exit. cleanup_workers is idempotent; the
         # Rails profile's at_exit handler stays as the fallback for an
         # abrupt process exit.
+        @coverage_guard&.resume # an embedded host gets its coverage back (#254)
         safely_cleanup_workers(boot.rails)
       end
     end
@@ -389,6 +390,7 @@ module Saboteur
                                          limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
       subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
         @skipped_subjects = selection.skipped_subjects
+        @unscoped_digests = selection.unscoped_digests
         if @run_evidence
           @run_evidence.plan(subjects, subjects.map { |subject| selection.selected.fetch(subject) })
           @evidence_planned = true
@@ -455,16 +457,15 @@ module Saboteur
     end
 
     def suspend_coverage(files)
-      Coverage.suspend if Coverage.state == :running
+      (@coverage_guard = CoverageGuard.new).suspend
       capture_load_lines(files)
     end
 
-    def monotonic
-      Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    end
+    def monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   end
 end
 
+require_relative "engine/coverage_guard"
 require_relative "engine/diagnostics"
 require_relative "engine/boot"
 require_relative "engine/subject_selection"

@@ -36,6 +36,16 @@ All notable changes are documented here. The format follows
   child died during setup/run", "coverage child died during the map
   build"), and a broken child stderr can no longer swallow the exit
   (#289).
+- `Saboteur::Engine#call` restores the host process's Coverage state when
+  it returns or raises: an embedded engine (a spec, the dogfood's own
+  coverage-map build) no longer leaves Coverage suspended for everything
+  the host runs afterwards (#254). A scoped run (`--since`) no longer
+  calls an ignore entry stale when its mutation exists but sits on an
+  unchanged line and was scoped out; staleness is judged against each
+  examined subject's full, pre-scope candidate digests (#284). A worker
+  start-failure storm while the pool is already draining no longer raises
+  "workers keep failing to start" over the tool errors that carry the
+  real abort cause (#286).
 - The canary no longer blames a method's last mutant for deleted files:
   a cheap per-mutant probe (snapshot stats only, about 1.3 ms for this
   repo's 692 watched files against a full inventory's 5 ms) runs after

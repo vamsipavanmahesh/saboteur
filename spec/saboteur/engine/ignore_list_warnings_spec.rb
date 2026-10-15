@@ -24,6 +24,7 @@ RSpec.describe Saboteur::Engine, "ignore list warnings" do
       allow(Saboteur::IgnoreList).to receive(:load).and_return(ignore_list)
       report = described_class.new(Saboteur::Config.new({}, root: root), err: StringIO.new).call
       expect(report.warnings).to include("ignored survivor abc is gone")
+      expect(ignore_list).to have_received(:apply).with([], unscoped_digests: nil)
     end
   end
 end

@@ -38,7 +38,8 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     run = engine
     expect(run.send(:select_subjects, [])).to eq([[subject], nil])
     expect(run.send(:result_cache)).to be_a(Saboteur::Engine::ResultCache)
-    candidates = instance_double(Saboteur::Engine::CandidateSelection, for: [candidate], skipped_subjects: {})
+    candidates = instance_double(Saboteur::Engine::CandidateSelection, for: [candidate], skipped_subjects: {},
+                                                                       unscoped_digests: {})
     allow(Saboteur::Engine::CandidateSelection).to receive(:new).and_return(candidates)
     expect(run.send(:candidate_lists, [subject], nil, nil)).to eq([[candidate]])
   end

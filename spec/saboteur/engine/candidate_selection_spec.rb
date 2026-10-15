@@ -44,6 +44,25 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
       .to eq(subject_under_test => Saboteur::Selection::CoverageMap::RAN_AT_LOAD)
   end
 
+  it "records each scoped subject's full candidate digests before the scope cuts them (#284)" do
+    allow(map).to receive(:tests_for).and_return(["t1"])
+    kept = double(digest: "aaa")
+    dropped = double(digest: "bbb")
+    list = [[kept, "x"], [dropped, "y"]]
+    allow(candidates).to receive(:for).and_return(list)
+    scope = instance_double(Saboteur::Engine::DiffScope)
+    allow(scope).to receive(:restrict).with(subject_under_test, list).and_return([[kept, "x"]])
+    selection.for(subject_under_test, scope: scope)
+    expect(selection.unscoped_digests).to eq("K#m" => %w[aaa bbb])
+  end
+
+  it "records no unscoped digests for an unscoped run" do
+    allow(map).to receive(:tests_for).and_return(["t1"])
+    allow(candidates).to receive(:for).and_return([[:coarse, "nil"]])
+    selection.for(subject_under_test)
+    expect(selection.unscoped_digests).to eq({})
+  end
+
   it "keeps the first candidates in deterministic coarse-first order and reports the omitted count" do
     allow(map).to receive(:tests_for).and_return(["t1"])
     list = [[:coarse, "nil"], [:coarse, "raise"], [:fine, "0"]]
@@ -66,7 +85,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
 
   it "restricts to changed lines before applying the limit" do
     allow(map).to receive(:tests_for).and_return(["t1"])
-    list = [[:outside, "a"], [:changed, "b"], [:changed, "c"]]
+    list = [[double(digest: "d-out"), "a"], [double(digest: "d-ch1"), "b"], [double(digest: "d-ch2"), "c"]]
     allow(candidates).to receive(:for).and_return(list)
     scope = instance_double(Saboteur::Engine::DiffScope)
     allow(scope).to receive(:restrict).with(subject_under_test, list).and_return(list.last(2))
