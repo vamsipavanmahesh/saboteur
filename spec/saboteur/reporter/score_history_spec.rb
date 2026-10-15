@@ -239,6 +239,9 @@ RSpec.describe Saboteur::Reporter::ScoreHistory do
 
   it "fails instead of overwriting a directory" do
     FileUtils.mkdir_p(@path)
-    expect { append(report_of(result_for(:killed))) }.to raise_error(Saboteur::Error, /not recorded/)
+    # An IO failure on the write itself propagates unwrapped, so the CLI can
+    # tell it apart from integrity failures (which stay Saboteur::Error)
+    # (#296).
+    expect { append(report_of(result_for(:killed))) }.to raise_error(SystemCallError)
   end
 end

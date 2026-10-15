@@ -39,7 +39,11 @@ module Saboteur
           file.flush
           change(previous, record)
         end
-      rescue SystemCallError, IOError, JSON::ParserError, KeyError, TypeError => e
+      # SystemCallError/IOError from the write itself propagate unwrapped on
+      # purpose: the CLI treats those as a soft artifact failure (warn and
+      # exit by the results), while validation, integrity, record-size and
+      # lock failures stay hard errors (#296).
+      rescue JSON::ParserError, KeyError, TypeError => e
         raise Error, "score history was not recorded: #{e.message}"
       end
 

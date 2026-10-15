@@ -70,14 +70,37 @@ module Saboteur
     def write_log(log_path, error)
       return nil unless log_path
 
-      [log_path, tmp_log_path].each do |path|
-        FileUtils.mkdir_p(File.dirname(path))
-        File.write(path, "#{full_text(error)}\n")
-        return path
+      begin
+        FileUtils.mkdir_p(File.dirname(log_path))
+        File.write(log_path, "#{full_text(error)}\n")
+        return log_path
       rescue SystemCallError, IOError
-        next
+        # Fall through to the temp fallback.
       end
+      write_tmp_log(error)
+    end
+
+    # The fallback is computed lazily, only once the primary write failed:
+    # an eager tmp_log_path call could itself raise (Dir.tmpdir finds no
+    # usable dir) and mask the crash it was meant to log (#296).
+    #
+    # The fallback path is predictable and lives in a shared directory, so
+    # it is created privately: CREAT|EXCL|WRONLY|NOFOLLOW never follows or
+    # overwrites a pre-existing file or symlink, and the mode pins the log
+    # to 0600. A taken or hostile path means no log - the crash report
+    # itself must still go out, so every failure here degrades to nil.
+    def write_tmp_log(error)
+      File.open(tmp_log_path, File::CREAT | File::EXCL | File::WRONLY | nofollow_flag, 0o600) do |file|
+        file.write("#{full_text(error)}\n")
+      end
+      tmp_log_path
+    rescue SystemCallError, IOError, ArgumentError
       nil
+    end
+
+    # O_NOFOLLOW where the platform has it (every CI target does).
+    def nofollow_flag
+      File.const_defined?(:NOFOLLOW) ? File::NOFOLLOW : 0
     end
 
     # Where the log lands when a configured cache dir is not writable - a

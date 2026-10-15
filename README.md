@@ -415,7 +415,13 @@ survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-con
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
 `config/saboteur.rb`; set either to `nil` to turn that report off. The two paths
-must differ. The HTML page shows the covered mutation score
+must differ. When an artifact cannot be written - a read-only tree inside a
+sandboxed run - the HTML report and the score history warn and the run still
+exits by its results. An explicitly requested JSON report (`--json` or
+`c.json_report`) is different: it is the completion evidence an outer harness
+trusts, so a failed write fails the run with exit 3 rather than leaving a
+stale or partial file presented as this run's; the default
+`.saboteur/report.json` stays best-effort. The HTML page shows the covered mutation score
 `(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage,
 RanAtLoad and Unreachable out and keeps survivors accepted on the ignore list
 in the denominator. A tool
@@ -485,9 +491,12 @@ mutant). Unexpected `StandardError` or `LoadError` failures print
 `saboteur: internal error (...) - please report it` and exit 3, rather
 than dying with a bare stack trace and an accidental exit code. The full
 backtrace lands in `<cache_dir>/internal-error.log` (default
-`.saboteur/`), and `--verbose` also prints it to stderr. The message
-names the log only after a successful write: an unset `cache_dir` or an
-unwritable directory leaves the one-liner standing alone. The executable
+`.saboteur/`), and `--verbose` also prints it to stderr. When the cache
+dir cannot hold the log, a private pid-keyed fallback in the system temp
+dir takes it (created with `O_EXCL | O_NOFOLLOW`, mode 0600, so it never
+follows or overwrites a pre-existing path). The message names the log only
+after a successful write: an unset `cache_dir`, or a log writable nowhere,
+leaves the one-liner standing alone. The executable
 loads the crash reporter before the CLI, so a failure while it is
 loading, being built, or parsing arguments gets the same report;
 failures earlier than that - coverage setup or the reporter's own load -

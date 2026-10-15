@@ -59,6 +59,58 @@ RSpec.describe Saboteur::CrashReport do
     end
   end
 
+  it "computes the temp fallback lazily, only after the primary write fails (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      allow(described_class).to receive(:tmp_log_path).and_raise(ArgumentError, "no tmpdir")
+      report(error, log_path:)
+      expect(err.string).to include("full backtrace: #{log_path}")
+      expect(File.read(log_path)).to include("RuntimeError: boom")
+    end
+  end
+
+  it "creates the temp fallback privately, pinned to 0600 (#296)" do
+    fallback = described_class.tmp_log_path
+    FileUtils.rm_f(fallback)
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File.stat(fallback).mode & 0o777).to eq(0o600)
+    end
+  ensure
+    FileUtils.rm_f(fallback)
+  end
+
+  it "neither follows nor overwrites a pre-existing symlink at the temp fallback path (#296)" do
+    fallback = described_class.tmp_log_path
+    FileUtils.rm_f(fallback)
+    Dir.mktmpdir do |root|
+      target = File.join(root, "target")
+      File.symlink(target, fallback)
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).not_to include("full backtrace")
+      expect(File).to be_symlink(fallback)
+      expect(File).not_to exist(target)
+    end
+  ensure
+    FileUtils.rm_f(fallback)
+  end
+
+  it "does not overwrite a pre-existing file at the temp fallback path (#296)" do
+    fallback = described_class.tmp_log_path
+    File.write(fallback, "not ours")
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).not_to include("full backtrace")
+      expect(File.read(fallback)).to eq("not ours")
+    end
+  ensure
+    FileUtils.rm_f(fallback)
+  end
+
   it "falls back to the bare one-liner when even the temp fallback cannot be written" do
     Dir.mktmpdir do |root|
       File.write(File.join(root, ".saboteur"), "a file, not a directory")

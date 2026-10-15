@@ -1127,17 +1127,69 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
-  it "warns and still exits by the results when the JSON report cannot be written (#296)" do
+  it "fails the run when the explicitly requested JSON report cannot be written (#296)" do
     Dir.mktmpdir do |dir|
       readonly = File.join(dir, "readonly")
       FileUtils.mkdir_p(readonly)
       FileUtils.chmod(0o555, readonly)
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
-      status = cli("run", "--json", File.join(readonly, "r.json"), "--html", File.join(dir, "r.html")).call
-      expect(status).to eq(0)
-      expect(err.string).to include("could not write the JSON report")
+      json = File.join(readonly, "r.json")
+      status = cli("run", "--json", json, "--html", File.join(dir, "r.html")).call
+      expect(status).to eq(3)
+      expect(err.string).to include("saboteur: could not write the JSON report to #{json}: " \
+                                    "Permission denied @ rb_sysopen - #{json}")
+      expect(err.string).to include("stale or incomplete")
+      expect(out.string).not_to include("Reports:")
       expect(File).to exist(File.join(dir, "r.html"))
+    end
+  end
+
+  it "does not present an existing stale JSON report as this run's when the write fails (#296)" do
+    Dir.mktmpdir do |dir|
+      json = File.join(dir, "r.json")
+      File.write(json, '{"old": true}')
+      FileUtils.chmod(0o444, json)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = cli("run", "--json", json).call
+      expect(status).to eq(3)
+      expect(File.read(json)).to eq('{"old": true}')
+      expect(out.string).not_to include("Reports:")
+    end
+  end
+
+  it "fails the run when the JSON report write fails partway, without presenting the partial file (#296)" do
+    Dir.mktmpdir do |dir|
+      json = File.join(dir, "r.json")
+      writer = Saboteur::Reporter::Stryker.new(json)
+      allow(writer).to receive(:call) do
+        File.write(json, '{"partial"')
+        raise IOError, "stream closed"
+      end
+      allow(Saboteur::Reporter::Stryker).to receive(:new).and_return(writer)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = cli("run", "--json", json).call
+      expect(status).to eq(3)
+      expect(err.string).to include("could not write the JSON report to #{json}: stream closed")
+      expect(err.string).to include("stale or incomplete")
+      expect(out.string).not_to include("Reports:")
+    end
+  end
+
+  it "reports a failed JSON report write as an agent error payload in agent mode (#296)" do
+    Dir.mktmpdir do |dir|
+      readonly = File.join(dir, "readonly")
+      FileUtils.mkdir_p(readonly)
+      FileUtils.chmod(0o555, readonly)
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      status = cli("run", "--agent", "--json", File.join(readonly, "r.json")).call
+      expect(status).to eq(3)
+      payload = JSON.parse(out.string)
+      expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 3)
+      expect(payload["message"]).to include("could not write the JSON report")
     end
   end
 
@@ -1157,9 +1209,57 @@ RSpec.describe Saboteur::CLI, "details" do
       # symlink (/var -> /private/var), so compare against the resolved path.
       history = File.join(File.realpath(dir), ".saboteur", "history.jsonl")
       expect(err.string).to include("saboteur: could not write the score history to #{history} " \
-                                    "(score history was not recorded: Permission denied @ rb_sysopen - " \
-                                    "#{history}); continuing without it\n")
+                                    "(Permission denied @ rb_sysopen - #{history}); continuing without it\n")
       expect(err.string).not_to include("saboteur: \n")
+    end
+  end
+
+  it "fails the run when the score history lock cannot be acquired (#296)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
+      cache = File.join(dir, ".saboteur")
+      FileUtils.mkdir_p(cache)
+      history = File.join(cache, "history.jsonl")
+      File.write(history, "")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      File.open(history, File::RDWR) do |held|
+        held.flock(File::LOCK_EX)
+        status = Dir.chdir(dir) { cli("run").call }
+        expect(status).to eq(3)
+        expect(err.string).to include("score history lock was not acquired")
+      end
+    end
+  end
+
+  it "fails the run when the score history record fails validation (#296)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
+      allow(Saboteur::Reporter::HistoryRecord).to receive(:validate)
+        .and_raise(Saboteur::Error, "score history contains an inconsistent score")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = Dir.chdir(dir) { cli("run").call }
+      expect(status).to eq(3)
+      expect(err.string).to include("score history contains an inconsistent score")
+    end
+  end
+
+  it "fails the run when the score history record exceeds the byte limit (#296)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
+      stub_const("Saboteur::Reporter::ScoreHistory::MAX_RECORD_BYTES", 10)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = Dir.chdir(dir) { cli("run").call }
+      expect(status).to eq(3)
+      expect(err.string).to include("score history record exceeds byte limit")
     end
   end
 

@@ -116,6 +116,7 @@ module Saboteur
       raise ConfigError, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
 
       @deprecation_warnings = deprecations(values)
+      @explicit = values.keys.map(&:to_s).freeze
       @values = DEFAULTS.merge(values)
       coerce!
       validate!
@@ -128,6 +129,13 @@ module Saboteur
 
     def fetch(key, default = nil)
       @values.fetch(key.to_s, default)
+    end
+
+    # Whether the user set a key (config file or CLI flag) rather than
+    # relying on the default. An explicitly requested report artifact is
+    # completion evidence, so its write failure is a hard error (#296).
+    def explicit?(key)
+      @explicit.include?(key.to_s)
     end
 
     def to_h

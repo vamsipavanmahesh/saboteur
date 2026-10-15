@@ -60,6 +60,10 @@ module Saboteur
       # process clock; a log written during this run can stamp a little
       # before its start, so the freshness check allows that skew.
       CRASH_LOG_CLOCK_SLACK = 2
+      # Freshness matching can attach another run's log (clock slack, two
+      # nested runs in one child), so the label must not claim exact
+      # attribution (#296).
+      CRASH_LOG_LABEL = "recent saboteur crash log (freshness-matched, may be another run's):"
 
       # log_dir: where children write their output; a child's log is kept
       # only when it ends in an error. crash_log: the crash log of a saboteur
@@ -177,7 +181,7 @@ module Saboteur
         details = result[:failure_details]
         return result unless excerpt && details && !details.empty?
 
-        result.merge(failure_details: details.transform_values { |detail| [detail, excerpt].compact.join("\n") })
+        result.merge(failure_details: details.transform_values { |d| [d, CRASH_LOG_LABEL, excerpt].join("\n") })
       end
 
       # The nested CLI writes its log to the cache dir, or to the pid-keyed
@@ -188,7 +192,11 @@ module Saboteur
         return unless path
 
         text = File.read(path, CRASH_LOG_BYTES)
-        text ? text.lines.first(CRASH_LOG_LINES).join : nil
+        # Scrub before the excerpt travels as JSON: the bounded read can end
+        # mid-character and the log can hold locale-invalid bytes, and a
+        # JSON::GeneratorError here would turn a kill into a child error
+        # (#296).
+        text ? CrashReport.scrub(text).lines.first(CRASH_LOG_LINES).join : nil
       rescue StandardError
         nil
       end

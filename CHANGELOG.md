@@ -6,6 +6,25 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Report-artifact write semantics (#296): a failed HTML report or score
+  history write now warns and lets the run exit by its results, so a
+  read-only tree (a sandboxed child holding the project read-only) no
+  longer turns a good run into a tool failure. An explicitly requested
+  JSON report (`--json` / `c.json_report`) instead fails the run with
+  exit 3 - it is the completion evidence an outer harness trusts, and a
+  warning could leave a stale or partial file presented as this run's.
+  The default `.saboteur/report.json` stays best-effort. Score-history
+  soft failures are narrowed to the write's own IO errors; validation,
+  integrity, record-size and lock failures stay hard errors.
+- Crash-log fallback hardening (#296): when the cache dir cannot hold
+  `internal-error.log`, the fallback in the system temp dir is created
+  privately (`O_EXCL | O_NOFOLLOW`, mode 0600) instead of following a
+  predictable path, and it is only computed after the primary write
+  fails. A crash log the runner appends to a failure detail is scrubbed
+  to valid UTF-8 and labelled as freshness-matched, not certainly that
+  run's.
+
 ### Added
 - Dogfood/mutation diagnostics (#296): a rejected kill now reports why the
   killing test failed with the method unchanged - the exception class, its

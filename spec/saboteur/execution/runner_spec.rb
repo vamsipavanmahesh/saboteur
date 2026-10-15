@@ -48,10 +48,17 @@ RSpec.describe Saboteur::Execution::Runner do
     reeval = reevaluator
     dir = tmpdir
     # The nested CLI's crash, as a fresh or an hour-old log (#296).
-    crash_writer = lambda do |stale:, tmp: false|
-      path = tmp ? Saboteur::CrashReport.tmp_log_path : File.join(dir, "internal-error.log")
-      File.write(path, "KeyError: key not found: \"s\"\nlib/x.rb:1:in `fetch'")
-      File.utime(Time.now - 3600, Time.now - 3600, path) if stale
+    crash_writer = lambda do |mode|
+      path = mode == "crashlog_tmp" ? Saboteur::CrashReport.tmp_log_path : File.join(dir, "internal-error.log")
+      content = case mode
+                # Locale-invalid bytes; the cut log ends a two-byte e-acute
+                # right at the 2000-byte read bound (1999 bytes + 1).
+                when "crashlog_invalid" then "KeyError: bad \xFF\xFE bytes\nlib/x.rb:1:in `fetch'".b
+                when "crashlog_cut" then "KeyError: cut\n#{'a' * 1985}\u00e9\n".b
+                else "KeyError: key not found: \"s\"\nlib/x.rb:1:in `fetch'"
+                end
+      File.binwrite(path, content)
+      File.utime(Time.now - 3600, Time.now - 3600, path) if mode == "crashlog_stale"
     end
     Class.new do
       define_method(:run) do |ids|
@@ -66,8 +73,8 @@ RSpec.describe Saboteur::Execution::Runner do
         when "hang"
           File.write(File.join(dir, "grandchild.pid"), Process.spawn("sleep", "300").to_s)
           loop { sleep 0.01 }
-        when "crashlog", "crashlog_stale", "crashlog_tmp"
-          crash_writer.call(stale: mode == "crashlog_stale", tmp: mode == "crashlog_tmp")
+        when /\Acrashlog/
+          crash_writer.call(mode)
           Saboteur::Integration::RunResult.new(runtime: 0.01, **RUNNER_SPEC_RESULTS.fetch("fail").call(ids))
         else Saboteur::Integration::RunResult.new(runtime: 0.01, **RUNNER_SPEC_RESULTS.fetch(mode).call(ids))
         end
@@ -122,6 +129,23 @@ RSpec.describe Saboteur::Execution::Runner do
       expect(outcome.status).to eq(:killed)
       expect(outcome.message).to include("ExpectationNotMetError: expected: 2")
       expect(outcome.message).to include("KeyError: key not found")
+    end
+
+    it "labels the excerpt as freshness-matched, not certainly this run's (#296)" do
+      outcome = run_mode("crashlog")
+      expect(outcome.message).to include("freshness-matched, may be another run's")
+    end
+
+    it "scrubs locale-invalid bytes in the log instead of erroring the result (#296)" do
+      outcome = run_mode("crashlog_invalid")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).to include("KeyError: bad ?? bytes")
+    end
+
+    it "scrubs a multibyte character cut by the byte bound (#296)" do
+      outcome = run_mode("crashlog_cut")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).to include("KeyError: cut")
     end
 
     it "ignores a crash log written before the run started" do

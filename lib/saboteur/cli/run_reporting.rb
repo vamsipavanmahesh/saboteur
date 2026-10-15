@@ -71,6 +71,13 @@ module Saboteur
       end
 
       # Writes the JSON report and returns its path, or nil when none is configured.
+      #
+      # An explicitly requested JSON report (--json, c.json_report) is the
+      # completion evidence an outer harness trusts: a failed write fails
+      # the run (exit 3), because a warning with exit 0 could leave a stale
+      # or partial file at the path and present old results as this run's.
+      # The default .saboteur/report.json is best-effort like the HTML
+      # report and the score history (#296).
       def write_json(report, cause)
         path = config.path("json_report")
         return unless path
@@ -78,6 +85,11 @@ module Saboteur
         Reporter::Stryker.new(path).call(report, exit_cause: cause)
         path
       rescue SystemCallError, IOError => e
+        if config.explicit?("json_report")
+          raise Error, "could not write the JSON report to #{path}: #{e.message} - " \
+                       "any file at that path may be stale or incomplete"
+        end
+
         warn_report_write_failure("JSON report", path, e)
       end
 
@@ -91,9 +103,10 @@ module Saboteur
         warn_report_write_failure("HTML report", path, e)
       end
 
-      # A report artifact that cannot be written - the tree is read-only
-      # inside a sandboxed child, as in the dogfood's nested runs (#296) - is
-      # a warning, not a run failure: the exit code belongs to the results.
+      # An auxiliary report artifact that cannot be written - the tree is
+      # read-only inside a sandboxed child, as in the dogfood's nested runs
+      # (#296) - is a warning, not a run failure: the exit code belongs to
+      # the results. The JSON report is not auxiliary; see write_json.
       def warn_report_write_failure(what, path, error)
         @err.puts "saboteur: could not write the #{what} to #{path} (#{error.message}); continuing without it"
         nil
@@ -113,12 +126,15 @@ module Saboteur
 
         tree = WorkingTree.new(config.root, ignored: config.output_paths).state
         scope = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir")
-        # Recording is an auxiliary artifact: when it cannot be written -
-        # read-only tree inside a sandboxed child (#296) - warn and let the
-        # run exit by its results instead of failing as a tool error.
+        # Recording is an auxiliary artifact: when the file cannot be
+        # written - read-only tree inside a sandboxed child (#296) - warn
+        # and let the run exit by its results instead of failing as a tool
+        # error. Only the write's IO failures are soft: validation,
+        # integrity, record-size and lock failures (Saboteur::Error) stay
+        # hard, because they say the history is unusable, not unwritable.
         message = begin
           Reporter::ScoreHistory.new(path).append(report, head: tree.head, scope: scope)
-        rescue Error => e
+        rescue SystemCallError, IOError => e
           warn_report_write_failure("score history", path, e)
         end
         @err.puts("saboteur: #{message}") if message
