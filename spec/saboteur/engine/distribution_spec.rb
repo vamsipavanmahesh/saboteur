@@ -85,9 +85,11 @@ RSpec.describe Saboteur::Engine::Distribution do
     lists = [[[mutation, "text"]], [[mutation, "text"]], [[mutation, "text"]]]
     expect { distribution.run([subject, subject, subject], lists) }
       .to raise_error(Saboteur::Error, /vanished mid-run/)
-    # Two workers take the first two subjects up front; the third is handed
-    # out only after a row arrives - and the arriving tool error raises first.
-    expect(File.readlines(marker).size).to eq(2)
+    # The pool assigns the first two subjects up front and the third only
+    # after a row arrives - and the arriving tool error raises first, so it
+    # is never scheduled. A fast abort can stop the second worker before it
+    # records, so one or two entries are valid; three never are.
+    expect(File.readlines(marker).size).to be_between(1, 2)
   end
 
   it "aborts a row the callback path missed: a tool error still stops the rebuild" do
