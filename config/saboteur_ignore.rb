@@ -394,4 +394,12 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
 
+  i.mutation "69ce317bab249ed6",
+             subject: "Saboteur::Engine::Scheduler#checked",
+             reason: "equivalent: the block's cache record side effects are the whole behavior and the chain's return value is discarded, so each and map agree"
+
+  i.mutation "e96e7f1845d85ffa",
+             subject: "Saboteur::CLI::RunBudgetOptions#parse_duration",
+             reason: "equivalent: OptionParser declares no coercion for --max-duration, so parse_duration always receives a String and the defensive .to_s never changes the result"
+
 end
