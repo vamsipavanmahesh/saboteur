@@ -241,6 +241,23 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(warning).not_to include("f6.rb")
     end
 
+    # Dogfood survivor at 79fdbf59: dropping .sort was invisible while every
+    # fixture's glob order already matched the sorted order. Concatenating
+    # include patterns pins an unsorted territory order (Array#& keeps the
+    # receiver's order), so the sorted assertion fails without .sort.
+    it "sorts the named excluded files even when the include order is unsorted" do
+      files = [write("zeta.rb", "class Zeta\n  def x = 1\nend\n"),
+               write("mid.rb", "class Mid\n  def x = 1\nend\n"),
+               write("alpha.rb", "class Alpha\n  def x = 1\nend\n")]
+      commit_all
+      files.each { |file| File.write(file, File.read(file).sub("def x = 1", "def x = 2")) }
+
+      select([], since: "HEAD", include: ["z*.rb", "*.rb"], exclude: ["*.rb"])
+
+      expect(diagnostics.warnings.size).to eq(1)
+      expect(diagnostics.warnings.first).to include("them: alpha.rb, mid.rb, zeta.rb")
+    end
+
     it "lists five excluded files in full, without an ellipsis" do
       files = (1..5).map { |n| write("g#{n}.rb", "class G#{n}\n  def x = 1\nend\n") }
       commit_all
