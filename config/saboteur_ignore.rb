@@ -394,6 +394,11 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
 
+  i.mutation "ea2d81dd0ac9dd1c",
+             subject: "Saboteur::CrashReport.write_log",
+             reason: "equivalent: write_log returns via an explicit return inside the block or nil after it; " \
+                     "the block's write/rescue side effects are the whole behavior and the enumerator's return value is never used"
+
   i.mutation "69ce317bab249ed6",
              subject: "Saboteur::Engine::Scheduler#checked",
              reason: "equivalent: the block's cache record side effects are the whole behavior and the chain's return value is discarded, so each and map agree"

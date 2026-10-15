@@ -75,6 +75,10 @@ RSpec.describe Saboteur::CrashReport do
     expect(err.string).not_to include("full backtrace")
   end
 
+  it "names the temp fallback with the pid and the standard log name" do
+    expect(described_class.tmp_log_path).to eq(File.join(Dir.tmpdir, "saboteur-#{Process.pid}-internal-error.log"))
+  end
+
   it "prints the backtrace to stderr with verbose" do
     report(error, verbose: true)
     expect(err.string).to include("app/models/thing.rb:10:in `explode'")

@@ -70,7 +70,7 @@ module Saboteur
     def write_log(log_path, error)
       return nil unless log_path
 
-      [log_path, tmp_log_path].uniq.each do |path|
+      [log_path, tmp_log_path].each do |path|
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, "#{full_text(error)}\n")
         return path

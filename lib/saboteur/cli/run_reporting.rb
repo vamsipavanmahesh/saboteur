@@ -70,6 +70,35 @@ module Saboteur
         end
       end
 
+      # Writes the JSON report and returns its path, or nil when none is configured.
+      def write_json(report, cause)
+        path = config.path("json_report")
+        return unless path
+
+        Reporter::Stryker.new(path).call(report, exit_cause: cause)
+        path
+      rescue SystemCallError, IOError => e
+        warn_report_write_failure("JSON report", path, e)
+      end
+
+      def write_html(report)
+        path = config.path("html_report")
+        return unless path
+
+        Reporter::Html.new(path).call(report)
+        path
+      rescue SystemCallError, IOError => e
+        warn_report_write_failure("HTML report", path, e)
+      end
+
+      # A report artifact that cannot be written - the tree is read-only
+      # inside a sandboxed child, as in the dogfood's nested runs (#296) - is
+      # a warning, not a run failure: the exit code belongs to the results.
+      def warn_report_write_failure(what, path, error)
+        @err.puts "saboteur: could not write the #{what} to #{path} (#{error.message}); continuing without it"
+        nil
+      end
+
       def validate_history
         path = config.path("score_history")
         return unless path
@@ -84,8 +113,15 @@ module Saboteur
 
         tree = WorkingTree.new(config.root, ignored: config.output_paths).state
         scope = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir")
-        message = Reporter::ScoreHistory.new(path).append(report, head: tree.head, scope: scope)
-        @err.puts("saboteur: #{message}")
+        # Recording is an auxiliary artifact: when it cannot be written -
+        # read-only tree inside a sandboxed child (#296) - warn and let the
+        # run exit by its results instead of failing as a tool error.
+        message = begin
+          Reporter::ScoreHistory.new(path).append(report, head: tree.head, scope: scope)
+        rescue Error => e
+          warn_report_write_failure("score history", path, e)
+        end
+        @err.puts("saboteur: #{message}") if message
       end
     end
   end

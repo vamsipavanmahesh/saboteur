@@ -267,23 +267,6 @@ module Saboteur
       @sources&.any? ? "files" : "full"
     end
 
-    # Writes the JSON report and returns its path, or nil when none is configured.
-    def write_json(report, cause)
-      path = config.path("json_report")
-      return unless path
-
-      Reporter::Stryker.new(path).call(report, exit_cause: cause)
-      path
-    end
-
-    def write_html(report)
-      path = config.path("html_report")
-      return unless path
-
-      Reporter::Html.new(path).call(report)
-      path
-    end
-
     # Positional arguments name the files (or directories) to mutate. They
     # replace the configured include and exclude patterns. Each must exist,
     # so a typo is an error and not a run over zero subjects.

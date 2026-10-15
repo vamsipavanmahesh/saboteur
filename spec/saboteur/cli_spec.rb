@@ -1103,6 +1103,50 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  it "warns and still exits by the results when the HTML report cannot be written (#296)" do
+    Dir.mktmpdir do |dir|
+      readonly = File.join(dir, "readonly")
+      FileUtils.mkdir_p(readonly)
+      FileUtils.chmod(0o555, readonly)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = cli("run", "--json", File.join(dir, "r.json"), "--html", File.join(readonly, "r.html")).call
+      expect(status).to eq(0)
+      expect(err.string).to include("could not write the HTML report")
+      expect(File).to exist(File.join(dir, "r.json"))
+    end
+  end
+
+  it "warns and still exits by the results when the JSON report cannot be written (#296)" do
+    Dir.mktmpdir do |dir|
+      readonly = File.join(dir, "readonly")
+      FileUtils.mkdir_p(readonly)
+      FileUtils.chmod(0o555, readonly)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = cli("run", "--json", File.join(readonly, "r.json"), "--html", File.join(dir, "r.html")).call
+      expect(status).to eq(0)
+      expect(err.string).to include("could not write the JSON report")
+      expect(File).to exist(File.join(dir, "r.html"))
+    end
+  end
+
+  it "warns and still exits by the results when the score history cannot be recorded (#296)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
+      cache = File.join(dir, ".saboteur")
+      FileUtils.mkdir_p(cache)
+      FileUtils.chmod(0o555, cache)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = Dir.chdir(dir) { cli("run").call }
+      expect(status).to eq(0)
+      expect(err.string).to include("could not write the score history")
+    end
+  end
+
   describe "--since with a ref that is not a commit" do
     it "exits 2 with a usage message, in text and in agent mode" do
       Dir.mktmpdir do |dir|
