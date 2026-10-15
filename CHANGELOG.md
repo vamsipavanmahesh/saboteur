@@ -10,7 +10,9 @@ All notable changes are documented here. The format follows
 - Dogfood/mutation diagnostics (#296): a rejected kill now reports why the
   killing test failed with the method unchanged - the exception class, its
   full message and the first backtrace frames, bounded to 2000 chars -
-  instead of only the first line ("expected: 0"). The terminal report
+  instead of only the first line ("expected: 0"). Frames inside rspec's own
+  gems are dropped first, so the cap keeps the project frame that names the
+  failing spec line. The terminal report
   prints the detail as indented continuation lines and the JSON report's
   `statusReason` keeps every line; one-line reasons are unchanged. An `unverified` verdict also keeps the runner's own
   reason (for example "the --max-duration budget is spent") rather than a

@@ -230,10 +230,19 @@ module Saboteur
           return nil unless exception
 
           message = Text.utf8("#{exception.class.name}: #{exception.message}")
-          frames = Array(exception.backtrace).first(BACKTRACE_LIMIT).map { |frame| Text.utf8(frame.to_s) }
-          ([message] + frames).join("\n")[0, DETAIL_LIMIT]
+          ([message] + relevant_frames(exception)).join("\n")[0, DETAIL_LIMIT]
         rescue StandardError
           exception.message.to_s.dump[0, DETAIL_LIMIT]
+        end
+
+        # An expectation failure leads with rspec's own frames (notify_failure,
+        # handle_failure); under the cap they would crowd out the spec line.
+        # Keep the project frames; fall back to the raw ones when rspec itself
+        # raised, so the detail never comes back empty.
+        def relevant_frames(exception)
+          frames = Array(exception.backtrace).map { |frame| Text.utf8(frame.to_s) }
+          project = frames.reject { |frame| frame.include?("/gems/rspec") }
+          (project.empty? ? frames : project).first(BACKTRACE_LIMIT)
         end
 
         def first_line(message)

@@ -86,6 +86,15 @@ RSpec.describe Saboteur::Engine::Distribution do
     expect(distribution.truncated).to eq([])
   end
 
+  # A worker row can mix unverified results with tested ones; any? flags the
+  # subject, all? would miss the mix (#296).
+  it "flags a subject when only some of its results are unverified (#296)" do
+    distribution = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
+    rows = [{ "results" => [{ "status" => "unverified" }, { "status" => "killed" }] }]
+    distribution.send(:record_unreached, rows, %i[a], [[1, 2]])
+    expect(distribution.unverified).to eq([:a])
+  end
+
   it "marks unverified subjects from worker rows in parallel (#296)" do
     distribution = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
     rows = [{ "results" => [{ "status" => "unverified" }] }, { "results" => [{ "status" => "killed" }] }]

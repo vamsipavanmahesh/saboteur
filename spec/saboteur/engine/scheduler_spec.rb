@@ -419,6 +419,21 @@ RSpec.describe Saboteur::Engine::Scheduler, "result cache" do
     expect(runner).to have_received(:run).exactly(first_runs + 2).times
   end
 
+  # A partial cache hit mixes reused and fresh verdicts in one check; only
+  # the fresh ones may be recorded again (#296).
+  it "re-records only the fresh verdicts when reused and fresh mix in one check (#296)" do
+    run_with(cache)
+    entries = JSON.parse(File.read(File.join(@root, "results.json")))
+    entries["entries"].delete(entries["entries"].keys.first)
+    File.write(File.join(@root, "results.json"), JSON.generate(entries))
+    store = cache
+    allow(store).to receive(:record).and_call_original
+    run_with(store)
+    expect(store).to have_received(:record).exactly(:once)
+    expect(store).to have_received(:record).with(having_attributes(reused?: false))
+    expect(store).not_to have_received(:record).with(having_attributes(reused?: true))
+  end
+
   it "runs everything without a cache" do
     run_with(nil)
     run_with(nil)

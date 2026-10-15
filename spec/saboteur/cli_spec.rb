@@ -164,6 +164,15 @@ RSpec.describe Saboteur::CLI do
     end
   end
 
+  # Option values keep their shell padding; the parser trims before matching,
+  # so " 10m " is the same budget as "10m" (#296).
+  it "trims padding around --max-duration before parsing (#296)" do
+    command = cli("run", "--max-duration", " 10m ")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(max_duration: 600.0)
+  end
+
   it "rejects an unparseable --max-duration as a usage error (#245)" do
     command = cli("run", "--max-duration", "soon")
     expect(command.call).to eq(2)
@@ -1137,6 +1146,9 @@ RSpec.describe Saboteur::CLI, "details" do
         error = StringIO.new
         expect(described_class.new(argv, out: output, err: error).call).to eq(0)
         expect(output.string).to include("COMMANDS").and include("--since REF")
+        # The overview carries the stricter --agent note under its exit codes
+        # (#245); pin it here too so the section stays honest (#296).
+        expect(output.string).to include(Saboteur::Help::AGENT_EXIT_CODES)
         expect(error.string).to be_empty
       end
     end

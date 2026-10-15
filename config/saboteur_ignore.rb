@@ -3,6 +3,14 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "bafd61e973bfc9a9",
+             subject: "Saboteur::CLI::Presets#preset",
+             reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
+
+  i.mutation "4b8734a9a70da302",
+             subject: "Saboteur::Engine::Scheduler#retry_longer",
+             reason: "budget_capped clamps retry_timeout to <= longer, so < and != agree on every reachable value"
+
   i.mutation "e9effc360ce327fb",
              subject: "Saboteur::Engine::BaselineGuard#budget_stopped?",
              reason: "admitted is clamped to <= the configured phase timeout, so < and != agree on every reachable value"
