@@ -352,6 +352,7 @@ module Saboteur
       opts.on("--seed N", Integer, "Seed for Ruby's random numbers in every test run (default 1)") do |v|
         set(:seed, v)
       end
+      opts.on("--baseline-passes N", Integer, "Unchanged-suite checks (default 2)") { |v| set(:baseline_passes, v) }
       opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |v| set(:config, v) }
       opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
       opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }

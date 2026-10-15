@@ -32,9 +32,10 @@ module Saboteur
         raise Error, "baseline has no tests. Check rspec_args and the suite filters before running saboteur again." if
           expected.empty?
 
-        @diagnostics.inform("checking the unchanged suite twice (seed #{@config['seed']})")
+        passes = @config["baseline_passes"]
+        @diagnostics.inform(announce(passes))
         previous = nil
-        2.times do |index|
+        passes.times do |index|
           number = index + 1
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           data = check(number)
@@ -53,6 +54,18 @@ module Saboteur
       end
 
       private
+
+      def announce(passes)
+        case passes
+        when 1
+          "checking the unchanged suite once (seed #{@config['seed']}); " \
+          "order stability between passes is not checked (baseline_passes: 1)"
+        when 2
+          "checking the unchanged suite twice (seed #{@config['seed']})"
+        else
+          "checking the unchanged suite #{passes} times (seed #{@config['seed']})"
+        end
+      end
 
       # Once the first pass is timed, the total cost stops being a guess:
       # the remaining full passes cost roughly the same each.

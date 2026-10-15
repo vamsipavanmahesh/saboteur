@@ -63,6 +63,7 @@ module Saboteur
       "test_selection" => "auto",
       "matrix" => false,
       "seed" => 1,
+      "baseline_passes" => 2,
       "tests" => [],
       "fingerprint_extra" => [],
       "threshold" => nil,
@@ -70,7 +71,7 @@ module Saboteur
       "max_errors" => nil
     }.freeze
 
-    INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed].freeze
+    INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes].freeze
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
     THRESHOLD_RANGE = (0.0..100.0)
 
@@ -253,6 +254,7 @@ module Saboteur
       validate_threshold!
       validate_modes!
       raise ConfigError, "seed must be >= 0" if self["seed"].negative?
+      raise ConfigError, "baseline_passes must be >= 1" if self["baseline_passes"] < 1
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
       raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?

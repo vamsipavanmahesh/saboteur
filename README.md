@@ -57,7 +57,7 @@ reused when it loads clean); once the first baseline pass is timed, the
 run estimates the time left for the remaining baseline and coverage
 passes from it - mutation time is not part of that estimate. Past 1,000
 examples the announcement also names `--test` as the way to scope the run. Both baseline passes must be green, complete and in the same
-RSpec order at the run seed. A failure exits 3, stops mutation, prints the failing example ids and the first ten lines of the
+RSpec order at the run seed. Set `c.baseline_passes = 1` (or `--baseline-passes 1`) for a faster PR loop: the run says so up front and gives up the order-stability comparison between passes (#55). A failure exits 3, stops mutation, prints the failing example ids and the first ten lines of the
 failure inline, and names the log and fix. Long phases
 print their elapsed time about every 30 seconds, with the examples finished so far, the percentage and a rough estimate of the time left (it assumes equally long examples) once the suite child has logged its first count, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
@@ -274,7 +274,7 @@ above the limit, with `exitCause` `maxTimeouts` or `maxErrors` in the JSON repor
 their own causes when they fail too. The gates cannot be combined with `--agent`.
 The GitHub Action has no input for them yet.
 
-Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
+Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`, `--baseline-passes N`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
 `--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
 
@@ -527,6 +527,7 @@ Saboteur.configure do |c|
   c.sandbox_writable = []        # extra dirs mutant children may write, e.g. ["db", "log"]
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
+  c.baseline_passes = 2          # unchanged-suite checks before mutating; 1 skips the order-stability check (#55)
   c.allow_focus = false          # true runs a suite narrowed by fit/fdescribe/:focus instead of exit 2
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
 end

@@ -7,6 +7,11 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `baseline_passes` (config and `--baseline-passes`) sets how many times the
+  unchanged suite runs before mutation (default 2). `1` is the fast PR
+  loop; the run announces that it gives up the order-stability
+  comparison between passes, and the whole-suite cost message counts
+  the configured checks (#55).
 - Usability fixes from 0.5.0 field feedback: an unscoped whole-suite run
   announces the example count and the real number of full passes before
   the first one (a cached map counts as reused only when it loads clean)

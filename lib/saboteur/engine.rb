@@ -13,10 +13,6 @@ module Saboteur
   # coverage map, then schedule each subject's mutants. The parts live in
   # engine/; this class only wires them together.
   class Engine
-    # A suite this size pays hours for an unscoped run; below it the cost
-    # summary alone is enough, without the --test lecture (#260).
-    COSTLY_SUITE_EXAMPLES = 1_000
-
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
                         timeout_factor timeout_min
@@ -208,10 +204,10 @@ module Saboteur
     def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
       store = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
                                 supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics)
-      full_passes = store.reusable?(files) ? 2 : 3
+      full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
       # A --id replay targets one known mutant; the whole-suite cost summary
       # and its --test lecture do not apply.
-      warn_about_unscoped_suite(integration, full_passes) unless @replay
+      UnscopedSuiteWarning.call(config:, diagnostics: @diagnostics, integration:, full_passes:) unless @replay
       check_baseline(integration, full_passes)
       map = store.fetch(files)
       inform_about_run(subjects, map)
@@ -273,29 +269,6 @@ module Saboteur
     def inform_about_run(subjects, map)
       @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
       ThreadWarnings.warn(@diagnostics)
-    end
-
-    # A whole-suite run (--all, c.test_selection = :all, or a --since diff
-    # with nothing to infer from) runs the loaded suite twice for the
-    # baselines; a cold coverage cache adds one more pass. Say so - with the
-    # example count and the real pass count - before those hours pass; past
-    # a size threshold, add the way to scope it.
-    def warn_about_unscoped_suite(integration, full_passes)
-      return unless config["tests"].empty?
-      return unless config["since"] || config["all"] || config["test_selection"] == "all"
-
-      examples = integration.all_tests.size
-      coverage = full_passes == 2 ? "; the cached coverage map is reused" : " + 1 coverage map build"
-      message = "running the loaded suite unscoped: #{examples} examples in #{integration.test_files.size} " \
-                "spec files; #{full_passes} full passes (2 baseline checks#{coverage})."
-      if examples >= COSTLY_SUITE_EXAMPLES
-        message += " Pass --test to run only the specs you name: faster, but a mutant of a changed method is then " \
-                   "killed only by those specs, so specs elsewhere that call this code are not run. " \
-                   "The default inferred selection runs the specs named after the mutated files, " \
-                   "a guess that can miss specs elsewhere."
-      end
-      @diagnostics.warn(message)
-      @diagnostics.inform(message)
     end
 
     def check_baseline(integration, full_passes)
@@ -471,6 +444,7 @@ require_relative "engine/test_guess"
 require_relative "engine/sandbox_policy"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
+require_relative "engine/unscoped_suite_warning"
 require_relative "engine/bytecode_equivalence"
 require_relative "engine/candidates"
 require_relative "engine/candidate_selection"

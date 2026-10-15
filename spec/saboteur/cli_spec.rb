@@ -141,6 +141,13 @@ RSpec.describe Saboteur::CLI do
                                   reeval: "nesting", cache: false, seed: 42)
   end
 
+  it "parses --baseline-passes into config overrides (#55)" do
+    command = cli("run", "--baseline-passes", "1")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(baseline_passes: 1)
+  end
+
   describe "doctor suite options" do
     before { allow(Saboteur::Doctor).to receive(:new).and_return(instance_double(Saboteur::Doctor, call: true)) }
 
