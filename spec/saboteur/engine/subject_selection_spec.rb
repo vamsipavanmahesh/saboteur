@@ -167,6 +167,112 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(diagnostics.discovery_failures.first.file).to be_frozen
   end
 
+  describe "--since when a changed Ruby file is excluded by c.exclude (#282)" do
+    def commit_all
+      [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+      end
+    end
+
+    it "warns and names the changed file that c.exclude removes from the include territory" do
+      cart = write("cart.rb", source)
+      write("note.rb", "class Note\n  def text = \"n\"\nend\n")
+      commit_all
+      File.write(cart, source.sub("def total = 1", "def total = 2"))
+
+      select([], since: "HEAD", include: ["*.rb"], exclude: ["cart.rb"])
+
+      expect(diagnostics.warnings.size).to eq(1)
+      expect(diagnostics.warnings.first).to include("--since: 1 changed Ruby file(s) are covered by c.include " \
+                                                    "but removed by c.exclude, so nothing is mutated from " \
+                                                    "them: cart.rb")
+      expect(diagnostics.warnings.first).not_to include("...")
+    end
+
+    # --subject only filters subjects inside the files left after excludes,
+    # so it cannot recover an excluded file; a positional operand clears
+    # configured excludes (cli.rb's use_explicit_sources sets exclude: []).
+    it "advises narrowing c.exclude or a positional operand, never --subject" do
+      cart = write("cart.rb", source)
+      commit_all
+      File.write(cart, source.sub("def total = 1", "def total = 2"))
+
+      select([], since: "HEAD", include: ["*.rb"], exclude: ["cart.rb"])
+
+      warning = diagnostics.warnings.first
+      expect(warning).to include("Narrow or remove the c.exclude entry",
+                                 "pass the file as a positional source operand")
+      expect(warning).not_to include("--subject")
+    end
+
+    it "stays quiet when the changed file sits in the territory and is not excluded" do
+      cart = write("cart.rb", source)
+      write("other.rb", "class Other\n  def x = 1\nend\n")
+      commit_all
+      File.write(cart, source.sub("def total = 1", "def total = 2"))
+
+      select([cart, File.join(@root, "other.rb")], since: "HEAD", include: ["*.rb"], exclude: ["other.rb"])
+
+      expect(diagnostics.warnings).to be_empty
+    end
+
+    it "stays quiet when c.exclude removes only a changed non-Ruby file" do
+      cart = write("cart.rb", source)
+      readme = write("README.md", "hi\n")
+      commit_all
+      File.write(readme, "hello\n")
+
+      select([cart], since: "HEAD", include: ["*"], exclude: ["README.md"])
+
+      expect(diagnostics.warnings).to be_empty
+    end
+
+    it "names at most five excluded files, with an ellipsis for the rest" do
+      files = (1..6).map { |n| write("f#{n}.rb", "class F#{n}\n  def x = 1\nend\n") }
+      commit_all
+      files.each_with_index { |file, n| File.write(file, "class F#{n + 1}\n  def x = 2\nend\n") }
+
+      select([], since: "HEAD", include: ["*.rb"], exclude: ["f*.rb"])
+
+      expect(diagnostics.warnings.size).to eq(1)
+      warning = diagnostics.warnings.first
+      expect(warning).to include("--since: 6 changed Ruby file(s) are covered by c.include")
+      expect(warning).to include("from them: f1.rb, f2.rb, f3.rb, f4.rb, f5.rb, ...")
+      expect(warning).not_to include("f6.rb")
+    end
+
+    # Dogfood survivor at 79fdbf59: dropping .sort was invisible while every
+    # fixture's glob order already matched the sorted order. Concatenating
+    # include patterns pins an unsorted territory order (Array#& keeps the
+    # receiver's order), so the sorted assertion fails without .sort.
+    it "sorts the named excluded files even when the include order is unsorted" do
+      files = [write("zeta.rb", "class Zeta\n  def x = 1\nend\n"),
+               write("mid.rb", "class Mid\n  def x = 1\nend\n"),
+               write("alpha.rb", "class Alpha\n  def x = 1\nend\n")]
+      commit_all
+      files.each { |file| File.write(file, File.read(file).sub("def x = 1", "def x = 2")) }
+
+      select([], since: "HEAD", include: ["z*.rb", "*.rb"], exclude: ["*.rb"])
+
+      expect(diagnostics.warnings.size).to eq(1)
+      expect(diagnostics.warnings.first).to include("them: alpha.rb, mid.rb, zeta.rb")
+    end
+
+    it "lists five excluded files in full, without an ellipsis" do
+      files = (1..5).map { |n| write("g#{n}.rb", "class G#{n}\n  def x = 1\nend\n") }
+      commit_all
+      files.each_with_index { |file, n| File.write(file, "class G#{n + 1}\n  def x = 2\nend\n") }
+
+      select([], since: "HEAD", include: ["*.rb"], exclude: ["g*.rb"])
+
+      expect(diagnostics.warnings.size).to eq(1)
+      warning = diagnostics.warnings.first
+      expect(warning).to include("--since: 5 changed Ruby file(s)")
+      expect(warning).to include("g1.rb, g2.rb, g3.rb, g4.rb, g5.rb")
+      expect(warning).not_to include("...")
+    end
+  end
+
   describe "--since when a changed Ruby file yields no subjects (#232)" do
     let(:err) { StringIO.new }
     let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }

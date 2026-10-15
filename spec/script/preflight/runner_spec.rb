@@ -3,6 +3,21 @@
 
 require_relative "support"
 
+# A verdict assertion that names every check with its status and reason on
+# mismatch: a CI-only flake against report.verdict alone is undiagnosable
+# (#287).
+RSpec::Matchers.define :have_verdict do |expected|
+  match { |report| report.verdict == expected }
+
+  failure_message do |report|
+    checks = report.to_h[:checks].map do |check|
+      detail = " - #{check[:reason]}" if check[:reason]
+      "#{check[:name]}: #{check[:status]}#{detail}"
+    end
+    "expected verdict #{expected.inspect}, got #{report.verdict.inspect}\nchecks:\n  #{checks.join("\n  ")}"
+  end
+end
+
 RSpec.describe Preflight::Runner, :fixture do
   def passing_responder(&extra)
     lambda do |argv|
@@ -307,6 +322,15 @@ RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
     end
   end
 
+  it "names each check with its status and reason when the verdict mismatches (#287)" do
+    report = double(verdict: "incomplete",
+                    to_h: { checks: [{ name: "rubocop", status: :failed, reason: "2 offenses" },
+                                     { name: "rspec", status: :passed, reason: nil }] })
+    expect { expect(report).to have_verdict("partial") }
+      .to raise_error(RSpec::Expectations::ExpectationNotMetError,
+                      /expected verdict "partial", got "incomplete".*rubocop: failed - 2 offenses.*rspec: passed/m)
+  end
+
   it "refuses an injected run id that is not one safe path component" do
     options = @fixture.options(base: @base, mode: "fast")
     ["../x", "a/b", "..", ".", "", "-x", "a b"].each do |bad|
@@ -316,23 +340,25 @@ RSpec.describe Preflight::Runner, "candidate-time output swaps", :fixture do
   end
 
   it "passes when nothing tampers (valid control)" do
-    expect(run_swap(:none).verdict).to eq("partial")
+    expect(run_swap(:none)).to have_verdict("partial")
   end
 
   it "does not write logs through a logs directory that was swapped for a symlink" do
     report = run_swap(:logs_symlink)
-    expect([report.verdict, Dir.children(outside)]).to eq(["incomplete", []])
+    expect(report).to have_verdict("incomplete")
+    expect(Dir.children(outside)).to eq([])
   end
 
   it "does not hang or pass when the report path was replaced by a FIFO" do
-    expect(run_swap(:report_fifo).verdict).to eq("incomplete")
+    expect(run_swap(:report_fifo)).to have_verdict("incomplete")
   end
 
   it "writes the raw RSpec report to a harness-owned pipe, so a planted link in the old path is never written" do
     victim = File.join(outside, "victim.txt")
     File.write(victim, "untouched\n")
     report = run_swap(:raw_symlink, victim: victim)
-    expect([File.read(victim), report.verdict]).to eq(%W[untouched\n incomplete])
+    expect(File.read(victim)).to eq("untouched\n")
+    expect(report).to have_verdict("incomplete")
   end
 
   it "reads the raw RSpec report through the pipe in a real run (valid control)" do
