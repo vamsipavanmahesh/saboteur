@@ -7,6 +7,12 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `--max-duration` (config `max_duration`, e.g. `10m`) budgets the whole
+  run, baselines included: past the budget the run stops before the next
+  subject, reports which selected subjects never ran, marks the JSON and
+  agent output partial, and exits 4; `--max-duration-ok` leaves the exit
+  to the plain verdict. Works with `--jobs` by halting the worker pool
+  (#245).
 - `baseline_passes` (config and `--baseline-passes`) sets how many times the
   unchanged suite runs before mutation (default 2). `1` is the fast PR
   loop; the run announces that it gives up the order-stability

@@ -64,6 +64,8 @@ module Saboteur
       "matrix" => false,
       "seed" => 1,
       "baseline_passes" => 2,
+      "max_duration" => nil,
+      "max_duration_ok" => false,
       "tests" => [],
       "fingerprint_extra" => [],
       "threshold" => nil,
@@ -73,6 +75,7 @@ module Saboteur
 
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes].freeze
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
+    NILABLE_FLOAT_KEYS = %w[threshold max_duration].freeze
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
@@ -179,7 +182,7 @@ module Saboteur
       INTEGER_KEYS.each { |key| @values[key] = Integer(@values[key]) }
       FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) }
       LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
-      @values["threshold"] = Float(@values["threshold"]) unless @values["threshold"].nil?
+      NILABLE_FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) unless @values[key].nil? }
       @values["test_selection"] = @values["test_selection"].to_s
     rescue ArgumentError, TypeError => e
       raise ConfigError, "invalid config value: #{e.message}"
@@ -187,6 +190,13 @@ module Saboteur
 
     def validate_mutant_limit!
       raise ConfigError, "max_mutants_per_method must be > 0" unless self["max_mutants_per_method"].positive?
+    end
+
+    # The unchanged-suite checks: how many, and the whole run's clock (#55, #245).
+    def validate_baseline!
+      raise ConfigError, "seed must be >= 0" if self["seed"].negative?
+      raise ConfigError, "baseline_passes must be >= 1" if self["baseline_passes"] < 1
+      raise ConfigError, "max_duration must be > 0" if self["max_duration"] && !self["max_duration"].positive?
     end
 
     def validate_report_paths!
@@ -253,8 +263,7 @@ module Saboteur
       validate_mutant_limit!
       validate_threshold!
       validate_modes!
-      raise ConfigError, "seed must be >= 0" if self["seed"].negative?
-      raise ConfigError, "baseline_passes must be >= 1" if self["baseline_passes"] < 1
+      validate_baseline!
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
       raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?

@@ -24,11 +24,20 @@ module Saboteur
       end
 
       def exit_code(report)
+        return EXIT_BUDGET if budget_exhausted?(report)
+
         return EXIT_TOOL if mostly_errored?(report)
 
         return EXIT_TOOL if incomplete_under_threshold?(report)
 
         failed_quality_gate?(report) || gates.failed?(report, @err) ? EXIT_SURVIVORS : EXIT_OK
+      end
+
+      # A spent --max-duration budget exits 4 on its own, before the gates:
+      # the run is partial by design, and --max-duration-ok opts back into
+      # the plain verdict.
+      def budget_exhausted?(report)
+        report.early_stop&.reason == "max_duration" && !config["max_duration_ok"]
       end
 
       def gates = (@gates ||= Gates.new(config))
@@ -48,6 +57,8 @@ module Saboteur
       # incomplete run that mostly errored keeps its distinct cause, so the
       # harness rule means the same thing in both modes.
       def agent_exit_cause(report, payload)
+        return "budgetExhausted" if budget_exhausted?(report)
+
         case payload[:verdict]
         when "clean" then "ok"
         when "survivors" then report.early_stop ? "failFast" : "survivors"
@@ -60,6 +71,7 @@ module Saboteur
       def exit_cause(report, code)
         case code
         when EXIT_OK then "ok"
+        when EXIT_BUDGET then "budgetExhausted"
         when EXIT_SURVIVORS then survivors_cause(report)
         else report.majority_errored? ? "errorMajority" : "incompleteUnderThreshold"
         end
@@ -68,14 +80,14 @@ module Saboteur
       # A run stopped by --fail-fast always exits 1: it stopped on a survivor, and
       # its score covers only the subjects that ran, so no threshold can pass it.
       def survivors_cause(report)
-        return "failFast" if report.early_stop
+        return "failFast" if report.early_stop&.reason == "fail_fast"
 
         gates.cause || (config["threshold"].nil? ? "survivors" : "belowThreshold")
       end
 
       # With --threshold the score decides; without it any unignored survivor does.
       def failed_quality_gate?(report)
-        return true if report.early_stop
+        return true if report.early_stop&.reason == "fail_fast"
 
         threshold = config["threshold"]
         return report.unignored_survivors.any? if threshold.nil?

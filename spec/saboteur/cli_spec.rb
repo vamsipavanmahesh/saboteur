@@ -148,6 +148,28 @@ RSpec.describe Saboteur::CLI do
     expect(command.options).to eq(baseline_passes: 1)
   end
 
+  it "parses --max-duration with a unit suffix into seconds, plus --max-duration-ok (#245)" do
+    command = cli("run", "--max-duration", "10m", "--max-duration-ok")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(max_duration: 600.0, max_duration_ok: true)
+  end
+
+  it "parses --max-duration suffixes s and h, and bare seconds (#245)" do
+    { "30s" => 30.0, "2h" => 7200.0, "45" => 45.0 }.each do |text, seconds|
+      command = cli("run", "--max-duration", text)
+      allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+      command.call
+      expect(command.options).to eq(max_duration: seconds)
+    end
+  end
+
+  it "rejects an unparseable --max-duration as a usage error (#245)" do
+    command = cli("run", "--max-duration", "soon")
+    expect(command.call).to eq(2)
+    expect(err.string).to include("invalid --max-duration")
+  end
+
   describe "doctor suite options" do
     before { allow(Saboteur::Doctor).to receive(:new).and_return(instance_double(Saboteur::Doctor, call: true)) }
 

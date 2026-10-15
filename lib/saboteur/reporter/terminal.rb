@@ -229,7 +229,8 @@ module Saboteur
         stop = report.early_stop
         return unless stop
 
-        @out.puts @palette.paint(:yellow, "stopped early (--fail-fast): #{stop.unreached.size} selected " \
+        label = stop.reason == "fail_fast" ? "--fail-fast" : "--max-duration spent"
+        @out.puts @palette.paint(:yellow, "stopped early (#{label}): #{stop.unreached.size} selected " \
                                           "subject#{'s' unless stop.unreached.one?} did not run; the score below " \
                                           "covers only the subjects that ran")
         stop.unreached.first(MAX_ERRORS).each { |id| @out.puts "  not run: #{id}" }

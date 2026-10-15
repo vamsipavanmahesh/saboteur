@@ -36,6 +36,15 @@ RSpec.describe "early stop in the reports" do
     expect(terminal_text(stopped("A#x", "B#y", "C#z"))).not_to include("more\n")
   end
 
+  it "names --max-duration when the time budget stopped the run (#245)" do
+    report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1,
+                                  early_stop: Saboteur::EarlyStop.new(reason: "max_duration", unreached: ["A#x"]))
+    expect(terminal_text(report)).to include("stopped early (--max-duration spent): 1 selected subject did not run")
+    json = Saboteur::Reporter::Stryker.build(report)
+    expect(json[:earlyStop]).to eq(reason: "max_duration", unreachedSubjects: ["A#x"])
+  end
+
   it "says subject in the singular for one unreached subject" do
     expect(terminal_text(stopped("A#x"))).to include("1 selected subject did not run")
   end

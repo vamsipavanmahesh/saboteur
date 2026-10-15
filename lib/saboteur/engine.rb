@@ -232,7 +232,8 @@ module Saboteur
       @diagnostics.start_progress(lists.sum(&:size))
       distribution = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
                                       cache: cache, on_start: method(:start_worker),
-                                      after_subject: after_subject_hook, stop_after: fail_fast_check(ignore_list))
+                                      after_subject: after_subject_hook, stop_after: stop_checks(ignore_list),
+                                      halt_check: config["max_duration"] ? method(:budget_exceeded?) : nil)
       distribution.run(subjects, lists).tap { record_early_stop(distribution.unreached) }
     ensure
       @diagnostics.finish_progress
@@ -251,11 +252,36 @@ module Saboteur
     def record_early_stop(unreached)
       return if unreached.empty?
 
-      @early_stop = EarlyStop.new(reason: "fail_fast", unreached: unreached.map(&:id))
+      @early_stop = EarlyStop.new(reason: @budget_announced ? "max_duration" : "fail_fast",
+                                  unreached: unreached.map(&:id))
     end
 
     # --fail-fast: stop after the first subject that has a survivor the
     # ignore list does not accept. Granularity is one subject.
+    # --fail-fast and --max-duration both stop before the next subject; the
+    # distribution records whatever they leave unreached.
+    def stop_checks(ignore_list)
+      checks = [fail_fast_check(ignore_list),
+                config["max_duration"] ? ->(_results) { budget_exceeded? } : nil].compact
+      return checks.first if checks.size <= 1
+
+      ->(results) { checks.any? { |check| check.call(results) } }
+    end
+
+    # The whole run is budgeted, baselines included: the clock starts when the
+    # engine starts, so an oversized baseline spends the budget by itself.
+    def budget_exceeded?
+      return false unless config["max_duration"]
+
+      @run_started ||= Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      exceeded = Process.clock_gettime(Process::CLOCK_MONOTONIC) - @run_started >= config["max_duration"]
+      if exceeded && !@budget_announced
+        @budget_announced = true
+        @diagnostics.inform("--max-duration reached: stopping before the next subject; the report marks it partial")
+      end
+      exceeded
+    end
+
     def fail_fast_check(ignore_list)
       return nil unless config["fail_fast"]
 

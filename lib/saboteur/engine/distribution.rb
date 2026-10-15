@@ -17,10 +17,11 @@ module Saboteur
       # works on one process: parallel workers have already started the
       # other subjects.
       def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil, after_subject: nil,
-                     stop_after: nil,
+                     stop_after: nil, halt_check: nil,
                      drain_timeout: 30) # seconds; two minimum-strength mutant deadlines at default settings
         @jobs = jobs
         @stop_after = stop_after
+        @halt_check = halt_check
         @unreached = []
         @on_start = on_start
         @scheduler = scheduler
@@ -49,26 +50,42 @@ module Saboteur
         # runs once. @pool is only read from arrivals, which fire inside
         # @pool.map after the assignment.
         @abort_reports = []
-        arrival = lambda do |i, row|
-          if row["tool_error"]
-            collect_abort_report(row)
-          else
-            check_subject(subjects, lists, i, row)
-          end
-        end
+        arrival = arrival_for(subjects, lists)
         @pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start, on_result: arrival,
                                           drain_timeout: @drain_timeout)
         rows = @pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
           work(subjects[i], lists[i])
         end
         raise_preferred_tool_error(@abort_reports) if @abort_reports.any?
+        record_unreached(rows, subjects)
         rows.each_with_index.flat_map do |row, i|
+          next [] if row.nil?
+
           raise_if_tool_error(row)
           rebuild(row, subjects[i], lists[i])
         end
       end
 
       private
+
+      # @pool is only read here from arrivals, which fire inside @pool.map
+      # after the assignment. A spent --max-duration budget stops the queue
+      # the same way a canary does: in-flight subjects finish, unstarted
+      # ones come back as nil holes and count as unreached (#245).
+      def arrival_for(subjects, lists)
+        lambda do |i, row|
+          if row["tool_error"]
+            collect_abort_report(row)
+          else
+            check_subject(subjects, lists, i, row)
+            @pool.halt! if @halt_check&.call
+          end
+        end
+      end
+
+      def record_unreached(rows, subjects)
+        @unreached = rows.each_index.select { |i| rows[i].nil? }.map { |i| subjects[i] }
+      end
 
       # @pool is always assigned when an arrival fires: arrivals only fire
       # from inside @pool.map, which runs after the assignment.

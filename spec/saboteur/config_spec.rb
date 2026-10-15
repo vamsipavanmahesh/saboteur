@@ -229,6 +229,16 @@ RSpec.describe Saboteur::Config, "details" do
                                                                               /baseline_passes must be >= 1/)
   end
 
+  it "leaves max_duration unset by default and validates it when given (#245)" do
+    expect(described_class.new({})["max_duration"]).to be_nil
+    expect(described_class.new({})["max_duration_ok"]).to eq(false)
+    expect(described_class.new({ "max_duration" => 600 })["max_duration"]).to eq(600.0)
+    expect(described_class.new({ "max_duration" => "90" })["max_duration"]).to eq(90.0)
+    expect { described_class.new({ "max_duration" => 0 }) }.to raise_error(Saboteur::ConfigError,
+                                                                           /max_duration must be > 0/)
+    expect { described_class.new({ "max_duration" => "soon" }) }.to raise_error(Saboteur::ConfigError)
+  end
+
   it "has no path for a setting that is off" do
     expect(described_class.new({ "json_report" => nil }, root: @root).path("json_report")).to be_nil
   end

@@ -274,7 +274,7 @@ above the limit, with `exitCause` `maxTimeouts` or `maxErrors` in the JSON repor
 their own causes when they fail too. The gates cannot be combined with `--agent`.
 The GitHub Action has no input for them yet.
 
-Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`, `--baseline-passes N`,
+Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`, `--baseline-passes N`, `--max-duration DUR`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
 `--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
 
@@ -494,6 +494,7 @@ reporter has loaded, agent mode reports the same failure as agent
 JSON, using a standalone payload if the agent reporter has not
 loaded. Before the crash reporter loads, only the one-line
 diagnostic and exit 3 are available.
+`--max-duration 10m` budgets the whole run, baselines included: past the budget the run stops before the next subject, reports which selected subjects never ran, marks the JSON and agent output partial (`earlyStop.reason: "max_duration"`), and exits 4; `--max-duration-ok` (or `c.max_duration_ok = true`) leaves the exit to the plain verdict instead. In agent mode the exit code stays verdict-driven and the budget shows up in `incomplete[]` and `earlyStop` (#245).
 
 ### Rejected kills
 
@@ -528,6 +529,8 @@ Saboteur.configure do |c|
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
   c.baseline_passes = 2          # unchanged-suite checks before mutating; 1 skips the order-stability check (#55)
+  c.max_duration = nil           # wall-clock budget in seconds, e.g. 600; an exhausted budget exits 4 (#245)
+  c.max_duration_ok = false        # true: an exhausted budget does not fail the run
   c.allow_focus = false          # true runs a suite narrowed by fit/fdescribe/:focus instead of exit 2
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
 end
