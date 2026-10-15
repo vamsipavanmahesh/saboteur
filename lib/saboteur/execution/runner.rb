@@ -195,14 +195,20 @@ module Saboteur
       end
 
       # The log paths are predictable and live in shared dirs, so read the
-      # log the way CrashReport writes it: through a no-follow descriptor,
+      # log the way CrashReport writes it: through a no-follow, non-blocking
+      # descriptor,
       # and validate on that same fd - a regular file, owned by this uid,
       # with no group/other permission bits, fresh by the fd's own mtime.
       # One open, no check-then-reopen race; a symlink, a foreign, wide or
       # non-regular file, or any IO failure is no excerpt, never an
       # exception (#296).
       def fresh_log_excerpt(path, started_at)
-        File.open(path, File::RDONLY | CrashReport.nofollow_flag) do |file|
+        # No safe open, no excerpt: without O_NOFOLLOW a symlink redirects
+        # the read, without O_NONBLOCK a no-writer FIFO blocks it (#296).
+        return unless CrashReport.safe_log_io?
+
+        flags = File::RDONLY | CrashReport.nofollow_flag | CrashReport.nonblock_flag
+        File.open(path, flags) do |file|
           stat = file.stat
           next unless stat.file? && stat.uid == Process.uid && stat.mode.nobits?(0o077)
           next unless stat.mtime >= started_at - CRASH_LOG_CLOCK_SLACK

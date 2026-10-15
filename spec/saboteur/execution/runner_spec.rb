@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "timeout"
 require "tmpdir"
 
 # What the fake suite reports, per mode, for the modes that return.
@@ -58,6 +59,8 @@ RSpec.describe Saboteur::Execution::Runner do
         File.symlink(File.join(dir, "sentinel"), path)
       when "crashlog_dir"
         Dir.mkdir(path)
+      when "crashlog_fifo"
+        File.mkfifo(path)
       else
         content = case mode
                   # Locale-invalid bytes; the cut log ends a two-byte
@@ -190,6 +193,19 @@ RSpec.describe Saboteur::Execution::Runner do
 
     it "skips a log with group or other permission bits (#296)" do
       outcome = run_mode("crashlog_wide")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).not_to include("KeyError")
+    end
+
+    it "skips a no-writer FIFO at the log path without blocking (#296)" do
+      outcome = Timeout.timeout(15) { run_mode("crashlog_fifo", timeout: 5) }
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).not_to include("KeyError")
+    end
+
+    it "omits the excerpt where a no-follow, non-blocking open is unavailable (#296)" do
+      allow(Saboteur::CrashReport).to receive(:safe_log_io?).and_return(false)
+      outcome = run_mode("crashlog")
       expect(outcome.status).to eq(:killed)
       expect(outcome.message).not_to include("KeyError")
     end

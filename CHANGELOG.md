@@ -21,10 +21,13 @@ All notable changes are documented here. The format follows
   `internal-error.log`, the fallback in the system temp dir is created
   privately (`O_EXCL | O_NOFOLLOW`, mode 0600) instead of following a
   predictable path, and it is only computed after the primary write
-  fails. Every crash log is now written private (0600), and the runner
-  reads it back through a no-follow descriptor, accepting only a regular
-  file owned by the same uid with no group/other bits - a symlink, a
-  foreign or wide-mode file is skipped, never followed. The appended
+  fails. Every crash log is now written private (0600) through a
+  no-follow, non-blocking open - a planted symlink cannot redirect the
+  write and a planted FIFO cannot block it - and the runner reads it
+  back the same way, accepting only a regular file owned by the same uid
+  with no group/other bits. Where the platform lacks `O_NOFOLLOW` or
+  `O_NONBLOCK`, the log and the excerpt are omitted rather than opened
+  unsafely. The appended
   excerpt is scrubbed to valid UTF-8 and labelled as freshness-matched,
   not certainly that run's.
 

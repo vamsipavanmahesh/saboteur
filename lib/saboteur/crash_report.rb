@@ -70,17 +70,25 @@ module Saboteur
     def write_log(log_path, error)
       return nil unless log_path
 
-      begin
-        FileUtils.mkdir_p(File.dirname(log_path))
-        # Private like the temp fallback: the runner only reads logs with
-        # no group/other bits, from the same no-follow fd (#296).
-        File.open(log_path, File::CREAT | File::WRONLY | File::TRUNC, 0o600) do |file|
-          file.chmod(0o600)
-          file.write("#{full_text(error)}\n")
+      # The primary path is user-configured but still predictable: without
+      # O_NOFOLLOW a planted symlink would redirect the truncate/chmod, and
+      # without O_NONBLOCK a planted FIFO would block the open. Where the
+      # platform lacks either, only the EXCL-created temp fallback is safe
+      # (#296).
+      if safe_log_io?
+        begin
+          FileUtils.mkdir_p(File.dirname(log_path))
+          # Private like the temp fallback: the runner only reads logs with
+          # no group/other bits, from the same no-follow fd (#296).
+          flags = File::CREAT | File::WRONLY | File::TRUNC | nofollow_flag | nonblock_flag
+          File.open(log_path, flags, 0o600) do |file|
+            file.chmod(0o600)
+            file.write("#{full_text(error)}\n")
+          end
+          return log_path
+        rescue SystemCallError, IOError
+          # Fall through to the temp fallback.
         end
-        return log_path
-      rescue SystemCallError, IOError
-        # Fall through to the temp fallback.
       end
       write_tmp_log(error)
     end
@@ -106,6 +114,19 @@ module Saboteur
     # O_NOFOLLOW where the platform has it (every CI target does).
     def nofollow_flag
       File.const_defined?(:NOFOLLOW) ? File::NOFOLLOW : 0
+    end
+
+    # O_NONBLOCK where the platform has it (every CI target does).
+    def nonblock_flag
+      File.const_defined?(:NONBLOCK) ? File::NONBLOCK : 0
+    end
+
+    # The private crash-log write/read needs both flags: without O_NOFOLLOW
+    # a planted symlink redirects the open, without O_NONBLOCK a planted
+    # FIFO blocks it. Where either is missing, the log is omitted rather
+    # than opened unsafely (#296).
+    def safe_log_io?
+      File.const_defined?(:NOFOLLOW) && File.const_defined?(:NONBLOCK)
     end
 
     # Where the log lands when a configured cache dir is not writable - a

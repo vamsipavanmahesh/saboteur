@@ -3,6 +3,7 @@
 
 require "json"
 require "stringio"
+require "timeout"
 require "tmpdir"
 
 RSpec.describe Saboteur::CrashReport do
@@ -36,6 +37,37 @@ RSpec.describe Saboteur::CrashReport do
       expect(File.read(log_path)).to eq(
         "RuntimeError: boom\napp/models/thing.rb:10:in `explode'\napp/models/thing.rb:20:in `run'\n"
       )
+    end
+  end
+
+  it "never redirects the primary log write through a symlink (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      FileUtils.mkdir_p(File.dirname(log_path))
+      File.symlink(File.join(root, "target"), log_path)
+      fallback = described_class.tmp_log_path
+      FileUtils.rm_f(fallback)
+      report(error, log_path:)
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File).to be_symlink(log_path)
+      expect(File).not_to exist(File.join(root, "target"))
+    ensure
+      FileUtils.rm_f(fallback)
+    end
+  end
+
+  it "falls back promptly when the primary log path is a no-reader FIFO (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      FileUtils.mkdir_p(File.dirname(log_path))
+      File.mkfifo(log_path)
+      fallback = described_class.tmp_log_path
+      FileUtils.rm_f(fallback)
+      Timeout.timeout(10) { report(error, log_path:) }
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File).to be_pipe(log_path)
+    ensure
+      FileUtils.rm_f(fallback)
     end
   end
 
