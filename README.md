@@ -293,8 +293,10 @@ warns and names the file instead of silently selecting zero subjects. Comment-on
 or formatting-only changes within discovered methods are skipped without this
 warning; the run reports those skipped methods. A changed Ruby file that an
 include pattern covers but `c.exclude` removes mutates nothing either, and the
-run warns and names up to five such files - fix the exclude or scope the run
-with `--subject`.
+run warns and names up to five such files - narrow or remove the `c.exclude`
+entry, or pass the file as a positional source operand (configured excludes are
+then ignored). `--subject` cannot help here: it filters subjects inside the
+files left after excludes.
 
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work

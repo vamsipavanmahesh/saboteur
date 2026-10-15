@@ -189,6 +189,22 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings.first).not_to include("...")
     end
 
+    # --subject only filters subjects inside the files left after excludes,
+    # so it cannot recover an excluded file; a positional operand clears
+    # configured excludes (cli.rb's use_explicit_sources sets exclude: []).
+    it "advises narrowing c.exclude or a positional operand, never --subject" do
+      cart = write("cart.rb", source)
+      commit_all
+      File.write(cart, source.sub("def total = 1", "def total = 2"))
+
+      select([], since: "HEAD", include: ["*.rb"], exclude: ["cart.rb"])
+
+      warning = diagnostics.warnings.first
+      expect(warning).to include("Narrow or remove the c.exclude entry",
+                                 "pass the file as a positional source operand")
+      expect(warning).not_to include("--subject")
+    end
+
     it "stays quiet when the changed file sits in the territory and is not excluded" do
       cart = write("cart.rb", source)
       write("other.rb", "class Other\n  def x = 1\nend\n")

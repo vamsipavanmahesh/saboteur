@@ -123,8 +123,9 @@ module Saboteur
         names = hits.sort.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
         more = hits.size > 5 ? ", ..." : ""
         @diagnostics.warn("--since: #{hits.size} changed Ruby file(s) are covered by c.include but removed by " \
-                          "c.exclude, so nothing is mutated from them: #{names}#{more}. Fix the exclude, or " \
-                          "scope the run with --subject.")
+                          "c.exclude, so nothing is mutated from them: #{names}#{more}. Narrow or remove the " \
+                          "c.exclude entry, or pass the file as a positional source operand (configured " \
+                          "excludes are then ignored).")
       end
 
       # Ruby files an include pattern and an exclude pattern both match,
