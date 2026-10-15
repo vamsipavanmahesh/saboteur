@@ -112,7 +112,10 @@ forms the syntactic guard cannot see.
 On Linux 6.2 and later (Landlock ABI 3) each mutant child also runs under
 a Landlock sandbox: the child cannot create, write, rename, unlink or
 truncate files in the project tree, except `tmp/` and the
-system temp dir, plus anything in `c.sandbox_writable`. The cache dir
+system temp dir, plus anything in `c.sandbox_writable`. The project
+`tmp/` grant applies only when `tmp/` already exists - the run never
+creates it for the grant - so create it before the run if your suite
+writes there, or grant the directory with `c.sandbox_writable`. The cache dir
 is denied too - a mutant cannot delete the baseline, the reports or
 other children's logs; its own log is opened before the fork and
 arrives as an inherited descriptor. Grants are additive, though: a

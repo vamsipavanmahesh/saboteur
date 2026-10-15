@@ -68,8 +68,13 @@ All notable changes are documented here. The format follows
   stall the abort (#235).
 - `saboteur doctor` prints the coverage line once instead of twice (it is
   still verified before and after target boot), and reports the sandbox
-  status: the Landlock ABI when the kernel can deliver it, the gap when
-  it cannot, or off when `c.sandbox = false` (#236). The sandbox policy
+  status as a kernel capability probe, not verified isolation: the
+  Landlock ABI when the kernel can deliver it, the gap when it cannot -
+  told apart as a `c.sandbox = "strict"` refusal versus the permitted
+  degradation of a non-strict run - or off when `c.sandbox = false`. A
+  probe the kernel refuses (EPERM under a seccomp policy) is an
+  actionable tool error with exit 3, not an internal-error crash report,
+  and doctor writes nothing (#236). The sandbox policy
   no longer creates the project's `tmp/` directory to grant it: the
   grant applies when `tmp/` already exists and only `c.sandbox_writable`
   entries are created (#236).

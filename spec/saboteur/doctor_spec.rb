@@ -54,16 +54,17 @@ RSpec.describe Saboteur::Doctor do
         .and_return(instance_double(Saboteur::Engine::Boot, load_target: instance_double(Saboteur::Integration::Base)))
     end
 
-    it "reports the Landlock ABI when the sandbox can deliver" do
+    it "reports the kernel capability, not verified isolation, when the sandbox can deliver" do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(4)
       doctor.call
-      expect(out.string).to include("Sandbox: Landlock ABI 4")
+      expect(out.string).to include("Sandbox: kernel Landlock ABI 4 - capability probe only, not verified isolation")
     end
 
-    it "reports the gap when the kernel cannot deliver ABI 3" do
+    it "reports the gap as what children would run with when the kernel cannot deliver ABI 3" do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
       doctor.call
-      expect(out.string).to include("Sandbox: degraded - this kernel lacks Landlock (needs Linux 6.2+)")
+      expect(out.string).to include("Sandbox: this kernel lacks Landlock (needs Linux 6.2+)",
+                                    "children would run with the hazard guard and canary only")
     end
 
     it "reports the sandbox as off when configured off" do
@@ -82,13 +83,28 @@ RSpec.describe Saboteur::Doctor do
     it "reports the Landlock ABI at the minimum supported version" do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
       doctor.call
-      expect(out.string).to include("Sandbox: Landlock ABI 3")
+      expect(out.string).to include("Sandbox: kernel Landlock ABI 3")
     end
 
     it "reports the gap one ABI below the minimum" do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(2)
       doctor.call
-      expect(out.string).to include("Sandbox: degraded - this kernel's Landlock ABI is 2 but ABI 3")
+      expect(out.string).to include("Sandbox: this kernel's Landlock ABI is 2 but ABI 3")
+    end
+
+    it "distinguishes a strict refusal from permitted degradation" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(2)
+      configured = Saboteur::Config.new({ "sandbox" => "strict" })
+      described_class.new(configured, out: out).call
+      expect(out.string).to include("this kernel's Landlock ABI is 2 but ABI 3",
+                                    'c.sandbox = "strict" refuses to run')
+      expect(out.string).not_to include("hazard guard")
+    end
+
+    it "reports a refused Landlock probe as an actionable tool error, not a crash" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version)
+        .and_raise(SystemCallError.new("landlock_create_ruleset probe", 1))
+      expect { doctor.call }.to raise_error(Saboteur::Error, /Landlock probe failed.*c\.sandbox = false/m)
     end
   end
 

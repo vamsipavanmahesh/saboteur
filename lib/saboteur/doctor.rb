@@ -81,18 +81,34 @@ module Saboteur
                    "executable, disable SimpleCov and remove other Coverage.start calls"
     end
 
-    # Status only: the run itself refuses or degrades in the sandbox policy.
+    # A kernel capability probe, not verified isolation: what the kernel
+    # would let mutant children do, and what the run does with that - the
+    # engine's sandbox policy owns the refusal or degradation itself.
     def check_sandbox
       if @config["sandbox"] == false
         @out.puts "Sandbox: off (c.sandbox = false)"
         return
       end
-      abi = Execution::Sandbox.abi_version
+      abi = sandbox_abi
       if abi >= 3
-        @out.puts "Sandbox: Landlock ABI #{abi}"
+        @out.puts "Sandbox: kernel Landlock ABI #{abi} - capability probe only, not verified isolation"
+      elsif @config["sandbox"] == "strict"
+        @out.puts "Sandbox: #{Engine::SandboxPolicy.sandbox_gap(abi)}; " \
+                  'c.sandbox = "strict" refuses to run - children never run degraded'
       else
-        @out.puts "Sandbox: degraded - #{Engine::SandboxPolicy.sandbox_gap(abi)}"
+        @out.puts "Sandbox: #{Engine::SandboxPolicy.sandbox_gap(abi)}; " \
+                  "children would run with the hazard guard and canary only"
       end
+    end
+
+    # The probe contract the engine's policy already keeps: an errored probe
+    # (EPERM under a seccomp policy, ...) is an actionable tool error, not a
+    # CLI internal error - doctor stays read-only.
+    def sandbox_abi
+      Execution::Sandbox.abi_version
+    rescue SystemCallError => e
+      raise Error, "sandbox is on but the Landlock probe failed (#{e.message}); a run would refuse the same way - " \
+                   "set c.sandbox = false to check without the sandbox"
     end
 
     # Match against all included source definitions, not the current diff or
