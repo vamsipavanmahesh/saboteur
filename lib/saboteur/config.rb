@@ -107,7 +107,7 @@ module Saboteur
     # Deprecations found while loading: printed by the CLI, never fatal.
     attr_reader :deprecation_warnings
 
-    def initialize(values = {}, root: Dir.pwd)
+    def initialize(values = {}, root: Dir.pwd, explicit: nil)
       # Retag the root losslessly: under a non-UTF-8 locale it arrives
       # locale-tagged, and every glob, join and expand below would mix
       # encodings with the UTF-8 patterns from the config file (#231).
@@ -116,7 +116,7 @@ module Saboteur
       raise ConfigError, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
 
       @deprecation_warnings = deprecations(values)
-      @explicit = values.keys.map(&:to_s).freeze
+      @explicit_keys = (explicit || values.keys).map(&:to_s).freeze
       @values = DEFAULTS.merge(values)
       coerce!
       validate!
@@ -131,11 +131,24 @@ module Saboteur
       @values.fetch(key.to_s, default)
     end
 
+    # Keys the user set (config file or CLI flag) rather than relying on
+    # the default; carried through Engine's config clone so provenance
+    # survives (#296).
+    attr_reader :explicit_keys
+
+    # A copy with some values replaced or dropped, keeping which keys the
+    # user set explicitly: the replacements count as explicit, the dropped
+    # keys lose it (#296).
+    def with(values, except: [])
+      merged = to_h.except(*except).merge(values)
+      Config.new(merged, root: root, explicit: (explicit_keys - except.map(&:to_s)) | values.keys.map(&:to_s))
+    end
+
     # Whether the user set a key (config file or CLI flag) rather than
     # relying on the default. An explicitly requested report artifact is
     # completion evidence, so its write failure is a hard error (#296).
     def explicit?(key)
-      @explicit.include?(key.to_s)
+      @explicit_keys.include?(key.to_s)
     end
 
     def to_h

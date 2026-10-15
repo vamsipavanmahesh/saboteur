@@ -187,17 +187,34 @@ module Saboteur
       # The nested CLI writes its log to the cache dir, or to the pid-keyed
       # temp fallback when the sandbox holds the cache dir read-only (#296).
       def crash_log_excerpt(started_at)
-        candidates = tmp_log_candidates.select { |path| fresh_log?(path, started_at) }
-        path = candidates.max_by { |candidate| File.mtime(candidate) }
-        return unless path
-
-        text = File.read(path, CRASH_LOG_BYTES)
-        # Scrub before the excerpt travels as JSON: the bounded read can end
-        # mid-character and the log can hold locale-invalid bytes, and a
-        # JSON::GeneratorError here would turn a kill into a child error
-        # (#296).
-        text ? CrashReport.scrub(text).lines.first(CRASH_LOG_LINES).join : nil
+        excerpt = tmp_log_candidates.filter_map { |path| fresh_log_excerpt(path, started_at) }
+                                    .max_by { |mtime, _text| mtime }
+        excerpt&.last
       rescue StandardError
+        nil
+      end
+
+      # The log paths are predictable and live in shared dirs, so read the
+      # log the way CrashReport writes it: through a no-follow descriptor,
+      # and validate on that same fd - a regular file, owned by this uid,
+      # with no group/other permission bits, fresh by the fd's own mtime.
+      # One open, no check-then-reopen race; a symlink, a foreign, wide or
+      # non-regular file, or any IO failure is no excerpt, never an
+      # exception (#296).
+      def fresh_log_excerpt(path, started_at)
+        File.open(path, File::RDONLY | CrashReport.nofollow_flag) do |file|
+          stat = file.stat
+          next unless stat.file? && stat.uid == Process.uid && stat.mode.nobits?(0o077)
+          next unless stat.mtime >= started_at - CRASH_LOG_CLOCK_SLACK
+
+          text = file.read(CRASH_LOG_BYTES)
+          # Scrub before the excerpt travels as JSON: the bounded read can
+          # end mid-character and the log can hold locale-invalid bytes, and
+          # a JSON::GeneratorError here would turn a kill into a child error
+          # (#296).
+          [stat.mtime, text ? CrashReport.scrub(text).lines.first(CRASH_LOG_LINES).join : nil]
+        end
+      rescue SystemCallError, IOError
         nil
       end
 
@@ -208,12 +225,6 @@ module Saboteur
         [@crash_log, CrashReport.tmp_log_path].compact.uniq.grep(String)
       rescue StandardError
         [@crash_log].compact
-      end
-
-      def fresh_log?(path, started_at)
-        File.file?(path) && File.mtime(path) >= started_at - CRASH_LOG_CLOCK_SLACK
-      rescue SystemCallError
-        false
       end
 
       # Targeted tracing distinguishes the new Ruby body from an old Method

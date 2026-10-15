@@ -72,7 +72,12 @@ module Saboteur
 
       begin
         FileUtils.mkdir_p(File.dirname(log_path))
-        File.write(log_path, "#{full_text(error)}\n")
+        # Private like the temp fallback: the runner only reads logs with
+        # no group/other bits, from the same no-follow fd (#296).
+        File.open(log_path, File::CREAT | File::WRONLY | File::TRUNC, 0o600) do |file|
+          file.chmod(0o600)
+          file.write("#{full_text(error)}\n")
+        end
         return log_path
       rescue SystemCallError, IOError
         # Fall through to the temp fallback.

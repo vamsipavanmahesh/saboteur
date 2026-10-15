@@ -17,6 +17,24 @@ RSpec.describe Saboteur::Config do
     File.write(full, content)
   end
 
+  it "knows which keys were set explicitly, and carries that through a clone (#296)" do
+    config = described_class.new({ "json_report" => "custom.json" }, root: @root)
+    expect(config.explicit?("json_report")).to be(true)
+    expect(config.explicit?("html_report")).to be(false)
+
+    clone = described_class.new(config.to_h, root: config.root, explicit: config.explicit_keys)
+    expect(clone.explicit?("json_report")).to be(true)
+    expect(clone.explicit?("html_report")).to be(false)
+  end
+
+  it "drops explicitness for keys a clone replaces or removes (#296)" do
+    config = described_class.new({ "json_report" => "custom.json", "subjects" => ["A#b"] }, root: @root)
+    clone = config.with({ "tests" => ["spec/a_spec.rb"] }, except: ["json_report"])
+    expect(clone.explicit?("json_report")).to be(false)
+    expect(clone.explicit?("tests")).to be(true)
+    expect(clone.explicit?("subjects")).to be(true)
+  end
+
   it "keeps the root it is loaded with" do
     expect(described_class.load(root: @root).root).to eq(@root)
   end

@@ -175,6 +175,14 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(err.string).not_to include("no spec is required")
     end
 
+    it "keeps explicit-key provenance through the scoped config clone (#296)" do
+      guess(specs: %w[spec/a_spec.rb], unmatched: [], changed: 1)
+      tests_the_run_used { run_engine("since" => "origin/main", "json_report" => "custom.json") }
+      expect(@engine.config.explicit?("json_report")).to be(true)
+      expect(@engine.config.explicit?("html_report")).to be(false)
+      expect(@engine.config.explicit?("tests")).to be(true)
+    end
+
     it "stops before boot when a changed file has no spec named after it" do
       guess(specs: ["spec/a_spec.rb"], unmatched: %w[lib/b.rb lib/c.rb], changed: 3)
       message = "no spec found for lib/b.rb (expected spec/b_spec.rb), lib/c.rb (expected spec/c_spec.rb), " \

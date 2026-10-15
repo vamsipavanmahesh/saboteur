@@ -169,7 +169,7 @@ module Saboteur
       # The guesses now stand as explicit tests, like --test. guess_tests is
       # dropped rather than set to false: an explicit false is the deprecated
       # opt-out and would warn.
-      @config = Config.new(config.to_h.except("guess_tests").merge("tests" => guess.specs), root: config.root)
+      @config = config.with({ "tests" => guess.specs }, except: ["guess_tests"])
       @guessed_tests = guess.specs
       guess.scope_message(since: config["since"])
     end

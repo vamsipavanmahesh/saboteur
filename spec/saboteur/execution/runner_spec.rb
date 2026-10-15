@@ -48,17 +48,28 @@ RSpec.describe Saboteur::Execution::Runner do
     reeval = reevaluator
     dir = tmpdir
     # The nested CLI's crash, as a fresh or an hour-old log (#296).
+    # Mirrors CrashReport's private 0600 writes, plus the attack shapes:
+    # a symlink, a directory, a wide-mode file (#296).
     crash_writer = lambda do |mode|
       path = mode == "crashlog_tmp" ? Saboteur::CrashReport.tmp_log_path : File.join(dir, "internal-error.log")
-      content = case mode
-                # Locale-invalid bytes; the cut log ends a two-byte e-acute
-                # right at the 2000-byte read bound (1999 bytes + 1).
-                when "crashlog_invalid" then "KeyError: bad \xFF\xFE bytes\nlib/x.rb:1:in `fetch'".b
-                when "crashlog_cut" then "KeyError: cut\n#{'a' * 1985}\u00e9\n".b
-                else "KeyError: key not found: \"s\"\nlib/x.rb:1:in `fetch'"
-                end
-      File.binwrite(path, content)
-      File.utime(Time.now - 3600, Time.now - 3600, path) if mode == "crashlog_stale"
+      case mode
+      when "crashlog_symlink"
+        File.write(File.join(dir, "sentinel"), "sentinel: another file's contents")
+        File.symlink(File.join(dir, "sentinel"), path)
+      when "crashlog_dir"
+        Dir.mkdir(path)
+      else
+        content = case mode
+                  # Locale-invalid bytes; the cut log ends a two-byte
+                  # e-acute right at the 2000-byte read bound (1999 + 1).
+                  when "crashlog_invalid" then "KeyError: bad \xFF\xFE bytes\nlib/x.rb:1:in `fetch'".b
+                  when "crashlog_cut" then "KeyError: cut\n#{'a' * 1985}\u00e9\n".b
+                  else "KeyError: key not found: \"s\"\nlib/x.rb:1:in `fetch'"
+                  end
+        File.binwrite(path, content)
+        FileUtils.chmod(mode == "crashlog_wide" ? 0o644 : 0o600, path)
+        File.utime(Time.now - 3600, Time.now - 3600, path) if mode == "crashlog_stale"
+      end
     end
     Class.new do
       define_method(:run) do |ids|
@@ -163,6 +174,32 @@ RSpec.describe Saboteur::Execution::Runner do
       outcome = run_mode("crashlog_tmp")
       expect(outcome.status).to eq(:killed)
       expect(outcome.message).to include("KeyError: key not found")
+    end
+
+    it "never reads the log through a symlink, even to a fresh file (#296)" do
+      outcome = run_mode("crashlog_symlink")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).not_to include("sentinel")
+    end
+
+    it "skips a non-regular file at the log path (#296)" do
+      outcome = run_mode("crashlog_dir")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).not_to include("KeyError")
+    end
+
+    it "skips a log with group or other permission bits (#296)" do
+      outcome = run_mode("crashlog_wide")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).not_to include("KeyError")
+    end
+
+    it "skips a log owned by another uid (#296)" do
+      foreign = instance_double(File::Stat, file?: true, uid: Process.uid + 1, mode: 0o100600, mtime: Time.now)
+      allow_any_instance_of(File).to receive(:stat).and_return(foreign)
+      outcome = run_mode("crashlog")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).not_to include("KeyError")
     end
 
     it "still reads the primary log when CrashReport.tmp_log_path itself is mutated to raise (#296)" do

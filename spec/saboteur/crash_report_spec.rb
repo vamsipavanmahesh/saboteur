@@ -39,6 +39,18 @@ RSpec.describe Saboteur::CrashReport do
     end
   end
 
+  it "keeps the log private even when it pre-exists with wider permissions (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      FileUtils.mkdir_p(File.dirname(log_path))
+      File.write(log_path, "old")
+      FileUtils.chmod(0o644, log_path)
+      report(error, log_path:)
+      expect(File.read(log_path)).to include("RuntimeError: boom")
+      expect(File.stat(log_path).mode & 0o777).to eq(0o600)
+    end
+  end
+
   it "creates the log directory when it is missing" do
     Dir.mktmpdir do |root|
       log_path = File.join(root, ".saboteur", "internal-error.log")

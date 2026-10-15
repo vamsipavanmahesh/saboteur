@@ -21,9 +21,12 @@ All notable changes are documented here. The format follows
   `internal-error.log`, the fallback in the system temp dir is created
   privately (`O_EXCL | O_NOFOLLOW`, mode 0600) instead of following a
   predictable path, and it is only computed after the primary write
-  fails. A crash log the runner appends to a failure detail is scrubbed
-  to valid UTF-8 and labelled as freshness-matched, not certainly that
-  run's.
+  fails. Every crash log is now written private (0600), and the runner
+  reads it back through a no-follow descriptor, accepting only a regular
+  file owned by the same uid with no group/other bits - a symlink, a
+  foreign or wide-mode file is skipped, never followed. The appended
+  excerpt is scrubbed to valid UTF-8 and labelled as freshness-matched,
+  not certainly that run's.
 
 ### Added
 - Dogfood/mutation diagnostics (#296): a rejected kill now reports why the
