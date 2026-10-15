@@ -9,8 +9,8 @@ All notable changes are documented here. The format follows
 ### Added
 - Dogfood/mutation diagnostics (#296): a rejected kill now reports why the
   killing test failed with the method unchanged - the exception class, its
-  full message and the first backtrace frames - instead of only the first
-  line ("expected: 0"). An `unverified` verdict also keeps the runner's own
+  full message and the first backtrace frames, bounded to 2000 chars -
+  instead of only the first line ("expected: 0"). An `unverified` verdict also keeps the runner's own
   reason (for example "the --max-duration budget is spent") rather than a
   generic one.
 - `--max-duration` budget-exhaustion semantics (#296): a verdict check or
