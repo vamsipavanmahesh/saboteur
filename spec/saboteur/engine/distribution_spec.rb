@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "tmpdir"
 
 RSpec.describe Saboteur::Engine::Distribution do
   let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
@@ -72,19 +73,21 @@ RSpec.describe Saboteur::Engine::Distribution do
   it "aborts as the tool-error row arrives, before the pool hands out the remaining work" do
     subject = fixture_subject
     mutation = fixture_mutation(subject)
-    calls = []
+    # A file marker, not an array: the scheduler runs inside forked workers,
+    # so only the filesystem carries the record back into the parent.
+    marker = File.join(Dir.mktmpdir, "scheduled")
     scheduler = lambda do |_subject, _list|
-      calls << 1
-      raise Saboteur::Error, "the child log /x/child-1-1.log vanished mid-run" if calls.size == 1
-
-      [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "x")]
+      File.open(marker, "a") { |file| file.puts("ran") }
+      raise Saboteur::Error, "the child log /x/child-1-1.log vanished mid-run"
     end
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil,
                                        after_subject: ->(_s, _r) {})
     lists = [[[mutation, "text"]], [[mutation, "text"]], [[mutation, "text"]]]
     expect { distribution.run([subject, subject, subject], lists) }
       .to raise_error(Saboteur::Error, /vanished mid-run/)
-    expect(calls.size).to be < 3
+    # Two workers take the first two subjects up front; the third is handed
+    # out only after a row arrives - and the arriving tool error raises first.
+    expect(File.readlines(marker).size).to eq(2)
   end
 
   it "aborts a row the callback path missed: a tool error still stops the rebuild" do

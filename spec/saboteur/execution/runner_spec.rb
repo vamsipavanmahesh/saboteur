@@ -383,6 +383,9 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     integration = Class.new do
       define_method(:run) do |_ids|
         puts "child-alive"
+        # $stderr.write, not warn: warn survives a swept-away fd 2 without
+        # raising, so it could not prove the descriptor was kept (#283).
+        $stderr.write("child-err-alive\n")
         raise "boom from tests"
       end
     end.new
@@ -394,6 +397,7 @@ RSpec.describe "Runner sandbox wiring (#152)" do
     expect(outcome.status).to eq(:error)
     log = Dir.glob(File.join(cache, "child-*.log")).first
     expect(File.read(log)).to include("child-alive")
+    expect(File.read(log)).to include("child-err-alive")
   ensure
     FileUtils.rm_rf(project) if project
     FileUtils.rm_rf(cache) if cache

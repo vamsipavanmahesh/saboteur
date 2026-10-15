@@ -35,14 +35,27 @@ RSpec.describe "hazard guard and canary (issue #102)", :e2e do
     expect(run.err).not_to include("killing test")
   end
 
-  # The logloss fixture's mutant deletes only the tool's own cache: tracked
-  # files survive, the canary stays silent, and the runner's own check must
-  # still stop the run with a tool error naming the mutant (#234).
+  # The logloss fixture's unchanged code deletes only the project's own
+  # .saboteur/trash: a literal mutation redirects the deletion onto the
+  # tool's cache, so a vanished run file is the mutant's doing alone. An
+  # earlier subject's mutants die normally, so the aborted run still shows
+  # real kills (the dot line) alongside the tool error - exit 3, the mutant
+  # named, and never the "killing test also fails" mislabel (#234).
   it "aborts with a tool error when only the tool's own files vanish" do
     run = saboteur(copy_fixture("logloss"), "--allow-hazardous")
     expect(run.status).to eq(3)
     expect(run.err).to include("vanished mid-run")
     expect(run.err).to match(/[0-9a-f]{16}/)
+    expect(run.err).to match(/^\.+$/)
+    expect(run.err).not_to include("killing test")
+  end
+
+  it "aborts the same way in parallel, with kills still landing alongside" do
+    run = saboteur(copy_fixture("logloss"), "--allow-hazardous", "--jobs", "2")
+    expect(run.status).to eq(3)
+    expect(run.err).to include("vanished mid-run")
+    expect(run.err).to match(/[0-9a-f]{16}/)
+    expect(run.err).to match(/^\.+$/)
     expect(run.err).not_to include("killing test")
   end
 end

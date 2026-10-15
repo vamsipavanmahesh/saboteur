@@ -229,7 +229,7 @@ Saboteur.ignore do |i|
 
 
 
-  i.mutation "9e0c7ce08f5408e6",
+  i.mutation "488d29fe1b3f490f",
              subject: "Saboteur::Engine::Distribution#run",
              reason: "equivalent: jobs is validated >= 1, so <= and == agree on every reachable value"
 
