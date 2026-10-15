@@ -64,4 +64,11 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
     end
     expect(digests.uniq.size).to eq(1)
   end
+  it "descends into nested expressions like an if body" do
+    expect(replacements("if flag\n      xs.min { |x| x }\n    end")).not_to be_empty
+  end
+
+  it "treats a statement matching any one arid pattern as arid" do
+    expect(described_class.new(arid: %w[min zzz]).mutations_for(subject_for("xs.min { |x| x }"))).to be_empty
+  end
 end

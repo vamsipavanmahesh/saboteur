@@ -61,4 +61,11 @@ RSpec.describe Saboteur::MutationSource::InterpolationRemoval do
     expect { expect(changed.greet("Ada")).to eq("Hello, Ada!") }
       .to raise_error(RSpec::Expectations::ExpectationNotMetError)
   end
+  it "descends into nested expressions like an if body" do
+    expect(replacements("if flag\n      \"Hello, \#{name}!\"\n    end")).not_to be_empty
+  end
+
+  it "treats a statement matching any one arid pattern as arid" do
+    expect(described_class.new(arid: %w[name zzz]).mutations_for(subject_for("\"Hello, \#{name}!\""))).to be_empty
+  end
 end

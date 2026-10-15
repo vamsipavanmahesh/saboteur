@@ -58,4 +58,11 @@ RSpec.describe Saboteur::MutationSource::OperandReplacement do
     expect { expect(changed.calc(2, 3)).to eq(5) }
       .to raise_error(RSpec::Expectations::ExpectationNotMetError)
   end
+  it "descends into nested expressions like an if body" do
+    expect(replacements("if flag\n      a + b\n    end")).not_to be_empty
+  end
+
+  it "treats a statement matching any one arid pattern as arid" do
+    expect(described_class.new(arid: %w[a zzz]).mutations_for(subject_for("a + b"))).to be_empty
+  end
 end

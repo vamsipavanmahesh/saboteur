@@ -84,7 +84,7 @@ module Saboteur
         @found = []
         coarse(body)
         visit(body)
-        delegated.each { |source| @found.concat(source.mutations_for(subject)) }
+        @found.concat(delegated.flat_map { |source| source.mutations_for(subject) })
         @found.select { |mutation| @operators.include?(mutation.operator) }
       ensure
         @subject = nil
@@ -191,9 +191,12 @@ module Saboteur
         add("safe_navigation", node.call_operator_loc, ".") if node.safe_navigation?
       end
 
+      # Only the infix spelling is binary: an operator call has no call
+      # operator, and its receiver, message, single argument and lack of a
+      # block all follow from that (a block binds to the last operand's own
+      # call, never to the operator).
       def binary?(node)
-        node.receiver && node.message_loc && node.call_operator_loc.nil? &&
-          node.block.nil?
+        node.call_operator_loc.nil?
       end
 
       def numeric_operands?(node)

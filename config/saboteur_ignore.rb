@@ -107,10 +107,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::Builtin#mutate_call",
              reason: "equivalent: Prism always gives ! a receiver"
 
-  i.mutation "1356ffa727eb6c28",
-             subject: "Saboteur::MutationSource::Builtin#binary?",
-             reason: "equivalent: calls named as operators are binary in practice"
-
   i.mutation "557d74f40af55855",
              subject: "Saboteur::MutationSource::Builtin#mutate_number",
              reason: "equivalent: add drops a replacement whose text equals the original"

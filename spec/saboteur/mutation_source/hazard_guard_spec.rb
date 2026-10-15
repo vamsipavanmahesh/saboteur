@@ -41,6 +41,15 @@ RSpec.describe Saboteur::MutationSource::HazardGuard do
 
   # FileUtils.send(:rm_rf, x) is FileUtils.rm_rf with indirection (#240);
   # a dynamic selector stays documented as out of scope.
+  # A literal symbol or string argument to any other method is not a
+  # send selector: logger.info(:rmtree) runs nothing destructive.
+  it "does not resolve literal arguments of non-send methods as selectors" do
+    _kept, suppressed, = partition("    logger.info(:rmtree)")
+    expect(suppressed).to be_empty
+    _kept, suppressed, = partition('    logger.info("system")')
+    expect(suppressed).to be_empty
+  end
+
   it "suppresses mutants when send, public_send or __send__ names a hazard with a literal selector" do
     ['    FileUtils.send(:rm_rf, File.join(Dir.pwd, "build"))',
      '    FileUtils.public_send("rm_rf", File.join(Dir.pwd, "build"))',
