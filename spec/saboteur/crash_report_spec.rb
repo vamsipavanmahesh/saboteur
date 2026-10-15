@@ -71,6 +71,19 @@ RSpec.describe Saboteur::CrashReport do
     end
   end
 
+  it "creates the primary log with mode 0600 from the first open, not only after the chmod (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      create_modes = {}
+      allow(File).to receive(:open).and_wrap_original do |original, *args, &block|
+        create_modes[args[0]] = args[2] if args.length >= 3
+        original.call(*args, &block)
+      end
+      report(error, log_path:)
+      expect(create_modes[log_path]).to eq(0o600)
+    end
+  end
+
   it "keeps the log private even when it pre-exists with wider permissions (#296)" do
     Dir.mktmpdir do |root|
       log_path = File.join(root, ".saboteur", "internal-error.log")
