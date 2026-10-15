@@ -17,8 +17,8 @@ module Saboteur
         opts.on("--max-duration DURATION", "Wall-clock budget for the whole run, e.g. 10m; exit 4 when spent") do |v|
           set(:max_duration, parse_duration(v))
         end
-        opts.on("--max-duration-ok", "An exhausted --max-duration budget does not fail the run") do
-          set(:max_duration_ok, true)
+        opts.on("--[no-]max-duration-ok", "An exhausted --max-duration budget does not fail the run") do |v|
+          set(:max_duration_ok, v)
         end
       end
 

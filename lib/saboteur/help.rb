@@ -83,10 +83,11 @@ module Saboteur
       Command.new(
         name: "audit",
         summary: "Preset: the whole project, all operators, both reports",
-        description: "Expands to saboteur run --all --json .saboteur/audit-report.json " \
-                     "--html .saboteur/audit-report.html: every subject against the whole suite with " \
-                     "both baseline checks, writing the Stryker JSON and HTML reports. An explicit flag " \
-                     "after the preset wins (#244).",
+        description: "Expands to saboteur run --all --operators all --baseline-passes 2 " \
+                     "--json .saboteur/audit-report.json --html .saboteur/audit-report.html: every " \
+                     "subject against the whole suite, all operators, both baseline checks, writing " \
+                     "the Stryker JSON and HTML reports. An explicit flag after the preset wins " \
+                     "(#244); an explicit --test replaces the injected --all.",
         takes_options: true,
         exit_codes: EXIT_CODE_MEANINGS,
         examples: [["Full project audit with JSON and HTML reports", "saboteur audit"]]

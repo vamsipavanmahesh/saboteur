@@ -195,6 +195,28 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("preset 'audit':")
   end
 
+  it "expands the audit preset with all operators and both baseline checks (#245)" do
+    command = cli("audit")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(operators: ["all"], baseline_passes: 2)
+  end
+
+  it "lets an explicit --test replace the audit preset's injected --all (#245)" do
+    command = cli("audit", "--test", "spec/models/person_spec.rb")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(tests: ["spec/models/person_spec.rb"])
+    expect(command.options[:all]).to be_falsey
+  end
+
+  it "lets --no-max-duration-ok override the pr preset's budget pass (#245)" do
+    command = cli("pr", "--no-max-duration-ok")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(max_duration: 600.0, max_duration_ok: false)
+  end
+
   describe "doctor suite options" do
     before { allow(Saboteur::Doctor).to receive(:new).and_return(instance_double(Saboteur::Doctor, call: true)) }
 

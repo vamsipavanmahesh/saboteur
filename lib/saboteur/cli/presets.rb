@@ -10,7 +10,8 @@ module Saboteur
     module Presets
       PRESETS = {
         "pr" => %w[--baseline-passes 1 --max-duration 10m --max-duration-ok],
-        "audit" => %w[--all --json .saboteur/audit-report.json --html .saboteur/audit-report.html]
+        "audit" => %w[--all --operators all --baseline-passes 2 --json .saboteur/audit-report.json
+                      --html .saboteur/audit-report.html]
       }.freeze
 
       private
@@ -21,6 +22,9 @@ module Saboteur
           ref = @argv.first.nil? || @argv.first.start_with?("-") ? "main" : @argv.shift
           flags += ["--since", ref]
         end
+        # Named tests are an explicit scope: the injected whole-suite --all
+        # would reject the run, so it stays out (#245).
+        flags.delete("--all") if @argv.any? { |arg| arg == "--test" || arg.start_with?("--test=") }
         @err.puts("saboteur: preset '#{name}': #{flags.join(' ')} (explicit flags override)")
         @argv = flags + @argv
         run_command
