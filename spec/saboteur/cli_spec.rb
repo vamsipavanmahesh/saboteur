@@ -170,6 +170,31 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("invalid --max-duration")
   end
 
+  it "expands the pr preset into its flag bundle, default ref main (#244)" do
+    command = cli("pr")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "main", baseline_passes: 1, max_duration: 600.0,
+                                       max_duration_ok: true)
+    expect(err.string).to include("preset 'pr':")
+  end
+
+  it "takes the pr ref as the first operand and lets explicit flags override the bundle (#244)" do
+    command = cli("pr", "origin/develop", "--baseline-passes", "2")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "origin/develop", baseline_passes: 2, max_duration: 600.0)
+  end
+
+  it "expands the audit preset into a whole-project run with both reports (#244)" do
+    command = cli("audit")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(all: true, json_report: ".saboteur/audit-report.json",
+                                       html_report: ".saboteur/audit-report.html")
+    expect(err.string).to include("preset 'audit':")
+  end
+
   describe "doctor suite options" do
     before { allow(Saboteur::Doctor).to receive(:new).and_return(instance_double(Saboteur::Doctor, call: true)) }
 

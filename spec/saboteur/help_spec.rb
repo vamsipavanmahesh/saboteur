@@ -14,9 +14,11 @@ RSpec.describe Saboteur::Help do
 
   it "has the sections an agent looks for, in a fixed order" do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
-    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur doctor)",
+    expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur pr)",
+                           "OPTIONS (saboteur audit)", "OPTIONS (saboteur doctor)",
                            "OPTIONS (saboteur baseline)", "EXAMPLES",
-                           "EXIT CODES (saboteur run)", "EXIT CODES (saboteur doctor)",
+                           "EXIT CODES (saboteur run)", "EXIT CODES (saboteur pr)", "EXIT CODES (saboteur audit)",
+                           "EXIT CODES (saboteur doctor)",
                            "EXIT CODES (saboteur baseline)",
                            "CONFIG FILE (config/saboteur.rb)", "FILES"])
   end
@@ -68,6 +70,13 @@ RSpec.describe Saboteur::Help do
   it "lists the doctor exit codes under the doctor heading" do
     section = overview[/^EXIT CODES \(saboteur doctor\)\n(.*?)\n\n/m, 1]
     expect(section.lines.map(&:strip)).to eq(described_class::DOCTOR_EXIT_CODE_MEANINGS.map { |c, m| "#{c}  #{m}" })
+  end
+
+  it "documents the preset flag bundles and the budget exit code (#244, #245)" do
+    expect(help.command("pr")).to include("--baseline-passes 1 --max-duration 10m --max-duration-ok")
+    expect(help.command("audit")).to include("--json .saboteur/audit-report.json")
+    expect(help.command("audit")).to include("--html .saboteur/audit-report.html")
+    expect(overview).to include("  4  Time budget spent: --max-duration stopped the run")
   end
 
   it "lists every command" do

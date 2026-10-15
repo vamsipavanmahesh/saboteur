@@ -25,7 +25,9 @@ module Saboteur
       2 => "Usage or configuration error: fix the command or config/saboteur.rb. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
       3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \
-           "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant."
+           "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant.",
+      4 => "Time budget spent: --max-duration stopped the run before the next subject, so the score is " \
+           "partial. --max-duration-ok leaves the exit to the plain verdict (0 or 1)."
     }.freeze
 
     DOCTOR_EXIT_CODE_MEANINGS = {
@@ -61,6 +63,31 @@ module Saboteur
           ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"],
           ["AI agent: bounded JSON summary and strict exit codes", "saboteur run --agent --since origin/main"]
         ]
+      ),
+      Command.new(
+        name: "pr",
+        summary: "Preset: the fast pull-request loop over the lines changed since a ref",
+        description: "Expands to saboteur run --baseline-passes 1 --max-duration 10m --max-duration-ok " \
+                     "--since REF, with REF the first operand (default main): one baseline check, a " \
+                     "ten-minute wall-clock budget that stops cleanly without failing the build, and " \
+                     "mutants limited to the changed methods. Every run option still works; an explicit " \
+                     "flag after the preset wins (#244).",
+        takes_options: true,
+        exit_codes: EXIT_CODE_MEANINGS,
+        examples: [["Changed lines since main", "saboteur pr"],
+                   ["Changed lines since another target", "saboteur pr origin/develop"],
+                   ["The same loop with two baseline checks", "saboteur pr --baseline-passes 2"]]
+      ),
+      Command.new(
+        name: "audit",
+        summary: "Preset: the whole project, all operators, both reports",
+        description: "Expands to saboteur run --all --json .saboteur/audit-report.json " \
+                     "--html .saboteur/audit-report.html: every subject against the whole suite with " \
+                     "both baseline checks, writing the Stryker JSON and HTML reports. An explicit flag " \
+                     "after the preset wins (#244).",
+        takes_options: true,
+        exit_codes: EXIT_CODE_MEANINGS,
+        examples: [["Full project audit with JSON and HTML reports", "saboteur audit"]]
       ),
       Command.new(
         name: "doctor",

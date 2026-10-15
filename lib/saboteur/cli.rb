@@ -12,6 +12,8 @@ require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
 require_relative "cli/run_budget_options"
+require_relative "cli/presets"
+require_relative "cli/help_options"
 
 module Saboteur
   class CLI
@@ -19,6 +21,8 @@ module Saboteur
     include ExitStatus
     include RunReporting
     include RunBudgetOptions
+    include Presets
+    include HelpOptions
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -50,15 +54,15 @@ module Saboteur
     end
 
     def call
-      case @argv.shift
+      command = @argv.shift
+      case command
       when "run" then run_command
       when "baseline" then baseline
       when "doctor" then help_requested? ? show_help("doctor") : doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
-      when "help" then show_help(@argv.shift)
+      when "help", "--help", "-h" then show_help(@argv.shift)
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
-      when "--help", "-h" then show_help(nil)
-      else usage_error
+      else PRESETS.key?(command) ? preset(command) : usage_error
       end
     rescue OptionParser::ParseError => e
       usage_error(e.message)
@@ -78,11 +82,6 @@ module Saboteur
         define_matrix_option(opts)
         define_output_options(opts)
       end
-    end
-
-    # Each command's own option lines, as printed under OPTIONS in `saboteur help`.
-    def option_lines
-      { "run" => parser.summarize, "doctor" => doctor_parser.summarize, "baseline" => baseline_parser.summarize }
     end
 
     def doctor_parser

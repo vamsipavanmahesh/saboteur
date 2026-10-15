@@ -278,6 +278,8 @@ Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`, `--baseline-
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
 `--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
 
+Two presets bundle the common loops (#244): `saboteur pr [REF]` is the pull-request loop - `--since REF` (default `main`), one baseline check and a ten-minute `--max-duration` that does not fail the build; `saboteur audit` is the whole project with `--all` and both reports. The run prints the expansion up front, and an explicit flag after the preset wins.
+
 A stray `fit`, `fdescribe` or `:focus` example, with `filter_run_when_matching :focus`, makes RSpec skip
 every other example. The baseline stays green and the score would cover only the focused ones, so
 saboteur exits 2 and names the focused examples. Remove the focus, or pass `--allow-focus` (config

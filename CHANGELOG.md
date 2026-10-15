@@ -7,6 +7,11 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `saboteur pr [REF]` and `saboteur audit` presets: opinionated bundles of
+  existing flags - the PR loop (changed lines since REF, one baseline
+  check, a ten-minute non-failing budget) and the full audit (whole
+  project, whole suite, JSON and HTML reports). The run prints the
+  expansion up front and explicit flags override it (#244).
 - `--max-duration` (config `max_duration`, e.g. `10m`) budgets the whole
   run, baselines included: past the budget the run stops before the next
   subject, reports which selected subjects never ran, marks the JSON and
