@@ -193,7 +193,7 @@ module Saboteur
 
       def binary?(node)
         node.receiver && node.message_loc && node.call_operator_loc.nil? &&
-          node.arguments&.arguments&.size == 1 && node.block.nil?
+          node.block.nil?
       end
 
       def numeric_operands?(node)

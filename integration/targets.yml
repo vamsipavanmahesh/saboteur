@@ -15,7 +15,9 @@ dry-inflector:
   config: integration/configs/dry_inflector.rb
   schedule: pr
   expect:
-    class_eval: { killed: 555, survived: 23, timeout: 0, error: 10, skipped: 0 }
+    # class_eval: re-measured after #237/#238's default-on operators added
+    # mutants (was killed 555, survived 23).
+    class_eval: { killed: 578, survived: 24, timeout: 0, error: 10, skipped: 0 }
     # nesting: re-measured after #237/#238's default-on operators added
     # mutants (was killed 564, survived 24).
     nesting: { killed: 587, survived: 25, timeout: 0, error: 0, skipped: 0 }
