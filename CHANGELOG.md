@@ -17,6 +17,11 @@ All notable changes are documented here. The format follows
   `statusReason` keeps every line; one-line reasons are unchanged. An `unverified` verdict also keeps the runner's own
   reason (for example "the --max-duration budget is spent") rather than a
   generic one.
+- Nested-run crash surfacing (#296): a spec that runs saboteur itself (the
+  dogfood's own cli_spec) crashes the nested CLI as exit 3, and the crash
+  lands in the run's internal-error.log. A child whose tests wrote a fresh
+  log appends its first lines to the failure detail, so a verdict check's
+  rejection names the nested crash instead of only the exit-code diff.
 - `--max-duration` budget-exhaustion semantics (#296): a verdict check or
   timeout calibration the budget cannot admit is skipped rather than run
   with a zero-length timeout, so genuine kills are no longer misclassified

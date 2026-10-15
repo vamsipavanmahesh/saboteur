@@ -47,6 +47,12 @@ RSpec.describe Saboteur::Execution::Runner do
   let(:integration) do
     reeval = reevaluator
     dir = tmpdir
+    # The nested CLI's crash, as a fresh or an hour-old log (#296).
+    crash_writer = lambda do |stale:|
+      path = File.join(dir, "internal-error.log")
+      File.write(path, "KeyError: key not found: \"s\"\nlib/x.rb:1:in `fetch'")
+      File.utime(Time.now - 3600, Time.now - 3600, path) if stale
+    end
     Class.new do
       define_method(:run) do |ids|
         mode = reeval.mode
@@ -60,6 +66,9 @@ RSpec.describe Saboteur::Execution::Runner do
         when "hang"
           File.write(File.join(dir, "grandchild.pid"), Process.spawn("sleep", "300").to_s)
           loop { sleep 0.01 }
+        when "crashlog", "crashlog_stale"
+          crash_writer.call(stale: mode == "crashlog_stale")
+          Saboteur::Integration::RunResult.new(runtime: 0.01, **RUNNER_SPEC_RESULTS.fetch("fail").call(ids))
         else Saboteur::Integration::RunResult.new(runtime: 0.01, **RUNNER_SPEC_RESULTS.fetch(mode).call(ids))
         end
       end
@@ -85,6 +94,34 @@ RSpec.describe Saboteur::Execution::Runner do
                                                       edits: [edit])
     runner.run(subject: subject_with_id, text: "title", test_ids: ["t1"], timeout: 5, mutation: mutation)
     expect(File.read(File.join(tmpdir, "title"))).to eq("saboteur: Shop::Cart#total comparison")
+  end
+
+  # A spec can run saboteur itself (the dogfood's cli_spec): the nested CLI
+  # reports its own crashes as exit 3 and logs them to internal-error.log.
+  # A fresh log from this run explains the failure (#296).
+  describe "the nested CLI's crash log (#296)" do
+    let(:crash_path) { File.join(tmpdir, "internal-error.log") }
+    let(:runner) do
+      described_class.new(integration:, reevaluator:, hooks:, log_dir: tmpdir, seed:, crash_log: crash_path)
+    end
+
+    it "appends a fresh crash log to the neutral check's failure detail" do
+      outcome = run_mode("crashlog")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).to include("ExpectationNotMetError: expected: 2")
+      expect(outcome.message).to include("KeyError: key not found")
+    end
+
+    it "ignores a crash log written before the run started" do
+      outcome = run_mode("crashlog_stale")
+      expect(outcome.status).to eq(:killed)
+      expect(outcome.message).not_to include("KeyError")
+    end
+
+    it "appends nothing when there is no crash log" do
+      outcome = run_mode("fail")
+      expect(outcome.message).to eq("ExpectationNotMetError: expected: 2\n     got: 3\n./spec/x_spec.rb:4")
+    end
   end
 
   it "names a neutral check in the child's process title" do

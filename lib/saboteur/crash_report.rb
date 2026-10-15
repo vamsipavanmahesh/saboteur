@@ -18,6 +18,10 @@ module Saboteur
     # when the CLI itself never finished loading.
     EXIT_TOOL = 3
 
+    # The crash log's file name under the run's cache dir; the runner reads
+    # it back to explain a nested run's crash in the failure detail (#296).
+    LOG_NAME = "internal-error.log"
+
     module_function
 
     def call(error, verbose:, agent:, err:, out:, log_path: nil)

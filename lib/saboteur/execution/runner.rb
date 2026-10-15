@@ -53,16 +53,24 @@ module Saboteur
       end
 
       LOG_TAIL_BYTES = 2000
+      CRASH_LOG_BYTES = 2_000
+      CRASH_LOG_LINES = 8
+      # File mtimes follow the filesystem's clock, which can trail the
+      # process clock; a log written during this run can stamp a little
+      # before its start, so the freshness check allows that skew.
+      CRASH_LOG_CLOCK_SLACK = 2
 
       # log_dir: where children write their output; a child's log is kept
-      # only when it ends in an error.
+      # only when it ends in an error. crash_log: the crash log of a saboteur
+      # run nested inside a test; by default it sits next to the logs dir,
+      # where the engine's cache dir keeps it.
       # seed: every child seeds Ruby's random numbers with it before its
       # tests, so a test that uses rand sees the same values in every run.
       # sandbox: when given, a callable run first in every child (Landlock
       # makes the project tree read-only there, #152). It raises rather than
       # run half-restricted, which the child reports as an error.
       def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1,
-                     sandbox: nil, canary: nil)
+                     sandbox: nil, canary: nil, crash_log: nil)
         @integration = integration
         @reevaluator = reevaluator
         @hooks = hooks
@@ -71,6 +79,7 @@ module Saboteur
         @seed = seed
         @sandbox = sandbox
         @canary = canary
+        @crash_log = crash_log || File.join(File.dirname(log_dir), CrashReport::LOG_NAME)
       end
 
       # text: method source to evaluate in the child (the unchanged source for
@@ -144,6 +153,7 @@ module Saboteur
         method = replacement_method(job) if has_captures && job.mutation
         called = method ? false : nil
         trace = TracePoint.new(:call) { called = true } if method
+        started_at = Time.now
         result = if trace
                    trace.enable(target: method) { @hooks.around(job.mutation) { run_tests(job.test_ids) } }
                  else
@@ -152,8 +162,31 @@ module Saboteur
         if result.nil?
           Protocol.emit(writer, "error", message: "around_mutant hook did not run the tests")
         else
-          Protocol.emit(writer, "result", **result, replacement_called: called)
+          Protocol.emit(writer, "result", **with_crash_detail(result, started_at), replacement_called: called)
         end
+      end
+
+      # A test can run saboteur itself (the dogfood's cli_spec): the nested
+      # CLI reports its own crashes as exit 3 and logs them to
+      # internal-error.log. A log written during this run explains the
+      # failure better than the bare expectation diff, so its first lines
+      # join each failure detail; an older log is another run's (#296).
+      def with_crash_detail(result, started_at)
+        excerpt = crash_log_excerpt(started_at)
+        details = result[:failure_details]
+        return result unless excerpt && details && !details.empty?
+
+        result.merge(failure_details: details.transform_values { |detail| [detail, excerpt].compact.join("\n") })
+      end
+
+      def crash_log_excerpt(started_at)
+        fresh = @crash_log && File.file?(@crash_log) && File.mtime(@crash_log) >= started_at - CRASH_LOG_CLOCK_SLACK
+        return unless fresh
+
+        text = File.read(@crash_log, CRASH_LOG_BYTES)
+        text ? text.lines.first(CRASH_LOG_LINES).join : nil
+      rescue SystemCallError
+        nil
       end
 
       # Targeted tracing distinguishes the new Ruby body from an old Method

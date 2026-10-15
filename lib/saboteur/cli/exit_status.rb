@@ -18,7 +18,7 @@ module Saboteur
       # back to no log.
       def crash_log_path
         dir = config.path("cache_dir")
-        dir && File.join(dir, "internal-error.log")
+        dir && File.join(dir, CrashReport::LOG_NAME)
       rescue StandardError
         nil
       end
