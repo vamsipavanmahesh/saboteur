@@ -165,23 +165,28 @@ RSpec.describe Saboteur::Execution::WorkerPool do
   # can never be the run's real problem; raising it over the drain would mask
   # the rows that carry the actual abort cause (#286).
   it "does not raise start failures over an abort that is already draining" do
-    release = Queue.new
+    # The barrier is a pipe, not a Queue: workers are forked processes with
+    # their own memory, so only an fd crosses. One byte per dying worker.
+    release_r, release_w = IO.pipe
     pool = nil
     on_result = lambda do |_item, _row|
       pool.halt!
-      3.times { release.push(true) } # barrier: the dying workers wait for the halt
+      release_w.write("x" * 3)
     end
     pool = described_class.new(jobs: 4, on_result: on_result)
     results = pool.map(%w[ok die1 die2 die3]) do |item|
       if item == "ok"
         { "ok" => true }
       else
-        release.pop # die only after the halt lands, before a first report
+        release_r.readpartial(1) # die only after the halt lands, before a first report
         Process.kill("KILL", Process.pid)
       end
     end
     expect(results[0]).to eq({ "ok" => true })
     expect(results[1..]).to all(include("error"))
+  ensure
+    release_r&.close
+    release_w&.close
   end
 
   it "stops with the reason when workers keep dying before their first item" do
