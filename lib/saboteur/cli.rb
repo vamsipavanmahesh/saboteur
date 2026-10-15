@@ -254,7 +254,9 @@ module Saboteur
       # along through --config or the default config path).
       settings[:allow_hazardous] = true if options[:allow_hazardous]
       settings[:allow_focus] = true if options[:allow_focus]
-      settings[:max_duration_ok] = true if options[:max_duration_ok]
+      # An explicit false (--no-max-duration-ok over a config true) is a
+      # setting too: dropping it would silently re-enable the config value.
+      settings[:max_duration_ok] = options[:max_duration_ok] unless options[:max_duration_ok].nil?
       settings
     end
 

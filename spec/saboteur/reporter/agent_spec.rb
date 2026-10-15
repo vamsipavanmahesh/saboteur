@@ -69,6 +69,24 @@ RSpec.describe Saboteur::Reporter::Agent do
     end
   end
 
+  it "preserves an explicit --no-max-duration-ok over a config true in rerun and replay commands (#245)" do
+    source = provenance_with(settings: { max_duration_ok: false })
+    commands = described_class::Commands
+    [commands.rerun(source), commands.replay(source, "abc")].each do |command|
+      words = Shellwords.split(command)
+      expect(words).to include("--no-max-duration-ok")
+      expect(words).not_to include("--max-duration-ok")
+    end
+    positive = provenance_with(settings: { max_duration_ok: true })
+    [commands.rerun(positive), commands.replay(positive, "abc")].each do |command|
+      words = Shellwords.split(command)
+      expect(words).to include("--max-duration-ok")
+      expect(words).not_to include("--no-max-duration-ok")
+    end
+    unset = provenance_with(settings: {})
+    expect(Shellwords.split(commands.rerun(unset)).grep(/max-duration-ok/)).to eq([])
+  end
+
   it "keeps CLI-only replay-driving switches in rerun and replay commands (#261)" do
     source = provenance_with(settings: { allow_hazardous: true, allow_focus: true })
     commands = described_class::Commands

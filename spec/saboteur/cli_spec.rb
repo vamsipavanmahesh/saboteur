@@ -210,6 +210,18 @@ RSpec.describe Saboteur::CLI do
     expect(command.options[:all]).to be_falsey
   end
 
+  it "keeps an explicit --no-max-duration-ok over a config true in the agent settings (#245)" do
+    Dir.mktmpdir do |root|
+      path = File.join(root, "saboteur.rb")
+      File.write(path, "Saboteur.configure { |c| c.max_duration_ok = true }")
+      command = cli("run", "--agent", "--no-max-duration-ok", "--config", path)
+      allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+      command.call
+      expect(command.options[:max_duration_ok]).to be(false)
+      expect(command.send(:agent_settings)[:max_duration_ok]).to be(false)
+    end
+  end
+
   it "lets --no-max-duration-ok override the pr preset's budget pass (#245)" do
     command = cli("pr", "--no-max-duration-ok")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
