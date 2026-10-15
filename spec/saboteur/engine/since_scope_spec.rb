@@ -59,7 +59,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
-    distribution = instance_double(Saboteur::Engine::Distribution, run: [], unreached: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, run: [], unreached: [], truncated: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
   end

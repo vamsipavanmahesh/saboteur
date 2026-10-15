@@ -58,7 +58,13 @@ module Saboteur
       # nil for a run that covered its whole selection.
       def self.early_stop(report)
         stop = report.early_stop
-        stop && { reason: stop.reason, unreachedSubjects: stop.unreached }
+        return unless stop
+
+        { reason: stop.reason, unreachedSubjects: stop.unreached, truncatedSubjects: truncated_subjects(stop) }
+      end
+
+      def self.truncated_subjects(stop)
+        stop.truncated.map { |entry| { subject: entry[:subject], omittedMutants: entry[:omitted] } }
       end
 
       def self.skipped_subjects(report)

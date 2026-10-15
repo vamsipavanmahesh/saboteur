@@ -9,8 +9,10 @@ module Saboteur
     # candidate list, so results look the same either way.
     class Distribution
       # After run: the subjects a stop_after callable left unrun (always empty
-      # without one).
-      attr_reader :unreached
+      # without one), and the subjects that started but stopped mid-list as
+      # [subject, omitted_candidate_count] pairs (a spent --max-duration
+      # breaking a subject's scheduler loop).
+      attr_reader :unreached, :truncated
 
       # stop_after: nil, or a callable that gets one subject's results and
       # returns true to stop before the next subject (--fail-fast). It only
@@ -23,6 +25,7 @@ module Saboteur
         @stop_after = stop_after
         @halt_check = halt_check
         @unreached = []
+        @truncated = []
         @on_start = on_start
         @scheduler = scheduler
         @diagnostics = diagnostics
@@ -64,7 +67,7 @@ module Saboteur
           work(subjects[i], lists[i])
         end
         raise_preferred_tool_error(@abort_reports) if @abort_reports.any?
-        record_unreached(rows, subjects)
+        record_unreached(rows, subjects, lists)
         rows.each_with_index.flat_map do |row, i|
           next [] if row.nil?
 
@@ -91,8 +94,19 @@ module Saboteur
         end
       end
 
-      def record_unreached(rows, subjects)
-        @unreached = rows.each_index.select { |i| rows[i].nil? }.map { |i| subjects[i] }
+      # nil rows never started; a short results list is a subject whose
+      # scheduler stopped mid-list at the budget deadline. Worker-level error
+      # rows synthesize an error per candidate, so they never look truncated.
+      def record_unreached(rows, subjects, lists)
+        @unreached = []
+        @truncated = []
+        rows.each_with_index do |row, i|
+          if row.nil?
+            @unreached << subjects[i]
+          elsif row["results"] && !row["error"] && row["results"].size < lists[i].size
+            @truncated << [subjects[i], lists[i].size - row["results"].size]
+          end
+        end
       end
 
       # @pool is always assigned when an arrival fires: arrivals only fire
@@ -124,6 +138,9 @@ module Saboteur
 
           subject_results = @scheduler.call(subject, list)
           results.concat(subject_results)
+          # A scheduler that stopped mid-list at the budget deadline: the
+          # completed results stay, the omitted candidates are accounted.
+          @truncated << [subject, list.size - subject_results.size] if subject_results.size < list.size
           @after_subject&.call(subject, subject_results)
           next unless @stop_after&.call(subject_results)
 

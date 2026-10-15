@@ -100,10 +100,11 @@ module Saboteur
     end
   end
 
-  # A run that stopped before every selected subject was mutated (--fail-fast).
-  # unreached lists the subject ids that never ran; the verdict covers only
-  # the subjects that did.
-  EarlyStop = Data.define(:reason, :unreached)
+  # A run that stopped before every selected subject was mutated (--fail-fast,
+  # --max-duration). unreached lists the subject ids that never ran; truncated
+  # lists the subjects that started but stopped mid-way as
+  # {subject:, omitted:} entries; the verdict covers only completed work.
+  EarlyStop = Data.define(:reason, :unreached, :truncated)
 
   # Everything one run produced.
   class Report

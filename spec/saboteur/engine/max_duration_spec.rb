@@ -61,7 +61,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
     captured = nil
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], run: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], run: [])
     allow(Saboteur::Engine::Distribution).to receive(:new) do |**keywords|
       captured = keywords[:halt_check]
       distribution
@@ -114,6 +114,28 @@ RSpec.describe Saboteur::Engine::Scheduler, "max-duration deadline (#245)" do
               .send(:run_candidates, [candidate, candidate(coarse: true)]) { |mutation, _| (ran << mutation) && :ok }
     expect(results).to eq(%i[ok ok])
     expect(ran.map(&:coarse)).to eq([true, false])
+  end
+end
+
+RSpec.describe Saboteur::Engine, "mid-subject budget truncation (#245)" do
+  it "records early_stop for a truncated subject even when nothing is unreached" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    engine.instance_variable_set(:@budget_announced, true)
+    subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
+    distribution = instance_double(Saboteur::Engine::Distribution,
+                                   unreached: [], truncated: [[subject, 3]])
+    engine.send(:record_early_stop, distribution)
+    stop = engine.instance_variable_get(:@early_stop)
+    expect(stop.reason).to eq("max_duration")
+    expect(stop.unreached).to eq([])
+    expect(stop.truncated).to eq([{ subject: subject.id, omitted: 3 }])
+  end
+
+  it "still records nothing when the selection ran to completion (control)" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [])
+    engine.send(:record_early_stop, distribution)
+    expect(engine.instance_variable_get(:@early_stop)).to be_nil
   end
 end
 

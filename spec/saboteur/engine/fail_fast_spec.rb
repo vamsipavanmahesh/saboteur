@@ -114,13 +114,18 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     expect([plain.matrix?, matrix.matrix?]).to eq([false, true])
   end
 
+  def distribution_double(unreached: [], truncated: [])
+    instance_double(Saboteur::Engine::Distribution, unreached: unreached, truncated: truncated)
+  end
+
   it "records the subjects a stop left unrun, and nothing when none were left" do
     stopped = engine
-    stopped.send(:record_early_stop, [person])
+    stopped.send(:record_early_stop, distribution_double(unreached: [person]))
     report = stopped.send(:build_report, [], [], nil, 0)
-    expect(report.early_stop).to eq(Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ["Person#adult?"]))
+    expect(report.early_stop)
+      .to eq(Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ["Person#adult?"], truncated: []))
     whole = engine
-    whole.send(:record_early_stop, [])
+    whole.send(:record_early_stop, distribution_double(unreached: []))
     expect(whole.send(:build_report, [], [], nil, 0).early_stop).to be_nil
   end
 
@@ -131,7 +136,7 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 2, replacement: ">")
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison", edits: [edit])
     3.times { run.instance_variable_get(:@diagnostics).record_hazard_suppression(subject, mutation) }
-    run.send(:record_early_stop, [person])
+    run.send(:record_early_stop, distribution_double(unreached: [person]))
     report = run.send(:build_report, [], [], nil, 0)
     expect([report.hazard_suppressions, report.early_stop&.reason]).to eq([3, "fail_fast"])
   end
@@ -149,7 +154,7 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     diagnostics = run.instance_variable_get(:@diagnostics)
     allow(diagnostics).to receive(:start_progress)
     allow(run).to receive_messages(canary_check: :canary, fail_fast_check: :stopper)
-    distribution = instance_double(Saboteur::Engine::Distribution, run: [:result], unreached: [person])
+    distribution = instance_double(Saboteur::Engine::Distribution, run: [:result], unreached: [person], truncated: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     expect(run.send(:run_candidates, [person], [[1, 2], [3]], :scheduler, nil, :ignores)).to eq([:result])
     expect(diagnostics).to have_received(:start_progress).with(3)

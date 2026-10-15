@@ -17,13 +17,15 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       end
 
       def agent_cause(report, verdict) = agent_exit_cause(report, { verdict: verdict })
+
+      def code(report) = exit_code(report)
     end.new(config)
   end
 
-  def report_stopped(reason)
+  def report_stopped(reason, truncated: [])
     instance_double(
       Saboteur::Report,
-      early_stop: Saboteur::EarlyStop.new(reason: reason, unreached: []),
+      early_stop: Saboteur::EarlyStop.new(reason: reason, unreached: [], truncated: truncated),
       executed: [instance_double(Saboteur::MutantResult, status: :alive)],
       majority_errored?: false
     )
@@ -39,6 +41,16 @@ RSpec.describe Saboteur::CLI::ExitStatus do
 
       it "still records failFast for a real --fail-fast stop (control)" do
         expect(harness.agent_cause(report_stopped("fail_fast"), "survivors")).to eq("failFast")
+      end
+    end
+
+    context "when the budget stopped the sole subject mid-way" do
+      let(:config) { {} }
+
+      it "still exits 4 with an executed prefix and no unreached subject (#245)" do
+        report = report_stopped("max_duration", truncated: [{ subject: "K#m", omitted: 2 }])
+        expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_BUDGET)
+        expect(harness.agent_cause(report, "clean")).to eq("budgetExhausted")
       end
     end
 

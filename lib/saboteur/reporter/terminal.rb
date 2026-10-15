@@ -223,18 +223,34 @@ module Saboteur
         end
       end
 
-      # The verdict covers only the subjects that ran, so say it where the
+      # The verdict covers only the completed work, so say it where the
       # score is read.
       def early_stop(report)
         stop = report.early_stop
         return unless stop
 
         label = stop.reason == "fail_fast" ? "--fail-fast" : "--max-duration spent"
-        @out.puts @palette.paint(:yellow, "stopped early (#{label}): #{stop.unreached.size} selected " \
-                                          "subject#{'s' unless stop.unreached.one?} did not run; the score below " \
-                                          "covers only the subjects that ran")
+        @out.puts @palette.paint(:yellow, "stopped early (#{label}): #{early_stop_summary(stop)}; the score below " \
+                                          "covers only completed work")
         stop.unreached.first(MAX_ERRORS).each { |id| @out.puts "  not run: #{id}" }
         @out.puts "  ... #{stop.unreached.size - MAX_ERRORS} more" if stop.unreached.size > MAX_ERRORS
+        stop.truncated.first(MAX_ERRORS).each do |entry|
+          @out.puts "  stopped mid-way: #{entry[:subject]} (#{entry[:omitted]} mutants omitted)"
+        end
+        @out.puts "  ... #{stop.truncated.size - MAX_ERRORS} more" if stop.truncated.size > MAX_ERRORS
+      end
+
+      def early_stop_summary(stop)
+        parts = []
+        if stop.unreached.any?
+          parts << "#{stop.unreached.size} selected subject#{'s' unless stop.unreached.one?} did not run"
+        end
+        if stop.truncated.any?
+          omitted = stop.truncated.sum { |entry| entry[:omitted] }
+          parts << "#{stop.truncated.size} subject#{'s' unless stop.truncated.one?} stopped mid-way " \
+                   "(#{omitted} mutants omitted)"
+        end
+        parts.join("; ")
       end
 
       def warnings(report)

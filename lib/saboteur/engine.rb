@@ -6,6 +6,7 @@ require "json"
 require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
+require_relative "engine/early_stop_recording"
 require_relative "engine/run_budget"
 require_relative "engine/thread_warnings"
 
@@ -14,6 +15,7 @@ module Saboteur
   # coverage map, then schedule each subject's mutants. The parts live in
   # engine/; this class only wires them together.
   class Engine
+    include EarlyStopRecording
     include RunBudget
 
     # Everything besides sources and tests that can change a verdict.
@@ -215,7 +217,7 @@ module Saboteur
       full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
       warn_unscoped(integration, full_passes)
       check_baseline(integration, full_passes)
-      return [] if abandon_for_budget(subjects)
+      return [] if abandon_for_budget?(subjects)
 
       map = store.fetch(files)
       inform_about_run(subjects, map)
@@ -242,7 +244,7 @@ module Saboteur
                                       cache: cache, on_start: method(:start_worker),
                                       after_subject: after_subject_hook, stop_after: stop_checks(ignore_list),
                                       halt_check: config["max_duration"] ? method(:budget_exceeded?) : nil)
-      distribution.run(subjects, lists).tap { record_early_stop(distribution.unreached) }
+      distribution.run(subjects, lists).tap { record_early_stop(distribution) }
     ensure
       @diagnostics.finish_progress
     end
@@ -253,15 +255,6 @@ module Saboteur
       return unless @capture_evidence && config["fail_fast"]
 
       raise ConfigError, "fail_fast cannot be used with baseline evidence: it certifies the whole selection"
-    end
-
-    # Subjects that were selected but never ran, with candidates, are part of
-    # the report: the verdict covers less than the selection.
-    def record_early_stop(unreached)
-      return if unreached.empty?
-
-      @early_stop = EarlyStop.new(reason: @budget_announced ? "max_duration" : "fail_fast",
-                                  unreached: unreached.map(&:id))
     end
 
     # --fail-fast: stop after the first subject that has a survivor the

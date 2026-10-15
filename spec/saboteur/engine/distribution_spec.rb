@@ -51,6 +51,26 @@ RSpec.describe Saboteur::Engine::Distribution do
     expect(distribution.run([subject], [[[mutation, "text"]]]).map(&:status)).to eq([:killed])
   end
 
+  it "accounts a deadline-truncated subject's omitted candidates in serial (#245)" do
+    scheduler = ->(_subject, list) { [list.first] } # the deadline broke the loop after one
+    distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)
+    expect(distribution.run(%i[a], [[1, 2, 3]])).to eq([1])
+    expect(distribution.unreached).to eq([])
+    expect(distribution.truncated).to eq([[:a, 2]])
+  end
+
+  it "accounts a deadline-truncated subject's omitted candidates in parallel (#245)" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "text")]
+    scheduler = ->(_subject, _list) { row } # one result for three candidates
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
+    lists = [[[mutation, "t1"], [mutation, "t2"], [mutation, "t3"]]]
+    distribution.run([subject], lists)
+    expect(distribution.unreached).to eq([])
+    expect(distribution.truncated).to eq([[subject, 2]])
+  end
+
   def fixture_subject
     subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
   end

@@ -177,7 +177,8 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "says where the run stopped early and which subjects did not run" do
     report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file),
-                                  early_stop: Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y]))
+                                  early_stop: Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y],
+                                                                      truncated: []))
     text = render(report)
     expect(text).to include("stopped early (--fail-fast): 2 selected subjects did not run",
                             "not run: A#x", "not run: B#y")

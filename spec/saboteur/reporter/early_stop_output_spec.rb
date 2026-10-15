@@ -7,7 +7,7 @@ RSpec.describe "early stop in the reports" do
   def stopped(*ids, results: [result_for(:survived)])
     Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.0,
                          root: File.dirname(person_subject.file), seed: 1,
-                         early_stop: Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ids))
+                         early_stop: Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ids, truncated: []))
   end
 
   def terminal_text(report)
@@ -18,7 +18,7 @@ RSpec.describe "early stop in the reports" do
 
   it "puts the early stop in the Stryker JSON, and null when the run was whole" do
     json = Saboteur::Reporter::Stryker.build(stopped("A#x", "B#y"))
-    expect(json[:earlyStop]).to eq(reason: "fail_fast", unreachedSubjects: %w[A#x B#y])
+    expect(json[:earlyStop]).to eq(reason: "fail_fast", unreachedSubjects: %w[A#x B#y], truncatedSubjects: [])
     expect(Saboteur::Reporter::Stryker.build(report_of(result_for(:killed)))[:earlyStop]).to be_nil
   end
 
@@ -39,10 +39,23 @@ RSpec.describe "early stop in the reports" do
   it "names --max-duration when the time budget stopped the run (#245)" do
     report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file), seed: 1,
-                                  early_stop: Saboteur::EarlyStop.new(reason: "max_duration", unreached: ["A#x"]))
+                                  early_stop: Saboteur::EarlyStop.new(reason: "max_duration", unreached: ["A#x"],
+                                                                      truncated: []))
     expect(terminal_text(report)).to include("stopped early (--max-duration spent): 1 selected subject did not run")
     json = Saboteur::Reporter::Stryker.build(report)
-    expect(json[:earlyStop]).to eq(reason: "max_duration", unreachedSubjects: ["A#x"])
+    expect(json[:earlyStop]).to eq(reason: "max_duration", unreachedSubjects: ["A#x"], truncatedSubjects: [])
+  end
+
+  it "reports subjects the budget stopped mid-way with their omitted mutants (#245)" do
+    report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1,
+                                  early_stop: Saboteur::EarlyStop.new(reason: "max_duration", unreached: [],
+                                                                      truncated: [{ subject: "A#x", omitted: 2 }]))
+    expect(terminal_text(report))
+      .to include("stopped early (--max-duration spent): 1 subject stopped mid-way (2 mutants omitted)")
+    json = Saboteur::Reporter::Stryker.build(report)
+    expect(json[:earlyStop]).to eq(reason: "max_duration", unreachedSubjects: [],
+                                   truncatedSubjects: [{ subject: "A#x", omittedMutants: 2 }])
   end
 
   it "says subject in the singular for one unreached subject" do

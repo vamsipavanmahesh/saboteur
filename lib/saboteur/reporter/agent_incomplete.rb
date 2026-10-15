@@ -36,6 +36,9 @@ module Saboteur
 
             label = stop.reason == "fail_fast" ? "--fail-fast stopped" : "the --max-duration budget stopped"
             add(reasons, stop.reason, stop.unreached.size, "selected subjects did not run because #{label} the run")
+            omitted = stop.truncated.sum { |entry| entry[:omitted] }
+            add(reasons, "#{stop.reason}_truncated", omitted,
+                "mutants omitted inside subjects that stopped mid-way because #{label} the run")
           end
 
           def inline_scope(reasons, report)

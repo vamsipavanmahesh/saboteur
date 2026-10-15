@@ -80,7 +80,7 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
     end
 
     it "names the subjects a --fail-fast stop left unrun" do
-      stop = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y])
+      stop = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y], truncated: [])
       report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1.0,
                                     root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
       expect(reasons(report)).to include(
@@ -89,6 +89,19 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       )
       whole = Array(reasons(report_of(result_for(:survived)))).map { |reason| reason[:reason] }
       expect(whole).not_to include("fail_fast")
+    end
+
+    it "marks a run partial when the budget stopped a subject mid-way and no subject was skipped (#245)" do
+      stop = Saboteur::EarlyStop.new(reason: "max_duration", unreached: [],
+                                     truncated: [{ subject: "Person#adult?", omitted: 3 }])
+      report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                    root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
+      expect(reasons(report)).to include(
+        reason: "max_duration_truncated", count: 3,
+        meaning: "mutants omitted inside subjects that stopped mid-way because the --max-duration budget " \
+                 "stopped the run"
+      )
+      expect(payload_for(report)[:status]).to eq("partial")
     end
 
     it "says what no coverage means, adding skipped subjects and skipped mutants" do
