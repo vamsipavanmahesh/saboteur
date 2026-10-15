@@ -154,8 +154,16 @@ module Saboteur
         exit!(0)
       rescue Exception => e # rubocop:disable Lint/RescueException
         # The pipe stays empty when the child dies before answering, so this
-        # is the only place the cause survives (#255).
-        warn("saboteur: supervised child died: #{e.class}: #{e.message}")
+        # is the only place the cause survives (#255). The warning is
+        # best-effort and the exit is ensured: a broken stderr must not let
+        # the exception unwind past the fork block into CLI code in the
+        # child, where exit handlers could emit duplicate output (#289).
+        begin
+          warn("saboteur: supervised child died: #{e.class}: #{e.message}")
+        rescue Exception # rubocop:disable Lint/RescueException
+          nil
+        end
+      ensure
         exit!(1)
       end
 

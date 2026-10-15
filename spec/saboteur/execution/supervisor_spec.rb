@@ -223,6 +223,24 @@ RSpec.describe Saboteur::Execution::Supervisor do
     end.to output(/supervised child died: RuntimeError: boom in child/).to_stderr_from_any_process
   end
 
+  it "still exits 1 when the dying child's stderr is closed, without running at_exit hooks (#289)" do
+    marker = File.join(dir, "at_exit.txt")
+    result = supervisor.run(timeout: 5) do |_writer|
+      at_exit { File.write(marker, "ran") }
+      $stderr.close
+      raise "boom"
+    end
+    expect(result.payload).to eq("")
+    expect(result.exit_status.exitstatus).to eq(1)
+    expect(File.exist?(marker)).to be(false)
+  end
+
+  it "keeps the dying child's voice off stdout, so agent JSON stays parseable (#289)" do
+    expect do
+      supervisor.run(timeout: 5) { |_writer| raise "boom" }
+    end.not_to output.to_stdout_from_any_process
+  end
+
   it "records nesting depth in the child" do
     nested = supervisor.run(timeout: 5) do |writer|
       writer.write(described_class.new.run(timeout: 5) { |inner| inner.write(ENV.fetch(described_class::CHILD_ENV)) }

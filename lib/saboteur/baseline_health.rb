@@ -52,7 +52,7 @@ module Saboteur
     def check_run(number, expected)
       Tempfile.create("saboteur-baseline") do |log|
         result = @supervisor.run(timeout: @config["baseline_timeout"]) { |writer| record(writer, log.path) }
-        data = read_result(result, number)
+        data = read_result(result, number, log)
         verify_execution(data, number, expected)
         raise Error, "baseline run #{number} left processes running; fix suite cleanup" if result.leftover_pids.any?
 
@@ -66,11 +66,11 @@ module Saboteur
       raise Error, "baseline check failed: #{e.class}: #{e.message}; check suite hooks and setup"
     end
 
-    def read_result(result, number)
+    def read_result(result, number, log = nil)
       raise Error, "baseline run #{number} stopped: #{result.detail}" if result.stopped_by
       if result.payload.empty?
         raise Error, "baseline run #{number} exited without a result#{exit_detail(result.exit_status)}; " \
-                     "check suite boot and exits"
+                     "check suite boot and exits#{log_tail(log)}"
       end
       if result.child_failed?
         raise Error, "baseline run #{number} exited unsuccessfully; fix suite cleanup and exit handlers"
@@ -80,6 +80,24 @@ module Saboteur
       raise Error, "baseline run #{number} returned an invalid result" unless data.is_a?(Hash)
 
       data
+    end
+
+    # The child's own output when it died without answering: the redirect
+    # puts its last words in this log, not on the terminal (#289). Bounded
+    # (about 2 KB, 20 lines) and scrubbed before it joins the error.
+    def log_tail(log)
+      return "" unless log
+
+      size = File.size(log.path)
+      return "" if size.zero?
+
+      offset = [size - 2048, 0].max
+      lines = Text.utf8(File.read(log.path, 2048, offset).to_s).lines.map(&:chomp)
+      lines.shift if offset.positive? && lines.size > 1
+      lines = lines.reject(&:empty?).last(20)
+      return "" if lines.empty?
+
+      "; child log tail: #{lines.join(' / ')}"
     end
 
     # The child's ending when the supervisor reaped one ("exit 1",

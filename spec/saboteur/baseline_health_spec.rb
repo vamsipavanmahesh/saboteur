@@ -43,6 +43,25 @@ RSpec.describe Saboteur::BaselineHealth do
       .to raise_error(Saboteur::Error, /did not execute every/)
   end
 
+  it "quotes the bounded child log tail when the child dies after the redirect (#289)" do
+    broken = Class.new(StandardError) do
+      def message
+        raise "message broke"
+      end
+    end
+    allow(integration).to receive(:run_all) do
+      warn("baseline noise line
+" * 500)
+      raise broken
+    end
+    expect { described_class.new(config, integration: integration).call }
+      .to raise_error(Saboteur::Error) do |error|
+        expect(error.message).to include("without a result (exit 1)")
+        expect(error.message).to include("message broke")
+        expect(error.message.length).to be < 4096
+      end
+  end
+
   it "rejects different order on the second run" do
     tests = %w[a b].map { |id| Saboteur::Integration::TestCase.new(id: id, file: "spec/a.rb") }
     allow(integration).to receive(:all_tests).and_return(tests)
