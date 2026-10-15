@@ -3,6 +3,7 @@
 
 require "json"
 require_relative "stale_captures"
+require_relative "../crash_report"
 
 module Saboteur
   module Execution
