@@ -170,6 +170,14 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("invalid --max-duration")
   end
 
+  it "takes the first bare word after a preset as its ref, not the last (#296)" do
+    command = cli("pr", "deadbeef", "--all")
+    captured = nil
+    command.define_singleton_method(:run_command) { captured = @argv.dup }
+    command.call
+    expect(captured).to include("--since", "deadbeef")
+  end
+
   it "rejects an unparseable --max-duration with the full hint (#296)" do
     command = cli("run", "--max-duration", "soon")
     command.call

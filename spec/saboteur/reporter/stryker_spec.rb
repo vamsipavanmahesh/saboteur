@@ -94,9 +94,20 @@ RSpec.describe Saboteur::Reporter::Stryker do
       .to eq(["RuntimeError", "resource limit: process tree grew by 3000 MB (limit 2048 MB)"])
   end
 
-  it "keeps ignored survivors as Survived with the reason, and first lines of errors" do
+  it "keeps ignored survivors as Survived with the reason, and full error reasons" do
     expect(mutants[1]["statusReason"]).to eq("ignored: equivalent")
-    expect(mutants[3]["statusReason"]).to eq("boom")
+    expect(mutants[3]["statusReason"]).to eq("boom\nmore")
+  end
+
+  # A rejected kill's reason carries the child's full failure detail: the
+  # JSON report must keep every line, or CI shows "expected: 0" with no
+  # context again (#296).
+  it "keeps every line of a multiline error reason in statusReason (#296)" do
+    detail = "killing test t1 also fails with the method unchanged: NameError: uninitialized constant X\n" \
+             "./spec/x_spec.rb:4:in `block'\n./spec/x_spec.rb:9:in `block'"
+    report = report_of(result_for(:error, reason: detail))
+    mutant = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants").first
+    expect(mutant["statusReason"]).to eq(detail)
   end
 
   it "carries the bounded findings a code-review surface annotates from" do

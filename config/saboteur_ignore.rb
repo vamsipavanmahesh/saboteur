@@ -3,6 +3,46 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "e9effc360ce327fb",
+             subject: "Saboteur::Engine::BaselineGuard#budget_stopped?",
+             reason: "admitted is clamped to <= the configured phase timeout, so < and != agree on every reachable value"
+
+  i.mutation "2e122d7fa55e9c86",
+             subject: "Saboteur::Engine::CoverageStore#budget_stopped?",
+             reason: "admitted is clamped to <= the configured phase timeout, so < and != agree on every reachable value"
+
+  i.mutation "5e4ced5440585f8a",
+             subject: "Saboteur::Engine::Scheduler#unchanged_runner",
+             reason: "budget_capped clamps its result to <= the given timeout, so < and != agree on every reachable value"
+
+  i.mutation "38af4993fb255820",
+             subject: "Saboteur::Engine::Scheduler#unchanged_timing",
+             reason: "budget_capped clamps its result to <= the baseline timeout, so < and != agree on every reachable value"
+
+  i.mutation "1f596a4e5a0685f7",
+             subject: "Saboteur::Engine::Scheduler#budget_spent?",
+             reason: ">= and > differ only when the monotonic clock reads the deadline exactly; the deadline is computed before the check runs, so equality is not observable"
+
+  i.mutation "452346af9d7dfcf0",
+             subject: "Saboteur::Engine::Scheduler#unchanged_runner",
+             reason: "the 0.0 runtime of a check that never forked is discarded: as_unverified keeps the kill's own runtime"
+
+  i.mutation "dc826f708439e417",
+             subject: "Saboteur::Engine::Scheduler#unchanged_runner",
+             reason: "the 0.0 runtime of a check that never forked is discarded: as_unverified keeps the kill's own runtime"
+
+  i.mutation "4c76f1fb164340ce",
+             subject: "Saboteur::Engine::VerdictCheck#check_sequences",
+             reason: "equivalent: the block's side effects populate the accumulators and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "acc82bd84e367b90",
+             subject: "Saboteur::Engine::VerdictCheck#check_claims",
+             reason: "equivalent: the block's side effects populate the accumulators and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "d5337bfe1d6b9951",
+             subject: "Saboteur::Reporter::Terminal#list",
+             reason: "equivalent: the block's puts side effects are the whole behavior and the return value is unused, so each and map agree"
+
   i.mutation "ada60709111b1e56",
              subject: "Saboteur::Reporter::Diff#operations",
              reason: "equivalent: at the bound a[i] or b[j] is nil, so the equality fails either way"

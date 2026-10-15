@@ -10,11 +10,13 @@ RSpec.describe Saboteur::Report do
               result_for(:skipped, replacement: ">", reason: "no coverage"))
   end
 
-  it "carries reason, runtime and killing tests into the unverified copy (#296)" do
-    result = result_for(:killed, runtime: 0.5, killed_by: ["t1"], covered_by: %w[t1 t2])
+  it "carries every field into the unverified copy (#296)" do
+    result = result_for(:killed, runtime: 0.5, killed_by: ["t1"], covered_by: %w[t1 t2],
+                                 kill_cause: "assertion", executed: true)
     unverified = result.as_unverified("the --max-duration budget is spent")
-    expect([unverified.status, unverified.reason, unverified.runtime, unverified.killed_by])
-      .to eq([:unverified, "the --max-duration budget is spent", 0.5, ["t1"]])
+    expect([unverified.status, unverified.reason, unverified.runtime, unverified.killed_by,
+            unverified.covered_by, unverified.kill_cause, unverified.executed])
+      .to eq([:unverified, "the --max-duration budget is spent", 0.5, ["t1"], %w[t1 t2], "assertion", true])
   end
 
   it "counts every status separately" do

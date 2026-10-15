@@ -124,6 +124,13 @@ RSpec.describe Saboteur::Engine::VerdictCheck, "when the budget stops a check" d
     expect([checked.status, checked.reason]).to eq([:unverified, "the budget cut the check short"])
   end
 
+  # The unchecked map's value is the message: a nil message must still mark
+  # the kill unverified (with the generic reason), never leave it killed.
+  it "marks an unnamed kill unverified with the generic reason when the run gave no message (#296)" do
+    checked = check_with([result(killed_by: [])], outcome(:unverified)).first
+    expect([checked.status, checked.reason]).to eq([:unverified, described_class::BUDGET_REASON])
+  end
+
   it "keeps an unnamed kill whose unchanged run passes and rejects one whose run fails" do
     expect(check_with([result(killed_by: [])], outcome(:survived)).first.status).to eq(:killed)
     rejected = check_with([result(killed_by: [])], outcome(:killed, "boom")).first

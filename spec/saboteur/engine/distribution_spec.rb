@@ -433,7 +433,11 @@ RSpec.describe Saboteur::Engine::Distribution, "truncation accounting boundaries
 
   it "resets the accounting between runs" do
     distribution = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
-    distribution.send(:record_unreached, [nil], %i[a], [[1]])
+    dirty = [{ "results" => [{ "status" => "unverified" }] }, nil]
+    distribution.send(:record_unreached, dirty, %i[a b], [[1, 2], [1]])
+    expect(distribution.truncated).not_to be_empty
+    expect(distribution.unverified).not_to be_empty
+    expect(distribution.unreached).not_to be_empty
     distribution.send(:record_unreached, [{ "results" => [{ "status" => "killed" }] }], %i[a], [[1]])
     expect(distribution.unreached).to eq([])
     expect(distribution.truncated).to eq([])

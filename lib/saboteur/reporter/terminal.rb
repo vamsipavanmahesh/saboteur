@@ -269,8 +269,9 @@ module Saboteur
 
         @out.puts "\nErrors (not counted as killed):"
         errored.first(MAX_ERRORS).each do |result|
-          @out.puts "  #{result.subject.id} #{result.mutation.operator} #{result.digest}: " \
-                    "#{result.reason.to_s.lines.first&.strip}"
+          lines = result.reason.to_s.lines.map(&:strip)
+          @out.puts "  #{result.subject.id} #{result.mutation.operator} #{result.digest}: #{lines.first}"
+          lines.drop(1).each { |line| @out.puts "    #{line}" }
         end
         @out.puts "  ... #{errored.size - MAX_ERRORS} more" if errored.size > MAX_ERRORS
       end

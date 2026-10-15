@@ -133,7 +133,8 @@ module Saboteur
         return "resource limit: #{result.reason}" if result.status == :resource_limit
         return result.crash_kill? ? "crash: #{result.kill_cause}" : result.kill_cause if result.kill_cause
 
-        result.reason.to_s.lines.first&.strip
+        reason = result.reason.to_s.strip
+        reason.empty? ? nil : reason
       end
 
       def self.location(edit, source)

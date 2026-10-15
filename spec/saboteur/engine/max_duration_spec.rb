@@ -730,6 +730,28 @@ RSpec.describe Saboteur::Engine::Scheduler, "budget cap boundaries (#296)" do
   end
 end
 
+RSpec.describe Saboteur::Engine::RunBudget, "#budget_capped_timeout (#296)" do
+  def budget(started_ago: 0.0, max_duration: 30.0)
+    Object.new.extend(described_class).tap do |object|
+      object.instance_variable_set(:@run_started, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_ago)
+      object.define_singleton_method(:config) { { "max_duration" => max_duration } }
+    end
+  end
+
+  it "caps a timeout at the time left in the budget, never below zero" do
+    expect(budget.send(:budget_capped_timeout, 5.0)).to be <= 5.0
+    expect(budget.send(:budget_capped_timeout, 60.0)).to be <= 30.0
+    expect(budget.send(:budget_capped_timeout, 5.0)).to be > 0.0
+    expect(budget(started_ago: 31.0).send(:budget_capped_timeout, 5.0)).to eq(0.0)
+  end
+
+  it "returns the timeout unchanged without a budget" do
+    object = Object.new.extend(described_class)
+    object.define_singleton_method(:config) { { "max_duration" => nil } }
+    expect(object.send(:budget_capped_timeout, 5.0)).to eq(5.0)
+  end
+end
+
 RSpec.describe Saboteur::Engine::Scheduler, "per-check budget admission (#296)" do
   let(:err) { StringIO.new }
   let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }

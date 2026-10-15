@@ -230,6 +230,16 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).to include("killed 0", "error 1", "Errors (not counted as killed):", "signal 9")
   end
 
+  # A rejected kill's reason carries the child's full failure detail: the
+  # terminal report keeps it as indented continuation lines (#296).
+  it "prints every line of a multiline error reason, indented under the mutant (#296)" do
+    detail = "killing test t1 also fails with the method unchanged: NameError: uninitialized constant X\n" \
+             "./spec/x_spec.rb:4:in `block'\n./spec/x_spec.rb:9:in `block'"
+    text = render(report_of(result_for(:error, reason: detail)))
+    expect(text).to include("NameError: uninitialized constant X\n    ./spec/x_spec.rb:4:in `block'\n    " \
+                            "./spec/x_spec.rb:9:in `block'")
+  end
+
   it "shows skip reasons, warnings and ignored survivors" do
     survivor = result_for(:survived)
     survivor.ignored = "equivalent: ages are integers"
