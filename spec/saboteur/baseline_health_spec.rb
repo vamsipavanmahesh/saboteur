@@ -17,7 +17,8 @@ RSpec.describe Saboteur::BaselineHealth do
   it "requires two green runs with the same executed sequence" do
     allow(supervisor).to receive(:run).and_return(response, response)
     expect(described_class.new(config, integration: integration, supervisor: supervisor).call).to eq(["a"])
-    expect(supervisor).to have_received(:run).with(timeout: 300.0).twice
+    expect(supervisor).to have_received(:run)
+      .with(timeout: 300.0, label: "baseline child died during setup/run").twice
   end
 
   it "rejects a run whose child exited unsuccessfully by itself" do
@@ -41,6 +42,87 @@ RSpec.describe Saboteur::BaselineHealth do
     allow(supervisor).to receive(:run).and_return(response(executed: []))
     expect { described_class.new(config, integration: integration, supervisor: supervisor).call }
       .to raise_error(Saboteur::Error, /did not execute every/)
+  end
+
+  it "quotes the bounded child log tail when the child dies after the redirect (#289)" do
+    broken = Class.new(StandardError) do
+      def message
+        raise "message broke"
+      end
+    end
+    allow(integration).to receive(:run_all) do
+      warn("baseline noise line
+" * 500)
+      raise broken
+    end
+    expect { described_class.new(config, integration: integration).call }
+      .to raise_error(Saboteur::Error) do |error|
+        expect(error.message).to include("baseline child died during setup/run")
+        expect(error.message).to include("without a result (exit 1)")
+        expect(error.message).to include("message broke")
+        expect(error.message).to include("baseline child died during setup/run: RuntimeError")
+        expect(error.message.length).to be < 4096
+      end
+  end
+
+  describe "#log_tail boundaries (#289)" do
+    def tail_of(content)
+      log = Tempfile.create("saboteur-baseline")
+      log.write(content)
+      log.flush
+      described_class.new(config, integration: integration).send(:log_tail, log)
+    ensure
+      path = log&.path
+      log&.close
+      File.unlink(path) if path && File.exist?(path)
+    end
+
+    it "returns an empty string for a nil log" do
+      expect(described_class.new(config, integration: integration).send(:log_tail, nil)).to eq("")
+    end
+
+    it "returns an empty string for an empty log" do
+      expect(tail_of("")).to eq("")
+    end
+
+    it "reads a small log in full, joined on one line" do
+      expect(tail_of("alpha\nbeta\n")).to eq("; child log tail: alpha / beta")
+    end
+
+    it "starts a large log at exactly the 2 KB boundary" do
+      content = ("A" * 52) + ("B" * 2048)
+      expect(tail_of(content)).to eq("; child log tail: #{'B' * 2048}")
+    end
+
+    it "bounds the read to 2 KB even if the file grows after the size check (#289)" do
+      log = instance_double(File, size: 10, read: "x")
+      allow(log).to receive(:seek)
+      expect(described_class.new(config, integration: integration).send(:log_tail, log))
+        .to eq("; child log tail: x")
+      expect(log).to have_received(:read).with(2048)
+    end
+
+    it "keeps exactly the last 20 lines" do
+      content = (1..25).map { |n| "line#{n}" }.join("\n")
+      tail = tail_of(content)
+      expect(tail).to start_with("; child log tail: line6 / line7")
+      expect(tail).to end_with("line24 / line25")
+      expect(tail).not_to include("line5")
+    end
+  end
+
+  it "keeps the original exit error when the child log cannot be read (#289)" do
+    health = described_class.new(config, integration: integration)
+    path = nil
+    broken = Tempfile.create("saboteur-baseline") do |log|
+      path = log.path
+      log.write("last words")
+      log
+    end
+    broken.close
+    expect(health.send(:log_tail, broken)).to eq("")
+  ensure
+    File.unlink(path) if path && File.exist?(path)
   end
 
   it "rejects different order on the second run" do
@@ -119,6 +201,20 @@ RSpec.describe Saboteur::BaselineHealth, "bad child evidence" do
     expect { check(payload: "") }.to raise_error(Saboteur::Error, /without a result/)
   end
 
+  it "reports the child's exit status when the payload is empty (#255)" do
+    pid = fork { exit! 1 }
+    _, status = Process.wait2(pid)
+    expect { check(payload: "", exit_status: status) }
+      .to raise_error(Saboteur::Error, /without a result \(exit 1\)/)
+  end
+
+  it "reports the child's signal when the payload is empty (#255)" do
+    pid = fork { Process.kill("KILL", Process.pid) }
+    _, status = Process.wait2(pid)
+    expect { check(payload: "", exit_status: status) }
+      .to raise_error(Saboteur::Error, /without a result \(signal KILL\)/)
+  end
+
   it "rejects malformed and non-object payloads" do
     ["{", "[]", "null"].each do |payload|
       expect { check(payload: payload) }.to raise_error(Saboteur::Error, /invalid result/)
@@ -158,7 +254,8 @@ RSpec.describe Saboteur::BaselineHealth, "baseline supervision wiring" do
                                                                                              executed: ["a"]),
                                                                       exit_status: nil,
                                                                       child_failed?: false, leftover_pids: [])
-    expect(supervisor).to receive(:run).with(timeout: 42.0).twice.and_return(result)
+    expect(supervisor).to receive(:run)
+      .with(timeout: 42.0, label: "baseline child died during setup/run").twice.and_return(result)
     expect(described_class.new(config, integration: integration).call).to eq(["a"])
   end
 

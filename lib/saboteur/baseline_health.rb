@@ -51,8 +51,9 @@ module Saboteur
 
     def check_run(number, expected)
       Tempfile.create("saboteur-baseline") do |log|
-        result = @supervisor.run(timeout: @config["baseline_timeout"]) { |writer| record(writer, log.path) }
-        data = read_result(result, number)
+        result = @supervisor.run(timeout: @config["baseline_timeout"],
+                                 label: "baseline child died during setup/run") { |writer| record(writer, log.path) }
+        data = read_result(result, number, log)
         verify_execution(data, number, expected)
         raise Error, "baseline run #{number} left processes running; fix suite cleanup" if result.leftover_pids.any?
 
@@ -66,9 +67,12 @@ module Saboteur
       raise Error, "baseline check failed: #{e.class}: #{e.message}; check suite hooks and setup"
     end
 
-    def read_result(result, number)
+    def read_result(result, number, log = nil)
       raise Error, "baseline run #{number} stopped: #{result.detail}" if result.stopped_by
-      raise Error, "baseline run #{number} exited without a result; check suite boot and exits" if result.payload.empty?
+      if result.payload.empty?
+        raise Error, "baseline child died during setup/run: baseline run #{number} exited without a " \
+                     "result#{exit_detail(result.exit_status)}; check suite boot and exits#{log_tail(log)}"
+      end
       if result.child_failed?
         raise Error, "baseline run #{number} exited unsuccessfully; fix suite cleanup and exit handlers"
       end
@@ -77,6 +81,30 @@ module Saboteur
       raise Error, "baseline run #{number} returned an invalid result" unless data.is_a?(Hash)
 
       data
+    end
+
+    # The child's own output when it died without answering: the redirect
+    # puts its last words in this log, not on the terminal (#289). Bounded
+    # (about 2 KB, 20 lines) and scrubbed before it joins the error. Read
+    # through the parent's open handle, and strictly best-effort: a dead
+    # handle must never mask the real exit or signal error.
+    def log_tail(log)
+      return "" unless log
+
+      log.seek([log.size - 2048, 0].max)
+      tail = Text.utf8(log.read(2048).to_s).lines.last(20).map(&:chomp).join(" / ")
+      tail.empty? ? "" : "; child log tail: #{tail}"
+    rescue SystemCallError, IOError
+      ""
+    end
+
+    # The child's ending when the supervisor reaped one ("exit 1",
+    # "signal SIGKILL", ...): an empty result's cause is usually there (#255).
+    def exit_detail(status)
+      return "" unless status.is_a?(Process::Status)
+      return " (signal #{Signal.signame(status.termsig)})" if status.signaled?
+
+      " (exit #{status.exitstatus})"
     end
 
     def verify_execution(data, number, expected)

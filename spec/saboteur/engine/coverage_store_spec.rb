@@ -174,7 +174,8 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(err.string).to include("building coverage map (runs the whole suite once)")
     expect(diagnostics).to have_received(:progress_heartbeat).with("building coverage map")
     expect(heartbeat).to have_received(:watch).with(File.join(@root, ".saboteur/coverage-build.log"))
-    expect(supervisor).to have_received(:run).with(timeout: 3600.0, on_tick: anything)
+    expect(supervisor).to have_received(:run).with(timeout: 3600.0, on_tick: anything,
+                                                   label: "coverage child died during the map build")
   end
 
   # --test narrows the map build to the given specs; the message must say
