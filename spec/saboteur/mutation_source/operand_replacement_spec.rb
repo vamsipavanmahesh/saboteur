@@ -15,6 +15,11 @@ RSpec.describe Saboteur::MutationSource::OperandReplacement do
     source.mutations_for(subject).map { |mutation| subject.apply(mutation.edits) }
   end
 
+  it "skips arid expressions and nested definitions per the documented skip contract" do
+    expect(replacements("def inner; a + b; end")).to be_empty
+    expect(described_class.new(arid: ["a"]).mutations_for(subject_for("a + b"))).to be_empty
+  end
+
   it "replaces a + b with each operand" do
     expect(replacements("a + b")).to eq(["def calc(a, b)\n    a\n  end", "def calc(a, b)\n    b\n  end"])
   end

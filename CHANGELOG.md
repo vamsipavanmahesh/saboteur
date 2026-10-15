@@ -178,8 +178,12 @@ All notable changes are documented here. The format follows
   `interpolation_removal` removes each `#{expr}` and each literal segment
   of an interpolated string (#239). The hazard guard now also recognizes
   `send`, `public_send` and `__send__` with a literal symbol or string
-  selector naming a destructive method, closing the dynamic-dispatch
-  bypass; dynamic selectors stay out of scope as documented (#240).
+  selector and applies the same checks as for the direct call to the
+  resolved selector, with the arguments shifted past it: a destructive
+  method name on any receiver (`helper.send(:rmtree, path)`), the
+  configured hazard patterns, `Kernel#system` / `Process#spawn`, and
+  `Kernel#open` with a "| command" argument all stay suppressed. Dynamic
+  selectors stay out of scope as documented (#240).
 - `--since` warns when a changed Ruby file in scope has no subjects
   covering the changed lines, so nothing is mutated from it (#232). A
   silent zero-subject scope used to pass as a clean run. Comment-only or

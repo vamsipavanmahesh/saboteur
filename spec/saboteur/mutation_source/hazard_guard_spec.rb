@@ -50,6 +50,32 @@ RSpec.describe Saboteur::MutationSource::HazardGuard do
     end
   end
 
+  # #294 review: the resolved selector must face the same direct-call
+  # semantics, with the arguments shifted past the selector - otherwise
+  # helper.send(:rmtree, x), a Pathname receiver and piped open slip through.
+  it "suppresses a send-indirected rmtree on any receiver, like the direct call" do
+    ['    helper.send(:rmtree, "build")',
+     '    path.public_send(:rmtree, "build")',
+     '    helpers.__send__("rmtree", "build")'].each do |call|
+      _kept, suppressed, = partition(call)
+      expect(suppressed).not_to be_empty, "expected mutants to be suppressed for #{call}"
+    end
+  end
+
+  it "suppresses a piped open reached through send, bare or on Kernel" do
+    ['    Kernel.send(:open, "| cmd")',
+     '    __send__(:open, "| cmd")',
+     '    send(:open, "| \#{cmd}")'].each do |call|
+      _kept, suppressed, = partition(call)
+      expect(suppressed).not_to be_empty, "expected mutants to be suppressed for #{call}"
+    end
+  end
+
+  it "keeps a literal send selector that names no hazard, even on a Kernel receiver" do
+    _kept, suppressed, = partition('    Kernel.send(:puts, "hi")')
+    expect(suppressed).to be_empty
+  end
+
   it "keeps mutants when send names a benign method or the selector is dynamic" do
     _kept, suppressed, = partition("    helper.send(:size)")
     expect(suppressed).to be_empty

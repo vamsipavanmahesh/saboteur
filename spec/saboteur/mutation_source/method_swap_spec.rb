@@ -15,6 +15,11 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
     source.mutations_for(subject).map { |mutation| subject.apply(mutation.edits) }
   end
 
+  it "skips arid expressions and nested definitions per the documented skip contract" do
+    expect(replacements("def inner; xs.min { |x| x }; end")).to be_empty
+    expect(described_class.new(arid: ["min"]).mutations_for(subject_for("xs.min { |x| x }"))).to be_empty
+  end
+
   { "min" => "max", "max" => "min", "any?" => "all?", "all?" => "any?", "map" => "each",
     "each" => "map" }.each do |original, replacement|
     it "swaps #{original} with #{replacement}" do

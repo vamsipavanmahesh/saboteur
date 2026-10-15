@@ -82,8 +82,20 @@ module Saboteur
         name = node.name.to_s
         receiver = node.receiver&.slice&.sub(/\A::/, "")
         return true if OPEN3.match?(receiver.to_s)
+
+        args = node.arguments&.arguments || []
+        # obj.send(:rmtree, x) is obj.rmtree(x) with indirection (#240): the
+        # resolved selector faces the same direct-call semantics, with the
+        # arguments shifted past it (#294 review). A dynamic selector stays
+        # out of scope, as documented.
+        return true if SEND_NAMES.include?(name) && (selector = literal_selector(args.first)) &&
+                       direct_hazard?(selector, receiver, args[1])
+
+        direct_hazard?(name, receiver, args.first)
+      end
+
+      def direct_hazard?(name, receiver, first_arg)
         return true if ALWAYS_NAMES.include?(name)
-        return true if SEND_NAMES.include?(name) && literal_selector_hazard?(node)
 
         tag = receiver ? "#{receiver}.#{name}" : name
         return true if @tags.include?(tag)
@@ -91,27 +103,18 @@ module Saboteur
         # spelling of a bare process spawn is the same hazard.
         return true if KERNEL_RECEIVERS.include?(receiver) && @tags.include?(name)
 
-        piped_open?(node, name, receiver)
+        piped_open?(first_arg, name, receiver)
       end
 
-      # FileUtils.send(:rm_rf, x) is FileUtils.rm_rf with indirection:
-      # a literal symbol or string selector names the real call (#240).
-      # A dynamic selector stays out of scope, as documented.
-      def literal_selector_hazard?(node)
-        first = node.arguments&.arguments&.first
-        selector = first.unescaped if first.is_a?(Prism::SymbolNode) || first.is_a?(Prism::StringNode)
-        return false unless selector
-
-        receiver = node.receiver&.slice&.sub(/\A::/, "")
-        tag = receiver ? "#{receiver}.#{selector}" : selector
-        @tags.include?(tag) || (KERNEL_RECEIVERS.include?(receiver) && @tags.include?(selector))
+      # A literal symbol or string selector names the real call.
+      def literal_selector(first)
+        first.unescaped if first.is_a?(Prism::SymbolNode) || first.is_a?(Prism::StringNode)
       end
 
       # Kernel#open with a "| command" argument spawns a process.
-      def piped_open?(node, name, receiver)
+      def piped_open?(first, name, receiver)
         return false unless name == "open" && (receiver.nil? || receiver == "Kernel")
 
-        first = node.arguments&.arguments&.first
         case first
         when Prism::StringNode then first.unescaped.start_with?("|")
         when Prism::InterpolatedStringNode

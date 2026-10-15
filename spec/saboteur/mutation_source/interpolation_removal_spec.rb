@@ -15,6 +15,11 @@ RSpec.describe Saboteur::MutationSource::InterpolationRemoval do
     source.mutations_for(subject).map { |mutation| subject.apply(mutation.edits) }
   end
 
+  it "skips arid expressions and nested definitions per the documented skip contract" do
+    expect(replacements(%q(def inner; "Hello, \#{name}!"; end))).to be_empty
+    expect(described_class.new(arid: ["name"]).mutations_for(subject_for(%q("Hello, \#{name}!")))).to be_empty
+  end
+
   it "removes the interpolation and each literal segment in turn" do
     expect(replacements("\"Hello, \#{name}!\""))
       .to eq(["def greet(name)\n    \"\#{name}!\"\n  end",
