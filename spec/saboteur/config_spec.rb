@@ -270,6 +270,13 @@ RSpec.describe Saboteur::Config, "details" do
     expect(described_class.new({ "test_command" => "make test" })["test_command"]).to eq("make test")
   end
 
+  it "rejects a blank test_command instead of treating it as unset (#305 QA)" do
+    expect { described_class.new({ "test_command" => "" }) }
+      .to raise_error(Saboteur::ConfigError, /test_command must not be blank/)
+    expect { described_class.new({ "test_command" => "   " }) }
+      .to raise_error(Saboteur::ConfigError, /test_command must not be blank/)
+  end
+
   it "leaves max_duration unset by default and validates it when given (#245)" do
     expect(described_class.new({})["max_duration"]).to be_nil
     expect(described_class.new({})["max_duration_ok"]).to eq(false)

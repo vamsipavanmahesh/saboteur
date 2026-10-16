@@ -9,8 +9,16 @@ RSpec.describe Saboteur::Engine::Boot do
     end
 
     it "lets a top-level run start" do
-      stub_const("ENV", ENV.to_h.except(Saboteur::Execution::Supervisor::CHILD_ENV))
+      stub_const("ENV", ENV.to_h.except(Saboteur::Execution::Supervisor::CHILD_ENV,
+                                        Saboteur::Execution::ExternalRunner::CHILD_MARKER))
       expect { described_class.refuse_recursion! }.not_to raise_error
+    end
+
+    # A --test-command command that itself invokes saboteur must not start
+    # ANY nested run, with or without its own --test-command (#305 QA).
+    it "refuses any run inside an external test command" do
+      stub_const("ENV", ENV.to_h.merge(Saboteur::Execution::ExternalRunner::CHILD_MARKER => "1"))
+      expect { described_class.refuse_recursion! }.to raise_error(Saboteur::Error, /external test command/)
     end
   end
 

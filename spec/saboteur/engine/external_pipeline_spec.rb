@@ -7,11 +7,19 @@ require "tmpdir"
 # The --test-command mode takes its own pipeline: no test inference, one
 # job, mutants decided by the command's exit status (#140, #305).
 RSpec.describe "Engine external test-command pipeline" do
+  # Under the repo's own dogfood these specs run INSIDE a saboteur child;
+  # Engine#call refuses that, so the markers go for the example's duration.
+  before do
+    stub_const("ENV", ENV.to_h.except(Saboteur::Execution::Supervisor::CHILD_ENV,
+                                      Saboteur::Execution::ExternalRunner::CHILD_MARKER))
+  end
+
   def with_fixture
     Dir.mktmpdir do |dir|
       root = File.realpath(dir)
       FileUtils.mkdir_p(File.join(root, "lib"))
-      File.write(File.join(root, "lib", "k.rb"), "class K\n  def m(a)\n    a + 1\n  end\nend\n")
+      File.write(File.join(root, "lib", "k.rb"),
+                 "class K\n  def m(a)\n    a + 1\n  end\n  def n(b)\n    b * 2\n  end\nend\n")
       yield root
     end
   end
@@ -30,6 +38,19 @@ RSpec.describe "Engine external test-command pipeline" do
       expect(jobs_seen).to eq(1)
       expect(report.results).not_to be_empty
       expect(report.results.flat_map(&:executed)).to all(eq("(test command)"))
+    end
+  end
+
+  # Kills must be real: the command fails on the mutant but passes the
+  # neutral check - never a kill checked against itself (#305 DevRel).
+  it "kills the mutant the command detects and passes the neutral check" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "grep -q 'a + 1' lib/k.rb" }, root: root)
+      report = Saboteur::Engine.new(config).call
+      statuses = report.results.map(&:status)
+      expect(statuses).to include(:killed)
+      expect(statuses).to include(:survived)
+      expect(statuses).not_to include(:error)
     end
   end
 

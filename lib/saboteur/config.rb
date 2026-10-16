@@ -275,6 +275,8 @@ module Saboteur
     # EFFECTIVE config: CLI flags and config-file entries alike (#305).
     # The command runs unsandboxed, so "strict" cannot be honored.
     def validate_test_command!
+      raise ConfigError, "test_command must not be blank" if self["test_command"]&.strip&.empty?
+
       return if self["test_command"].to_s.empty?
       raise ConfigError, "test_command cannot be combined with tests" unless self["tests"].empty?
       raise ConfigError, "test_command cannot be combined with incremental" if self["incremental"]

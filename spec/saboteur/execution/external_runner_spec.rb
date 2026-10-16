@@ -34,18 +34,12 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     [outcome, runner, subject]
   end
 
-  # The group leader's pid is its pgid: wait until no member of the group
-  # remains, or fail.
-  def expect_group_dead(pgid)
-    50.times do
-      begin
-        Process.kill(0, -pgid)
-      rescue Errno::ESRCH
-        return
-      end
-      sleep 0.1
-    end
-    raise "process group #{pgid} still alive"
+  # Functional proof the group is gone: a reaped zombie still answers
+  # kill(0), so watch the descendant's tick file stop growing instead.
+  def expect_ticks_stopped(path)
+    size = File.exist?(path) ? File.size(path) : 0
+    sleep 0.5
+    expect(File.exist?(path) ? File.size(path) : 0).to eq(size)
   end
 
   around do |example|
@@ -88,6 +82,15 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     expect([outcome.status, outcome.executed_ids]).to eq([:error, []])
   end
 
+  # An error verdict keeps bounded context for the report (#305 DevRel):
+  # what the shell said, capped at the capture limit.
+  it "carries the command's own output on setup errors" do
+    outcome, = run_in(@dir, "definitely-not-a-command-xyz")
+    expect(outcome.message).to include("exit 127 - the shell could not run the command")
+    expect(outcome.message).to include("definitely-not-a-command-xyz")
+    expect(outcome.message.bytesize).to be < described_class::OUTPUT_LIMIT + 200
+  end
+
   it "reads 126 (cannot execute) as an error" do
     outcome, = run_in(@dir, "exit 126")
     expect(outcome.status).to eq(:error)
@@ -98,18 +101,71 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     expect(outcome.status).to eq(:error)
   end
 
-  # Architect probe: a command that destroys the source inside the copy
-  # must not poison later mutants, and the real tree stays intact (#305).
-  it "contains a command that removes the source and mkdirs its name" do
+  # Architect probe, taken further by QA/DevRel: a command that destroys
+  # the source inside the copy must not poison ANY later execution - every
+  # run starts from a pristine copy (#305).
+  it "gives every execution a pristine copy after a destructive command" do
     subject = subject_in(@dir)
     runner = described_class.new(command: "rm calc.rb && mkdir calc.rb", root: @dir)
     first = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
                        mutation: mutation_for(subject))
     second = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
                         mutation: mutation_for(subject))
-    expect(first.status).to eq(:survived) # the command exited 0; honest verdict
-    expect(second.status).to eq(:error) # the copy's calc.rb is now a directory
+    # Both runs honestly report the command's exit; the second mutant is
+    # written into a fresh copy, not onto the first run's debris.
+    expect([first.status, second.status]).to eq(%i[survived survived])
     expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
+  end
+
+  # The neutral check must see pristine bytes even right after a mutant
+  # (#305 QA): kills are never checked against themselves.
+  it "runs the neutral check on unchanged bytes after a mutant" do
+    subject = subject_in(@dir)
+    runner = described_class.new(command: "grep -q 'n >= 0' calc.rb", root: @dir)
+    mutant = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
+                        mutation: mutation_for(subject))
+    neutral = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5, mutation: nil)
+    # The command detects the mutant (kill), and the neutral run passes
+    # because the fresh copy carries the original bytes again.
+    expect([mutant.status, neutral.status]).to eq(%i[killed survived])
+  end
+
+  # Mutants in one file must not leak into another file's runs (#305 QA).
+  it "keeps mutants in one file out of another file's executions" do
+    subject = subject_in(@dir)
+    File.write(File.join(@dir, "other.rb"), "OTHER = 1
+")
+    runner = described_class.new(command: "grep -q 'OTHER = 1' other.rb", root: @dir)
+    outcome = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
+                         mutation: mutation_for(subject))
+    expect(outcome.status).to eq(:survived)
+  end
+
+  # cp_r keeps symlinks; a link escaping the tree would let a write land
+  # in the real tree, so the runner refuses it (#305 QA).
+  it "refuses a symlink that escapes the tree" do
+    subject_in(@dir)
+    outside = File.join(@dir, "..", "outside-#{Process.pid}.rb")
+    File.write(outside, "x = 1
+")
+    File.symlink(outside, File.join(@dir, "linked.rb"))
+    runner = described_class.new(command: "true", root: @dir)
+    expect { runner.preflight! }.to raise_error(Saboteur::Error, /links outside itself: linked\.rb/)
+  ensure
+    File.unlink(outside) if outside && File.exist?(outside)
+  end
+
+  it "dereferences a symlink that stays inside the tree" do
+    subject = subject_in(@dir)
+    File.symlink("calc.rb", File.join(@dir, "alias.rb"))
+    runner = described_class.new(command: "grep -q 'class Calc' alias.rb", root: @dir)
+    outcome = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
+                         mutation: mutation_for(subject))
+    # The alias is real content in the copy; the real files are untouched
+    # and the real alias is still a symlink.
+    expect(outcome.status).to eq(:survived)
+    expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
+    expect(File.symlink?(File.join(@dir, "alias.rb"))).to be(true)
   end
 
   # Architect probe: a background write landing after the verdict must not
@@ -123,44 +179,71 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
   end
 
   # Architect probe: SIGINT must take the whole process group down (#305).
+  # The ready file is a handshake: the command has started before the
+  # interrupt lands (Principal: no startup race).
   it "kills the process group when the run is interrupted" do
     subject_in(@dir)
-    runner = described_class.new(command: "echo $$ > #{@dir}/pgid; sleep 30", root: @dir)
+    ticks = File.join(@dir, "ticks")
+    command = "touch #{@dir}/ready; (while :; do echo t >> #{ticks}; sleep 0.1; done) & wait"
+    runner = described_class.new(command: command, root: @dir)
     subject = Saboteur::SubjectFinder.new.call(File.join(@dir, "calc.rb")).subjects.first
     thread = Thread.new do
       runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 30,
                  mutation: mutation_for(subject))
     end
-    sleep 0.5
+    100.times do
+      break if File.exist?(File.join(@dir, "ready"))
+
+      sleep 0.05
+    end
     thread.raise(Interrupt)
     expect { thread.join }.to raise_error(Interrupt)
-    expect_group_dead(File.read(File.join(@dir, "pgid")).to_i)
+    expect_ticks_stopped(ticks)
     expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
   end
 
   it "kills background descendants that outlive the command" do
     subject_in(@dir)
-    runner = described_class.new(command: "echo $$ > #{@dir}/pgid; sleep 30 & exit 0", root: @dir)
+    ticks = File.join(@dir, "ticks")
+    command = "(while :; do echo t >> #{ticks}; sleep 0.1; done) & exit 0"
+    runner = described_class.new(command: command, root: @dir)
     subject = Saboteur::SubjectFinder.new.call(File.join(@dir, "calc.rb")).subjects.first
     outcome = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
                          mutation: mutation_for(subject))
     expect(outcome.status).to eq(:survived)
-    expect_group_dead(File.read(File.join(@dir, "pgid")).to_i)
-  end
-
-  # Principal: a test command that itself invokes saboteur must not start a
-  # nested run (#305).
-  it "refuses to start inside another external test command" do
-    ENV[described_class::CHILD_MARKER] = "1"
-    expect { described_class.new(command: "true", root: @dir) }
-      .to raise_error(Saboteur::Error, /nested run/)
-  ensure
-    ENV.delete(described_class::CHILD_MARKER)
+    expect_ticks_stopped(ticks)
   end
 
   it "passes the recursion marker down to the command's environment" do
     outcome, = run_in(@dir, "test \"$SABOTEUR_EXTERNAL_CHILD\" = 1")
     expect(outcome.status).to eq(:survived)
+  end
+
+  # The disposable copy must not leak (merger review, #305): close removes
+  # it after normal runs and after errors, and stays idempotent.
+  describe "#close" do
+    it "removes the copy after a normal run" do
+      outcome, runner, = run_in(@dir, "true")
+      expect(outcome.status).to eq(:survived)
+      copy = runner.instance_variable_get(:@copy_root)
+      expect(Dir.exist?(copy)).to be(true)
+      runner.close
+      expect(Dir.exist?(copy)).to be(false)
+      expect { runner.close }.not_to raise_error
+    end
+
+    it "removes the copy after a mutant run errors" do
+      subject = subject_in(@dir)
+      runner = described_class.new(command: "rm calc.rb && mkdir calc.rb", root: @dir)
+      runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
+                 mutation: mutation_for(subject))
+      outcome = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
+                           mutation: mutation_for(subject))
+      expect(outcome.status).to eq(:survived) # fresh copy: the first run's debris is gone
+      copy = runner.instance_variable_get(:@copy_root)
+      runner.close
+      expect(Dir.exist?(copy)).to be(false)
+    end
   end
 
   describe "#preflight!" do
@@ -182,6 +265,12 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       runner = described_class.new(command: "definitely-not-a-command-xyz", root: @dir)
       expect { runner.preflight! }
         .to raise_error(Saboteur::Error, /exit 127 - the shell could not run the command/)
+    end
+
+    it "honors the given timeout, so the run budget caps it (#305 QA)" do
+      subject_in(@dir)
+      runner = described_class.new(command: "sleep 30", root: @dir)
+      expect { runner.preflight!(timeout: 0.2) }.to raise_error(Saboteur::Error, /timed out/)
     end
 
     it "bounds the captured output" do

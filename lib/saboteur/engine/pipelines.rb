@@ -48,8 +48,9 @@ module Saboteur
       def mutate_external(subjects, scope, ignore_list)
         runner = external_runner
         # One neutral run before any mutant exists: a command that fails on
-        # the unchanged tree can never claim kills (#305).
-        runner.preflight!(timeout: config["baseline_timeout"] || 60)
+        # the unchanged tree can never claim kills (#305). It still answers
+        # to the run budget: never more than the remaining max-duration.
+        runner.preflight!(timeout: preflight_timeout)
         map = Selection::ExternalTestMap.new
         scheduler = Scheduler.new(config:, runner:, map:,
                                   reevaluator: Execution::Reevaluator.new(config["reeval"],
@@ -61,9 +62,20 @@ module Saboteur
 
         runnable_subjects, runnable_lists = work.transpose
         run_candidates(runnable_subjects, runnable_lists, scheduler, nil, ignore_list)
+      ensure
+        runner.close
       end
 
       def external_command? = !config["test_command"].to_s.empty?
+
+      def preflight_timeout
+        budget = config["baseline_timeout"] || 60
+        deadline = budget_deadline
+        return budget unless deadline
+
+        remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        [budget, remaining.clamp(0.1, budget)].min
+      end
 
       def external_runner = Execution::ExternalRunner.new(command: config["test_command"], root: @root)
     end

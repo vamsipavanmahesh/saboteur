@@ -10,11 +10,13 @@ All notable changes are documented here. The format follows
 - `--test-command CMD` / `c.test_command`: run an external command per
   mutant and take its exit status as the verdict - for apps that cannot
   load inside saboteur's Ruby. Serial, no coverage, unsandboxed. Mutants
-  are applied in a disposable copy of the tree, never the real files, and
+  are applied in a fresh disposable copy of the tree per execution - the
+  runner's own writes never touch the real files or follow symlinks - and
   the command's process group is terminated on every exit path. One
-  neutral preflight checks the command on the unchanged copy before any
-  mutant exists; the shell's 126/127 read as setup errors, and nested
-  saboteur runs are refused (#140, #305).
+  budget-bounded neutral preflight checks the command on an untouched
+  copy before any mutant exists; the shell's 126/127 read as setup
+  errors, blank commands are rejected, and nested saboteur runs are
+  refused (#140, #305).
 - Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
   when the cache dir is read-only, is occupied by a regular file, or holds an
   unwritable baseline log (#251).
