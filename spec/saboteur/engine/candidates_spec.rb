@@ -121,6 +121,12 @@ RSpec.describe Saboteur::Engine::Candidates do
     expect(diagnostics.generation_events.map(&:reason)).to eq(["invalid_edit"])
   end
 
+  it "names a mutation dropped for not parsing in the warnings" do
+    candidates(source_proposing("a +"))
+
+    expect(diagnostics.warnings.first).to include("K#m", "test", "did not parse")
+  end
+
   it "records typed dropped proposals without parsing warning text" do
     candidates(source_proposing("a + 1", "a - 1", "a - 1", "a +"))
 

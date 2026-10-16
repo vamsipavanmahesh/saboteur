@@ -38,6 +38,17 @@ bundle exec rubocop
 Every change needs specs. New source files start with
 `# SPDX-License-Identifier: MIT`.
 
+## Governance
+
+saboteur currently has one maintainer. If you depend on it, the bus-factor
+plan is: the agent JSON payload and exit codes are stable APIs
+([docs/stability.md](docs/stability.md)), the review and design record lives
+in `docs/`, and the release process is the CI pipeline every pull request
+already runs. A contributor stepping up starts with an open issue or a small
+pull request; commit and release access is granted by the maintainer after a
+track record of merged changes. If the maintainer is unreachable, the MIT
+license keeps a fork viable.
+
 ## Pull requests
 
 Keep them small, describe the behaviour change, and add a CHANGELOG entry

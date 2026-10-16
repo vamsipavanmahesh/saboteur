@@ -6,6 +6,24 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A dropped mutation that does not parse is now named in the warnings with
+  its subject and operator instead of only counting toward invalid
+  mutations (#116).
+- `docs/stability.md`: the agent JSON payload and the exit codes are stable
+  public APIs with a deprecation process, pinned by a new contract spec; a
+  governance note in CONTRIBUTING covers maintainer availability (#249).
+- `saboteur doctor` says plainly on macOS that mutants run unsandboxed,
+  advising a container for filesystem containment and network denial or
+  stubbing for real-API risk, and the README carries a short per-platform
+  sandbox and network statement (#247).
+
+### Removed
+- The stale self-deprecating benchmark claims in the README ('rerun
+  pending'): speed and memory numbers now live only with the harness and raw
+  data that reproduce them, or are framed as dated history (#243).
+
+
 ## [0.7.0] - 2026-10-16
 
 ### Upgrade notes

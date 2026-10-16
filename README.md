@@ -160,6 +160,17 @@ whose C library cannot be located (musl is tried by soname first).
 `c.sandbox = "strict"` turns that degraded note into a refusal;
 `c.sandbox = false` opts out.
 
+In short, per platform: on Linux 6.2+ mutant children can be
+filesystem-sandboxed as described above (the kernel capability, not a proof
+of isolation - `saboteur doctor` probes what your setup actually allows); on
+older Linux kernels and on macOS there is no sandbox (Landlock is
+Linux-only) and mutants run with the hazard guard and canary only. Network
+access is never restricted on any platform - a mutant can reach real APIs if
+a test is not stubbed. When a mutant could write outside the project, run
+saboteur in a container; a plain container keeps outbound network access, so
+when a mutant could reach real APIs, deny the network or stub the APIs.
+`saboteur doctor` reports the platform's sandbox status.
+
 
 ## 🚀 Try it in a minute
 
@@ -208,12 +219,12 @@ Observed on the pinned hashie workload (paired runs, below): about 17-18% lower 
 
 **It is aimed at pull requests.** `--since origin/main` mutates only the methods
 your branch changed: fine-grained mutants on the changed lines, plus the
-whole-body mutants of those methods. On one real change in saboteur's own history, that took a file
-from 139 mutants to 7, and median wall time fell 22.9% (measured at d2b7abb, before the coarse-survivor gate was removed; a rerun is pending). The time saving is
-smaller than the mutant count because building the coverage map is a fixed
-cost, and this is one file, not a Rails app, so it is not a general speed
-claim. The full method, raw timings and
-caveats are in [bench/since](bench/since/README.md).
+whole-body mutants of those methods. On one real change in saboteur's own
+history, that took a file from 139 mutants to 7. The time saving is smaller
+than the mutant count because building the coverage map is a fixed cost, and
+this is one file, not a Rails app, so it is not a general speed claim. The
+measured numbers, the harness that reproduces them, raw timings and caveats
+are in [bench/since](bench/since/README.md).
 
 **It checks its own kills.** After a method's mutants run, saboteur re-runs the
 killing tests against the *unchanged* method. If they fail there too, the kill
@@ -224,6 +235,8 @@ starts.
 
 **It is open.** The report is JSON in the Stryker mutation-testing-report
 schema, and you can add your own mutants through a small public interface.
+The agent JSON format and the exit codes are stable APIs with a deprecation
+process: [docs/stability](docs/stability.md).
 
 ## 🛠️ Usage
 
@@ -928,10 +941,10 @@ design. Results: [docs/validation](docs/validation).
 A small, non-exhaustive comparison with [mutineer](https://github.com/davidteren/mutineer)
 1.6.0 on four RSpec projects (two libraries, two Rails apps). Each configuration
 ran once on sampled files, so treat the numbers as indicative. The table was
-measured at 2b6ec02, before the literal, filter and argument operators and
-before the coarse-survivor gate was removed, so mutant counts and times will
-change; a rerun is pending. mutineer is ahead
-on number of operators and CI extras, and it supports Minitest.
+measured at 2b6ec02 and both tools have changed since; the scripts and raw
+data that reproduce it are in [bench/vs-mutineer](bench/vs-mutineer).
+mutineer is ahead on number of operators and CI extras, and it supports
+Minitest.
 
 | Metric | saboteur | mutineer |
 |---|---|---|
@@ -957,7 +970,8 @@ the same machine and projects: Linux x86_64, 1 vCPU, 4 GB, Ruby 3.4.5, Prism
 1.2.0, RSpec 3.13, no Rails or sqlite3. mutineer ran with its default 5
 operators and with all 20. The project and timing rows are one run each. The
 rows describe saboteur at 38b1834; several of its findings have been fixed on
-main since. The rerun that replaces this table is still pending.
+main since. Read the table as a dated snapshot of that review, not as current
+numbers.
 
 | Measure | saboteur 0.4.0 | mutineer 1.6.0 |
 |---|---|---|
