@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "timeout"
 
 RSpec.describe Saboteur::Reporter::SurvivorRanking do
   def ranked_result(subject, first:, last: first, coarse: false, tests: [], replacement: "nil")
@@ -97,6 +98,21 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     expect(report.changed_line_distance(ranked_result(subject, first: 3))).to eq(1)
     empty = report_for([], scope: Saboteur::Engine::DiffScope.new({}))
     expect(empty.changed_line_distance(ranked_result(subject, first: 3))).to be_nil
+  end
+
+  it "answers distance over a whole-file range without enumerating it" do
+    huge = Class.new(Range) do
+      def each(*) = raise("enumerated a huge range")
+
+      def map(*) = raise("enumerated a huge range")
+
+      def any?(*) = raise("enumerated a huge range")
+    end.new(1, 10**15)
+    scope = Saboteur::Engine::DiffScope.new(subject.file => huge)
+    report = report_for([], scope: scope)
+    Timeout.timeout(5) do
+      expect(report.changed_line_distance(ranked_result(subject, first: 3, last: 5))).to eq(0)
+    end
   end
   it "does not count the next line at an exclusive edit boundary" do
     result = ranked_result(subject, first: 3)

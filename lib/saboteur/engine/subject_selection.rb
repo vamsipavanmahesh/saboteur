@@ -15,7 +15,6 @@ module Saboteur
         @config = config
         @diagnostics = diagnostics
         @root = File.realpath(config.root)
-        @changed_lines = nil
       end
 
       def select(files)
@@ -74,7 +73,8 @@ module Saboteur
       end
 
       def by_change(subjects, ref)
-        @changed_lines = Selection::GitDiff.changed_lines(ref, root: @root)
+        @changed_lines = Selection::GitDiff.changed_lines(ref, root: @root, include: @files.to_set,
+                                                               diagnostics: @diagnostics)
                                            .transform_keys { |file| Selection::CoverageMap.canonical(file) }
         changed = changed_subjects(subjects)
         warn_changed_files_without_subjects
@@ -88,7 +88,8 @@ module Saboteur
       def changed_subjects(subjects)
         subjects.select do |subject|
           key = Selection::CoverageMap.canonical(Text.utf8_identity(subject.file))
-          @changed_lines[key]&.any? { |line| subject.contains_line?(line) }
+          lines = @changed_lines[key]
+          lines && subject.overlaps_lines?(lines)
         end
       end
 
@@ -117,7 +118,8 @@ module Saboteur
       # config excludes lib/saboteur/execution/**, so harness changes once
       # dogfooded as a clean empty scope (#282). Names at most five.
       def warn_excluded_changed_files
-        hits = excluded_territory & @changed_lines.keys
+        untracked = Selection::UntrackedChanges.paths(@root)
+        hits = excluded_territory & (@changed_lines.keys + untracked)
         return if hits.empty?
 
         names = hits.sort.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")

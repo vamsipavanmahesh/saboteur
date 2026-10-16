@@ -8,6 +8,8 @@ module Saboteur
       # stable code, a count and a plain meaning.
       module Incomplete
         NO_COVERAGE = "no coverage"
+        SYNTAX_FAILURE = "invalid_file_syntax"
+        UNREADABLE_FAILURE = "unreadable"
 
         class << self
           def reasons(report)
@@ -25,12 +27,23 @@ module Saboteur
             add(reasons, "resource_limit", report.counts[:resource_limit], "mutants hit the memory or process cap")
             add(reasons, "unverified", report.counts[:unverified],
                 "mutants the --max-duration budget left unverified; their kills are not confirmed")
+            discovery_failures(reasons, report)
             early_stop_reason(reasons, report)
             inline_scope(reasons, report)
             reasons
           end
 
           private
+
+          # Source the selection could not read at all: its subjects never
+          # entered the run, so a clean or complete verdict would be wrong.
+          def discovery_failures(reasons, report)
+            failures = report.discovery_failures
+            add(reasons, SYNTAX_FAILURE, failures.count { |f| f.reason == SYNTAX_FAILURE },
+                "included files did not parse; their subjects were not discovered")
+            add(reasons, UNREADABLE_FAILURE, failures.count { |f| f.reason == UNREADABLE_FAILURE },
+                "included untracked files could not be read; their subjects were not covered")
+          end
 
           def early_stop_reason(reasons, report)
             stop = report.early_stop

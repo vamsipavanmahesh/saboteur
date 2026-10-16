@@ -3,6 +3,7 @@
 
 require "open3"
 require_relative "../text"
+require_relative "untracked_changes"
 
 module Saboteur
   module Selection
@@ -40,7 +41,7 @@ module Saboteur
         status.success? ? out.b : nil
       end
 
-      def changed_lines(ref, root:)
+      def changed_lines(ref, root:, include: nil, diagnostics: nil)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
         # Root and paths are filesystem identity: strip as bytes and retag
@@ -48,8 +49,10 @@ module Saboteur
         # would rename a raw-byte path). Parse the diff body as bytes and
         # tag each extracted path UTF-8 at the boundary.
         top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
-        parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
-                  "--no-ext-diff", base, "--").b, top)
+        changes = parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
+                            "--no-ext-diff", base, "--").b, top)
+        UntrackedChanges.union(changes, top, include: include, diagnostics: diagnostics)
+        changes
       end
 
       def parse(diff, top)

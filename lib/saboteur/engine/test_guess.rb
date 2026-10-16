@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "pathname"
+
 module Saboteur
   class Engine
     # The specs that sit next to the mutated source files by
@@ -46,7 +48,8 @@ module Saboteur
 
       SOURCE_ROOTS = %w[lib app].freeze
 
-      def initialize(config)
+      def initialize(config, diagnostics: nil)
+        @diagnostics = diagnostics
         @root = File.realpath(config.root)
         @config = config
       end
@@ -113,7 +116,7 @@ module Saboteur
 
           finder.call(File.join(@root, file)).subjects.any? do |subject|
             patterns.any? { |pattern| SubjectSelection.match?(subject.id, pattern) } &&
-              lines.any? { |line| subject.contains_line?(line) } &&
+              subject.overlaps_lines?(lines) &&
               !comparison.unchanged?(subject)
           end
         end
@@ -138,7 +141,8 @@ module Saboteur
       # their changed line numbers.
       def changed_lines_by_file
         included = @config.included_files.to_set
-        Selection::GitDiff.changed_lines(@config["since"], root: @root)
+        Selection::GitDiff.changed_lines(@config["since"], root: @root, include: included,
+                                                           diagnostics: @diagnostics)
                           .each_with_object({}) do |(file, lines), map|
           canonical = Selection::CoverageMap.canonical(file)
           map[canonical.delete_prefix("#{@root}/")] = lines if included.include?(canonical)
@@ -155,7 +159,7 @@ module Saboteur
         finder = SubjectFinder.new
         lines_by_file.reject do |file, lines|
           subjects = finder.call(File.join(@root, file)).subjects
-          subjects.select { |subject| lines.any? { |line| subject.contains_line?(line) } }
+          subjects.select { |subject| subject.overlaps_lines?(lines) }
                   .any? { |subject| !comparison.unchanged?(subject) }
         end.keys
       end
@@ -191,14 +195,13 @@ module Saboteur
 
       # The nearest ancestor directory holding a package.yml (a packwerk
       # pack), relative to the root. The root itself is not a pack here:
-      # its specs follow the plain mapping.
+      # Pathname#ascend stops above "." for these relative paths.
       def pack_of(file)
-        dir = File.dirname(file)
-        until dir == "."
+        Pathname(file).ascend do |path|
+          dir = path.to_s
           return dir if pack_dirs.include?(dir)
-
-          dir = File.dirname(dir)
         end
+        nil
       end
 
       def pack_dirs

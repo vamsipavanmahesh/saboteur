@@ -39,6 +39,59 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(mutants(run).map { |m| m["mutatorName"] }).to include("body_nil", "body_raise")
     end
 
+    it "mutates the methods of an untracked file, as fully changed (#295)" do
+      File.write(File.join(dir, "lib", "fresh.rb"), <<~RUBY)
+        class Fresh
+          def kind = :fresh
+        end
+      RUBY
+      File.write(File.join(dir, "spec", "fresh_spec.rb"), <<~RUBY)
+        require_relative "../lib/fresh"
+
+        RSpec.describe Fresh do
+          it("has a kind") { expect(described_class.new.kind).to eq(:fresh) }
+        end
+      RUBY
+      run = saboteur(dir, "--since", "HEAD", "--all")
+      expect(run.out).to include("1 subjects")
+      expect(run.json.fetch("files").keys).to eq(["lib/fresh.rb"])
+      expect(mutants(run).map { |m| m["status"] }).to include("Killed")
+    end
+
+    it "warns when an untracked file carries no subject (#295)" do
+      File.write(File.join(dir, "lib", "notes.rb"), "KIND = :notes\n")
+      run = saboteur(dir, "--since", "HEAD", "--all")
+      expect(run.status).to eq(0)
+      expect(run.out).to include("0 subjects, 0 mutants")
+      expect(run.out).to include("warning: --since: 1 changed Ruby file(s) have no subjects covering the changed lines")
+      expect(run.out).to include("notes.rb")
+    end
+
+    it "reports an unreadable included file as incomplete beside tested source (#297)" do
+      File.write(File.join(dir, "lib", "fresh.rb"), "class Fresh\n  def kind = :fresh\nend\n")
+      File.write(File.join(dir, "spec", "fresh_spec.rb"), <<~RUBY)
+        require_relative "../lib/fresh"
+
+        RSpec.describe Fresh do
+          it("has a kind") { expect(described_class.new.kind).to eq(:fresh) }
+        end
+      RUBY
+      Dir.mktmpdir do |outside|
+        File.write(File.join(outside, "target.rb"), "class Omitted\n  def kind = :omitted\nend\n")
+        File.symlink(File.join(outside, "target.rb"), File.join(dir, "lib", "omitted.rb"))
+
+        run = saboteur(dir, "--since", "HEAD", "--all", "--agent")
+        payload = JSON.parse(run.out)
+        expect([run.status, payload["status"], payload["verdict"], payload["exitCode"]])
+          .to eq([3, "partial", "incomplete", 3])
+        expect(payload["incomplete"]).to include("reason" => "unreadable", "count" => 1,
+                                                 "meaning" => "included untracked files could not be read; " \
+                                                              "their subjects were not covered")
+        expect(payload.dig("counts", "killed")).to be_positive
+        expect(payload["warnings"].join).to include("1 included untracked file(s) could not be read")
+      end
+    end
+
     it "mutates nothing and exits 0 when nothing changed" do
       run = saboteur(dir, "--since", "HEAD", "--all")
       expect(run.status).to eq(0)

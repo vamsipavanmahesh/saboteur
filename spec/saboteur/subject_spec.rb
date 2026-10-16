@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "timeout"
+
 RSpec.describe Saboteur::Subject do
   let(:source) { "class A\n  def m(x)\n    x >= 1\n  end\nend\n" }
   let(:subject_under_test) { subjects_in(source).first }
@@ -43,6 +45,32 @@ RSpec.describe Saboteur::Subject do
 
   it "maps the def line for one-line methods" do
     expect(subjects_in("class A\n  def m; 1; end\nend\n").first.coverage_lines).to eq([2])
+  end
+
+  describe "#overlaps_lines?" do
+    it "answers a changed-lines set by scanning it" do
+      expect(subject_under_test.overlaps_lines?(Set[3])).to be(true)
+      expect(subject_under_test.overlaps_lines?(Set[1, 5])).to be(false)
+    end
+
+    it "answers a range by interval overlap, not by enumerating it" do
+      expect(subject_under_test.overlaps_lines?(3..3)).to be(true)
+      expect(subject_under_test.overlaps_lines?(2..5)).to be(true)
+      expect(subject_under_test.overlaps_lines?(2..2)).to be(true)
+      expect(subject_under_test.overlaps_lines?(4..4)).to be(true)
+      expect(subject_under_test.overlaps_lines?(5..9)).to be(false)
+      expect(subject_under_test.overlaps_lines?(1..1)).to be(false)
+      huge = Class.new(Range) do
+        def each(*) = raise("enumerated a huge range")
+
+        def map(*) = raise("enumerated a huge range")
+
+        def any?(*) = raise("enumerated a huge range")
+      end.new(5, 10**15)
+      Timeout.timeout(5) do
+        expect(subject_under_test.overlaps_lines?(huge)).to be(false)
+      end
+    end
   end
 
   describe "#coverage_lines_for" do

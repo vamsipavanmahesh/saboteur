@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "open3"
+require "timeout"
+require "stringio"
 require "tmpdir"
 
 RSpec.describe Saboteur::Selection::GitDiff do
@@ -68,6 +70,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
       expect(described_class.unquote('"b/h\\303\\251llo.rb"')).to eq("b/h\u00e9llo.rb")
       expect(described_class.unquote('"b/a\\tb\\"c.rb"')).to eq("b/a\tb\"c.rb")
       expect(described_class.unquote("b/plain.rb")).to eq("b/plain.rb")
+      expect(described_class.unquote('"b/a\\q.rb"')).to eq("b/aq.rb")
     end
   end
 
@@ -131,6 +134,221 @@ RSpec.describe Saboteur::Selection::GitDiff do
       Dir.mktmpdir do |plain|
         expect { described_class.verify_ref!("HEAD", root: plain) }
           .to raise_error(Saboteur::ConfigError, "--since needs a git repository")
+      end
+    end
+
+    describe ".changed_lines with untracked files (#295)" do
+      it "treats every line of an untracked file as changed" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "new.rb"), "1\n2\n3\n")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.transform_keys { |path| File.basename(path) }).to eq("new.rb" => (1..3))
+      end
+
+      it "counts a final line without a trailing newline" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "new.rb"), "1\n2")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.transform_keys { |path| File.basename(path) }).to eq("new.rb" => (1..2))
+      end
+
+      it "reads untracked files whose names are not valid UTF-8" do
+        commit_file("a.rb", "1\n")
+        name = "h\xE9llo.rb".b
+        begin
+          File.binwrite(File.join(@dir, name), "1\n2\n")
+        rescue Errno::EILSEQ, Errno::EINVAL
+          skip "this platform rejects filenames that are not valid UTF-8"
+        end
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.transform_keys { |path| File.basename(path) }).to eq(
+          name.dup.force_encoding(Encoding::UTF_8) => (1..2)
+        )
+      end
+
+      it "skips untracked symlinks instead of reading through them" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "real.rb"), "1\n")
+        File.symlink(File.join(@dir, "real.rb"), File.join(@dir, "link.rb"))
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.keys.map { |path| File.basename(path) }).to eq(["real.rb"])
+      end
+
+      it "does not follow a symlink swapped in after the listing" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "real.rb"), "1\n")
+        File.symlink(File.join(@dir, "real.rb"), File.join(@dir, "link.rb"))
+        allow(described_class).to receive(:git).and_call_original
+        allow(described_class).to receive(:git)
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("link.rb\0")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.keys.map { |path| File.basename(path) }).to eq([])
+      end
+
+      it "does not hang on a FIFO swapped in after the listing" do
+        commit_file("a.rb", "1\n")
+        File.mkfifo(File.join(@dir, "pipe.rb"))
+        allow(described_class).to receive(:git).and_call_original
+        allow(described_class).to receive(:git)
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("pipe.rb\0")
+        Timeout.timeout(3) do
+          expect(described_class.changed_lines("HEAD", root: @dir)).to eq({})
+        end
+      end
+
+      it "skips a file that vanishes after the listing" do
+        commit_file("a.rb", "1\n")
+        allow(described_class).to receive(:git).and_call_original
+        allow(described_class).to receive(:git)
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("gone.rb\0")
+        expect(described_class.changed_lines("HEAD", root: @dir)).to eq({})
+      end
+
+      it "skips an unreadable file after the listing" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "secret.rb"), "1\n")
+        File.chmod(0o000, File.join(@dir, "secret.rb"))
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.keys.map { |path| File.basename(path) }).to eq([])
+      end
+
+      it "never opens untracked files outside the include set" do
+        commit_file("a.rb", "1\n")
+        big = File.join(@dir, "big.bin")
+        File.open(big, "w") { |io| io.truncate(50 * 1024 * 1024) }
+        File.write(File.join(@dir, "new.rb"), "1\n")
+        allow(File).to receive(:open).and_call_original
+        include = [File.realpath(File.join(@dir, "a.rb"))].to_set
+        changed = described_class.changed_lines("HEAD", root: @dir, include: include)
+        expect(changed).to eq({})
+        expect(File).not_to have_received(:open).with(/big\.bin/, any_args)
+        expect(File).not_to have_received(:open).with(/new\.rb/, any_args)
+      end
+
+      it "marks a many-line untracked file with a range, not a Set" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "big.rb"), "# c\n" * 200_000)
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        value = changed.fetch(changed.keys.find { |path| path.end_with?("big.rb") })
+        expect(value).to be_a(Range)
+        expect(value).to eq(1..200_000)
+      end
+
+      it "warns and skips the union where safe open flags are unavailable" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "new.rb"), "1\n")
+        diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+        allow(diagnostics).to receive(:warn)
+        allow(File).to receive(:const_defined?).and_call_original
+        allow(File).to receive(:const_defined?).with(:NOFOLLOW).and_return(false)
+        changed = described_class.changed_lines("HEAD", root: @dir, diagnostics: diagnostics)
+        expect(changed).to eq({})
+        expect(diagnostics).to have_received(:warn).with(/untracked files are not included.*race-free/)
+      end
+
+      it "warns and skips the union when only O_NONBLOCK is unavailable" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "new.rb"), "1\n")
+        diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+        allow(diagnostics).to receive(:warn)
+        allow(File).to receive(:const_defined?).and_call_original
+        allow(File).to receive(:const_defined?).with(:NONBLOCK).and_return(false)
+        changed = described_class.changed_lines("HEAD", root: @dir, diagnostics: diagnostics)
+        expect(changed).to eq({})
+        expect(diagnostics).to have_received(:warn).with(/untracked files are not included.*race-free/)
+      end
+
+      it "skips the union quietly when flags are unavailable and no diagnostics are given" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "new.rb"), "1\n")
+        allow(File).to receive(:const_defined?).and_call_original
+        allow(File).to receive(:const_defined?).with(:NOFOLLOW).and_return(false)
+        expect { described_class.changed_lines("HEAD", root: @dir) }.not_to raise_error
+      end
+
+      it "skips a FIFO even when a writer has data ready" do
+        commit_file("a.rb", "1\n")
+        path = File.join(@dir, "pipe.rb")
+        File.mkfifo(path)
+        reader = File.open(path, File::RDONLY | File::NONBLOCK) # rubocop:disable Style/FileOpen -- closed in ensure
+        writer = Thread.new do
+          File.open(path, File::WRONLY) do |io|
+            io.write("1\n2\n")
+            sleep 1
+          end
+        rescue SystemCallError, IOError
+          nil
+        end
+        sleep 0.1
+        allow(described_class).to receive(:git).and_call_original
+        allow(described_class).to receive(:git)
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("pipe.rb\0")
+        expect(described_class.changed_lines("HEAD", root: @dir)).to eq({})
+      ensure
+        reader&.close
+        writer&.join(3)&.kill
+      end
+
+      it "counts a multi-chunk file without a trailing newline exactly" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "big.rb"), "#{"# c\n" * 100_000}# tail")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        value = changed.fetch(changed.keys.find { |path| path.end_with?("big.rb") })
+        expect(value).to eq(1..100_001)
+      end
+
+      it "bounds every read while counting lines" do
+        untracked = Saboteur::Selection::UntrackedChanges
+        io = StringIO.new("1\n2\n")
+        allow(io).to receive(:read).with(untracked::BINARY_SNIFF_BYTES).and_call_original
+        allow(io).to receive(:read).with(untracked::READ_CHUNK_BYTES).and_return(nil)
+        expect(untracked.count_lines(io)).to eq(2)
+        expect(io).to have_received(:read).with(untracked::BINARY_SNIFF_BYTES)
+      end
+
+      it "warns when an included untracked file vanishes before the read" do
+        commit_file("a.rb", "1\n")
+        path = File.join(@dir, "gone.rb")
+        File.write(path, "1\n")
+        include = [File.realpath(path)].to_set
+        File.delete(path)
+        diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+        allow(diagnostics).to receive(:warn)
+        allow(diagnostics).to receive(:record_discovery_failure)
+        allow(described_class).to receive(:git).and_call_original
+        allow(described_class).to receive(:git)
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("gone.rb\0")
+        changed = described_class.changed_lines("HEAD", root: @dir, include: include, diagnostics: diagnostics)
+        expect(changed).to eq({})
+        expect(diagnostics).to have_received(:warn).with(/included untracked file.*gone\.rb/m)
+        expect(diagnostics).to have_received(:record_discovery_failure)
+          .with(File.join(File.realpath(@dir), "gone.rb"), reason: "unreadable")
+      end
+
+      it "warns when an included untracked file cannot be read" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "secret.rb"), "1\n")
+        File.chmod(0o000, File.join(@dir, "secret.rb"))
+        include = [File.realpath(File.join(@dir, "secret.rb"))].to_set
+        diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+        allow(diagnostics).to receive(:warn)
+        allow(diagnostics).to receive(:record_discovery_failure)
+        changed = described_class.changed_lines("HEAD", root: @dir, include: include, diagnostics: diagnostics)
+        expect(changed).to eq({})
+        expect(diagnostics).to have_received(:warn).with(/included untracked file.*secret\.rb/m)
+        expect(diagnostics).to have_received(:record_discovery_failure)
+          .with(File.join(File.realpath(@dir), "secret.rb"), reason: "unreadable")
+      end
+
+      it "skips gitignored, empty and binary untracked files" do
+        commit_file("a.rb", "1\n")
+        commit_file(".gitignore", "ignored.rb\n")
+        File.write(File.join(@dir, "ignored.rb"), "1\n")
+        File.write(File.join(@dir, "empty.rb"), "")
+        File.binwrite(File.join(@dir, "blob.bin"), "a\0b\n")
+        File.write(File.join(@dir, "new.rb"), "1\n")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.keys.map { |path| File.basename(path) }).to eq(["new.rb"])
       end
     end
 
@@ -213,7 +431,9 @@ RSpec.describe Saboteur::Selection::GitDiff do
       File.write(File.join(dir, sha), "x\n")
       File.write(File.join(dir, "a.rb"), "1\n2\n")
       changed = described_class.changed_lines("base", root: dir)
-      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2])
+      # The SHA-named file is untracked, so the diff still yields only a.rb;
+      # the file joins the map as fully changed via the untracked union (#295).
+      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2], sha => (1..1))
     end
   end
   it "compares against the merge base, not the index, so committed changes count" do

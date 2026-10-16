@@ -165,7 +165,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
       guess(specs: %w[spec/a_spec.rb spec/b_spec.rb], unmatched: [], changed: 2)
       used = tests_the_run_used { @report = run_engine("since" => "origin/main") }
       expect(used).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
-      expect(Saboteur::Engine::TestGuess).to have_received(:new).with(an_instance_of(Saboteur::Config))
+      expect(Saboteur::Engine::TestGuess).to have_received(:new)
+        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
       expect(@scoped_root).to eq(@root)
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/b_spec.rb. A spec that reaches")
       expect(err.string).not_to include("running the loaded suite unscoped")
@@ -286,9 +287,12 @@ RSpec.describe Saboteur::Engine, "test selection" do
 
     it "infers only the named subject's spec, ignoring unrelated spec-less files" do
       write_subject_project
+      allow(Saboteur::Engine::TestGuess).to receive(:new).and_call_original
       used = tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
       expect(used).to eq(["spec/people_spec.rb"])
       expect(err.string).to include("inferred specs: running only spec/people_spec.rb")
+      expect(Saboteur::Engine::TestGuess).to have_received(:new)
+        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
     end
 
     it "stops before boot when the named subject's own file has no spec" do

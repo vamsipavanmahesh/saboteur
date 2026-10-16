@@ -201,6 +201,47 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(payload[:incomplete].map { |reason| reason[:reason] }).to eq(["no_coverage"])
     end
 
+    it "marks a run with an unreadable included file as incomplete" do
+      failures = [Saboteur::Engine::Diagnostics::DiscoveryFailure.new(file: "/r/a.rb", reason: "unreadable")]
+      report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1,
+                                    root: File.dirname(person_subject.file), seed: 7,
+                                    discovery_failures: failures)
+      payload = payload_for(report)
+      expect(payload).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+      expect(payload[:incomplete]).to include(a_hash_including(reason: "unreadable", count: 1,
+                                                               meaning: "included untracked files could not be " \
+                                                                        "read; their subjects were not covered"))
+    end
+
+    it "counts each discovery failure kind separately in a mixed run" do
+      failures = [Saboteur::Engine::Diagnostics::DiscoveryFailure.new(file: "/r/a.rb", reason: "unreadable"),
+                  Saboteur::Engine::Diagnostics::DiscoveryFailure.new(file: "/r/b.rb",
+                                                                      reason: "invalid_file_syntax")]
+      report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1,
+                                    root: File.dirname(person_subject.file), seed: 7,
+                                    discovery_failures: failures)
+      payload = payload_for(report)
+      expect(payload[:incomplete]).to contain_exactly(
+        a_hash_including(reason: "unreadable", count: 1,
+                         meaning: "included untracked files could not be read; their subjects were not covered"),
+        a_hash_including(reason: "invalid_file_syntax", count: 1,
+                         meaning: "included files did not parse; their subjects were not discovered")
+      )
+    end
+
+    it "marks a run with an unparseable included file as incomplete" do
+      failures = [Saboteur::Engine::Diagnostics::DiscoveryFailure.new(file: "/r/a.rb",
+                                                                      reason: "invalid_file_syntax")]
+      report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1,
+                                    root: File.dirname(person_subject.file), seed: 7,
+                                    discovery_failures: failures)
+      payload = payload_for(report)
+      expect(payload).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+      expect(payload[:incomplete]).to include(a_hash_including(reason: "invalid_file_syntax", count: 1,
+                                                               meaning: "included files did not parse; their " \
+                                                                        "subjects were not discovered"))
+    end
+
     it "still exits 1 when a survivor is present" do
       report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1,
                                     root: File.dirname(person_subject.file), seed: 7,

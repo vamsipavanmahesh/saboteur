@@ -114,6 +114,17 @@ module Saboteur
       line.between?(start_line, end_line)
     end
 
+    # True when a changed-lines set intersects this subject's span. A
+    # whole-file range answers by interval overlap in O(1) instead of a
+    # per-line scan from line 1 for every subject.
+    def overlaps_lines?(lines)
+      if lines.is_a?(Range)
+        lines.begin <= end_line && start_line <= lines.end
+      else
+        lines.any? { |line| contains_line?(line) }
+      end
+    end
+
     # Applies the mutation's edits to this method's text and returns the
     # mutated method text. Raises ArgumentError for edits outside the method
     # or overlapping each other.

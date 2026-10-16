@@ -18,6 +18,27 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     expect(err.string).to eq(".STE")
   end
 
+  it "records a repeated discovery failure once" do
+    2.times { diagnostics.record_discovery_failure("/r/a.rb", reason: "unreadable") }
+    diagnostics.record_discovery_failure("/r/b.rb", reason: "unreadable")
+    expect(diagnostics.discovery_failures.map(&:file)).to eq(["/r/a.rb", "/r/b.rb"])
+  end
+
+  it "freezes the recorded failure strings without freezing the caller's" do
+    file = +"a.rb"
+    reason = +"unreadable"
+    diagnostics.record_discovery_failure(file, reason: reason)
+    failure = diagnostics.discovery_failures.first
+    expect([failure.file, failure.reason]).to all(be_frozen)
+    expect([file, reason]).to all(satisfy { |value| !value.frozen? })
+  end
+
+  it "stringifies the file and reason before storing them" do
+    diagnostics.record_discovery_failure(Pathname.new("/r/a.rb"), reason: :unreadable)
+    failure = diagnostics.discovery_failures.first
+    expect([failure.file, failure.reason]).to eq(["/r/a.rb", "unreadable"])
+  end
+
   it "prefixes messages for the user" do
     diagnostics.inform("building")
     expect(err.string).to eq("saboteur: building\n")
