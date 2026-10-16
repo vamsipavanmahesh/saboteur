@@ -8,6 +8,14 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Coverage-guided selection no longer drops a mutant's killing tests when a
+  `case` has a `when X` arm whose body is bare `nil`: Ruby spans that arm
+  from the `when` to the case's end, containing its sibling arms, and the
+  recorder stored the span as-is, so edits inside the sibling arms were
+  narrowed to the nil-arm's takers. Sibling arms are disjoint by
+  definition; a span containing one of them is now rejected when the map
+  is recorded (coverage map format 9).
+
 - `script/preflight` full mode no longer rejects its own RSpec report: the
   fd3 shim now attaches a dedicated JSON formatter to the pipe instead of
   redirecting RSpec's output stream, so a project's progress formatter

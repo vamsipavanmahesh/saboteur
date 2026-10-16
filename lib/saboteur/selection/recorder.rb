@@ -65,13 +65,30 @@ module Saboteur
 
       def record_branches(file, data)
         data.fetch(:branches, {}).each do |(_kind, _id, *parent_span), arms|
+          spans = arms.map { |(_arm_kind, _arm_id, *span), _count| span }
           arms.each do |(_arm_kind, _arm_id, *span), count|
             next if span == parent_span
+            # Ruby spans a `when X` arm with a bare `nil` body from the
+            # `when` to the case's end, containing the sibling arms.
+            # Sibling arms are disjoint by definition, so a containing span
+            # is bogus; recording it would let it intersect and narrow
+            # selection for edits inside the siblings it swallows.
+            next if spans.any? { |other| span != other && contains?(span, other) }
 
             @branches[file][span] # Keep zero-hit arms as evidence, not as covered code.
             yield span if count.positive?
           end
         end
+      end
+
+      # [line, column] pairs compare lexically, like CoverageMap#position.
+      # Both endpoints come from one slice per side: a separate slice per
+      # comparand would make its size irrelevant on the right-hand side of
+      # `<=>` (a prefix decides first), hiding an equivalent mutant.
+      def contains?(outer, inner)
+        outer_start, inner_start = [outer, inner].map { |span| span.first(2) }
+        inner_end, outer_end = [inner, outer].map { |span| span.last(2) }
+        (outer_start <=> inner_start) <= 0 && (inner_end <=> outer_end) <= 0
       end
 
       def hit_table
