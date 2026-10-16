@@ -18,7 +18,22 @@ RSpec.describe Saboteur::Engine::Boot do
     # ANY nested run, with or without its own --test-command (#305 QA).
     it "refuses any run inside an external test command" do
       stub_const("ENV", ENV.to_h.merge(Saboteur::Execution::ExternalRunner::CHILD_MARKER => "1"))
-      expect { described_class.refuse_recursion! }.to raise_error(Saboteur::Error, /external test command/)
+      marker = Saboteur::Execution::ExternalRunner::CHILD_MARKER
+      expect { described_class.refuse_recursion! }.to raise_error(
+        Saboteur::Error,
+        "refusing to start: this process runs inside a saboteur external test command " \
+        "(#{marker} is set); a nested run could race its tree"
+      )
+    end
+
+    it "names the child marker in the in-process refusal (#305 dogfood)" do
+      stub_const("ENV", ENV.to_h.merge(Saboteur::Execution::Supervisor::CHILD_ENV => "1"))
+      child_env = Saboteur::Execution::Supervisor::CHILD_ENV
+      expect { described_class.refuse_recursion! }.to raise_error(
+        Saboteur::Error,
+        "refusing to start: this process is a saboteur child " \
+        "(#{child_env} is set). A test is running saboteur itself; stub it."
+      )
     end
   end
 

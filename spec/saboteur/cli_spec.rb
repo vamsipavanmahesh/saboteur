@@ -388,6 +388,11 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("--test-command cannot be combined with --incremental")
   end
 
+  it "lets a plain --test-command run past the combination checks (#305)" do
+    cli("run", "--test-command", "true").call
+    expect(err.string).not_to include("--test-command cannot be combined")
+  end
+
   it "lets --test-command stand alone (#140)" do
     expect { cli("run", "--test-command", "make test").send(:reject_test_command_conflicts) }
       .not_to raise_error

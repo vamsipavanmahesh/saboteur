@@ -154,7 +154,10 @@ module Saboteur
       # all - is dropped before the new one is made.
       def with_fresh_copy
         close
-        @copy_root = Dir.mktmpdir("saboteur-external-")
+        # realpath the copy root too: macOS tmp dirs are /var symlinked to
+        # /private/var, and the containment check compares canonical link
+        # targets against this root - both sides must be canonical (#305).
+        @copy_root = File.realpath(Dir.mktmpdir("saboteur-external-"))
         FileUtils.cp_r(File.join(@root, "."), @copy_root, preserve: true)
         rebuild_symlinks
         yield

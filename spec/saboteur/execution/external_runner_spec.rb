@@ -170,6 +170,28 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     expect(File.symlink?(File.join(@dir, "alias.rb"))).to be(true)
   end
 
+  # macOS tmp dirs are symlinked (/var -> /private/var): the copy root must
+  # be canonicalized before link targets are judged against it, or every
+  # internal link looks like an escape (#305 CI).
+  it "judges link targets against the canonical copy root" do
+    subject = subject_in(@dir)
+    File.symlink("calc.rb", File.join(@dir, "alias.rb"))
+    real = Dir.mktmpdir("saboteur-external-")
+    alias_root = File.join(Dir.mktmpdir, "linked")
+    File.symlink(real, alias_root)
+    begin
+      allow(Dir).to receive(:mktmpdir).and_call_original
+      allow(Dir).to receive(:mktmpdir).with("saboteur-external-").and_return(alias_root)
+      runner = described_class.new(command: "test -L alias.rb && grep -q 'n < 0' alias.rb", root: @dir)
+      outcome = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
+                           mutation: mutation_for(subject))
+      expect(outcome.status).to eq(:survived)
+    ensure
+      File.unlink(alias_root)
+      FileUtils.remove_entry(real)
+    end
+  end
+
   # Architect probe: a background write landing after the verdict must not
   # reach the real tree (#305).
   it "contains a background write that lands after the run" do

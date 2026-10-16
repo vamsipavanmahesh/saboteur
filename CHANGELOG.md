@@ -6,6 +6,11 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- `--test-command` on macOS no longer refuses every tree containing an
+  internal symlink: the disposable copy root is canonicalized before
+  symlink targets are judged against it (/var vs /private/var) (#305).
+
 ### Added
 - `--test-command CMD` / `c.test_command`: run an external command per
   mutant and take its exit status as the verdict - for apps that cannot

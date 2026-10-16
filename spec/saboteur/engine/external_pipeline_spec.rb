@@ -66,6 +66,130 @@ RSpec.describe "Engine external test-command pipeline" do
     end
   end
 
+  # The external path is chosen by the command alone: the in-process boot
+  # never runs (#305 dogfood).
+  it "never boots in-process when a test command is set" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      expect(Saboteur::Engine::Boot).not_to receive(:new)
+      Saboteur::Engine.new(config).call
+    end
+  end
+
+  it "announces the exact external-mode tradeoff (#305 dogfood)" do
+    with_fixture do |root|
+      err = StringIO.new
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      Saboteur::Engine.new(config, err: err).call
+      expect(err.string).to include("external test command: true " \
+                                    "(serial, no coverage, unsandboxed, mutants applied in a disposable copy)")
+    end
+  end
+
+  it "skips mutation entirely when nothing is in scope (#305 dogfood)" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true", "include" => ["lib/nope/**/*.rb"] }, root: root)
+      engine = Saboteur::Engine.new(config)
+      expect(engine).not_to receive(:mutate_external)
+      expect(engine.call.results).to eq([])
+    end
+  end
+
+  it "applies the ignore list with the unscoped digests and keeps its warnings (#305 dogfood)" do
+    with_fixture do |root|
+      seen = nil
+      allow_any_instance_of(Saboteur::IgnoreList).to receive(:apply).and_wrap_original do |method, results, **kwargs|
+        seen = kwargs
+        method.call(results, **kwargs) + ["marker-warning"]
+      end
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      report = Saboteur::Engine.new(config).call
+      expect(seen).to have_key(:unscoped_digests)
+      expect(report.warnings).to include("marker-warning")
+    end
+  end
+
+  # The external scheduler is wired for the no-coverage mode: pseudo map,
+  # reevaluator honoring whole_file, diagnostics, the run budget as its
+  # deadline, and no loaded-suite verification (#305 dogfood).
+  it "wires the scheduler for the external mode (#305 dogfood)" do
+    with_fixture do |root|
+      seen = nil
+      allow(Saboteur::Engine::Scheduler).to receive(:new).and_wrap_original do |method, **kwargs|
+        seen = kwargs
+        method.call(**kwargs)
+      end
+      config = Saboteur::Config.new({ "test_command" => "true", "whole_file" => true, "max_duration" => 60 },
+                                    root: root)
+      Saboteur::Engine.new(config).call
+      expect(seen[:map]).to be_a(Saboteur::Selection::ExternalTestMap)
+      expect(seen[:reevaluator]).to be_a(Saboteur::Execution::Reevaluator)
+      expect(seen[:diagnostics]).not_to be_nil
+      expect(seen[:deadline]).not_to be_nil
+      expect(seen[:verify_loaded]).to be(false)
+    end
+  end
+
+  it "forwards whole_file to the reevaluator (#305 dogfood)" do
+    with_fixture do |root|
+      calls = []
+      allow(Saboteur::Execution::Reevaluator).to receive(:new).and_wrap_original do |method, *args, **kwargs|
+        calls << kwargs
+        method.call(*args, **kwargs)
+      end
+      config = Saboteur::Config.new({ "test_command" => "true", "whole_file" => ["vendor/**"] }, root: root)
+      Saboteur::Engine.new(config).call
+      expect(calls).to include(hash_including(whole_file: ["vendor/**"]))
+    end
+  end
+
+  it "runs nothing when every subject ends up without candidates (#305 dogfood)" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      engine = Saboteur::Engine.new(config)
+      allow(engine).to receive(:candidate_lists) { |subjects, _, _| subjects.map { [] } }
+      expect(engine).not_to receive(:run_candidates)
+      expect(engine.call.results).to eq([])
+    end
+  end
+
+  # The preflight deadline is its own baseline_timeout slice or the run
+  # budget, whichever is SOONER (#305 dogfood).
+  describe "preflight deadline" do
+    def engine_for(config_hash)
+      with_fixture do |root|
+        yield Saboteur::Engine.new(Saboteur::Config.new({ "test_command" => "true" }.merge(config_hash),
+                                                        root: root))
+      end
+    end
+
+    before do
+      allow(Process).to receive(:clock_gettime).and_call_original
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(1000.0)
+    end
+
+    it "sizes its own slice by the configured baseline_timeout (300 by default)" do
+      engine_for({}) do |engine|
+        allow(engine).to receive(:budget_deadline).and_return(nil)
+        expect(engine.send(:preflight_deadline)).to eq(1300.0)
+      end
+    end
+
+    it "honors a configured baseline_timeout" do
+      engine_for({ "baseline_timeout" => 5 }) do |engine|
+        allow(engine).to receive(:budget_deadline).and_return(nil)
+        expect(engine.send(:preflight_deadline)).to eq(1005.0)
+      end
+    end
+
+    it "takes the sooner of its own slice and the run budget" do
+      engine_for({ "baseline_timeout" => 5 }) do |engine|
+        allow(engine).to receive(:budget_deadline).and_return(1003.0)
+        expect(engine.send(:preflight_deadline)).to eq(1003.0)
+      end
+    end
+  end
+
   it "leaves the real tree untouched" do
     with_fixture do |root|
       before = File.read(File.join(root, "lib", "k.rb"))

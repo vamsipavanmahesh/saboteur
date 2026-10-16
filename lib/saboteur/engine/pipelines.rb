@@ -78,8 +78,7 @@ module Saboteur
       # sooner. Absolute, so the tree copy before admission cannot eat the
       # budget while the command still gets a full timeout (#305 Architect).
       def preflight_deadline
-        budget = config["baseline_timeout"] || 60
-        own = Process.clock_gettime(Process::CLOCK_MONOTONIC) + budget
+        own = Process.clock_gettime(Process::CLOCK_MONOTONIC) + config["baseline_timeout"]
         deadline = budget_deadline
         deadline ? [own, deadline].min : own
       end
