@@ -24,8 +24,9 @@ module Saboteur
                 :kill_cause, :executed
     attr_accessor :ignored
     # The ignore list's triage for this survivor (#155): a state from
-    # IgnoreList::STATES and its reason, set whether or not the survivor is
-    # accepted out of the score (a todo survivor still counts).
+    # IgnoreList::STATES and its reason. accepted_equivalent and wont_fix
+    # suppress the exit failure (the survivor still counts in the score); a
+    # todo survivor keeps counting as an unignored survivor.
     attr_accessor :triage_state, :triage_reason
 
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
