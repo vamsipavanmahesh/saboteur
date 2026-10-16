@@ -425,16 +425,23 @@ like any other unmatched file. With `--since` only named subjects on changed
 lines count: an unchanged subject file, one whose changes sit in other
 methods, or one with a comment-only change is skipped, not stopped.
 
-With `--since`, every `*_spec.rb` under the root that the diff adds or changes
+With `--since`, every spec file under the root that the diff adds or changes
 (committed since the base, uncommitted or untracked) also runs, next to the
 inferred specs and listed once. A pull request often tests a change through a
 request or controller spec whose name maps to no changed file; without it a
-mutant only that spec kills would survive. Unchanged specs are not added, and
-changed non-spec files such as `spec_helper.rb` or support files are not run as
-specs. A spec the diff deletes cannot run: the run names it and goes on.
-Changed specs join only a run that mutates something, and an unmatched file
-still stops the run. `--test` replaces inference, changed specs included, and
-`--all` runs the whole suite as before.
+mutant only that spec kills would survive. A changed file runs only when the
+configured suite loads it, by RSpec's own rules (`.rspec`, `rspec_args`, the
+default path, `--pattern` and `--exclude-pattern`), and it is a regular file:
+RSpec applies its patterns only to the directories it scans, so a fixture spec
+the suite excludes must not run just because the diff touched it. Unchanged
+specs are not added, and changed support files such as `spec_helper.rb` are not
+run as specs. A changed `*_spec.rb` that does not run is named with the reason:
+deleted in the diff, left out by the suite's patterns, or a symlink or other
+non-regular file. Changed specs join only a run that mutates something. An
+unmatched file still stops the run; when the diff deleted its expected spec
+(a rename, say), the message says so and lists the changed specs to pass to
+`--test`. `--test` runs exactly the files you name, so a changed spec you do
+not name does not run, and `--all` runs the whole suite as before.
 
 A file that needs a spec and has none stops the run before it boots (exit 2)
 and names both ways out: `--test` with the specs to run, or `--all` for the

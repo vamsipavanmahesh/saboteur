@@ -103,9 +103,9 @@ module Saboteur
 
       guess = TestGuess.new(config, diagnostics: @diagnostics).call
       @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      inform_deleted_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
+      inform_skipped_specs(guess)
       @diagnostics.announce(selection_message(guess))
     end
 
@@ -124,14 +124,14 @@ module Saboteur
 
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
-      inform_deleted_specs(guess)
-
+      inform_skipped_specs(guess)
       @diagnostics.announce(scope_to_guesses(guess))
     end
 
-    # A spec the diff deletes cannot run; the run names it and goes on.
-    def inform_deleted_specs(guess)
-      @diagnostics.inform(guess.deleted_message) if guess.deleted_specs.any?
+    # A spec file the diff touched that cannot run is named, and the run
+    # goes on.
+    def inform_skipped_specs(guess)
+      @diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?
     end
 
     def selection_message(guess)

@@ -34,6 +34,33 @@ module Saboteur
         end
       end
 
+      # The spec files the configured suite runs, as UTF-8 paths relative to
+      # root (a file outside it stays absolute), by
+      # RSpec's own rules: .rspec, rspec_args, the default path, --pattern
+      # and --exclude-pattern. RSpec applies the patterns only to the
+      # directories it scans, never to a file named explicitly, so a file
+      # saboteur names as a test must come from this list (#307). Nothing is
+      # loaded and nothing global changes: only the file-selection options
+      # reach a fresh Configuration, so --require, -I and formatters are
+      # ignored. A pattern set in Ruby (RSpec.configure in a spec helper) is
+      # not seen. RSpec resolves patterns against the working directory, so
+      # this reads from the root.
+      def configured_spec_files(root)
+        require "rspec/core"
+        from_directory(root) do
+          options = ::RSpec::Core::ConfigurationOptions.new(rspec_args).options
+          configuration = ::RSpec::Core::Configuration.new
+          %i[default_path pattern exclude_pattern].each do |name|
+            configuration.public_send(:"#{name}=", options[name]) if options[name]
+          end
+          configuration.files_or_directories_to_run = options[:files_or_directories_to_run]
+          # RSpec expands from the working directory, which can spell the
+          # root differently from its realpath (/var and /private/var).
+          prefix = Text.utf8_identity(File.join(Dir.pwd, ""))
+          configuration.files_to_run.map { |file| Text.utf8_identity(file).delete_prefix(prefix) }
+        end
+      end
+
       def all_tests
         groups = world.ordered_example_groups.flat_map(&:descendants)
         groups.flat_map { |group| world.filtered_examples[group] }
@@ -94,6 +121,12 @@ module Saboteur
         # `--example TEXT` becomes a :full_description rule when the options
         # reach the configuration, not in the filter manager.
         options.options[:full_description] ? keys + [:full_description] : keys
+      end
+
+      # A real run already starts in the root; only a caller elsewhere (a
+      # spec) changes directory, and only for the block.
+      def from_directory(root, &)
+        File.realpath(Dir.pwd) == File.realpath(root) ? yield : Dir.chdir(root, &)
       end
 
       def world

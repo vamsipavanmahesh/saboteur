@@ -519,6 +519,25 @@ RSpec.describe Saboteur::Selection::GitDiff do
       expect(present.map(&:encoding).uniq).to eq([Encoding::UTF_8])
     end
 
+    # Without the -- separator git cannot tell the base commit from a file
+    # of the same name and stops with "ambiguous argument".
+    it "reads the diff when a file is named like the base commit" do
+      base = Open3.capture3("git", "rev-parse", "HEAD", chdir: @dir).first.strip
+      write(base, "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([base, "spec/kept_spec.rb"])
+    end
+
+    it "lists a path whose name is not valid UTF-8, tagged UTF-8" do
+      name = "spec/h\xE9llo_spec.rb".b
+      begin
+        File.binwrite(File.join(@dir, name), "1\n")
+      rescue Errno::EILSEQ, Errno::EINVAL
+        skip "this platform rejects filenames that are not valid UTF-8"
+      end
+      expect(paths[:present]).to eq([name.dup.force_encoding(Encoding::UTF_8)])
+    end
+
     it "refuses a ref that is not a commit, as a usage error" do
       expect { described_class.changed_paths("no-such-ref", root: @dir) }
         .to raise_error(Saboteur::ConfigError, /no-such-ref: not a commit/)

@@ -45,7 +45,7 @@ module Saboteur
                      "tests that cover each change, and reports survivors (changes no test noticed). Source files or " \
                      "directories after run replace include and exclude. Without --test, the run infers the " \
                      "specs named after the mutated files and runs only those (with --since, plus every " \
-                     "*_spec.rb the diff adds or changes); a mutated file with no " \
+                     "spec file the diff adds or changes that the suite loads); a mutated file with no " \
                      "conventional spec stops the run with exit 2 before anything boots, and --all keeps " \
                      "the whole configured suite. --threshold PERCENT replaces the survivor check: exit 0 " \
                      "when the score is at or above PERCENT, exit 1 when it is below. All operators run " \

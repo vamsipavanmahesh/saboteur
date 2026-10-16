@@ -14,10 +14,13 @@ All notable changes are documented here. The format follows
   reads again supplies the same empty list. A typed empty list stays, since
   it may clear a configured value, and non-empty lists stay as before.
 - `--since` runs every `*_spec.rb` the diff adds or changes next to the
+- `--since` runs every spec file the diff adds or changes next to the
   inferred specs (#307). A request or controller spec whose name maps to no
   changed file used to be left out, so a mutant only it killed was reported
-  as a survivor. A spec the diff deletes is named and not run. `--test` and
-  `--all` are unchanged.
+  as a survivor. A changed file runs only when the configured RSpec suite
+  loads it (its pattern, exclude pattern and default path) and it is a
+  regular file; a changed `*_spec.rb` that does not run, or that the diff
+  deletes, is named with the reason. `--test` and `--all` are unchanged.
 
 ### Fixed
 

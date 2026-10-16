@@ -391,11 +391,94 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(guess.specs).to eq(%w[spec/a_spec.rb spec/requests/new_spec.rb])
     end
 
-    # A path git lists can still be no file: a dangling symlink cannot run.
-    it "leaves out a changed spec path that is not a file" do
+    # A symlink can point anywhere, including another application's spec or
+    # an excluded fixture; a dangling one cannot run at all.
+    it "names a changed spec that is a symlink, dangling or not, instead of running it" do
       write("lib/a.rb", changed_source)
       File.symlink("missing_target.rb", File.join(dir, "spec/dangling_spec.rb"))
-      expect(guess.specs).to eq(%w[spec/a_spec.rb])
+      File.symlink(File.join(dir, "spec/stray_spec.rb"), File.join(dir, "spec/linked_spec.rb"))
+      result = guess
+      expect(result.specs).to eq(%w[spec/a_spec.rb])
+      expect(result.skipped_specs).to eq("spec/dangling_spec.rb" => "not a regular file",
+                                         "spec/linked_spec.rb" => "not a regular file")
+    end
+
+    # RSpec applies --pattern and --exclude-pattern only to the directories
+    # it scans, never to a file named as a test: the suite's own list decides.
+    it "names a changed spec the configured suite excludes instead of running it" do
+      write(".rspec", "--exclude-pattern spec/fixtures/**/*_spec.rb\n")
+      git("add", ".")
+      git("commit", "-q", "-m", "rspec options")
+      write("lib/a.rb", changed_source)
+      write("spec/fixtures/app/spec/wipe_spec.rb")
+      write("spec/requests/widgets_spec.rb")
+      result = guess
+      expect(result.specs).to eq(%w[spec/a_spec.rb spec/requests/widgets_spec.rb])
+      expect(result.skipped_specs.keys).to eq(%w[spec/fixtures/app/spec/wipe_spec.rb])
+      expect(result.skipped_specs.values.first).to start_with("not loaded by the configured RSpec suite")
+    end
+
+    it "names a changed spec outside the suite's default path" do
+      write("lib/a.rb", changed_source)
+      write("test/widgets_spec.rb")
+      result = guess
+      expect(result.specs).to eq(%w[spec/a_spec.rb])
+      expect(result.skipped_specs.keys).to eq(%w[test/widgets_spec.rb])
+    end
+
+    it "runs a changed file a custom suite pattern loads, whatever its name" do
+      write("lib/a.rb", changed_source)
+      write("spec/requests/widgets_feature.rb")
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"],
+                                      "rspec_args" => ["--pattern", "spec/**/*_{spec,feature}.rb"] }, root: dir)
+      expect(described_class.new(config).call.specs).to eq(%w[spec/a_spec.rb spec/requests/widgets_feature.rb])
+    end
+
+    # A renamed conventional spec leaves the source file unmatched: the
+    # stop says the expected spec was deleted and names the specs to pass.
+    it "says the expected spec was deleted and lists the changed specs when a file is unmatched" do
+      write("lib/a.rb", changed_source)
+      FileUtils.mkdir_p(File.join(dir, "spec/requests"))
+      git("mv", "spec/a_spec.rb", "spec/requests/widgets_spec.rb")
+      message = guess.unmatched_message
+      expect(message).to include("lib/a.rb (expected spec/a_spec.rb, deleted in the diff)",
+                                 "Specs the diff adds or changes: spec/requests/widgets_spec.rb.")
+    end
+
+    # A non-ASCII root joined with a git path that holds high bytes must not
+    # mix encodings; the LANG=C CI job runs this under a US-ASCII locale.
+    it "joins a non-ASCII root with a non-ASCII spec path" do
+      root = File.join(dir, "caf\u00e9")
+      FileUtils.mkdir_p(File.join(root, "lib"))
+      FileUtils.mkdir_p(File.join(root, "spec/requests"))
+      File.write(File.join(root, "lib/w.rb"), base_source)
+      File.write(File.join(root, "spec/w_spec.rb"), "# x\n")
+      git("add", ".")
+      git("commit", "-q", "-m", "app")
+      File.write(File.join(root, "lib/w.rb"), changed_source)
+      File.write(File.join(root, "spec/requests/\u00e9tat_spec.rb"), "# x\n")
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: root)
+      result = described_class.new(config).call
+      if Encoding.find("filesystem") == Encoding::UTF_8
+        expect(result.specs).to eq(["spec/requests/\u00e9tat_spec.rb", "spec/w_spec.rb"])
+      else
+        # RSpec's own path expansion mixes encodings here; the changed spec
+        # is named, not run, and nothing raises.
+        expect(result.specs).to eq(["spec/w_spec.rb"])
+        expect(result.skipped_specs.values).to eq(["the configured RSpec suite's files could not be listed " \
+                                                   "(Encoding::CompatibilityError)"])
+      end
+    end
+
+    it "names changed specs instead of running them when the suite's files cannot be listed" do
+      write("lib/a.rb", changed_source)
+      write("spec/requests/widgets_spec.rb")
+      allow_any_instance_of(Saboteur::Integration::RSpec).to receive(:configured_spec_files)
+        .and_raise(Encoding::CompatibilityError, "incompatible character encodings")
+      result = guess
+      expect(result.specs).to eq(%w[spec/a_spec.rb])
+      expect(result.skipped_specs).to eq("spec/requests/widgets_spec.rb" =>
+        "the configured RSpec suite's files could not be listed (Encoding::CompatibilityError)")
     end
 
     it "lists a spec both inferred and changed once" do
@@ -418,7 +501,7 @@ RSpec.describe Saboteur::Engine::TestGuess do
       File.delete(File.join(dir, "spec/stray_spec.rb"))
       result = guess
       expect(result.specs).to eq(%w[spec/a_spec.rb])
-      expect(result.deleted_specs).to eq(%w[spec/stray_spec.rb])
+      expect(result.skipped_specs).to eq("spec/stray_spec.rb" => "deleted in the diff")
     end
 
     it "adds no changed spec when no changed file has a mutation subject" do

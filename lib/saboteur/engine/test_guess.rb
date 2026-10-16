@@ -19,27 +19,36 @@ module Saboteur
       # not exist; that is why the file is unmatched), for the stop-before-boot
       # error. The result also builds its own messages, so a stubbed guess in
       # the engine's specs formats exactly like a real one.
-      # changed_specs: spec files the diff adds or changes, already in
-      # specs; deleted_specs: spec files the diff deletes.
+      # changed_specs: spec files the diff adds or changes that run, already
+      # in specs; skipped_specs: spec files the diff touches that cannot run,
+      # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
-                           :deleted_specs) do
-        def initialize(changed_specs: [], deleted_specs: [], **fields)
+                           :skipped_specs) do
+        def initialize(changed_specs: [], skipped_specs: {}, **fields)
           super
         end
 
         # The stop-before-boot usage error: names each expected spec and the
         # ways out as an append-only instruction - never a reconstructed
         # command, which could carry a hostile ref or a wrong source scope.
+        # When the diff deleted the expected spec or added others, it says
+        # so: a renamed spec is the usual cause.
         def unmatched_message
-          pairs = unmatched.map { |file| "#{file} (expected #{hints.fetch(file)})" }
-          "no spec found for #{pairs.join(', ')}, so nothing ran. Re-run the same command with --test " \
-            "followed by your existing spec paths, or append --all to use the whole suite without " \
+          pairs = unmatched.map do |file|
+            expected = hints.fetch(file)
+            gone = skipped_specs[expected] == DELETED ? ", deleted in the diff" : ""
+            "#{file} (expected #{expected}#{gone})"
+          end
+          changed = changed_specs.any? ? " Specs the diff adds or changes: #{changed_specs.join(', ')}." : ""
+          "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
+            "--test followed by your existing spec paths, or append --all to use the whole suite without " \
             "changing the source scope."
         end
 
-        # The spec files the diff deleted, which cannot run.
-        def deleted_message
-          "inferred specs: #{deleted_specs.join(', ')} deleted in the diff, so not run"
+        # The spec files the diff touched that do not run, with the reasons.
+        def skipped_message
+          named = skipped_specs.map { |path, reason| "#{path} (#{reason})" }
+          "inferred specs: not running spec files changed in the diff: #{named.join(', ')}"
         end
 
         # Why the subjectless files needed no spec.
@@ -60,10 +69,16 @@ module Saboteur
       end
 
       SOURCE_ROOTS = %w[lib app].freeze
+      DELETED = "deleted in the diff"
+      OUTSIDE_SUITE = "not loaded by the configured RSpec suite: its pattern, exclude pattern or default path " \
+                      "leaves it out"
+      NOT_REGULAR = "not a regular file"
 
       def initialize(config, diagnostics: nil)
         @diagnostics = diagnostics
-        @root = File.realpath(config.root)
+        # Retagged losslessly like Config#root, so a join with a UTF-8 git
+        # path never mixes encodings whatever the locale tagged it with.
+        @root = Text.utf8_identity(File.realpath(config.root))
         @config = config
       end
 
@@ -140,29 +155,57 @@ module Saboteur
       end
 
       # Changed specs join only a run that mutates something: with no file
-      # in scope there is nothing for them to kill, and an unmatched file
-      # stops the run before any spec runs.
+      # in scope there is nothing for them to kill.
       def result(guesses, subjectless, changed)
         unmatched = guesses.select { |_, spec| spec.nil? }.keys
-        diff = @config["since"] && guesses.any? && unmatched.empty? ? specs_in_diff : { present: [], deleted: [] }
-        Result.new(specs: (guesses.values.compact + diff[:present]).uniq.sort,
+        diff = @config["since"] && guesses.any? ? specs_in_diff : { run: [], skipped: {} }
+        Result.new(specs: (guesses.values.compact + diff[:run]).uniq.sort,
                    unmatched: unmatched,
                    subjectless: subjectless,
                    changed: changed,
                    hints: unmatched.to_h { |file| [file, candidates_for(file).first] },
-                   changed_specs: diff[:present],
-                   deleted_specs: diff[:deleted])
+                   changed_specs: diff[:run],
+                   skipped_specs: diff[:skipped])
       end
 
-      # Spec files (*_spec.rb) under the root that the diff since the base
-      # adds, changes or deletes. A present path must still be a file: an
-      # untracked directory entry or a vanished path cannot run.
+      # Spec files under the root that the diff since the base adds, changes
+      # or deletes. A changed file runs when the configured suite loads it
+      # and it is a regular file; RSpec applies its pattern only to the
+      # directories it scans, never to a file named as a test, so the suite's
+      # own list decides (a fixture under an excluded directory must not
+      # run). A changed *_spec.rb that cannot run is named with the reason.
       def specs_in_diff
         paths = Selection::GitDiff.changed_paths(@config["since"], root: @root)
-        {
-          present: paths[:present].select { |path| spec?(path) && File.file?(File.join(@root, path)) },
-          deleted: paths[:deleted].select { |path| spec?(path) }
-        }
+        skipped = paths[:deleted].select { |path| spec?(path) }.to_h { |path| [path, DELETED] }
+        run = paths[:present].select { |path| spec?(path) || suite_files&.include?(path) }.select do |path|
+          reason = unrunnable_reason(path)
+          skipped[path] = reason if reason
+          reason.nil?
+        end
+        { run: run, skipped: skipped.sort.to_h }
+      end
+
+      # lstat, not stat: a symlink can point anywhere, including a spec of
+      # another application or a fixture the suite excludes.
+      def unrunnable_reason(path)
+        return NOT_REGULAR unless File.lstat(File.join(@root, path)).file?
+        return @suite_error if suite_files.nil?
+
+        OUTSIDE_SUITE unless suite_files.include?(path)
+      rescue SystemCallError
+        NOT_REGULAR
+      end
+
+      # nil when RSpec cannot list the suite: under a non-UTF-8 locale its
+      # own path expansion can mix encodings for a non-ASCII root. A changed
+      # spec is then not run, never guessed into the run.
+      def suite_files
+        return @suite_files if defined?(@suite_files)
+
+        @suite_files = Integration.fetch(@config["integration"]).new(@config).configured_spec_files(@root).to_set
+      rescue EncodingError => e
+        @suite_error = "the configured RSpec suite's files could not be listed (#{e.class})"
+        @suite_files = nil
       end
 
       def spec?(path)

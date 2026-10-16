@@ -65,10 +65,10 @@ RSpec.describe Saboteur::Engine, "test selection" do
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
   end
 
-  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], deleted_specs: [])
+  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {})
     hints = unmatched.to_h { |file| [file, "spec/#{File.basename(file, '.rb')}_spec.rb"] }
     result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:,
-                                                     changed_specs:, deleted_specs:)
+                                                     changed_specs:, skipped_specs:)
     allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
                                                                                    call: result, call_for: result))
   end
@@ -164,18 +164,20 @@ RSpec.describe Saboteur::Engine, "test selection" do
   describe "inferred specs (the default)" do
     it "names the specs changed in the diff and the ones it deleted (#307)" do
       guess(specs: %w[spec/a_spec.rb spec/requests/a_spec.rb], unmatched: [], changed: 1,
-            changed_specs: %w[spec/requests/a_spec.rb], deleted_specs: %w[spec/old_spec.rb])
+            changed_specs: %w[spec/requests/a_spec.rb],
+            skipped_specs: { "spec/old_spec.rb" => "deleted in the diff" })
       used = tests_the_run_used { run_engine("since" => "origin/main") }
       expect(used).to eq(%w[spec/a_spec.rb spec/requests/a_spec.rb])
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/requests/a_spec.rb " \
                                     "(changed in the diff: spec/requests/a_spec.rb). A spec that reaches",
-                                    "inferred specs: spec/old_spec.rb deleted in the diff, so not run")
+                                    "inferred specs: not running spec files changed in the diff: " \
+                                    "spec/old_spec.rb (deleted in the diff)")
     end
 
-    it "says nothing about deleted specs when the diff deletes none" do
+    it "says nothing about skipped specs when the diff skips none" do
       guess(specs: %w[spec/a_spec.rb], unmatched: [], changed: 1)
       tests_the_run_used { run_engine("since" => "origin/main") }
-      expect(err.string).not_to include("deleted in the diff")
+      expect(err.string).not_to include("not running spec files")
     end
 
     it "scopes the run to the inferred specs and says which" do
@@ -312,11 +314,13 @@ RSpec.describe Saboteur::Engine, "test selection" do
         .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
     end
 
-    it "names the specs the diff deleted in a --subject run (#307)" do
+    it "names the spec files the diff deleted in a --subject run (#307)" do
       write_subject_project
-      guess(specs: %w[spec/people_spec.rb], unmatched: [], changed: 1, deleted_specs: %w[spec/old_spec.rb])
+      guess(specs: %w[spec/people_spec.rb], unmatched: [], changed: 1,
+            skipped_specs: { "spec/old_spec.rb" => "deleted in the diff" })
       tests_the_run_used { run_engine("since" => "HEAD", "subjects" => ["Person#adult?"]) }
-      expect(err.string).to include("inferred specs: spec/old_spec.rb deleted in the diff, so not run")
+      expect(err.string).to include("not running spec files changed in the diff: " \
+                                    "spec/old_spec.rb (deleted in the diff)")
     end
 
     it "stops before boot when the named subject's own file has no spec" do
@@ -347,6 +351,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
       people = File.join(@root, "lib", "people.rb")
       allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).and_return({ people => Set[3] })
       allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("HEAD")
+      allow(Saboteur::Selection::GitDiff).to receive(:changed_paths).and_return(present: [], deleted: [])
       comparison = instance_double(Saboteur::Engine::UnchangedSyntax, unchanged?: false)
       allow(Saboteur::Engine::UnchangedSyntax).to receive(:new).and_return(comparison)
       expect { run_engine("since" => "HEAD", "subjects" => ["Person#adult?"]) }

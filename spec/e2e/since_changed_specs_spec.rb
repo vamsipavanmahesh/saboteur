@@ -63,7 +63,8 @@ RSpec.describe "saboteur run --since: specs changed in the diff", :e2e do
     File.delete(File.join(dir, "spec", "stage_slow_spec.rb"))
     run = saboteur(dir, "--since", "HEAD")
 
-    expect(run.err).to include("inferred specs: spec/stage_slow_spec.rb deleted in the diff, so not run")
+    expect(run.err).to include("inferred specs: not running spec files changed in the diff: " \
+                               "spec/stage_slow_spec.rb (deleted in the diff)")
     expect(run.err).to include("inferred specs: running only spec/serializer_spec.rb.")
   end
 end
