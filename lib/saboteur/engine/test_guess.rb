@@ -158,8 +158,9 @@ module Saboteur
       # in scope there is nothing for them to kill.
       def result(guesses, subjectless, changed)
         unmatched = guesses.select { |_, spec| spec.nil? }.keys
-        diff = @config["since"] && guesses.any? ? specs_in_diff : { run: [], skipped: {} }
-        Result.new(specs: (guesses.values.compact + diff[:run]).uniq.sort,
+        inferred = guesses.values.compact
+        diff = @config["since"] && guesses.any? ? specs_in_diff(inferred) : { run: [], skipped: {} }
+        Result.new(specs: (inferred + diff[:run]).uniq.sort,
                    unmatched: unmatched,
                    subjectless: subjectless,
                    changed: changed,
@@ -174,10 +175,13 @@ module Saboteur
       # directories it scans, never to a file named as a test, so the suite's
       # own list decides (a fixture under an excluded directory must not
       # run). A changed *_spec.rb that cannot run is named with the reason.
-      def specs_in_diff
+      # An inferred spec is left to inference, which runs it as before
+      # #307, so it is neither added again nor reported as skipped.
+      def specs_in_diff(inferred)
         paths = Selection::GitDiff.changed_paths(@config["since"], root: @root)
         skipped = paths[:deleted].select { |path| spec?(path) }.to_h { |path| [path, DELETED] }
-        run = paths[:present].select { |path| spec?(path) || suite_files&.include?(path) }.select do |path|
+        candidates = paths[:present] - inferred
+        run = candidates.select { |path| spec?(path) || suite_files&.include?(path) }.select do |path|
           reason = unrunnable_reason(path)
           skipped[path] = reason if reason
           reason.nil?

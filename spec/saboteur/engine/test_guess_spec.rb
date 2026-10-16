@@ -518,12 +518,25 @@ RSpec.describe Saboteur::Engine::TestGuess do
         "the configured RSpec suite's files could not be listed (Encoding::CompatibilityError)")
     end
 
-    it "lists a spec both inferred and changed once" do
+    it "lists a spec both inferred and changed once, as an inferred spec" do
       write("lib/a.rb", changed_source)
       write("spec/a_spec.rb", "# changed\n")
       result = guess
       expect(result.specs).to eq(%w[spec/a_spec.rb])
-      expect(result.changed_specs).to eq(%w[spec/a_spec.rb])
+      expect(result.changed_specs).to be_empty
+    end
+
+    # Inference runs the conventional spec as it did before #307; the diff
+    # check must not also call it skipped while it runs.
+    it "does not report a changed inferred spec as skipped, even one the suite's patterns leave out" do
+      write(".rspec", "--exclude-pattern spec/a_spec.rb\n")
+      git("add", ".")
+      git("commit", "-q", "-m", "rspec options")
+      write("lib/a.rb", changed_source)
+      write("spec/a_spec.rb", "# changed\n")
+      result = guess
+      expect(result.specs).to eq(%w[spec/a_spec.rb])
+      expect(result.skipped_specs).to be_empty
     end
 
     it "leaves unchanged unrelated specs and changed non-spec files out" do

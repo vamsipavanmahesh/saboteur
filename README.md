@@ -433,7 +433,11 @@ mutant only that spec kills would survive. A changed file runs only when the
 configured suite loads it, by RSpec's own rules (`.rspec`, `rspec_args`, the
 default path, `--pattern` and `--exclude-pattern`), and it is a regular file:
 RSpec applies its patterns only to the directories it scans, so a fixture spec
-the suite excludes must not run just because the diff touched it. Unchanged
+the suite excludes must not run just because the diff touched it. Patterns
+are read from options only: a `pattern` or `exclude_pattern` set in Ruby
+(`RSpec.configure` in a spec helper) is not seen, so put exclusions in `.rspec`
+or `rspec_args`. The spec inferred from a changed file's name runs as before,
+whatever the patterns say. Unchanged
 specs are not added, and changed support files such as `spec_helper.rb` are not
 run as specs. A changed `*_spec.rb` that does not run is named with the reason:
 deleted in the diff, left out by the suite's patterns, or a symlink or other
