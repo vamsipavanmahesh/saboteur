@@ -389,8 +389,12 @@ RSpec.describe Saboteur::CLI do
   end
 
   it "lets a plain --test-command run past the combination checks (#305)" do
+    # Engine.new must stay stubbed: a real one would boot the external
+    # pipeline against the repo itself and run every mutant with "true".
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "past the checks")
     cli("run", "--test-command", "true").call
     expect(err.string).not_to include("--test-command cannot be combined")
+    expect(Saboteur::Engine).to have_received(:new)
   end
 
   it "lets --test-command stand alone (#140)" do
