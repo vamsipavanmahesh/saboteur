@@ -501,9 +501,12 @@ shell-escaped and printed in full however long it gets, so running it
 as-is replays the survivor with the same selection. Framework and
 generation settings from the config file (arid/hazard patterns,
 whole-file, require, rspec_args, rails) ride along through the command's
-`--config` or the default config path. Only knobs that cannot change a
-by-digest replay (`--max-mutants-per-method`, `--fail-fast`,
-`--threshold`) are left out. The agent protocol instead omits a command
+`--config` or the default config path. An empty `--operators` or
+`--exclude-operators` list is left out unless you typed it: the config the
+command reads again supplies the same empty list, while a typed
+`--exclude-operators ''` may clear a configured exclusion and so stays.
+Only knobs that cannot change a by-digest replay (`--max-mutants-per-method`,
+`--fail-fast`, `--threshold`) are left out. The agent protocol instead omits a command
 longer than 1024 bytes, and the agent rebuilds it from the run's
 provenance. `--verbose` adds the score split, mean time, whole-body score and
 kill causes, and prints one line per finished subject with its result
