@@ -15,6 +15,26 @@ RSpec.describe Saboteur::Score do
     expect([half_and_half.value, half_and_half.assertion_share, half_and_half.crash_share]).to eq([1.0, 0.5, 0.5])
   end
 
+  # Triage states change exit behavior, never the number: every survived
+  # result stays in the denominator (#155, #304).
+  it "scores the same whatever the triage state, with todo still unignored" do
+    accepted = result_for(:survived, replacement: "==")
+    accepted.ignored = "equivalent"
+    accepted.triage_state = "accepted_equivalent"
+    wont_fix = result_for(:survived, replacement: "<")
+    wont_fix.ignored = "legacy"
+    wont_fix.triage_state = "wont_fix"
+    todo = result_for(:survived, replacement: "!=")
+    todo.triage_state = "todo"
+    todo.triage_reason = "fix next sprint"
+    killed = result_for(:killed)
+    triaged = score_of(accepted, wont_fix, todo, killed)
+    plain = score_of(result_for(:survived, replacement: "=="), result_for(:survived, replacement: "<"),
+                     result_for(:survived, replacement: "!="), result_for(:killed))
+    expect(triaged.value).to eq(plain.value)
+    expect(report_of(accepted, wont_fix, todo).unignored_survivors).to eq([todo])
+  end
+
   it "takes survivors into the denominator of every share" do
     score = score_of(result_for(:killed, kill_cause: "assertion"), result_for(:survived, replacement: "=="))
     expect([score.value, score.assertion_share, score.crash_share]).to eq([0.5, 0.5, 0.0])

@@ -23,7 +23,8 @@ module Saboteur
         .status{border-radius:3px;padding:0 .4rem;color:#fff;white-space:nowrap}
         .Killed{background:#2e7d32}.Survived{background:#c62828}.Timeout{background:#b45309}
         .RuntimeError{background:#6a1b9a}.NoCoverage{background:#455a64}.Ignored{background:#616161}
-        .Accepted{background:#8d6e63}
+        .Accepted,.Triage_accepted_equivalent{background:#8d6e63}
+        .Triage_wont_fix{background:#616161}.Triage_todo{background:#b45309}
         .warning{background:#fff8e1;border-left:4px solid #f9a825;margin:.3rem 0;padding:.3rem .6rem;overflow-wrap:anywhere}
         code,pre{font-family:ui-monospace,monospace;font-size:13px}
         pre{display:inline-block;vertical-align:top;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}

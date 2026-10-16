@@ -779,9 +779,9 @@ end
 An entry without a reason is rejected.
 
 Each entry also carries a triage state (#155) chosen with `state:` -
-`accepted_equivalent` (the default) or `wont_fix` exclude the survivor from
-the score, `todo` records the decision to fix and keeps the survivor
-counting:
+`accepted_equivalent` (the default) or `wont_fix` suppress the survivor's
+exit failure (it still counts in the score), `todo` records the decision
+to fix and keeps the survivor counting as an unignored survivor:
 
 ```ruby
 i.mutation "9f8e7d6c5b4a3210",
@@ -791,8 +791,10 @@ i.mutation "9f8e7d6c5b4a3210",
 ```
 
 The HTML report badges the state (`Accepted`, `Won't fix`, `Todo`) and the
-JSON report names it in `statusReason`, so a `todo` entry keeps the run
-failing until the survivor is really fixed.
+JSON report names it in `statusReason`. A `todo` entry keeps the survivor
+counting as an unignored survivor, subject to the normal exit-code and
+threshold gates. `statusReason` is human-readable text for reports, not a
+structured field: parse `status`, never the reason string.
 
 ### SimpleCov
 

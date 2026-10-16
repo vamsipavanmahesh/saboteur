@@ -22,8 +22,8 @@ module Saboteur
   # reason is mandatory; a file with a missing or blank reason does not load.
   class IgnoreList
     # Triage states beyond plain ignoring (#155): accepted_equivalent and
-    # wont_fix exclude the survivor from the score, todo records the
-    # decision to fix and lets the survivor count.
+    # wont_fix suppress the survivor's exit failure (it still counts in the
+    # score), todo records the decision to fix and lets the survivor count.
     STATES = %w[accepted_equivalent wont_fix todo].freeze
 
     Entry = Data.define(:subject, :mutation, :reason, :state)
@@ -108,9 +108,8 @@ module Saboteur
       @index = entries.to_h { |entry| [[entry.subject, entry.mutation], entry] }
     end
 
-    # True when this result is a survivor the list accepts out of the
-    # score: a todo entry records the triage but keeps the survivor
-    # counting.
+    # True when this result is a survivor the list accepts: a todo entry
+    # records the triage but keeps the survivor counting as unignored.
     def accepts?(result)
       result.survived? && (entry = @index[[result.subject.id, result.digest]]) && entry.state != "todo"
     end

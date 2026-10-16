@@ -203,6 +203,11 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).to include("Accepted", "ignored: equivalent", "Survivors: 1 to fix, 1")
   end
 
+  it "styles every triage badge class it renders, or the badge is invisible (#304)" do
+    page = described_class.build(report_of(result_for(:killed)))
+    expect(page).to include(".Accepted,.Triage_accepted_equivalent{", ".Triage_wont_fix{", ".Triage_todo{")
+  end
+
   it "badges a wont_fix triage separately from accepted_equivalent (#155)" do
     accepted = result_for(:survived, replacement: "==")
     accepted.ignored = "equivalent"
