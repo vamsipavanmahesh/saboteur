@@ -46,8 +46,9 @@ module Saboteur
       @rejected_kill = rejected_kill
       @reused = reused
       @ignored = nil
-      @triage_state = nil
-      @triage_reason = nil
+      # triage_state/triage_reason stay unset until the ignore list writes
+      # them: the accessors read as nil before that, and there is no
+      # statement for a mutation to remove (#304 dogfood).
     end
 
     # The same mutant, marked unverified: the budget ran out before its

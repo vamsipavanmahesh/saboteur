@@ -190,6 +190,17 @@ RSpec.describe Saboteur::IgnoreList do
     end
   end
 
+  it "normalizes a non-string digest the way it normalizes strings (#304 dogfood)" do
+    content = <<~RUBY
+      Saboteur.ignore do |i|
+        i.mutation 123, subject: "Person#adult?", reason: "r"
+      end
+    RUBY
+    with_file(content) do |path|
+      expect(described_class.load(path).entries.map(&:mutation)).to eq(["123"])
+    end
+  end
+
   it "requires a mutation digest" do
     content = <<~RUBY
       Saboteur.ignore do |i|
