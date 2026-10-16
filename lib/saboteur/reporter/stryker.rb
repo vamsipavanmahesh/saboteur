@@ -130,7 +130,10 @@ module Saboteur
 
       def self.status_reason(result)
         return "todo: #{result.triage_reason}" if result.triage_state == "todo"
-        return "ignored (#{result.triage_state}): #{result.ignored}" if result.triage_state && result.ignored
+        # The "ignored: " prefix is a public contract consumers classify by
+        # (#304 CI): accepted_equivalent stays byte-identical to a plain
+        # ignore, and only wont_fix adds a suffix after the reason.
+        return "ignored: #{result.ignored} (wont_fix)" if result.triage_state == "wont_fix" && result.ignored
         return "ignored: #{result.ignored}" if result.ignored
         return "resource limit: #{result.reason}" if result.status == :resource_limit
         return result.crash_kill? ? "crash: #{result.kill_cause}" : result.kill_cause if result.kill_cause

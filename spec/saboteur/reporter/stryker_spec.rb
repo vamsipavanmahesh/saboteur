@@ -111,10 +111,12 @@ RSpec.describe Saboteur::Reporter::Stryker do
     todo.triage_reason = "fix in the next sprint"
     mutants = JSON.parse(JSON.generate(described_class.build(report_of(accepted, wont_fix, todo))))
                   .dig("files", "person.rb", "mutants")
+    # statusReason is a public contract: every ignored state keeps the
+    # "ignored: " prefix consumers classify by (#304 CI). accepted_equivalent
+    # is byte-identical to a plain ignore; only wont_fix adds a suffix.
     expect(mutants.map { |m| [m["status"], m["statusReason"]] }).to eq([
-                                                                         ["Survived",
-                                                                          "ignored (accepted_equivalent): equivalent"],
-                                                                         ["Survived", "ignored (wont_fix): legacy"],
+                                                                         ["Survived", "ignored: equivalent"],
+                                                                         ["Survived", "ignored: legacy (wont_fix)"],
                                                                          ["Survived", "todo: fix in the next sprint"]
                                                                        ])
   end
