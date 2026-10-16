@@ -69,11 +69,22 @@ module Preflight
       capture!(%W[rev-list --no-merges #{@options.base}..#{@options.head}]).split("\n")
     end
 
+    # A git child that never ran - the spawn failed, or a signal killed it
+    # before or during exec, as when macOS kills a forked child pre-exec
+    # under memory pressure - is a transient OS failure, so the read is
+    # retried once. A git that ran and failed names its own problem on
+    # stderr and is raised at once. Either way the message names the cause:
+    # stderr when git spoke, otherwise the run's problem, never empty.
     def capture!(arguments)
-      result = @git.run(["git", *arguments])
-      raise UnverifiableInput, "git #{arguments.first} failed: #{result.stderr.strip}" unless result.succeeded?
+      2.times do |attempt|
+        result = @git.run(["git", *arguments])
+        return result.stdout if result.succeeded?
 
-      result.stdout
+        transient = result.spawn_error || result.signal
+        detail = result.stderr.strip
+        detail = result.problem.to_s if detail.empty?
+        raise UnverifiableInput, "git #{arguments.first} failed: #{detail}" if attempt == 1 || !transient
+      end
     end
 
     private

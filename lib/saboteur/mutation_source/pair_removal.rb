@@ -3,11 +3,14 @@
 
 require "prism"
 require_relative "base"
+require_relative "entry_edits"
 
 module Saboteur
   module MutationSource
     # Deletes one association from a hash literal or keyword argument list.
     class PairRemoval < Base
+      include EntryEdits
+
       BOUNDARIES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode,
                     Prism::ParametersNode, Prism::BlockParametersNode].freeze
 
@@ -19,10 +22,12 @@ module Saboteur
         "pair_removal"
       end
 
-      def mutations_for(subject)
+      # root: the node to walk instead of the subject's method body (a
+      # constant's literal, see MutationSource::ConstantLiterals).
+      def mutations_for(subject, root: nil)
         found = []
         tokens = Prism.lex(subject.file_source).value.map(&:first)
-        visit(subject.node.body, subject, found, tokens)
+        visit(root || subject.node.body, subject, found, tokens)
         found
       end
 
@@ -56,22 +61,14 @@ module Saboteur
           next unless pair.is_a?(Prism::AssocNode)
           next if heredoc?(pair)
 
-          edits = [delete(subject, pair.location)]
-          separator = separator_for(node, pairs, index, tokens, call)
-          edits << delete(subject, separator) if separator
+          edits = [delete_entry(subject, pair.location)]
+          # Removing the first keyword argument may need the comma after the
+          # call's last positional argument.
+          before = call.arguments.arguments[0...-1].last if call
+          separator = entry_separator(pairs, index, ending_for(node, call), tokens, before: before)
+          edits << delete_entry(subject, separator) if separator
           found << Mutation.new(subject_id: subject.id, operator: name, edits: edits, source: name)
         end
-      end
-
-      def separator_for(node, pairs, index, tokens, call)
-        pair = pairs[index]
-        ending = ending_for(node, call)
-        after = comma_between(pair.location.end_offset, ending, tokens)
-        return after if after
-
-        previous = pairs[0...index].last
-        previous ||= call.arguments.arguments[0...-1].last if call
-        comma_between(previous.location.end_offset, pair.location.start_offset, tokens) if previous
       end
 
       def ending_for(node, call)
@@ -80,21 +77,6 @@ module Saboteur
         return call.block.location.start_offset if call.block
 
         node.location.end_offset
-      end
-
-      def comma_between(first, last, tokens)
-        tokens.find do |token|
-          token.type == :COMMA && token.location.start_offset >= first && token.location.end_offset <= last
-        end&.location
-      end
-
-      def heredoc?(node)
-        (node.respond_to?(:opening_loc) && node.opening_loc&.slice&.start_with?("<<")) ||
-          node.compact_child_nodes.any? { |child| heredoc?(child) }
-      end
-
-      def delete(subject, location)
-        Edit.new(file: subject.file, start_byte: location.start_offset, end_byte: location.end_offset, replacement: "")
       end
     end
   end

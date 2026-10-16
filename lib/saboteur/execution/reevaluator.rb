@@ -57,6 +57,8 @@ module Saboteur
       # True when the subject's id matches a whole_file entry (exact or a
       # File.fnmatch glob).
       def whole_file?(subject)
+        return true if subject.whole_file_only?
+
         @whole_file.any? { |pattern| File.fnmatch?(pattern, subject.id) }
       end
 

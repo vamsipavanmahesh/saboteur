@@ -321,6 +321,47 @@ entry, or pass the file as a positional source operand (configured excludes are
 then ignored). `--subject` cannot help here: it filters subjects inside the
 files left after excludes.
 
+A changed entry of a constant hash or array literal is a behavior change no
+method owns, so `--since` also selects those assignments as subjects (#306).
+`RULES = { city: "required", zip: "optional" }.freeze` gains a `state:` entry,
+and `pair_removal` proposes removing each changed pair; the default-on
+`element_removal` operator does the same for changed elements of array
+literals (`%w[...]` included). A constant mutant runs against the specs that
+cover a line reading the constant - and the specs can read the constant
+directly - and the whole file is re-evaluated because re-assigning a constant
+is not a method swap. The diff scope is line-granular: a literal written on a
+single line puts every entry on that line in scope, so write one entry per
+line to mutate only what changed. Unchanged entries on unchanged lines are
+not mutated, and entries matching the arid patterns are skipped like arid
+statements in a method.
+
+Boundaries are named, never silently scored. A changed constant assignment
+saboteur cannot mutate - a namespaced target, `||=`/`&&=`, a value that is
+not a hash or array literal (only `.freeze` calls are looked through), a
+write guarded by `if`/`unless`, or a constant written more than once in one
+file (any later write wins, literal or not) - gets a diagnostic instead of
+mutants. Two rules can skip a changed constant entirely, each with its own
+warning. First, the replay rule: a constant mutant re-evaluates its whole
+file, so whatever runs at load runs again on every mutant. saboteur replays
+a file only when its load-time code is limited to forms it recognizes -
+`require`/`require_relative`, pure defs, class/module nesting and plain
+literal assignments - and trips no entry of the hazard denylist. Anything
+else at load (a helper call, a registration, a write to disk, a class
+factory) skips the file's constants with a warning; list the constant in
+`c.whole_file` to replay the file anyway, or move the literal into its own
+file. Passing the check is not a promise that replaying the file is safe -
+it only means no unrecognized code runs at load. Second, observability:
+when every read of the constant captures the value at load time in another
+file (`COPY = A::RULES`, including a capture inside a boot-time block such
+as `1.times { COPY = A::RULES }`), the original object is already held and
+no test can observe a change, so the constant is dropped with a diagnostic
+rather than reported Survived. The block rule is conservative: a block
+passed to a deferring call runs later, but saboteur prefers dropping a
+constant over an unobservable survivor. Consumer matching is a lexical
+heuristic: reads reached through a superclass, `const_get`, or a compact
+`class Shop::Item` scope are not resolved, and a constant only read that
+way reports ran-at-load or no-coverage rather than a guessed survivor.
+
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
 too) runs for the baseline passes, the coverage pass and every mutant, as
@@ -995,6 +1036,18 @@ Builtin removes one key/value association from a hash literal or keyword list.
 `Model.includes(:a, :b, c: :d)` becomes `Model.includes(:a, :b )`, so a nested
 preload guard can be exercised without deleting the whole statement. A sole
 hash pair becomes `{}`. Operator and source name: `pair_removal`.
+
+## Array element removal
+
+Builtin removes one element from an array literal: `[:a, :b]` becomes `[:a]`.
+This is the array counterpart of `pair_removal`, on by default under the name
+`element_removal`, and it is what mutates changed elements of constant array
+literals under `--since` (#306). Bracketed arrays and `%w[...]` lists are
+supported; splats stay intact, and elements holding heredocs or sitting in
+arid statements are skipped, like `pair_removal`.
+Being default-on, it adds mutants wherever array literals appear in mutated
+methods: totals grow with the number of elements, the way `pair_removal`
+grows them for hashes.
 
 Both parenthesized and command calls are supported. Splats stay intact; pairs
 containing heredocs, parameter defaults, arid statements and nested definitions

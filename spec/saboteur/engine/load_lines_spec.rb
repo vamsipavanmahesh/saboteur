@@ -71,7 +71,7 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
     load_lines = { target.file => [3] }
     allow(engine).to receive(:boot_target).with(boot).and_return([integration, [target.file], load_lines])
-    allow(engine).to receive(:select_subjects).with([target.file]).and_return([[target], nil])
+    allow(engine).to receive(:select_subjects).with([target.file], test_files: []).and_return([[target], nil])
     allow(engine).to receive(:check_baseline).with(integration, 3)
     map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)

@@ -8,6 +8,20 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `script/preflight` no longer loses why a git probe died: a probe
+  whose child never ran git (the spawn failed, or a signal killed
+  the forked child, as macOS does pre-exec under memory pressure)
+  is retried once and, when it still fails, the error names the
+  cause instead of printing an empty detail; a failure git
+  reported itself is raised at once with git's own words (#319).
+
+- The whole-suite empty-coverage guard no longer passes when the map holds
+  spec-file lines only: the recorder maps the suite's spec files alongside
+  the included files, and the guard checked whole-map emptiness, so a suite
+  exercising none of the included files still recorded its own spec code
+  and the run exited 0 instead of 3. The guard now checks each included
+  file.
+
 - Coverage-guided selection no longer drops a mutant's killing tests when a
   `case` has a `when X` arm whose body is bare `nil`: Ruby spans that arm
   from the `when` to the case's end, containing its sibling arms, and the
@@ -58,6 +72,41 @@ All notable changes are documented here. The format follows
   and the agent JSON carries it on each shown finding. Labels are
   heuristics for triage order only, never a diagnosis: scores and the
   exit code never change.
+- `--since` mutates changed entries of constant hash and array literals:
+  the assignments join the diff scope as subjects, `pair_removal` edits hash
+  entries, the new default-on `element_removal` operator edits array
+  elements (in methods too, so array literals grow mutant totals the way
+  hashes do), and the tests are the specs covering a read of the constant.
+  Unsupported forms (namespaced targets, `||=`/`&&=`, non-literal values,
+  condition-guarded writes, or a constant written more than once in one
+  file counting every write) are named in the diagnostics instead of being
+  mutated or reported survived (#306).
+- Constant replay vets the whole file: `--since` replays a constant's file
+  only when its load-time code is limited to requires, pure defs,
+  class/module nesting and literal assignments and trips no hazard denylist
+  entry; anything else needs the constant listed in `c.whole_file` (the
+  existing whole-file opt-in) or the literal moved into its own file.
+  Constants whose only reads capture the value at load time elsewhere -
+  including a capture inside a boot-time block - are dropped with a
+  diagnostic. Spec files count as consumers: the coverage map records spec
+  line hits, directory test paths and the default spec tree feed the
+  consumer scan, `element_removal` honors the arid policy, arid patterns
+  screen constant entries too, and constant mutation respects `c.sources`
+  (no `builtin`, no constant mutants) (#306, #319).
+- Constant replay hardening from the #319 lens review: `require` and
+  `require_relative` count as vetted load code only with a plain
+  literal-string argument and no block, so `require(build_path)` no longer
+  reruns helper code on every mutant; rooted constant writes (`::RULES`,
+  `::Shop::RULES`) share one identity with the bare write, and an
+  unrooted qualified write (`Shop::RULES`) resolves through the lexical
+  scope, so it demotes every literal on its scope chain it may overwrite
+  (`Shop::RULES` inside `module Outer; module Shop` overwrites
+  `Outer::Shop::RULES`); either way a re-assigning write demotes the
+  first literal to unsupported instead of leaving it scored; the --all consumer scan reads
+  the configured integration's loaded spec files instead of guessing the
+  conventional spec tree; and an arid pattern that cannot judge an entry's
+  bytes (binary source against a UTF-8 pattern) keeps the mutant instead
+  of raising (#319).
 - Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
   when the cache dir is read-only, is occupied by a regular file, or holds an
   unwritable baseline log (#251).

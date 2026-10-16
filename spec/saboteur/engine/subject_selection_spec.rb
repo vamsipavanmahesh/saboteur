@@ -20,9 +20,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     File.join(@root, name).tap { |path| File.write(path, text) }
   end
 
-  def select(files, **settings)
+  def select(files, test_files: nil, **settings)
     config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: @root)
-    described_class.new(config, diagnostics).select(files)
+    described_class.new(config, diagnostics, test_files: test_files).select(files)
   end
 
   it "registers inline suppressions and warns with the parser's message for a broken file" do
@@ -113,7 +113,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       File.write(file, two_methods.sub("1 + 1", "1+1 # one").sub("    2\n", "\n    2\n"))
 
       expect(select([file], since: "HEAD")).to be_empty
-      expect(err.string).to eq("saboteur: 2 changed method(s) differ only in comments or formatting, " \
+      expect(err.string).to eq("saboteur: 2 changed subject(s) differ only in comments or formatting, " \
                                "so they are skipped: Cart#total, Cart#count\n")
     end
 
@@ -122,7 +122,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       File.write(file, two_methods.sub("1 + 1", "1 + 2").sub("    2\n", "    2 # two\n"))
 
       expect(select([file], since: "HEAD").map(&:id)).to eq(["Cart#total"])
-      expect(err.string).to include("1 changed method(s) differ only in comments or formatting, so they are " \
+      expect(err.string).to include("1 changed subject(s) differ only in comments or formatting, so they are " \
                                     "skipped: Cart#count")
     end
 
@@ -140,7 +140,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
     it "names five and then an ellipsis when more were skipped" do
       expect(commented_methods(6)).to be_empty
-      expect(err.string).to include("6 changed method(s)").and end_with("Cart#m4, Cart#m5, ...\n")
+      expect(err.string).to include("6 changed subject(s)").and end_with("Cart#m4, Cart#m5, ...\n")
     end
 
     it "scopes the diff to the selected files and reports through the run diagnostics" do
@@ -342,9 +342,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     end
 
     it "warns when the changed lines sit outside every method" do
-      file = write("cart.rb", "class Cart\n  KIND = :cart\n\n  def total = 1\nend\n")
+      file = write("cart.rb", "class Cart\n  register :cart\n\n  def total = 1\nend\n")
       commit_all
-      File.write(file, "class Cart\n  KIND = :shop\n\n  def total = 1\nend\n")
+      File.write(file, "class Cart\n  register :shop\n\n  def total = 1\nend\n")
 
       expect(select([file], since: "HEAD")).to be_empty
       expect(diagnostics.warnings.size).to eq(1)
@@ -378,7 +378,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     it "warns for an untracked file whose lines cover no subject (#295)" do
       committed = write("old.rb", "class Old\n  def x = 1\nend\n")
       commit_all
-      fresh = write("fresh.rb", "KIND = :none\n")
+      fresh = write("fresh.rb", "register :none\n")
       expect(select([committed, fresh], since: "HEAD")).to be_empty
       expect(diagnostics.warnings.size).to eq(1)
       expect(diagnostics.warnings.first).to include("--since: 1 changed Ruby file(s) have no subjects")
@@ -393,16 +393,20 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       File.write(note, "class Note\n  KIND = :memo\n\n  def text = \"n\"\nend\n")
 
       expect(select([cart, note], since: "HEAD").map(&:id)).to eq(["Shop::Cart#total"])
-      expect(diagnostics.warnings.size).to eq(1)
-      expect(diagnostics.warnings.first).to include("1 changed Ruby file(s)").and include("note.rb")
+      expect(diagnostics.warnings.size).to eq(2)
+      expect(diagnostics.warnings.first).to include("changed constant Note::KIND in note.rb")
       expect(diagnostics.warnings.first).not_to include("cart.rb")
+      # The umbrella warning (#232) still stands: nothing was mutated from
+      # note.rb. The specific diagnostic above it says why.
+      expect(diagnostics.warnings.last).to include("1 changed Ruby file(s) have no subjects", "note.rb")
+      expect(diagnostics.warnings.last).not_to include("cart.rb")
     end
 
     it "names at most five subjectless files, with an ellipsis for the rest" do
-      files = (1..6).map { |n| write("f#{n}.rb", "class F#{n}\n  KIND = :a\n\n  def x = 1\nend\n") }
+      files = (1..6).map { |n| write("f#{n}.rb", "class F#{n}\n  register :a\n\n  def x = 1\nend\n") }
       commit_all
       files.each_with_index do |file, n|
-        File.write(file, "class F#{n + 1}\n  KIND = :b\n\n  def x = 1\nend\n")
+        File.write(file, "class F#{n + 1}\n  register :b\n\n  def x = 1\nend\n")
       end
 
       expect(select(files, since: "HEAD")).to be_empty
@@ -414,10 +418,10 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     end
 
     it "lists five subjectless files in full, without an ellipsis" do
-      files = (1..5).map { |n| write("g#{n}.rb", "class G#{n}\n  KIND = :a\n\n  def x = 1\nend\n") }
+      files = (1..5).map { |n| write("g#{n}.rb", "class G#{n}\n  register :a\n\n  def x = 1\nend\n") }
       commit_all
       files.each_with_index do |file, n|
-        File.write(file, "class G#{n + 1}\n  KIND = :b\n\n  def x = 1\nend\n")
+        File.write(file, "class G#{n + 1}\n  register :b\n\n  def x = 1\nend\n")
       end
 
       expect(select(files, since: "HEAD")).to be_empty
@@ -458,5 +462,422 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       two = write("two.rb", "class Two\n  def m = 1\n  def n = 2\nend\n")
       expect(described_class.files_matching(@root, [two], ["Two#m"])).to eq(["two.rb"])
     end
+  end
+end
+
+RSpec.describe Saboteur::Engine::SubjectSelection, "constant literals in --since mode (issue #306)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:err) { StringIO.new }
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
+  let(:base) do
+    "module Shop\n  RULES = {\n    city: \"required\"\n  }.freeze\n\n  def self.rule_for(f) = RULES.fetch(f)\nend\n"
+  end
+
+  def select(files, **settings)
+    config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: @root)
+    described_class.new(config, diagnostics).select(files)
+  end
+
+  def commit_base(text, name = "rules.rb")
+    file = File.join(@root, name)
+    File.write(file, text)
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    file
+  end
+
+  it "selects a constant hash whose entries changed, alongside no method" do
+    file = commit_base(base)
+    File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
+
+    expect(select([file], since: "HEAD").map(&:id)).to eq(["Shop::RULES"])
+  end
+
+  it "skips a constant whose only change is a comment, like a method" do
+    file = commit_base(base)
+    File.write(file, base.sub("city: \"required\"", "city: \"required\" # must"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    expect(err.string).to include("1 changed subject(s) differ only in comments or formatting")
+  end
+
+  it "narrows constant subjects to --subject patterns by their Klass::CONST id" do
+    file = commit_base(base)
+    File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
+
+    expect(select([file], since: "HEAD", subjects: ["Shop::RULES"]).map(&:id)).to eq(["Shop::RULES"])
+    expect(select([file], since: "HEAD", subjects: ["Shop.rule_for"])).to be_empty
+  end
+
+  it "attaches consumer lines across files to the surviving constants" do
+    file = commit_base(base)
+    consumer = File.join(@root, "cart.rb")
+    File.write(consumer, "module Shop\n  class Cart\n    def rules = RULES\n  end\nend\n")
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "add", ".", chdir: @root)
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "cart",
+                   chdir: @root)
+    File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
+
+    subject = select([file, consumer], since: "HEAD").first
+    expect(subject.consumer_lines).to eq({ file => [7], consumer => [3] })
+  end
+
+  it "explains an unsupported changed constant, then the umbrella no-subjects warning (#232, #306)" do
+    file = commit_base("module Shop\n  RULES = build_rules\nend\n")
+    File.write(file, File.read(file).sub("build_rules", "build_more_rules"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    expect(diagnostics.warnings.size).to eq(2)
+    expect(diagnostics.warnings.first).to include("changed constant Shop::RULES", "not a hash or array literal")
+    expect(diagnostics.warnings.last).to include("1 changed Ruby file(s) have no subjects", "rules.rb")
+  end
+
+  it "does not pick up constants outside --since mode" do
+    file = commit_base(base)
+    expect(select([file]).map(&:id)).to eq(["Shop.rule_for"])
+  end
+end
+
+RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observability (#319)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:err) { StringIO.new }
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
+
+  def select(files, test_files: nil, **settings)
+    config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: @root)
+    described_class.new(config, diagnostics, test_files: test_files).select(files)
+  end
+
+  def commit_base(name, text)
+    file = File.join(@root, name)
+    File.write(file, text)
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    file
+  end
+
+  it "skips constants in a file that runs denylisted code at load, with a way out" do
+    file = commit_base("rules.rb", "FileUtils.rm_rf(\"/tmp/x\")\nRULES = {\n  a: 1\n}.freeze\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    expect(diagnostics.warnings.join).to include("FileUtils.rm_rf(\"/tmp/x\")", "c.whole_file",
+                                                 "move the literal into its own file")
+  end
+
+  # The denylist is not the boundary: a top-level helper call, a
+  # registration or a write to disk passes DEFAULT_HAZARD yet still runs
+  # again on every replay. Any unvetted load-time code skips the file's
+  # constants (#319).
+  it "skips constants when the file runs unvetted code at load, denylist or not" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nRegistry.register(RULES)\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
+  end
+
+  it "admits a skipped constant through the whole_file opt-in" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nvalidate!(RULES)\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD").map(&:id)).to eq([])
+    expect(select([file], since: "HEAD", whole_file: ["RULES"]).map(&:id)).to eq(["RULES"])
+  end
+
+  it "replays a file whose load-time code is only requires, defs and literal assignments" do
+    file = commit_base("rules.rb",
+                       "require \"json\"\nRULES = {\n  a: 1\n}.freeze\ndef rule_for(k) = RULES[k]\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD").map(&:id)).to eq(["RULES"])
+  end
+
+  it "skips a constant whose only reads capture the value at load time elsewhere" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    copy = File.join(@root, "copy.rb")
+    File.write(copy, "COPY = RULES\n")
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "add", ".", chdir: @root)
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "c",
+                   chdir: @root)
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file, copy], since: "HEAD")).to be_empty
+    expect(diagnostics.warnings.join).to include("--since: changed constant RULES in rules.rb is not " \
+                                                 "mutated: its only",
+                                                 "capture the value at load time",
+                                                 "observe a change to it")
+  end
+
+  it "treats a boot-time block capture like a plain load capture (#319)" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    copy = File.join(@root, "copy.rb")
+    File.write(copy, "1.times { COPY = RULES }\n")
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "add", ".", chdir: @root)
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "c",
+                   chdir: @root)
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file, copy], since: "HEAD")).to be_empty
+    expect(diagnostics.warnings.join).to include("RULES in rules.rb", "capture the value at load time",
+                                                 "observe a change to it")
+  end
+
+  it "scans the integration's loaded spec files in the --all case, not only the conventional tree" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    suite = File.join(@root, "custom_suite", "rules_spec.rb")
+    FileUtils.mkdir_p(File.dirname(suite))
+    File.write(suite, "RSpec.describe(\"RULES\") { it(\"reads\") { expect(RULES[:a]).to eq(1) } }\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    # The conventional spec tree holds nothing, so the guess alone never
+    # finds the consumer; the configured integration's files do.
+    expect(select([file], since: "HEAD").first.consumer_lines).to eq({})
+    subject = select([file], since: "HEAD", test_files: [File.realpath(suite)]).first
+    expect(subject.consumer_lines[File.realpath(suite)]).to eq([1])
+  end
+
+  it "expands directory test paths and the default spec tree for the consumer scan (#319)" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    spec = File.join(@root, "spec", "rules_spec.rb")
+    FileUtils.mkdir_p(File.dirname(spec))
+    File.write(spec, "RSpec.describe(\"RULES\") { it(\"reads\") { expect(RULES[:a]).to eq(1) } }\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    by_dir = select([file], since: "HEAD", tests: ["spec"]).first
+    expect(by_dir.consumer_lines[File.realpath(spec)]).to eq([1])
+    by_default = select([file], since: "HEAD").first
+    expect(by_default.consumer_lines[File.realpath(spec)]).to eq([1])
+  end
+
+  it "counts spec files as consumers: a spec reading the constant covers the mutant" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    spec = File.join(@root, "spec", "rules_spec.rb")
+    FileUtils.mkdir_p(File.dirname(spec))
+    File.write(spec, <<~RUBY)
+      require_relative "../rules"
+      RSpec.describe("RULES") { it("reads") { expect(RULES[:a]).to eq(1) } }
+    RUBY
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    subject = select([file], since: "HEAD", tests: ["spec/rules_spec.rb"]).first
+    expect(subject.consumer_lines[File.realpath(spec)]).to eq([2])
+  end
+
+  it "ignores reads shadowed by an inner scope's own constant" do
+    file = commit_base("rules.rb", <<~RUBY)
+      module Shop
+        RULES = {
+          a: 1
+        }.freeze
+
+        def self.rule_for(f) = RULES.fetch(f)
+      end
+    RUBY
+    consumer = File.join(@root, "inner.rb")
+    File.write(consumer, "module Shop\n  class Inner\n    RULES = { b: 2 }.freeze\n\n    def own = RULES\n  end\nend\n")
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "add", ".", chdir: @root)
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "c",
+                   chdir: @root)
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n    b: 2"))
+
+    subject = select([file, consumer], since: "HEAD").first
+    expect(subject.consumer_lines.keys).to eq([file])
+  end
+
+  it "files_matching finds a file holding only the named constant" do
+    file = File.join(@root, "rules.rb")
+    File.write(file, "RULES = { a: 1 }.freeze\n")
+    found = described_class.files_matching(@root, [file], ["RULES"], { "since" => "HEAD" })
+    expect(found).to eq(["rules.rb"])
+    expect(described_class.files_matching(@root, [file], ["RULES"])).to be_empty
+  end
+end
+
+RSpec.describe Saboteur::Engine::SubjectSelection, "constant selection edges (#319 dogfood)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:err) { StringIO.new }
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
+
+  def select(files, **settings)
+    config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: @root)
+    described_class.new(config, diagnostics).select(files)
+  end
+
+  def commit_base(name, text)
+    file = File.join(@root, name)
+    File.write(file, text)
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    file
+  end
+
+  def commit_all
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "add", ".", chdir: @root)
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "more",
+                   chdir: @root)
+  end
+
+  def change_rules(file)
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+  end
+
+  it "files_matching matches when one constant of several matches one pattern of several" do
+    file = File.join(@root, "rules.rb")
+    File.write(file, "RULES = { a: 1 }.freeze\nOTHER = { b: 2 }.freeze\n")
+    found = described_class.files_matching(@root, [file], %w[Nope RULES], { "since" => "HEAD" })
+    expect(found).to eq(["rules.rb"])
+  end
+
+  it "files_matching skips a file whose constants all miss the patterns" do
+    file = File.join(@root, "rules.rb")
+    File.write(file, "RULES = { a: 1 }.freeze\nOTHER = { b: 2 }.freeze\n")
+    found = described_class.files_matching(@root, [file], %w[Nope Nah], { "since" => "HEAD" })
+    expect(found).to be_empty
+  end
+
+  it "ignores a changed non-Ruby file even when its text parses as a constant" do
+    commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    notes = File.join(@root, "notes.md")
+    File.write(notes, "RULES = { a: 1 }.freeze\n")
+
+    expect(select([notes], since: "HEAD")).to be_empty
+  end
+
+  it "does not warn about an unsupported constant the diff did not touch" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nOTHER = build_other\n")
+    change_rules(file)
+
+    select([file], since: "HEAD")
+    expect(diagnostics.warnings.grep(/changed constant/)).to be_empty
+  end
+
+  it "admits opted-in constants without the load-code warning" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nvalidate!(RULES)\n")
+    change_rules(file)
+
+    expect(select([file], since: "HEAD", whole_file: ["RULES"]).map(&:id)).to eq(["RULES"])
+    expect(diagnostics.warnings.grep(/not mutated/)).to be_empty
+  end
+
+  it "applies the configured hazard list to load-time vetting" do
+    file = commit_base("rules.rb", "require \"json\"\nRULES = {\n  a: 1\n}.freeze\n")
+    change_rules(file)
+
+    expect(select([file], since: "HEAD", hazard: ["require"]).map(&:id)).to eq([])
+    expect(diagnostics.warnings.join).to include("require")
+  end
+
+  it "names the first two load-time reasons, joined, in the skip warning" do
+    file = commit_base("rules.rb",
+                       "FileUtils.rm_rf(\"/tmp/x\")\nFileUtils.mkdir_p(\"/tmp/y\")\nsystem(\"ls\")\n" \
+                       "RULES = {\n  a: 1\n}.freeze\n")
+    change_rules(file)
+
+    expect(select([file], since: "HEAD")).to be_empty
+    # Hazard-denylist entries surface ahead of merely unvetted code, and
+    # the warning lists at most two reasons; the third stays unnamed.
+    expect(diagnostics.warnings.join).to include("system(\"ls\"), FileUtils.rm_rf(\"/tmp/x\")",
+                                                 "in rules.rb are not mutated",
+                                                 "at load (",
+                                                 "that every constant mutant would run again",
+                                                 "cannot vet what re-running it does",
+                                                 "c.whole_file to replay the file anyway",
+                                                 "move the literal into its own file")
+    expect(diagnostics.warnings.join).not_to include("mkdir_p")
+  end
+
+  it "names the file of an unsupported changed constant in the warning" do
+    file = commit_base("rules.rb", "RULES = build_rules\n")
+    File.write(file, "RULES = build_more_rules\n")
+
+    expect(select([file], since: "HEAD")).to be_empty
+    expect(diagnostics.warnings.first).to include("changed constant RULES in rules.rb is not mutated",
+                                                  ". Only hash and array literal entries are mutated")
+  end
+
+  it "keeps a constant read at runtime even when another file captures it at load" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    runtime = File.join(@root, "user.rb")
+    File.write(runtime, "def current = RULES\n")
+    copy = File.join(@root, "copy.rb")
+    File.write(copy, "COPY = RULES\n")
+    commit_all
+    change_rules(file)
+
+    subject = select([file, runtime, copy], since: "HEAD").first
+    expect(subject).not_to be_nil
+    expect(subject.consumer_lines).to eq(runtime => [1])
+    expect(subject.consumer_defs).to eq(runtime => [1], copy => [])
+  end
+
+  it "keeps a constant observed by a load read in its own file" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nCOPY = RULES\n")
+    change_rules(file)
+
+    subject = select([file], since: "HEAD", whole_file: ["RULES"]).first
+    expect(subject).not_to be_nil
+    expect(subject.consumer_lines).to eq(file => [5])
+  end
+
+  it "uses only the configured tests, not the default spec tree" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    default_spec = File.join(@root, "spec", "rules_spec.rb")
+    other_spec = File.join(@root, "other", "rules_spec.rb")
+    [default_spec, other_spec].each do |spec|
+      FileUtils.mkdir_p(File.dirname(spec))
+      File.write(spec, "RSpec.describe(\"x\") { it { RULES } }\n")
+    end
+    change_rules(file)
+
+    subject = select([file], since: "HEAD", tests: ["other"]).first
+    expect(subject.consumer_lines.keys).to eq([File.realpath(other_spec)])
+  end
+
+  it "expands the default spec tree recursively and no other directory" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    deep_spec = File.join(@root, "spec", "deep", "rules_spec.rb")
+    stray_spec = File.join(@root, "other", "rules_spec.rb")
+    [deep_spec, stray_spec].each do |spec|
+      FileUtils.mkdir_p(File.dirname(spec))
+      File.write(spec, "RSpec.describe(\"x\") { it { RULES } }\n")
+    end
+    change_rules(file)
+
+    subject = select([file], since: "HEAD").first
+    expect(subject.consumer_lines.keys).to eq([File.realpath(deep_spec)])
+  end
+
+  it "ignores test entries that are not existing Ruby files" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    notes = File.join(@root, "notes.txt")
+    File.write(notes, "RULES\n")
+    change_rules(file)
+
+    subject = select([file], since: "HEAD", tests: ["notes.txt", "missing.rb"]).first
+    expect(subject).not_to be_nil
+    expect(subject.consumer_lines).to eq({})
+    expect(diagnostics.warnings.grep(/load time/)).to be_empty
   end
 end

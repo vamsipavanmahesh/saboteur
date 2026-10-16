@@ -39,6 +39,8 @@ module Saboteur
       end
 
       def tests_for(subject)
+        return tests_for_constant(subject) if subject.is_a?(ConstantSubject)
+
         tests = tests_for_lines(subject.file, subject.coverage_lines)
         return tests unless tests.empty?
 
@@ -48,6 +50,19 @@ module Saboteur
         span = subject.start_line..subject.end_line
         ids = by_method.flat_map { |line, method_ids| span.cover?(line) ? method_ids : [] }.uniq
         sort_test_ids(ids)
+      end
+
+      # A constant is observable wherever it is read: the tests that ran
+      # any read of it, across every file the consumer scan found (#306).
+      # A read inside an endless def has no line coverage, so its def's
+      # per-test method-call counter stands in (#319).
+      def tests_for_constant(subject)
+        ids = subject.consumer_lines.flat_map { |file, lines| tests_for_lines(file, lines) }
+        ids += subject.consumer_defs.flat_map do |file, def_lines|
+          by_method = methods[CoverageMap.canonical(file)]
+          by_method ? def_lines.flat_map { |line| by_method.fetch(line, []) } : []
+        end
+        sort_test_ids(ids.uniq)
       end
 
       # Attach the parent's boot counters without losing the child's method coverage.
@@ -69,6 +84,11 @@ module Saboteur
       # "no coverage" skip, but a subject whose lines never record at all
       # (an endless def) falls back to its method coverage (issue #107).
       def tests_for_edit(subject, line_numbers)
+        # An edit to a constant literal is observable at every read of the
+        # constant, not on the literal's own (load-time) lines: narrowing
+        # by edit lines is meaningless (#306).
+        return tests_for(subject) if subject.is_a?(ConstantSubject)
+
         tests = tests_for_lines(subject.file, line_numbers)
         return tests unless tests.empty?
         return [] unless tests_for_lines(subject.file, subject.coverage_lines).empty?
@@ -98,6 +118,17 @@ module Saboteur
       # evidence is valid, even though it supplies no judged mutation score.
       def empty?
         [lines, methods, load_lines].all? { |hits| hits.none? { |_file, values| values.any? } }
+      end
+
+      # True when none of these files recorded a line hit, a method call, or
+      # a load-time hit. The recorder's map also holds the suite's spec
+      # files, so whole-map emptiness cannot tell a build that recorded test
+      # code only while the included files stayed dark.
+      def empty_for?(files)
+        wanted = files.map { |file| CoverageMap.canonical(file) }
+        [lines, methods, load_lines].all? do |hits|
+          wanted.none? { |file| hits[file]&.any? }
+        end
       end
 
       # Tests that executed any of the lines, fastest first (suite order breaks

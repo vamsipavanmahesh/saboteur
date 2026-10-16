@@ -8,6 +8,7 @@ require_relative "literal_replacement"
 require_relative "argument_removal"
 require_relative "chain_removal"
 require_relative "pair_removal"
+require_relative "element_removal"
 require_relative "endpoint_replacement"
 require_relative "operator_registry"
 require_relative "range_replacement"
@@ -64,6 +65,7 @@ module Saboteur
         @literal_replacement = LiteralReplacement.new(arid: arid)
         @argument_removal = ArgumentRemoval.new(arid: arid)
         @pair_removal = PairRemoval.new(arid: arid)
+        @element_removal = ElementRemoval.new(arid: arid)
         @chain_removal = ChainRemoval.new(arid: arid)
         @endpoint_replacement = EndpointReplacement.new(arid: arid)
         @range_replacement = RangeReplacement.new(arid: arid)
@@ -93,7 +95,8 @@ module Saboteur
       # The single-purpose sources run after the shared walk, in registration
       # order; each filters its own operator through the same policy below.
       def delegated
-        [@filter_replacement, @literal_replacement, @argument_removal, @pair_removal, @chain_removal,
+        [@filter_replacement, @literal_replacement, @argument_removal, @pair_removal, @element_removal,
+         @chain_removal,
          @endpoint_replacement, @range_replacement, @operator_assignment, @condition_negation,
          @method_swap, @operand_replacement, @interpolation_removal]
       end

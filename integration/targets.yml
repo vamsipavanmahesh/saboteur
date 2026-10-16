@@ -15,12 +15,16 @@ dry-inflector:
   config: integration/configs/dry_inflector.rb
   schedule: pr
   expect:
-    # class_eval: re-measured after #237/#238's default-on operators added
-    # mutants (was killed 555, survived 23).
-    class_eval: { killed: 578, survived: 24, timeout: 0, error: 10, skipped: 0 }
-    # nesting: re-measured after #237/#238's default-on operators added
-    # mutants (was killed 564, survived 24).
-    nesting: { killed: 587, survived: 25, timeout: 0, error: 0, skipped: 0 }
+    # class_eval: re-measured after element_removal went default-on (#306):
+    # +23 killed, +5 survived (was killed 578, survived 24). The 10 errors
+    # are pre-existing class_eval strategy losses (NameError on the Rules
+    # constant, pinned since before #294), unchanged by the new operator.
+    class_eval: { killed: 601, survived: 29, timeout: 0, error: 10, skipped: 0 }
+    # nesting: re-measured after element_removal went default-on (#306):
+    # +23 killed, +5 survived (was killed 587, survived 25). The survivors
+    # are element_removal removals of uncountable/acronym entries the
+    # target's specs never assert (Swiss, series, jeans, CSV, DB).
+    nesting: { killed: 610, survived: 30, timeout: 0, error: 0, skipped: 0 }
 tty-color:
   repo: https://github.com/piotrmurach/tty-color.git
   commit: e2410967c13e0d3e2297456db22495cb246b22f5

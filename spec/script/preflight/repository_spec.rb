@@ -3,6 +3,49 @@
 
 require_relative "support"
 
+RSpec.describe Preflight::Repository, "git child failures", :fixture do
+  def failed_result(signal: nil, spawn_error: nil, exit_status: nil, stderr: "")
+    Preflight::CommandResult.new(argv: [], directory: ".", exit_status: exit_status, signal: signal,
+                                 spawn_error: spawn_error, stdout: "", stderr: stderr,
+                                 timed_out: false, truncated: false)
+  end
+
+  def capture_with(responder)
+    runner = PreflightSupport::ScriptedRunner.new(&responder)
+    repository = described_class.new(command_runner: runner, options: @fixture.options(base: @base),
+                                     directory: @fixture.directory)
+    [repository, runner]
+  end
+
+  # A git child that dies by a signal (macOS kills a forked child pre-exec
+  # under memory pressure) never ran git: retrying the read is safe.
+  it "retries once when the git child dies by signal, then reads" do
+    attempts = 0
+    repository, runner = capture_with(lambda do |_argv|
+      attempts += 1
+      failed_result(signal: 6) if attempts == 1
+    end)
+    expect(repository.send(:capture!, %w[ls-files])).to eq("")
+    expect(runner.calls.size).to eq(2)
+  end
+
+  # The old message lost CommandResult#problem and printed an empty detail.
+  it "names the cause when both attempts die without git's own words" do
+    repository, = capture_with(->(_argv) { failed_result(signal: 6) })
+    expect { repository.send(:capture!, %w[ls-files]) }
+      .to raise_error(Preflight::UnverifiableInput, /git ls-files failed: killed by signal 6/)
+  end
+
+  # A git that ran and reported its own failure is a real input problem:
+  # raise its words at once, never retry.
+  it "does not retry a failure git reported itself" do
+    repository, runner = capture_with(->(_argv) { failed_result(exit_status: 128, stderr: "fatal: bad revision") })
+    expect { repository.send(:capture!, %w[ls-files]) }
+      .to raise_error(Preflight::UnverifiableInput, /git ls-files failed: fatal: bad revision/)
+    expect(runner.calls.size).to eq(1)
+  end
+end
+
 RSpec.describe Preflight::Repository, :fixture do
   let(:base) { @base }
 

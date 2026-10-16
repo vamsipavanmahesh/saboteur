@@ -39,6 +39,10 @@ RSpec.describe Saboteur::MutationSource::PairRemoval do
     end
   end
 
+  it "anchors the separator on the last positional argument, not an earlier one" do
+    expect(texts("model.call(:a, :b, :c, d: 1)")).to eq(["def apply(model)\n    model.call(:a, :b, :c )\n  end"])
+  end
+
   it "keeps separators valid in hashes and unparenthesized keyword calls" do
     ["{a: 1, b: 2,}", "{a: 1,}", "model.call :a, b: 1, c: 2", "model.call(a: 1, b: 2, &model)",
      "model.call(:a, c: :d)", "model.call :a, c: :d", "model.call(c: :d)",

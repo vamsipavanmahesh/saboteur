@@ -472,4 +472,164 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Config#with",
              reason: "equivalent: initialize rejects non-string keys as unknown before the explicit list matters, " \
                      "and map(&:to_s) is the identity on the string keys that remain"
+
+  i.mutation "0ab690443fd67fb4",
+             subject: "Saboteur::ConstantReads#walk_children",
+             reason: "equivalent: the block's walk side effects populate out and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "aa7965c00918546f",
+             subject: "Saboteur::ConstantReads#record",
+             reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
+
+  i.mutation "4d7c1f3822b15d79",
+             subject: "Saboteur::ConstantReads#walk",
+             reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
+
+  i.mutation "b73c3bede9feae2f",
+             subject: "Saboteur::ConstantReads#walk",
+             reason: "equivalent: record checks in_def first, so for a def body the in_block flag never changes the outcome"
+
+  i.mutation "5a498fc9faa8ba0e",
+             subject: "Saboteur::ConstantReads#mentions?",
+             reason: "equivalent: a wrongly-true mention only leads to a parse that finds no occurrence of the constant and records nothing, as the skip does"
+
+  i.mutation "45d8896875d52512",
+             subject: "Saboteur::ConstantSubjectFinder#reject_duplicates",
+             reason: "equivalent: the block's writes counting side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "7f9c62be259a51ad",
+             subject: "Saboteur::ConstantSubjectFinder#reject_duplicates",
+             reason: "equivalent: the counts come from entries seen at least once, so > 1 and != 1 agree"
+
+  i.mutation "d72efef2cacefa2c",
+             subject: "Saboteur::ConstantSubjectFinder#reject_duplicates",
+             reason: "equivalent: with no duplicates the skipped body subtracts and walks an empty list, both no-ops"
+
+  i.mutation "300d6d1a7a7ac55b",
+             subject: "Saboteur::ConstantSubjectFinder#reject_duplicates",
+             reason: "equivalent: the block's out[:unsupported] << side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "da068d30705a7fe1",
+             subject: "Saboteur::ConstantSubjectFinder#walk_children",
+             reason: "equivalent: the block's walk side effects populate out and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "03e1a219a69218ad",
+             subject: "Saboteur::ConstantSubjectFinder#literal_value",
+             reason: "equivalent: the extra step ends with value nil, and nil fails the HashNode/ArrayNode check just like the bare freeze call the loop would stop at"
+
+  i.mutation "296e509071af2397",
+             subject: "Saboteur::ConstantSubjectFinder#walk_factory",
+             reason: "equivalent: the block's walk side effects populate out and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "2ab9b5df9bbd2436",
+             subject: "Saboteur::Engine::SubjectSelection#constant_subjects",
+             reason: "equivalent: the block's subjects.concat side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "145023bdef6a8b5d",
+             subject: "Saboteur::Engine::SubjectSelection#constant_subjects",
+             reason: "equivalent: the block's warning side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "aca095f3c907a02e",
+             subject: "Saboteur::Engine::SubjectSelection#attach_consumers",
+             reason: "equivalent: the consumer_lines.empty? guard leaves only files whose reads all capture the value at load time, so any? and all? agree"
+
+  i.mutation "d8b074df4d7df5c4",
+             subject: "Saboteur::MutationSource::ConstantLiterals#initialize",
+             reason: "equivalent: the Base initializer is stateless, so skipping it changes nothing"
+
+  i.mutation "5c1090492053dc7a",
+             subject: "Saboteur::MutationSource::ElementRemoval#visit",
+             reason: "equivalent: the block's recording side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "e796c70885a9e545",
+             subject: "Saboteur::MutationSource::ElementRemoval#visit",
+             reason: "equivalent: the block's recording side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "21d74aaa5ab4c0f5",
+             subject: "Saboteur::MutationSource::ElementRemoval#ending_for",
+             reason: "equivalent: the closing bracket is never a separator comma, so ending at its start offset or the node's end offset finds the same separator"
+
+  i.mutation "6412cfb15a08ea8a",
+             subject: "Saboteur::MutationSource::ElementRemoval#ending_for",
+             reason: "equivalent: a parsed literal always has a closing bracket, so the end_offset fallback is never taken"
+
+  i.mutation "738912760a748098",
+             subject: "Saboteur::MutationSource::ElementRemoval#ending_for",
+             reason: "equivalent: a parsed literal always has a closing bracket, so &. and . agree"
+
+  i.mutation "ad875ad601877dde",
+             subject: "Saboteur::MutationSource::ElementRemoval#ending_for",
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - operand_replacement.rb:39-40 already calls " \
+                      "Node#end_offset directly): the location hop calls the same method"
+
+  i.mutation "c03dc4c84077f549",
+             subject: "Saboteur::MutationSource::EntryEdits#heredoc?",
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - builtin.rb and the arid checks already call " \
+                      "Node#slice directly): a heredoc node's own slice starts at its << opening and no other node with an opening_loc " \
+                      "starts with <<, so node.slice answers the same"
+
+  i.mutation "692c8de64cb30812",
+             subject: "Saboteur::MutationSource::EntryEdits#entry_separator",
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - operand_replacement.rb:39-40 already calls " \
+                      "Node#end_offset directly): the location hop calls the same method"
+
+  i.mutation "40b72924a9ba07d3",
+             subject: "Saboteur::MutationSource::EntryEdits#entry_separator",
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - operand_replacement.rb:39-40 already calls " \
+                      "Node#end_offset directly): the location hop calls the same method"
+
+  i.mutation "7c24d6a420d69ea0",
+             subject: "Saboteur::MutationSource::EntryEdits#entry_separator",
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - operand_replacement.rb:39 already calls " \
+                      "Node#start_offset directly): the location hop calls the same method"
+
+  i.mutation "c86d5a883ca1fd49",
+             subject: "Saboteur::MutationSource::HazardGuard#vet_statements",
+             reason: "equivalent: the block's vet_statement side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+  # Over-matching a duplicate only demotes both writes, and a local assigned
+  # in any branch is nil in the others: owner reads nil either way.
+  i.mutation "c239b7bcac4b5ae4",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: owner is assigned in the if branch, so Ruby defines it as nil on the else path; the " \
+                     "explicit owner = nil is documentation"
+  # A vetted require takes exactly one argument, so first and last are the
+  # same element whenever the length check passes; otherwise the
+  # conjunction short-circuits before either is read.
+  i.mutation "602ff9565dc30342",
+             subject: "Saboteur::MutationSource::HazardGuard#vetted_call?",
+             reason: "equivalent: arguments.length == 1 short-circuits the conjunction, and with one argument first and last are the same node"
+end
+
+Saboteur.ignore do |i|
+  i.mutation "dab679873934108d",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: the owner local is parser-defined and already nil on the qualified-target branch, so dropping the assignment changes nothing"
+
+  i.mutation "c3fab7a3832bbf23",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: downto(1) drops only the bare-name candidate, which always equals the write's own id that reject_duplicates already demotes"
+
+  i.mutation "cd60f2f7ae856c4c",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: the extra depth -1 slice is nesting[0...-1], always a duplicate of an already-collected prefix candidate"
+
+  i.mutation "7c9542268eff48fe",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: forcing the ternary only alters the nil-prefix candidate into a leading-:: id no subject can have, and that candidate is duplicates-covered"
+
+  i.mutation "c42a64a08dcf8e04",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: a path write's source begins with its target, so node.slice and node.target.slice agree on the leading :: check"
+
+  i.mutation "43da3e6c86de404d",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: the inclusive range only lengthens each prefix, producing the same candidate set minus the duplicates-covered bare-name candidate"
+
+  i.mutation "228bba63e879c4f6",
+             subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
+             reason: "equivalent: with an empty ambiguous list the demotion below selects nothing and is a no-op, so the guard's value never matters"
+
+  i.mutation "71f06a1870dbfcb4",
+             subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
+             reason: "equivalent: the loop's Unsupported-building side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
 end

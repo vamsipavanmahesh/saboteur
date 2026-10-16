@@ -58,6 +58,16 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect([result.unmatched, result.changed]).to eq([[], 4])
   end
 
+  it "requires a spec for a file whose changed lines touch a constant literal (#306)" do
+    write("lib/rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "rules")
+    write("lib/rules.rb", "RULES = {\n  a: 1,\n  b: 2\n}.freeze\n")
+
+    result = guess
+    expect(result.unmatched).to eq(["lib/rules.rb"])
+  end
+
   it "names the changed files that have no spec" do
     write("lib/a.rb", changed_source)
     write("lib/c.rb", changed_source)

@@ -15,7 +15,7 @@ module Saboteur
         begin
           integration, files, load_lines = boot_target(boot)
           @rails = boot.rails
-          subjects, scope = select_subjects(files)
+          subjects, scope = select_subjects(files, test_files: integration.test_files)
           results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, ignore_list, load_lines:)
           @diagnostics.warnings.concat(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
           build_report(results, subjects, scope, started)

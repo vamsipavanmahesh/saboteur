@@ -24,6 +24,7 @@ module Saboteur
         "literal_boolean" => "true -> false",
         "argument_removal" => "send(a, b) -> send(a)",
         "pair_removal" => "{a: 1, b: 2} -> {b: 2}",
+        "element_removal" => "TAGS = [a, b] -> TAGS = [b]",
         "endpoint_replacement" => "xs.first -> xs.last",
         "chain_removal" => "x.first.to_s -> x.to_s",
         "range" => "1..3 -> 1...3",

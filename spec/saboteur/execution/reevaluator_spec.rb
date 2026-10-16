@@ -267,3 +267,11 @@ RSpec.describe Saboteur::Execution::Reevaluator do
     end
   end
 end
+
+RSpec.describe Saboteur::Execution::Reevaluator, "whole_file_only? subjects (issue #306)" do
+  it "evaluates a whole_file_only? subject as a whole file even without a whole_file entry" do
+    subject = subjects_in("class K\n  def m = 1\nend\n").first
+    allow(subject).to receive(:whole_file_only?).and_return(true)
+    expect(described_class.new.whole_file?(subject)).to be(true)
+  end
+end

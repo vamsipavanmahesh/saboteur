@@ -3,6 +3,7 @@
 
 require "prism"
 require_relative "../inline_suppression"
+require_relative "../constant_subject_finder"
 
 module Saboteur
   class Engine
@@ -64,9 +65,11 @@ module Saboteur
       end
 
       # Only the names defined once: with two defs of a name, which one a
-      # change belongs to is a guess.
+      # change belongs to is a guess. Constant literal subjects compare the
+      # same way (#306): a comment-only change to the literal prunes them.
       def unique_by_id(source, file)
-        subjects = SubjectFinder.new.call(file, source: source).subjects
+        subjects = SubjectFinder.new.call(file, source: source).subjects +
+                   ConstantSubjectFinder.new.call(file, source: source).subjects
         counts = subjects.map(&:id).tally
         subjects.select { |subject| counts[subject.id] == 1 }.to_h { |subject| [subject.id, subject] }
       end

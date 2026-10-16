@@ -109,13 +109,12 @@ module Saboteur
     end
 
     # A --subject run infers only from the files holding the named subjects:
-    # an unrelated spec-less file must not block a one-method run. A subject
-    # file without a conventional spec stops the run before boot, like any
-    # other unmatched file. With --since only named subjects inside the diff
-    # scope count: an unchanged, comment-only or otherwise pruned subject
-    # needs no spec and cannot stop the run either.
+    # an unrelated spec-less file must not block a one-method run, and a
+    # subject file without a conventional spec stops the run before boot.
+    # With --since only named subjects inside the diff scope count: an
+    # unchanged, comment-only or otherwise pruned subject needs no spec.
     def select_subject_tests(patterns)
-      files = SubjectSelection.files_matching(@root, config.included_files, patterns)
+      files = SubjectSelection.files_matching(@root, config.included_files, patterns, config)
       guess = TestGuess.new(config, diagnostics: @diagnostics).call_for(files, patterns)
       # No file in scope: the subjects are unknown (named later, in
       # selection) or --since left every named subject outside the diff, so
@@ -187,9 +186,9 @@ module Saboteur
     end
 
     # The subjects to mutate and, in diff mode, the scope of changed lines.
-    def select_subjects(files)
+    def select_subjects(files, test_files: nil)
       config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
-      selection = SubjectSelection.new(config, @diagnostics)
+      selection = SubjectSelection.new(config, @diagnostics, test_files: test_files)
       subjects = selection.select(files)
       scope = selection.changed_lines && DiffScope.new(selection.changed_lines)
       return replay_subject(subjects, scope) if @replay
@@ -369,7 +368,7 @@ module Saboteur
     def candidate_lists(subjects, scope, map)
       return [@replay_candidate] if @replay
 
-      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics, hazard_guard: hazard_guard)
+      candidates = Candidates.build(config, @diagnostics, hazard_guard: hazard_guard)
       selection = CandidateSelection.new(candidates: candidates, map: map,
                                          limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
       subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
@@ -383,7 +382,7 @@ module Saboteur
     end
 
     def replay_subject(subjects, scope)
-      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics, hazard_guard: hazard_guard)
+      candidates = Candidates.build(config, @diagnostics, hazard_guard: hazard_guard)
       subject, candidate = @replay.select(subjects, candidates, scope: scope)
       @replay_candidate = [candidate]
       [[subject], nil]

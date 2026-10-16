@@ -110,11 +110,12 @@ module Saboteur
         lines_by_file = changed_lines_by_file
         comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(@config["since"], root: @root), root: @root)
         finder = SubjectFinder.new
+        constant_finder = ConstantSubjectFinder.new
         files.select do |file|
           lines = lines_by_file[file]
           next false unless lines
 
-          finder.call(File.join(@root, file)).subjects.any? do |subject|
+          subjects_in(finder, constant_finder, file).any? do |subject|
             patterns.any? { |pattern| SubjectSelection.match?(subject.id, pattern) } &&
               subject.overlaps_lines?(lines) &&
               !comparison.unchanged?(subject)
@@ -157,11 +158,19 @@ module Saboteur
       def subjectless_files(lines_by_file)
         comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(@config["since"], root: @root), root: @root)
         finder = SubjectFinder.new
+        constant_finder = ConstantSubjectFinder.new
         lines_by_file.reject do |file, lines|
-          subjects = finder.call(File.join(@root, file)).subjects
-          subjects.select { |subject| subject.overlaps_lines?(lines) }
-                  .any? { |subject| !comparison.unchanged?(subject) }
+          subjects_in(finder, constant_finder, file)
+            .select { |subject| subject.overlaps_lines?(lines) }
+            .any? { |subject| !comparison.unchanged?(subject) }
         end.keys
+      end
+
+      # Def subjects and changed constant literal subjects (#306): both
+      # need a spec to run against. Only the --since route asks.
+      def subjects_in(finder, constant_finder, file)
+        path = File.join(@root, file)
+        finder.call(path).subjects + constant_finder.call(path).subjects
       end
 
       def guess_for(file)

@@ -2,6 +2,9 @@
 # frozen_string_literal: true
 
 require_relative "../text"
+require_relative "../constant_subject"
+require_relative "../constant_subject_finder"
+require_relative "../constant_reads"
 
 module Saboteur
   class Engine
@@ -11,19 +14,24 @@ module Saboteur
       # Lines changed since the --since ref, by file; nil without --since.
       attr_reader :changed_lines
 
-      def initialize(config, diagnostics)
+      def initialize(config, diagnostics, test_files: nil)
         @config = config
         @diagnostics = diagnostics
         @root = File.realpath(config.root)
+        @test_files = test_files
       end
 
       def select(files)
         @files = files
         subjects = find(files)
+        if @config["since"]
+          @changed_lines = changed_lines_map
+          subjects += constant_subjects
+        end
         @discovered = subjects
         subjects = by_pattern(subjects, @config["subjects"]) if @config["subjects"].any?
         subjects = by_change(subjects, @config["since"]) if @config["since"]
-        subjects
+        attach_consumers(subjects)
       end
 
       # "Klass#meth", "Klass.meth", or a namespace prefix ("Klass", "A::B").
@@ -34,14 +42,23 @@ module Saboteur
       # The files (absolute paths) holding a subject matching any pattern,
       # returned relative to root. --subject inference guesses specs for
       # exactly these, so one unrelated spec-less file cannot block a
-      # one-method run.
-      def self.files_matching(root, files, patterns)
+      # one-method run. With --since, constant literal subjects count too:
+      # a file holding only the named constant otherwise falls out of
+      # inference and runs the whole suite (#319).
+      def self.files_matching(root, files, patterns, config = { "since" => nil })
+        include_constants = !config["since"].nil?
         finder = SubjectFinder.new
+        constant_finder = ConstantSubjectFinder.new if include_constants
         prefix = "#{root}/"
         files.filter_map do |file|
           parsed = finder.call(file)
           matching = parsed.subjects.any? do |subject|
             patterns.any? { |pattern| match?(subject.id, pattern) }
+          end
+          if !matching && constant_finder
+            matching = constant_finder.call(file).subjects.any? do |subject|
+              patterns.any? { |pattern| match?(subject.id, pattern) }
+            end
           end
           file.delete_prefix(prefix) if matching
         end.sort
@@ -73,13 +90,128 @@ module Saboteur
       end
 
       def by_change(subjects, ref)
-        @changed_lines = Selection::GitDiff.changed_lines(ref, root: @root, include: @files.to_set,
-                                                               diagnostics: @diagnostics)
-                                           .transform_keys { |file| Selection::CoverageMap.canonical(file) }
         changed = changed_subjects(subjects)
         warn_changed_files_without_subjects
         warn_excluded_changed_files
         drop_unchanged_syntax(changed, ref)
+      end
+
+      # Lines changed since the --since ref, canonicalized by file.
+      def changed_lines_map
+        Selection::GitDiff.changed_lines(@config["since"], root: @root, include: @files.to_set,
+                                                           diagnostics: @diagnostics)
+                          .transform_keys { |file| Selection::CoverageMap.canonical(file) }
+      end
+
+      # Changed entries of a constant hash or array literal are behavior
+      # changes no method owns (#306): the constant joins the diff scope as
+      # a subject, and the diff scope narrows its mutants to the changed
+      # entries. A changed constant assignment of an unsupported form is
+      # named, so a clean method score never implies it was tested.
+      def constant_subjects
+        finder = ConstantSubjectFinder.new
+        files_by_canonical = @files.to_h do |file|
+          [Selection::CoverageMap.canonical(Text.utf8_identity(file)), file]
+        end
+        subjects = []
+        @changed_lines.each do |canonical, lines|
+          file = files_by_canonical[canonical]
+          next unless file && canonical.end_with?(".rb")
+
+          parsed = finder.call(file)
+          parsed.unsupported.each do |found|
+            warn_unsupported_constant(found) if found.overlaps_lines?(lines)
+          end
+          accepted = parsed.subjects.select { |subject| subject.overlaps_lines?(lines) }
+          subjects.concat(admit_replayable_file(file, accepted))
+        end
+        subjects
+      end
+
+      # A constant mutant re-evaluates the whole file with the literal
+      # changed, so whatever the file runs at load runs again on every
+      # mutant, outside the method hazard guard. saboteur only replays
+      # files whose load-time code it can vet (requires, pure defs,
+      # class/module nesting, literal assignments) and that trip no hazard
+      # denylist entry; anything else - a helper call, a registration, a
+      # write to disk - needs the explicit whole_file opt-in, which says
+      # the user accepts the replay (#319). Passing the vet is not a safety
+      # proof; it only means no unrecognized code runs at load.
+      def admit_replayable_file(file, subjects)
+        opted_in, rest = subjects.partition { |subject| whole_file_opted?(subject) }
+        return subjects if rest.empty?
+
+        guard = MutationSource::HazardGuard.new(@config["hazard"])
+        root = Prism.parse(File.binread(file)).value
+        reasons = (guard.load_time_hazards(root) + guard.unvetted_load_code(root)).uniq
+        return subjects if reasons.empty?
+
+        path = file.delete_prefix("#{@root}/")
+        listed = reasons.first(2).join(", ")
+        @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs code at " \
+                          "load (#{listed}) that every constant mutant would run again, and saboteur " \
+                          "cannot vet what re-running it does. List the constant in c.whole_file to " \
+                          "replay the file anyway, or move the literal into its own file.")
+        opted_in
+      end
+
+      # The explicit opt-in for whole-file replay: subject ids or globs,
+      # matched like Execution::Reevaluator#whole_file?.
+      def whole_file_opted?(subject)
+        Array(@config["whole_file"]).any? { |pattern| File.fnmatch?(pattern.to_s, subject.id) }
+      end
+
+      def warn_unsupported_constant(found)
+        path = found.file.delete_prefix("#{@root}/")
+        @diagnostics.warn("--since: changed constant #{found.id} in #{path} is not mutated: #{found.reason}. " \
+                          "Only hash and array literal entries are mutated.")
+      end
+
+      # The tests that can observe a constant mutant are the ones covering a
+      # read of the constant; find those reads across the include set AND the
+      # specs, which can read a constant directly (#319). A read another file
+      # captured at load time (`COPY = A::RULES`) never observes the mutant:
+      # it holds the original object. A constant with no observable read at
+      # all is dropped with a diagnostic rather than reported Survived.
+      def attach_consumers(subjects)
+        files = @files + spec_files
+        subjects.filter_map do |subject|
+          next subject unless subject.is_a?(ConstantSubject)
+
+          reads = ConstantReads.across(files, subject)
+          subject.consumer_lines = ConstantReads.observable_lines(reads, subject)
+          subject.consumer_defs = reads.transform_values(&:defs)
+          if subject.consumer_lines.empty? && reads.any? { |_file, r| r.load.any? }
+            path = subject.file.delete_prefix("#{@root}/")
+            @diagnostics.warn("--since: changed constant #{subject.id} in #{path} is not mutated: its only " \
+                              "reads capture the value at load time in another file, so no test can " \
+                              "observe a change to it.")
+            next
+          end
+          subject
+        end
+      end
+
+      # The specs selected for this run (inferred or explicit), as absolute
+      # paths that exist. Directory entries expand to their specs. With no
+      # tests named at all (the --all case) the configured integration's
+      # loaded spec files answer; the conventional spec tree only stands in
+      # when nothing else is known (preview, or an empty suite): a spec can
+      # read a constant directly (#319).
+      def spec_files
+        configured = @config["tests"]
+        return configured.flat_map { |entry| expand_spec_entry(entry) }.uniq unless configured.empty?
+        return Array(@test_files).uniq unless Array(@test_files).empty?
+
+        expand_spec_entry("spec")
+      end
+
+      def expand_spec_entry(entry)
+        path = File.absolute_path(entry, @root)
+        return Dir.glob(File.join(path, "**", "*_spec.rb")) if File.directory?(path)
+        return [] unless path.end_with?(".rb") && File.file?(path)
+
+        [path]
       end
 
       # subject.file carries the locale tag under a non-UTF-8 locale
@@ -99,6 +231,9 @@ module Saboteur
       # Comment-only changes stay quiet: their file matched subjects before
       # drop_unchanged_syntax pruned them, and that prune is reported. A
       # diff touching no included Ruby file is a legitimate empty scope.
+      # A file whose only finding is an unsupported or unsafe constant still
+      # counts here: the specific diagnostic says why, this says nothing ran
+      # (#295 keeps its contract).
       def warn_changed_files_without_subjects
         canonical = ->(file) { Selection::CoverageMap.canonical(Text.utf8_identity(file)) }
         included = @files.map(&canonical)
@@ -157,7 +292,7 @@ module Saboteur
 
         names = subjects.first(5).map(&:id).join(", ")
         more = subjects.size > 5 ? ", ..." : ""
-        @diagnostics.inform("#{subjects.size} changed method(s) differ only in comments or formatting, " \
+        @diagnostics.inform("#{subjects.size} changed subject(s) differ only in comments or formatting, " \
                             "so they are skipped: #{names}#{more}")
       end
     end

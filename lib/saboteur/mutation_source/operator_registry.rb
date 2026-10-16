@@ -31,6 +31,7 @@ module Saboteur
         "literal_boolean" => "Swap a boolean literal",
         "argument_removal" => "Remove a call argument",
         "pair_removal" => "Remove a hash pair",
+        "element_removal" => "Remove an element of a constant array literal",
         "endpoint_replacement" => "Swap explicit no-argument first and last",
         "chain_removal" => "Remove one call from a method chain",
         "method_swap" => "Swap a method with its semantic opposite",

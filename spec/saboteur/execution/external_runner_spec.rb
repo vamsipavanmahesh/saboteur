@@ -286,13 +286,18 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     # The parent waits for the child's marker - written AFTER setsid - so
     # the escape lands before the group TERM: an escapee killed during boot
     # proves nothing, and a fixed sleep is flaky (#305 Principal).
-    command = "#{ruby} -e 'Process.setsid; File.write(ARGV[0], \"1\"); sleep 3' #{mark} & " \
+    # --disable-gems: the escapee needs no rubygems, and a gem-loaded boot
+    # is the dominant, CI-variable term in this budget (seconds on a loaded
+    # macOS runner, where it pushed a 2s threshold to 2.4s). The escapee
+    # sleeps 10s and the budget is 5s: waiting it out still fails by 2x,
+    # while a slow runner's boot plus the 0.5s drain grace fits easily.
+    command = "#{ruby} --disable-gems -e 'Process.setsid; File.write(ARGV[0], \"1\"); sleep 10' #{mark} & " \
               "until [ -f #{mark} ]; do sleep 0.02; done; exit 0"
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    outcome, = run_in(@dir, command, timeout: 5)
+    outcome, = run_in(@dir, command, timeout: 15)
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
     expect(outcome.status).to eq(:survived)
-    expect(elapsed).to be < 2.0
+    expect(elapsed).to be < 5.0
     # The descendant really escaped and ran, or the drain tests nothing.
     expect(File.exist?(mark)).to be(true)
   end

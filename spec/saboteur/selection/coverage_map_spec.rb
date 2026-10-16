@@ -68,6 +68,28 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(map.empty?).to be(false)
   end
 
+  # Spec files sit in the same map as the included files, so whole-map
+  # emptiness cannot tell a build that recorded test code only.
+  it "reports emptiness for a chosen file set only" do
+    other = File.join(File.dirname(file), "other_spec.rb")
+    spec_only = described_class.new(lines: { other => { 2 => %w[t1] } }, tests: %w[t1])
+    expect(spec_only.empty_for?([file])).to be(true)
+    expect(spec_only.empty_for?([other])).to be(false)
+    expect(spec_only.empty?).to be(false)
+  end
+
+  # Each recorded kind counts, and the file set is canonicalized before the
+  # lookup: the recorder stores canonical paths.
+  it "checks methods and load lines too, under any spelling of the file" do
+    method_only = described_class.new(lines: {}, tests: %w[t1], methods: { file => { 2 => %w[t1] } })
+    expect(method_only.empty_for?([file])).to be(false)
+    load_only = described_class.new(lines: {}, tests: %w[t1], load_lines: { file => [3] })
+    expect(load_only.empty_for?([file])).to be(false)
+    dotted = File.join(File.dirname(file), ".", File.basename(file))
+    with_hits = described_class.new(lines: { file => { 2 => %w[t1] } }, tests: %w[t1])
+    expect(with_hits.empty_for?([dotted])).to be(false)
+  end
+
   it "round-trips method coverage through JSON" do
     with_methods = described_class.new(lines: {}, tests: %w[t1 t2], methods: { file => { 2 => %w[t2 t1] } })
     expect(described_class.from_json(with_methods.to_json).methods).to eq(file => { 2 => %w[t2 t1] })
@@ -281,5 +303,95 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       recorder.test_finished("t1")
       expect(recorder.result.lines).to eq({})
     end
+  end
+end
+
+RSpec.describe Saboteur::Selection::CoverageMap, "constant subjects (issue #306)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def constant_subject(consumer_lines)
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    subject.consumer_lines = consumer_lines
+    subject
+  end
+
+  it "selects the tests that executed any read of the constant, across files" do
+    app = File.join(@root, "app.rb")
+    other = File.join(@root, "other.rb")
+    subject = constant_subject(app => [3, 9], other => [2])
+    map = described_class.new(lines: { app => { 3 => %w[t2], 9 => %w[t1] }, other => { 2 => %w[t3] } },
+                              tests: %w[t1 t2 t3])
+    expect(map.tests_for(subject)).to eq(%w[t1 t2 t3])
+  end
+
+  it "ignores edit lines: reads decide the tests, not the literal's own line" do
+    app = File.join(@root, "app.rb")
+    subject = constant_subject(app => [3])
+    map = described_class.new(lines: { app => { 3 => %w[t1] } }, tests: %w[t1 t2])
+    expect(map.tests_for_edit(subject, [1])).to eq(%w[t1])
+  end
+
+  it "returns nothing when no read was ever covered" do
+    app = File.join(@root, "app.rb")
+    subject = constant_subject(app => [3])
+    map = described_class.new(lines: {}, tests: %w[t1])
+    expect(map.tests_for(subject)).to eq([])
+  end
+end
+
+RSpec.describe Saboteur::Selection::CoverageMap, "constant reads in endless defs (#319)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  it "falls back to the def's method-call counter when the read has no line coverage" do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    app = File.join(@root, "app.rb")
+    subject.consumer_lines = { app => [2] }
+    subject.consumer_defs = { app => [1] }
+    map = described_class.new(lines: {}, tests: %w[t1 t2], methods: { app => { 1 => %w[t2] } })
+    expect(map.tests_for(subject)).to eq(%w[t2])
+  end
+
+  it "returns no fallback tests when the consumer file has no method coverage" do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    app = File.join(@root, "app.rb")
+    subject.consumer_defs = { app => [1] }
+    map = described_class.new(lines: {}, tests: %w[t1], methods: {})
+    expect(map.tests_for(subject)).to eq([])
+  end
+
+  it "ignores a def line missing from the file's method coverage" do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    app = File.join(@root, "app.rb")
+    subject.consumer_defs = { app => [9] }
+    map = described_class.new(lines: {}, tests: %w[t1], methods: { app => { 1 => %w[t1] } })
+    expect(map.tests_for(subject)).to eq([])
+  end
+
+  it "routes a constant's edits to the constant's tests, never the edit lines" do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    app = File.join(@root, "app.rb")
+    subject.consumer_lines = { app => [2] }
+    map = described_class.new(lines: { app => { 2 => %w[t2] }, file => { 1 => %w[t1] } }, tests: %w[t1 t2])
+    expect(map.tests_for_edit(subject, [1])).to eq(%w[t2])
   end
 end
