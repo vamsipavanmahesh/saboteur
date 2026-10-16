@@ -98,6 +98,12 @@ module Saboteur
       else
         @out.puts "Sandbox: #{Engine::SandboxPolicy.sandbox_gap(abi)}; " \
                   "children would run with the hazard guard and canary only"
+        if RUBY_PLATFORM.match?(/darwin/i)
+          @out.puts "macOS: mutants run unsandboxed (Landlock is Linux-only) - a container contains " \
+                    "filesystem writes outside the project"
+          @out.puts "Network: never restricted on any platform, and a plain container keeps outbound " \
+                    "access - deny or stub the network when a mutant could reach real APIs"
+        end
       end
     end
 

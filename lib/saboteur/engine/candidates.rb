@@ -95,6 +95,7 @@ module Saboteur
         seen << text
         unless parses?(text)
           @diagnostics.count_invalid_mutation
+          @diagnostics.warn("#{subject.id}: dropped #{mutation.operator} mutation (did not parse)")
           return record_drop(subject, mutation, "invalid_syntax")
         end
 

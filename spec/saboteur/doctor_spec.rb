@@ -67,6 +67,24 @@ RSpec.describe Saboteur::Doctor do
                                     "children would run with the hazard guard and canary only")
     end
 
+    it "says plainly on macOS that mutants run unsandboxed and advises a container" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      stub_const("RUBY_PLATFORM", "arm64-darwin23")
+      doctor.call
+      sandbox_note = "macOS: mutants run unsandboxed (Landlock is Linux-only) - a container contains " \
+                     "filesystem writes outside the project"
+      network_note = "Network: never restricted on any platform, and a plain container keeps outbound " \
+                     "access - deny or stub the network when a mutant could reach real APIs"
+      expect(out.string).to include(sandbox_note, network_note)
+    end
+
+    it "keeps the macOS note off other platforms" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      stub_const("RUBY_PLATFORM", "x86_64-linux")
+      doctor.call
+      expect(out.string).not_to include("mutants run unsandboxed (Landlock is Linux-only)")
+    end
+
     it "reports the sandbox as off when configured off" do
       configured = Saboteur::Config.new({ "sandbox" => false })
       described_class.new(configured, out: out).call
