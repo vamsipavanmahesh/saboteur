@@ -88,9 +88,9 @@ module Saboteur
         def edited_lines(subject, edit)
           bytes = subject.file_source.b
           last = [edit.end_byte - 1, edit.start_byte].max
-          line_start = (bytes.byteslice(0, edit.start_byte)&.rindex("\n") || -1) + 1
+          line_start = (bytes.byteslice(0, edit.start_byte).rindex("\n") || -1) + 1
           line_end = bytes.index("\n", last) || bytes.bytesize
-          bytes.byteslice(line_start...line_end).force_encoding(Encoding::UTF_8).scrub.lines
+          bytes.byteslice(line_start, line_end - line_start).force_encoding(Encoding::UTF_8).scrub.lines
         end
       end
     end

@@ -5,15 +5,21 @@
 # as a label only - scores and the exit code never change.
 RSpec.describe Saboteur::Reporter::SurvivorClassification do
   def survivor_for(source, from:, to:, covered_by: ["spec/a_spec.rb:1"], coarse: false)
+    survivor_for_edits(source, [[from, to]], covered_by: covered_by, coarse: coarse)
+  end
+
+  def survivor_for_edits(source, pairs, covered_by: ["spec/a_spec.rb:1"], coarse: false)
     dir = Dir.mktmpdir("saboteur-classify-")
     path = File.join(dir, "target.rb")
     File.write(path, source)
     subject = Saboteur::SubjectFinder.new.call(path).subjects.first
-    at = subject.file_source.b.index(from.b)
-    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at,
-                                              end_byte: at + from.bytesize, replacement: to)
+    edits = pairs.map do |from, to|
+      at = subject.file_source.b.index(from.b)
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at,
+                                         end_byte: at + from.bytesize, replacement: to)
+    end
     mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
-                                                      edits: [edit], coarse:)
+                                                      edits: edits, coarse: coarse)
     Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
                                mutated_source: subject.apply(mutation.edits), covered_by: covered_by)
   end
@@ -68,6 +74,86 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     result = survivor_for("class A\n  # caf\u00e9 menu\n  def tell(msg)\n    puts \"caf\u00e9 \#{msg}\"\n  end\nend\n",
                           from: "puts", to: "nil", covered_by: [])
     expect(described_class.label(result)).to eq("arid")
+  end
+
+  it "splices several edits from the end of the def back, however they are ordered" do
+    # Both edits change length and compile to the original's instructions;
+    # applied in the wrong order the second splice lands on stale offsets.
+    result = survivor_for_edits("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n",
+                                [["age >=", "(age) >="], ["18", "0x12"]])
+    expect(described_class.label(result)).to eq("likely_equivalent")
+  end
+
+  it "compiles with the subject's frozen-string-literal setting" do
+    result = survivor_for("# frozen_string_literal: true\nclass A\n  def tell(msg)\n    puts msg\n  end\nend\n",
+                          from: "puts msg", to: "nil")
+    checker = Saboteur::Engine::BytecodeEquivalence.new
+    allow(Saboteur::Engine::BytecodeEquivalence).to receive(:new).and_return(checker)
+    expect(checker).to receive(:equivalent?).with(anything, anything, frozen_string_literal: true)
+                                            .and_call_original
+    described_class.label(result)
+  end
+
+  it "is not arid when any one edit of several is off an arid line" do
+    result = survivor_for_edits("class A\n  def m(a)\n    puts a\n    a >= 18\n  end\nend\n",
+                                [["puts a", "nil"], [">=", ">"]], covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  it "is not arid for a zero-width edit on a blank line" do
+    source = "class A\n  def m(a)\n\n    puts a\n  end\nend\n"
+    dir = Dir.mktmpdir("saboteur-classify-")
+    path = File.join(dir, "target.rb")
+    File.write(path, source)
+    subject = Saboteur::SubjectFinder.new.call(path).subjects.first
+    at = source.b.index("\n\n") + 1
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at,
+                                              end_byte: at, replacement: "x")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                      edits: [edit], coarse: false)
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(mutation.edits), covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  it "extracts the edited line when nothing precedes it, not even a newline" do
+    # A one-line class: the edit sits on the file's first and only line.
+    result = survivor_for("class A; def m; puts a; end; end\n",
+                          from: "puts a", to: "nil", covered_by: [])
+    expect(described_class.label(result, arid: ["\\Aclass A; def m; puts a; end; end\\z"])).to eq("arid")
+  end
+
+  it "extracts the edited line at the end of a file without a trailing newline" do
+    result = survivor_for("class A\n  def m\n    puts a\n  end\nend",
+                          from: "end", to: "finish", covered_by: [])
+    expect(described_class.label(result, arid: ["\\Aend\\z"])).to eq("arid")
+  end
+
+  it "reads only the edited lines when the edit ends at the newline" do
+    result = survivor_for("class A\n  def m(a)\n    puts a\n    a >= 18\n  end\nend\n",
+                          from: "puts a\n", to: "nil", covered_by: [])
+    expect(described_class.label(result)).to eq("arid")
+  end
+
+  it "reads every line an edit reaches into" do
+    result = survivor_for("class A\n  def m(a)\n    puts a\n    a >= 18\n  end\nend\n",
+                          from: "puts a\n    a", to: "nil", covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  it "matches multibyte arid patterns against the decoded line" do
+    result = survivor_for("class A\n  def tell\n    note \"caf\u00e9\"\n  end\nend\n",
+                          from: "note", to: "nil", covered_by: [])
+    expect(described_class.label(result, arid: ['\Anote "caf\u00e9"'])).to eq("arid")
+  end
+
+  it "scrubs an invalid byte sequence on the edited line instead of raising" do
+    edit = Saboteur::MutationSource::Edit.new(file: "x.rb", start_byte: 0, end_byte: 4,
+                                              replacement: "nil")
+    subject = instance_double(Saboteur::Subject, file_source: "puts a # caf\xC3".b)
+    lines = described_class.send(:edited_lines, subject, edit)
+    expect(lines).to eq(["puts a # caf\uFFFD"])
+    expect(lines.first.valid_encoding?).to be(true)
   end
 
   it "never labels a non-survivor" do
