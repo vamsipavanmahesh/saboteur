@@ -74,7 +74,8 @@ module Saboteur
       end
 
       def by_change(subjects, ref)
-        @changed_lines = Selection::GitDiff.changed_lines(ref, root: @root)
+        @changed_lines = Selection::GitDiff.changed_lines(ref, root: @root, include: @files.to_set,
+                                                               diagnostics: @diagnostics)
                                            .transform_keys { |file| Selection::CoverageMap.canonical(file) }
         changed = changed_subjects(subjects)
         warn_changed_files_without_subjects

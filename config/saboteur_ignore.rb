@@ -179,9 +179,13 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Selection::GitDiff#unquote",
              reason: "equivalent: .b only retags the string and the force_encoding right after overwrites the tag; bytes never change"
 
-  i.mutation "72b06a699781d95b",
+  i.mutation "7bdbaeaf5479aacf",
              subject: "Saboteur::Selection::GitDiff#union_untracked",
              reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
+
+  i.mutation "58be6cd5a69d283b",
+             subject: "Saboteur::Selection::GitDiff#count_lines",
+             reason: "equivalent: IO#read with a positive length is nil at EOF and never "", so the empty-chunk arm is unreachable; the guard only bounds a no-arg-read mutant's spin"
 
   i.mutation "460c99badd064fe9",
              subject: "Saboteur::Frameworks::Rails#sqlite_absolute",

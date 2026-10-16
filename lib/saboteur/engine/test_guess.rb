@@ -138,7 +138,7 @@ module Saboteur
       # their changed line numbers.
       def changed_lines_by_file
         included = @config.included_files.to_set
-        Selection::GitDiff.changed_lines(@config["since"], root: @root)
+        Selection::GitDiff.changed_lines(@config["since"], root: @root, include: included)
                           .each_with_object({}) do |(file, lines), map|
           canonical = Selection::CoverageMap.canonical(file)
           map[canonical.delete_prefix("#{@root}/")] = lines if included.include?(canonical)

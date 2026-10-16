@@ -13,7 +13,14 @@ All notable changes are documented here. The format follows
   changed-files-without-subjects warning could not name it. Untracked files
   now union into the changed-lines map as fully changed, so their subjects
   are selected, and one without subjects triggers the warning like any other
-  changed file. Ignored (`.gitignore`), binary and empty files stay out.
+  changed file. Ignored (`.gitignore`), binary and empty files stay out, and
+  only files inside the configured `include` set are considered, so a large
+  unrelated untracked file is never opened. Each unioned file is opened
+  `O_NOFOLLOW`/`O_NONBLOCK` and validated on that descriptor (a swapped-in
+  symlink or FIFO is skipped quietly), the binary sniff reads only the first
+  few kilobytes, and the map holds a range of lines instead of one entry per
+  line, keeping memory bounded. On platforms without those open flags the
+  union is skipped with a warning.
 
 ### Changed
 - Report-artifact write semantics (#296): a failed HTML report or score

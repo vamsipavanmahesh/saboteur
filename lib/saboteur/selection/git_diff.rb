@@ -40,7 +40,7 @@ module Saboteur
         status.success? ? out.b : nil
       end
 
-      def changed_lines(ref, root:)
+      def changed_lines(ref, root:, include: nil, diagnostics: nil)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
         # Root and paths are filesystem identity: strip as bytes and retag
@@ -50,29 +50,79 @@ module Saboteur
         top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
         changes = parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
                             "--no-ext-diff", base, "--").b, top)
-        union_untracked(changes, top)
+        union_untracked(changes, top, include: include, diagnostics: diagnostics)
         changes
       end
 
       # A diff cannot see untracked files, so a never-committed source file
       # would silently contribute no changed lines - and, being in no map,
       # not even the changed-files-without-subjects warning (#295). Union
-      # every untracked file as fully changed: a new file is the strongest
+      # every untracked file that could hold subjects (the include set the
+      # run will mutate) as fully changed: a new file is the strongest
       # possible "changed since ref" signal. Ignored files stay invisible
       # (--exclude-standard), and binary or empty files carry no lines,
-      # matching how a committed binary diffs to no hunks. Git's untracked
-      # walk only ever lists regular files and symlinks (never sockets,
-      # FIFOs or devices), so a symlink skip is the only guard needed.
-      def union_untracked(changes, top)
+      # matching how a committed binary diffs to no hunks.
+      #
+      # Each file is opened RDONLY|NOFOLLOW|NONBLOCK and validated on that
+      # one descriptor, closing the listing-to-read race: a symlink swapped
+      # in after the listing fails the open, a FIFO opens without blocking
+      # and fails the regular-file stat, and a vanished or unreadable file
+      # is skipped quietly. Where a platform lacks either flag the union is
+      # skipped with a warning rather than done unsafely (the crash log
+      # makes the same trade, #296). The binary sniff reads only the first
+      # few kilobytes (git's own heuristic window) and the count streams,
+      # so a huge untracked source costs one pass, not its content in
+      # memory; the map holds a range, not one Set entry per line.
+      BINARY_SNIFF_BYTES = 8000
+      READ_CHUNK_BYTES = 64 * 1024
+
+      def union_untracked(changes, top, include:, diagnostics:)
+        unless File.const_defined?(:NOFOLLOW) && File.const_defined?(:NONBLOCK)
+          diagnostics&.warn("--since: untracked files are not included: this platform lacks " \
+                            "O_NOFOLLOW/O_NONBLOCK, so they cannot be opened race-free")
+          return
+        end
+
+        flags = File::RDONLY | File::NOFOLLOW | File::NONBLOCK
         git(top, "ls-files", "-z", "--others", "--exclude-standard").b.split("\0").each do |name|
           file = File.join(top, Text.utf8_identity(name))
-          next if File.symlink?(file)
+          next if include && !include.include?(CoverageMap.canonical(file))
 
-          content = File.binread(file)
-          next if content.empty? || content.include?("\0")
-
-          changes[file] = (1..(content.count("\n") + (content.end_with?("\n") ? 0 : 1))).to_set
+          lines = untracked_line_count(file, flags)
+          changes[file] = (1..lines) if lines
         end
+      end
+
+      # Line count of an untracked file opened race-free, or nil when the
+      # file stays out of the map: vanished, unreadable, a symlink, not a
+      # regular file on the opened descriptor, empty, or binary inside the
+      # sniff window.
+      def untracked_line_count(file, flags)
+        File.open(file, flags) do |io|
+          next unless io.stat.file?
+
+          count_lines(io)
+        end
+      rescue SystemCallError, IOError
+        nil
+      end
+
+      # Every read is bounded: the binary sniff takes only the first few
+      # kilobytes (git's own heuristic window; read of an empty file is nil,
+      # never ""), then the count streams in fixed chunks.
+      def count_lines(io)
+        first = io.read(BINARY_SNIFF_BYTES)
+        return if first.nil? || first.include?("\0")
+
+        lines = first.count("\n")
+        trailing_newline = first.end_with?("\n")
+        # A no-arg read returns "" at EOF, never nil - guard the loop so a
+        # mutant that drops the chunk size spins zero times, not forever.
+        while (chunk = io.read(READ_CHUNK_BYTES)) && !chunk.empty?
+          lines += chunk.count("\n")
+          trailing_newline = chunk.end_with?("\n")
+        end
+        trailing_newline ? lines : lines + 1
       end
 
       def parse(diff, top)
