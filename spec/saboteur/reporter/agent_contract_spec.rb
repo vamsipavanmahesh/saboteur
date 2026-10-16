@@ -33,6 +33,14 @@ RSpec.describe "agent output contract (docs/stability.md)" do
                          skipped_subjects: { person_subject => "no coverage" })
   end
 
+  # A run the --max-duration budget stopped after confirming a survivor.
+  def budget_partial_survivor_report
+    Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1,
+                         root: File.dirname(person_subject.file), seed: 7,
+                         early_stop: Saboteur::EarlyStop.new(reason: "max_duration", unreached: [person_subject],
+                                                             truncated: [], unverified: 2))
+  end
+
   it "pins the payload version" do
     expect(agent::VERSION).to eq(1)
   end
@@ -68,7 +76,8 @@ RSpec.describe "agent output contract (docs/stability.md)" do
     "clean run" => [-> { report_of(result_for(:killed)) },   "complete",       "clean",           0],
     "survivors" => [-> { report_of(result_for(:survived)) }, "complete",       "survivors",       1],
     "incomplete run" => [-> { partial_report }, "partial", "incomplete", 3],
-    "nothing selected" => [-> { empty_report }, "not_applicable", "not_applicable", 3]
+    "nothing selected" => [-> { empty_report }, "not_applicable", "not_applicable", 3],
+    "budget-stopped with survivors" => [-> { budget_partial_survivor_report }, "partial", "survivors", 1]
   }.each do |name, (build, status, verdict, exit_code)|
     it "maps #{name} to status #{status}, verdict #{verdict}, exit #{exit_code}" do
       expect(payload_for(instance_exec(&build)).values_at("status", "verdict", "exitCode"))

@@ -34,16 +34,23 @@ differently:
 
 | Exit | Ordinary CLI | Agent mode (`--agent`) |
 | --- | --- | --- |
-| 0 | Clean: every selected mutant killed or ignored. Survivors may still be accepted when `--threshold` passes the score, or a budget-stopped run is accepted with `--max-duration-ok` | Verdict `clean` (status `complete`) |
-| 1 | Survivors to review: unignored survivors, a score below `--threshold`, a `--fail-fast` stop, or a failed custom gate | Verdict `survivors` |
+| 0 | Clean: every selected mutant killed or ignored, or nothing selected at all. Survivors may still be accepted when `--threshold` passes the score, or a budget-stopped run is accepted with `--max-duration-ok` | Verdict `clean` (status `complete`) |
+| 1 | Survivors to review: unignored survivors, a missing or below-`--threshold` score, a `--fail-fast` stop, or a failed custom gate | Verdict `survivors` - including a budget-stopped partial run with unignored survivors |
 | 2 | Usage or configuration error | Verdict `invalid_invocation` |
-| 3 | Incomplete run or tool failure: nothing tested, most mutants errored, an under-threshold incomplete run, nothing to select, or an internal error | Verdict `incomplete` or `not_applicable`, or a `tool_failure` |
-| 4 | The `--max-duration` budget stopped the run (unless `--max-duration-ok`) | Never: a budget-stopped run is partial evidence, exit 3 |
+| 3 | Incomplete run or tool failure: a stopped run that tested nothing, most mutants errored, an under-threshold incomplete run, or an internal error | Verdict `incomplete` or `not_applicable`, or a `tool_failure` |
+| 4 | The `--max-duration` budget stopped the run (unless `--max-duration-ok`) | Never exit 4: exit 1 if unignored survivors are present, otherwise 3 |
 
 Agent mode has no exit 4: budget exhaustion is reported as partial evidence
-(the `max_duration` entries in `incomplete[]`), never as its own exit code,
-and `--max-duration-ok` does not certify an unscored run. Presets that opt
-out of budget exits say so in `saboteur help`.
+(the `max_duration` entries in `incomplete[]`), never as its own exit code -
+the exit follows the verdict, so a budget-stopped run with unignored
+survivors exits 1 and any other budget-stopped run exits 3.
+`--max-duration-ok` does not certify an unscored run. Presets that opt out
+of budget exits say so in `saboteur help`.
+
+The modes disagree on an empty selection by design: the ordinary CLI treats
+it as clean and exits 0, while agent mode reports status `not_applicable`,
+verdict `not_applicable`, exit 3, so a harness never mistakes "nothing was
+selected" for "everything passed".
 
 ### The machine report (`.saboteur/report.json`)
 
