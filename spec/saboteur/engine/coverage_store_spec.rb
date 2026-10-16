@@ -514,8 +514,12 @@ RSpec.describe Saboteur::Engine::CoverageStore, "successful recording" do
       allow(recorder).to receive(:result).and_return(map)
       # The recorder must also watch the suite's own files: a spec can read
       # a constant directly, and those hits map the mutant to its test (#319).
+      # Captured, then asserted after record returns: an expect inside the
+      # block fails under record's rescue, whose exit! would kill the whole
+      # spec process and turn a clean mutant kill into a report-less error.
+      recorded = nil
       allow(Saboteur::Selection::Recorder).to receive(:new) do |files|
-        expect(files).to eq(["/root/lib/a.rb", "/root/spec/a_spec.rb"])
+        recorded = files
         recorder
       end
       store = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
@@ -524,6 +528,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "successful recording" do
       allow($stdout).to receive(:reopen)
       allow($stderr).to receive(:reopen)
       store.send(:record, writer, ["/root/lib/a.rb"])
+      expect(recorded).to eq(["/root/lib/a.rb", "/root/spec/a_spec.rb"])
       expect(JSON.parse(writer.string)["tests"]).to eq(["t1"])
     end
   end
