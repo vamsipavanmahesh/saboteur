@@ -358,21 +358,34 @@ on main: diff mode does not check every method affected by a dependency change.
 ### External test commands
 
 `--test-command CMD` (config `c.test_command`, #140) replaces the whole
-in-process test machinery: each mutant is written into a disposable copy
-of the project tree - never your real files - and CMD runs there. Its
-exit status decides the verdict: 0 survived, non-zero killed (except the
-shell's 126/127, which read as command/setup errors), the per-mutant
-deadline (`c.baseline_timeout`) a timeout. Use it when the target app
-cannot load inside saboteur's Ruby, for example an app pinned to an older
-Ruby.
+in-process test machinery: for each execution a fresh pristine copy of the
+project tree is materialized under the system tmp dir, the mutant is
+written into that copy - never your real files - and CMD runs there with
+the copy as its working directory. Neutral runs (baseline probes and
+verification re-runs) write the file's unchanged bytes, so a neutral copy
+is byte-identical to the pristine tree. The exit status decides the
+verdict: 0 survived, non-zero killed (except the shell's 126/127, which
+read as command/setup errors), the per-mutant deadline
+(`c.baseline_timeout`) a timeout. Use it when the target app cannot load
+inside saboteur's Ruby, for example an app pinned to an older Ruby.
 
 **Warning: CMD runs unsandboxed with your user permissions - full network
 access and every side effect it chooses, exactly as if you typed it into a
-shell.** Only point it at commands you trust. Mutants are applied in the
-copy, so even a SIGKILL of saboteur, a failed write, or a command that
-keeps writing in the background cannot damage the real tree; the worst
-case is a leftover temp directory under the system tmp dir. The command's
-whole process group is terminated on every exit path, including Ctrl-C.
+shell.** Only point it at commands you trust. The per-execution copy is
+the only tree CMD is pointed at, and mutants are applied there, so nothing
+saboteur writes can reach the real tree - but the copy is not a jail, and
+a command that goes looking for your real files can still touch them.
+Symlinks are not followed into the real tree: a symlink that stays inside
+the project is materialized in the copy as a plain copy of its target, and
+a symlink that escapes the tree or loops is refused with an error naming
+the path. Captured output is held in memory and capped at 64 KB.
+
+On every shutdown path saboteur terminates the command's whole process
+group, escalating from SIGTERM to SIGKILL, including on Ctrl-C. One case
+is outside that guarantee: if saboteur itself is SIGKILLed it cannot send
+those signals, so the group may keep running against the leftover copy,
+and the temp directory may not be cleaned up. The real tree is still never
+modified - the leftover state lives only under the system tmp dir.
 
 The mode is explicitly slower: the whole command runs once per mutant, so
 a mutant count in the hundreds means hundreds of full suite runs, plus one
@@ -382,9 +395,12 @@ with `--test` or `--incremental` (config `tests:`/`incremental:` count
 too; `sandbox: "strict"` is rejected because it cannot be honored). Before
 any mutant is created, one neutral preflight runs CMD on the unchanged
 copy: a command that fails there fails the whole run up front with its
-exit status and captured output (exit 3). A saboteur run refuses to start
-inside CMD's own environment, so a test command that itself invokes
-saboteur cannot mutate the copy mid-run.
+exit status and captured output (exit 3). The preflight gets whichever is
+shorter, the per-mutant deadline or the time left in the overall run
+budget, so it can never outlast the run. A blank `--test-command` is a
+config error. A saboteur run refuses to start inside CMD's own
+environment, so a test command that itself invokes saboteur cannot mutate
+the copy mid-run.
 [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 
