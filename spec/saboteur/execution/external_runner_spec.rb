@@ -257,9 +257,11 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
   it "does not wait out a session-escaped descendant holding stdout" do
     mark = File.join(@dir, "escaped-ran")
     ruby = RbConfig.ruby
-    # The parent lingers so the child escapes its session BEFORE the group
-    # TERM lands: an escapee killed during boot proves nothing (#305 QA).
-    command = "#{ruby} -e 'Process.setsid; File.write(ARGV[0], \"1\"); sleep 3' #{mark} & sleep 0.3; exit 0"
+    # The parent waits for the child's marker - written AFTER setsid - so
+    # the escape lands before the group TERM: an escapee killed during boot
+    # proves nothing, and a fixed sleep is flaky (#305 Principal).
+    command = "#{ruby} -e 'Process.setsid; File.write(ARGV[0], \"1\"); sleep 3' #{mark} & " \
+              "until [ -f #{mark} ]; do sleep 0.02; done; exit 0"
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     outcome, = run_in(@dir, command, timeout: 5)
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
@@ -326,12 +328,38 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
   end
 
   # The budget is admitted AFTER the copy: a deadline already spent is a
-  # budget stop, not a command failure (#305 Architect).
+  # budget stop only when the budget is the limiting deadline (#305
+  # Architect, Principal).
   it "raises BudgetPhaseTimeout when the preflight deadline is already spent" do
     subject_in(@dir)
     runner = described_class.new(command: "true", root: @dir)
     spent = Process.clock_gettime(Process::CLOCK_MONOTONIC) - 1
-    expect { runner.preflight!(deadline: spent) }.to raise_error(Saboteur::BudgetPhaseTimeout)
+    expect { runner.preflight!(deadline: spent, budget_deadline: spent) }
+      .to raise_error(Saboteur::BudgetPhaseTimeout)
+  end
+
+  # Fake clock: the OWN slice times out, then cleanup crosses the run
+  # budget. The cause is fixed when the wait ends, so the crossing cannot
+  # relabel the command's timeout as a budget stop (#305 Principal).
+  it "keeps an own-slice timeout generic when cleanup crosses the budget" do
+    subject_in(@dir)
+    runner = described_class.new(command: "sleep 30", root: @dir)
+    # An advancing fake clock: a frozen one would park the reap poll.
+    ticks = 0.0
+    allow(runner).to receive(:monotonic) { ticks += 0.05 }
+    expect { runner.preflight!(deadline: 0.2, budget_deadline: 1.0) }
+      .to raise_error(Saboteur::Error, /timed out/)
+  end
+
+  # Fake clock: the copy eats the command's own deadline with no run
+  # budget in play - a spent own deadline is the command's error, never a
+  # budget stop (#305 Principal).
+  it "keeps an own-deadline exhaustion at admission generic" do
+    subject_in(@dir)
+    runner = described_class.new(command: "true", root: @dir)
+    allow(runner).to receive(:monotonic).and_return(10.0)
+    expect { runner.preflight!(deadline: 0.2) }
+      .to raise_error(Saboteur::Error, /deadline was spent before the command could start/)
   end
 
   describe "#preflight!" do

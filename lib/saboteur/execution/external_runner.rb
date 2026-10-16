@@ -80,14 +80,25 @@ module Saboteur
       # not a command failure - and so is a wait cut short with the overall
       # run budget also spent: the run is out of time, the command is not
       # at fault (#305 QA).
+      # The budget only owns the outcome when it is the LIMITING deadline
+      # (budget_deadline <= deadline): an own-slice timeout stays the
+      # command's error even when the run budget is spent too, and the
+      # cause is fixed at the moment of admission or timeout, before
+      # TERM/KILL and the drain can cross the budget and relabel it (#305
+      # Principal).
       def preflight!(deadline: monotonic + 60, budget_deadline: nil)
+        budget_limited = !budget_deadline.nil? && budget_deadline <= deadline
         result = with_fresh_copy do
           remaining = deadline - monotonic
-          raise BudgetPhaseTimeout, "the --max-duration budget stopped the external preflight" if remaining <= 0
+          if remaining <= 0
+            raise BudgetPhaseTimeout, "the --max-duration budget stopped the external preflight" if budget_limited
 
-          spawn_and_wait(remaining)
+            raise Error, "the test command's preflight deadline was spent before the command could start"
+          end
+
+          spawn_and_wait(remaining, timeout_cause: budget_limited ? :budget : :own, budget_deadline: budget_deadline)
         end
-        if result == :timeout && budget_deadline && monotonic >= budget_deadline
+        if result == :budget_timeout
           raise BudgetPhaseTimeout, "the --max-duration budget stopped the external preflight"
         end
 
@@ -214,7 +225,12 @@ module Saboteur
         "#{describe_exit(@last_result)}: #{last_output}"
       end
 
-      def spawn_and_wait(timeout)
+      # timeout_cause fixes who owns a timeout at the moment the wait ends,
+      # BEFORE the ensure's TERM/KILL grace and capture drain run: that
+      # cleanup can cross the run budget, and a budget crossed there must
+      # not relabel the command's own timeout as a budget stop (#305
+      # Principal). :budget_timeout is decided here, never after.
+      def spawn_and_wait(timeout, timeout_cause: :own, budget_deadline: nil)
         # Always through the shell: users write pipelines and redirects,
         # and a bare unknown word must exit 127 instead of raising ENOENT.
         start_capture
@@ -225,6 +241,10 @@ module Saboteur
         @capture_writer.close
         @capture_writer = nil
         @last_result = await_exit(pid, timeout)
+        if @last_result == :timeout && timeout_cause == :budget && budget_deadline && monotonic >= budget_deadline
+          @last_result = :budget_timeout
+        end
+        @last_result
       rescue SystemCallError => e
         @last_result = e
       ensure
