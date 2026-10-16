@@ -37,6 +37,51 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     )
   end
 
+  # The triage states reach the real exit gates through IgnoreList.load +
+  # apply, not through a stubbed report (#304 QA).
+  describe "ignore-list triage states through the real gates" do
+    let(:config) { {} }
+
+    def ignore_file_for(survivor, state)
+      dir = Dir.mktmpdir
+      path = File.join(dir, "saboteur_ignore.rb")
+      File.write(path, <<~RUBY)
+        Saboteur.ignore do |i|
+          i.mutation "#{survivor.digest}", subject: "Person#adult?", reason: "triaged", state: "#{state}"
+        end
+      RUBY
+      path
+    end
+
+    def triaged_report(state)
+      survivor = result_for(:survived)
+      Saboteur::IgnoreList.load(ignore_file_for(survivor, state)).apply([survivor])
+      report_of(survivor, result_for(:killed))
+    end
+
+    {
+      "accepted_equivalent" => false,
+      "wont_fix" => false,
+      "todo" => true
+    }.each do |state, fails|
+      it "#{state} #{fails ? 'fails' : 'passes'} the survivor gate and exit code" do
+        report = triaged_report(state)
+        expect(harness.quality_gate?(report)).to be(fails)
+        expect(harness.code(report)).to eq(fails ? Saboteur::CLI::EXIT_SURVIVORS : Saboteur::CLI::EXIT_OK)
+      end
+    end
+
+    context "with --threshold the score decides, and the states do not change it" do
+      let(:config) { { "threshold" => 50.0 } }
+
+      it "passes all three states at the same score" do
+        %w[accepted_equivalent wont_fix todo].each do |state|
+          expect(harness.quality_gate?(triaged_report(state))).to be(false), "state #{state} changed the score"
+        end
+      end
+    end
+  end
+
   describe "agent_exit_cause" do
     context "when --max-duration-ok leaves the exit to the verdict and survivors ran" do
       let(:config) { { "max_duration_ok" => true } }
