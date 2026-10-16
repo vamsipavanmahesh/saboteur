@@ -57,6 +57,32 @@ RSpec.describe Saboteur::Execution::Reevaluator do
         expect(ReevalTargets::Util.private_method_defined?(:twice)).to be(true)
       end
 
+      it "redefines a method on a Data.define subject without touching the generated class (#290)" do
+        point = ReevalTargets::Person::Point.new(1, 2)
+        expect(point.above?).to be(true)
+        reeval("ReevalTargets::Person::Point#above?", strategy, from: "y > x", to: "y < x")
+        expect(point.above?).to be(false)
+        expect(ReevalTargets::Person::Point.members).to eq(%i[x y])
+      end
+
+      it "redefines a singleton method on a Data.define subject (#290)" do
+        reeval("ReevalTargets::Person::Point.origin", strategy, from: "new(0, 0)", to: "new(1, 1)")
+        expect(ReevalTargets::Person::Point.origin).to eq(ReevalTargets::Person::Point.new(1, 1))
+      end
+
+      it "redefines a method on a Class.new subject (#290)" do
+        expect(ReevalTargets::Person::Solo.new.one).to eq(1)
+        reeval("ReevalTargets::Person::Solo#one", strategy, from: "1", to: "2")
+        expect(ReevalTargets::Person::Solo.new.one).to eq(2)
+      end
+
+      it "redefines a method on a Module.new subject (#290)" do
+        host = Class.new { include ReevalTargets::Person::Tally }
+        expect(host.new.tick).to eq(:tock)
+        reeval("ReevalTargets::Person::Tally#tick", strategy, from: ":tock", to: ":tick")
+        expect(host.new.tick).to eq(:tick)
+      end
+
       it "re-applies private and protected module-function copies without exposing them" do
         reeval("ReevalTargets::PrivateCopies#hidden", strategy, from: ":original", to: ":mutated")
         reeval("ReevalTargets::PrivateCopies#protected_copy", strategy, from: ":original", to: ":mutated")

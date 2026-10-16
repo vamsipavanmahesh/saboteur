@@ -20,12 +20,15 @@ All notable changes are documented here. The format follows
   advising a container for filesystem containment and network denial or
   stubbing for real-API risk, and the README carries a short per-platform
   sandbox and network statement (#247).
+- Methods defined in a constant-assigned `Data.define`, `Struct.new`,
+  `Class.new` or `Module.new` block are mutated like any other subject
+  instead of reported as skipped: the constant names the generated class,
+  so the mutant is re-evaluated on it (#290).
 
 ### Removed
 - The stale self-deprecating benchmark claims in the README ('rerun
   pending'): speed and memory numbers now live only with the harness and raw
   data that reproduce them, or are framed as dated history (#243).
-
 
 ## [0.7.0] - 2026-10-16
 

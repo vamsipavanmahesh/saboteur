@@ -10,12 +10,14 @@ module Saboteur
   # Included: instance methods and `def self.x` inside a class or module,
   # defs inside `class << self`, and defs passed to a receiverless call such
   # as `private def x`. Skipped: top-level defs, defs nested in defs, and
-  # `def obj.x` for obj != self. Defs in blocks (`Class.new do`, `included do`)
-  # are found but marked skipped ("defined inside a block"), so the report
-  # names them instead of leaving them out. `X = Data.define`, `Struct.new`,
-  # `Class.new` or `Module.new` with a block names X as the owner; any other
-  # block, and a `A::X = ...` target, keeps the enclosing owner or the
-  # placeholder.
+  # `def obj.x` for obj != self. Defs in blocks (`included do`, plain
+  # `Class.new do`) are found but marked skipped ("defined inside a block"),
+  # so the report names them instead of leaving them out. `X = Data.define`,
+  # `Struct.new`, `Class.new` or `Module.new` with a block names X as the
+  # owner and stays mutable: the constant names the generated class, so a
+  # mutant can be re-evaluated on it (#290). Any other block, and a
+  # `A::X = ...` target, keeps the enclosing owner or the placeholder and
+  # stays skipped.
   class SubjectFinder
     Parsed = Data.define(:subjects, :errors)
     ANONYMOUS_OWNER = "(anonymous block)"
@@ -47,7 +49,7 @@ module Saboteur
 
       case node
       when Prism::BlockNode, Prism::LambdaNode
-        walk(node.body, nesting, out, **ctx, in_block: true)
+        walk(node.body, nesting, out, **ctx, in_block: true, factory_block: false)
       when Prism::ConstantWriteNode
         walk_constant_assignment(node, nesting, out, **ctx)
       when Prism::ModuleNode
@@ -77,9 +79,14 @@ module Saboteur
       return node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) } unless class_factory?(call)
 
       # The receiver and arguments stay in the enclosing scope; only the
-      # factory's own block belongs to the new class.
+      # factory's own block belongs to the new class. That block's defs are
+      # mutable: the constant names the generated class, so a mutant is
+      # re-evaluated on it (#290). Module.new builds a module, so its
+      # nesting header must say module.
       (call.compact_child_nodes - [call.block]).each { |child| walk(child, nesting, out, **ctx) }
-      walk(call.block, nesting + [Scope.new(kind: :class, path: node.name.to_s)], out, **ctx)
+      kind = call.receiver.name == :Module ? :module : :class
+      walk(call.block.body, nesting + [Scope.new(kind:, path: node.name.to_s)], out, **ctx,
+           in_block: true, factory_block: true)
     end
 
     def class_factory?(call)
@@ -96,7 +103,8 @@ module Saboteur
       walk(node.body, nesting + [Scope.new(kind: :sclass, path: "self")], out, **ctx)
     end
 
-    def add_subject(node, nesting, out, file:, source:, frozen:, previous: nil, in_block: false)
+    def add_subject(node, nesting, out, file:, source:, frozen:, previous: nil, in_block: false,
+                    factory_block: false)
       in_sclass = nesting.last&.sclass? || false
       # `def self.x` inside `class << self`, and `def obj.x`, are not subjects.
       return unless node.receiver.nil? || (node.receiver.is_a?(Prism::SelfNode) && !in_sclass)
@@ -109,7 +117,7 @@ module Saboteur
       subject = Subject.new(name: node.name, owner: owner, singleton: singleton, sclass: in_sclass,
                             file: file, node: node, file_source: source, nesting: nesting,
                             frozen_literals: frozen, sig_span: sig_span(previous))
-      subject.skip_reason = "defined inside a block" if in_block
+      subject.skip_reason = "defined inside a block" if in_block && !factory_block
       out << subject
     end
 
