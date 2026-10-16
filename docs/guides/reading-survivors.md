@@ -32,7 +32,9 @@ from the label alone.
 
 A survivor with no signal stays unlabeled - the field is omitted, never
 empty. One label per survivor, first match in the order above. Labels
-never change scores or the exit code.
+never change scores or the exit code. The label also shows as a badge
+next to the survivor's status in the HTML report and as the
+`classification` field on each shown finding in the agent JSON.
 
 ## Anatomy of a survivor
 
