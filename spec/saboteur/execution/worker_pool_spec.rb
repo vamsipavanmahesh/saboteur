@@ -19,6 +19,15 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect(results.map { |r| r["square"] }).to eq([9, 1, 4, 0])
   end
 
+  it "keeps every verdict when macOS refuses the worker's process-group change (#296)" do
+    allow(Process).to receive(:setpgid).and_raise(Errno::EPERM)
+    results = described_class.new(jobs: 3).map([3, 1, 2, 0]) do |n|
+      sleep(n * 0.05)
+      { "square" => n * n, "worker" => ENV.fetch("SABOTEUR_WORKER") }
+    end
+    expect(results.map { |r| r["square"] }).to eq([9, 1, 4, 0])
+  end
+
   it "runs items at the same time on several workers" do
     started = monotonic
     described_class.new(jobs: 4).map([0.3] * 4) do |seconds|

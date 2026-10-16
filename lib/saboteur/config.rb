@@ -63,6 +63,9 @@ module Saboteur
       "test_selection" => "auto",
       "matrix" => false,
       "seed" => 1,
+      "baseline_passes" => 2,
+      "max_duration" => nil,
+      "max_duration_ok" => false,
       "tests" => [],
       "fingerprint_extra" => [],
       "threshold" => nil,
@@ -70,8 +73,9 @@ module Saboteur
       "max_errors" => nil
     }.freeze
 
-    INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed].freeze
+    INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes].freeze
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
+    NILABLE_FLOAT_KEYS = %w[threshold max_duration].freeze
     THRESHOLD_RANGE = (0.0..100.0)
 
     LIST_KEYS = %w[require include exclude arid hazard sources hooks rspec_args subjects tests
@@ -103,7 +107,7 @@ module Saboteur
     # Deprecations found while loading: printed by the CLI, never fatal.
     attr_reader :deprecation_warnings
 
-    def initialize(values = {}, root: Dir.pwd)
+    def initialize(values = {}, root: Dir.pwd, explicit: nil)
       # Retag the root losslessly: under a non-UTF-8 locale it arrives
       # locale-tagged, and every glob, join and expand below would mix
       # encodings with the UTF-8 patterns from the config file (#231).
@@ -112,6 +116,7 @@ module Saboteur
       raise ConfigError, "unknown config key(s): #{unknown.join(', ')}" if unknown.any?
 
       @deprecation_warnings = deprecations(values)
+      @explicit_keys = (explicit || values.keys).map(&:to_s).freeze
       @values = DEFAULTS.merge(values)
       coerce!
       validate!
@@ -124,6 +129,26 @@ module Saboteur
 
     def fetch(key, default = nil)
       @values.fetch(key.to_s, default)
+    end
+
+    # Keys the user set (config file or CLI flag) rather than relying on
+    # the default; carried through Engine's config clone so provenance
+    # survives (#296).
+    attr_reader :explicit_keys
+
+    # A copy with some values replaced or dropped, keeping which keys the
+    # user set explicitly: the replacements count as explicit, the dropped
+    # keys lose it (#296).
+    def with(values, except: [])
+      merged = to_h.except(*except).merge(values)
+      Config.new(merged, root: root, explicit: (explicit_keys - except.map(&:to_s)) | values.keys.map(&:to_s))
+    end
+
+    # Whether the user set a key (config file or CLI flag) rather than
+    # relying on the default. An explicitly requested report artifact is
+    # completion evidence, so its write failure is a hard error (#296).
+    def explicit?(key)
+      @explicit_keys.include?(key.to_s)
     end
 
     def to_h
@@ -178,7 +203,7 @@ module Saboteur
       INTEGER_KEYS.each { |key| @values[key] = Integer(@values[key]) }
       FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) }
       LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
-      @values["threshold"] = Float(@values["threshold"]) unless @values["threshold"].nil?
+      NILABLE_FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) unless @values[key].nil? }
       @values["test_selection"] = @values["test_selection"].to_s
     rescue ArgumentError, TypeError => e
       raise ConfigError, "invalid config value: #{e.message}"
@@ -186,6 +211,13 @@ module Saboteur
 
     def validate_mutant_limit!
       raise ConfigError, "max_mutants_per_method must be > 0" unless self["max_mutants_per_method"].positive?
+    end
+
+    # The unchanged-suite checks: how many, and the whole run's clock (#55, #245).
+    def validate_baseline!
+      raise ConfigError, "seed must be >= 0" if self["seed"].negative?
+      raise ConfigError, "baseline_passes must be >= 1" if self["baseline_passes"] < 1
+      raise ConfigError, "max_duration must be > 0" if self["max_duration"] && !self["max_duration"].positive?
     end
 
     def validate_report_paths!
@@ -252,7 +284,7 @@ module Saboteur
       validate_mutant_limit!
       validate_threshold!
       validate_modes!
-      raise ConfigError, "seed must be >= 0" if self["seed"].negative?
+      validate_baseline!
       raise ConfigError, "max_memory_mb must be > 0" unless self["max_memory_mb"].positive?
       raise ConfigError, "max_processes must be > 0" unless self["max_processes"].positive?
       raise ConfigError, "timeout_factor must be > 0" unless self["timeout_factor"].positive?

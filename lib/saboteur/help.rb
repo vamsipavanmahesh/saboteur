@@ -25,7 +25,10 @@ module Saboteur
       2 => "Usage or configuration error: fix the command or config/saboteur.rb. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
       3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \
-           "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant."
+           "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant.",
+      4 => "Time budget spent: --max-duration stopped the run before the next subject, so the score is " \
+           "partial. --max-duration-ok leaves the exit to the plain verdict: 0, 1, or 3 when the budget " \
+           "stopped the run before any mutant was tested."
     }.freeze
 
     DOCTOR_EXIT_CODE_MEANINGS = {
@@ -61,6 +64,35 @@ module Saboteur
           ["CI gate: exit 1 when the score is below 90 percent", "saboteur run --threshold 90"],
           ["AI agent: bounded JSON summary and strict exit codes", "saboteur run --agent --since origin/main"]
         ]
+      ),
+      Command.new(
+        name: "pr",
+        summary: "Preset: the fast pull-request loop over the lines changed since a ref",
+        description: "Expands to saboteur run --baseline-passes 1 --max-duration 10m --max-duration-ok " \
+                     "--since REF, with REF the first operand (default main): one baseline check, a " \
+                     "ten-minute wall-clock budget, and mutants limited to the changed methods. The " \
+                     "preset opts out of the budget-specific exit 4; the normal and incomplete " \
+                     "verdicts still fail the run (survivors exit 1, a budget stop before any mutant " \
+                     "ran exits 3). Every run option still works; an explicit flag after the preset " \
+                     "wins (#244).",
+        takes_options: true,
+        exit_codes: EXIT_CODE_MEANINGS,
+        examples: [["Changed lines since main", "saboteur pr"],
+                   ["Changed lines since another target", "saboteur pr origin/develop"],
+                   ["The same loop with two baseline checks", "saboteur pr --baseline-passes 2"]]
+      ),
+      Command.new(
+        name: "audit",
+        summary: "Preset: the whole project, all operators, both reports",
+        description: "Expands to saboteur run --all --operators all --baseline-passes 2 " \
+                     "--json .saboteur/audit-report.json --html .saboteur/audit-report.html: every " \
+                     "subject against the whole suite, all operators, both baseline checks, writing " \
+                     "the Stryker JSON and HTML reports. Configured selection limits (since, " \
+                     "subjects, exclude_operators, max_duration) still apply; an explicit flag after " \
+                     "the preset wins (#244), and an explicit --test replaces the injected --all.",
+        takes_options: true,
+        exit_codes: EXIT_CODE_MEANINGS,
+        examples: [["Full project audit with JSON and HTML reports", "saboteur audit"]]
       ),
       Command.new(
         name: "doctor",
@@ -126,7 +158,7 @@ module Saboteur
 
     AGENT_EXIT_CODES = "  With --agent the codes are stricter: 0 only when the run was complete and clean; " \
                        "1 survivors to review;\n  2 usage or config error; 3 incomplete (no coverage, caps, errors, " \
-                       "nothing selected) or tool failure."
+                       "a budget stop before any mutant ran, nothing selected) or tool failure."
 
     FILES = [
       ["config/saboteur.rb", "Settings as Ruby (Saboteur.configure). Command line options override it."],
@@ -170,8 +202,16 @@ module Saboteur
       @commands.select(&:takes_options).map { |command| options_section(command) }
     end
 
+    # run, audit and pr share one exit-code table; the overview keeps every
+    # command's section but carries the agent note only on the first table
+    # that shares it, so the phrase appears exactly once.
     def exit_code_sections
-      @commands.select(&:exit_codes).map { |command| exit_codes_section(command.exit_codes, command.name) }
+      noted = []
+      @commands.select(&:exit_codes).map do |command|
+        first = noted.none? { |codes| codes.equal?(command.exit_codes) }
+        noted << command.exit_codes
+        exit_codes_section(command.exit_codes, command.name, agent_note: first)
+      end
     end
 
     def title
@@ -208,10 +248,10 @@ module Saboteur
       "EXAMPLES\n#{examples.map { |note, line| "  # #{note}\n  #{line}" }.join("\n")}\n"
     end
 
-    def exit_codes_section(codes, command_name = nil)
+    def exit_codes_section(codes, command_name = nil, agent_note: true)
       rows = codes.map { |code, meaning| "  #{code}  #{meaning}" }
       title = command_name ? "EXIT CODES (saboteur #{command_name})" : "EXIT CODES"
-      note = codes.equal?(EXIT_CODE_MEANINGS) ? "#{AGENT_EXIT_CODES}\n" : ""
+      note = agent_note && codes.equal?(EXIT_CODE_MEANINGS) ? "#{AGENT_EXIT_CODES}\n" : ""
       "#{title}\n#{rows.join("\n")}\n#{note}"
     end
 

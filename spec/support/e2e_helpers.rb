@@ -21,12 +21,12 @@ module E2EHelpers
     dir
   end
 
-  def saboteur(dir, *, env: {})
+  def saboteur(dir, *, env: {}, command: "run")
     json_path = File.join(dir, ".saboteur", "report.json")
     FileUtils.rm_f(json_path)
     out, err, status = Open3.capture3(
       { "BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile") }.merge(env),
-      RbConfig.ruby, "-I", File.join(ROOT, "lib"), EXE, "run", *, chdir: dir
+      RbConfig.ruby, "-I", File.join(ROOT, "lib"), EXE, *[command, *].compact, chdir: dir
     )
     # The subprocess writes UTF-8; the pipe inherits the spec run's locale.
     out.force_encoding(Encoding::UTF_8)

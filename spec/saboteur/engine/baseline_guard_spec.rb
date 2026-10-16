@@ -56,6 +56,17 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect(diagnostics).to have_received(:inform).with("checking the unchanged suite twice (seed 42)")
   end
 
+  it "runs a single check and notes the tradeoff when baseline_passes is 1 (#55)" do
+    single = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 1 }, root: @root)
+    err = StringIO.new
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: single, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err)).call
+    expect(supervisor).to have_received(:run).once
+    expect(err.string).to include("checking the unchanged suite once (seed 42)")
+    expect(err.string).to include("order stability between passes is not checked (baseline_passes: 1)")
+  end
+
   it "estimates the remaining full passes once the first baseline pass is timed (#260)" do
     err = StringIO.new
     allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
@@ -65,6 +76,15 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
                         full_passes: 3).call
     expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
     expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 2 full passes")
+  end
+
+  it "announces three or more passes in the plural with the seed (#245)" do
+    triple = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 3 }, root: @root)
+    err = StringIO.new
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: triple, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err)).call
+    expect(err.string).to include("checking the unchanged suite 3 times (seed 42)")
   end
 
   it "announces the single remaining pass in the singular" do

@@ -6,6 +6,11 @@ require_relative "saboteur/version"
 module Saboteur
   class Error < StandardError; end
 
+  # A phase timeout that --max-duration shortened: budget exhaustion, not a
+  # broken suite. The engine turns it into the budget partial-report path
+  # instead of a phase error (#296).
+  class BudgetPhaseTimeout < Error; end
+
   # Invalid configuration or input files (exit code 2).
   class ConfigError < Error; end
 

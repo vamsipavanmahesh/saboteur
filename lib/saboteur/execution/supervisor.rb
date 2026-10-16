@@ -147,7 +147,9 @@ module Saboteur
         reader.close
         self.class.close_in_child.each { |io| io.close unless io.closed? }
         ENV[CHILD_ENV] = depth.to_s
-        Process.setpgid(0, 0)
+        # Best-effort like the parent-side own_group: macOS can refuse the
+        # group change (EPERM), and the child must still run (#296).
+        own_group(0)
         limit_cpu(cpu_seconds)
         trap("TERM") { exit!(143) }
         watch_parent(supervisor)
@@ -160,7 +162,8 @@ module Saboteur
         # the exception unwind past the fork block into CLI code in the
         # child, where exit handlers could emit duplicate output (#289).
         begin
-          warn("saboteur: #{@child_label}: #{e.class}: #{e.message}")
+          frames = e.backtrace ? e.backtrace.first(8).join("\n  from ") : "(no backtrace)"
+          warn("saboteur: #{@child_label}: #{e.class}: #{e.message}\n  from #{frames}")
         rescue Exception # rubocop:disable Lint/RescueException
           nil
         end

@@ -74,6 +74,7 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
       allow(baseline).to receive(:call).and_raise(baseline_error)
     else
       allow(baseline).to receive(:call)
+      allow(baseline).to receive(:completed_passes).and_return(2)
     end
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
@@ -82,7 +83,7 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
   end
 
   def stub_distribution(events, run_error)
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     if run_error
       allow(distribution).to receive(:run) { events << :distribute and raise(run_error) }

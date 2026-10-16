@@ -3,6 +3,7 @@
 
 require "json"
 require_relative "stale_captures"
+require_relative "../crash_report"
 
 module Saboteur
   module Execution
@@ -53,16 +54,28 @@ module Saboteur
       end
 
       LOG_TAIL_BYTES = 2000
+      CRASH_LOG_BYTES = 2_000
+      CRASH_LOG_LINES = 8
+      # File mtimes follow the filesystem's clock, which can trail the
+      # process clock; a log written during this run can stamp a little
+      # before its start, so the freshness check allows that skew.
+      CRASH_LOG_CLOCK_SLACK = 2
+      # Freshness matching can attach another run's log (clock slack, two
+      # nested runs in one child), so the label must not claim exact
+      # attribution (#296).
+      CRASH_LOG_LABEL = "recent saboteur crash log (freshness-matched, may be another run's):"
 
       # log_dir: where children write their output; a child's log is kept
-      # only when it ends in an error.
+      # only when it ends in an error. crash_log: the crash log of a saboteur
+      # run nested inside a test; by default it sits next to the logs dir,
+      # where the engine's cache dir keeps it.
       # seed: every child seeds Ruby's random numbers with it before its
       # tests, so a test that uses rand sees the same values in every run.
       # sandbox: when given, a callable run first in every child (Landlock
       # makes the project tree read-only there, #152). It raises rather than
       # run half-restricted, which the child reports as an error.
       def initialize(integration:, reevaluator:, log_dir:, hooks: Hooks.new, supervisor: Supervisor.new, seed: 1,
-                     sandbox: nil, canary: nil)
+                     sandbox: nil, canary: nil, crash_log: nil)
         @integration = integration
         @reevaluator = reevaluator
         @hooks = hooks
@@ -71,6 +84,7 @@ module Saboteur
         @seed = seed
         @sandbox = sandbox
         @canary = canary
+        @crash_log = crash_log || File.join(File.dirname(log_dir), CrashReport::LOG_NAME)
       end
 
       # text: method source to evaluate in the child (the unchanged source for
@@ -144,6 +158,7 @@ module Saboteur
         method = replacement_method(job) if has_captures && job.mutation
         called = method ? false : nil
         trace = TracePoint.new(:call) { called = true } if method
+        started_at = Time.now
         result = if trace
                    trace.enable(target: method) { @hooks.around(job.mutation) { run_tests(job.test_ids) } }
                  else
@@ -152,8 +167,70 @@ module Saboteur
         if result.nil?
           Protocol.emit(writer, "error", message: "around_mutant hook did not run the tests")
         else
-          Protocol.emit(writer, "result", **result, replacement_called: called)
+          Protocol.emit(writer, "result", **with_crash_detail(result, started_at), replacement_called: called)
         end
+      end
+
+      # A test can run saboteur itself (the dogfood's cli_spec): the nested
+      # CLI reports its own crashes as exit 3 and logs them to
+      # internal-error.log. A log written during this run explains the
+      # failure better than the bare expectation diff, so its first lines
+      # join each failure detail; an older log is another run's (#296).
+      def with_crash_detail(result, started_at)
+        excerpt = crash_log_excerpt(started_at)
+        details = result[:failure_details]
+        return result unless excerpt && details && !details.empty?
+
+        result.merge(failure_details: details.transform_values { |d| [d, CRASH_LOG_LABEL, excerpt].join("\n") })
+      end
+
+      # The nested CLI writes its log to the cache dir, or to the pid-keyed
+      # temp fallback when the sandbox holds the cache dir read-only (#296).
+      def crash_log_excerpt(started_at)
+        excerpt = tmp_log_candidates.filter_map { |path| fresh_log_excerpt(path, started_at) }
+                                    .max_by { |mtime, _text| mtime }
+        excerpt&.last
+      rescue StandardError
+        nil
+      end
+
+      # The log paths are predictable and live in shared dirs, so read the
+      # log the way CrashReport writes it: through a no-follow, non-blocking
+      # descriptor,
+      # and validate on that same fd - a regular file, owned by this uid,
+      # with no group/other permission bits, fresh by the fd's own mtime.
+      # One open, no check-then-reopen race; a symlink, a foreign, wide or
+      # non-regular file, or any IO failure is no excerpt, never an
+      # exception (#296).
+      def fresh_log_excerpt(path, started_at)
+        # No safe open, no excerpt: without O_NOFOLLOW a symlink redirects
+        # the read, without O_NONBLOCK a no-writer FIFO blocks it (#296).
+        return unless CrashReport.safe_log_io?
+
+        flags = File::RDONLY | CrashReport.nofollow_flag | CrashReport.nonblock_flag
+        File.open(path, flags) do |file|
+          stat = file.stat
+          next unless stat.file? && stat.uid == Process.uid && stat.mode.nobits?(0o077)
+          next unless stat.mtime >= started_at - CRASH_LOG_CLOCK_SLACK
+
+          text = file.read(CRASH_LOG_BYTES)
+          # Scrub before the excerpt travels as JSON: the bounded read can
+          # end mid-character and the log can hold locale-invalid bytes, and
+          # a JSON::GeneratorError here would turn a kill into a child error
+          # (#296).
+          [stat.mtime, text ? CrashReport.scrub(text).lines.first(CRASH_LOG_LINES).join : nil]
+        end
+      rescue SystemCallError, IOError
+        nil
+      end
+
+      # The excerpt is diagnostic enrichment: when CrashReport itself is the
+      # mutated file, tmp_log_path can raise or return garbage - keep the
+      # primary candidate and never let the lookup change a verdict (#296).
+      def tmp_log_candidates
+        [@crash_log, CrashReport.tmp_log_path].compact.uniq.grep(String)
+      rescue StandardError
+        [@crash_log].compact
       end
 
       # Targeted tracing distinguishes the new Ruby body from an old Method
@@ -175,7 +252,8 @@ module Saboteur
       def run_tests(test_ids)
         result = @integration.run(test_ids)
         { passed: result.passed, failed: result.failed_ids, executed: result.executed_ids, runtime: result.runtime,
-          failure_classes: result.failure_classes, failure_messages: result.failure_messages }
+          failure_classes: result.failure_classes, failure_messages: result.failure_messages,
+          failure_details: result.failure_details }
       rescue SystemExit => e
         # A test called `exit`. The tests noticed something; count it as a failure.
         { passed: false, failed: [], executed: [], runtime: 0.0, exited: e.status }
@@ -270,7 +348,7 @@ module Saboteur
         end
       end
 
-      def classify_result(result, runtime, test_ids)
+      def classify_result(result, runtime, test_ids, verbose_failure: false)
         failed = Array(result["failed"])
         executed = Array(result["executed"])
         return Outcome.new(status: :killed, runtime: runtime, message: "test called exit") if result.key?("exited")
@@ -279,9 +357,7 @@ module Saboteur
           unexpected = failed - test_ids
           return mismatch(runtime, "failed tests not requested: #{unexpected.first(3).join(', ')}") if unexpected.any?
 
-          return Outcome.new(status: :killed, runtime: runtime, failed_ids: failed, executed_ids: executed,
-                             message: result.fetch("failure_messages", {})[failed.first],
-                             kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
+          return killed_outcome(result, runtime, failed, executed, verbose_failure)
         end
         unless result["passed"]
           return Outcome.new(status: :killed, runtime: runtime, executed_ids: executed,
@@ -295,8 +371,21 @@ module Saboteur
         Outcome.new(status: :survived, runtime: runtime, executed_ids: executed)
       end
 
+      def killed_outcome(result, runtime, failed, executed, verbose_failure)
+        Outcome.new(status: :killed, runtime: runtime, failed_ids: failed, executed_ids: executed,
+                    message: failure_message(result, failed.first, verbose_failure),
+                    kill_cause: kill_cause(result.fetch("failure_classes", {})[failed.first]))
+      end
+
+      # A neutral check (the verdict re-run, no mutation) needs the full
+      # failure to explain why the killer fails unchanged (#296).
+      def failure_message(result, test_id, verbose_failure)
+        message = result.fetch("failure_messages", {})[test_id]
+        verbose_failure ? result.fetch("failure_details", {})[test_id] || message : message
+      end
+
       def classify_events(result, events, runtime, job)
-        outcome = classify_result(result, runtime, job.test_ids)
+        outcome = classify_result(result, runtime, job.test_ids, verbose_failure: job.mutation.nil?)
         replaced = events.find { |event| event["event"] == "replaced" }
         return replaced_by_later_definition(outcome, replaced) if never_ran?(outcome, replaced, job)
 

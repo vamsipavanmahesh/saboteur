@@ -3,6 +3,7 @@
 
 require "json"
 require "stringio"
+require "timeout"
 require "tmpdir"
 
 RSpec.describe Saboteur::CrashReport do
@@ -39,6 +40,62 @@ RSpec.describe Saboteur::CrashReport do
     end
   end
 
+  it "never redirects the primary log write through a symlink (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      FileUtils.mkdir_p(File.dirname(log_path))
+      File.symlink(File.join(root, "target"), log_path)
+      fallback = described_class.tmp_log_path
+      FileUtils.rm_f(fallback)
+      report(error, log_path:)
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File).to be_symlink(log_path)
+      expect(File).not_to exist(File.join(root, "target"))
+    ensure
+      FileUtils.rm_f(fallback)
+    end
+  end
+
+  it "falls back promptly when the primary log path is a no-reader FIFO (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      FileUtils.mkdir_p(File.dirname(log_path))
+      File.mkfifo(log_path)
+      fallback = described_class.tmp_log_path
+      FileUtils.rm_f(fallback)
+      Timeout.timeout(10) { report(error, log_path:) }
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File).to be_pipe(log_path)
+    ensure
+      FileUtils.rm_f(fallback)
+    end
+  end
+
+  it "creates the primary log with mode 0600 from the first open, not only after the chmod (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      create_modes = {}
+      allow(File).to receive(:open).and_wrap_original do |original, *args, &block|
+        create_modes[args[0]] = args[2] if args.length >= 3
+        original.call(*args, &block)
+      end
+      report(error, log_path:)
+      expect(create_modes[log_path]).to eq(0o600)
+    end
+  end
+
+  it "keeps the log private even when it pre-exists with wider permissions (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      FileUtils.mkdir_p(File.dirname(log_path))
+      File.write(log_path, "old")
+      FileUtils.chmod(0o644, log_path)
+      report(error, log_path:)
+      expect(File.read(log_path)).to include("RuntimeError: boom")
+      expect(File.stat(log_path).mode & 0o777).to eq(0o600)
+    end
+  end
+
   it "creates the log directory when it is missing" do
     Dir.mktmpdir do |root|
       log_path = File.join(root, ".saboteur", "internal-error.log")
@@ -47,10 +104,118 @@ RSpec.describe Saboteur::CrashReport do
     end
   end
 
-  it "falls back to the bare one-liner when the log cannot be written" do
+  it "writes the log to the pid-keyed temp fallback when the cache dir cannot hold it (#296)" do
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      fallback = described_class.tmp_log_path
+      FileUtils.rm_f(fallback)
+      report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File.read(fallback)).to eq(
+        "RuntimeError: boom\napp/models/thing.rb:10:in `explode'\napp/models/thing.rb:20:in `run'\n"
+      )
+      FileUtils.rm_f(fallback)
+    end
+  end
+
+  it "computes the temp fallback lazily, only after the primary write fails (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      allow(described_class).to receive(:tmp_log_path).and_raise(ArgumentError, "no tmpdir")
+      report(error, log_path:)
+      expect(err.string).to include("full backtrace: #{log_path}")
+      expect(File.read(log_path)).to include("RuntimeError: boom")
+    end
+  end
+
+  it "skips the primary log write where safe log IO is unavailable, keeping the temp fallback (#296)" do
+    Dir.mktmpdir do |root|
+      log_path = File.join(root, ".saboteur", "internal-error.log")
+      fallback = described_class.tmp_log_path
+      FileUtils.rm_f(fallback)
+      allow(described_class).to receive(:safe_log_io?).and_return(false)
+      report(error, log_path:)
+      expect(File).not_to exist(log_path)
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File.read(fallback)).to include("RuntimeError: boom")
+    ensure
+      FileUtils.rm_f(fallback)
+    end
+  end
+
+  it "opens logs with O_NOFOLLOW and O_NONBLOCK where the platform defines them (#296)" do
+    expect(described_class.nofollow_flag).to eq(File::NOFOLLOW)
+    expect(described_class.nonblock_flag).to eq(File::NONBLOCK)
+  end
+
+  it "omits each open flag where the platform lacks it (#296)" do
+    allow(File).to receive(:const_defined?).and_call_original
+    allow(File).to receive(:const_defined?).with(:NOFOLLOW).and_return(false)
+    allow(File).to receive(:const_defined?).with(:NONBLOCK).and_return(false)
+    expect(described_class.nofollow_flag).to eq(0)
+    expect(described_class.nonblock_flag).to eq(0)
+  end
+
+  it "treats log IO as unsafe without O_NOFOLLOW (#296)" do
+    allow(File).to receive(:const_defined?).and_call_original
+    allow(File).to receive(:const_defined?).with(:NOFOLLOW).and_return(false)
+    expect(described_class.safe_log_io?).to be(false)
+  end
+
+  it "treats log IO as unsafe without O_NONBLOCK (#296)" do
+    allow(File).to receive(:const_defined?).and_call_original
+    allow(File).to receive(:const_defined?).with(:NONBLOCK).and_return(false)
+    expect(described_class.safe_log_io?).to be(false)
+  end
+
+  it "creates the temp fallback privately, pinned to 0600 (#296)" do
+    fallback = described_class.tmp_log_path
+    FileUtils.rm_f(fallback)
     Dir.mktmpdir do |root|
       File.write(File.join(root, ".saboteur"), "a file, not a directory")
       report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).to include("full backtrace: #{fallback}")
+      expect(File.stat(fallback).mode & 0o777).to eq(0o600)
+    end
+  ensure
+    FileUtils.rm_f(fallback)
+  end
+
+  it "neither follows nor overwrites a pre-existing symlink at the temp fallback path (#296)" do
+    fallback = described_class.tmp_log_path
+    FileUtils.rm_f(fallback)
+    Dir.mktmpdir do |root|
+      target = File.join(root, "target")
+      File.symlink(target, fallback)
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).not_to include("full backtrace")
+      expect(File).to be_symlink(fallback)
+      expect(File).not_to exist(target)
+    end
+  ensure
+    FileUtils.rm_f(fallback)
+  end
+
+  it "does not overwrite a pre-existing file at the temp fallback path (#296)" do
+    fallback = described_class.tmp_log_path
+    File.write(fallback, "not ours")
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      report(error, log_path: File.join(root, ".saboteur", "internal-error.log"))
+      expect(err.string).not_to include("full backtrace")
+      expect(File.read(fallback)).to eq("not ours")
+    end
+  ensure
+    FileUtils.rm_f(fallback)
+  end
+
+  it "falls back to the bare one-liner when even the temp fallback cannot be written" do
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, ".saboteur"), "a file, not a directory")
+      blocked = File.join(root, ".saboteur", "internal-error.log")
+      allow(described_class).to receive(:tmp_log_path).and_return(blocked)
+      report(error, log_path: blocked)
       expect(err.string).to include("internal error (RuntimeError: boom)")
       expect(err.string).not_to include("full backtrace")
     end
@@ -59,6 +224,10 @@ RSpec.describe Saboteur::CrashReport do
   it "omits the log path when none is available" do
     report(error)
     expect(err.string).not_to include("full backtrace")
+  end
+
+  it "names the temp fallback with the pid and the standard log name" do
+    expect(described_class.tmp_log_path).to eq(File.join(Dir.tmpdir, "saboteur-#{Process.pid}-internal-error.log"))
   end
 
   it "prints the backtrace to stderr with verbose" do

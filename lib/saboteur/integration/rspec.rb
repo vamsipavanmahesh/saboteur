@@ -55,7 +55,8 @@ module Saboteur
         passed = execute(listener)
         RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
                       executed_ids: listener.executed, runtime: listener.runtime,
-                      failure_classes: listener.failure_classes, failure_messages: listener.failure_messages)
+                      failure_classes: listener.failure_classes, failure_messages: listener.failure_messages,
+                      failure_details: listener.failure_details)
       end
 
       def run_all(recorder)
@@ -71,7 +72,8 @@ module Saboteur
         passed = execute(listener, log_phase: true)
         RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
                       executed_ids: listener.executed, runtime: listener.runtime,
-                      failure_classes: listener.failure_classes, failure_messages: listener.failure_messages)
+                      failure_classes: listener.failure_classes, failure_messages: listener.failure_messages,
+                      failure_details: listener.failure_details)
       end
 
       private
@@ -185,8 +187,10 @@ module Saboteur
         EVENTS = %i[example_started example_finished example_failed].freeze
 
         MESSAGE_LIMIT = 200
+        DETAIL_LIMIT = 2_000
+        BACKTRACE_LIMIT = 5
 
-        attr_reader :executed, :failed, :failure_classes, :failure_messages
+        attr_reader :executed, :failed, :failure_classes, :failure_messages, :failure_details
         attr_accessor :runtime
 
         def initialize(recorder = nil)
@@ -195,6 +199,7 @@ module Saboteur
           @failed = []
           @failure_classes = {}
           @failure_messages = {}
+          @failure_details = {}
           @runtime = 0.0
         end
 
@@ -213,9 +218,32 @@ module Saboteur
           exception = notification.example.execution_result.exception
           @failure_classes[notification.example.id] = exception&.class&.name
           @failure_messages[notification.example.id] = first_line(exception&.message)
+          @failure_details[notification.example.id] = detail_for(exception)
         end
 
         private
+
+        # The full failure, class and first frames: a neutral re-run that
+        # fails needs enough context to explain why (the compact first line
+        # alone reads as just "expected: 0").
+        def detail_for(exception)
+          return nil unless exception
+
+          message = Text.utf8("#{exception.class.name}: #{exception.message}")
+          ([message] + relevant_frames(exception)).join("\n")[0, DETAIL_LIMIT]
+        rescue StandardError
+          exception.message.to_s.dump[0, DETAIL_LIMIT]
+        end
+
+        # An expectation failure leads with rspec's own frames (notify_failure,
+        # handle_failure); under the cap they would crowd out the spec line.
+        # Keep the project frames; fall back to the raw ones when rspec itself
+        # raised, so the detail never comes back empty.
+        def relevant_frames(exception)
+          frames = Array(exception.backtrace).map { |frame| Text.utf8(frame.to_s) }
+          project = frames.reject { |frame| frame.include?("/gems/rspec") }
+          (project.empty? ? frames : project).first(BACKTRACE_LIMIT)
+        end
 
         def first_line(message)
           # Exception messages can carry bytes invalid under the locale encoding

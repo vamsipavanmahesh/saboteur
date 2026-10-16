@@ -3,6 +3,50 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "bafd61e973bfc9a9",
+             subject: "Saboteur::CLI::Presets#preset",
+             reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
+
+  i.mutation "4b8734a9a70da302",
+             subject: "Saboteur::Engine::Scheduler#retry_longer",
+             reason: "budget_capped clamps retry_timeout to <= longer, so < and != agree on every reachable value"
+
+  i.mutation "e9effc360ce327fb",
+             subject: "Saboteur::Engine::BaselineGuard#budget_stopped?",
+             reason: "admitted is clamped to <= the configured phase timeout, so < and != agree on every reachable value"
+
+  i.mutation "2e122d7fa55e9c86",
+             subject: "Saboteur::Engine::CoverageStore#budget_stopped?",
+             reason: "admitted is clamped to <= the configured phase timeout, so < and != agree on every reachable value"
+
+  i.mutation "5e4ced5440585f8a",
+             subject: "Saboteur::Engine::Scheduler#unchanged_runner",
+             reason: "budget_capped clamps its result to <= the given timeout, so < and != agree on every reachable value"
+
+  i.mutation "38af4993fb255820",
+             subject: "Saboteur::Engine::Scheduler#unchanged_timing",
+             reason: "budget_capped clamps its result to <= the baseline timeout, so < and != agree on every reachable value"
+
+  i.mutation "452346af9d7dfcf0",
+             subject: "Saboteur::Engine::Scheduler#unchanged_runner",
+             reason: "the 0.0 runtime of a check that never forked is discarded: as_unverified keeps the kill's own runtime"
+
+  i.mutation "dc826f708439e417",
+             subject: "Saboteur::Engine::Scheduler#unchanged_runner",
+             reason: "the 0.0 runtime of a check that never forked is discarded: as_unverified keeps the kill's own runtime"
+
+  i.mutation "4c76f1fb164340ce",
+             subject: "Saboteur::Engine::VerdictCheck#check_sequences",
+             reason: "equivalent: the block's side effects populate the accumulators and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "acc82bd84e367b90",
+             subject: "Saboteur::Engine::VerdictCheck#check_claims",
+             reason: "equivalent: the block's side effects populate the accumulators and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "d5337bfe1d6b9951",
+             subject: "Saboteur::Reporter::Terminal#list",
+             reason: "equivalent: the block's puts side effects are the whole behavior and the return value is unused, so each and map agree"
+
   i.mutation "ada60709111b1e56",
              subject: "Saboteur::Reporter::Diff#operations",
              reason: "equivalent: at the bound a[i] or b[j] is nil, so the equality fails either way"
@@ -349,4 +393,32 @@ Saboteur.ignore do |i|
   i.mutation "1824b380776f6a59",
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
+
+  i.mutation "981ed4f132e27c49",
+             subject: "Saboteur::CrashReport#write_log",
+             reason: "equivalent: write_log returns via an explicit return inside the block or nil after it; " \
+                     "the block's write/rescue side effects are the whole behavior and the enumerator's return value is never used"
+
+  i.mutation "57afcef173eb2eee",
+             subject: "Saboteur::Config#coerce!",
+             reason: "equivalent: the block's @values[key] assignment is the whole behavior and the enumerator's " \
+                     "return is unused: coerce! ends with the test_selection assignment"
+
+  i.mutation "23716ea3873be11e",
+             subject: "Saboteur::Reporter::Terminal#errors",
+             reason: "equivalent: the block's @out.puts side effects are the whole behavior and the enumerator's " \
+                     "return value is unused"
+
+  i.mutation "69ce317bab249ed6",
+             subject: "Saboteur::Engine::Scheduler#checked",
+             reason: "equivalent: the block's cache record side effects are the whole behavior and the chain's return value is discarded, so each and map agree"
+
+  i.mutation "e96e7f1845d85ffa",
+             subject: "Saboteur::CLI::RunBudgetOptions#parse_duration",
+             reason: "equivalent: OptionParser declares no coercion for --max-duration, so parse_duration always receives a String and the defensive .to_s never changes the result"
+
+  i.mutation "a00e405c28e686a0",
+             subject: "Saboteur::Config#with",
+             reason: "equivalent: initialize rejects non-string keys as unknown before the explicit list matters, " \
+                     "and map(&:to_s) is the identity on the string keys that remain"
 end

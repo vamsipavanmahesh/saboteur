@@ -11,6 +11,10 @@ module Saboteur
     # or mutation source is used. This catches observed instability, not all
     # possible flaky behaviour.
     class BaselineGuard
+      # How many unchanged-suite checks actually completed and validated:
+      # the number of order comparisons a run can claim is one less.
+      attr_reader :completed_passes
+
       EXCERPT_LINES = 10
       EXCERPT_WIDTH = 200
       EXCERPT_SCAN_LINES = 5000
@@ -18,13 +22,17 @@ module Saboteur
       # full_passes: every full-suite pass the run will make, including the
       # coverage build when the cache is cold, so the first timed pass can
       # price the rest (#260).
-      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, full_passes: 2)
+      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, full_passes: 2, between_passes: nil,
+                     timeout_cap: nil)
         @config = config
         @integration = integration
         @hooks = hooks
         @supervisor = supervisor
         @diagnostics = diagnostics
         @full_passes = full_passes
+        @between_passes = between_passes
+        @timeout_cap = timeout_cap
+        @completed_passes = 0
       end
 
       def call
@@ -32,9 +40,12 @@ module Saboteur
         raise Error, "baseline has no tests. Check rspec_args and the suite filters before running saboteur again." if
           expected.empty?
 
-        @diagnostics.inform("checking the unchanged suite twice (seed #{@config['seed']})")
+        passes = @config["baseline_passes"]
+        @diagnostics.inform(announce(passes))
         previous = nil
-        2.times do |index|
+        passes.times do |index|
+          break if budget_spent?(index)
+
           number = index + 1
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           data = check(number)
@@ -48,11 +59,30 @@ module Saboteur
             executed.sort == expected.sort
           refuse(number, "test order changed between baseline checks") if previous && executed != previous
           previous = executed
+          @completed_passes += 1
         end
         nil
       end
 
       private
+
+      # A spent --max-duration budget skips the remaining passes - including
+      # the first, when boot alone already spent it (#245).
+      def budget_spent?(_index)
+        !@between_passes.nil? && @between_passes.call
+      end
+
+      def announce(passes)
+        case passes
+        when 1
+          "checking the unchanged suite once (seed #{@config['seed']}); " \
+          "order stability between passes is not checked (baseline_passes: 1)"
+        when 2
+          "checking the unchanged suite twice (seed #{@config['seed']})"
+        else
+          "checking the unchanged suite #{passes} times (seed #{@config['seed']})"
+        end
+      end
 
       # Once the first pass is timed, the total cost stops being a guess:
       # the remaining full passes cost roughly the same each.
@@ -67,13 +97,35 @@ module Saboteur
                             "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'} at that rate")
       end
 
+      # An admitted pass still gets only the time left in the run budget:
+      # without the cap it would overrun a spent --max-duration by its
+      # whole coverage_timeout.
+      def phase_timeout
+        @timeout_cap ? @timeout_cap.call(@config["coverage_timeout"]) : @config["coverage_timeout"]
+      end
+
+      # A pass that hit its deadline only because --max-duration shortened
+      # the admission below the configured phase timeout: the budget ended
+      # the run, the suite is not broken (#296).
+      def budget_stopped?(result, admitted)
+        result.stopped_by == :timeout && admitted < @config["coverage_timeout"]
+      end
+
+      def refuse_budget_stop(number, admitted)
+        raise BudgetPhaseTimeout, "the --max-duration budget stopped baseline check #{number} " \
+                                  "(admitted #{admitted.round(1)}s of the #{@config['coverage_timeout']}s " \
+                                  "phase timeout)"
+      end
+
       def check(number)
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
-        result = @supervisor.run(timeout: @config["coverage_timeout"], on_tick: heartbeat.method(:tick),
+        admitted = phase_timeout
+        result = @supervisor.run(timeout: admitted, on_tick: heartbeat.method(:tick),
                                  label: "baseline child died during setup/run") do |writer|
           record(writer, number)
         end
+        refuse_budget_stop(number, admitted) if budget_stopped?(result, admitted)
         refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
         # Before the payload checks: a child killed by a signal (the OOM
         # killer, say) writes nothing, and the signal is the explanation. A

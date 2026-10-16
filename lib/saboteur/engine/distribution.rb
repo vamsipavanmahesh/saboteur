@@ -9,19 +9,25 @@ module Saboteur
     # candidate list, so results look the same either way.
     class Distribution
       # After run: the subjects a stop_after callable left unrun (always empty
-      # without one).
-      attr_reader :unreached
+      # without one), and the subjects that started but stopped mid-list as
+      # [subject, omitted_candidate_count] pairs (a spent --max-duration
+      # breaking a subject's scheduler loop). unverified lists the subjects
+      # whose fresh kills the spent budget left unchecked (#296).
+      attr_reader :unreached, :truncated, :unverified
 
       # stop_after: nil, or a callable that gets one subject's results and
       # returns true to stop before the next subject (--fail-fast). It only
       # works on one process: parallel workers have already started the
       # other subjects.
       def initialize(jobs:, scheduler:, diagnostics:, cache:, on_start: nil, after_subject: nil,
-                     stop_after: nil,
+                     stop_after: nil, halt_check: nil,
                      drain_timeout: 30) # seconds; two minimum-strength mutant deadlines at default settings
         @jobs = jobs
         @stop_after = stop_after
+        @halt_check = halt_check
         @unreached = []
+        @truncated = []
+        @unverified = []
         @on_start = on_start
         @scheduler = scheduler
         @diagnostics = diagnostics
@@ -48,27 +54,70 @@ module Saboteur
         # The abort reports and the pool are run state: a Distribution
         # runs once. @pool is only read from arrivals, which fire inside
         # @pool.map after the assignment.
-        @abort_reports = []
-        arrival = lambda do |i, row|
-          if row["tool_error"]
-            collect_abort_report(row)
-          else
-            check_subject(subjects, lists, i, row)
-          end
+        # A budget already spent by boot, baselines or the coverage map
+        # launches nothing: every subject comes back unreached (#245).
+        if @halt_check&.call
+          @unreached = subjects
+          return []
         end
+
+        @abort_reports = []
+        arrival = arrival_for(subjects, lists)
         @pool = Execution::WorkerPool.new(jobs: @jobs, on_start: @on_start, on_result: arrival,
                                           drain_timeout: @drain_timeout)
         rows = @pool.map(subjects.each_index.to_a, weights: lists.map(&:size)) do |i|
           work(subjects[i], lists[i])
         end
         raise_preferred_tool_error(@abort_reports) if @abort_reports.any?
+        record_unreached(rows, subjects, lists)
         rows.each_with_index.flat_map do |row, i|
+          next [] if row.nil?
+
           raise_if_tool_error(row)
           rebuild(row, subjects[i], lists[i])
         end
       end
 
       private
+
+      # @pool is only read here from arrivals, which fire inside @pool.map
+      # after the assignment. A spent --max-duration budget stops the queue
+      # without the safety-abort drain: in-flight subjects finish and
+      # report, and only never-started ones come back as nil holes, so
+      # unreached never mislabels an interrupted subject as unrun (#245).
+      def arrival_for(subjects, lists)
+        lambda do |i, row|
+          if row["tool_error"]
+            collect_abort_report(row)
+          else
+            check_subject(subjects, lists, i, row)
+            @pool.halt!(drain: false) if @halt_check&.call
+          end
+        end
+      end
+
+      # nil rows never started; a short results list is a subject whose
+      # scheduler stopped mid-list at the budget deadline. Worker-level error
+      # rows synthesize an error per candidate, so they never look truncated.
+      def unverified_result?(result)
+        result.is_a?(MutantResult) && result.status == :unverified
+      end
+
+      def record_unreached(rows, subjects, lists)
+        @unreached = []
+        @truncated = []
+        @unverified = []
+        rows.each_with_index do |row, i|
+          if row.nil?
+            @unreached << subjects[i]
+            next
+          end
+          next unless row["results"] && !row["error"]
+
+          @truncated << [subjects[i], lists[i].size - row["results"].size] if row["results"].size < lists[i].size
+          @unverified << subjects[i] if row["results"].any? { |result| result["status"] == "unverified" }
+        end
+      end
 
       # @pool is always assigned when an arrival fires: arrivals only fire
       # from inside @pool.map, which runs after the assignment.
@@ -90,8 +139,20 @@ module Saboteur
       def run_serially(subjects, lists)
         results = []
         subjects.zip(lists).each_with_index do |(subject, list), index|
+          # Same pre-dispatch budget check as the parallel first wave: an
+          # already-spent baseline starts no further subjects (#245).
+          if @halt_check&.call
+            @unreached = subjects.drop(index)
+            break
+          end
+
           subject_results = @scheduler.call(subject, list)
           results.concat(subject_results)
+          # A scheduler that stopped mid-list at the budget deadline: the
+          # completed results stay, the omitted candidates are accounted.
+          omitted = list.size - subject_results.size
+          @truncated << [subject, omitted] if omitted.positive?
+          @unverified << subject if subject_results.any? { |result| unverified_result?(result) }
           @after_subject&.call(subject, subject_results)
           next unless @stop_after&.call(subject_results)
 

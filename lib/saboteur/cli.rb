@@ -11,12 +11,18 @@ require_relative "baseline/command"
 require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/run_budget_options"
+require_relative "cli/presets"
+require_relative "cli/help_options"
 
 module Saboteur
   class CLI
     include Baseline::Command
     include ExitStatus
     include RunReporting
+    include RunBudgetOptions
+    include Presets
+    include HelpOptions
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -27,6 +33,7 @@ module Saboteur
     EXIT_SURVIVORS = 1
     EXIT_USAGE = 2
     EXIT_TOOL = 3
+    EXIT_BUDGET = 4
     class UsageError < ConfigError; end
 
     attr_reader :options
@@ -47,15 +54,15 @@ module Saboteur
     end
 
     def call
-      case @argv.shift
+      command = @argv.shift
+      case command
       when "run" then run_command
       when "baseline" then baseline
       when "doctor" then help_requested? ? show_help("doctor") : doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
-      when "help" then show_help(@argv.shift)
+      when "help", "--help", "-h" then show_help(@argv.shift)
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
-      when "--help", "-h" then show_help(nil)
-      else usage_error
+      else PRESETS.key?(command) ? preset(command) : usage_error
       end
     rescue OptionParser::ParseError => e
       usage_error(e.message)
@@ -75,11 +82,6 @@ module Saboteur
         define_matrix_option(opts)
         define_output_options(opts)
       end
-    end
-
-    # Each command's own option lines, as printed under OPTIONS in `saboteur help`.
-    def option_lines
-      { "run" => parser.summarize, "doctor" => doctor_parser.summarize, "baseline" => baseline_parser.summarize }
     end
 
     def doctor_parser
@@ -252,6 +254,9 @@ module Saboteur
       # along through --config or the default config path).
       settings[:allow_hazardous] = true if options[:allow_hazardous]
       settings[:allow_focus] = true if options[:allow_focus]
+      # An explicit false (--no-max-duration-ok over a config true) is a
+      # setting too: dropping it would silently re-enable the config value.
+      settings[:max_duration_ok] = options[:max_duration_ok] unless options[:max_duration_ok].nil?
       settings
     end
 
@@ -260,23 +265,6 @@ module Saboteur
       return "diff" if config["since"]
 
       @sources&.any? ? "files" : "full"
-    end
-
-    # Writes the JSON report and returns its path, or nil when none is configured.
-    def write_json(report, cause)
-      path = config.path("json_report")
-      return unless path
-
-      Reporter::Stryker.new(path).call(report, exit_cause: cause)
-      path
-    end
-
-    def write_html(report)
-      path = config.path("html_report")
-      return unless path
-
-      Reporter::Html.new(path).call(report)
-      path
     end
 
     # Positional arguments name the files (or directories) to mutate. They
@@ -349,9 +337,7 @@ module Saboteur
     def define_execution_options(opts)
       opts.on("--timeout-factor N", Float, "Multiple of baseline runtime (default 3)") { |v| set(:timeout_factor, v) }
       opts.on("--jobs N", Integer, "Concurrent workers (default 1)") { |v| set(:jobs, v) }
-      opts.on("--seed N", Integer, "Seed for Ruby's random numbers in every test run (default 1)") do |v|
-        set(:seed, v)
-      end
+      add_run_budget_options(opts)
       opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |v| set(:config, v) }
       opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
       opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }

@@ -109,6 +109,7 @@ module Saboteur
                "resource limit #{c[:resource_limit]}  error #{c[:error]}  skipped #{c[:skipped]}"
         line += "  ran at load #{c[:ran_at_load]}" if c[:ran_at_load].positive?
         line += "  unreachable #{c[:unreachable]}" if c[:unreachable].positive?
+        line += "  unverified #{c[:unverified]}" if c[:unverified].positive?
         line
       end
 
@@ -223,17 +224,39 @@ module Saboteur
         end
       end
 
-      # The verdict covers only the subjects that ran, so say it where the
+      # The verdict covers only the completed work, so say it where the
       # score is read.
       def early_stop(report)
         stop = report.early_stop
         return unless stop
 
-        @out.puts @palette.paint(:yellow, "stopped early (--fail-fast): #{stop.unreached.size} selected " \
-                                          "subject#{'s' unless stop.unreached.one?} did not run; the score below " \
-                                          "covers only the subjects that ran")
-        stop.unreached.first(MAX_ERRORS).each { |id| @out.puts "  not run: #{id}" }
-        @out.puts "  ... #{stop.unreached.size - MAX_ERRORS} more" if stop.unreached.size > MAX_ERRORS
+        label = stop.reason == "fail_fast" ? "--fail-fast" : "--max-duration spent"
+        @out.puts @palette.paint(:yellow, "stopped early (#{label}): #{early_stop_summary(stop)}; the score below " \
+                                          "covers only completed work")
+        list(stop.unreached) { |id| "  not run: #{id}" }
+        list(stop.truncated) { |entry| "  stopped mid-way: #{entry[:subject]} (#{entry[:omitted]} mutants omitted)" }
+        list(stop.unverified) { |id| "  unverified: #{id}" }
+      end
+
+      def list(entries)
+        entries.first(MAX_ERRORS).each { |entry| @out.puts yield(entry) }
+        @out.puts "  ... #{entries.size - MAX_ERRORS} more" if entries.size > MAX_ERRORS
+      end
+
+      def early_stop_summary(stop)
+        parts = []
+        if stop.unreached.any?
+          parts << "#{stop.unreached.size} selected subject#{'s' unless stop.unreached.one?} did not run"
+        end
+        if stop.truncated.any?
+          omitted = stop.truncated.sum { |entry| entry[:omitted] }
+          parts << "#{stop.truncated.size} subject#{'s' unless stop.truncated.one?} stopped mid-way " \
+                   "(#{omitted} mutants omitted)"
+        end
+        if stop.unverified.any?
+          parts << "#{stop.unverified.size} subject#{'s' unless stop.unverified.one?} left with unverified results"
+        end
+        parts.join("; ")
       end
 
       def warnings(report)
@@ -246,8 +269,9 @@ module Saboteur
 
         @out.puts "\nErrors (not counted as killed):"
         errored.first(MAX_ERRORS).each do |result|
-          @out.puts "  #{result.subject.id} #{result.mutation.operator} #{result.digest}: " \
-                    "#{result.reason.to_s.lines.first&.strip}"
+          lines = result.reason.to_s.lines.map(&:strip)
+          @out.puts "  #{result.subject.id} #{result.mutation.operator} #{result.digest}: #{lines.first}"
+          lines.drop(1).each { |line| @out.puts "    #{line}" }
         end
         @out.puts "  ... #{errored.size - MAX_ERRORS} more" if errored.size > MAX_ERRORS
       end

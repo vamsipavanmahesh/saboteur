@@ -17,6 +17,34 @@ RSpec.describe Saboteur::Config do
     File.write(full, content)
   end
 
+  it "knows which keys were set explicitly, and carries that through a clone (#296)" do
+    config = described_class.new({ "json_report" => "custom.json" }, root: @root)
+    expect(config.explicit?("json_report")).to be(true)
+    expect(config.explicit?("html_report")).to be(false)
+
+    clone = described_class.new(config.to_h, root: config.root, explicit: config.explicit_keys)
+    expect(clone.explicit?("json_report")).to be(true)
+    expect(clone.explicit?("html_report")).to be(false)
+  end
+
+  it "drops explicitness for keys a clone replaces or removes (#296)" do
+    config = described_class.new({ "json_report" => "custom.json", "subjects" => ["A#b"] }, root: @root)
+    clone = config.with({ "tests" => ["spec/a_spec.rb"] }, except: ["json_report"])
+    expect(clone.explicit?("json_report")).to be(false)
+    expect(clone.explicit?("tests")).to be(true)
+    expect(clone.explicit?("subjects")).to be(true)
+  end
+
+  it "tracks explicit keys given as symbols (#296)" do
+    config = described_class.new({ "json_report" => "custom.json" }, root: @root, explicit: [:json_report])
+    expect(config.explicit?("json_report")).to be(true)
+  end
+
+  it "drops explicitness for symbol except keys in a clone (#296)" do
+    config = described_class.new({ "json_report" => "custom.json" }, root: @root)
+    expect(config.with({}, except: [:json_report]).explicit?("json_report")).to be(false)
+  end
+
   it "keeps the root it is loaded with" do
     expect(described_class.load(root: @root).root).to eq(@root)
   end
@@ -219,6 +247,24 @@ RSpec.describe Saboteur::Config, "details" do
     expect(described_class.new({})["seed"]).to eq(1)
     expect(described_class.new({ "seed" => "7" })["seed"]).to eq(7)
     expect { described_class.new({ "seed" => -1 }) }.to raise_error(Saboteur::ConfigError, /seed must be >= 0/)
+  end
+
+  it "defaults baseline_passes to 2, accepts 1, and rejects values below 1 (#55)" do
+    expect(described_class.new({})["baseline_passes"]).to eq(2)
+    expect(described_class.new({ "baseline_passes" => 1 })["baseline_passes"]).to eq(1)
+    expect(described_class.new({ "baseline_passes" => "3" })["baseline_passes"]).to eq(3)
+    expect { described_class.new({ "baseline_passes" => 0 }) }.to raise_error(Saboteur::ConfigError,
+                                                                              /baseline_passes must be >= 1/)
+  end
+
+  it "leaves max_duration unset by default and validates it when given (#245)" do
+    expect(described_class.new({})["max_duration"]).to be_nil
+    expect(described_class.new({})["max_duration_ok"]).to eq(false)
+    expect(described_class.new({ "max_duration" => 600 })["max_duration"]).to eq(600.0)
+    expect(described_class.new({ "max_duration" => "90" })["max_duration"]).to eq(90.0)
+    expect { described_class.new({ "max_duration" => 0 }) }.to raise_error(Saboteur::ConfigError,
+                                                                           /max_duration must be > 0/)
+    expect { described_class.new({ "max_duration" => "soon" }) }.to raise_error(Saboteur::ConfigError)
   end
 
   it "has no path for a setting that is off" do

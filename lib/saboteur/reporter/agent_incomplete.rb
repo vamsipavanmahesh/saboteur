@@ -23,13 +23,25 @@ module Saboteur
             add(reasons, "mutant_cap", omitted_by_cap(report), "mutants omitted by max_mutants_per_method")
             add(reasons, "errors", report.counts[:error], "mutants errored; their verdict did not hold up")
             add(reasons, "resource_limit", report.counts[:resource_limit], "mutants hit the memory or process cap")
-            add(reasons, "fail_fast", report.early_stop&.unreached&.size.to_i,
-                "selected subjects did not run because --fail-fast stopped the run")
+            add(reasons, "unverified", report.counts[:unverified],
+                "mutants the --max-duration budget left unverified; their kills are not confirmed")
+            early_stop_reason(reasons, report)
             inline_scope(reasons, report)
             reasons
           end
 
           private
+
+          def early_stop_reason(reasons, report)
+            stop = report.early_stop
+            return unless stop
+
+            label = stop.reason == "fail_fast" ? "--fail-fast stopped" : "the --max-duration budget stopped"
+            add(reasons, stop.reason, stop.unreached.size, "selected subjects did not run because #{label} the run")
+            omitted = stop.truncated.sum { |entry| entry[:omitted] }
+            add(reasons, "#{stop.reason}_truncated", omitted,
+                "mutants omitted inside subjects that stopped mid-way because #{label} the run")
+          end
 
           def inline_scope(reasons, report)
             add(reasons, "inline_suppressed", report.inline_suppressions.size,

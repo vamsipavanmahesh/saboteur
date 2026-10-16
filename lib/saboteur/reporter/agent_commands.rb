@@ -18,10 +18,16 @@ module Saboteur
         # Options typed on the command line that change how a run behaves.
         SETTING_FLAGS = { reeval: "--reeval", integration: "--integration", jobs: "--jobs",
                           timeout_factor: "--timeout-factor", json_report: "--json", html_report: "--html",
-                          operators: "--operators", exclude_operators: "--exclude-operators" }.freeze
+                          operators: "--operators", exclude_operators: "--exclude-operators",
+                          baseline_passes: "--baseline-passes", max_duration: "--max-duration" }.freeze
 
-        # CLI-only boolean switches recorded in settings, emitted as bare flags.
-        BOOLEAN_SETTING_FLAGS = { allow_hazardous: "--allow-hazardous", allow_focus: "--allow-focus" }.freeze
+        # CLI-only boolean switches recorded in settings, mapped by value, so
+        # an explicit false (--no-max-duration-ok over a config true) survives
+        # into the generated commands instead of reverting to the config.
+        BOOLEAN_SETTING_FLAGS = { allow_hazardous: { true => "--allow-hazardous" },
+                                  allow_focus: { true => "--allow-focus" },
+                                  max_duration_ok: { true => "--max-duration-ok",
+                                                     false => "--no-max-duration-ok" } }.freeze
 
         class << self
           # Run the same selection again: ref, subjects, sources, tests, config,
@@ -55,7 +61,7 @@ module Saboteur
           end
 
           def boolean_words(provenance)
-            BOOLEAN_SETTING_FLAGS.filter_map { |key, flag| flag if provenance.settings[key] }
+            BOOLEAN_SETTING_FLAGS.filter_map { |key, words| words[provenance.settings[key]] }
           end
 
           # An explicit scope is frozen as --test, which wins over inferred

@@ -6,6 +6,8 @@ require "json"
 require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
+require_relative "engine/early_stop_recording"
+require_relative "engine/run_budget"
 require_relative "engine/thread_warnings"
 
 module Saboteur
@@ -13,9 +15,8 @@ module Saboteur
   # coverage map, then schedule each subject's mutants. The parts live in
   # engine/; this class only wires them together.
   class Engine
-    # A suite this size pays hours for an unscoped run; below it the cost
-    # summary alone is enough, without the --test lecture (#260).
-    COSTLY_SUITE_EXAMPLES = 1_000
+    include EarlyStopRecording
+    include RunBudget
 
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
@@ -43,9 +44,9 @@ module Saboteur
     end
 
     def call
-      Boot.refuse_recursion!
-      refuse_fail_fast_evidence
+      preflight!
       started = monotonic
+      start_budget_clock(started)
       # Capture evidence inputs before inference narrows the test list: the
       # fingerprint must match what the baseline workflow recomputes from the
       # declared config, and the inferred specs are pinned by the hashed
@@ -74,6 +75,11 @@ module Saboteur
           safely_cleanup_workers(boot.rails)
         end
       end
+    end
+
+    def preflight!
+      Boot.refuse_recursion!
+      refuse_fail_fast_evidence
     end
 
     def warn_custom_map = @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
@@ -163,7 +169,7 @@ module Saboteur
       # The guesses now stand as explicit tests, like --test. guess_tests is
       # dropped rather than set to false: an explicit false is the deprecated
       # opt-out and would warn.
-      @config = Config.new(config.to_h.except("guess_tests").merge("tests" => guess.specs), root: config.root)
+      @config = config.with({ "tests" => guess.specs }, except: ["guess_tests"])
       @guessed_tests = guess.specs
       guess.scope_message(since: config["since"])
     end
@@ -206,13 +212,12 @@ module Saboteur
     end
 
     def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
-      store = CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
-                                supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics)
-      full_passes = store.reusable?(files) ? 2 : 3
-      # A --id replay targets one known mutant; the whole-suite cost summary
-      # and its --test lecture do not apply.
-      warn_about_unscoped_suite(integration, full_passes) unless @replay
+      store = coverage_store(integration, load_lines)
+      full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
+      warn_unscoped(integration, full_passes)
       check_baseline(integration, full_passes)
+      return [] if abandon_for_budget?(subjects)
+
       map = store.fetch(files)
       inform_about_run(subjects, map)
       cache = result_cache
@@ -230,14 +235,17 @@ module Saboteur
       results = run_candidates(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
       cache&.save
       results
+    rescue BudgetPhaseTimeout => e
+      budget_phase_stop(e, subjects)
     end
 
     def run_candidates(subjects, lists, scheduler, cache, ignore_list)
       @diagnostics.start_progress(lists.sum(&:size))
       distribution = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
                                       cache: cache, on_start: method(:start_worker),
-                                      after_subject: after_subject_hook, stop_after: fail_fast_check(ignore_list))
-      distribution.run(subjects, lists).tap { record_early_stop(distribution.unreached) }
+                                      after_subject: after_subject_hook, stop_after: stop_checks(ignore_list),
+                                      halt_check: config["max_duration"] ? method(:budget_exceeded?) : nil)
+      distribution.run(subjects, lists).tap { record_early_stop(distribution) }
     ensure
       @diagnostics.finish_progress
     end
@@ -250,16 +258,15 @@ module Saboteur
       raise ConfigError, "fail_fast cannot be used with baseline evidence: it certifies the whole selection"
     end
 
-    # Subjects that were selected but never ran, with candidates, are part of
-    # the report: the verdict covers less than the selection.
-    def record_early_stop(unreached)
-      return if unreached.empty?
-
-      @early_stop = EarlyStop.new(reason: "fail_fast", unreached: unreached.map(&:id))
-    end
-
     # --fail-fast: stop after the first subject that has a survivor the
     # ignore list does not accept. Granularity is one subject.
+    # --fail-fast and --max-duration both stop before the next subject; the
+    # distribution records whatever they leave unreached.
+    def stop_checks(ignore_list)
+      checks = [fail_fast_check(ignore_list), ->(_results) { budget_exceeded? }].compact
+      ->(results) { checks.any? { |check| check.call(results) } }
+    end
+
     def fail_fast_check(ignore_list)
       return nil unless config["fail_fast"]
 
@@ -275,34 +282,28 @@ module Saboteur
       ThreadWarnings.warn(@diagnostics)
     end
 
-    # A whole-suite run (--all, c.test_selection = :all, or a --since diff
-    # with nothing to infer from) runs the loaded suite twice for the
-    # baselines; a cold coverage cache adds one more pass. Say so - with the
-    # example count and the real pass count - before those hours pass; past
-    # a size threshold, add the way to scope it.
-    def warn_about_unscoped_suite(integration, full_passes)
-      return unless config["tests"].empty?
-      return unless config["since"] || config["all"] || config["test_selection"] == "all"
-
-      examples = integration.all_tests.size
-      coverage = full_passes == 2 ? "; the cached coverage map is reused" : " + 1 coverage map build"
-      message = "running the loaded suite unscoped: #{examples} examples in #{integration.test_files.size} " \
-                "spec files; #{full_passes} full passes (2 baseline checks#{coverage})."
-      if examples >= COSTLY_SUITE_EXAMPLES
-        message += " Pass --test to run only the specs you name: faster, but a mutant of a changed method is then " \
-                   "killed only by those specs, so specs elsewhere that call this code are not run. " \
-                   "The default inferred selection runs the specs named after the mutated files, " \
-                   "a guess that can miss specs elsewhere."
-      end
-      @diagnostics.warn(message)
-      @diagnostics.inform(message)
+    def coverage_store(integration, load_lines)
+      CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
+                        supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
+                        timeout_cap: method(:budget_capped_timeout))
     end
 
     def check_baseline(integration, full_passes)
-      BaselineGuard.new(config: config, integration: integration, hooks: hooks,
-                        supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
-                        full_passes: full_passes).call
-      @stable_suite = true
+      guard = BaselineGuard.new(config: config, integration: integration, hooks: hooks,
+                                supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
+                                full_passes: full_passes, timeout_cap: method(:budget_capped_timeout),
+                                between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil)
+      guard.call
+      # Stability is the order comparison between completed checks: the cold
+      # coverage build is not a baseline pass, and a budget break shortens
+      # the loop, so certify only what actually ran.
+      @stable_suite = guard.completed_passes >= 2
+    end
+
+    # A --id replay targets one known mutant; the whole-suite cost summary
+    # and its --test lecture do not apply.
+    def warn_unscoped(integration, full_passes)
+      UnscopedSuiteWarning.call(config:, diagnostics: @diagnostics, integration:, full_passes:) unless @replay
     end
 
     def scheduler_for(map, integration, cache)
@@ -311,7 +312,7 @@ module Saboteur
                                      supervisor: supervisor, log_dir: fresh_log_dir, seed: config["seed"],
                                      sandbox: sandbox_hook, canary: canary)
       Scheduler.new(config: config, runner: runner, map: map, reevaluator: reevaluator, diagnostics: @diagnostics,
-                    cache: cache)
+                    cache: cache, deadline: budget_deadline)
     end
 
     # The sandbox hook for each mutant child (#152); the policy and its
@@ -471,6 +472,7 @@ require_relative "engine/test_guess"
 require_relative "engine/sandbox_policy"
 require_relative "engine/coverage_store"
 require_relative "engine/baseline_guard"
+require_relative "engine/unscoped_suite_warning"
 require_relative "engine/bytecode_equivalence"
 require_relative "engine/candidates"
 require_relative "engine/candidate_selection"

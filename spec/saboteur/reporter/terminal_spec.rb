@@ -177,7 +177,8 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "says where the run stopped early and which subjects did not run" do
     report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1.0,
                                   root: File.dirname(person_subject.file),
-                                  early_stop: Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y]))
+                                  early_stop: Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x B#y],
+                                                                      truncated: [], unverified: []))
     text = render(report)
     expect(text).to include("stopped early (--fail-fast): 2 selected subjects did not run",
                             "not run: A#x", "not run: B#y")
@@ -227,6 +228,36 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "lists errors separately and does not call them killed" do
     text = render(report_of(result_for(:error, reason: "child killed by signal 9 during tests")))
     expect(text).to include("killed 0", "error 1", "Errors (not counted as killed):", "signal 9")
+  end
+
+  # A rejected kill's reason carries the child's full failure detail: the
+  # terminal report keeps it as indented continuation lines (#296).
+  it "prints every line of a multiline error reason, indented under the mutant (#296)" do
+    detail = "killing test t1 also fails with the method unchanged: NameError: uninitialized constant X\n" \
+             "./spec/x_spec.rb:4:in `block'\n./spec/x_spec.rb:9:in `block'"
+    text = render(report_of(result_for(:error, reason: detail)))
+    expect(text).to include("NameError: uninitialized constant X\n    ./spec/x_spec.rb:4:in `block'\n    " \
+                            "./spec/x_spec.rb:9:in `block'")
+  end
+
+  it "prints the error header format and every continuation line exactly once, stripped (#296)" do
+    detail = "RuntimeError: boom\n  ./spec/x_spec.rb:4:in `block'\n    ./spec/x_spec.rb:9:in `block'"
+    result = result_for(:error, reason: detail)
+    text = render(report_of(result))
+    header = "  #{result.subject.id} #{result.mutation.operator} #{result.digest}: RuntimeError: boom"
+    block = "\nErrors (not counted as killed):\n#{header}\n    ./spec/x_spec.rb:4:in `block'\n    " \
+            "./spec/x_spec.rb:9:in `block'\n"
+    expect(text).to include(block)
+  end
+
+  it "adds an unverified count to the summary line when some mutants ran unverified (#296)" do
+    line = render(report_of(result_for(:killed), result_for(:unverified))).lines.find { |l| l.include?("killed ") }
+    expect(line).to include("unverified 1")
+  end
+
+  it "omits the unverified count from the summary line when none ran unverified (#296)" do
+    line = render(report_of(result_for(:killed))).lines.find { |l| l.include?("killed ") }
+    expect(line).not_to include("unverified")
   end
 
   it "shows skip reasons, warnings and ignored survivors" do

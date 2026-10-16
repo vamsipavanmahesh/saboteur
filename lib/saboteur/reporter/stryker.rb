@@ -58,7 +58,14 @@ module Saboteur
       # nil for a run that covered its whole selection.
       def self.early_stop(report)
         stop = report.early_stop
-        stop && { reason: stop.reason, unreachedSubjects: stop.unreached }
+        return unless stop
+
+        { reason: stop.reason, unreachedSubjects: stop.unreached, truncatedSubjects: truncated_subjects(stop),
+          unverifiedSubjects: stop.unverified }
+      end
+
+      def self.truncated_subjects(stop)
+        stop.truncated.map { |entry| { subject: entry[:subject], omittedMutants: entry[:omitted] } }
       end
 
       def self.skipped_subjects(report)
@@ -115,8 +122,9 @@ module Saboteur
         when :error, :resource_limit then "RuntimeError"
         when :skipped then result.reason&.start_with?("no coverage") ? "NoCoverage" : "Ignored"
         # The schema has no status for "ran, but no test can observe a
-        # change here". Ignored with the reason is the honest mapping.
-        when :ran_at_load, :unreachable then "Ignored"
+        # change here", nor for a verdict the budget left unchecked.
+        # Ignored with the reason is the honest mapping.
+        when :ran_at_load, :unreachable, :unverified then "Ignored"
         end
       end
 
@@ -125,7 +133,8 @@ module Saboteur
         return "resource limit: #{result.reason}" if result.status == :resource_limit
         return result.crash_kill? ? "crash: #{result.kill_cause}" : result.kill_cause if result.kill_cause
 
-        result.reason.to_s.lines.first&.strip
+        reason = result.reason.to_s.strip
+        reason.empty? ? nil : reason
       end
 
       def self.location(edit, source)

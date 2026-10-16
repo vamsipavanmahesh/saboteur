@@ -141,6 +141,186 @@ RSpec.describe Saboteur::CLI do
                                   reeval: "nesting", cache: false, seed: 42)
   end
 
+  it "parses --baseline-passes into config overrides (#55)" do
+    command = cli("run", "--baseline-passes", "1")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(baseline_passes: 1)
+  end
+
+  it "parses --max-duration with a unit suffix into seconds, plus --max-duration-ok (#245)" do
+    command = cli("run", "--max-duration", "10m", "--max-duration-ok")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(max_duration: 600.0, max_duration_ok: true)
+  end
+
+  it "parses --max-duration suffixes s and h, and bare seconds (#245)" do
+    { "30s" => 30.0, "2h" => 7200.0, "45" => 45.0 }.each do |text, seconds|
+      command = cli("run", "--max-duration", text)
+      allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+      command.call
+      expect(command.options).to eq(max_duration: seconds)
+    end
+  end
+
+  # Option values keep their shell padding; the parser trims before matching,
+  # so " 10m " is the same budget as "10m" (#296).
+  it "trims padding around --max-duration before parsing (#296)" do
+    command = cli("run", "--max-duration", " 10m ")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(max_duration: 600.0)
+  end
+
+  it "rejects an unparseable --max-duration as a usage error (#245)" do
+    command = cli("run", "--max-duration", "soon")
+    expect(command.call).to eq(2)
+    expect(err.string).to include("invalid --max-duration")
+  end
+
+  it "takes the first bare word after a preset as its ref, not the last (#296)" do
+    command = cli("pr", "deadbeef", "--all")
+    captured = nil
+    command.define_singleton_method(:run_command) { captured = @argv.dup }
+    command.call
+    expect(captured).to include("--since", "deadbeef")
+  end
+
+  it "rejects an unparseable --max-duration with the full hint (#296)" do
+    command = cli("run", "--max-duration", "soon")
+    command.call
+    expect(err.string).to include('invalid --max-duration "soon": use seconds or an s/m/h suffix, e.g. 10m')
+  end
+
+  it "expands the pr preset into its flag bundle, default ref main (#244)" do
+    command = cli("pr")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "main", baseline_passes: 1, max_duration: 600.0,
+                                       max_duration_ok: true)
+    expect(err.string).to include("preset 'pr':")
+  end
+
+  it "announces the pr preset expansion in full (#296)" do
+    command = cli("pr")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(err.string).to include("saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m " \
+                                  "--max-duration-ok --since main (explicit flags override)")
+  end
+
+  it "takes the pr ref from the first operand even with trailing flags (#296)" do
+    command = cli("pr", "v1.0", "--verbose")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "v1.0")
+  end
+
+  it "takes the pr ref as the first operand and lets explicit flags override the bundle (#244)" do
+    command = cli("pr", "origin/develop", "--baseline-passes", "2")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "origin/develop", baseline_passes: 2, max_duration: 600.0)
+  end
+
+  it "expands the audit preset into a whole-project run with both reports (#244)" do
+    command = cli("audit")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(all: true, json_report: ".saboteur/audit-report.json",
+                                       html_report: ".saboteur/audit-report.html")
+    expect(err.string).to include("preset 'audit':")
+  end
+
+  it "expands the audit preset with all operators and both baseline checks (#245)" do
+    command = cli("audit")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(operators: ["all"], baseline_passes: 2)
+  end
+
+  it "lets an explicit --guess-tests replace the audit preset's injected --all too (#245)" do
+    command = cli("audit", "--guess-tests")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options[:all]).to be_falsey
+  end
+
+  it "lets an explicit --test replace the audit preset's injected --all (#245)" do
+    command = cli("audit", "--test", "spec/models/person_spec.rb")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(tests: ["spec/models/person_spec.rb"])
+    expect(command.options[:all]).to be_falsey
+  end
+
+  it "never injects a --since ref for presets other than pr (#245)" do
+    command = cli("audit")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).not_to have_key(:since)
+  end
+
+  it "defaults the pr ref to main when only flags follow (#245)" do
+    command = cli("pr", "--baseline-passes", "2")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "main", baseline_passes: 2)
+  end
+
+  it "keeps the audit preset's --all when no explicit scope flag is given (#245)" do
+    command = cli("audit", "--seed", "7")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(all: true, seed: 7)
+  end
+
+  it "lets the --test=path form replace the audit preset's injected --all (#245)" do
+    command = cli("audit", "--test=spec/models/person_spec.rb")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(tests: ["spec/models/person_spec.rb"])
+    expect(command.options[:all]).to be_falsey
+  end
+
+  it "announces the expanded preset flags (#245)" do
+    command = cli("pr")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(err.string).to include("preset 'pr':").and include("--since main")
+  end
+
+  it "rejects a whitespace-padded --max-duration with the value in the message (#245)" do
+    command = cli("run", "--max-duration", " 10m ")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(max_duration: 600.0)
+    bad = cli("run", "--max-duration", "soon")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    bad.call
+    expect(err.string).to include('"soon"')
+  end
+
+  it "keeps an explicit --no-max-duration-ok over a config true in the agent settings (#245)" do
+    Dir.mktmpdir do |root|
+      path = File.join(root, "saboteur.rb")
+      File.write(path, "Saboteur.configure { |c| c.max_duration_ok = true }")
+      command = cli("run", "--agent", "--no-max-duration-ok", "--config", path)
+      allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+      command.call
+      expect(command.options[:max_duration_ok]).to be(false)
+      expect(command.send(:agent_settings)[:max_duration_ok]).to be(false)
+    end
+  end
+
+  it "lets --no-max-duration-ok override the pr preset's budget pass (#245)" do
+    command = cli("pr", "--no-max-duration-ok")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(max_duration: 600.0, max_duration_ok: false)
+  end
+
   describe "doctor suite options" do
     before { allow(Saboteur::Doctor).to receive(:new).and_return(instance_double(Saboteur::Doctor, call: true)) }
 
@@ -812,6 +992,14 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(out.string).to include("--exclude-operators NAMES", "Exclude operator names from the selected set")
   end
 
+  it "describes the seed, baseline and budget switches in run help (#296)" do
+    Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
+    expect(out.string).to include("Seed for Ruby's random numbers in every test run (default 1)",
+                                  "Unchanged-suite checks (default 2)",
+                                  "Wall-clock budget for the whole run, e.g. 10m; exit 4 when spent",
+                                  "An exhausted --max-duration budget does not fail the run")
+  end
+
   it "marks only the named operators on in --list-operators" do
     expect(cli("run", "--list-operators", "--operators", "range").call).to eq(0)
     expect(out.string).to match(/^range\s+on/)
@@ -923,6 +1111,176 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  it "warns and still exits by the results when the HTML report cannot be written (#296)" do
+    Dir.mktmpdir do |dir|
+      readonly = File.join(dir, "readonly")
+      FileUtils.mkdir_p(readonly)
+      FileUtils.chmod(0o555, readonly)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      html = File.join(readonly, "r.html")
+      status = cli("run", "--json", File.join(dir, "r.json"), "--html", html).call
+      expect(status).to eq(0)
+      expect(err.string).to include("saboteur: could not write the HTML report to #{html} " \
+                                    "(Permission denied @ rb_sysopen - #{html}); continuing without it\n")
+      expect(File).to exist(File.join(dir, "r.json"))
+    end
+  end
+
+  it "warns and still exits by the results when the default JSON report cannot be written (#296)" do
+    Dir.mktmpdir do |dir|
+      cache = File.join(dir, ".saboteur")
+      FileUtils.mkdir_p(cache)
+      FileUtils.chmod(0o555, cache)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = Dir.chdir(dir) { cli("run").call }
+      expect(status).to eq(0)
+      # The CLI resolves the root with realpath; on macOS the tmpdir is a
+      # symlink (/var -> /private/var), so compare against the resolved path.
+      json = File.join(File.realpath(dir), ".saboteur", "report.json")
+      expect(err.string).to include("saboteur: could not write the JSON report to #{json} " \
+                                    "(Permission denied @ rb_sysopen - #{json}); continuing without it\n")
+    end
+  end
+
+  it "fails the run when the explicitly requested JSON report cannot be written (#296)" do
+    Dir.mktmpdir do |dir|
+      readonly = File.join(dir, "readonly")
+      FileUtils.mkdir_p(readonly)
+      FileUtils.chmod(0o555, readonly)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      json = File.join(readonly, "r.json")
+      status = cli("run", "--json", json, "--html", File.join(dir, "r.html")).call
+      expect(status).to eq(3)
+      expect(err.string).to include("saboteur: could not write the JSON report to #{json}: " \
+                                    "Permission denied @ rb_sysopen - #{json} - " \
+                                    "any file at that path may be stale or incomplete")
+      expect(out.string).not_to include("Reports:")
+      expect(File).to exist(File.join(dir, "r.html"))
+    end
+  end
+
+  it "does not present an existing stale JSON report as this run's when the write fails (#296)" do
+    Dir.mktmpdir do |dir|
+      json = File.join(dir, "r.json")
+      File.write(json, '{"old": true}')
+      FileUtils.chmod(0o444, json)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = cli("run", "--json", json).call
+      expect(status).to eq(3)
+      expect(File.read(json)).to eq('{"old": true}')
+      expect(out.string).not_to include("Reports:")
+    end
+  end
+
+  it "fails the run when the JSON report write fails partway, without presenting the partial file (#296)" do
+    Dir.mktmpdir do |dir|
+      json = File.join(dir, "r.json")
+      writer = Saboteur::Reporter::Stryker.new(json)
+      allow(writer).to receive(:call) do
+        File.write(json, '{"partial"')
+        raise IOError, "stream closed"
+      end
+      allow(Saboteur::Reporter::Stryker).to receive(:new).and_return(writer)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = cli("run", "--json", json).call
+      expect(status).to eq(3)
+      expect(err.string).to include("could not write the JSON report to #{json}: stream closed - " \
+                                    "any file at that path may be stale or incomplete")
+      expect(out.string).not_to include("Reports:")
+    end
+  end
+
+  it "reports a failed JSON report write as an agent error payload in agent mode (#296)" do
+    Dir.mktmpdir do |dir|
+      readonly = File.join(dir, "readonly")
+      FileUtils.mkdir_p(readonly)
+      FileUtils.chmod(0o555, readonly)
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      status = cli("run", "--agent", "--json", File.join(readonly, "r.json")).call
+      expect(status).to eq(3)
+      payload = JSON.parse(out.string)
+      expect(payload).to include("status" => "error", "verdict" => "tool_failure", "exitCode" => 3)
+      expect(payload["message"]).to include("could not write the JSON report")
+      expect(payload["message"]).to include(" - any file at that path may be stale or incomplete")
+    end
+  end
+
+  it "warns and still exits by the results when the score history cannot be recorded (#296)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
+      cache = File.join(dir, ".saboteur")
+      FileUtils.mkdir_p(cache)
+      FileUtils.chmod(0o555, cache)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = Dir.chdir(dir) { cli("run").call }
+      expect(status).to eq(0)
+      # The CLI resolves the root with realpath; on macOS the tmpdir is a
+      # symlink (/var -> /private/var), so compare against the resolved path.
+      history = File.join(File.realpath(dir), ".saboteur", "history.jsonl")
+      expect(err.string).to include("saboteur: could not write the score history to #{history} " \
+                                    "(Permission denied @ rb_sysopen - #{history}); continuing without it\n")
+      expect(err.string).not_to include("saboteur: \n")
+    end
+  end
+
+  it "fails the run when the score history lock cannot be acquired (#296)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
+      cache = File.join(dir, ".saboteur")
+      FileUtils.mkdir_p(cache)
+      history = File.join(cache, "history.jsonl")
+      File.write(history, "")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      File.open(history, File::RDWR) do |held|
+        held.flock(File::LOCK_EX)
+        status = Dir.chdir(dir) { cli("run").call }
+        expect(status).to eq(3)
+        expect(err.string).to include("score history lock was not acquired")
+      end
+    end
+  end
+
+  it "fails the run when the score history record fails validation (#296)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
+      allow(Saboteur::Reporter::HistoryRecord).to receive(:validate)
+        .and_raise(Saboteur::Error, "score history contains an inconsistent score")
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = Dir.chdir(dir) { cli("run").call }
+      expect(status).to eq(3)
+      expect(err.string).to include("score history contains an inconsistent score")
+    end
+  end
+
+  it "fails the run when the score history record exceeds the byte limit (#296)" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config", "saboteur.rb"),
+                 "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
+      stub_const("Saboteur::Reporter::ScoreHistory::MAX_RECORD_BYTES", 10)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
+                                                                          call: report_of(result_for(:killed))))
+      status = Dir.chdir(dir) { cli("run").call }
+      expect(status).to eq(3)
+      expect(err.string).to include("score history record exceeds byte limit")
+    end
+  end
+
   describe "--since with a ref that is not a commit" do
     it "exits 2 with a usage message, in text and in agent mode" do
       Dir.mktmpdir do |dir|
@@ -966,6 +1324,9 @@ RSpec.describe Saboteur::CLI, "details" do
         error = StringIO.new
         expect(described_class.new(argv, out: output, err: error).call).to eq(0)
         expect(output.string).to include("COMMANDS").and include("--since REF")
+        # The overview carries the stricter --agent note under its exit codes
+        # (#245); pin it here too so the section stays honest (#296).
+        expect(output.string).to include(Saboteur::Help::AGENT_EXIT_CODES)
         expect(error.string).to be_empty
       end
     end

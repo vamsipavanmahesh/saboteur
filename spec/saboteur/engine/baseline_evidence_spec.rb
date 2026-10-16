@@ -36,14 +36,14 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
-      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
       allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
       map = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
       store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
       allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
       allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
         .and_return([[candidate, subject.apply(candidate.edits)]])
-      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [])
+      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
       allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
       expect(distribution).to receive(:run).and_return([result])
       allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
@@ -73,14 +73,14 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       File.write(File.join(root, "broken.rb"), "class Broken; def ( ; end")
-      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+      guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
       allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
       map = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
       store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
       allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
       allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
         .and_return([[candidate, subject.apply(candidate.edits)]])
-      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [])
+      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
       allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
       expect(distribution).to receive(:run).and_return([result])
       allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
@@ -118,6 +118,49 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
                                                              "unchanged_suite_incomplete")
     end
   end
+  it "certifies the suite stable only after repeated green passes, not one (#245)" do
+    # [baseline_passes, reusable cache] - the cold coverage build is not a
+    # baseline pass, so --baseline-passes 1 stays unchecked even when a cold
+    # cache runs the suite again for the map.
+    [[1, true], [1, false], [2, true], [2, false], [3, true], [3, false]].each do |passes, reusable|
+      Dir.mktmpdir do |directory|
+        root = File.realpath(directory)
+        file = File.join(root, "probe.rb")
+        File.write(file, "class Probe; def value; 1; end; end")
+        subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+        source = Saboteur::MutationSource::Builtin.new
+        candidate = source.mutations_for(subject).first
+        result = Saboteur::MutantResult.new(subject: subject, mutation: candidate, status: :survived,
+                                            mutated_source: subject.apply(candidate.edits))
+        allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+        integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
+        boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
+        allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+        selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+        allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+        guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: passes)
+        allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
+        map = Saboteur::Selection::CoverageMap.new(lines: { file => { 1 => ["t1"] } }, tests: ["t1"])
+        store = instance_double(Saboteur::Engine::CoverageStore, reusable?: reusable, fetch: map)
+        allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
+        allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
+          .and_return([[candidate, subject.apply(candidate.edits)]])
+        distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
+        allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
+        allow(distribution).to receive(:run).and_return([result])
+        allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
+
+        allow_any_instance_of(Saboteur::Baseline::RunEvidence).to receive(:finish)
+          .and_wrap_original do |original, **args|
+          expect(args.fetch(:stable_suite)).to be(passes >= 2)
+          original.call(**args)
+        end
+        described_class.new(Saboteur::Config.new({ "baseline_passes" => passes }, root: root),
+                            capture_evidence: true, err: StringIO.new).call
+      end
+    end
+  end
+
   it "fingerprints engine-supplied evidence files and passes false for an unrun baseline" do
     Dir.mktmpdir do |directory|
       root = File.realpath(directory)

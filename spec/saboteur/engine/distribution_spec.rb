@@ -16,6 +16,30 @@ RSpec.describe Saboteur::Engine::Distribution do
     expect(seen).to eq([[:a, [:a, ["la"]]], [:b, [:b, ["lb"]]]])
   end
 
+  it "flags a serial subject when any result is unverified, and records the shortfall (#296)" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "x"),
+           Saboteur::MutantResult.new(subject:, mutation:, status: :unverified, mutated_source: "x")]
+    scheduler = ->(_subject, _list) { row }
+    distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)
+    distribution.run([subject], [[[fixture_mutation(subject), "a"], [fixture_mutation(subject), "b"],
+                                  [fixture_mutation(subject), "c"]]])
+    expect(distribution.unverified).to eq([subject])
+    expect(distribution.truncated).to eq([[subject, 1]])
+  end
+
+  it "leaves the serial unverified and truncated lists empty when nothing was cut (#296)" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "x")]
+    scheduler = ->(_subject, _list) { row }
+    distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)
+    distribution.run([subject], [[[fixture_mutation(subject), "a"]]])
+    expect(distribution.unverified).to eq([])
+    expect(distribution.truncated).to eq([])
+  end
+
   it "runs serial without an after_subject callback" do
     scheduler = ->(subject, _list) { [subject] }
     distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)
@@ -49,6 +73,55 @@ RSpec.describe Saboteur::Engine::Distribution do
     scheduler = ->(_subject, _list) { row }
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
     expect(distribution.run([subject], [[[mutation, "text"]]]).map(&:status)).to eq([:killed])
+  end
+
+  it "marks a subject whose fresh kills the budget left unchecked in serial (#296)" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :unverified, mutated_source: "text",
+                                      reason: "verdict check skipped: the --max-duration budget is spent")]
+    distribution = described_class.new(jobs: 1, scheduler: ->(_s, _l) { row }, diagnostics:, cache: nil)
+    distribution.run([subject], [[[mutation, "text"]]])
+    expect(distribution.unverified).to eq([subject])
+    expect(distribution.truncated).to eq([])
+  end
+
+  # A worker row can mix unverified results with tested ones; any? flags the
+  # subject, all? would miss the mix (#296).
+  it "flags a subject when only some of its results are unverified (#296)" do
+    distribution = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
+    rows = [{ "results" => [{ "status" => "unverified" }, { "status" => "killed" }] }]
+    distribution.send(:record_unreached, rows, %i[a], [[1, 2]])
+    expect(distribution.unverified).to eq([:a])
+  end
+
+  it "marks unverified subjects from worker rows in parallel (#296)" do
+    distribution = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
+    rows = [{ "results" => [{ "status" => "unverified" }] }, { "results" => [{ "status" => "killed" }] }]
+    distribution.send(:record_unreached, rows, %i[a b], [[1], [1]])
+    expect(distribution.unverified).to eq([:a])
+    expect(distribution.unreached).to eq([])
+    expect(distribution.truncated).to eq([])
+  end
+
+  it "accounts a deadline-truncated subject's omitted candidates in serial (#245)" do
+    scheduler = ->(_subject, list) { [list.first] } # the deadline broke the loop after one
+    distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)
+    expect(distribution.run(%i[a], [[1, 2, 3]])).to eq([1])
+    expect(distribution.unreached).to eq([])
+    expect(distribution.truncated).to eq([[:a, 2]])
+  end
+
+  it "accounts a deadline-truncated subject's omitted candidates in parallel (#245)" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = [Saboteur::MutantResult.new(subject:, mutation:, status: :killed, mutated_source: "text")]
+    scheduler = ->(_subject, _list) { row } # one result for three candidates
+    distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
+    lists = [[[mutation, "t1"], [mutation, "t2"], [mutation, "t3"]]]
+    distribution.run([subject], lists)
+    expect(distribution.unreached).to eq([])
+    expect(distribution.truncated).to eq([[subject, 2]])
   end
 
   def fixture_subject
@@ -355,5 +428,58 @@ RSpec.describe Saboteur::Engine::Distribution do
     distribution = described_class.new(jobs: 2, scheduler:, diagnostics:, cache: nil)
     allow(Saboteur::Execution::WorkerPool).to receive(:new).and_raise(Saboteur::Error, "pool started")
     expect { distribution.run(%i[a], [[]]) }.to raise_error(Saboteur::Error, "pool started")
+  end
+end
+
+RSpec.describe Saboteur::Engine::Distribution, "truncation accounting boundaries (#296)" do
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
+
+  def account(rows, lists)
+    distribution = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
+    distribution.send(:record_unreached, rows, %i[a b c], lists)
+    distribution
+  end
+
+  it "resets the accounting between runs" do
+    distribution = described_class.new(jobs: 2, scheduler: nil, diagnostics:, cache: nil)
+    dirty = [{ "results" => [{ "status" => "unverified" }] }, nil]
+    distribution.send(:record_unreached, dirty, %i[a b], [[1, 2], [1]])
+    expect(distribution.truncated).not_to be_empty
+    expect(distribution.unverified).not_to be_empty
+    expect(distribution.unreached).not_to be_empty
+    distribution.send(:record_unreached, [{ "results" => [{ "status" => "killed" }] }], %i[a], [[1]])
+    expect(distribution.unreached).to eq([])
+    expect(distribution.truncated).to eq([])
+    expect(distribution.unverified).to eq([])
+  end
+
+  it "does not mark an error row's synthesized results as truncated" do
+    rows = [{ "error" => "boom", "results" => [{ "status" => "error" }] }]
+    distribution = account(rows, [[1, 2, 3], [1], [1]])
+    expect(distribution.truncated).to eq([])
+  end
+
+  it "does not mark a row without results as truncated" do
+    distribution = account([{ "error" => "boom" }], [[1, 2, 3], [1], [1]])
+    expect(distribution.truncated).to eq([])
+  end
+
+  it "marks truncation only when the results are strictly fewer than the candidates" do
+    full = { "results" => [{ "status" => "killed" }, { "status" => "killed" }] }
+    short = { "results" => [{ "status" => "killed" }] }
+    over = { "results" => [{ "status" => "killed" }] * 3 }
+    distribution = account([full, short, over], [[1, 2], [1, 2], [1, 2]])
+    expect(distribution.truncated).to eq([[:b, 1]])
+    expect(distribution.unreached).to eq([])
+  end
+
+  it "accounts a serial subject only for strictly omitted candidates" do
+    scheduler = ->(_subject, list) { list.first(2) }
+    distribution = described_class.new(jobs: 1, scheduler:, diagnostics:, cache: nil)
+    distribution.run(%i[a], [[1, 2]])
+    expect(distribution.truncated).to eq([])
+    short = described_class.new(jobs: 1, scheduler: ->(_s, list) { list.first(1) }, diagnostics:, cache: nil)
+    short.run(%i[a], [[1, 2]])
+    expect(short.truncated).to eq([[:a, 1]])
   end
 end

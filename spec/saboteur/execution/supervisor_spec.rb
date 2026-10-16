@@ -221,6 +221,10 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect do
       supervisor.run(timeout: 5) { |_writer| raise "boom in child" }
     end.to output(/supervised child died: RuntimeError: boom in child/).to_stderr_from_any_process
+
+    expect do
+      supervisor.run(timeout: 5) { |_writer| raise "boom in child" }
+    end.to output(/from .*supervisor_spec\.rb/).to_stderr_from_any_process
   end
 
   it "still exits 1 when the dying child's stderr is closed, without running at_exit hooks (#289)" do
@@ -253,6 +257,12 @@ RSpec.describe Saboteur::Execution::Supervisor do
   it "refuses to fork past the maximum depth, even if every other guard is gone" do
     stub_const("ENV", ENV.to_h.merge(described_class::CHILD_ENV => described_class::MAX_DEPTH.to_s))
     expect { supervisor.run(timeout: 5) { nil } }.to raise_error(Saboteur::Error, /nested .* deep/)
+  end
+
+  it "still runs the child when its process-group change is refused (#296)" do
+    allow(Process).to receive(:setpgid).and_raise(Errno::EPERM)
+    result = supervisor.run(timeout: 5) { |writer| writer.write("ok") }
+    expect(result.payload).to eq("ok")
   end
 
   it "marks the child so a nested saboteur run can refuse to start" do

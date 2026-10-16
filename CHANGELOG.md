@@ -6,7 +6,89 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Report-artifact write semantics (#296): a failed HTML report or score
+  history write now warns and lets the run exit by its results, so a
+  read-only tree (a sandboxed child holding the project read-only) no
+  longer turns a good run into a tool failure. An explicitly requested
+  JSON report (`--json` / `c.json_report`) instead fails the run with
+  exit 3 - it is the completion evidence an outer harness trusts, and a
+  warning could leave a stale or partial file presented as this run's.
+  The default `.saboteur/report.json` stays best-effort. Score-history
+  soft failures are narrowed to the write's own IO errors; validation,
+  integrity, record-size and lock failures stay hard errors.
+- Crash-log fallback hardening (#296): when the cache dir cannot hold
+  `internal-error.log`, the fallback in the system temp dir is created
+  privately (`O_EXCL | O_NOFOLLOW`, mode 0600) instead of following a
+  predictable path, and it is only computed after the primary write
+  fails. Every crash log is now written private (0600) through a
+  no-follow, non-blocking open - a planted symlink cannot redirect the
+  write and a planted FIFO cannot block it - and the runner reads it
+  back the same way, accepting only a regular file owned by the same uid
+  with no group/other bits. Where the platform lacks `O_NOFOLLOW` or
+  `O_NONBLOCK`, the primary log and the excerpt are omitted rather than
+  opened unsafely; the `O_EXCL`-created temp fallback stays safe and can
+  still be written. The appended
+  excerpt is scrubbed to valid UTF-8 and labelled as freshness-matched,
+  not certainly that run's.
+
 ### Added
+- Dogfood/mutation diagnostics (#296): a rejected kill now reports why the
+  killing test failed with the method unchanged - the exception class, its
+  full message and the first backtrace frames, bounded to 2000 chars -
+  instead of only the first line ("expected: 0"). Frames inside rspec's own
+  gems are dropped first, so the cap keeps the project frame that names the
+  failing spec line. The terminal report
+  prints the detail as indented continuation lines and the JSON report's
+  `statusReason` keeps every line; one-line reasons are unchanged. An `unverified` verdict also keeps the runner's own
+  reason (for example "the --max-duration budget is spent") rather than a
+  generic one.
+- Nested-run crash surfacing (#296): a spec that runs saboteur itself (the
+  dogfood's own cli_spec) crashes the nested CLI as exit 3, and the crash
+  lands in the run's internal-error.log. A child whose tests wrote a fresh
+  log appends its first lines to the failure detail, so a verdict check's
+  rejection names the nested crash instead of only the exit-code diff.
+- `--max-duration` budget-exhaustion semantics (#296): a verdict check or
+  timeout calibration the budget cannot admit is skipped rather than run
+  with a zero-length timeout, so genuine kills are no longer misclassified
+  as errors and cached. Admission is per check and per sequence: a check
+  admitted with time left that hits its budget-shortened cap mid-check is
+  `unverified`, not a rejected kill, later sequences never fork once the
+  budget is spent, and unverified verdicts are never cached. Affected
+  mutants report as `unverified` - outside the score - the early stop
+  lists their subjects (`unverifiedSubjects` in the JSON report), and the
+  run exits 4. Baseline checks and the coverage map build are now capped
+  at the time left in the budget, and the early-stop reason comes from the
+  actual truncation state, so mid-subject budget stops report
+  `max_duration` even with `--fail-fast`. Agent output names unverified
+  mutants in `incomplete[]`, and `--max-duration-ok` only passes a run
+  whose verified verdicts (kills, survivors, timeouts) can carry a score.
+
+### Fixed
+- A baseline check or coverage map build that hit only its
+  budget-shortened timeout failed the run as a suite error (exit 3) with
+  no partial report; it now reports budget exhaustion with every selected
+  subject unreached and exits 4 (#296).
+- The unscoped-suite warning pluralizes zero baseline checks correctly
+  ("0 baseline checks", not "0 baseline check") (#296).
+
+### Added
+- `saboteur pr [REF]` and `saboteur audit` presets: opinionated bundles of
+  existing flags - the PR loop (changed lines since REF, one baseline
+  check, a ten-minute non-failing budget) and the full audit (whole
+  project, whole suite, JSON and HTML reports). The run prints the
+  expansion up front and explicit flags override it (#244).
+- `--max-duration` (config `max_duration`, e.g. `10m`) budgets the whole
+  run, baselines included: past the budget the run stops before the next
+  subject, reports which selected subjects never ran, marks the JSON and
+  agent output partial, and exits 4; `--max-duration-ok` leaves the exit
+  to the plain verdict (which can still fail the run). Works with
+  `--jobs` by halting the worker pool (#245).
+- `baseline_passes` (config and `--baseline-passes`) sets how many times the
+  unchanged suite runs before mutation (default 2). `1` is the fast PR
+  loop; the run announces that it gives up the order-stability
+  comparison between passes, and the whole-suite cost message counts
+  the configured checks (#55).
 - Usability fixes from 0.5.0 field feedback: an unscoped whole-suite run
   announces the example count and the real number of full passes before
   the first one (a cached map counts as reused only when it loads clean)
@@ -25,6 +107,24 @@ All notable changes are documented here. The format follows
   equivalent across the intended inputs, simplify or ignore (#264).
 
 ### Fixed
+- Review hardening for the 0.5.0 loop flags (#245): the `--max-duration`
+  clock starts when the run starts (boot, baselines and the coverage map
+  all spend the budget) and is checked before dispatching every subject,
+  between mutants inside a subject, and between baseline passes, in
+  serial and `--jobs` runs alike; a parallel budget halt stops handing
+  out new work and lets in-flight subjects finish and report, so their
+  completed outcomes are kept instead of abandoned as nil holes
+  mislabeled "never ran". `--max-duration-ok`
+  no longer exits 0 when the budget stopped the run before any mutant
+  was tested - there is no score to judge, so the run is incomplete
+  (exit 3), in agent mode too. Agent output records `failFast` only for
+  a real `--fail-fast` stop, `--baseline-passes 1` no longer certifies
+  the suite stable in the baseline evidence, and the rerun/replay
+  commands keep `--max-duration`, `--max-duration-ok` and
+  `--baseline-passes`. `saboteur audit` bundles the `--operators all
+  --baseline-passes 2` its help advertises, an explicit `--test`
+  replaces its injected `--all`, and `--no-max-duration-ok` overrides
+  the pr preset's budget pass.
 - macOS CI flakes: the supervisor `on_tick` cleanup spec waits for a fully
   written pid before triggering instead of racing the file's first bytes
   (#277), fixture repositories disable Git background auto-maintenance so

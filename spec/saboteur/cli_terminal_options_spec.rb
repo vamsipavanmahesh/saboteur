@@ -43,7 +43,7 @@ RSpec.describe Saboteur::CLI, "terminal options" do
   end
 
   describe "--fail-fast" do
-    let(:stop) { Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x]) }
+    let(:stop) { Saboteur::EarlyStop.new(reason: "fail_fast", unreached: %w[A#x], truncated: [], unverified: []) }
 
     def stopped_report(*results)
       Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.0,

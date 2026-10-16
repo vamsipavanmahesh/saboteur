@@ -57,7 +57,7 @@ reused when it loads clean); once the first baseline pass is timed, the
 run estimates the time left for the remaining baseline and coverage
 passes from it - mutation time is not part of that estimate. Past 1,000
 examples the announcement also names `--test` as the way to scope the run. Both baseline passes must be green, complete and in the same
-RSpec order at the run seed. A failure exits 3, stops mutation, prints the failing example ids and the first ten lines of the
+RSpec order at the run seed. Set `c.baseline_passes = 1` (or `--baseline-passes 1`) for a faster PR loop: the run says so up front and gives up the order-stability comparison between passes (#55). A failure exits 3, stops mutation, prints the failing example ids and the first ten lines of the
 failure inline, and names the log and fix. Long phases
 print their elapsed time about every 30 seconds, with the examples finished so far, the percentage and a rough estimate of the time left (it assumes equally long examples) once the suite child has logged its first count, and each phase's log holds
 the suite's progress and full failure detail. Each suite pass
@@ -274,9 +274,11 @@ above the limit, with `exitCause` `maxTimeouts` or `maxErrors` in the JSON repor
 their own causes when they fail too. The gates cannot be combined with `--agent`.
 The GitHub Action has no input for them yet.
 
-Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`,
+Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`, `--baseline-passes N`, `--max-duration DUR`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
 `--json PATH`, `--no-cache` (rebuild the coverage map), `--allow-focus`.
+
+Two presets bundle the common loops (#244): `saboteur pr [REF]` is the pull-request loop - `--since REF` (default `main`), one baseline check and a ten-minute `--max-duration` that opts out of the budget-specific exit 4 (normal and incomplete verdicts still fail the run); `saboteur audit` is the whole project: `--all`, all operators, both baseline checks and both reports (an explicit `--test` replaces the injected `--all`; configured selection limits such as `since`, subjects, exclusions and a configured budget still apply). The run prints the expansion up front, and an explicit flag after the preset wins.
 
 A stray `fit`, `fdescribe` or `:focus` example, with `filter_run_when_matching :focus`, makes RSpec skip
 every other example. The baseline stays green and the score would cover only the focused ones, so
@@ -413,7 +415,13 @@ survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-con
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
 `config/saboteur.rb`; set either to `nil` to turn that report off. The two paths
-must differ. The HTML page shows the covered mutation score
+must differ. When an artifact cannot be written - a read-only tree inside a
+sandboxed run - the HTML report and the score history warn and the run still
+exits by its results. An explicitly requested JSON report (`--json` or
+`c.json_report`) is different: it is the completion evidence an outer harness
+trusts, so a failed write fails the run with exit 3 rather than leaving a
+stale or partial file presented as this run's; the default
+`.saboteur/report.json` stays best-effort. The HTML page shows the covered mutation score
 `(killed + timeout) / (killed + survived + timeout)`, which leaves NoCoverage,
 RanAtLoad and Unreachable out and keeps survivors accepted on the ignore list
 in the denominator. A tool
@@ -483,9 +491,16 @@ mutant). Unexpected `StandardError` or `LoadError` failures print
 `saboteur: internal error (...) - please report it` and exit 3, rather
 than dying with a bare stack trace and an accidental exit code. The full
 backtrace lands in `<cache_dir>/internal-error.log` (default
-`.saboteur/`), and `--verbose` also prints it to stderr. The message
-names the log only after a successful write: an unset `cache_dir` or an
-unwritable directory leaves the one-liner standing alone. The executable
+`.saboteur/`), and `--verbose` also prints it to stderr. When the cache
+dir cannot hold the log, a private pid-keyed fallback in the system temp
+dir takes it (created with `O_EXCL | O_NOFOLLOW`, mode 0600, so it never
+follows or overwrites a pre-existing path). Logs are always written
+private, and a nested run reads them back only through a no-follow,
+non-blocking descriptor - a regular file, same owner, no group/other
+bits (or, where the platform lacks those flags, only the `O_EXCL` temp
+fallback is written and no excerpt is read). The message names the log only
+after a successful write: an unset `cache_dir`, or a log writable nowhere,
+leaves the one-liner standing alone. The executable
 loads the crash reporter before the CLI, so a failure while it is
 loading, being built, or parsing arguments gets the same report;
 failures earlier than that - coverage setup or the reporter's own load -
@@ -494,6 +509,7 @@ reporter has loaded, agent mode reports the same failure as agent
 JSON, using a standalone payload if the agent reporter has not
 loaded. Before the crash reporter loads, only the one-line
 diagnostic and exit 3 are available.
+`--max-duration 10m` budgets the whole run, baselines included: the budget is checked before every subject and between mutants inside one, so past the budget the run finishes only the mutant in flight (bounded by its timeout), then stops before the next subject. Admitted phases (baseline checks, the coverage map build) are capped at the time left, as are verdict checks and timeout calibrations - admission is per check and per sequence, so nothing forks with no time left. A phase that hits only its budget-shortened cap stops the run as budget-exhausted rather than failing as a suite error. A kill or timeout the budget leaves uncheckable is reported as `unverified` - outside the score, never cached, listed under the early stop - instead of becoming an error, reports which selected subjects never ran and which mutants were omitted, marks the JSON and agent output partial (`earlyStop.reason: "max_duration"`), and exits 4; `--max-duration-ok` (or `c.max_duration_ok = true`) leaves the exit to the plain verdict instead, which can still fail the run - 1 on survivors, 3 when the budget stopped the run before any mutant verdict was verified. In agent mode the exit code stays verdict-driven and the budget shows up in `incomplete[]` and `earlyStop` (#245).
 
 ### Rejected kills
 
@@ -527,6 +543,9 @@ Saboteur.configure do |c|
   c.sandbox_writable = []        # extra dirs mutant children may write, e.g. ["db", "log"]
   c.ignore_file = "config/saboteur_ignore.rb"
   c.seed = 1                     # Ruby's random seed in every test run
+  c.baseline_passes = 2          # unchanged-suite checks before mutating; 1 skips the order-stability check (#55)
+  c.max_duration = nil           # wall-clock budget in seconds, e.g. 600; an exhausted budget exits 4 (#245)
+  c.max_duration_ok = false        # true: an exhausted budget does not fail the run
   c.allow_focus = false          # true runs a suite narrowed by fit/fdescribe/:focus instead of exit 2
   c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
 end

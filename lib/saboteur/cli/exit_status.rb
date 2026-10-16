@@ -18,17 +18,39 @@ module Saboteur
       # back to no log.
       def crash_log_path
         dir = config.path("cache_dir")
-        dir && File.join(dir, "internal-error.log")
+        dir && File.join(dir, CrashReport::LOG_NAME)
       rescue StandardError
         nil
       end
 
       def exit_code(report)
+        return EXIT_BUDGET if budget_exhausted?(report)
+
+        return EXIT_TOOL if untested_partial?(report)
+
         return EXIT_TOOL if mostly_errored?(report)
 
         return EXIT_TOOL if incomplete_under_threshold?(report)
 
         failed_quality_gate?(report) || gates.failed?(report, @err) ? EXIT_SURVIVORS : EXIT_OK
+      end
+
+      # A spent --max-duration budget exits 4 on its own, before the gates:
+      # the run is partial by design, and --max-duration-ok opts back into
+      # the plain verdict.
+      def budget_exhausted?(report)
+        report.early_stop&.reason == "max_duration" && !config["max_duration_ok"]
+      end
+
+      # A run stopped before any mutant was tested has no verdict to fall
+      # back on: --max-duration-ok must not turn it green. Unverified
+      # results are not tested verdicts, so an unverified-only stop has no
+      # score either (#296). Exit 3, like the other incomplete shapes.
+      def untested_partial?(report)
+        return false unless report.early_stop && report.score_breakdown.tested.zero?
+
+        @err.puts("saboteur: the run stopped before any mutant was tested, so there is no score to judge")
+        true
       end
 
       def gates = (@gates ||= Gates.new(config))
@@ -48,9 +70,11 @@ module Saboteur
       # incomplete run that mostly errored keeps its distinct cause, so the
       # harness rule means the same thing in both modes.
       def agent_exit_cause(report, payload)
+        return "budgetExhausted" if budget_exhausted?(report)
+
         case payload[:verdict]
         when "clean" then "ok"
-        when "survivors" then report.early_stop ? "failFast" : "survivors"
+        when "survivors" then report.early_stop&.reason == "fail_fast" ? "failFast" : "survivors"
         else report.majority_errored? ? "errorMajority" : "incomplete"
         end
       end
@@ -60,22 +84,28 @@ module Saboteur
       def exit_cause(report, code)
         case code
         when EXIT_OK then "ok"
+        when EXIT_BUDGET then "budgetExhausted"
         when EXIT_SURVIVORS then survivors_cause(report)
-        else report.majority_errored? ? "errorMajority" : "incompleteUnderThreshold"
+        else
+          if report.majority_errored?
+            "errorMajority"
+          else
+            report.early_stop && report.score_breakdown.tested.zero? ? "incomplete" : "incompleteUnderThreshold"
+          end
         end
       end
 
       # A run stopped by --fail-fast always exits 1: it stopped on a survivor, and
       # its score covers only the subjects that ran, so no threshold can pass it.
       def survivors_cause(report)
-        return "failFast" if report.early_stop
+        return "failFast" if report.early_stop&.reason == "fail_fast"
 
         gates.cause || (config["threshold"].nil? ? "survivors" : "belowThreshold")
       end
 
       # With --threshold the score decides; without it any unignored survivor does.
       def failed_quality_gate?(report)
-        return true if report.early_stop
+        return true if report.early_stop&.reason == "fail_fast"
 
         threshold = config["threshold"]
         return report.unignored_survivors.any? if threshold.nil?

@@ -78,6 +78,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
   def stub_baseline_phase(events)
     baseline = instance_double(Saboteur::Engine::BaselineGuard)
     allow(baseline).to receive(:call) { events << :baseline_checked }
+    allow(baseline).to receive(:completed_passes).and_return(2)
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(baseline)
   end
 
@@ -87,7 +88,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     allow(store).to receive(:fetch) { events << :map_retained and map }
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap) { events << :prepare }
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     allow(distribution).to receive(:run) { |*args| box[:run_args] = args and events << :distribute and [] }
   end

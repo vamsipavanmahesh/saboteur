@@ -42,7 +42,7 @@ RSpec.describe Saboteur::Engine, "distribution wiring" do
   def stub_boot
     boot = instance_double(Saboteur::Engine::Boot, load_target: double("integration"), rails: nil)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-    guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil)
+    guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
     allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
   end
 

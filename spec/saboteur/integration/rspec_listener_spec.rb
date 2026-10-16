@@ -33,6 +33,44 @@ RSpec.describe Saboteur::Integration::RSpec::Listener do
     expect(failed("t2", RuntimeError.new("x" * 500)).failure_messages["t2"].size).to eq(200)
   end
 
+  # A neutral re-run (the verdict check) needs the whole failure to say why
+  # the killer failed with the method unchanged (#296).
+  it "keeps the full failure detail: class, message and first frames, capped and scrubbed" do
+    error = begin
+      raise "expected: 2\n     got: 3"
+    rescue RuntimeError => e
+      e
+    end
+    detail = failed("t1", error).failure_details["t1"]
+    expect(detail).to include("RuntimeError: expected: 2\n     got: 3")
+    expect(detail).to include(__FILE__)
+    expect(failed("t2", RuntimeError.new("x" * 5_000)).failure_details["t2"].size).to eq(2_000)
+    expect(failed("t3", nil).failure_details["t3"]).to be_nil
+  end
+
+  # RSpec's own frames (notify_failure, handle_failure) lead an expectation
+  # backtrace; they must not crowd the spec line out of the cap (#296).
+  it "drops rspec-internal frames so the detail shows the project frames" do
+    error = RuntimeError.new("expected: 0\n     got: 3")
+    error.set_backtrace(
+      ["/w/vendor/bundle/ruby/3.3.0/gems/rspec-support-3.13.7/lib/rspec/support.rb:110:in `notify_failure'",
+       "/w/vendor/bundle/ruby/3.3.0/gems/rspec-expectations-3.13.5/lib/rspec/expectations/handler.rb:37:in `x'",
+       "./spec/saboteur/cli_spec.rb:955:in `block (3 levels) in <top (required)>'"]
+    )
+    detail = failed("t1", error).failure_details["t1"]
+    expect(detail).to include("./spec/saboteur/cli_spec.rb:955")
+    expect(detail).not_to include("rspec-support")
+    expect(detail).not_to include("rspec-expectations")
+  end
+
+  # Degenerate case: an error raised inside rspec itself keeps its frames
+  # rather than reporting nothing.
+  it "keeps the frames when every frame is rspec-internal" do
+    error = RuntimeError.new("boom")
+    error.set_backtrace(["/gems/rspec-support-3.13.7/lib/rspec/support.rb:110:in `notify_failure'"])
+    expect(failed("t1", error).failure_details["t1"]).to include("rspec-support")
+  end
+
   it "records the exception class" do
     expect(failed("t1", NoMethodError.new("m")).failure_classes).to eq({ "t1" => "NoMethodError" })
   end
