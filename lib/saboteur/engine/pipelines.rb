@@ -48,9 +48,14 @@ module Saboteur
       def mutate_external(subjects, scope, ignore_list)
         runner = external_runner
         # One neutral run before any mutant exists: a command that fails on
-        # the unchanged tree can never claim kills (#305). It still answers
-        # to the run budget: never more than the remaining max-duration.
-        runner.preflight!(timeout: preflight_timeout)
+        # the unchanged tree can never claim kills (#305). It answers to the
+        # run budget with an ABSOLUTE deadline, admitted after the tree copy:
+        # a budget already spent is a budget stop, not a command error.
+        begin
+          runner.preflight!(deadline: preflight_deadline)
+        rescue BudgetPhaseTimeout => e
+          return budget_phase_stop(e, subjects)
+        end
         map = Selection::ExternalTestMap.new
         scheduler = Scheduler.new(config:, runner:, map:,
                                   reevaluator: Execution::Reevaluator.new(config["reeval"],
@@ -68,13 +73,15 @@ module Saboteur
 
       def external_command? = !config["test_command"].to_s.empty?
 
-      def preflight_timeout
+      # The preflight's absolute monotonic deadline: its own
+      # baseline_timeout slice, or the run budget's end, whichever is
+      # sooner. Absolute, so the tree copy before admission cannot eat the
+      # budget while the command still gets a full timeout (#305 Architect).
+      def preflight_deadline
         budget = config["baseline_timeout"] || 60
+        own = Process.clock_gettime(Process::CLOCK_MONOTONIC) + budget
         deadline = budget_deadline
-        return budget unless deadline
-
-        remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        [budget, remaining.clamp(0.1, budget)].min
+        deadline ? [own, deadline].min : own
       end
 
       def external_runner = Execution::ExternalRunner.new(command: config["test_command"], root: @root)

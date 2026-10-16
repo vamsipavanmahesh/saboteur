@@ -155,15 +155,17 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     File.unlink(outside) if outside && File.exist?(outside)
   end
 
-  it "dereferences a symlink that stays inside the tree" do
+  # Alias identity is preserved: the copy's link is rebuilt RELATIVE, so a
+  # require of the alias sees the mutant, not a pristine materialized copy
+  # (#305 QA).
+  it "rebuilds an internal symlink as a relative link that sees the mutant" do
     subject = subject_in(@dir)
     File.symlink("calc.rb", File.join(@dir, "alias.rb"))
-    runner = described_class.new(command: "grep -q 'class Calc' alias.rb", root: @dir)
+    runner = described_class.new(command: "test -L alias.rb && grep -q 'n < 0' alias.rb", root: @dir)
     outcome = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
                          mutation: mutation_for(subject))
-    # The alias is real content in the copy; the real files are untouched
-    # and the real alias is still a symlink.
     expect(outcome.status).to eq(:survived)
+    # The real files are untouched and the real alias is still a symlink.
     expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
     expect(File.symlink?(File.join(@dir, "alias.rb"))).to be(true)
   end
@@ -196,6 +198,8 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
 
       sleep 0.05
     end
+    # The handshake must have happened, or the interrupt tests nothing.
+    expect(File.exist?(File.join(@dir, "ready"))).to be(true)
     thread.raise(Interrupt)
     expect { thread.join }.to raise_error(Interrupt)
     expect_ticks_stopped(ticks)
@@ -246,6 +250,70 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     end
   end
 
+  # Architect repro: a setsid descendant holding stdout keeps EOF open
+  # forever; the drain is bounded, so the run finishes near its own time,
+  # not the descendant's (#305). Escaped sessions are not contained.
+  it "does not wait out a session-escaped descendant holding stdout" do
+    command = "setsid sh -c 'sleep 3' & sleep 0.05; exit 0"
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    outcome, = run_in(@dir, command, timeout: 5)
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    expect(outcome.status).to eq(:survived)
+    expect(elapsed).to be < 2.0
+  end
+
+  # A subject outside the root is refused, never joined onto the copy
+  # (#305 QA): no absolute path, no `..` traversal.
+  it "refuses a subject file outside the project root" do
+    subject_in(@dir)
+    outside = File.join(@dir, "..", "escape-#{Process.pid}.rb")
+    File.write(outside, source)
+    escaped = Saboteur::SubjectFinder.new.call(File.realpath(outside)).subjects.first
+    runner = described_class.new(command: "true", root: @dir)
+    outcome = runner.run(subject: escaped, text: escaped.source, test_ids: [], timeout: 5,
+                         mutation: nil)
+    expect(outcome.status).to eq(:error)
+    expect(outcome.message).to match(/outside the project root/)
+    expect(File.read(File.realpath(outside))).to eq(source)
+  ensure
+    File.unlink(outside) if outside && File.exist?(outside)
+  end
+
+  # Captured bytes land in report JSON: invalid UTF-8 is dropped, not
+  # carried raw (#305 Principal).
+  it "scrubs invalid UTF-8 from captured output" do
+    subject_in(@dir)
+    runner = described_class.new(command: "printf 'ok \\303\\050 end'; exit 1", root: @dir)
+    expect { runner.preflight! }.to raise_error(Saboteur::Error) do |error|
+      expect(error.message).to include("ok ( end")
+      expect(error.message.encoding).to eq(Encoding::UTF_8)
+      expect(error.message.valid_encoding?).to be(true)
+    end
+  end
+
+  # Copy/write failures become an error Outcome with context, never a
+  # raised crash of the run (#305 QA).
+  it "reports a copy failure as an error outcome with context" do
+    subject = subject_in(@dir)
+    File.chmod(0o000, File.join(@dir, "calc.rb"))
+    runner = described_class.new(command: "true", root: @dir)
+    outcome = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
+                         mutation: mutation_for(subject))
+    expect(outcome.status).to eq(:error)
+    expect(outcome.message).not_to be_empty
+  ensure
+    File.chmod(0o644, File.join(@dir, "calc.rb"))
+  end
+
+  # The budget is admitted AFTER the copy: a deadline already spent is a
+  # budget stop, not a command failure (#305 Architect).
+  it "raises BudgetPhaseTimeout when the preflight deadline is already spent" do
+    subject_in(@dir)
+    runner = described_class.new(command: "true", root: @dir)
+    spent = Process.clock_gettime(Process::CLOCK_MONOTONIC) - 1
+    expect { runner.preflight!(deadline: spent) }.to raise_error(Saboteur::BudgetPhaseTimeout)
+  end
+
   describe "#preflight!" do
     it "passes when the command exits 0 on the unchanged copy" do
       subject_in(@dir)
@@ -270,7 +338,8 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     it "honors the given timeout, so the run budget caps it (#305 QA)" do
       subject_in(@dir)
       runner = described_class.new(command: "sleep 30", root: @dir)
-      expect { runner.preflight!(timeout: 0.2) }.to raise_error(Saboteur::Error, /timed out/)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 0.2
+      expect { runner.preflight!(deadline: deadline) }.to raise_error(Saboteur::Error, /timed out/)
     end
 
     it "bounds the captured output" do

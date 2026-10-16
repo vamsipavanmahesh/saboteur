@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "find"
+require "pathname"
 require "tmpdir"
 
 module Saboteur
@@ -53,18 +54,37 @@ module Saboteur
       # for preflight and error messages.
       OUTPUT_LIMIT = 64 * 1024
 
+      # Grace for the capture drain after the command exits: a descendant
+      # holding the pipe past this no longer blocks the run.
+      DRAIN_GRACE = 0.5
+
       def initialize(command:, root:)
         @command = command
-        @root = File.expand_path(root)
+        # realpath, not expand_path: the tree must be judged by where it
+        # really is, so a subject path can be checked against the same
+        # canonical root without a symlink making it look outside (#305 QA).
+        @root = File.realpath(root)
         @copy_root = nil
         at_exit { close }
+      rescue SystemCallError
+        raise Error, "the test command root does not exist: #{root}"
       end
 
       # Runs the command once on an untouched copy before any mutant
       # exists. A failing command can never claim kills, so fail the whole
       # run here with the command's own output (#140, #305).
-      def preflight!(timeout: 60)
-        result = with_fresh_copy { spawn_and_wait(timeout) }
+      # deadline is absolute (CLOCK_MONOTONIC): the copy is made first and
+      # the command is admitted only with the time then remaining, so the
+      # copy can never eat the budget while the command still gets its full
+      # slice (#305 Architect). An already-spent deadline is a budget stop,
+      # not a command failure.
+      def preflight!(deadline: monotonic + 60)
+        result = with_fresh_copy do
+          remaining = deadline - monotonic
+          raise BudgetPhaseTimeout, "the --max-duration budget stopped the external preflight" if remaining <= 0
+
+          spawn_and_wait(remaining)
+        end
         case result
         when 0 then true
         when Exception
@@ -81,14 +101,23 @@ module Saboteur
       # execution proves the write path against pristine content (#305).
       def run(subject:, text:, test_ids:, timeout:, mutation: nil, eval_prefix: nil) # rubocop:disable Lint/UnusedMethodArgument
         started = monotonic
-        status = with_fresh_copy do
-          write_subject(subject, mutation)
-          verdict_for(spawn_and_wait(timeout))
+        message = nil
+        status = begin
+          with_fresh_copy do
+            write_subject(subject, mutation)
+            verdict_for(spawn_and_wait(timeout))
+          end
+        # A copy or write failure is this execution's outcome, never a crash
+        # of the run: report it with bounded context like any command error
+        # (#305 QA).
+        rescue Error, SystemCallError => e
+          message = bounded(e.message)
+          :error
         end
         Runner::Outcome.new(status: status, runtime: monotonic - started,
                             failed_ids: status == :killed ? [PSEUDO_TEST] : [],
                             executed_ids: status == :error ? [] : [PSEUDO_TEST],
-                            message: status == :error ? error_context : nil)
+                            message: message || (status == :error ? error_context : nil))
       end
 
       # Drops the current disposable copy. Public so the engine can release
@@ -110,25 +139,30 @@ module Saboteur
         close
         @copy_root = Dir.mktmpdir("saboteur-external-")
         FileUtils.cp_r(File.join(@root, "."), @copy_root, preserve: true)
-        dereference_symlinks
+        rebuild_symlinks
         yield
       end
 
       # cp_r keeps symlinks, and a write through a link that escapes the
       # copy would land in the real tree. Links resolving inside the tree
-      # become real content; anything else refuses the run (#305 QA).
-      def dereference_symlinks
+      # are REBUILT as relative links inside the copy: alias identity is
+      # preserved, so requiring the alias sees the same (possibly mutated)
+      # content as the real path, and the link can never point out (#305
+      # QA). Chains collapse to the final target, which is equivalent.
+      # Anything escaping the tree or unresolvable refuses the run.
+      def rebuild_symlinks
         Find.find(@copy_root) do |path|
           next unless File.symlink?(path)
 
           target = File.realpath(path)
-          if target.start_with?("#{@copy_root}/")
-            File.unlink(path)
-            FileUtils.cp_r(target, path, preserve: true)
-          else
+          unless target.start_with?("#{@copy_root}/")
             raise Error, "the tree links outside itself: #{path.sub("#{@copy_root}/", '')} -> #{target}; " \
                          "external test commands need a self-contained tree"
           end
+
+          relative = Pathname.new(target).relative_path_from(Pathname.new(File.dirname(path))).to_s
+          File.unlink(path)
+          File.symlink(relative, path)
         rescue SystemCallError
           raise Error, "unresolvable symlink in the tree: #{path.sub("#{@copy_root}/", '')}"
         end
@@ -142,8 +176,15 @@ module Saboteur
         File.binwrite(path, mutation ? mutated_source(subject, mutation) : subject.file_source)
       end
 
+      # The subject must live under the canonical root; anything else -
+      # absolute or `..` traversal - is refused, never joined onto the copy
+      # (#305 QA).
       def relative(subject)
-        subject.file.start_with?("#{@root}/") ? subject.file[(@root.size + 1)..] : subject.file
+        expanded = File.expand_path(subject.file)
+        prefix = "#{@root}/"
+        raise Error, "the subject file is outside the project root: #{subject.file}" unless expanded.start_with?(prefix)
+
+        expanded[prefix.length..]
       end
 
       def mutated_source(subject, mutation)
@@ -172,6 +213,11 @@ module Saboteur
         # and a bare unknown word must exit 127 instead of raising ENOENT.
         start_capture
         pid = spawn_shell
+        # The parent's copy of the write end closes right after the spawn:
+        # while it stays open the reader never sees EOF and the drain below
+        # would always wait out its grace (#305 Architect).
+        @capture_writer.close
+        @capture_writer = nil
         @last_result = await_exit(pid, timeout)
       rescue SystemCallError => e
         @last_result = e
@@ -221,33 +267,49 @@ module Saboteur
       end
 
       # A ring buffer on a pipe: output is bounded as it is written, never
-      # spooled to disk (Principal, #305).
+      # spooled to disk (Principal, #305). The buffer lives outside the
+      # thread so a bounded drain still keeps what was captured.
       def start_capture
-        reader, @capture_writer = IO.pipe
-        captured = +""
+        @capture_reader, @capture_writer = IO.pipe
+        @capture_buffer = +""
         @capture_thread = Thread.new do
-          begin
-            loop do
-              captured << reader.readpartial(16_384)
-              captured = captured.byteslice(-OUTPUT_LIMIT, OUTPUT_LIMIT) if captured.bytesize > OUTPUT_LIMIT
+          loop do
+            @capture_buffer << @capture_reader.readpartial(16_384)
+            if @capture_buffer.bytesize > OUTPUT_LIMIT
+              @capture_buffer = @capture_buffer.byteslice(-OUTPUT_LIMIT, OUTPUT_LIMIT)
             end
-          rescue IOError # EOFError included: the command closed its output
-            nil
           end
-          captured
+        rescue IOError # EOFError included: the command closed its output
+          nil
         end
       end
 
+      # The command is done, but a descendant that escaped the process
+      # group (setsid/daemon) can hold the write end open forever, so the
+      # drain is bounded: the reader gets a short grace to see EOF, then it
+      # is killed and its captured bytes kept. Escaped sessions are not
+      # contained - they only cannot block the run or leak the fd (#305
+      # Architect). Both parent ends are always closed.
       def finish_capture
-        return unless @capture_writer
-
-        @capture_writer.close
-        @captured = @capture_thread.value
-        @capture_writer = @capture_thread = nil
+        @capture_writer&.close
+        if @capture_thread
+          @capture_thread.join(DRAIN_GRACE) || @capture_thread.kill
+          @capture_thread.join
+        end
+        @capture_reader&.close
+        @captured = @capture_buffer
+        @capture_reader = @capture_writer = @capture_thread = @capture_buffer = nil
       end
 
+      # Captured bytes become report JSON: force UTF-8 and drop invalid
+      # sequences - the ring buffer can start mid-multibyte after a
+      # truncation (#305 Principal).
       def last_output
-        @captured.to_s.strip.then { |text| text.empty? ? "(no output)" : text }
+        bounded(@captured.to_s).strip.then { |text| text.empty? ? "(no output)" : text }
+      end
+
+      def bounded(text)
+        text.dup.force_encoding(Encoding::UTF_8).scrub("")[0, OUTPUT_LIMIT]
       end
 
       def describe_exit(result)

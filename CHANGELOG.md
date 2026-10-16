@@ -15,8 +15,18 @@ All notable changes are documented here. The format follows
   the command's process group is terminated on every exit path. One
   budget-bounded neutral preflight checks the command on an untouched
   copy before any mutant exists; the shell's 126/127 read as setup
-  errors, blank commands are rejected, and nested saboteur runs are
-  refused (#140, #305).
+  errors, blank and non-string commands are rejected, and nested
+  saboteur runs are refused (#140, #305). The preflight runs under an
+  absolute deadline admitted after the tree copy, and a spent budget
+  stops the run as budget-exhausted rather than a command failure.
+  Internal symlinks are rebuilt as relative links inside the copy, so an
+  alias sees the mutant while nothing can link out; escaping or looping
+  links refuse the run. Copy and write failures become error outcomes
+  with bounded context instead of crashing the run. Output capture is a
+  bounded in-memory ring buffer, scrubbed to valid UTF-8 for reports,
+  and its drain is time-bounded so a session-escaped descendant holding
+  the pipe cannot stall the run. Subjects outside the project root are
+  refused.
 - Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
   when the cache dir is read-only, is occupied by a regular file, or holds an
   unwritable baseline log (#251).

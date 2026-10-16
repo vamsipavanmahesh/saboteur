@@ -384,20 +384,25 @@ On every shutdown path saboteur terminates the command's whole process
 group, escalating from SIGTERM to SIGKILL, including on Ctrl-C. One case
 is outside that guarantee: if saboteur itself is SIGKILLed it cannot send
 those signals, so the group may keep running against the leftover copy,
-and the temp directory may not be cleaned up. The real tree is still never
-modified - the leftover state lives only under the system tmp dir.
+and the temp directory may not be cleaned up. Descendants that escaped
+the process group (setsid or daemonized) are outside that cleanup too:
+the run does not wait for them, but they keep running until they exit.
+Saboteur's own mutation writes still never touch the real tree - the
+leftover state lives only under the system tmp dir.
 
 The mode is explicitly slower: the whole command runs once per mutant, so
 a mutant count in the hundreds means hundreds of full suite runs, plus one
-recursive copy of the project per run. It is serial, uses no coverage and
-no test selection, skips the baseline and the sandbox, and cannot combine
+recursive copy of the project per execution, mutant or neutral. It is
+serial, uses no coverage and no test selection, skips the baseline and
+the sandbox, applies no resource caps to the command, and cannot combine
 with `--test` or `--incremental` (config `tests:`/`incremental:` count
 too; `sandbox: "strict"` is rejected because it cannot be honored). Before
 any mutant is created, one neutral preflight runs CMD on the unchanged
 copy: a command that fails there fails the whole run up front with its
-exit status and captured output (exit 3). The preflight gets whichever is
-shorter, the per-mutant deadline or the time left in the overall run
-budget, so it can never outlast the run. A blank `--test-command` is a
+exit status and captured output (exit 3). The preflight runs under an absolute
+deadline - whichever ends sooner, its own `c.baseline_timeout` slice or
+the overall run budget - and a budget already spent before the command
+can start is a budget stop, not a command failure. A blank `--test-command` is a
 config error. A saboteur run refuses to start inside CMD's own
 environment, so a test command that itself invokes saboteur cannot mutate
 the copy mid-run.
