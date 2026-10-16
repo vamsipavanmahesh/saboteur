@@ -43,6 +43,14 @@ RSpec.describe "operator flags in generated commands (end to end)", :e2e do
     expect(operator_names(run_printed(words))).to eq(operator_names(original))
   end
 
+  it "keeps a typed empty --operators that clears a configured list, and the command reproduces it" do
+    original = saboteur(dir, "--operators", "")
+    expect(operator_names(original)).not_to eq(["condition_negation"])
+    words = rerun_words(saboteur(dir, "--agent", "--operators", ""))
+    expect(words.each_cons(2).to_a).to include(["--operators", ""])
+    expect(operator_names(run_printed(words))).to eq(operator_names(original))
+  end
+
   it "keeps a non-empty config list, quoted, and the command reproduces the selection" do
     original = saboteur(dir)
     words = rerun_words(saboteur(dir, "--agent"))
