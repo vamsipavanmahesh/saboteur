@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `script/preflight` no longer loses why a git probe died: a probe
+  whose child never ran git (the spawn failed, or a signal killed
+  the forked child, as macOS does pre-exec under memory pressure)
+  is retried once and, when it still fails, the error names the
+  cause instead of printing an empty detail; a failure git
+  reported itself is raised at once with git's own words (#319).
+
 - The whole-suite empty-coverage guard no longer passes when the map holds
   spec-file lines only: the recorder maps the suite's spec files alongside
   the included files, and the guard checked whole-map emptiness, so a suite
