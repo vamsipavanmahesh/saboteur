@@ -7,6 +7,12 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+
+- `--test-command` survivors no longer carry the `missing_test`
+  classification: the run's only recorded evidence is the pseudo-test id,
+  which is not real coverage (#305).
+
+### Fixed
 - `--test-command` on macOS no longer refuses every tree containing an
   internal symlink: the disposable copy root is canonicalized before
   symlink targets are judged against it (/var vs /private/var) (#305).

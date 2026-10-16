@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "../engine/bytecode_equivalence"
+require_relative "../execution/external_runner"
 require_relative "../mutation_source/builtin"
 
 module Saboteur
@@ -63,9 +64,11 @@ module Saboteur
 
         # covered_by is a PLANNED covering list, not a verdict about what
         # the suite asserts: coarse (whole-body) mutants carry method-level
-        # guesses, so they never get the missing_test label.
+        # guesses, and a --test-command run records only the pseudo-test id
+        # for every mutant, so neither reads as real coverage (#305 QA).
         def possible_test_gap?(result)
-          !result.mutation.coarse && result.covered_by.any?
+          real_coverage = result.covered_by - [Execution::ExternalRunner::PSEUDO_TEST]
+          !result.mutation.coarse && real_coverage.any?
         end
 
         # Arid only when EVERY line an edit touches reads as arid: an edit

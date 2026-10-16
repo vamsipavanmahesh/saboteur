@@ -45,6 +45,19 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to be_nil
   end
 
+  it "withholds missing_test from --test-command runs: the pseudo id is not real coverage (#305)" do
+    result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", from: ">=", to: ">",
+                                                                                     covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  it "labels a survivor missing_test when real coverage sits next to the pseudo id (#305)" do
+    covered = [Saboteur::Execution::ExternalRunner::PSEUDO_TEST, "spec/a_spec.rb:1"]
+    result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", from: ">=", to: ">",
+                                                                                     covered_by: covered)
+    expect(described_class.label(result)).to eq("missing_test")
+  end
+
   it "withholds missing_test from coarse mutants: their covering list is a planned guess" do
     result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n",
                           from: ">=", to: ">", coarse: true)
