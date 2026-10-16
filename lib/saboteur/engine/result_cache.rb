@@ -15,13 +15,14 @@ module Saboteur
     # same: the method's source, the whole file the method lives in (so a
     # constant or helper changed elsewhere in that file is seen), the mutant,
     # the set of covering tests, the content of those tests' files, the
-    # lockfile, the run's inputs (config, saboteur version). Only killed, survived
-    # and timeout are stored;
+    # lockfile, the run's inputs (config, saboteur version), and every source
+    # file a covering test touched (a method it calls, a constant defined
+    # elsewhere - #197). Only killed, survived and timeout are stored;
     # errors and skips always run again.
     #
-    # Known hole, the reason this is opt-in: a change in another file that
-    # this method uses (a method it calls, a constant defined elsewhere) is
-    # not seen, so a stored verdict may be stale after it.
+    # When the dependency set is unknown - no coverage map, or an empty one -
+    # every source file is watched instead: reuse turns conservative, never
+    # stale.
     class ResultCache
       FORMAT = 1
       STORED = %i[killed survived timeout].freeze
@@ -29,11 +30,13 @@ module Saboteur
 
       # suite_digest: SuiteFiles#digest, so an edit to a spec helper or
       # support file invalidates every verdict.
-      def initialize(path:, root:, inputs:, suite_digest: "")
+      def initialize(path:, root:, inputs:, suite_digest: "", coverage: nil, fallback_files: [])
         @path = path
         @root = root
         @inputs = inputs
         @suite_digest = suite_digest
+        @coverage = coverage
+        @fallback_files = fallback_files.map { |file| File.expand_path(file, root) }.sort
         @entries = load
         @file_digests = {}
       end
@@ -81,9 +84,24 @@ module Saboteur
         digest << VERSION << "\0" << @inputs << "\0" << @suite_digest << "\0" << subject.source << "\0"
         # A hex digest has a fixed width, so it needs no separator after it.
         digest << Digest::SHA256.hexdigest(subject.file_source)
-        tests.sort.each { |test| digest << test << "\0" << file_digest(test_file(test)) << "\0" }
-        LOCKFILES.each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
+        digest_tests(digest, tests)
         digest.hexdigest
+      end
+
+      def digest_tests(digest, tests)
+        tests.sort.each { |test| digest << test << "\0" << file_digest(test_file(test)) << "\0" }
+        dependencies(tests).each { |dep| digest << dep << "\0" << file_digest(dep) << "\0" }
+        LOCKFILES.each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
+      end
+
+      # Files a change in which can flip the verdict (#197): every source
+      # file a covering test touched, from the run's coverage map. Without a
+      # usable map the dependency set is unknown, so every source file is
+      # watched - the conservative whole-project key.
+      def dependencies(tests)
+        return @fallback_files if @coverage.nil? || @coverage.empty?
+
+        @coverage.files_for(tests)
       end
 
       # RSpec ids name their file: "./spec/a_spec.rb[1:2]".

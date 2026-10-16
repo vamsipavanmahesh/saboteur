@@ -42,6 +42,29 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     expect(engine.send(:select_subjects, [], test_files: ["spec/custom/a_spec.rb"])).to eq([[subject], nil])
   end
 
+  it "hands mutate's coverage map and subject files to the result cache (#197)" do
+    run = engine
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: true, fetch: map)
+    allow(run).to receive(:coverage_store).and_return(store)
+    allow(run).to receive(:check_baseline)
+    allow(run).to receive(:warn_unscoped)
+    allow(run).to receive(:inform_about_run)
+    allow(run).to receive(:abandon_for_budget?).and_return(false)
+    allow(run).to receive(:scheduler_for)
+    allow(run).to receive(:candidate_lists).and_return([[]])
+    expect(run).to receive(:result_cache).with(map, ["lib/person.rb"]).and_call_original
+    run.send(:mutate, [person_subject], ["lib/person.rb"], instance_double(Object), nil, [])
+  end
+
+  it "builds the cache with the coverage map and the fallback file list (#197)" do
+    run = engine
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    expect(Saboteur::Engine::ResultCache).to receive(:new)
+      .with(hash_including(coverage: map, fallback_files: ["lib/person.rb"])).and_call_original
+    run.send(:result_cache, map, ["lib/person.rb"])
+  end
+
   it "keeps ordinary selection and its incremental cache without a replay" do
     run = engine
     expect(run.send(:select_subjects, [])).to eq([[subject], nil])

@@ -38,6 +38,21 @@ module Saboteur
         @branches = branches
       end
 
+      # Source files the given tests touched, sorted and deduped: the
+      # dependency set a cached verdict must watch (#197). The inversion is
+      # built once per map and memoized.
+      def files_for(test_ids)
+        by_test = @files_by_test ||= invert_lines
+        test_ids.flat_map { |id| by_test.fetch(id, []) }.uniq.sort
+      end
+
+      # { test id => [source files it touched] }, built once per map.
+      def invert_lines
+        lines.each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(file, line_tests), acc|
+          line_tests.each_value { |ids| ids.each { |id| acc[id] << file } }
+        end
+      end
+
       def tests_for(subject)
         return tests_for_constant(subject) if subject.is_a?(ConstantSubject)
 

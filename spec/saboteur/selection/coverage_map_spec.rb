@@ -304,6 +304,16 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(recorder.result.lines).to eq({})
     end
   end
+
+  it "names the source files the given tests touched, sorted and deduped (#197)" do
+    map = described_class.new(
+      lines: { "/a/helper.rb" => { 3 => %w[t1 t2], 9 => ["t1"] }, "/a/other.rb" => { 1 => ["t2"] } },
+      tests: %w[t1 t2]
+    )
+    expect(map.files_for(["t1"])).to eq(["/a/helper.rb"])
+    expect(map.files_for(%w[t1 t2])).to eq(["/a/helper.rb", "/a/other.rb"])
+    expect(map.files_for(["t3"])).to eq([])
+  end
 end
 
 RSpec.describe Saboteur::Selection::CoverageMap, "constant subjects (issue #306)" do

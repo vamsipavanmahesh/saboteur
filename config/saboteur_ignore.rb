@@ -632,4 +632,28 @@ Saboteur.ignore do |i|
   i.mutation "71f06a1870dbfcb4",
              subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
              reason: "equivalent: the loop's Unsupported-building side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+  i.mutation "036e4fb956df510f",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the following SHA256 hexdigest has a fixed width, so the dropped separator " \
+                     "cannot blur field boundaries - a dependency-set change still changes the digest"
+
+  i.mutation "9db3b9aa61e04166",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the trailing separator only separates entries, and entry count and content " \
+                     "still change the digest - the next entry starts with its own path bytes"
+
+  i.mutation "69e619be29339f30",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the block's digest-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "485c590681bcde38",
+             subject: "Saboteur::Selection::CoverageMap#files_for",
+             reason: "equivalent: invert_lines is a pure function of the map's frozen lines, so recomputing " \
+                     "it on every call yields the identical hash the memo would have returned"
+
+  i.mutation "ed21b823a41e67af",
+             subject: "Saboteur::Selection::CoverageMap#invert_lines",
+             reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
 end
