@@ -6,6 +6,11 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
+  when the cache dir is read-only, is occupied by a regular file, or holds an
+  unwritable baseline log (#251).
+
 ## [0.7.0] - 2026-10-16
 
 ### Upgrade notes
