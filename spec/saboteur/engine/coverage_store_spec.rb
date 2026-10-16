@@ -337,6 +337,20 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(cache_files).to be_empty
   end
 
+  # Spec files sit in the recorder's map, so a suite that tests nothing in
+  # the included files still records its own spec code. The run must stop
+  # even though the map as a whole is not empty.
+  it "refuses a map that recorded only spec-file lines" do
+    spec_only = Saboteur::Selection::CoverageMap.new(
+      lines: { File.join(@root, "spec", "unrelated_spec.rb") => { 2 => ["t1"] } },
+      tests: ["t1"]
+    )
+    allow(supervisor).to receive(:run).and_return(built_result(spec_only.to_json))
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    expect { store.fetch([file]) }.to raise_error(Saboteur::Error, /Coverage recorded nothing in 1 included files/)
+    expect(cache_files).to be_empty
+  end
+
   # With --test the user narrowed the suite on purpose, and the chosen specs
   # may not touch the selected sources: an empty map is a legitimate "no
   # coverage" outcome there, not a broken setup.

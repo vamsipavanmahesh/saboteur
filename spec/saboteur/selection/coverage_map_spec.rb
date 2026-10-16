@@ -68,6 +68,16 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(map.empty?).to be(false)
   end
 
+  # Spec files sit in the same map as the included files, so whole-map
+  # emptiness cannot tell a build that recorded test code only.
+  it "reports emptiness for a chosen file set only" do
+    other = File.join(File.dirname(file), "other_spec.rb")
+    spec_only = described_class.new(lines: { other => { 2 => %w[t1] } }, tests: %w[t1])
+    expect(spec_only.empty_for?([file])).to be(true)
+    expect(spec_only.empty_for?([other])).to be(false)
+    expect(spec_only.empty?).to be(false)
+  end
+
   it "round-trips method coverage through JSON" do
     with_methods = described_class.new(lines: {}, tests: %w[t1 t2], methods: { file => { 2 => %w[t2 t1] } })
     expect(described_class.from_json(with_methods.to_json).methods).to eq(file => { 2 => %w[t2 t1] })

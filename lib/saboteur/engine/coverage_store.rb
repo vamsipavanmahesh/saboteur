@@ -126,9 +126,12 @@ module Saboteur
       end
 
       # A whole-suite build that records nothing - no line hit and no method
-      # call - in any included file fails the run (exit 3): usually no test
-      # in the suite exercises these files, or the setup hid the app from
-      # Coverage (Bootsnap's compile cache is the default Rails case). An
+      # call - in any included file fails the run (exit 3). The recorder's map
+      # also holds the suite's spec files, so the check is per included file,
+      # not whole-map: a suite that tests nothing here still records its own
+      # spec code. Usually no test in the suite exercises these files, or
+      # the setup hid the app from Coverage (Bootsnap's compile cache is the
+      # default Rails case). An
       # all-endless-def file records method calls only and passes. Either way
       # a run on a truly empty map would test nothing, and exit 0 would lie.
       # With explicit tests (--test) an empty map is a legitimate outcome
@@ -137,7 +140,7 @@ module Saboteur
       # map too, so a map cached before this check cannot keep a run green,
       # and the guard runs before saving, so an empty map is never cached.
       def refuse_empty_map(map, files)
-        return map if files.empty? || !map.empty?
+        return map if files.empty? || !map.empty_for?(files)
 
         if @config["tests"].empty?
           raise Error, "Coverage recorded nothing in #{files.size} included files during a whole-suite " \

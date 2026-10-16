@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The whole-suite empty-coverage guard no longer passes when the map holds
+  spec-file lines only: the recorder maps the suite's spec files alongside
+  the included files, and the guard checked whole-map emptiness, so a suite
+  exercising none of the included files still recorded its own spec code
+  and the run exited 0 instead of 3. The guard now checks each included
+  file.
+
 - Coverage-guided selection no longer drops a mutant's killing tests when a
   `case` has a `when X` arm whose body is bare `nil`: Ruby spans that arm
   from the `when` to the case's end, containing its sibling arms, and the

@@ -120,6 +120,17 @@ module Saboteur
         [lines, methods, load_lines].all? { |hits| hits.none? { |_file, values| values.any? } }
       end
 
+      # True when none of these files recorded a line hit, a method call, or
+      # a load-time hit. The recorder's map also holds the suite's spec
+      # files, so whole-map emptiness cannot tell a build that recorded test
+      # code only while the included files stayed dark.
+      def empty_for?(files)
+        wanted = files.map { |file| CoverageMap.canonical(file) }
+        [lines, methods, load_lines].all? do |hits|
+          wanted.none? { |file| hits[file]&.any? }
+        end
+      end
+
       # Tests that executed any of the lines, fastest first (suite order breaks
       # ties), no duplicates. With fail-fast, a mutant is killed by its
       # cheapest killing test.
