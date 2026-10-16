@@ -354,6 +354,24 @@ default inference and `--no-guess-tests` warns and is ignored; use `--all` for
 the whole suite. `--all` cannot be combined with `--test` or `--guess-tests`,
 and `--guess-tests` cannot be combined with `--test`. Keep whole-project runs
 on main: diff mode does not check every method affected by a dependency change.
+
+### External test commands
+
+`--test-command CMD` (config `c.test_command`, #140) replaces the whole
+in-process test machinery: each mutant is written to the real file, CMD
+runs in the project root, and its exit status decides the verdict - 0
+survived, non-zero killed, the per-mutant deadline (`c.baseline_timeout`)
+a timeout. Use it when the target app cannot load inside saboteur's Ruby,
+for example an app pinned to an older Ruby. The original file bytes come
+back after every mutant, even on a timeout or a crash.
+
+The mode is explicitly slower: the whole command runs once per mutant, so
+a mutant count in the hundreds means hundreds of full suite runs. It is
+serial, uses no coverage and no test selection, skips the baseline and the
+sandbox (the command is arbitrary code), and cannot combine with `--test`
+or `--incremental`. A kill only stands when CMD also passes on the
+unchanged tree: a command that fails without a mutant turns every verdict
+into an error (exit 3), so check the command on a clean tree first.
 [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 

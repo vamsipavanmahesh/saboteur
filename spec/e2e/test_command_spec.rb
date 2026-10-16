@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+# --test-command (#140): each mutant is written to the real file and the
+# given command decides the verdict by exit status. No boot, no coverage,
+# serial; the tree comes back untouched.
+RSpec.describe "--test-command", :e2e do
+  let(:dir) { copy_fixture("people") }
+
+  # Kills mutants that flip adult?, survives everything else.
+  def check_command
+    check = 'require "people"; exit(People::Person.new(20).adult? ? 0 : 1)'
+    "#{RbConfig.ruby} -Ilib -e '#{check}'"
+  end
+
+  it "kills by exit status, reports survivors, and restores the tree" do
+    original = File.read(File.join(dir, "lib", "people.rb"))
+    run = saboteur(dir, "--test-command", check_command)
+
+    expect(run.status).to eq(1)
+    expect(run.err).to include("external test command", "serial, no coverage, unsandboxed")
+    statuses = run.json.fetch("mutants", run.json["files"].values.flat_map { |f| f["mutants"] }).map { |m| m["status"] }
+    expect(statuses).to include("Survived", "Killed")
+    expect(File.read(File.join(dir, "lib", "people.rb"))).to eq(original)
+  end
+
+  # The unchanged-tree control: a command that also fails without the
+  # mutant cannot claim kills, so every verdict becomes an error (exit 3)
+  # and no test is blamed by name.
+  it "rejects kills when the command also fails on the unchanged tree" do
+    run = saboteur(dir, "--test-command", "false")
+    expect(run.status).to eq(3)
+    expect(run.out).to include("also fails with the method unchanged")
+  end
+end

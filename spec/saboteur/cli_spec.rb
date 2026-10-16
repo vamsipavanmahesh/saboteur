@@ -381,6 +381,13 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("--guess-tests cannot be combined with --test")
   end
 
+  it "rejects --test-command combinations the external mode cannot honor (#140)" do
+    expect(cli("run", "--test-command", "make test", "--test", "spec/nope_spec.rb").call).to eq(2)
+    expect(err.string).to include("--test-command cannot be combined with --test")
+    expect(cli("run", "--test-command", "make test", "--incremental").call).to eq(2)
+    expect(err.string).to include("--test-command cannot be combined with --incremental")
+  end
+
   it "warns that --no-guess-tests is deprecated and no longer restores the whole suite" do
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
     cli("run", "--no-guess-tests").call

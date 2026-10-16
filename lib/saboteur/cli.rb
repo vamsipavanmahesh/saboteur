@@ -165,10 +165,21 @@ module Saboteur
     # --test wins there, so generated commands stay valid over any config.
     def reject_test_selection_conflicts
       raise UsageError, "--all cannot be combined with --test" if options[:all] && options[:tests]&.any?
+
+      reject_test_command_conflicts
       raise UsageError, "--all cannot be combined with --guess-tests" if options[:all] && options[:guess_tests]
       return unless options[:guess_tests] && options[:tests]&.any?
 
       raise UsageError, "--guess-tests cannot be combined with --test"
+    end
+
+    # --test-command replaces the whole in-process test machinery: test
+    # selection, coverage, parallelism and the sandbox do not apply.
+    def reject_test_command_conflicts
+      return unless options[:test_command]
+
+      raise UsageError, "--test-command cannot be combined with --test" if options[:tests]&.any?
+      raise UsageError, "--test-command cannot be combined with --incremental" if options[:incremental]
     end
 
     # Usage errors found before the target boots.
@@ -352,6 +363,10 @@ module Saboteur
       end
       opts.on("--all", "Run the whole configured test suite instead of inferring the specs named after the " \
                        "mutated files") { set(:all, true) }
+      opts.on("--test-command CMD", "Run CMD per mutant in the project root; exit 0 means the mutant survived. " \
+                                    "For apps that cannot load in this Ruby; much slower, serial, no coverage") do |v|
+        set(:test_command, v)
+      end
       opts.on("--[no-]guess-tests", "Deprecated alias: inferred specs are already the default; " \
                                     "--no-guess-tests warns and is ignored - use --all for the whole suite") do |v|
         set(:guess_tests, v)

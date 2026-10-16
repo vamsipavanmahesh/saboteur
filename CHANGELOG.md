@@ -7,6 +7,11 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `--test-command CMD` / `c.test_command`: run an external command per
+  mutant and take its exit status as the verdict - for apps that cannot
+  load inside saboteur's Ruby. Serial, no coverage, unsandboxed, with the
+  tree restored after every mutant and kills checked against the
+  unchanged tree (#140).
 - Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
   when the cache dir is read-only, is occupied by a regular file, or holds an
   unwritable baseline log (#251).

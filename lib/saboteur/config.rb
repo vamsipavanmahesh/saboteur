@@ -67,6 +67,7 @@ module Saboteur
       "max_duration" => nil,
       "max_duration_ok" => false,
       "tests" => [],
+      "test_command" => nil,
       "fingerprint_extra" => [],
       "threshold" => nil,
       "max_timeouts" => nil,
