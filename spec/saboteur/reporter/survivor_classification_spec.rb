@@ -124,9 +124,12 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
   end
 
   it "extracts the edited line at the end of a file without a trailing newline" do
-    result = survivor_for("class A\n  def m\n    puts a\n  end\nend",
-                          from: "end", to: "finish", covered_by: [])
-    expect(described_class.label(result, arid: ["\\Aend\\z"])).to eq("arid")
+    # The edit ends on the file's LAST line (the def's own end, the class
+    # end sharing the line) and the file has no trailing newline, so the
+    # bytesize fallback is what finds the line end.
+    result = survivor_for("class A\n  def m\n    puts a\n  end end",
+                          from: "puts a\n  end", to: "nil", covered_by: [])
+    expect(described_class.label(result, arid: ["\\Aputs a\\z", "\\Aend end\\z"])).to eq("arid")
   end
 
   it "reads only the edited lines when the edit ends at the newline" do
