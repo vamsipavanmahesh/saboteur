@@ -95,10 +95,13 @@ RSpec.describe Preflight::CommandRunner do
       RUBY
       loud = described_class.new(directory: dir, log_directory: File.join(dir, "logs"), grace: 1)
       loud.log_root = dir
+      # A progress formatter (every project's .rspec has one) writes to
+      # stdout; fd 3 carries the JSON report and NOTHING else.
       result = loud.run(["bundle", "exec", "rspec", "noisy_spec.rb", "--require", loud.data_shim_path,
-                         "--format", "json"], timeout: 120, data_pipe: true)
+                         "--format", "progress"], timeout: 120, data_pipe: true)
       expect([result.ran?, result.problem]).to eq([true, nil])
       expect(result.stdout).to include("spec noise")
+      expect(result.stdout).to include(".")
       document = Preflight::StrictJson.parse(result.data)
       expect(document.fetch("summary").fetch("example_count")).to eq(1)
     end

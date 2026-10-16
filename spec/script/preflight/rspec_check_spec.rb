@@ -99,6 +99,6 @@ RSpec.describe Preflight::Checks::Rspec do
     end
     described_class.new(name: "x", command_runner: runner, paths: ["spec/a_spec.rb"]).call
     expect(runner.calls.first).to start_with(%w[bundle exec rspec spec/a_spec.rb])
-    expect(runner.calls.first).to end_with(["--require", "/harness/rspec_fd3_shim.rb", "--format", "json"])
+    expect(runner.calls.first).to end_with(["--require", "/harness/rspec_fd3_shim.rb"])
   end
 end

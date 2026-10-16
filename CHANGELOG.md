@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `script/preflight` full mode no longer rejects its own RSpec report: the
+  fd3 shim now attaches a dedicated JSON formatter to the pipe instead of
+  redirecting RSpec's output stream, so a project's progress formatter
+  (`.rspec` `--format progress`) and spec output stay on stdout and cannot
+  corrupt the report.
+
 - `--test-command` survivors no longer carry the `missing_test`
   classification: the run's only recorded evidence is the pseudo-test id,
   which is not real coverage (#305).
