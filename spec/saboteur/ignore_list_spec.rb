@@ -12,10 +12,11 @@ RSpec.describe Saboteur::IgnoreList do
     end
   end
 
-  def entry_for(digest, reason: "equivalent")
+  def entry_for(digest, reason: "equivalent", state: nil)
+    extra = state ? ", state: #{state.inspect}" : ""
     <<~RUBY
       Saboteur.ignore do |i|
-        i.mutation "#{digest}", subject: "Person#adult?", reason: #{reason.inspect}
+        i.mutation "#{digest}", subject: "Person#adult?", reason: #{reason.inspect}#{extra}
       end
     RUBY
   end
@@ -30,6 +31,39 @@ RSpec.describe Saboteur::IgnoreList do
       warnings = described_class.load(path).apply([survivor])
       expect(survivor.ignored).to eq("equivalent: ages are whole years")
       expect(warnings).to eq([])
+    end
+  end
+
+  it "defaults the triage state to accepted_equivalent" do
+    with_file(entry_for("abc123")) do |path|
+      expect(described_class.load(path).entries.first.state).to eq("accepted_equivalent")
+    end
+  end
+
+  it "rejects an unknown triage state with the valid names" do
+    with_file(entry_for("abc123", state: "later")) do |path|
+      expect { described_class.load(path) }
+        .to raise_error(Saboteur::ConfigError, /state.*accepted_equivalent, wont_fix, todo/)
+    end
+  end
+
+  it "accepts a wont_fix survivor and records its triage state" do
+    survivor = result_for(:survived)
+    with_file(entry_for(survivor.digest, state: "wont_fix", reason: "dead code on legacy path")) do |path|
+      warnings = described_class.load(path).apply([survivor])
+      expect(survivor.ignored).to eq("dead code on legacy path")
+      expect(survivor.triage_state).to eq("wont_fix")
+      expect(warnings).to eq([])
+    end
+  end
+
+  it "records a todo survivor without accepting it: it still counts" do
+    survivor = result_for(:survived)
+    with_file(entry_for(survivor.digest, state: "todo", reason: "fix in the next sprint")) do |path|
+      described_class.load(path).apply([survivor])
+      expect(survivor.ignored).to be_nil
+      expect(survivor.unignored_survivor?).to be(true)
+      expect([survivor.triage_state, survivor.triage_reason]).to eq(["todo", "fix in the next sprint"])
     end
   end
 

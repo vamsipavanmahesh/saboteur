@@ -99,6 +99,26 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(mutants[3]["statusReason"]).to eq("boom\nmore")
   end
 
+  it "names the triage state in statusReason (#155)" do
+    accepted = result_for(:survived)
+    accepted.ignored = "equivalent"
+    accepted.triage_state = "accepted_equivalent"
+    wont_fix = result_for(:survived, replacement: "<")
+    wont_fix.ignored = "legacy"
+    wont_fix.triage_state = "wont_fix"
+    todo = result_for(:survived, replacement: "==")
+    todo.triage_state = "todo"
+    todo.triage_reason = "fix in the next sprint"
+    mutants = JSON.parse(JSON.generate(described_class.build(report_of(accepted, wont_fix, todo))))
+                  .dig("files", "person.rb", "mutants")
+    expect(mutants.map { |m| [m["status"], m["statusReason"]] }).to eq([
+                                                                         ["Survived",
+                                                                          "ignored (accepted_equivalent): equivalent"],
+                                                                         ["Survived", "ignored (wont_fix): legacy"],
+                                                                         ["Survived", "todo: fix in the next sprint"]
+                                                                       ])
+  end
+
   # A rejected kill's reason carries the child's full failure detail: the
   # JSON report must keep every line, or CI shows "expected: 0" with no
   # context again (#296).

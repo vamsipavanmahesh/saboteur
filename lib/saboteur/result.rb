@@ -23,6 +23,10 @@ module Saboteur
     attr_reader :subject, :mutation, :status, :reason, :runtime, :killed_by, :covered_by, :mutated_source,
                 :kill_cause, :executed
     attr_accessor :ignored
+    # The ignore list's triage for this survivor (#155): a state from
+    # IgnoreList::STATES and its reason, set whether or not the survivor is
+    # accepted out of the score (a todo survivor still counts).
+    attr_accessor :triage_state, :triage_reason
 
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
                    covered_by: [], kill_cause: nil, reused: false, rejected_kill: false, executed: nil)
@@ -41,6 +45,8 @@ module Saboteur
       @rejected_kill = rejected_kill
       @reused = reused
       @ignored = nil
+      @triage_state = nil
+      @triage_reason = nil
     end
 
     # The same mutant, marked unverified: the budget ran out before its

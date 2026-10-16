@@ -24,6 +24,11 @@ All notable changes are documented here. The format follows
   `Class.new` or `Module.new` block are mutated like any other subject
   instead of reported as skipped: the constant names the generated class,
   so the mutant is re-evaluated on it (#290).
+- Ignore-list entries accept a triage `state:` - `accepted_equivalent`
+  (the default) and `wont_fix` exclude the survivor from the score, `todo`
+  records the decision to fix and keeps the survivor counting. The HTML
+  report badges the state and the JSON report names it in `statusReason`
+  (#155).
 
 ### Removed
 - The stale self-deprecating benchmark claims in the README ('rerun

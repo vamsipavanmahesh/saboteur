@@ -21,7 +21,12 @@ module Saboteur
   #
   # reason is mandatory; a file with a missing or blank reason does not load.
   class IgnoreList
-    Entry = Data.define(:subject, :mutation, :reason)
+    # Triage states beyond plain ignoring (#155): accepted_equivalent and
+    # wont_fix exclude the survivor from the score, todo records the
+    # decision to fix and lets the survivor count.
+    STATES = %w[accepted_equivalent wont_fix todo].freeze
+
+    Entry = Data.define(:subject, :mutation, :reason, :state)
 
     # Collects the entries a saboteur_ignore.rb file declares.
     class Collector
@@ -31,16 +36,23 @@ module Saboteur
         @entries = []
       end
 
-      def mutation(digest = nil, subject: nil, reason: nil)
+      def mutation(digest = nil, subject: nil, reason: nil, state: nil)
         line = caller_locations(1, 1).first.lineno
         values = { "subject" => subject, "mutation" => digest, "reason" => reason }
         missing = values.select { |_, value| value.to_s.strip.empty? }.keys
         raise ConfigError, "#{line}: entry is missing #{missing.join(', ')}" if missing.any?
 
+        state = state.to_s.strip
+        state = "accepted_equivalent" if state.empty?
+        unless STATES.include?(state)
+          raise ConfigError, "#{line}: unknown state #{state.inspect} - use one of #{STATES.join(', ')}"
+        end
+
         @entries << Entry.new(
           subject: subject.to_s.strip,
           mutation: digest.to_s.strip,
-          reason: reason.to_s.strip
+          reason: reason.to_s.strip,
+          state: state
         )
       end
     end
@@ -96,9 +108,11 @@ module Saboteur
       @index = entries.to_h { |entry| [[entry.subject, entry.mutation], entry] }
     end
 
-    # True when this result is a survivor the list accepts.
+    # True when this result is a survivor the list accepts out of the
+    # score: a todo entry records the triage but keeps the survivor
+    # counting.
     def accepts?(result)
-      result.survived? && @index.key?([result.subject.id, result.digest])
+      result.survived? && (entry = @index[[result.subject.id, result.digest]]) && entry.state != "todo"
     end
 
     # Marks matching survivors as ignored. Returns warnings for stale entries:
@@ -114,7 +128,11 @@ module Saboteur
         next unless entry
 
         seen[key] = true
-        result.ignored = entry.reason if result.survived?
+        next unless result.survived?
+
+        result.triage_state = entry.state
+        result.triage_reason = entry.reason
+        result.ignored = entry.reason if entry.state != "todo"
       end
       stale_warnings(results, seen, unscoped_digests)
     end

@@ -129,6 +129,8 @@ module Saboteur
       end
 
       def self.status_reason(result)
+        return "todo: #{result.triage_reason}" if result.triage_state == "todo"
+        return "ignored (#{result.triage_state}): #{result.ignored}" if result.triage_state && result.ignored
         return "ignored: #{result.ignored}" if result.ignored
         return "resource limit: #{result.reason}" if result.status == :resource_limit
         return result.crash_kill? ? "crash: #{result.kill_cause}" : result.kill_cause if result.kill_cause

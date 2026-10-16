@@ -778,6 +778,22 @@ end
 
 An entry without a reason is rejected.
 
+Each entry also carries a triage state (#155) chosen with `state:` -
+`accepted_equivalent` (the default) or `wont_fix` exclude the survivor from
+the score, `todo` records the decision to fix and keeps the survivor
+counting:
+
+```ruby
+i.mutation "9f8e7d6c5b4a3210",
+           subject: "Billing::Invoice#discount",
+           reason: "dead code on the legacy pricing path",
+           state: "wont_fix"
+```
+
+The HTML report badges the state (`Accepted`, `Won't fix`, `Todo`) and the
+JSON report names it in `statusReason`, so a `todo` entry keeps the run
+failing until the survivor is really fixed.
+
 ### SimpleCov
 
 saboteur needs Ruby's `Coverage` for itself. Disable SimpleCov for the run

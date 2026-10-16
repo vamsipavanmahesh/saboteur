@@ -195,12 +195,25 @@ module Saboteur
       def row_status(mutant, result)
         badge = status_label(mutant[:status])
         # Only survivors are ever put on the ignore list.
-        result.ignored ? "#{badge} #{status_label('Accepted')}" : badge
+        return badge unless result.ignored || result.triage_state
+
+        # An entry without a state predates triage states: render Accepted.
+        return "#{badge} #{status_label('Accepted')}" if result.triage_state.nil?
+
+        "#{badge} #{status_label(triage_badge(result), css_class: "Triage_#{result.triage_state}")}"
       end
 
       # One edit shows the original text and its replacement. A mutant with
       # several edits shows only the replacements, because one location cannot
       # stand for all of them.
+      def triage_badge(result)
+        case result.triage_state
+        when "wont_fix" then "Won\u2019t fix"
+        when "todo" then "Todo"
+        else "Accepted"
+        end
+      end
+
       def change(mutant, result)
         edits = result.mutation.edits
         return "<pre>#{escape(mutant[:replacement])}</pre>" unless edits.size == 1
@@ -212,8 +225,8 @@ module Saboteur
           "<pre>#{escape(edit.replacement)}</pre>"
       end
 
-      def status_label(status)
-        %(<span class="status #{status}">#{status}</span>)
+      def status_label(status, css_class: status)
+        %(<span class="status #{css_class}">#{status}</span>)
       end
 
       def escape(text)
