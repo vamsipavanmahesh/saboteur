@@ -19,12 +19,12 @@ module Preflight
       end
 
       # The JSON goes to a pipe the harness owns (file descriptor 3), not to a path in the checkout.
-      # A shim loaded with --require points RSpec's report stream at that descriptor: no process opens
-      # /dev/fd (macOS refuses that for pipes) and stdout stays the suite's own channel, so output a
-      # spec prints cannot corrupt the report.
+      # A shim loaded with --require attaches a JSON formatter to that descriptor; RSpec's own
+      # stream stays on stdout, so the project's progress formatter and spec output cannot corrupt
+      # the report. No process opens /dev/fd (macOS refuses that for pipes).
       def call(_context = nil)
         result = @runner.run(%w[bundle exec rspec] + @paths +
-                               ["--require", @runner.data_shim_path, "--format", "json"],
+                               ["--require", @runner.data_shim_path],
                              data_pipe: true)
         return incomplete(result, "could not use RSpec: #{result.problem}") unless result.ran?
         return incomplete(result, "RSpec wrote no report") if result.data.to_s.empty?

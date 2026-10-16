@@ -71,13 +71,15 @@ module Preflight
       @history = []
     end
 
-    # The shim a data_pipe child loads through `rspec --require`: it points RSpec's report stream at
-    # file descriptor 3 (the pipe below) while stdout stays the suite's own channel, so output a spec
-    # prints cannot corrupt the report. No path names the pipe: macOS refuses to open one via /dev/fd.
+    # The shim a data_pipe child loads through `rspec --require`: it attaches a JSON formatter to
+    # file descriptor 3 (the pipe below) and leaves RSpec's report stream alone, so the suite's own
+    # formatters - the progress dots every project's .rspec asks for - and anything a spec prints
+    # stay on stdout and can never corrupt the report. No path names the pipe: macOS refuses to
+    # open one via /dev/fd.
     DATA_SHIM = <<~RUBY
       # SPDX-License-Identifier: MIT
       # frozen_string_literal: true
-      RSpec.configure { |config| config.output_stream = IO.new(3, "w") }
+      RSpec.configure { |config| config.add_formatter("json", IO.new(3, "w")) }
     RUBY
 
     # Path of the shim, written next to the command logs behind the same swap protection. Needs the
