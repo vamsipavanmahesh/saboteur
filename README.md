@@ -332,21 +332,35 @@ directly - and the whole file is re-evaluated because re-assigning a constant
 is not a method swap. The diff scope is line-granular: a literal written on a
 single line puts every entry on that line in scope, so write one entry per
 line to mutate only what changed. Unchanged entries on unchanged lines are
-not mutated.
+not mutated, and entries matching the arid patterns are skipped like arid
+statements in a method.
 
 Boundaries are named, never silently scored. A changed constant assignment
 saboteur cannot mutate - a namespaced target, `||=`/`&&=`, a value that is
 not a hash or array literal (only `.freeze` calls are looked through), a
-write guarded by `if`/`unless`, or a constant assigned twice in one file -
-gets a diagnostic instead of mutants. Two safety rules can skip a changed
-constant entirely, each with its own warning: the file runs side-effecting
-code at load (mutants re-evaluate the whole file; move the literal into its
-own file), or every read of the constant captures the value at load time in
-another file (`COPY = A::RULES` keeps the original, so no test can observe a
-change). Consumer matching is a lexical heuristic: reads reached through a
-superclass, `const_get`, or a compact `class Shop::Item` scope are not
-resolved, and a constant only read that way reports ran-at-load or
-no-coverage rather than a guessed survivor.
+write guarded by `if`/`unless`, or a constant written more than once in one
+file (any later write wins, literal or not) - gets a diagnostic instead of
+mutants. Two rules can skip a changed constant entirely, each with its own
+warning. First, the replay rule: a constant mutant re-evaluates its whole
+file, so whatever runs at load runs again on every mutant. saboteur replays
+a file only when its load-time code is limited to forms it recognizes -
+`require`/`require_relative`, pure defs, class/module nesting and plain
+literal assignments - and trips no entry of the hazard denylist. Anything
+else at load (a helper call, a registration, a write to disk, a class
+factory) skips the file's constants with a warning; list the constant in
+`c.whole_file` to replay the file anyway, or move the literal into its own
+file. Passing the check is not a promise that replaying the file is safe -
+it only means no unrecognized code runs at load. Second, observability:
+when every read of the constant captures the value at load time in another
+file (`COPY = A::RULES`, including a capture inside a boot-time block such
+as `1.times { COPY = A::RULES }`), the original object is already held and
+no test can observe a change, so the constant is dropped with a diagnostic
+rather than reported Survived. The block rule is conservative: a block
+passed to a deferring call runs later, but saboteur prefers dropping a
+constant over an unobservable survivor. Consumer matching is a lexical
+heuristic: reads reached through a superclass, `const_get`, or a compact
+`class Shop::Item` scope are not resolved, and a constant only read that
+way reports ran-at-load or no-coverage rather than a guessed survivor.
 
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
@@ -381,6 +395,64 @@ default inference and `--no-guess-tests` warns and is ignored; use `--all` for
 the whole suite. `--all` cannot be combined with `--test` or `--guess-tests`,
 and `--guess-tests` cannot be combined with `--test`. Keep whole-project runs
 on main: diff mode does not check every method affected by a dependency change.
+
+### External test commands
+
+`--test-command CMD` (config `c.test_command`, #140) replaces the whole
+in-process test machinery: for each execution a fresh pristine copy of the
+project tree is materialized under the system tmp dir, the mutant is
+written into that copy - never your real files - and CMD runs there with
+the copy as its working directory. Neutral runs (baseline probes and
+verification re-runs) write the file's unchanged bytes, so a neutral copy
+is byte-identical to the pristine tree. The exit status decides the
+verdict: 0 survived, non-zero killed (except the shell's 126/127, which
+read as command/setup errors), the per-mutant deadline
+(`c.baseline_timeout`) a timeout. Use it when the target app cannot load
+inside saboteur's Ruby, for example an app pinned to an older Ruby.
+
+**Warning: CMD runs unsandboxed with your user permissions - full network
+access and every side effect it chooses, exactly as if you typed it into a
+shell.** Only point it at commands you trust. The per-execution copy is
+the only tree CMD is pointed at, and mutants are applied there, so nothing
+saboteur writes can reach the real tree - but the copy is not a jail, and
+a command that goes looking for your real files can still touch them.
+Symlinks are not followed into the real tree: a relative link that
+resolves inside the project is rebuilt inside the copy as a relative
+link, so requiring an alias sees the same - possibly mutated - content
+as the real path. A link that escapes the tree or loops is refused with
+an error naming the path, and so is an absolute link even when it points
+into the project: it resolves to the real tree, not the copy. Captured
+output is held in memory and capped at 64 KB.
+
+On every shutdown path saboteur terminates the command's whole process
+group, escalating from SIGTERM to SIGKILL, including on Ctrl-C. One case
+is outside that guarantee: if saboteur itself is SIGKILLed it cannot send
+those signals, so the group may keep running against the leftover copy,
+and the temp directory may not be cleaned up. Descendants that escaped
+the process group (setsid or daemonized) are outside that cleanup too:
+the run does not wait for them, but they keep running until they exit.
+Saboteur's own mutation writes still never touch the real tree - the
+leftover state lives only under the system tmp dir.
+
+The mode is explicitly slower: the whole command runs once per mutant, so
+a mutant count in the hundreds means hundreds of full suite runs, plus one
+recursive copy of the project per execution, mutant or neutral. It is
+serial, uses no coverage and no test selection, skips the baseline and
+the sandbox, applies no resource caps to the command, and cannot combine
+with `--test` or `--incremental` (config `tests:`/`incremental:` count
+too; `sandbox: "strict"` is rejected because it cannot be honored). Before
+any mutant is created, one neutral preflight runs CMD on the unchanged
+copy: a command that fails there fails the whole run up front with its
+exit status and captured output (exit 3). The preflight runs under an absolute
+deadline - whichever ends sooner, its own `c.baseline_timeout` slice or
+the overall run budget. The deadline bounds when the command is admitted
+and how long the run waits for it; the tree copy beforehand and the
+TERM/KILL grace and capture drain afterward are not charged to it. A
+budget already spent, or spent while waiting, is a budget stop, not a
+command failure. A blank `--test-command` is a
+config error. A saboteur run refuses to start inside CMD's own
+environment, so a test command that itself invokes saboteur cannot mutate
+the copy mid-run.
 [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 
@@ -457,7 +529,19 @@ when their covering tests, reuse status and changed lines are identical;
 otherwise each distinct set of evidence is printed above its own mutations.
 Hints are suggestions, not diagnoses: a survivor can also be an equivalent
 mutant. The HTML page shows the same list in the
-survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
+survivor's notes. Each survivor in the JSON report also carries a
+`classification` field: `likely_equivalent` (the mutant compiles to the
+original's instructions), `arid` (every line an edit touches matches an
+arid pattern), or `missing_test` (a planned covering test passed with the
+mutant applied). One label per survivor, first match in that order; the
+field is omitted when no signal applies. Labels are heuristics for triage
+order, not diagnoses - inspect a survivor before acting on its label, and
+never add a test or ignore a mutant from the label alone. Labels never
+change scores or the exit code. When a classification signal applies, the
+HTML report shows the label next to the survivor's status, and the agent
+JSON carries it on the shown finding. See
+[docs/guides/reading-survivors.md](docs/guides/reading-survivors.md). The
+JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
 `config/saboteur.rb`; set either to `nil` to turn that report off. The two paths
@@ -805,6 +889,28 @@ end
 
 An entry without a reason is rejected.
 
+Each entry also carries a triage state (#155) chosen with `state:` -
+`accepted_equivalent` (the default) or `wont_fix` suppress the survivor's
+exit failure (it still counts in the score), `todo` records the decision
+to fix and keeps the survivor counting as an unignored survivor:
+
+```ruby
+i.mutation "9f8e7d6c5b4a3210",
+           subject: "Billing::Invoice#discount",
+           reason: "dead code on the legacy pricing path",
+           state: "wont_fix"
+```
+
+The HTML report badges the state (`Accepted`, `Won't fix`, `Todo`). In the
+JSON report only `wont_fix` and `todo` mark `statusReason` - `ignored:
+<reason> (wont_fix)` and `todo: <reason>` - while an `accepted_equivalent`
+survivor reads as a plain `ignored: <reason>`, byte-identical to an entry
+without a triage state. All three keep status `Survived`. A `todo` entry
+keeps the survivor counting as an unignored survivor, subject to the normal
+exit-code and threshold gates. `statusReason` is human-readable text for
+reports, not a structured field: parse `status`, never the reason string,
+which does not distinguish every triage state.
+
 ### SimpleCov
 
 saboteur needs Ruby's `Coverage` for itself. Disable SimpleCov for the run
@@ -937,7 +1043,8 @@ Builtin removes one element from an array literal: `[:a, :b]` becomes `[:a]`.
 This is the array counterpart of `pair_removal`, on by default under the name
 `element_removal`, and it is what mutates changed elements of constant array
 literals under `--since` (#306). Bracketed arrays and `%w[...]` lists are
-supported; splats stay intact and elements holding heredocs are skipped.
+supported; splats stay intact, and elements holding heredocs or sitting in
+arid statements are skipped, like `pair_removal`.
 Being default-on, it adds mutants wherever array literals appear in mutated
 methods: totals grow with the number of elements, the way `pair_removal`
 grows them for hashes.

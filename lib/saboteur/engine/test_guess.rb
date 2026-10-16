@@ -166,15 +166,11 @@ module Saboteur
         end.keys
       end
 
-      # Def subjects and, in --since mode, changed constant literal
-      # subjects (#306): both need a spec to run against.
+      # Def subjects and changed constant literal subjects (#306): both
+      # need a spec to run against. Only the --since route asks.
       def subjects_in(finder, constant_finder, file)
         path = File.join(@root, file)
-        if @config["since"]
-          finder.call(path).subjects + constant_finder.call(path).subjects
-        else
-          finder.call(path).subjects
-        end
+        finder.call(path).subjects + constant_finder.call(path).subjects
       end
 
       def guess_for(file)

@@ -8,6 +8,34 @@ digests depend on your source, and the terminal report layout can change
 between versions, so compare the parts (subject, operator, digest, location,
 diff, covering tests), not the exact text. Use a digest from your own run.
 
+
+## Classification labels
+
+The JSON report labels a survivor when a classification signal applies
+(#192), most useful first. Every label is a heuristic - a hint about where to look first, not a diagnosis.
+Inspect the survivor before acting; never add a test or ignore a mutant
+from the label alone.
+
+- `likely_equivalent` - the mutant compiles to the same instructions as
+  the original: strong evidence of a no-op mutant. Check it against the
+  source before treating it as equivalent.
+- `arid` - every line an edit touches matches an arid pattern (logging
+  and friends), so an assertion there is less likely to pay off. The
+  builtin hint list decides; a configured arid policy does not change the
+  label.
+- `missing_test` - a test covered the line and passed, which may mean
+  the suite reaches the code without pinning this behaviour. The covering
+  list is only the planned coverage: whole-body (coarse) mutants carry
+  method-level guesses and never get this label, and neither does
+  anything without real coverage - a `--test-command` run records only
+  the pseudo-test for every mutant, so its survivors never receive missing_test from pseudo evidence.
+
+A survivor with no signal stays unlabeled - the field is omitted, never
+empty. One label per survivor, first match in the order above. Labels
+never change scores or the exit code. The label also shows as a badge
+next to the survivor's status in the HTML report and as the
+`classification` field on each shown finding in the agent JSON.
+
 ## Anatomy of a survivor
 
 ```

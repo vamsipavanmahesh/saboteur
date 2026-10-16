@@ -43,10 +43,10 @@ module Saboteur
     # source: the text to parse when it is not the file on disk (the file as
     # it was at an earlier commit).
     def call(file, source: File.binread(file))
-      result = Prism.parse(source, filepath: file)
+      result = Prism.parse(source)
       return Parsed.new(subjects: [], unsupported: [], errors: result.errors.map(&:message)) if result.failure?
 
-      ctx = { file: file, source: source, frozen: frozen_literals?(result), in_block: false, guarded: false }
+      ctx = { file: file, source: source, frozen: frozen_literals?(result) }
       out = { subjects: [], unsupported: [] }
       walk(result.value, [], out, **ctx)
       reject_duplicates(out, **ctx)
@@ -55,13 +55,15 @@ module Saboteur
 
     private
 
-    # Two writes of the same constant in one file: re-evaluating the file
-    # runs both, the later one always wins, and a mutant of either literal
-    # is never observed. Neither can be a subject (#319).
+    # More than one write of the same constant in one file: re-evaluating
+    # the file runs them all, the later one always wins, and a mutant of
+    # any earlier literal is never observed. EVERY write counts - a guarded
+    # or non-literal second write (`RULES = {a: 1}; RULES = build_rules`)
+    # overwrites the first just the same (#319).
     def reject_duplicates(out, **ctx)
-      duplicates = out[:subjects].group_by(&:id).select { |_, group| group.size > 1 }.flat_map do |_, group|
-        group
-      end
+      writes = Hash.new(0)
+      (out[:subjects] + out[:unsupported]).each { |entry| writes[entry.id] += 1 }
+      duplicates = out[:subjects].select { |subject| writes[subject.id] > 1 }
       return if duplicates.empty?
 
       out[:subjects] -= duplicates

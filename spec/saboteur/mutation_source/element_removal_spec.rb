@@ -17,6 +17,16 @@ RSpec.describe Saboteur::MutationSource::ElementRemoval do
     Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
   end
 
+  it "does not descend into a nested def's arrays" do
+    subject = subjects_in("class K\n  def m\n    def n\n      [1, 2]\n    end\n  end\nend\n").first
+    expect(described_class.new.mutations_for(subject)).to be_empty
+  end
+
+  it "proposes nothing for an empty def body" do
+    subject = subjects_in("class K\n  def m\n  end\nend\n").first
+    expect(described_class.new.mutations_for(subject)).to be_empty
+  end
+
   def texts(text)
     subject = constant_subject(text)
     described_class.new.mutations_for(subject, root: subject.literal_node).map do |mutation|
@@ -38,6 +48,16 @@ RSpec.describe Saboteur::MutationSource::ElementRemoval do
 
   it "proposes nothing for an empty array" do
     expect(texts("LIST = []\n")).to be_empty
+  end
+
+  # QA on #319: arid is policy, not decoration - an array inside a logging
+  # call mutates nothing a test can see, so it is left alone.
+  it "honors the arid policy for arrays inside logging calls" do
+    subject = subjects_in("class Job\n  def run\n    logger.info([1, 2])\n    work([3, 4])\n  end\nend\n").first
+    source = described_class.new(arid: Saboteur::MutationSource::Builtin::DEFAULT_ARID)
+    texts = source.mutations_for(subject).map { |mutation| subject.apply(mutation.edits) }
+    expect(texts).to eq(["def run\n    logger.info([1, 2])\n    work([ 4])\n  end",
+                         "def run\n    logger.info([1, 2])\n    work([3 ])\n  end"])
   end
 
   it "descends into nested arrays but not into methods" do

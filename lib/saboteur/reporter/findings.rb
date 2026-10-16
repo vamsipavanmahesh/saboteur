@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "survivor_ranking"
+require_relative "survivor_classification"
 
 module Saboteur
   module Reporter
@@ -59,8 +60,10 @@ module Saboteur
             original: joined_texts(result) { |edit| original_text(result, edit) },
             replacement: joined_texts(result, &:replacement),
             edits: entries,
-            coarse: result.mutation.coarse
-          }
+            coarse: result.mutation.coarse,
+            # Why the survivor is worth a look, as a label only (#192).
+            classification: SurvivorClassification.label(result)
+          }.compact
           entry = with_changed_lines(report, result, entry)
           result.ignored ? entry.merge(reason: result.ignored) : entry
         end

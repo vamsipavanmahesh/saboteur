@@ -6,16 +6,79 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Coverage-guided selection no longer drops a mutant's killing tests when a
+  `case` has a `when X` arm whose body is bare `nil`: Ruby spans that arm
+  from the `when` to the case's end, containing its sibling arms, and the
+  recorder stored the span as-is, so edits inside the sibling arms were
+  narrowed to the nil-arm's takers. Sibling arms are disjoint by
+  definition; a span containing one of them is now rejected when the map
+  is recorded (coverage map format 9).
+
+- `script/preflight` full mode no longer rejects its own RSpec report: the
+  fd3 shim now attaches a dedicated JSON formatter to the pipe instead of
+  redirecting RSpec's output stream, so a project's progress formatter
+  (`.rspec` `--format progress`) and spec output stay on stdout and cannot
+  corrupt the report.
+
+- `--test-command` survivors no longer carry the `missing_test`
+  classification: the run's only recorded evidence is the pseudo-test id,
+  which is not real coverage (#305).
+- `--test-command` on macOS no longer refuses every tree containing an
+  internal symlink: the disposable copy root is canonicalized before
+  symlink targets are judged against it (/var vs /private/var) (#305).
+
 ### Added
+- `--test-command CMD` / `c.test_command`: run an external command per
+  mutant and take its exit status as the verdict - for apps that cannot
+  load inside saboteur's Ruby. Serial, no coverage, unsandboxed. Mutants
+  are applied in a fresh disposable copy of the tree per execution - the
+  runner's own writes never touch the real files or follow symlinks - and
+  the command's process group is terminated on every exit path. One
+  budget-bounded neutral preflight checks the command on an untouched
+  copy before any mutant exists; the shell's 126/127 read as setup
+  errors, blank and non-string commands are rejected, and nested
+  saboteur runs are refused (#140, #305). The preflight runs under an
+  absolute deadline admitted after the tree copy, and a spent budget
+  stops the run as budget-exhausted rather than a command failure.
+  Internal symlinks are rebuilt as relative links inside the copy, so an
+  alias sees the mutant while nothing can link out; escaping or looping
+  links refuse the run. Copy and write failures become error outcomes
+  with bounded context instead of crashing the run. Output capture is a
+  bounded in-memory ring buffer, scrubbed to valid UTF-8 for reports,
+  and its drain is time-bounded so a session-escaped descendant holding
+  the pipe cannot stall the run. Subjects outside the project root are
+  refused.
+- Survivor classification labels in the JSON report (#192): each survivor
+  carries `classification` - `likely_equivalent` when the mutant compiles
+  to the original's instructions, `arid` when every line an edit touches
+  matches an arid pattern, `missing_test` when a test covered the line
+  and passed. The HTML report badges each survivor with the same label
+  and the agent JSON carries it on each shown finding. Labels are
+  heuristics for triage order only, never a diagnosis: scores and the
+  exit code never change.
 - `--since` mutates changed entries of constant hash and array literals:
   the assignments join the diff scope as subjects, `pair_removal` edits hash
   entries, the new default-on `element_removal` operator edits array
   elements (in methods too, so array literals grow mutant totals the way
   hashes do), and the tests are the specs covering a read of the constant.
   Unsupported forms (namespaced targets, `||=`/`&&=`, non-literal values,
-  condition-guarded or repeated writes), files with side-effecting code at
-  load, and constants only captured at load time elsewhere are named in the
-  diagnostics instead of being mutated or reported survived (#306).
+  condition-guarded writes, or a constant written more than once in one
+  file counting every write) are named in the diagnostics instead of being
+  mutated or reported survived (#306).
+- Constant replay vets the whole file: `--since` replays a constant's file
+  only when its load-time code is limited to requires, pure defs,
+  class/module nesting and literal assignments and trips no hazard denylist
+  entry; anything else needs the constant listed in `c.whole_file` (the
+  existing whole-file opt-in) or the literal moved into its own file.
+  Constants whose only reads capture the value at load time elsewhere -
+  including a capture inside a boot-time block - are dropped with a
+  diagnostic. Spec files count as consumers: the coverage map records spec
+  line hits, directory test paths and the default spec tree feed the
+  consumer scan, `element_removal` honors the arid policy, arid patterns
+  screen constant entries too, and constant mutation respects `c.sources`
+  (no `builtin`, no constant mutants) (#306, #319).
 - Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
   when the cache dir is read-only, is occupied by a regular file, or holds an
   unwritable baseline log (#251).
@@ -29,6 +92,14 @@ All notable changes are documented here. The format follows
   advising a container for filesystem containment and network denial or
   stubbing for real-API risk, and the README carries a short per-platform
   sandbox and network statement (#247).
+- Ignore-list entries accept a triage `state:` - `accepted_equivalent`
+  (the default) and `wont_fix` suppress the survivor's exit failure (it
+  still counts in the score), `todo` records the decision to fix and keeps
+  the survivor counting as an unignored survivor. The HTML report badges the
+  state; in the JSON report `accepted_equivalent` keeps the plain
+  `ignored: <reason>` while `wont_fix` and `todo` are labelled
+  (`ignored: <reason> (wont_fix)`, `todo: <reason>`), and all three keep
+  status `Survived` (#155).
 
 ### Removed
 - The stale self-deprecating benchmark claims in the README ('rerun

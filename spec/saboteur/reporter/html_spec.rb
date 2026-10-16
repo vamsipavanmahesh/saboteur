@@ -203,6 +203,46 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).to include("Accepted", "ignored: equivalent", "Survivors: 1 to fix, 1")
   end
 
+  it "styles every triage badge class it renders, or the badge is invisible (#304)" do
+    page = described_class.build(report_of(result_for(:killed)))
+    expect(page).to include(".Accepted,.Triage_accepted_equivalent{", ".Triage_wont_fix{", ".Triage_todo{")
+  end
+
+  # The status badge sits in front of the triage badge: dropping either
+  # interpolation must break this pin (#304 dogfood).
+  it "pins the full status + triage badge row (#304 dogfood)" do
+    legacy = result_for(:survived, replacement: "==")
+    legacy.ignored = "equivalent"
+    wont_fix = result_for(:survived, replacement: "<")
+    wont_fix.ignored = "legacy"
+    wont_fix.triage_state = "wont_fix"
+    page = described_class.build(report_of(legacy, wont_fix))
+    expect(page).to include(
+      %(<span class="status Survived">Survived</span> <span class="status Accepted">Accepted</span>),
+      %(<span class="status Survived">Survived</span> <span class="status Triage_wont_fix">Won’t fix</span>)
+    )
+  end
+
+  it "badges a wont_fix triage separately from accepted_equivalent (#155)" do
+    accepted = result_for(:survived, replacement: "==")
+    accepted.ignored = "equivalent"
+    accepted.triage_state = "accepted_equivalent"
+    wont_fix = result_for(:survived, replacement: "<")
+    wont_fix.ignored = "legacy"
+    wont_fix.triage_state = "wont_fix"
+    page = described_class.build(report_of(accepted, wont_fix, result_for(:killed)))
+    expect(page).to include("status Triage_accepted_equivalent\">Accepted<",
+                            "status Triage_wont_fix\">Won\u2019t fix<", "Survivors: 0 to fix, 2")
+  end
+
+  it "badges a todo triage while the survivor still counts as one to fix (#155)" do
+    todo = result_for(:survived, replacement: "==")
+    todo.triage_state = "todo"
+    todo.triage_reason = "fix in the next sprint"
+    page = described_class.build(report_of(todo, result_for(:killed)))
+    expect(page).to include('status Triage_todo">Todo<', "todo: fix in the next sprint", "Survivors: 1 to fix")
+  end
+
   it "leaves NoCoverage out of the score but keeps accepted survivors in it" do
     ignored = result_for(:survived, replacement: "==")
     ignored.ignored = "equivalent"
@@ -237,6 +277,24 @@ RSpec.describe Saboteur::Reporter::Html do
                             '<span class="status Survived">Survived</span>')
     expect(page.scan("killed by").size).to eq(1)
     expect(page).not_to include('status Accepted">')
+  end
+
+  it "badges a survivor with its classification label (#192)" do
+    page = described_class.build(report_of(result_for(:survived, covered_by: %w[t1])))
+    badge_with_label = '<span class="status Survived">Survived</span> ' \
+                       '<span class="classification">missing_test</span>'
+    expect(page).to include(badge_with_label)
+    page = described_class.build(report_of(result_for(:killed, covered_by: %w[t1])))
+    expect(page).not_to include('<span class="classification">')
+  end
+
+  it "keeps the triage badge next to the classification label on an ignored survivor" do
+    accepted = result_for(:survived, covered_by: %w[t1])
+    accepted.ignored = "equivalent"
+    page = described_class.build(report_of(accepted))
+    badges = '<span class="status Survived">Survived</span> <span class="status Accepted">Accepted</span> ' \
+             '<span class="classification">missing_test</span>'
+    expect(page).to include(badges)
   end
 
   it "marks an ignore-list survivor with an Accepted badge" do

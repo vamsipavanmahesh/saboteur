@@ -473,7 +473,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "suite return validation" do
   it "does not produce a coverage payload when the unchanged adapter reports failure" do
     Dir.mktmpdir do |root|
       config = Saboteur::Config.new({}, root: root)
-      integration = instance_double(Saboteur::Integration::RSpec)
+      integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
       expect(integration).to receive(:run_all).and_return(false)
       writer = StringIO.new
       recorder = instance_double(Saboteur::Selection::Recorder, start: nil)
@@ -483,7 +483,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "suite return validation" do
       allow($stdout).to receive(:reopen)
       allow($stderr).to receive(:reopen)
       allow(store).to receive(:exit!)
-      store.send(:record, writer, [])
+      store.send(:record, writer, ["/root/lib/a.rb"])
       expect(JSON.parse(writer.string)["error"]).to include("unchanged suite failed", "seed 1")
     end
   end
@@ -493,17 +493,23 @@ RSpec.describe Saboteur::Engine::CoverageStore, "successful recording" do
   it "writes a map after a green suite and does not lose the adapter return" do
     Dir.mktmpdir do |root|
       config = Saboteur::Config.new({}, root: root)
-      integration = instance_double(Saboteur::Integration::RSpec, run_all: true)
+      integration = instance_double(Saboteur::Integration::RSpec, run_all: true,
+                                                                  test_files: ["/root/spec/a_spec.rb"])
       recorder = instance_double(Saboteur::Selection::Recorder, start: nil)
       map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
       allow(recorder).to receive(:result).and_return(map)
-      allow(Saboteur::Selection::Recorder).to receive(:new).and_return(recorder)
+      # The recorder must also watch the suite's own files: a spec can read
+      # a constant directly, and those hits map the mutant to its test (#319).
+      allow(Saboteur::Selection::Recorder).to receive(:new) do |files|
+        expect(files).to eq(["/root/lib/a.rb", "/root/spec/a_spec.rb"])
+        recorder
+      end
       store = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
                                   supervisor: nil, diagnostics: nil)
       writer = StringIO.new
       allow($stdout).to receive(:reopen)
       allow($stderr).to receive(:reopen)
-      store.send(:record, writer, [])
+      store.send(:record, writer, ["/root/lib/a.rb"])
       expect(JSON.parse(writer.string)["tests"]).to eq(["t1"])
     end
   end

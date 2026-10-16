@@ -256,4 +256,45 @@ RSpec.describe Saboteur::Engine::Candidates, "constant subjects (issue #306)" do
     found = described_class.new([Saboteur::MutationSource::Builtin.new], diagnostics).for(constant_subject)
     expect(found).to be_empty
   end
+
+  # Principal on #319: c.sources is the boundary for constants too - a
+  # config of custom sources only mutates no constants.
+  it "builds the constant source only when builtin is a configured source" do
+    with_builtin = Saboteur::Config.new({ "sources" => ["builtin"] }, root: @root)
+    without = Saboteur::Config.new({ "sources" => ["./my_source.rb:Mine"] }, root: @root)
+    expect(described_class.build_constant_source(with_builtin)).to be_a(Saboteur::MutationSource::ConstantLiterals)
+    expect(described_class.build_constant_source(without)).to be_nil
+  end
+end
+
+RSpec.describe Saboteur::Engine::Candidates, ".build with constant literals (#306 dogfood)" do
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
+
+  def constant_subject(text)
+    dir = Dir.mktmpdir
+    file = File.join(dir, "constants.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+  end
+
+  def build_with(**settings)
+    config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: Dir.pwd)
+    described_class.build(config, diagnostics, hazard_guard: Saboteur::MutationSource::HazardGuard.new)
+  end
+
+  it "mutates a constant hash through the builtin source by default" do
+    found = build_with.for(constant_subject("MAP = { a: 1, b: 2 }\n"))
+    expect(found.map { |mutation, _| mutation.operator }).to eq(%w[pair_removal pair_removal])
+  end
+
+  it "wires the configured operators, exclusions and arid list into the constant source" do
+    hash = "MAP = { a: 1, b: 2 }\n"
+    expect(build_with(operators: ["element_removal"]).for(constant_subject(hash))).to be_empty
+    expect(build_with(exclude_operators: ["pair_removal"]).for(constant_subject(hash))).to be_empty
+    expect(build_with(arid: ["\\Aa: 1\\z"]).for(constant_subject(hash)).size).to eq(1)
+  end
+
+  it "drops constant mutation when the builtin source is not configured" do
+    expect(build_with(sources: []).for(constant_subject("MAP = { a: 1 }\n"))).to be_empty
+  end
 end

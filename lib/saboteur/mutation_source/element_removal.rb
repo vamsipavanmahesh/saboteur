@@ -17,8 +17,7 @@ module Saboteur
                     Prism::ParametersNode, Prism::BlockParametersNode].freeze
 
       def initialize(arid: []) # rubocop:disable Lint/MissingSuper
-        # arid is accepted for parity with the other delegated sources;
-        # removing an array element never touches a call receiver.
+        @arid = arid.map { |pattern| Regexp.new(pattern) }
       end
 
       def name
@@ -40,7 +39,11 @@ module Saboteur
         return if node.nil? || BOUNDARIES.any? { |type| node.is_a?(type) }
 
         if node.is_a?(Prism::StatementsNode)
-          node.body.each { |child| visit(child, subject, found, tokens) }
+          # An arid statement (logging, metrics) mutates nothing a test can
+          # see; leave its arrays alone, like the other removal operators.
+          node.body.each do |child|
+            visit(child, subject, found, tokens) unless @arid.any? { |p| p.match?(child.slice) }
+          end
           return
         end
         remove_elements(node, subject, found, tokens) if node.is_a?(Prism::ArrayNode)

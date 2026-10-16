@@ -64,14 +64,14 @@ RSpec.describe "load-time coverage" do
     expect(restored.tests_for_edit(endless, [2])).to eq(["t1"])
   end
 
-  it "rejects either old format-four cache shape" do
+  it "rejects either older-format cache shape" do
     map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
     document = JSON.parse(map.to_json)
     document["format"] = 4
     %w[methods load_lines].each do |field|
       legacy = document.reject { |key, _| key == field }
       expect { Saboteur::Selection::CoverageMap.from_json(JSON.generate(legacy)) }
-        .to raise_error(Saboteur::Error, /format 4 is not 8/)
+        .to raise_error(Saboteur::Error, /format 4 is not #{Saboteur::Selection::CoverageMap::FORMAT}/)
     end
   end
   it "accepts a combined cache with no method hits field as an empty methods table" do

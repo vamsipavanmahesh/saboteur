@@ -400,3 +400,34 @@ RSpec.describe Saboteur::Engine, "test selection" do
     expect(err.string).not_to include("running the loaded suite unscoped")
   end
 end
+
+RSpec.describe Saboteur::Engine, "--subject inference with a constant-only file (#319 dogfood)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  # Under --since the constant fallback in files_matching needs the run's
+  # config; without it a file holding only the named constant falls out of
+  # inference and the run would scope to nothing.
+  it "infers specs from a file holding only the named constant" do
+    FileUtils.mkdir_p(File.join(@root, "lib"))
+    File.write(File.join(@root, "lib", "rules.rb"), "RULES = { a: 1 }.freeze\n")
+    result = Saboteur::Engine::TestGuess::Result.new(specs: ["spec/rules_spec.rb"], unmatched: [],
+                                                     subjectless: [], changed: 1, hints: [])
+    guess = instance_double(Saboteur::Engine::TestGuess)
+    allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(guess)
+    allow(guess).to receive(:call_for).and_return(result)
+    sentinel = Class.new(StandardError)
+    # The recursion guard fires first inside a saboteur child (the dogfood
+    # baseline run); the boot stub is what this example actually drives at.
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+    allow(Saboteur::Engine::Boot).to receive(:new).and_raise(sentinel)
+
+    config = Saboteur::Config.new({ "since" => "HEAD", "subjects" => ["RULES"] }, root: @root)
+    expect { described_class.new(config, err: StringIO.new).call }.to raise_error(sentinel)
+    expect(guess).to have_received(:call_for).with(["lib/rules.rb"], ["RULES"])
+  end
+end

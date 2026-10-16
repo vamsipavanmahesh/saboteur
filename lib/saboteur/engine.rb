@@ -10,6 +10,8 @@ require_relative "engine/early_stop_recording"
 require_relative "engine/run_budget"
 require_relative "engine/thread_warnings"
 
+require_relative "engine/pipelines"
+
 module Saboteur
   # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
   # coverage map, then schedule each subject's mutants. The parts live in
@@ -52,30 +54,14 @@ module Saboteur
       # declared config, and the inferred specs are pinned by the hashed
       # source files anyway.
       @run_evidence = Baseline::RunEvidence.new(config: config, extra_files: @evidence_files) if @capture_evidence
-      select_tests
+      select_tests unless external_command?
       announce_operators
       ignore_list = @replay ? IgnoreList.new([]) : IgnoreList.load(config.path("ignore_file"))
       warn_custom_map
-      boot = Boot.new(config, hooks)
-      begin
-        integration, files, load_lines = boot_target(boot)
-        @rails = boot.rails
-        subjects, scope = select_subjects(files)
-        results = subjects.empty? ? [] : mutate(subjects, files, integration, scope, ignore_list, load_lines:)
-        @diagnostics.warnings.concat(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
-        build_report(results, subjects, scope, started)
-      ensure
-        # Cleanup runs however the call ends - a partway boot failure, no
-        # subjects, no runnable work - so a host embedding Engine never
-        # holds worker copies until process exit. Idempotent; the Rails
-        # profile's at_exit handler stays the fallback for abrupt exit.
-        begin
-          @coverage_guard&.resume # an embedded host gets its coverage back (#254)
-        ensure
-          safely_cleanup_workers(boot.rails)
-        end
-      end
+      run_pipeline(ignore_list, started)
     end
+
+    include Pipelines
 
     def preflight!
       Boot.refuse_recursion!
@@ -240,7 +226,8 @@ module Saboteur
 
     def run_candidates(subjects, lists, scheduler, cache, ignore_list)
       @diagnostics.start_progress(lists.sum(&:size))
-      distribution = Distribution.new(jobs: config["jobs"], scheduler: scheduler, diagnostics: @diagnostics,
+      distribution = Distribution.new(jobs: external_command? ? 1 : config["jobs"], scheduler: scheduler,
+                                      diagnostics: @diagnostics,
                                       cache: cache, on_start: method(:start_worker),
                                       after_subject: after_subject_hook, stop_after: stop_checks(ignore_list),
                                       halt_check: config["max_duration"] ? method(:budget_exceeded?) : nil)

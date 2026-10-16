@@ -152,6 +152,39 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(recorder.result.branches).to eq(file => { [3, 4, 3, 10] => [] })
     end
 
+    it "drops a case arm whose span swallows its siblings" do
+      # Ruby spans a `when X` arm with a bare `nil` body from the `when` to
+      # the case's end, containing the sibling arms. Recording that span
+      # lets it intersect and narrow selection for edits inside the
+      # siblings it swallows (dogfood: hazard_guard's condition mutants
+      # survived although a selecting test killed them).
+      kase = [:case, 0, 10, 8, 16, 11]
+      nil_arm = [:when, 1, 11, 8, 15, 27]
+      write_arm = [:when, 2, 13, 10, 13, 60]
+      call_arm = [:when, 3, 14, 10, 14, 53]
+      else_arm = [:else, 4, 15, 10, 15, 27]
+      results.push({}, { file => { lines: [],
+                                   branches: { kase => { nil_arm => 1, write_arm => 1, call_arm => 0,
+                                                         else_arm => 0 } } } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.branches).to eq(file => { [13, 10, 13, 60] => ["t1"], [14, 10, 14, 53] => [],
+                                                       [15, 10, 15, 27] => [] })
+    end
+
+    it "contains? compares span endpoints lexically" do
+      contains = ->(outer, inner) { recorder.send(:contains?, outer, inner) }
+      # Same start line: the column decides which span starts first.
+      expect(contains.call([1, 5, 3, 0], [1, 7, 2, 0])).to be(true)
+      expect(contains.call([1, 7, 3, 0], [1, 5, 2, 0])).to be(false)
+      # Equal spans contain each other; record_branches excludes them itself.
+      expect(contains.call([1, 0, 5, 0], [1, 0, 5, 0])).to be(true)
+      # A strictly inner span is not an outer.
+      expect(contains.call([2, 0, 3, 0], [1, 0, 5, 0])).to be(false)
+      # Equal starts: the end alone makes the wider span the outer.
+      expect(contains.call([2, 5, 9, 0], [2, 5, 3, 0])).to be(true)
+    end
+
     it "keeps untaken arms and attributes taken branches to each test" do
       branch = [:if, 0, 3, 4, 3, 15]
       yes = [:then, 1, 3, 8, 3, 10]
@@ -308,5 +341,35 @@ RSpec.describe Saboteur::Selection::CoverageMap, "constant reads in endless defs
     subject.consumer_defs = { app => [1] }
     map = described_class.new(lines: {}, tests: %w[t1 t2], methods: { app => { 1 => %w[t2] } })
     expect(map.tests_for(subject)).to eq(%w[t2])
+  end
+
+  it "returns no fallback tests when the consumer file has no method coverage" do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    app = File.join(@root, "app.rb")
+    subject.consumer_defs = { app => [1] }
+    map = described_class.new(lines: {}, tests: %w[t1], methods: {})
+    expect(map.tests_for(subject)).to eq([])
+  end
+
+  it "ignores a def line missing from the file's method coverage" do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    app = File.join(@root, "app.rb")
+    subject.consumer_defs = { app => [9] }
+    map = described_class.new(lines: {}, tests: %w[t1], methods: { app => { 1 => %w[t1] } })
+    expect(map.tests_for(subject)).to eq([])
+  end
+
+  it "routes a constant's edits to the constant's tests, never the edit lines" do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    app = File.join(@root, "app.rb")
+    subject.consumer_lines = { app => [2] }
+    map = described_class.new(lines: { app => { 2 => %w[t2] }, file => { 1 => %w[t1] } }, tests: %w[t1 t2])
+    expect(map.tests_for_edit(subject, [1])).to eq(%w[t2])
   end
 end

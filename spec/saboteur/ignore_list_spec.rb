@@ -12,10 +12,11 @@ RSpec.describe Saboteur::IgnoreList do
     end
   end
 
-  def entry_for(digest, reason: "equivalent")
+  def entry_for(digest, reason: "equivalent", state: nil)
+    extra = state ? ", state: #{state.inspect}" : ""
     <<~RUBY
       Saboteur.ignore do |i|
-        i.mutation "#{digest}", subject: "Person#adult?", reason: #{reason.inspect}
+        i.mutation "#{digest}", subject: "Person#adult?", reason: #{reason.inspect}#{extra}
       end
     RUBY
   end
@@ -30,6 +31,39 @@ RSpec.describe Saboteur::IgnoreList do
       warnings = described_class.load(path).apply([survivor])
       expect(survivor.ignored).to eq("equivalent: ages are whole years")
       expect(warnings).to eq([])
+    end
+  end
+
+  it "defaults the triage state to accepted_equivalent" do
+    with_file(entry_for("abc123")) do |path|
+      expect(described_class.load(path).entries.first.state).to eq("accepted_equivalent")
+    end
+  end
+
+  it "rejects an unknown triage state with the valid names" do
+    with_file(entry_for("abc123", state: "later")) do |path|
+      expect { described_class.load(path) }
+        .to raise_error(Saboteur::ConfigError, /state.*accepted_equivalent, wont_fix, todo/)
+    end
+  end
+
+  it "accepts a wont_fix survivor and records its triage state" do
+    survivor = result_for(:survived)
+    with_file(entry_for(survivor.digest, state: "wont_fix", reason: "dead code on legacy path")) do |path|
+      warnings = described_class.load(path).apply([survivor])
+      expect(survivor.ignored).to eq("dead code on legacy path")
+      expect(survivor.triage_state).to eq("wont_fix")
+      expect(warnings).to eq([])
+    end
+  end
+
+  it "records a todo survivor without accepting it: it still counts" do
+    survivor = result_for(:survived)
+    with_file(entry_for(survivor.digest, state: "todo", reason: "fix in the next sprint")) do |path|
+      described_class.load(path).apply([survivor])
+      expect(survivor.ignored).to be_nil
+      expect(survivor.unignored_survivor?).to be(true)
+      expect([survivor.triage_state, survivor.triage_reason]).to eq(["todo", "fix in the next sprint"])
     end
   end
 
@@ -104,6 +138,28 @@ RSpec.describe Saboteur::IgnoreList do
       .to raise_error(RuntimeError, "Saboteur.ignore is only valid while config/saboteur_ignore.rb loads")
   end
 
+  # A blank state is a pre-triage entry: it accepts (#304 dogfood).
+  it "treats a blank state as accepted_equivalent" do
+    with_file(entry_for("abc123", state: "")) do |path|
+      expect(described_class.load(path).entries.first.state).to eq("accepted_equivalent")
+    end
+  end
+
+  it "rejects an unknown state with the line, the state, and the valid states" do
+    with_file(entry_for("abc123", state: "later")) do |path|
+      expect { described_class.load(path) }.to raise_error(
+        Saboteur::Error,
+        /#{Regexp.escape(path)}:2: unknown state "later" - use one of accepted_equivalent, wont_fix, todo/
+      )
+    end
+  end
+
+  it "strips whitespace around the reason" do
+    with_file(entry_for("abc123", reason: "  equivalent  ")) do |path|
+      expect(described_class.load(path).entries.first.reason).to eq("equivalent")
+    end
+  end
+
   it "pins the full missing-reason message" do
     content = <<~RUBY
       Saboteur.ignore do |i|
@@ -131,6 +187,39 @@ RSpec.describe Saboteur::IgnoreList do
   it "reports a syntax error with the file" do
     with_file("Saboteur.ignore do |i|\n") do |path|
       expect { described_class.load(path) }.to raise_error(Saboteur::Error, /saboteur_ignore\.rb/)
+    end
+  end
+
+  it "normalizes a non-string digest the way it normalizes strings (#304 dogfood)" do
+    content = <<~RUBY
+      Saboteur.ignore do |i|
+        i.mutation 123, subject: "Person#adult?", reason: "r"
+      end
+    RUBY
+    with_file(content) do |path|
+      expect(described_class.load(path).entries.map(&:mutation)).to eq(["123"])
+    end
+  end
+
+  it "normalizes a non-string reason the way it normalizes strings (#304 dogfood)" do
+    content = <<~RUBY
+      Saboteur.ignore do |i|
+        i.mutation "abc", subject: "Person#adult?", reason: 42
+      end
+    RUBY
+    with_file(content) do |path|
+      expect(described_class.load(path).entries.map(&:reason)).to eq(["42"])
+    end
+  end
+
+  it "normalizes a non-string subject the way it normalizes strings (#304 dogfood)" do
+    content = <<~RUBY
+      Saboteur.ignore do |i|
+        i.mutation "abc", subject: :"Person#adult?", reason: "r"
+      end
+    RUBY
+    with_file(content) do |path|
+      expect(described_class.load(path).entries.map(&:subject)).to eq(["Person#adult?"])
     end
   end
 

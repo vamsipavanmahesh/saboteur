@@ -52,7 +52,7 @@ module Saboteur
         stack = [root]
         until stack.empty?
           node = stack.pop
-          next if node.nil? || node.is_a?(Prism::DefNode)
+          next if node.is_a?(Prism::DefNode)
 
           if hazardous?(node)
             slices << node.slice
@@ -61,6 +61,33 @@ module Saboteur
           stack.concat(node.compact_child_nodes)
         end
         slices
+      end
+
+      # Calls that only load more code. Everything else that RUNS when the
+      # file loads is unvetted below.
+      SAFE_LOAD_REQUIRES = %w[require require_relative].freeze
+
+      # Assignments whose value a replay re-runs: vetted when the value is
+      # a plain literal construction.
+      WRITE_NODES = [Prism::ConstantWriteNode, Prism::ConstantPathWriteNode,
+                     Prism::ConstantOrWriteNode, Prism::ConstantAndWriteNode,
+                     Prism::ConstantPathOrWriteNode, Prism::ConstantPathAndWriteNode,
+                     Prism::LocalVariableWriteNode].freeze
+
+      # Slices of load-time statements whose effect saboteur does not vet.
+      # A constant mutant re-evaluates its whole file, so any code that runs
+      # at load runs again on every mutant, outside the method hazard guard.
+      # The vetted forms are narrow: require/require_relative, pure defs
+      # (a body runs when called, not at load), class/module nesting with a
+      # constant superclass, and constant or local writes of plain literal
+      # values (a `.freeze` on the literal is looked through). Everything
+      # else - helper calls, registrations, writes to disk, class factories,
+      # top-level blocks - is named here, NOT proven unsafe: the check only
+      # says saboteur cannot account for what re-running it does (#319).
+      def unvetted_load_code(root)
+        bad = []
+        vet_statements(root.statements.body, bad)
+        bad
       end
 
       # candidates: [[mutation, mutated_text]]. Returns [kept, suppressed].
@@ -72,6 +99,61 @@ module Saboteur
       end
 
       private
+
+      def vet_statements(body, bad)
+        body.each { |node| vet_statement(node, bad) }
+      end
+
+      def vet_statement(node, bad)
+        case node
+        when Prism::DefNode
+          nil
+        when Prism::ClassNode, Prism::ModuleNode
+          vet_scope(node, bad)
+        when *WRITE_NODES
+          bad << node.slice unless vetted_value?(node.value)
+        when Prism::CallNode
+          bad << node.slice unless vetted_call?(node)
+        else
+          bad << node.slice
+        end
+      end
+
+      def vet_scope(node, bad)
+        superclass = node.respond_to?(:superclass) ? node.superclass : nil
+        bad << superclass.slice if superclass && !constant_read?(superclass)
+        vet_statements(node.body&.body || [], bad)
+      end
+
+      def vetted_call?(node)
+        SAFE_LOAD_REQUIRES.include?(node.name.to_s) && node.receiver.nil?
+      end
+
+      def constant_read?(node)
+        node.is_a?(Prism::ConstantReadNode) || node.is_a?(Prism::ConstantPathNode)
+      end
+
+      # A value whose evaluation constructs data and reads constants only:
+      # literal scalars, nested arrays/hashes of the same, constant reads,
+      # and `.freeze` on any of those.
+      def vetted_value?(node)
+        case node
+        when Prism::StringNode, Prism::SymbolNode, Prism::IntegerNode, Prism::FloatNode,
+             Prism::TrueNode, Prism::FalseNode, Prism::NilNode, Prism::SourceFileNode,
+             Prism::ConstantReadNode, Prism::ConstantPathNode
+          true
+        when Prism::ArrayNode
+          node.elements.all? { |element| vetted_value?(element) }
+        when Prism::HashNode
+          node.elements.all? do |pair|
+            pair.is_a?(Prism::AssocNode) && vetted_value?(pair.key) && vetted_value?(pair.value)
+          end
+        when Prism::CallNode
+          node.name == :freeze && node.arguments.nil? && node.block.nil? && vetted_value?(node.receiver)
+        else
+          false
+        end
+      end
 
       # Byte spans of hazardous calls in the node tree, with the source slice
       # of each. Inner calls are covered by the outer span, so the walk does

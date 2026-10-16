@@ -99,10 +99,11 @@ RSpec.describe Saboteur::Selection::CoverageMap, "branch selection" do
     expect(map.send(:position, "abc\ndef", 4)).to eq([2, 0])
     expect(map.send(:position, "é\ndef", 3)).to eq([2, 0])
   end
-  it "invalidates format-seven caches that have no branch evidence" do
+  it "invalidates older-format caches that have no branch evidence" do
     document = JSON.parse(map.to_json)
-    document["format"] = 7
+    document["format"] = described_class::FORMAT - 1
     document.delete("branches")
-    expect { described_class.from_json(JSON.generate(document)) }.to raise_error(Saboteur::Error, /format 7 is not 8/)
+    expect { described_class.from_json(JSON.generate(document)) }
+      .to raise_error(Saboteur::Error, /format #{described_class::FORMAT - 1} is not #{described_class::FORMAT}/)
   end
 end

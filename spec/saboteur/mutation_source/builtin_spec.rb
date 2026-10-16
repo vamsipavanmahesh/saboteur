@@ -200,6 +200,18 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    logger.info(msg: a)\n    a", "pair_removal")).to be_empty
     end
 
+    it "wires custom arid patterns into element removal" do
+      source = described_class.new(arid: ['\\Atrack\\b'])
+      subject = subjects_in("class K\n  def m\n    track([1, 2])\n    use([3, 4])\n  end\nend\n").first
+      texts = mutated_texts(subject, source:).filter_map { |op, text| text if op == "element_removal" }
+      expect(texts).to all(include("track([1, 2])"))
+      expect(texts.map { |t| t[/use\(\[.*?\]\)/] }).to contain_exactly("use([ 4])", "use([3 ])")
+    end
+
+    it "registers every single-purpose source in the delegated walk" do
+      expect(described_class.new.send(:delegated).size).to eq(13)
+    end
+
     it "wires custom arid patterns into pair removal" do
       source = described_class.new(arid: ['\Atrack\b'])
       subject = subjects_in("class K\n  def m(a)\n    track(event: a)\n    a\n  end\nend\n").first

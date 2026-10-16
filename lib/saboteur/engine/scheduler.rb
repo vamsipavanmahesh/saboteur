@@ -27,7 +27,11 @@ module Saboteur
         tests.sort_by.with_index { |id, index| [-killers.fetch(id, 0), index] }
       end
 
-      def initialize(config:, runner:, map:, reevaluator:, diagnostics:, cache: nil, deadline: nil)
+      # verify_loaded: the shadowed-definition guard resolves each subject's
+      # owner in this process. --test-command never boots the app here, so
+      # external runs pass false; their neutral check covers a red tree.
+      def initialize(config:, runner:, map:, reevaluator:, diagnostics:, cache: nil, deadline: nil,
+                     verify_loaded: true)
         @config = config
         @deadline = deadline
         @runner = runner
@@ -35,6 +39,7 @@ module Saboteur
         @reevaluator = reevaluator
         @diagnostics = diagnostics
         @cache = cache
+        @verify_loaded = verify_loaded
       end
 
       def call(subject, candidates)
@@ -329,6 +334,8 @@ module Saboteur
       # sig is one, see Execution::Wrapper) is not a shadowing - the child
       # re-evaluates it together with the def, so the check passes.
       def load_problem(subject)
+        return [nil, nil] unless @verify_loaded
+
         return [nil, nil] if @reevaluator.whole_file?(subject)
 
         owner = @reevaluator.resolve_owner(subject)

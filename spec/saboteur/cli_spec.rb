@@ -381,6 +381,27 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("--guess-tests cannot be combined with --test")
   end
 
+  it "rejects --test-command combinations the external mode cannot honor (#140)" do
+    expect(cli("run", "--test-command", "make test", "--test", "spec/nope_spec.rb").call).to eq(2)
+    expect(err.string).to include("--test-command cannot be combined with --test")
+    expect(cli("run", "--test-command", "make test", "--incremental").call).to eq(2)
+    expect(err.string).to include("--test-command cannot be combined with --incremental")
+  end
+
+  it "lets a plain --test-command run past the combination checks (#305)" do
+    # Engine.new must stay stubbed: a real one would boot the external
+    # pipeline against the repo itself and run every mutant with "true".
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "past the checks")
+    cli("run", "--test-command", "true").call
+    expect(err.string).not_to include("--test-command cannot be combined")
+    expect(Saboteur::Engine).to have_received(:new)
+  end
+
+  it "lets --test-command stand alone (#140)" do
+    expect { cli("run", "--test-command", "make test").send(:reject_test_command_conflicts) }
+      .not_to raise_error
+  end
+
   it "warns that --no-guess-tests is deprecated and no longer restores the whole suite" do
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
     cli("run", "--no-guess-tests").call

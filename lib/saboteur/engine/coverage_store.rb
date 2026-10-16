@@ -175,7 +175,10 @@ module Saboteur
         $stderr.reopen($stdout)
         @hooks.run(:after_fork)
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        recorder = Selection::Recorder.new(files)
+        # The suite's own files are recorded too: a spec can read a
+        # constant directly, and without its line hits no test maps to the
+        # read (#319).
+        recorder = Selection::Recorder.new(files + @integration.test_files)
         recorder.start
         Kernel.srand(@config["seed"])
         passed = @integration.run_all(recorder)

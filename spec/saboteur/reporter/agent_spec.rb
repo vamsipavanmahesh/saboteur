@@ -138,8 +138,19 @@ RSpec.describe Saboteur::Reporter::Agent do
     it "needs review, exits 1, and shows the finding with a replay command" do
       finding = payload[:findings][:shown].first
       expect(payload).to include(status: "complete", verdict: "survivors", exitCode: 1)
-      expect(finding).to include(path: "person.rb", operator: "comparison", original: ">=", replacement: ">")
+      expect(finding).to include(path: "person.rb", line: 2, endLine: 2, coarse: false,
+                                 operator: "comparison", original: ">=", replacement: ">")
+      # The slice is the whitelist: the raw entry's internals must not leak (#192 dogfood).
+      expect(finding.keys).not_to include(:edits, :changedLines)
       expect(payload[:next][:replay]).to eq("saboteur run --id #{finding[:digest]} --since origin/main --seed 7")
+    end
+
+    it "carries the survivor's classification, as data (#192)" do
+      shown = payload[:findings][:shown]
+      covered = payload_for(report_of(result_for(:survived, covered_by: %w[t1])))[:findings][:shown].first
+      expect(covered[:classification]).to eq("missing_test")
+      # Unlabeled means the key is absent from the JSON, never null.
+      expect(shown.first).not_to have_key(:classification)
     end
 
     it "gives the finding a testHint with the boundary case, as data" do

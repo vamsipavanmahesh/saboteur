@@ -122,29 +122,42 @@ module Saboteur
             warn_unsupported_constant(found) if found.overlaps_lines?(lines)
           end
           accepted = parsed.subjects.select { |subject| subject.overlaps_lines?(lines) }
-          subjects.concat(reject_hazardous_file(file, accepted))
+          subjects.concat(admit_replayable_file(file, accepted))
         end
         subjects
       end
 
       # A constant mutant re-evaluates the whole file with the literal
-      # changed. A file that runs side-effecting code at load (FileUtils.rm,
-      # system, a backtick) would run it again on every mutant, outside the
-      # method hazard guard: skip its constants and say how to opt back in
-      # (#319).
-      def reject_hazardous_file(file, subjects)
-        return subjects if subjects.empty?
+      # changed, so whatever the file runs at load runs again on every
+      # mutant, outside the method hazard guard. saboteur only replays
+      # files whose load-time code it can vet (requires, pure defs,
+      # class/module nesting, literal assignments) and that trip no hazard
+      # denylist entry; anything else - a helper call, a registration, a
+      # write to disk - needs the explicit whole_file opt-in, which says
+      # the user accepts the replay (#319). Passing the vet is not a safety
+      # proof; it only means no unrecognized code runs at load.
+      def admit_replayable_file(file, subjects)
+        opted_in, rest = subjects.partition { |subject| whole_file_opted?(subject) }
+        return subjects if rest.empty?
 
-        hazards = MutationSource::HazardGuard.new(@config["hazard"])
-                                             .load_time_hazards(Prism.parse(File.binread(file)).value)
-        return subjects if hazards.empty?
+        guard = MutationSource::HazardGuard.new(@config["hazard"])
+        root = Prism.parse(File.binread(file)).value
+        reasons = (guard.load_time_hazards(root) + guard.unvetted_load_code(root)).uniq
+        return subjects if reasons.empty?
 
         path = file.delete_prefix("#{@root}/")
-        @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs " \
-                          "side-effecting code at load (#{hazards.first(2).join(', ')}) and a constant " \
-                          "mutant re-evaluates the whole file. Move the literal into its own file to " \
-                          "mutate it.")
-        []
+        listed = reasons.first(2).join(", ")
+        @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs code at " \
+                          "load (#{listed}) that every constant mutant would run again, and saboteur " \
+                          "cannot vet what re-running it does. List the constant in c.whole_file to " \
+                          "replay the file anyway, or move the literal into its own file.")
+        opted_in
+      end
+
+      # The explicit opt-in for whole-file replay: subject ids or globs,
+      # matched like Execution::Reevaluator#whole_file?.
+      def whole_file_opted?(subject)
+        Array(@config["whole_file"]).any? { |pattern| File.fnmatch?(pattern.to_s, subject.id) }
       end
 
       def warn_unsupported_constant(found)
@@ -167,7 +180,7 @@ module Saboteur
           reads = ConstantReads.across(files, subject)
           subject.consumer_lines = ConstantReads.observable_lines(reads, subject)
           subject.consumer_defs = reads.transform_values(&:defs)
-          if subject.consumer_lines.empty? && reads.any? { |file, r| file != subject.file && r.load.any? }
+          if subject.consumer_lines.empty? && reads.any? { |_file, r| r.load.any? }
             path = subject.file.delete_prefix("#{@root}/")
             @diagnostics.warn("--since: changed constant #{subject.id} in #{path} is not mutated: its only " \
                               "reads capture the value at load time in another file, so no test can " \
@@ -179,10 +192,20 @@ module Saboteur
       end
 
       # The specs selected for this run (inferred or explicit), as absolute
-      # paths that exist.
+      # paths that exist. Directory entries expand to their specs, and with
+      # no tests named at all (the --all case) the conventional spec tree
+      # stands in: a spec can read a constant directly (#319).
       def spec_files
-        @config["tests"].map { |file| File.absolute_path(file, @root) }
-                        .select { |file| file.end_with?(".rb") && File.file?(file) }
+        entries = @config["tests"].empty? ? ["spec"] : @config["tests"]
+        entries.flat_map { |entry| expand_spec_entry(entry) }.uniq
+      end
+
+      def expand_spec_entry(entry)
+        path = File.absolute_path(entry, @root)
+        return Dir.glob(File.join(path, "**", "*_spec.rb")) if File.directory?(path)
+        return [] unless path.end_with?(".rb") && File.file?(path)
+
+        [path]
       end
 
       # subject.file carries the locale tag under a non-UTF-8 locale

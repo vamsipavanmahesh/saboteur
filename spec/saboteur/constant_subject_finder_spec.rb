@@ -36,6 +36,24 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
     expect(subject.literal_node).to be_a(Prism::ArrayNode)
   end
 
+  it "nests the owner path when the constant sits in a class inside a module" do
+    parsed = find("module M\n  class C\n    RULES = { a: 1 }\n  end\nend\n")
+    expect(parsed.subjects.first.owner).to eq("M::C")
+  end
+
+  it "nests the owner path through enclosing modules" do
+    parsed = find("module A\n  module B\n    RULES = [1]\n  end\nend\n")
+    expect(parsed.subjects.first.id).to eq("A::B::RULES")
+    expect(parsed.subjects.first.owner).to eq("A::B")
+  end
+
+  # A factory block opens its own scope under the enclosing nesting:
+  # constants in the block belong to the factory's class, under its module.
+  it "keeps the enclosing module when a factory block opens a scope" do
+    parsed = find("module M\n  Point = Data.define(:x) do\n    HELPER = [1]\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to include("M::Point::HELPER")
+  end
+
   it "looks through .freeze calls" do
     parsed = find("N = [1].freeze\n")
     expect(parsed.subjects.first.literal_node).to be_a(Prism::ArrayNode)
@@ -63,6 +81,17 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
     parsed = find("RULES = [:a]\nRULES = [:b]\n")
     expect(parsed.subjects).to be_empty
     expect(parsed.unsupported.map(&:reason).uniq).to eq(["assigned more than once in this file"])
+  end
+
+  it "rejects a literal write when ANY second write overwrites it, not just a literal one (#319)" do
+    parsed = find("RULES = { a: 1 }\nRULES = build_rules\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:reason)).to contain_exactly("assigned more than once in this file",
+                                                                "its value is not a hash or array literal")
+
+    guarded = find("RULES = { a: 1 }\nRULES = { b: 2 } if flag\n")
+    expect(guarded.subjects).to be_empty
+    expect(guarded.unsupported.select { |u| u.reason == "assigned more than once in this file" }.size).to eq(1)
   end
 
   it "keeps same-named constants in different scopes" do
@@ -162,5 +191,142 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
                          constant)
       expect(lines).to eq([4])
     end
+  end
+end
+
+RSpec.describe Saboteur::ConstantSubjectFinder, "finder edges (#319 dogfood round 2)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def find(text)
+    file = File.join(@root, "sample.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file)
+  end
+
+  # Only the frozen_string_literal key freezes: another magic comment
+  # whose value is "true" does not. The dashed spelling of the key is the
+  # same key - editors write it both ways.
+  it "freezes only on the frozen_string_literal key, dashed or not" do
+    expect(find("# shareable_constant_value: true\nMAP = { a: 1 }\n").subjects.first.frozen_literals).to be(false)
+    expect(find("# frozen-string-literal: true\nMAP = { a: 1 }\n").subjects.first.frozen_literals).to be(true)
+  end
+
+  it "reads the frozen_string_literal magic comment both ways" do
+    expect(find("# frozen_string_literal: true\nMAP = { a: 1 }\n").subjects.first.frozen_literals).to be(true)
+    expect(find("# frozen_string_literal: false\nMAP = { a: 1 }\n").subjects.first.frozen_literals).to be(false)
+    expect(find("# frozen_string_literal: yes\nMAP = { a: 1 }\n").subjects.first.frozen_literals).to be(false)
+  end
+
+  it "finds a constant nested inside a conditional write's value" do
+    parsed = find("MAP ||= (INNER = [1])\n")
+    expect(parsed.subjects.map(&:id)).to eq(["INNER"])
+    expect(parsed.unsupported.map(&:name)).to eq([:MAP])
+  end
+
+  it "finds a constant nested inside a namespaced write's value" do
+    parsed = find("Shop::RULES = { a: (INNER = [1]) }\n")
+    expect(parsed.subjects.map(&:id)).to eq(["INNER"])
+    expect(parsed.unsupported.map(&:name)).to eq(["Shop::RULES"])
+  end
+
+  it "resets the nesting at a ::-rooted scope" do
+    parsed = find("module Other\n  class ::Shop\n    RULES = { a: 1 }\n  end\nend\n")
+    expect(parsed.subjects.first.owner).to eq("Shop")
+  end
+
+  it "records the scope kind on the subject's nesting" do
+    expect(find("module M\n  RULES = { a: 1 }\nend\n").subjects.first.nesting.map(&:kind)).to eq([:module])
+    expect(find("class C\n  RULES = { a: 1 }\nend\n").subjects.first.nesting.map(&:kind)).to eq([:class])
+  end
+
+  it "finds a constant nested inside a non-literal value" do
+    parsed = find("RULES = (INNER = [1])\n")
+    expect(parsed.subjects.map(&:id)).to eq(["INNER"])
+    expect(parsed.unsupported.map(&:name)).to eq([:RULES])
+  end
+
+  it "keeps the parse error messages" do
+    parsed = find("MAP = { a: 1\n")
+    expect(parsed.errors).not_to be_empty
+    expect(parsed.errors).to all(be_a(String))
+  end
+end
+
+RSpec.describe Saboteur::ConstantSubjectFinder, "walk branches (#319 dogfood)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def find(text)
+    file = File.join(@root, "sample.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file)
+  end
+
+  it "records the scope kind: a module stays a module, a class a class" do
+    parsed = find("module M\n  A = [1]\nend\nclass C\n  B = [2]\nend\n")
+    expect(parsed.subjects.map { |s| s.nesting.last.kind }).to eq(%i[module class])
+  end
+
+  it "walks a constant write hidden in a conditional predicate and in the else arm" do
+    parsed = find("if (Y = [1]).any?\n  X = [2]\nelse\n  Z = [3]\nend\n")
+    # The predicate runs unconditionally, so Y is a subject; both arms are guarded.
+    expect(parsed.subjects.map(&:id)).to eq(%w[Y])
+    expect(parsed.unsupported.map { |u| [u.name, u.reason] })
+      .to contain_exactly([:X, "guarded by a condition"], [:Z, "guarded by a condition"])
+  end
+
+  it "walks both arms of unless/else" do
+    parsed = find("unless ok\n  A = [1]\nelse\n  B = [2]\nend\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:name)).to contain_exactly(:A, :B)
+  end
+
+  it "marks a constant defined inside a block but still finds it" do
+    parsed = find("1.times do\n  X = [1]\nend\n")
+    expect(parsed.subjects.first.skip_reason).to eq("defined inside a block")
+  end
+
+  it "finds a constant write nested inside a literal value" do
+    parsed = find("MAP = { x: (Y = []) }\n")
+    expect(parsed.subjects.map(&:id)).to eq(%w[MAP Y])
+  end
+
+  it "keeps the factory's receiver and arguments in the enclosing scope" do
+    parsed = find("Point = Data.define(FIELDS = [:x]) do\n  HELP = [1]\nend\n")
+    point = parsed.subjects.find { |s| s.id == "Point::HELP" }
+    expect(point.nesting.last.path).to eq("Point")
+    expect(point.nesting.last.kind).to eq(:class)
+    expect(parsed.subjects.map(&:id)).to include("FIELDS")
+  end
+
+  it "is not a factory scope without a block, with a receiver, or for a non-factory call" do
+    expect(find("Point = Data.define(:x)\n").unsupported.map(&:reason))
+      .to eq(["its value is not a hash or array literal"])
+    expect(find("Point = Geometry::Data.define(:x) do\n  H = [1]\nend\n").unsupported.map(&:reason))
+      .to eq(["its value is not a hash or array literal"])
+    expect(find("Point = Data.new(:x) do\n  H = [1]\nend\n").unsupported.map(&:reason))
+      .to eq(["its value is not a hash or array literal"])
+  end
+
+  it "looks through .freeze only: freeze with arguments or a block is not the literal" do
+    expect(find("RULES = [1].freeze(true)\n").unsupported.map(&:reason))
+      .to eq(["its value is not a hash or array literal"])
+    expect(find("RULES = [1].freeze { 2 }\n").unsupported.map(&:reason))
+      .to eq(["its value is not a hash or array literal"])
+    expect(find("RULES = [1].freeze.freeze\n").subjects.map(&:id)).to eq(["RULES"])
+  end
+
+  it "marks string literals frozen when the magic comment says so" do
+    parsed = find("# frozen_string_literal: true\nRULES = { a: \"x\" }\n")
+    expect(parsed.subjects.first.frozen_literals).to be(true)
   end
 end

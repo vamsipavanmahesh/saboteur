@@ -23,7 +23,12 @@ module Saboteur
   # runs; load-time reads outside the constant's own file do not: the other
   # file was loaded once with the original value and re-evaluating the
   # constant's file does not run it again, so a read like
-  # `COPY = A::RULES` there keeps the original (#319).
+  # `COPY = A::RULES` there keeps the original (#319). A capture inside a
+  # boot-time block (`1.times { COPY = A::RULES }`) is treated the same:
+  # statement-level blocks run while the file loads. That is a heuristic -
+  # a block passed to a deferring call (at_exit, define_method) runs later,
+  # but treating it as load-time errs toward dropping a constant rather
+  # than reporting a mutant nobody can observe.
   module ConstantReads
     Reads = Data.define(:runtime, :load, :defs)
 
@@ -73,7 +78,7 @@ module Saboteur
       Reads.new(out[:runtime].uniq.sort, out[:load].uniq.sort, out[:defs].uniq.sort)
     end
 
-    def walk(node, nesting, constant, out, in_def:, in_block:, shadowed:)
+    def walk(node, nesting, constant, out, in_def:, in_block:, shadowed:, capture: false)
       return if node.nil?
 
       case node
@@ -81,20 +86,30 @@ module Saboteur
         walk(node.body, nesting, constant, out, in_def: node.location.start_line, in_block: false,
                                                 shadowed: shadowed)
       when Prism::BlockNode, Prism::LambdaNode
-        walk(node.body, nesting, constant, out, in_def: in_def, in_block: true, shadowed: shadowed)
+        walk(node.body, nesting, constant, out, in_def: in_def, in_block: true, capture: capture,
+                                                shadowed: shadowed)
+      when Prism::ConstantWriteNode, Prism::ConstantPathWriteNode
+        # A capture (`COPY = <expr>`): the value reads the constant once,
+        # when the write runs. Walk the value flagged as a capture so a
+        # boot-time block write (`1.times { COPY = A::RULES }`) lands in
+        # load, not runtime (#319).
+        walk(node.value, nesting, constant, out, in_def: in_def, in_block: in_block, capture: true,
+                                                 shadowed: shadowed)
       when Prism::ConstantReadNode
-        record(node, out, in_def, in_block) if !shadowed && bare_match?(node, nesting, constant)
+        record(node, out, in_def, in_block, capture) if !shadowed && bare_match?(node, nesting, constant)
       when Prism::ConstantPathNode
         # `Shop::RULES` holds no ConstantReadNode for RULES, only for Shop;
         # match the path's full spelling.
-        record(node, out, in_def, in_block) if node.slice.delete_prefix("::") == constant.id.to_s
-        walk_children(node, nesting, constant, out, in_def: in_def, in_block: in_block, shadowed: shadowed)
+        record(node, out, in_def, in_block, capture) if node.slice.delete_prefix("::") == constant.id
+        walk_children(node, nesting, constant, out, in_def: in_def, in_block: in_block, capture: capture,
+                                                    shadowed: shadowed)
       when Prism::ModuleNode, Prism::ClassNode
         walk_scope(node, nesting, constant, out, shadowed)
       else
         # `class << self` does not add a lexical constant scope worth
         # separating here.
-        walk_children(node, nesting, constant, out, in_def: in_def, in_block: in_block, shadowed: shadowed)
+        walk_children(node, nesting, constant, out, in_def: in_def, in_block: in_block, capture: capture,
+                                                    shadowed: shadowed)
       end
     end
 
@@ -104,23 +119,27 @@ module Saboteur
       # A scope writing its own RULES shadows the outer constant for every
       # read below it - unless the scope is the constant's owner itself.
       shadowed ||= path != constant.owner.to_s && writes_constant?(node.body, constant.name)
-      walk(node.body, nesting + [inner], constant, out, in_def: nil, in_block: false, shadowed: shadowed)
+      walk(node.body, nesting + [inner], constant, out, in_def: nil, in_block: false,
+                                                        shadowed: shadowed)
     end
 
-    def walk_children(node, nesting, constant, out, in_def:, in_block:, shadowed:)
+    def walk_children(node, nesting, constant, out, in_def:, in_block:, capture:, shadowed:)
       node.compact_child_nodes.each do |child|
-        walk(child, nesting, constant, out, in_def: in_def, in_block: in_block, shadowed: shadowed)
+        walk(child, nesting, constant, out, in_def: in_def, in_block: in_block, capture: capture,
+                                            shadowed: shadowed)
       end
     end
 
-    def record(node, out, in_def, in_block)
+    def record(node, out, in_def, in_block, capture)
       line = node.location.start_line
       if in_def
         out[:runtime] << line
         out[:defs] << in_def
-      elsif in_block
+      elsif in_block && !capture
         out[:runtime] << line
       else
+        # A bare statement read, or a capture in a boot-time block: both
+        # resolved while the file loaded, with the original value.
         out[:load] << line
       end
     end
@@ -137,9 +156,7 @@ module Saboteur
     # True when the scope body assigns the constant name at its own level
     # (not inside a nested def or scope).
     def writes_constant?(body, name)
-      return false if body.nil?
-
-      statements = body.is_a?(Prism::StatementsNode) ? body.body : [body]
+      statements = body&.body || []
       statements.any? do |statement|
         statement.is_a?(Prism::ConstantWriteNode) && statement.name == name
       end

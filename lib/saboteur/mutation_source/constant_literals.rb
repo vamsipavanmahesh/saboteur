@@ -19,7 +19,8 @@ module Saboteur
       def initialize(operators: [], exclude_operators: [], arid: [])
         super()
         @operators = OperatorRegistry.select(operators, exclude_operators)
-        @pair_removal = PairRemoval.new(arid: arid)
+        @arid = arid.map { |pattern| Regexp.new(pattern) }
+        @pair_removal = PairRemoval.new
         @element_removal = ElementRemoval.new
       end
 
@@ -36,7 +37,18 @@ module Saboteur
         if literal.is_a?(Prism::ArrayNode) && @operators.include?("element_removal")
           found.concat(@element_removal.mutations_for(subject, root: literal))
         end
-        found
+        found.reject { |mutation| arid?(subject, mutation) }
+      end
+
+      private
+
+      # An arid entry (logging or metrics config) mutates nothing a test
+      # can see - the same rule the operators apply to statements inside a
+      # method, here at entry level because a constant has no statements.
+      def arid?(subject, mutation)
+        mutation.edits.any? do |edit|
+          @arid.any? { |pattern| pattern.match?(subject.file_source[edit.start_byte...edit.end_byte]) }
+        end
       end
     end
   end

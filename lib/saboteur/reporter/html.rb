@@ -4,6 +4,8 @@
 require "cgi"
 require "fileutils"
 
+require_relative "survivor_classification"
+
 module Saboteur
   module Reporter
     # One self-contained HTML page: inline style, no script, no network. It is
@@ -23,7 +25,9 @@ module Saboteur
         .status{border-radius:3px;padding:0 .4rem;color:#fff;white-space:nowrap}
         .Killed{background:#2e7d32}.Survived{background:#c62828}.Timeout{background:#b45309}
         .RuntimeError{background:#6a1b9a}.NoCoverage{background:#455a64}.Ignored{background:#616161}
-        .Accepted{background:#8d6e63}
+        .Accepted,.Triage_accepted_equivalent{background:#8d6e63}
+        .Triage_wont_fix{background:#616161}.Triage_todo{background:#b45309}
+        .classification{border-radius:3px;padding:0 .4rem;background:#eceff1;color:#37474f;white-space:nowrap}
         .warning{background:#fff8e1;border-left:4px solid #f9a825;margin:.3rem 0;padding:.3rem .6rem;overflow-wrap:anywhere}
         code,pre{font-family:ui-monospace,monospace;font-size:13px}
         pre{display:inline-block;vertical-align:top;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}
@@ -195,12 +199,30 @@ module Saboteur
       def row_status(mutant, result)
         badge = status_label(mutant[:status])
         # Only survivors are ever put on the ignore list.
-        result.ignored ? "#{badge} #{status_label('Accepted')}" : badge
+        if result.ignored || result.triage_state
+          # An entry without a state predates triage states: render Accepted.
+          badge = if result.triage_state.nil?
+                    "#{badge} #{status_label('Accepted')}"
+                  else
+                    "#{badge} #{status_label(triage_badge(result), css_class: "Triage_#{result.triage_state}")}"
+                  end
+        end
+        # The survivor's classification, as a label only (#192).
+        label = SurvivorClassification.label(result)
+        label ? "#{badge} <span class=\"classification\">#{escape(label)}</span>" : badge
       end
 
       # One edit shows the original text and its replacement. A mutant with
       # several edits shows only the replacements, because one location cannot
       # stand for all of them.
+      def triage_badge(result)
+        case result.triage_state
+        when "wont_fix" then "Won\u2019t fix"
+        when "todo" then "Todo"
+        else "Accepted"
+        end
+      end
+
       def change(mutant, result)
         edits = result.mutation.edits
         return "<pre>#{escape(mutant[:replacement])}</pre>" unless edits.size == 1
@@ -212,8 +234,8 @@ module Saboteur
           "<pre>#{escape(edit.replacement)}</pre>"
       end
 
-      def status_label(status)
-        %(<span class="status #{status}">#{status}</span>)
+      def status_label(status, css_class: status)
+        %(<span class="status #{css_class}">#{status}</span>)
       end
 
       def escape(text)

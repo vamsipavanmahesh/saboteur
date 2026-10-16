@@ -334,4 +334,71 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#load_time_hazards (#319)
   it "leaves a pure literal assignment alone" do
     expect(slices("RULES = { a: 1 }.freeze\n")).to be_empty
   end
+
+  # The walk stops at a hazardous call: inner calls run inside the outer
+  # one, so reporting them too would only repeat the span. Dropping the
+  # `next` would also descend into the backtick spawn inside rm_rf.
+  it "does not descend into a hazardous call to find nested hazards" do
+    expect(slices("FileUtils.rm_rf(`ls /tmp`)\n")).to eq(["FileUtils.rm_rf(`ls /tmp`)"])
+  end
+end
+
+RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319)" do
+  def slices(text)
+    described_class.new.unvetted_load_code(Prism.parse(text).value)
+  end
+
+  it "passes requires, pure defs, nesting with a constant superclass and literal assignments" do
+    expect(slices(<<~RUBY)).to eq([])
+      require "json"
+      require_relative "x"
+      module M
+        class A < Base::Sub
+          RULES = { a: 1, b: [true, nil, "s", :sym, 1.5, X::Y] }.freeze
+          EMPTY = {}
+          LIST = [1, "a"]
+          def call(x) = x
+        end
+        class B
+        end
+      end
+    RUBY
+  end
+
+  it "flags a def-free statement even inside a vetted nesting" do
+    expect(slices("class A\n  RULES = [1]\n  boot!\nend\n")).to eq(["boot!"])
+    expect(slices("class A < Struct.new(:x)\nend\n")).to eq(["Struct.new(:x)"])
+  end
+
+  # A bare constant superclass reads a constant just like a qualified
+  # Base::Sub path does; treating it as unvetted would flag plain
+  # inheritance as load-time code.
+  it "passes a class with a bare constant superclass" do
+    expect(slices("class A < Base\nend\n")).to eq([])
+  end
+
+  it "flags calls that are not bare requires" do
+    expect(slices("foo.require(\"x\")\n")).to eq(["foo.require(\"x\")"])
+    expect(slices("validate!(RULES)\n")).to eq(["validate!(RULES)"])
+    expect(slices("1.times { boot! }\n")).to eq(["1.times { boot! }"])
+    expect(slices("if flag\n  RULES = [1]\nend\n")).to eq(["if flag\n  RULES = [1]\nend"])
+  end
+
+  it "flags assignments whose values are not plain literals" do
+    expect(slices("RULES = build_rules\n")).to eq(["RULES = build_rules"])
+    expect(slices("RULES = { a: build }\n")).to eq(["RULES = { a: build }"])
+    expect(slices("RULES = { build => 1 }\n")).to eq(["RULES = { build => 1 }"])
+    expect(slices("RULES = { **other }\n")).to eq(["RULES = { **other }"])
+    expect(slices("RULES = [1, build]\n")).to eq(["RULES = [1, build]"])
+    expect(slices("RULES = [1].freeze(true)\n")).to eq(["RULES = [1].freeze(true)"])
+    expect(slices("RULES = [1].freeze { 2 }\n")).to eq(["RULES = [1].freeze { 2 }"])
+    expect(slices("RULES = [1].dup\n")).to eq(["RULES = [1].dup"])
+    expect(slices("Point = Data.define(:x)\n")).to eq(["Point = Data.define(:x)"])
+    # .freeze only vets a value when the frozen receiver is itself plain
+    # data; freezing a computed call still runs the call at load.
+    expect(slices("RULES = build_rules.freeze\n")).to eq(["RULES = build_rules.freeze"])
+    # An interpolated string is built at load from its parts, so it is
+    # not a plain literal even though a plain string is.
+    expect(slices(%(RULES = "a\#{1}"\n))).to eq([%(RULES = "a\#{1}")])
+  end
 end

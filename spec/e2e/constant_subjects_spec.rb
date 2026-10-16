@@ -48,6 +48,32 @@ RSpec.describe "constant literal subjects in --since mode (issue #306)", :e2e do
     expect(pair_lines).not_to include(6) # the unchanged zip entry stays out of scope
   end
 
+  # A spec can read the constant with no method in between: its line hit
+  # must still map the mutant to that spec (#319).
+  it "kills a constant mutant a spec observes by reading the constant directly" do
+    dir = copy_fixture("constants")
+    commit(dir)
+
+    lib = File.join(dir, "lib", "rules.rb")
+    File.write(lib, File.read(lib).sub("    zip: \"optional\"\n", "    zip: \"optional\",\n    state: \"enabled\"\n"))
+    spec = File.join(dir, "spec", "rules_spec.rb")
+    insert = <<~RUBY
+      it "reads the map directly" do
+        expect(Rules::MAP[:state]).to eq("enabled")
+      end
+    RUBY
+    File.write(spec, File.read(spec).sub(/end\n\z/, "#{insert}end\n"))
+
+    run = saboteur(dir, "--since", "HEAD", "--agent")
+    expect(run.status).to eq(0), run.err
+    # The zip line gains the comma, so its pair is in scope too; both
+    # removals die - zip through the method read, state through the spec's
+    # direct read of the constant.
+    pairs = mutants(run).select { |m| m["mutatorName"] == "pair_removal" }
+    expect(pairs.map { |m| m["status"] }).to eq(%w[Killed Killed])
+    expect(pairs.flat_map { |m| m["killedBy"] }).not_to be_empty
+  end
+
   it "mutates nothing when only the constant's comment changed" do
     dir = copy_fixture("constants")
     commit(dir)
