@@ -66,6 +66,64 @@ RSpec.describe Saboteur::Selection::UntrackedChanges do
     end
   end
 
+  describe ".union" do
+    let(:diagnostics) { instance_double(Saboteur::Engine::Diagnostics, warn: nil, record_discovery_failure: nil) }
+
+    def with_repo
+      Dir.mktmpdir do |dir|
+        dir = File.realpath(dir)
+        git = lambda { |*args|
+          out, err, status = Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com",
+                                            *args, chdir: dir)
+          raise err unless status.success?
+
+          out
+        }
+        git.call("init", "-q")
+        File.write(File.join(dir, "tracked.rb"), "1\n")
+        git.call("add", ".")
+        git.call("commit", "-q", "-m", "base")
+        yield dir
+      end
+    end
+
+    it "attempts and reports an included path swapped to a symlink outside the include set" do
+      with_repo do |dir|
+        Dir.mktmpdir do |outside|
+          target = File.join(outside, "secret.rb")
+          File.write(target, "1\n")
+          File.symlink(target, File.join(dir, "swapped.rb"))
+
+          changes = {}
+          described_class.union(changes, dir, include: [File.join(dir, "swapped.rb")], diagnostics: diagnostics)
+
+          expect(changes).to be_empty
+          expect(diagnostics).to have_received(:warn)
+            .with("--since: 1 included untracked file(s) could not be read (vanished, unreadable or " \
+                  "replaced), so their subjects are not covered: swapped.rb")
+          expect(diagnostics).to have_received(:record_discovery_failure)
+            .with(File.join(dir, "swapped.rb"), reason: "unreadable")
+        end
+      end
+    end
+
+    it "keeps files in scope under a symlinked root whose include set is canonical" do
+      with_repo do |dir|
+        File.write(File.join(dir, "fresh.rb"), "1\n2\n")
+        Dir.mktmpdir do |holder|
+          link = File.join(holder, "link")
+          File.symlink(dir, link)
+
+          changes = {}
+          described_class.union(changes, link, include: [File.join(dir, "fresh.rb")], diagnostics: diagnostics)
+
+          expect(changes).to eq(File.join(link, "fresh.rb") => (1..2))
+          expect(diagnostics).not_to have_received(:warn)
+        end
+      end
+    end
+  end
+
   describe ".paths" do
     it "resolves a repository root whose path carries raw high bytes" do
       Dir.mktmpdir do |base|

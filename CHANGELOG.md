@@ -23,8 +23,18 @@ All notable changes are documented here. The format follows
   union is skipped with a warning.
 - `--since` no longer drops an include-eligible untracked file quietly when
   it cannot be read (vanished, unreadable, or replaced by a link or special
-  file between the listing and the open): the run now names it in a warning,
-  since its subjects are silently uncovered otherwise (#297).
+  file between the listing and the open): the run names it in a warning and
+  records it as a discovery failure, so an agent run over mixed tested and
+  omitted source reports `partial`/`incomplete` with the `unreadable` reason
+  instead of a clean result. Files that do not parse (`invalid_file_syntax`)
+  surface the same way instead of only warning (#297).
+- Include membership for untracked files is lexical first: an included path
+  swapped to a symlink is attempted, rejected by the safe open and reported,
+  instead of being filtered out silently on its resolved target. A symlinked
+  repository root stays in scope through the canonical fallback (#297).
+- Test inference under `--since` no longer enumerates a whole-file change
+  range per method when deciding whether a changed file needs a spec; it
+  answers ranges by interval, like the run's own subject selection (#297).
 - The excluded-changes warning now also names untracked files in excluded
   territory: they never appear in the diff, so an exclude that removes one
   used to hide the removal entirely (#297).

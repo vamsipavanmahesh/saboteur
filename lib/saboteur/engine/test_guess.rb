@@ -159,7 +159,7 @@ module Saboteur
         finder = SubjectFinder.new
         lines_by_file.reject do |file, lines|
           subjects = finder.call(File.join(@root, file)).subjects
-          subjects.select { |subject| lines.any? { |line| subject.contains_line?(line) } }
+          subjects.select { |subject| subject.overlaps_lines?(lines) }
                   .any? { |subject| !comparison.unchanged?(subject) }
         end.keys
       end

@@ -248,6 +248,39 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect([result.specs, result.unmatched, result.subjectless]).to eq([[], [], ["lib/c.rb"]])
   end
 
+  it "checks whole-file change ranges by interval in the diff route, without enumerating them" do
+    write("lib/c.rb", changed_source)
+    lines = Class.new(Range) do
+      def each(*) = raise("enumerated a huge range")
+
+      def map(*) = raise("enumerated a huge range")
+
+      def any?(*) = raise("enumerated a huge range")
+    end.new(2, 3)
+    allow(Saboteur::Selection::GitDiff).to receive(:changed_lines)
+      .and_return({ File.join(dir, "lib/c.rb") => lines })
+    allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("HEAD")
+    allow(Saboteur::Selection::GitDiff).to receive(:file_at).and_return(base_source)
+    result = guess
+    expect([result.unmatched, result.subjectless]).to eq([["lib/c.rb"], []])
+  end
+
+  it "detects a subjectless whole-file range by interval, without enumerating it" do
+    write("lib/c.rb", changed_source)
+    lines = Class.new(Range) do
+      def each(*) = raise("enumerated a huge range")
+
+      def map(*) = raise("enumerated a huge range")
+
+      def any?(*) = raise("enumerated a huge range")
+    end.new(5, 5)
+    allow(Saboteur::Selection::GitDiff).to receive(:changed_lines)
+      .and_return({ File.join(dir, "lib/c.rb") => lines })
+    allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("HEAD")
+    allow(Saboteur::Selection::GitDiff).to receive(:file_at).and_return(base_source)
+    expect(guess.subjectless).to eq(["lib/c.rb"])
+  end
+
   it "falls back for a subjectful file without a spec when the other change is subjectless with a spec" do
     write("lib/a.rb", "class Widget\n  def thing\n    # a better note\n    1\n  end\nend\n")
     write("lib/c.rb", "class Widget\n  def thing\n    2\n  end\nend\n")

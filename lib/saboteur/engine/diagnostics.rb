@@ -103,8 +103,11 @@ module Saboteur
         @generation_events << GenerationEvent.new(*values)
       end
 
+      # The selection and the test inference each walk the same changed
+      # files in one run; a failure either of them finds is recorded once.
       def record_discovery_failure(file, reason:)
-        @discovery_failures << DiscoveryFailure.new(file: file.to_s.dup.freeze, reason: reason.to_s.dup.freeze)
+        failure = DiscoveryFailure.new(file: file.to_s.dup.freeze, reason: reason.to_s.dup.freeze)
+        @discovery_failures << failure unless @discovery_failures.include?(failure)
       end
 
       # A mutant the hazard guard refused to generate (issue #102): counted

@@ -182,6 +182,9 @@ Saboteur.ignore do |i|
   i.mutation "168aa39476e05d6b",
              subject: "Saboteur::Selection::UntrackedChanges#union",
              reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
+  i.mutation "0483ba48e0fe025b",
+             subject: "Saboteur::Selection::UntrackedChanges#union",
+             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
 
   i.mutation "40c51d744af42a0e",
              subject: "Saboteur::Selection::UntrackedChanges#count_lines",

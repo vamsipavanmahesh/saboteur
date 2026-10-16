@@ -33,8 +33,9 @@ module Saboteur
       module_function
 
       # Add every include-eligible untracked file to CHANGES as a full
-      # range. Eligible files that cannot be read are warned about, not
-      # dropped silently.
+      # range. Eligible files that cannot be read are warned about and
+      # recorded as discovery failures, not dropped silently, so the run is
+      # reported incomplete instead of clean over mixed source.
       def union(changes, top, include:, diagnostics:)
         unless File.const_defined?(:NOFOLLOW) && File.const_defined?(:NONBLOCK)
           diagnostics&.warn("--since: untracked files are not included: this platform lacks " \
@@ -46,12 +47,20 @@ module Saboteur
         unreadable = []
         files(top).each do |name|
           file = File.join(top, name)
-          next if include && !include.include?(CoverageMap.canonical(file))
+          # Membership is lexical first: an included path swapped to a
+          # symlink must reach the safe open, which rejects it, so the swap
+          # is reported instead of filtered out on the resolved target. The
+          # canonical fallback keeps a symlinked ROOT in scope, because the
+          # include set is realpath'd.
+          next if include && !include.include?(file) && !include.include?(CoverageMap.canonical(file))
 
           case (lines = line_count(file, flags))
           when :unreadable then unreadable << name
           when Integer then changes[file] = (1..lines)
           end
+        end
+        unreadable.each do |name|
+          diagnostics&.record_discovery_failure(File.join(top, name), reason: "unreadable")
         end
         warn_unreadable(unreadable, diagnostics)
       end

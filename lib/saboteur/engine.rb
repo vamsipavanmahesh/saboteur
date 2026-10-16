@@ -187,7 +187,7 @@ module Saboteur
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
-                 operator_policy: config.operator_policy)
+                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures)
     end
 
     def complete_evidence(results, subjects)

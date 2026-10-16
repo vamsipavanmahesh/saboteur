@@ -314,12 +314,15 @@ RSpec.describe Saboteur::Selection::GitDiff do
         File.delete(path)
         diagnostics = instance_double(Saboteur::Engine::Diagnostics)
         allow(diagnostics).to receive(:warn)
+        allow(diagnostics).to receive(:record_discovery_failure)
         allow(described_class).to receive(:git).and_call_original
         allow(described_class).to receive(:git)
           .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("gone.rb\0")
         changed = described_class.changed_lines("HEAD", root: @dir, include: include, diagnostics: diagnostics)
         expect(changed).to eq({})
         expect(diagnostics).to have_received(:warn).with(/included untracked file.*gone\.rb/m)
+        expect(diagnostics).to have_received(:record_discovery_failure)
+          .with(File.join(File.realpath(@dir), "gone.rb"), reason: "unreadable")
       end
 
       it "warns when an included untracked file cannot be read" do
@@ -329,9 +332,12 @@ RSpec.describe Saboteur::Selection::GitDiff do
         include = [File.realpath(File.join(@dir, "secret.rb"))].to_set
         diagnostics = instance_double(Saboteur::Engine::Diagnostics)
         allow(diagnostics).to receive(:warn)
+        allow(diagnostics).to receive(:record_discovery_failure)
         changed = described_class.changed_lines("HEAD", root: @dir, include: include, diagnostics: diagnostics)
         expect(changed).to eq({})
         expect(diagnostics).to have_received(:warn).with(/included untracked file.*secret\.rb/m)
+        expect(diagnostics).to have_received(:record_discovery_failure)
+          .with(File.join(File.realpath(@dir), "secret.rb"), reason: "unreadable")
       end
 
       it "skips gitignored, empty and binary untracked files" do
