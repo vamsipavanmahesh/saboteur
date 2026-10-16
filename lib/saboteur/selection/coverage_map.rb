@@ -39,6 +39,8 @@ module Saboteur
       end
 
       def tests_for(subject)
+        return tests_for_constant(subject) if subject.is_a?(ConstantSubject)
+
         tests = tests_for_lines(subject.file, subject.coverage_lines)
         return tests unless tests.empty?
 
@@ -47,6 +49,13 @@ module Saboteur
 
         span = subject.start_line..subject.end_line
         ids = by_method.flat_map { |line, method_ids| span.cover?(line) ? method_ids : [] }.uniq
+        sort_test_ids(ids)
+      end
+
+      # A constant is observable wherever it is read: the tests that ran
+      # any read of it, across every file the consumer scan found (#306).
+      def tests_for_constant(subject)
+        ids = subject.consumer_lines.flat_map { |file, lines| tests_for_lines(file, lines) }.uniq
         sort_test_ids(ids)
       end
 
@@ -69,6 +78,11 @@ module Saboteur
       # "no coverage" skip, but a subject whose lines never record at all
       # (an endless def) falls back to its method coverage (issue #107).
       def tests_for_edit(subject, line_numbers)
+        # An edit to a constant literal is observable at every read of the
+        # constant, not on the literal's own (load-time) lines: narrowing
+        # by edit lines is meaningless (#306).
+        return tests_for(subject) if subject.is_a?(ConstantSubject)
+
         tests = tests_for_lines(subject.file, line_numbers)
         return tests unless tests.empty?
         return [] unless tests_for_lines(subject.file, subject.coverage_lines).empty?

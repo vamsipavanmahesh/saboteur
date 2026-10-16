@@ -140,6 +140,12 @@ module Saboteur
       text.force_encoding(Encoding::UTF_8)
     end
 
+    # Def subjects prefer surgical re-evaluation; a ConstantSubject always
+    # re-evaluates its whole file (there is no method to redefine).
+    def whole_file_only?
+      false
+    end
+
     def to_s
       id
     end

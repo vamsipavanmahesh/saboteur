@@ -321,6 +321,20 @@ entry, or pass the file as a positional source operand (configured excludes are
 then ignored). `--subject` cannot help here: it filters subjects inside the
 files left after excludes.
 
+A changed entry of a constant hash or array literal is a behavior change no
+method owns, so `--since` also selects those assignments as subjects (#306).
+`RULES = { city: "required", zip: "optional" }.freeze` gains a `state:` entry,
+and `pair_removal` proposes removing each changed pair; the new default-on
+`element_removal` operator does the same for changed elements of array
+literals (`%w[...]` included). A constant mutant runs against the specs that
+cover a line reading the constant, and the whole file is re-evaluated because
+re-assigning a constant is not a method swap. The diff scope is line-granular:
+a literal written on a single line puts every entry on that line in scope, so
+write one entry per line to mutate only what changed. Unchanged entries on
+unchanged lines are not mutated. A changed constant assignment saboteur cannot
+mutate - a namespaced target, `||=`, or a value that is not a hash or array
+literal - is named in the diagnostics instead of silently counting as covered.
+
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
 too) runs for the baseline passes, the coverage pass and every mutant, as
@@ -903,6 +917,14 @@ Builtin removes one key/value association from a hash literal or keyword list.
 `Model.includes(:a, :b, c: :d)` becomes `Model.includes(:a, :b )`, so a nested
 preload guard can be exercised without deleting the whole statement. A sole
 hash pair becomes `{}`. Operator and source name: `pair_removal`.
+
+## Array element removal
+
+Builtin removes one element from an array literal: `[:a, :b]` becomes `[:a]`.
+This is the array counterpart of `pair_removal`, on by default under the name
+`element_removal`, and it is what mutates changed elements of constant array
+literals under `--since` (#306). Bracketed arrays and `%w[...]` lists are
+supported; splats stay intact and elements holding heredocs are skipped.
 
 Both parenthesized and command calls are supported. Splats stay intact; pairs
 containing heredocs, parameter defaults, arid statements and nested definitions

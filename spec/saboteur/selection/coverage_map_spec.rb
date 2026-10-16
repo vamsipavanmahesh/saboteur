@@ -250,3 +250,43 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     end
   end
 end
+
+RSpec.describe Saboteur::Selection::CoverageMap, "constant subjects (issue #306)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def constant_subject(consumer_lines)
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    subject.consumer_lines = consumer_lines
+    subject
+  end
+
+  it "selects the tests that executed any read of the constant, across files" do
+    app = File.join(@root, "app.rb")
+    other = File.join(@root, "other.rb")
+    subject = constant_subject(app => [3, 9], other => [2])
+    map = described_class.new(lines: { app => { 3 => %w[t2], 9 => %w[t1] }, other => { 2 => %w[t3] } },
+                              tests: %w[t1 t2 t3])
+    expect(map.tests_for(subject)).to eq(%w[t1 t2 t3])
+  end
+
+  it "ignores edit lines: reads decide the tests, not the literal's own line" do
+    app = File.join(@root, "app.rb")
+    subject = constant_subject(app => [3])
+    map = described_class.new(lines: { app => { 3 => %w[t1] } }, tests: %w[t1 t2])
+    expect(map.tests_for_edit(subject, [1])).to eq(%w[t1])
+  end
+
+  it "returns nothing when no read was ever covered" do
+    app = File.join(@root, "app.rb")
+    subject = constant_subject(app => [3])
+    map = described_class.new(lines: {}, tests: %w[t1])
+    expect(map.tests_for(subject)).to eq([])
+  end
+end

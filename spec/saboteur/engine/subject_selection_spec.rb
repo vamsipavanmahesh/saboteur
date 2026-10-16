@@ -113,7 +113,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       File.write(file, two_methods.sub("1 + 1", "1+1 # one").sub("    2\n", "\n    2\n"))
 
       expect(select([file], since: "HEAD")).to be_empty
-      expect(err.string).to eq("saboteur: 2 changed method(s) differ only in comments or formatting, " \
+      expect(err.string).to eq("saboteur: 2 changed subject(s) differ only in comments or formatting, " \
                                "so they are skipped: Cart#total, Cart#count\n")
     end
 
@@ -122,7 +122,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       File.write(file, two_methods.sub("1 + 1", "1 + 2").sub("    2\n", "    2 # two\n"))
 
       expect(select([file], since: "HEAD").map(&:id)).to eq(["Cart#total"])
-      expect(err.string).to include("1 changed method(s) differ only in comments or formatting, so they are " \
+      expect(err.string).to include("1 changed subject(s) differ only in comments or formatting, so they are " \
                                     "skipped: Cart#count")
     end
 
@@ -140,7 +140,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
     it "names five and then an ellipsis when more were skipped" do
       expect(commented_methods(6)).to be_empty
-      expect(err.string).to include("6 changed method(s)").and end_with("Cart#m4, Cart#m5, ...\n")
+      expect(err.string).to include("6 changed subject(s)").and end_with("Cart#m4, Cart#m5, ...\n")
     end
 
     it "scopes the diff to the selected files and reports through the run diagnostics" do
@@ -342,9 +342,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     end
 
     it "warns when the changed lines sit outside every method" do
-      file = write("cart.rb", "class Cart\n  KIND = :cart\n\n  def total = 1\nend\n")
+      file = write("cart.rb", "class Cart\n  register :cart\n\n  def total = 1\nend\n")
       commit_all
-      File.write(file, "class Cart\n  KIND = :shop\n\n  def total = 1\nend\n")
+      File.write(file, "class Cart\n  register :shop\n\n  def total = 1\nend\n")
 
       expect(select([file], since: "HEAD")).to be_empty
       expect(diagnostics.warnings.size).to eq(1)
@@ -378,7 +378,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     it "warns for an untracked file whose lines cover no subject (#295)" do
       committed = write("old.rb", "class Old\n  def x = 1\nend\n")
       commit_all
-      fresh = write("fresh.rb", "KIND = :none\n")
+      fresh = write("fresh.rb", "register :none\n")
       expect(select([committed, fresh], since: "HEAD")).to be_empty
       expect(diagnostics.warnings.size).to eq(1)
       expect(diagnostics.warnings.first).to include("--since: 1 changed Ruby file(s) have no subjects")
@@ -394,15 +394,15 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(select([cart, note], since: "HEAD").map(&:id)).to eq(["Shop::Cart#total"])
       expect(diagnostics.warnings.size).to eq(1)
-      expect(diagnostics.warnings.first).to include("1 changed Ruby file(s)").and include("note.rb")
+      expect(diagnostics.warnings.first).to include("changed constant Note::KIND in note.rb")
       expect(diagnostics.warnings.first).not_to include("cart.rb")
     end
 
     it "names at most five subjectless files, with an ellipsis for the rest" do
-      files = (1..6).map { |n| write("f#{n}.rb", "class F#{n}\n  KIND = :a\n\n  def x = 1\nend\n") }
+      files = (1..6).map { |n| write("f#{n}.rb", "class F#{n}\n  register :a\n\n  def x = 1\nend\n") }
       commit_all
       files.each_with_index do |file, n|
-        File.write(file, "class F#{n + 1}\n  KIND = :b\n\n  def x = 1\nend\n")
+        File.write(file, "class F#{n + 1}\n  register :b\n\n  def x = 1\nend\n")
       end
 
       expect(select(files, since: "HEAD")).to be_empty
@@ -414,10 +414,10 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     end
 
     it "lists five subjectless files in full, without an ellipsis" do
-      files = (1..5).map { |n| write("g#{n}.rb", "class G#{n}\n  KIND = :a\n\n  def x = 1\nend\n") }
+      files = (1..5).map { |n| write("g#{n}.rb", "class G#{n}\n  register :a\n\n  def x = 1\nend\n") }
       commit_all
       files.each_with_index do |file, n|
-        File.write(file, "class G#{n + 1}\n  KIND = :b\n\n  def x = 1\nend\n")
+        File.write(file, "class G#{n + 1}\n  register :b\n\n  def x = 1\nend\n")
       end
 
       expect(select(files, since: "HEAD")).to be_empty
@@ -458,5 +458,84 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       two = write("two.rb", "class Two\n  def m = 1\n  def n = 2\nend\n")
       expect(described_class.files_matching(@root, [two], ["Two#m"])).to eq(["two.rb"])
     end
+  end
+end
+
+RSpec.describe Saboteur::Engine::SubjectSelection, "constant literals in --since mode (issue #306)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:err) { StringIO.new }
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
+  let(:base) do
+    "module Shop\n  RULES = {\n    city: \"required\"\n  }.freeze\n\n  def self.rule_for(f) = RULES.fetch(f)\nend\n"
+  end
+
+  def select(files, **settings)
+    config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: @root)
+    described_class.new(config, diagnostics).select(files)
+  end
+
+  def commit_base(text, name = "rules.rb")
+    file = File.join(@root, name)
+    File.write(file, text)
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    file
+  end
+
+  it "selects a constant hash whose entries changed, alongside no method" do
+    file = commit_base(base)
+    File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
+
+    expect(select([file], since: "HEAD").map(&:id)).to eq(["Shop::RULES"])
+  end
+
+  it "skips a constant whose only change is a comment, like a method" do
+    file = commit_base(base)
+    File.write(file, base.sub("city: \"required\"", "city: \"required\" # must"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    expect(err.string).to include("1 changed subject(s) differ only in comments or formatting")
+  end
+
+  it "narrows constant subjects to --subject patterns by their Klass::CONST id" do
+    file = commit_base(base)
+    File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
+
+    expect(select([file], since: "HEAD", subjects: ["Shop::RULES"]).map(&:id)).to eq(["Shop::RULES"])
+    expect(select([file], since: "HEAD", subjects: ["Shop.rule_for"])).to be_empty
+  end
+
+  it "attaches consumer lines across files to the surviving constants" do
+    file = commit_base(base)
+    consumer = File.join(@root, "cart.rb")
+    File.write(consumer, "module Shop\n  class Cart\n    def rules = RULES\n  end\nend\n")
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "add", ".", chdir: @root)
+    Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "cart",
+                   chdir: @root)
+    File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
+
+    subject = select([file, consumer], since: "HEAD").first
+    expect(subject.consumer_lines).to eq({ file => [7], consumer => [3] })
+  end
+
+  it "names a changed constant assignment of an unsupported form instead of a no-subject warning" do
+    file = commit_base("module Shop\n  RULES = build_rules\nend\n")
+    File.write(file, File.read(file).sub("build_rules", "build_more_rules"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    expect(diagnostics.warnings.join).to include("changed constant Shop::RULES", "not a hash or array literal")
+    expect(diagnostics.warnings.join).not_to include("have no subjects covering the changed lines")
+  end
+
+  it "does not pick up constants outside --since mode" do
+    file = commit_base(base)
+    expect(select([file]).map(&:id)).to eq(["Shop.rule_for"])
   end
 end

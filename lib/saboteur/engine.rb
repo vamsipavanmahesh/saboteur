@@ -382,7 +382,7 @@ module Saboteur
     def candidate_lists(subjects, scope, map)
       return [@replay_candidate] if @replay
 
-      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics, hazard_guard: hazard_guard)
+      candidates = Candidates.build(config, @diagnostics, hazard_guard: hazard_guard)
       selection = CandidateSelection.new(candidates: candidates, map: map,
                                          limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
       subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
@@ -396,7 +396,7 @@ module Saboteur
     end
 
     def replay_subject(subjects, scope)
-      candidates = Candidates.new(Candidates.build_sources(config), @diagnostics, hazard_guard: hazard_guard)
+      candidates = Candidates.build(config, @diagnostics, hazard_guard: hazard_guard)
       subject, candidate = @replay.select(subjects, candidates, scope: scope)
       @replay_candidate = [candidate]
       [[subject], nil]

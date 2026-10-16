@@ -228,3 +228,32 @@ RSpec.describe Saboteur::Engine::Candidates, "hazard guard (issue #102)" do
     expect(diagnostics.hazard_suppressions).to eq(0)
   end
 end
+
+RSpec.describe Saboteur::Engine::Candidates, "constant subjects (issue #306)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
+  let(:constant_subject) do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1, b: 2 }.freeze\n")
+    Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+  end
+
+  it "asks the constant source for a ConstantSubject, not the method sources" do
+    method_source = Saboteur::MutationSource::Builtin.new
+    constant_source = Saboteur::MutationSource::ConstantLiterals.new
+    found = described_class.new([method_source], diagnostics, constant_source: constant_source).for(constant_subject)
+    expect(found.map(&:first).map(&:operator).uniq).to eq(["pair_removal"])
+    expect(found.map(&:last)).to eq(["MAP = {  b: 2 }.freeze", "MAP = { a: 1  }.freeze"])
+  end
+
+  it "returns no candidates for a ConstantSubject without a constant source" do
+    found = described_class.new([Saboteur::MutationSource::Builtin.new], diagnostics).for(constant_subject)
+    expect(found).to be_empty
+  end
+end

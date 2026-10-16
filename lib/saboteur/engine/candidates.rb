@@ -10,6 +10,19 @@ module Saboteur
     # a subject into runnable candidates: applied, re-parsed, de-duplicated,
     # coarse first. Returns [[mutation, mutated_text]].
     class Candidates
+      # The generator for constant hash/array literal subjects (#306); the
+      # method operators walk a def body a constant does not have.
+      def self.build(config, diagnostics, hazard_guard:)
+        new(build_sources(config), diagnostics, hazard_guard: hazard_guard,
+                                                constant_source: build_constant_source(config))
+      end
+
+      def self.build_constant_source(config)
+        MutationSource::ConstantLiterals.new(operators: config["operators"],
+                                             exclude_operators: config["exclude_operators"],
+                                             arid: config["arid"])
+      end
+
       def self.build_sources(config)
         root = File.realpath(config.root)
         config["sources"].map do |entry|
@@ -26,8 +39,12 @@ module Saboteur
         end
       end
 
-      def initialize(sources, diagnostics, hazard_guard: nil, bytecode: BytecodeEquivalence.new)
+      # constant_source: the generator for ConstantSubject instances; nil
+      # leaves constants with no candidates (a safe empty list).
+      def initialize(sources, diagnostics, hazard_guard: nil, bytecode: BytecodeEquivalence.new,
+                     constant_source: nil)
         @sources = sources
+        @constant_source = constant_source
         @diagnostics = diagnostics
         @hazard_guard = hazard_guard
         @bytecode = bytecode
@@ -40,7 +57,7 @@ module Saboteur
         end
 
         seen = Set[subject.source]
-        list = @sources.flat_map { |source| proposals(source, subject) }.filter_map do |mutation|
+        list = sources_for(subject).flat_map { |source| proposals(source, subject) }.filter_map do |mutation|
           candidate(subject, mutation, seen)
         end
         list = suppress_inline(list, subject)
@@ -49,6 +66,15 @@ module Saboteur
       end
 
       private
+
+      # Constant literals have their own generator; external custom sources
+      # implement the def-subject contract and never see constants (#306).
+      def sources_for(subject)
+        return @sources unless subject.is_a?(ConstantSubject)
+        return [] unless @constant_source
+
+        [@constant_source]
+      end
 
       def suppress_inline(list, subject)
         directives = InlineSuppression.new(subject.file, subject.file_source)

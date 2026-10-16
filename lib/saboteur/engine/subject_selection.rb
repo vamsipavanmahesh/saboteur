@@ -2,6 +2,9 @@
 # frozen_string_literal: true
 
 require_relative "../text"
+require_relative "../constant_subject"
+require_relative "../constant_subject_finder"
+require_relative "../constant_reads"
 
 module Saboteur
   class Engine
@@ -20,9 +23,14 @@ module Saboteur
       def select(files)
         @files = files
         subjects = find(files)
+        if @config["since"]
+          @changed_lines = changed_lines_map
+          subjects += constant_subjects
+        end
         @discovered = subjects
         subjects = by_pattern(subjects, @config["subjects"]) if @config["subjects"].any?
         subjects = by_change(subjects, @config["since"]) if @config["since"]
+        attach_consumers(subjects)
         subjects
       end
 
@@ -73,13 +81,58 @@ module Saboteur
       end
 
       def by_change(subjects, ref)
-        @changed_lines = Selection::GitDiff.changed_lines(ref, root: @root, include: @files.to_set,
-                                                               diagnostics: @diagnostics)
-                                           .transform_keys { |file| Selection::CoverageMap.canonical(file) }
         changed = changed_subjects(subjects)
         warn_changed_files_without_subjects
         warn_excluded_changed_files
         drop_unchanged_syntax(changed, ref)
+      end
+
+      # Lines changed since the --since ref, canonicalized by file.
+      def changed_lines_map
+        Selection::GitDiff.changed_lines(@config["since"], root: @root, include: @files.to_set,
+                                                           diagnostics: @diagnostics)
+                          .transform_keys { |file| Selection::CoverageMap.canonical(file) }
+      end
+
+      # Changed entries of a constant hash or array literal are behavior
+      # changes no method owns (#306): the constant joins the diff scope as
+      # a subject, and the diff scope narrows its mutants to the changed
+      # entries. A changed constant assignment of an unsupported form is
+      # named, so a clean method score never implies it was tested.
+      def constant_subjects
+        finder = ConstantSubjectFinder.new
+        files_by_canonical = @files.to_h do |file|
+          [Selection::CoverageMap.canonical(Text.utf8_identity(file)), file]
+        end
+        @constant_boundary_files = []
+        subjects = []
+        @changed_lines.each do |canonical, lines|
+          file = files_by_canonical[canonical]
+          next unless file && canonical.end_with?(".rb")
+
+          parsed = finder.call(file)
+          parsed.unsupported.each do |found|
+            warn_unsupported_constant(found) if found.overlaps_lines?(lines)
+          end
+          subjects.concat(parsed.subjects.select { |subject| subject.overlaps_lines?(lines) })
+        end
+        subjects
+      end
+
+      def warn_unsupported_constant(found)
+        canonical = Selection::CoverageMap.canonical(Text.utf8_identity(found.file))
+        @constant_boundary_files << canonical
+        path = found.file.delete_prefix("#{@root}/")
+        @diagnostics.warn("--since: changed constant #{found.id} in #{path} is not mutated: #{found.reason}. " \
+                          "Only hash and array literal entries are mutated.")
+      end
+
+      # The tests that can observe a constant mutant are the ones covering a
+      # read of the constant; find those reads across the include set (#306).
+      def attach_consumers(subjects)
+        subjects.grep(ConstantSubject).each do |subject|
+          subject.consumer_lines = ConstantReads.across(@files, subject)
+        end
       end
 
       # subject.file carries the locale tag under a non-UTF-8 locale
@@ -103,7 +156,8 @@ module Saboteur
         canonical = ->(file) { Selection::CoverageMap.canonical(Text.utf8_identity(file)) }
         included = @files.map(&canonical)
         matched = changed_subjects(@discovered).map { |subject| canonical.call(subject.file) }
-        unmatched = (@changed_lines.keys.select { |file| file.end_with?(".rb") } & included) - matched
+        unmatched = (@changed_lines.keys.select { |file| file.end_with?(".rb") } & included) - matched -
+                    @constant_boundary_files
         return if unmatched.empty?
 
         names = unmatched.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
@@ -157,7 +211,7 @@ module Saboteur
 
         names = subjects.first(5).map(&:id).join(", ")
         more = subjects.size > 5 ? ", ..." : ""
-        @diagnostics.inform("#{subjects.size} changed method(s) differ only in comments or formatting, " \
+        @diagnostics.inform("#{subjects.size} changed subject(s) differ only in comments or formatting, " \
                             "so they are skipped: #{names}#{more}")
       end
     end
