@@ -4,6 +4,8 @@
 require "cgi"
 require "fileutils"
 
+require_relative "survivor_classification"
+
 module Saboteur
   module Reporter
     # One self-contained HTML page: inline style, no script, no network. It is
@@ -25,6 +27,7 @@ module Saboteur
         .RuntimeError{background:#6a1b9a}.NoCoverage{background:#455a64}.Ignored{background:#616161}
         .Accepted,.Triage_accepted_equivalent{background:#8d6e63}
         .Triage_wont_fix{background:#616161}.Triage_todo{background:#b45309}
+        .classification{border-radius:3px;padding:0 .4rem;background:#eceff1;color:#37474f;white-space:nowrap}
         .warning{background:#fff8e1;border-left:4px solid #f9a825;margin:.3rem 0;padding:.3rem .6rem;overflow-wrap:anywhere}
         code,pre{font-family:ui-monospace,monospace;font-size:13px}
         pre{display:inline-block;vertical-align:top;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}
@@ -196,12 +199,17 @@ module Saboteur
       def row_status(mutant, result)
         badge = status_label(mutant[:status])
         # Only survivors are ever put on the ignore list.
-        return badge unless result.ignored || result.triage_state
-
-        # An entry without a state predates triage states: render Accepted.
-        return "#{badge} #{status_label('Accepted')}" if result.triage_state.nil?
-
-        "#{badge} #{status_label(triage_badge(result), css_class: "Triage_#{result.triage_state}")}"
+        if result.ignored || result.triage_state
+          # An entry without a state predates triage states: render Accepted.
+          badge = if result.triage_state.nil?
+                    "#{badge} #{status_label('Accepted')}"
+                  else
+                    "#{badge} #{status_label(triage_badge(result), css_class: "Triage_#{result.triage_state}")}"
+                  end
+        end
+        # The survivor's classification, as a label only (#192).
+        label = SurvivorClassification.label(result)
+        label ? "#{badge} <span class=\"classification\">#{escape(label)}</span>" : badge
       end
 
       # One edit shows the original text and its replacement. A mutant with

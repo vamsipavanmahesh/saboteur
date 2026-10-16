@@ -496,7 +496,9 @@ mutant applied). One label per survivor, first match in that order; the
 field is omitted when no signal applies. Labels are heuristics for triage
 order, not diagnoses - inspect a survivor before acting on its label, and
 never add a test or ignore a mutant from the label alone. Labels never
-change scores or the exit code. See
+change scores or the exit code. The HTML report badges each survivor
+with the same label next to its status, and the agent JSON carries it on
+each shown finding. See
 [docs/guides/reading-survivors.md](docs/guides/reading-survivors.md). The
 JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change

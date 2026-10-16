@@ -95,7 +95,7 @@ module Saboteur
 
           def shown_findings(listed, shown, snippet_limit)
             listed.first(shown).map do |finding|
-              finding.slice(:digest, :line, :endLine, :operator, :coarse)
+              finding.slice(:digest, :line, :endLine, :operator, :coarse, :classification)
                      .merge(path: clip_value(finding[:path], 200), subject: clip_value(finding[:subject], 200),
                             original: clip(finding[:original], snippet_limit),
                             replacement: clip(finding[:replacement], snippet_limit))
