@@ -47,28 +47,6 @@ module ReevalTargets
       :secret
     end
 
-    Point = Data.define(:x, :y) do
-      def above?
-        y > x
-      end
-
-      def self.origin
-        new(0, 0)
-      end
-    end
-
-    Solo = Class.new do
-      def one
-        1
-      end
-    end
-
-    Tally = Module.new do
-      def tick
-        :tock
-      end
-    end
-
     protected
 
     def guarded
