@@ -599,3 +599,37 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::HazardGuard#vetted_call?",
              reason: "equivalent: arguments.length == 1 short-circuits the conjunction, and with one argument first and last are the same node"
 end
+
+Saboteur.ignore do |i|
+  i.mutation "dab679873934108d",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: the owner local is parser-defined and already nil on the qualified-target branch, so dropping the assignment changes nothing"
+
+  i.mutation "c3fab7a3832bbf23",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: downto(1) drops only the bare-name candidate, which always equals the write's own id that reject_duplicates already demotes"
+
+  i.mutation "cd60f2f7ae856c4c",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: the extra depth -1 slice is nesting[0...-1], always a duplicate of an already-collected prefix candidate"
+
+  i.mutation "7c9542268eff48fe",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: forcing the ternary only alters the nil-prefix candidate into a leading-:: id no subject can have, and that candidate is duplicates-covered"
+
+  i.mutation "c42a64a08dcf8e04",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: a path write's source begins with its target, so node.slice and node.target.slice agree on the leading :: check"
+
+  i.mutation "43da3e6c86de404d",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: the inclusive range only lengthens each prefix, producing the same candidate set minus the duplicates-covered bare-name candidate"
+
+  i.mutation "228bba63e879c4f6",
+             subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
+             reason: "equivalent: with an empty ambiguous list the demotion below selects nothing and is a no-op, so the guard's value never matters"
+
+  i.mutation "71f06a1870dbfcb4",
+             subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
+             reason: "equivalent: the loop's Unsupported-building side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+end
