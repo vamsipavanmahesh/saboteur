@@ -36,10 +36,11 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
   it "exits 3 and names the cache dir when it is read-only" do
     cache = File.join(dir, ".saboteur")
     FileUtils.mkdir_p(cache)
-    FileUtils.chmod(0o555, cache)
-    skip "write permission cannot be revoked here (root or capabilities)" if writable?(cache)
 
     begin
+      FileUtils.chmod(0o555, cache)
+      skip "write permission cannot be revoked here (root or capabilities)" if writable?(cache)
+
       run = saboteur(dir, "--all")
 
       expect(run.status).to eq(3)
@@ -70,10 +71,11 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     FileUtils.mkdir_p(cache)
     log = File.join(cache, "baseline-1.log")
     File.write(log, "")
-    FileUtils.chmod(0o400, log)
-    skip "write permission cannot be revoked here (root or capabilities)" if writable_file?(log)
 
     begin
+      FileUtils.chmod(0o400, log)
+      skip "write permission cannot be revoked here (root or capabilities)" if writable_file?(log)
+
       run = saboteur(dir, "--all")
 
       expect(run.status).to eq(3)

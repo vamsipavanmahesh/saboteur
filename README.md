@@ -778,6 +778,28 @@ end
 
 An entry without a reason is rejected.
 
+Each entry also carries a triage state (#155) chosen with `state:` -
+`accepted_equivalent` (the default) or `wont_fix` suppress the survivor's
+exit failure (it still counts in the score), `todo` records the decision
+to fix and keeps the survivor counting as an unignored survivor:
+
+```ruby
+i.mutation "9f8e7d6c5b4a3210",
+           subject: "Billing::Invoice#discount",
+           reason: "dead code on the legacy pricing path",
+           state: "wont_fix"
+```
+
+The HTML report badges the state (`Accepted`, `Won't fix`, `Todo`). In the
+JSON report only `wont_fix` and `todo` mark `statusReason` - `ignored:
+<reason> (wont_fix)` and `todo: <reason>` - while an `accepted_equivalent`
+survivor reads as a plain `ignored: <reason>`, byte-identical to an entry
+without a triage state. All three keep status `Survived`. A `todo` entry
+keeps the survivor counting as an unignored survivor, subject to the normal
+exit-code and threshold gates. `statusReason` is human-readable text for
+reports, not a structured field: parse `status`, never the reason string,
+which does not distinguish every triage state.
+
 ### SimpleCov
 
 saboteur needs Ruby's `Coverage` for itself. Disable SimpleCov for the run

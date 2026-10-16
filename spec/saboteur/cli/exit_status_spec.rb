@@ -37,6 +37,59 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     )
   end
 
+  # The triage states reach the real exit gates through IgnoreList.load +
+  # apply, not through a stubbed report (#304 QA).
+  describe "ignore-list triage states through the real gates" do
+    let(:config) { {} }
+
+    def with_ignore_file(survivor, state)
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "saboteur_ignore.rb")
+        File.write(path, <<~RUBY)
+          Saboteur.ignore do |i|
+            i.mutation "#{survivor.digest}", subject: "Person#adult?", reason: "triaged", state: "#{state}"
+          end
+        RUBY
+        yield Saboteur::IgnoreList.load(path)
+      end
+    end
+
+    def triaged_report(state, survivor)
+      with_ignore_file(survivor, state) { |list| list.apply([survivor]) }
+      report_of(survivor, result_for(:killed))
+    end
+
+    {
+      "accepted_equivalent" => false,
+      "wont_fix" => false,
+      "todo" => true
+    }.each do |state, fails|
+      it "#{state} #{fails ? 'fails' : 'passes'} the survivor gate and exit code" do
+        survivor = result_for(:survived)
+        with_ignore_file(survivor, state) do |list|
+          # The fail-fast check and the survivor gate both read accepts?
+          # before apply marks anything: only an accepting state shields.
+          expect(list.accepts?(survivor)).to be(!fails)
+          list.apply([survivor])
+        end
+        report = report_of(survivor, result_for(:killed))
+        expect(harness.quality_gate?(report)).to be(fails)
+        expect(harness.code(report)).to eq(fails ? Saboteur::CLI::EXIT_SURVIVORS : Saboteur::CLI::EXIT_OK)
+      end
+    end
+
+    context "with --threshold the score decides, and the states do not change it" do
+      let(:config) { { "threshold" => 50.0 } }
+
+      it "passes all three states at the same score" do
+        %w[accepted_equivalent wont_fix todo].each do |state|
+          gate = harness.quality_gate?(triaged_report(state, result_for(:survived)))
+          expect(gate).to be(false), "state #{state} changed the score"
+        end
+      end
+    end
+  end
+
   describe "agent_exit_cause" do
     context "when --max-duration-ok leaves the exit to the verdict and survivors ran" do
       let(:config) { { "max_duration_ok" => true } }

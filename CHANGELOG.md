@@ -20,6 +20,14 @@ All notable changes are documented here. The format follows
   advising a container for filesystem containment and network denial or
   stubbing for real-API risk, and the README carries a short per-platform
   sandbox and network statement (#247).
+- Ignore-list entries accept a triage `state:` - `accepted_equivalent`
+  (the default) and `wont_fix` suppress the survivor's exit failure (it
+  still counts in the score), `todo` records the decision to fix and keeps
+  the survivor counting as an unignored survivor. The HTML report badges the
+  state; in the JSON report `accepted_equivalent` keeps the plain
+  `ignored: <reason>` while `wont_fix` and `todo` are labelled
+  (`ignored: <reason> (wont_fix)`, `todo: <reason>`), and all three keep
+  status `Survived` (#155).
 
 ### Removed
 - The stale self-deprecating benchmark claims in the README ('rerun
