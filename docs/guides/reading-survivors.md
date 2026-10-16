@@ -11,18 +11,27 @@ diff, covering tests), not the exact text. Use a digest from your own run.
 
 ## Classification labels
 
-The JSON report labels each survivor (#192), most useful first:
+The JSON report labels each survivor (#192), most useful first. Every
+label is a heuristic - a hint about where to look first, not a diagnosis.
+Inspect the survivor before acting; never add a test or ignore a mutant
+from the label alone.
 
 - `likely_equivalent` - the mutant compiles to the same instructions as
-  the original, so no test can kill it; check it is truly equivalent and
-  ignore it with a reason.
-- `arid` - the mutated line matches an arid pattern (logging and
-  friends), so an assertion is unlikely to pay off.
-- `missing_test` - a test covered the line and passed: the suite reaches
-  the code but asserts too little. This is where a new test belongs.
+  the original: strong evidence of a no-op mutant. Check it against the
+  source before treating it as equivalent.
+- `arid` - every line an edit touches matches an arid pattern (logging
+  and friends), so an assertion there is less likely to pay off. The
+  builtin hint list decides; a configured arid policy does not change the
+  label.
+- `missing_test` - a test covered the line and passed, which may mean
+  the suite reaches the code without pinning this behaviour. The covering
+  list is only the planned coverage: whole-body (coarse) mutants carry
+  method-level guesses and never get this label, and neither does
+  anything without real coverage.
 
-A survivor with no label has no signal either way. Labels never change
-scores or the exit code.
+A survivor with no signal stays unlabeled - the field is omitted, never
+empty. One label per survivor, first match in the order above. Labels
+never change scores or the exit code.
 
 ## Anatomy of a survivor
 
