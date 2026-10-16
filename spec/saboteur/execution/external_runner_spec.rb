@@ -362,15 +362,35 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
 
   # Fake clock: the OWN slice times out, then cleanup crosses the run
   # budget. The cause is fixed when the wait ends, so the crossing cannot
-  # relabel the command's timeout as a budget stop (#305 Principal).
+  # relabel the command's timeout as a budget stop (#305 Principal). The
+  # clock JUMPS on TERM/KILL so the crossing is forced: with the old
+  # post-cleanup comparison this example relabels to a budget stop.
   it "keeps an own-slice timeout generic when cleanup crosses the budget" do
     subject_in(@dir)
     runner = described_class.new(command: "sleep 30", root: @dir)
     # An advancing fake clock: a frozen one would park the reap poll.
     ticks = 0.0
     allow(runner).to receive(:monotonic) { ticks += 0.05 }
+    # The clock JUMPS during the TERM/drain liveness probes, so cleanup
+    # provably crosses the budget of 1.0 however fast the group dies.
+    allow(runner).to receive(:tree_alive?).and_wrap_original do |method, pid|
+      ticks += 1.5
+      method.call(pid)
+    end
     expect { runner.preflight!(deadline: 0.2, budget_deadline: 1.0) }
       .to raise_error(Saboteur::Error, /timed out/)
+    expect(ticks).to be > 1.0 # the cleanup really crossed the budget
+  end
+
+  # The other side: when the run budget is the LIMITING deadline, its
+  # expiry is a budget stop, not the command's error (#305 Principal).
+  it "reports a budget stop when the budget is the limiting deadline" do
+    subject_in(@dir)
+    runner = described_class.new(command: "sleep 30", root: @dir)
+    ticks = 0.0
+    allow(runner).to receive(:monotonic) { ticks += 0.05 }
+    expect { runner.preflight!(deadline: 2.0, budget_deadline: 0.3) }
+      .to raise_error(Saboteur::BudgetPhaseTimeout)
   end
 
   # Fake clock: the copy eats the command's own deadline with no run
