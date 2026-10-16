@@ -54,7 +54,8 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
   end
 
   it "loads ignores in ordinary mode but not in replay mode" do
-    boot = instance_double(Saboteur::Engine::Boot, load_target: nil, rails: nil)
+    boot = instance_double(Saboteur::Engine::Boot,
+                           load_target: instance_double(Saboteur::Integration::RSpec, test_files: []), rails: nil)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
     allow(selection).to receive(:select).and_return([])
     expect(Saboteur::IgnoreList).to receive(:load).with(config.path("ignore_file")).and_return(Saboteur::IgnoreList.new([]))

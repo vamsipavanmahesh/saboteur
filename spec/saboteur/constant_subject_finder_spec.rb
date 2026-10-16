@@ -330,3 +330,43 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "walk branches (#319 dogfood)" d
     expect(parsed.subjects.first.frozen_literals).to be(true)
   end
 end
+
+RSpec.describe Saboteur::ConstantSubjectFinder, "qualified-write identity (#319 lenses)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def find(text)
+    file = File.join(@root, "sample.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file)
+  end
+
+  # `RULES = ...` then `::RULES = ...` is one constant assigned twice: the
+  # replay ends with the second write, so the first literal must not stay
+  # scored. A rooted target names its constant absolutely.
+  it "demotes both writes when a rooted target re-assigns the constant" do
+    parsed = find("RULES = { a: 1 }\n::RULES = { b: 2 }\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:id).sort).to eq(%w[RULES RULES])
+    expect(parsed.unsupported.map(&:reason)).to include("assigned more than once in this file")
+  end
+
+  # Inside `module Shop`, the qualified write `Shop::RULES = ...` resolves
+  # to the same constant the bare write made a subject.
+  it "demotes both writes when a qualified target re-assigns the constant" do
+    parsed = find("module Shop\n  RULES = [:a]\n  Shop::RULES = [:b]\nend\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:id).sort).to eq(["Shop::RULES", "Shop::RULES"])
+  end
+
+  # The rooted form inside the module must not become "Shop::::Shop::RULES".
+  it "demotes both writes when a rooted qualified target re-assigns the constant" do
+    parsed = find("module Shop\n  RULES = [:a, :b]\n  ::Shop::RULES = [:c]\nend\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:id).sort).to eq(["Shop::RULES", "Shop::RULES"])
+  end
+end

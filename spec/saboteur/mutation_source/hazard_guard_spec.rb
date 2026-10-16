@@ -348,6 +348,20 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
     described_class.new.unvetted_load_code(Prism.parse(text).value)
   end
 
+  it "flags a require whose argument or block runs code on every replay" do
+    flagged = slices(<<~RUBY)
+      require(build_path)
+      require_relative(begin
+        "helper"
+      end)
+      require("x") { register! }
+      RULES = { a: 1 }
+    RUBY
+    expect(flagged).to eq(["require(build_path)", %(require_relative(begin\n  "helper"\nend)),
+                           'require("x") { register! }'])
+    expect(slices("require \"json\"\nrequire_relative \"helper\"\nRULES = { a: 1 }\n")).to eq([])
+  end
+
   it "passes requires, pure defs, nesting with a constant superclass and literal assignments" do
     expect(slices(<<~RUBY)).to eq([])
       require "json"

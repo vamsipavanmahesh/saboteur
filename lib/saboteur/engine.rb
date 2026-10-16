@@ -186,9 +186,9 @@ module Saboteur
     end
 
     # The subjects to mutate and, in diff mode, the scope of changed lines.
-    def select_subjects(files)
+    def select_subjects(files, test_files: nil)
       config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
-      selection = SubjectSelection.new(config, @diagnostics)
+      selection = SubjectSelection.new(config, @diagnostics, test_files: test_files)
       subjects = selection.select(files)
       scope = selection.changed_lines && DiffScope.new(selection.changed_lines)
       return replay_subject(subjects, scope) if @replay

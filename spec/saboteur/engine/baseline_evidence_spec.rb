@@ -104,7 +104,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       boot = instance_double(Saboteur::Engine::Boot, rails: nil)
       allow(boot).to receive(:load_target) do
         File.write(File.join(root, "loaded.rb"), "new input")
-        instance_double(Saboteur::Integration::RSpec)
+        instance_double(Saboteur::Integration::RSpec, test_files: [])
       end
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)
@@ -170,7 +170,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       boot = instance_double(Saboteur::Engine::Boot, rails: nil)
       allow(boot).to receive(:load_target) do
         File.write(evidence_file, "changed")
-        instance_double(Saboteur::Integration::RSpec)
+        instance_double(Saboteur::Integration::RSpec, test_files: [])
       end
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)

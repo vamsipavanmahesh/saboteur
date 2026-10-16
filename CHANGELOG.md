@@ -79,6 +79,17 @@ All notable changes are documented here. The format follows
   consumer scan, `element_removal` honors the arid policy, arid patterns
   screen constant entries too, and constant mutation respects `c.sources`
   (no `builtin`, no constant mutants) (#306, #319).
+- Constant replay hardening from the #319 lens review: `require` and
+  `require_relative` count as vetted load code only with a plain
+  literal-string argument and no block, so `require(build_path)` no longer
+  reruns helper code on every mutant; rooted and qualified constant writes
+  (`::RULES`, `Shop::RULES`, `::Shop::RULES`) share one identity with the
+  bare write, so a re-assigning write demotes the first literal to
+  unsupported instead of leaving it scored; the --all consumer scan reads
+  the configured integration's loaded spec files instead of guessing the
+  conventional spec tree; and an arid pattern that cannot judge an entry's
+  bytes (binary source against a UTF-8 pattern) keeps the mutant instead
+  of raising (#319).
 - Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
   when the cache dir is read-only, is occupied by a regular file, or holds an
   unwritable baseline log (#251).

@@ -14,10 +14,11 @@ module Saboteur
       # Lines changed since the --since ref, by file; nil without --since.
       attr_reader :changed_lines
 
-      def initialize(config, diagnostics)
+      def initialize(config, diagnostics, test_files: nil)
         @config = config
         @diagnostics = diagnostics
         @root = File.realpath(config.root)
+        @test_files = test_files
       end
 
       def select(files)
@@ -192,12 +193,17 @@ module Saboteur
       end
 
       # The specs selected for this run (inferred or explicit), as absolute
-      # paths that exist. Directory entries expand to their specs, and with
-      # no tests named at all (the --all case) the conventional spec tree
-      # stands in: a spec can read a constant directly (#319).
+      # paths that exist. Directory entries expand to their specs. With no
+      # tests named at all (the --all case) the configured integration's
+      # loaded spec files answer; the conventional spec tree only stands in
+      # when nothing else is known (preview, or an empty suite): a spec can
+      # read a constant directly (#319).
       def spec_files
-        entries = @config["tests"].empty? ? ["spec"] : @config["tests"]
-        entries.flat_map { |entry| expand_spec_entry(entry) }.uniq
+        configured = @config["tests"]
+        return configured.flat_map { |entry| expand_spec_entry(entry) }.uniq unless configured.empty?
+        return Array(@test_files).uniq unless Array(@test_files).empty?
+
+        expand_spec_entry("spec")
       end
 
       def expand_spec_entry(entry)

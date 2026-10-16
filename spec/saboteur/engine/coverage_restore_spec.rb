@@ -14,7 +14,7 @@ RSpec.describe Saboteur::Engine, "coverage state restore" do
   end
 
   def engine_call(selection: instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil))
-    boot = instance_double(Saboteur::Engine::Boot, load_target: double("integration"), rails: nil)
+    boot = instance_double(Saboteur::Engine::Boot, load_target: double("integration", test_files: []), rails: nil)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)

@@ -63,8 +63,10 @@ module Saboteur
         slices
       end
 
-      # Calls that only load more code. Everything else that RUNS when the
-      # file loads is unvetted below.
+      # Calls that only load more code - and only with a plain literal
+      # string argument and no block: require(build_path) or
+      # require_relative(begin ... end) runs arbitrary code on every
+      # replay, so it is unvetted below like any other helper call.
       SAFE_LOAD_REQUIRES = %w[require require_relative].freeze
 
       # Assignments whose value a replay re-runs: vetted when the value is
@@ -126,7 +128,11 @@ module Saboteur
       end
 
       def vetted_call?(node)
-        SAFE_LOAD_REQUIRES.include?(node.name.to_s) && node.receiver.nil?
+        return false unless SAFE_LOAD_REQUIRES.include?(node.name.to_s) && node.receiver.nil?
+        return false unless node.block.nil?
+
+        arguments = node.arguments&.arguments || []
+        arguments.length == 1 && arguments.first.is_a?(Prism::StringNode)
       end
 
       def constant_read?(node)

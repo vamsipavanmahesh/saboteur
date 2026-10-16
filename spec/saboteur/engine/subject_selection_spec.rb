@@ -20,9 +20,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     File.join(@root, name).tap { |path| File.write(path, text) }
   end
 
-  def select(files, **settings)
+  def select(files, test_files: nil, **settings)
     config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: @root)
-    described_class.new(config, diagnostics).select(files)
+    described_class.new(config, diagnostics, test_files: test_files).select(files)
   end
 
   it "registers inline suppressions and warns with the parser's message for a broken file" do
@@ -556,9 +556,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
   let(:err) { StringIO.new }
   let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
 
-  def select(files, **settings)
+  def select(files, test_files: nil, **settings)
     config = Saboteur::Config.new(settings.transform_keys(&:to_s), root: @root)
-    described_class.new(config, diagnostics).select(files)
+    described_class.new(config, diagnostics, test_files: test_files).select(files)
   end
 
   def commit_base(name, text)
@@ -635,6 +635,20 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
     expect(select([file, copy], since: "HEAD")).to be_empty
     expect(diagnostics.warnings.join).to include("RULES in rules.rb", "capture the value at load time",
                                                  "observe a change to it")
+  end
+
+  it "scans the integration's loaded spec files in the --all case, not only the conventional tree" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    suite = File.join(@root, "custom_suite", "rules_spec.rb")
+    FileUtils.mkdir_p(File.dirname(suite))
+    File.write(suite, "RSpec.describe(\"RULES\") { it(\"reads\") { expect(RULES[:a]).to eq(1) } }\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    # The conventional spec tree holds nothing, so the guess alone never
+    # finds the consumer; the configured integration's files do.
+    expect(select([file], since: "HEAD").first.consumer_lines).to eq({})
+    subject = select([file], since: "HEAD", test_files: [File.realpath(suite)]).first
+    expect(subject.consumer_lines[File.realpath(suite)]).to eq([1])
   end
 
   it "expands directory test paths and the default spec tree for the consumer scan (#319)" do

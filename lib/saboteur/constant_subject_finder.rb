@@ -175,8 +175,19 @@ module Saboteur
     end
 
     def record_unsupported(out, node, nesting, reason, **ctx)
-      name = node.respond_to?(:name) ? node.name : node.target.slice
-      out[:unsupported] << Unsupported.new(name: name, owner: owner_path(nesting), file: ctx[:file],
+      # A bare target takes the lexical owner. A qualified target names its
+      # constant absolutely: "::RULES" is RULES anywhere, and "Shop::RULES"
+      # resolves through the lexical scope, so the written slice (minus a
+      # leading ::) is the identity and the owner does not prefix it.
+      # Over-matching a duplicate only demotes both writes to unsupported.
+      if node.respond_to?(:name)
+        name = node.name
+        owner = owner_path(nesting)
+      else
+        name = node.target.slice.sub(/\A::/, "")
+        owner = nil
+      end
+      out[:unsupported] << Unsupported.new(name: name, owner: owner, file: ctx[:file],
                                            node: node, reason: reason)
     end
 

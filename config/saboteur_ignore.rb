@@ -559,23 +559,29 @@ Saboteur.ignore do |i|
 
   i.mutation "ad875ad601877dde",
              subject: "Saboteur::MutationSource::ElementRemoval#ending_for",
-             reason: "equivalent: Prism::Node exposes end_offset directly (the codebase calls it without the hop elsewhere), so dropping the location hop calls the same method"
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - operand_replacement.rb:39-40 already calls "
+                      "Node#end_offset directly): the location hop calls the same method"
 
   i.mutation "c03dc4c84077f549",
              subject: "Saboteur::MutationSource::EntryEdits#heredoc?",
-             reason: "equivalent: a heredoc node's own slice starts at its << opening and no other node with an opening_loc starts with <<, so node.slice answers the same"
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - builtin.rb and the arid checks already call "
+                      "Node#slice directly): a heredoc node's own slice starts at its << opening and no other node with an opening_loc "
+                      "starts with <<, so node.slice answers the same"
 
   i.mutation "692c8de64cb30812",
              subject: "Saboteur::MutationSource::EntryEdits#entry_separator",
-             reason: "equivalent: Prism::Node exposes end_offset directly (the codebase calls it without the hop elsewhere), so dropping the location hop calls the same method"
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - operand_replacement.rb:39-40 already calls "
+                      "Node#end_offset directly): the location hop calls the same method"
 
   i.mutation "40b72924a9ba07d3",
              subject: "Saboteur::MutationSource::EntryEdits#entry_separator",
-             reason: "equivalent: Prism::Node exposes end_offset directly (the codebase calls it without the hop elsewhere), so dropping the location hop calls the same method"
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - operand_replacement.rb:39-40 already calls "
+                      "Node#end_offset directly): the location hop calls the same method"
 
   i.mutation "7c24d6a420d69ea0",
              subject: "Saboteur::MutationSource::EntryEdits#entry_separator",
-             reason: "equivalent: Prism::Node exposes start_offset directly (the codebase calls it without the hop elsewhere), so dropping the location hop calls the same method"
+             reason: "equivalent on every supported Prism (>= 1.2, the gemspec range - operand_replacement.rb:39 already calls "
+                      "Node#start_offset directly): the location hop calls the same method"
 
   i.mutation "c86d5a883ca1fd49",
              subject: "Saboteur::MutationSource::HazardGuard#vet_statements",

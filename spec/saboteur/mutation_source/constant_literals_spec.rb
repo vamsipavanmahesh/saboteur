@@ -80,6 +80,17 @@ RSpec.describe Saboteur::MutationSource::ConstantLiterals, "arid and selection e
   # the map on @arid swapped to each, raw strings reach String#match? and
   # the two swap roles - which stays invisible while the pattern's own text
   # contains the entry, so this entry must not quote the pattern verbatim.
+  # file_source is a binread: with a binary magic comment a literal can
+  # carry bytes no UTF-8 regexp may judge. The match must not crash the
+  # run - unjudgeable bytes are kept, not treated as arid.
+  it "keeps mutants whose entry bytes a UTF-8 arid pattern cannot judge" do
+    file = File.join(@root, "constants.rb")
+    File.binwrite(file, "# encoding: binary\nNAMES = [\"caf\xE9\", \"tea\"]\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    source = described_class.new(arid: ["caf\u00E9"])
+    expect(source.mutations_for(subject).size).to eq(2)
+  end
+
   it "matches arid patterns against the entry source, not the other way around" do
     subject = constant_subject("LEVELS = { level: default_logger.level, plain: 1 }.freeze\n")
     source = described_class.new(arid: ["logger"])
