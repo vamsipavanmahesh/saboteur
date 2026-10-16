@@ -208,6 +208,21 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).to include(".Accepted,.Triage_accepted_equivalent{", ".Triage_wont_fix{", ".Triage_todo{")
   end
 
+  # The status badge sits in front of the triage badge: dropping either
+  # interpolation must break this pin (#304 dogfood).
+  it "pins the full status + triage badge row (#304 dogfood)" do
+    legacy = result_for(:survived, replacement: "==")
+    legacy.ignored = "equivalent"
+    wont_fix = result_for(:survived, replacement: "<")
+    wont_fix.ignored = "legacy"
+    wont_fix.triage_state = "wont_fix"
+    page = described_class.build(report_of(legacy, wont_fix))
+    expect(page).to include(
+      %(<span class="status Survived">Survived</span> <span class="status Accepted">Accepted</span>),
+      %(<span class="status Survived">Survived</span> <span class="status Triage_wont_fix">Won’t fix</span>)
+    )
+  end
+
   it "badges a wont_fix triage separately from accepted_equivalent (#155)" do
     accepted = result_for(:survived, replacement: "==")
     accepted.ignored = "equivalent"

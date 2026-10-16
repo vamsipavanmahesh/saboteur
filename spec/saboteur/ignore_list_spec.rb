@@ -138,6 +138,28 @@ RSpec.describe Saboteur::IgnoreList do
       .to raise_error(RuntimeError, "Saboteur.ignore is only valid while config/saboteur_ignore.rb loads")
   end
 
+  # A blank state is a pre-triage entry: it accepts (#304 dogfood).
+  it "treats a blank state as accepted_equivalent" do
+    with_file(entry_for("abc123", state: "")) do |path|
+      expect(described_class.load(path).entries.first.state).to eq("accepted_equivalent")
+    end
+  end
+
+  it "rejects an unknown state with the line, the state, and the valid states" do
+    with_file(entry_for("abc123", state: "later")) do |path|
+      expect { described_class.load(path) }.to raise_error(
+        Saboteur::Error,
+        /#{Regexp.escape(path)}:2: unknown state "later" - use one of accepted_equivalent, wont_fix, todo/
+      )
+    end
+  end
+
+  it "strips whitespace around the reason" do
+    with_file(entry_for("abc123", reason: "  equivalent  ")) do |path|
+      expect(described_class.load(path).entries.first.reason).to eq("equivalent")
+    end
+  end
+
   it "pins the full missing-reason message" do
     content = <<~RUBY
       Saboteur.ignore do |i|
