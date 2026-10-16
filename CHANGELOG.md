@@ -6,6 +6,178 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-16
+
+### Upgrade notes
+- Inferred test selection is now the default. Use `--all` or
+  `c.test_selection = :all` to keep the 0.6.0 whole-suite behavior; use
+  `--test` to name specs explicitly. Missing inferred specs stop before
+  boot with exit 2. `--guess-tests` is now a deprecated alias for the
+  default; `--no-guess-tests` warns and is ignored.
+- Three new default-on operators change the mutation set, runtime and
+  scores. Review survivor baselines and CI thresholds after upgrading;
+  use `--exclude-operators` to omit operators you do not want.
+- Harness integrations should handle budget-exhausted runs (exit 4),
+  unverified mutants outside the score, and explicit JSON report write
+  failures (exit 3). In agent mode, exit codes remain verdict-driven;
+  budget exhaustion appears in `incomplete[]` and `earlyStop` instead.
+  `--max-duration-ok` does not certify an unscored run.
+
+### Changed
+- Breaking: inferred test selection is now the default. Without `--test`,
+  a run picks the spec named after each mutated file and runs only those
+  for the baseline passes, the coverage pass and every mutant, as `--test`
+  would; with `--since` only the changed files count. A file that needs a
+  spec and has none now stops the run before it boots (exit 2) and names
+  both ways out, instead of silently running the whole suite. Use `--all`
+  or `c.test_selection = :all` to keep the old whole-suite behavior.
+  `--guess-tests` is a deprecated alias for the default and
+  `--no-guess-tests` warns and is ignored; both flags disappear in a
+  future release (#270). A `--subject` run infers only from the named
+  subjects' files, so an unrelated spec-less file no longer stops a
+  one-method run. The unmatched-file guidance names the expected specs
+  and tells you to re-run the same command with `--test` followed by your
+  existing spec paths, or to append `--all`, instead of printing a
+  reconstructed command. `--test` may stand alone (the configured include
+  names the sources), so agent rerun/replay commands stay executable; a
+  whole-suite `--all` run is recorded in the agent provenance only when
+  no tests resolved, so a configured `:all` combined with named tests
+  still produces runnable follow-up commands. Baseline evidence is
+  fingerprinted from the declared config before inference narrows the
+  test list, so `baseline propose` and `baseline check` agree again
+  (#275). Two stale ignore-list entries for
+  `Saboteur::CLI#define_execution_options` are gone: full runs no longer
+  generate those description-string mutants, so the entries could never
+  match again.
+  A `--subject` run combined with `--since` now infers specs only for
+  named subjects inside the diff scope: an unchanged subject file, one
+  whose changes sit in other methods, or one with a comment-only change
+  no longer stops the run before boot. Agent provenance records tests
+  defined in the config file, so rerun and replay commands keep their
+  scope instead of falling back to inference.
+- Report-artifact write semantics (#296): a failed HTML report or score
+  history write now warns and lets the run exit by its results, so a
+  read-only tree (a sandboxed child holding the project read-only) no
+  longer turns a good run into a tool failure. An explicitly requested
+  JSON report (`--json` / `c.json_report`) instead fails the run with
+  exit 3 - it is the completion evidence an outer harness trusts, and a
+  warning could leave a stale or partial file presented as this run's.
+  The default `.saboteur/report.json` stays best-effort. Score-history
+  soft failures are narrowed to the write's own IO errors; validation,
+  integrity, record-size and lock failures stay hard errors.
+- Crash-log fallback hardening (#296): when the cache dir cannot hold
+  `internal-error.log`, the fallback in the system temp dir is created
+  privately (`O_EXCL | O_NOFOLLOW`, mode 0600) instead of following or
+  overwriting a pre-existing path. The pid-keyed fallback path is only
+  computed after the primary write fails. Every crash log is now written private (0600) through a
+  no-follow, non-blocking open - a planted symlink cannot redirect the
+  write and a planted FIFO cannot block it - and the runner reads it
+  back the same way, accepting only a regular file owned by the same uid
+  with no group/other bits. Where the platform lacks `O_NOFOLLOW` or
+  `O_NONBLOCK`, the primary log and the excerpt are omitted rather than
+  opened unsafely; the `O_EXCL`-created temp fallback stays safe and can
+  still be written. The appended
+  excerpt is scrubbed to valid UTF-8 and labelled as freshness-matched,
+  not certainly that run's.
+
+### Added
+- Dogfood/mutation diagnostics (#296): a rejected kill now reports why the
+  killing test failed with the method unchanged - the exception class, its
+  message and up to five backtrace frames, bounded to 2000 chars -
+  instead of only the first line ("expected: 0"). Filtering frames whose
+  paths contain `/gems/rspec` prioritizes project frames; the message and
+  frame limits do not guarantee that the failing spec line survives.
+  The terminal report
+  prints the detail as indented continuation lines and the JSON report's
+  `statusReason` keeps every line; one-line reasons are unchanged. An `unverified` verdict also keeps the runner's own
+  reason (for example "the --max-duration budget is spent") rather than a
+  generic one.
+- Nested-run crash surfacing (#296): a spec that runs saboteur itself (the
+  dogfood's own cli_spec) crashes the nested CLI as exit 3, and the crash
+  lands in the run's internal-error.log. A child whose tests wrote a fresh
+  log appends its first lines to the failure detail, so a verdict check's
+  rejection includes crash context instead of only the exit-code diff.
+  The excerpt is freshness-matched and may be from another run; it is
+  not proof that this nested run wrote the log.
+- `--max-duration` budget-exhaustion semantics (#296): a verdict check or
+  timeout calibration the budget cannot admit is skipped rather than run
+  with a zero-length timeout, so genuine kills are no longer misclassified
+  as errors and cached. Admission is per check and per sequence: a check
+  admitted with time left that hits its budget-shortened cap mid-check is
+  `unverified`, not a rejected kill, later sequences never fork once the
+  budget is spent, and unverified verdicts are never cached. Affected
+  mutants report as `unverified` - outside the score - the early stop
+  lists their subjects (`unverifiedSubjects` in the JSON report), and the
+  CLI run exits 4 unless `--max-duration-ok` is set. Agent mode remains
+  verdict-driven and records the budget in `incomplete[]` and `earlyStop`.
+  Baseline checks and the coverage map build are now capped
+  at the time left in the budget, and the early-stop reason comes from the
+  actual truncation state, so mid-subject budget stops report
+  `max_duration` even with `--fail-fast`. Agent output names unverified
+  mutants in `incomplete[]`, and `--max-duration-ok` only passes a run
+  whose verified verdicts (kills, survivors, timeouts) can carry a score.
+- `saboteur pr [REF]` and `saboteur audit` presets: opinionated bundles of
+  existing flags - the PR loop (changed lines since REF, one baseline
+  check, a ten-minute budget with `--max-duration-ok`) and the audit
+  preset (`--all`, all operators, two baseline checks, JSON and HTML
+  reports). The PR preset opts out of the budget-specific exit 4, not
+  normal or incomplete verdict failures. The audit keeps configured
+  `since`, subjects, exclusions and budgets; explicit tests replace its
+  injected `--all`. The run prints the expansion up front and explicit
+  flags override it (#244).
+- `--max-duration` (config `max_duration`, e.g. `10m`) budgets the whole
+  run, baselines included: past the budget the run stops before the next
+  subject, reports which selected subjects never ran, marks the JSON and
+  agent output partial, and exits 4 in ordinary CLI mode;
+  `--max-duration-ok` leaves the exit to the plain verdict (which can
+  still fail the run). Agent exits remain verdict-driven, with budget
+  exhaustion in `incomplete[]` and `earlyStop`. Works with
+  `--jobs` by halting the worker pool (#245).
+- `baseline_passes` (config and `--baseline-passes`) sets how many times the
+  unchanged suite runs before mutation (default 2). `1` is the fast PR
+  loop; the run announces that it gives up the order-stability
+  comparison between passes, and the whole-suite cost message counts
+  the configured checks (#55).
+- Usability fixes from 0.5.0 field feedback: an unscoped whole-suite run
+  announces the example count and the real number of full passes before
+  the first one (a cached map counts as reused only when it loads clean)
+  and estimates the remaining baseline and coverage time once the first
+  baseline pass is timed; past 1,000 examples it also names `--test` as
+  the way to scope (#260). The Next steps footer prints the complete,
+  shell-safe replay command carrying the run's own selection options
+  and the CLI-only switches that change candidate availability or boot,
+  in full however long it gets, instead of asking you to reassemble
+  them (#261). `--verbose` prints one line per finished subject with its
+  result marks, so a survivor is attributable to a method before the run
+  ends (#262). The threads-alive-at-fork warning says why the two known
+  threads are expected harmless, and under which conditions, and what an
+  unknown thread can break (#263). A `chain_removal` survivor's hint
+  appends a conditional equivalence note: if the shorter chain proves
+  equivalent across the intended inputs, simplify or ignore (#264).
+- Three new default-on operators: `method_swap` swaps a method with its
+  semantic opposite (`min`/`max`, `any?`/`all?`, `map`/`each`; a receiver
+  is required, so bare `max(a, b)` is untouched) (#237),
+  `operand_replacement` replaces an arithmetic or comparison operation
+  with each operand in turn (`a + b` yields `a` and `b`; boolean
+  connectors stay with `boolean_logic`) (#238), and
+  `interpolation_removal` removes each `#{expr}` and each literal segment
+  of an interpolated string (#239). The hazard guard now also recognizes
+  `send`, `public_send` and `__send__` with a literal symbol or string
+  selector and applies the same checks as for the direct call to the
+  resolved selector, with the arguments shifted past it: a destructive
+  method name on any receiver (`helper.send(:rmtree, path)`), the
+  configured hazard patterns, `Kernel#system` / `Process#spawn`, and
+  `Kernel#open` with a "| command" argument all stay suppressed. Dynamic
+  selectors stay out of scope as documented (#240).
+- `--since` warns when a changed Ruby file in scope has no subjects
+  covering the changed lines, so nothing is mutated from it (#232). A
+  silent zero-subject scope used to pass as a clean run. Comment-only or
+  formatting-only changes within discovered methods are skipped without
+  this warning; the run reports those skipped methods. `--since` also
+  warns when a changed Ruby file is covered by an include pattern but
+  removed by `c.exclude`, naming up to five such files, so a too-wide
+  exclude can no longer dogfood as a clean empty scope (#282).
+
 ### Fixed
 - `--since` no longer skips untracked files silently (#295): a never-committed
   source file is invisible to `git diff`, so it used to contribute no changed
@@ -17,7 +189,7 @@ All notable changes are documented here. The format follows
   only files inside the configured `include` set are considered, so a large
   unrelated untracked file is never opened. Each unioned file is opened
   `O_NOFOLLOW`/`O_NONBLOCK` and validated on that descriptor (a swapped-in
-  symlink or FIFO is skipped quietly), the binary sniff reads only the first
+  symlink or FIFO is rejected and reported as unreadable), the binary sniff reads only the first
   few kilobytes, and the map holds a range of lines instead of one entry per
   line, keeping memory bounded. On platforms without those open flags the
   union is skipped with a warning.
@@ -42,108 +214,13 @@ All notable changes are documented here. The format follows
   union produces are now geometric, so subject selection, test guessing and
   survivor ranking answer in O(1) per subject instead of scanning one entry
   per line of a large new file (#297).
-
-### Changed
-- Report-artifact write semantics (#296): a failed HTML report or score
-  history write now warns and lets the run exit by its results, so a
-  read-only tree (a sandboxed child holding the project read-only) no
-  longer turns a good run into a tool failure. An explicitly requested
-  JSON report (`--json` / `c.json_report`) instead fails the run with
-  exit 3 - it is the completion evidence an outer harness trusts, and a
-  warning could leave a stale or partial file presented as this run's.
-  The default `.saboteur/report.json` stays best-effort. Score-history
-  soft failures are narrowed to the write's own IO errors; validation,
-  integrity, record-size and lock failures stay hard errors.
-- Crash-log fallback hardening (#296): when the cache dir cannot hold
-  `internal-error.log`, the fallback in the system temp dir is created
-  privately (`O_EXCL | O_NOFOLLOW`, mode 0600) instead of following a
-  predictable path, and it is only computed after the primary write
-  fails. Every crash log is now written private (0600) through a
-  no-follow, non-blocking open - a planted symlink cannot redirect the
-  write and a planted FIFO cannot block it - and the runner reads it
-  back the same way, accepting only a regular file owned by the same uid
-  with no group/other bits. Where the platform lacks `O_NOFOLLOW` or
-  `O_NONBLOCK`, the primary log and the excerpt are omitted rather than
-  opened unsafely; the `O_EXCL`-created temp fallback stays safe and can
-  still be written. The appended
-  excerpt is scrubbed to valid UTF-8 and labelled as freshness-matched,
-  not certainly that run's.
-
-### Added
-- Dogfood/mutation diagnostics (#296): a rejected kill now reports why the
-  killing test failed with the method unchanged - the exception class, its
-  full message and the first backtrace frames, bounded to 2000 chars -
-  instead of only the first line ("expected: 0"). Frames inside rspec's own
-  gems are dropped first, so the cap keeps the project frame that names the
-  failing spec line. The terminal report
-  prints the detail as indented continuation lines and the JSON report's
-  `statusReason` keeps every line; one-line reasons are unchanged. An `unverified` verdict also keeps the runner's own
-  reason (for example "the --max-duration budget is spent") rather than a
-  generic one.
-- Nested-run crash surfacing (#296): a spec that runs saboteur itself (the
-  dogfood's own cli_spec) crashes the nested CLI as exit 3, and the crash
-  lands in the run's internal-error.log. A child whose tests wrote a fresh
-  log appends its first lines to the failure detail, so a verdict check's
-  rejection names the nested crash instead of only the exit-code diff.
-- `--max-duration` budget-exhaustion semantics (#296): a verdict check or
-  timeout calibration the budget cannot admit is skipped rather than run
-  with a zero-length timeout, so genuine kills are no longer misclassified
-  as errors and cached. Admission is per check and per sequence: a check
-  admitted with time left that hits its budget-shortened cap mid-check is
-  `unverified`, not a rejected kill, later sequences never fork once the
-  budget is spent, and unverified verdicts are never cached. Affected
-  mutants report as `unverified` - outside the score - the early stop
-  lists their subjects (`unverifiedSubjects` in the JSON report), and the
-  run exits 4. Baseline checks and the coverage map build are now capped
-  at the time left in the budget, and the early-stop reason comes from the
-  actual truncation state, so mid-subject budget stops report
-  `max_duration` even with `--fail-fast`. Agent output names unverified
-  mutants in `incomplete[]`, and `--max-duration-ok` only passes a run
-  whose verified verdicts (kills, survivors, timeouts) can carry a score.
-
-### Fixed
 - A baseline check or coverage map build that hit only its
   budget-shortened timeout failed the run as a suite error (exit 3) with
   no partial report; it now reports budget exhaustion with every selected
-  subject unreached and exits 4 (#296).
+  subject unreached and exits 4 in ordinary CLI mode unless
+  `--max-duration-ok` is set; agent exits remain verdict-driven (#296).
 - The unscoped-suite warning pluralizes zero baseline checks correctly
   ("0 baseline checks", not "0 baseline check") (#296).
-
-### Added
-- `saboteur pr [REF]` and `saboteur audit` presets: opinionated bundles of
-  existing flags - the PR loop (changed lines since REF, one baseline
-  check, a ten-minute non-failing budget) and the full audit (whole
-  project, whole suite, JSON and HTML reports). The run prints the
-  expansion up front and explicit flags override it (#244).
-- `--max-duration` (config `max_duration`, e.g. `10m`) budgets the whole
-  run, baselines included: past the budget the run stops before the next
-  subject, reports which selected subjects never ran, marks the JSON and
-  agent output partial, and exits 4; `--max-duration-ok` leaves the exit
-  to the plain verdict (which can still fail the run). Works with
-  `--jobs` by halting the worker pool (#245).
-- `baseline_passes` (config and `--baseline-passes`) sets how many times the
-  unchanged suite runs before mutation (default 2). `1` is the fast PR
-  loop; the run announces that it gives up the order-stability
-  comparison between passes, and the whole-suite cost message counts
-  the configured checks (#55).
-- Usability fixes from 0.5.0 field feedback: an unscoped whole-suite run
-  announces the example count and the real number of full passes before
-  the first one (a cached map counts as reused only when it loads clean)
-  and estimates the remaining baseline and coverage time once the first
-  baseline pass is timed; past 1,000 examples it also names `--test` as
-  the way to scope (#260). The Next steps footer prints the complete,
-  shell-safe replay command carrying the run's own selection options
-  and the CLI-only switches that change candidate availability or boot,
-  in full however long it gets, instead of asking you to reassemble
-  them (#261). `--verbose` prints one line per finished subject with its
-  result marks, so a survivor is attributable to a method before the run
-  ends (#262). The threads-alive-at-fork warning says why the two known
-  threads are expected harmless, and under which conditions, and what an
-  unknown thread can break (#263). A `chain_removal` survivor's hint
-  appends a conditional equivalence note: if the shorter chain proves
-  equivalent across the intended inputs, simplify or ignore (#264).
-
-### Fixed
 - Review hardening for the 0.5.0 loop flags (#245): the `--max-duration`
   clock starts when the run starts (boot, baselines and the coverage map
   all spend the budget) and is checked before dispatching every subject,
@@ -234,41 +311,6 @@ All notable changes are documented here. The format follows
   hazard guard suppresses such mutants and reports the hazard (#234).
 - An extensionless `hooks` path now boots: it resolves its `.rb` at load
   time, the way `require` does and matching what doctor accepts (#267).
-
-### Changed
-- Breaking: inferred test selection is now the default. Without `--test`,
-  a run picks the spec named after each mutated file and runs only those
-  for the baseline passes, the coverage pass and every mutant, as `--test`
-  would; with `--since` only the changed files count. A file that needs a
-  spec and has none now stops the run before it boots (exit 2) and names
-  both ways out, instead of silently running the whole suite. Use `--all`
-  or `c.test_selection = :all` to keep the old whole-suite behavior.
-  `--guess-tests` is a deprecated alias for the default and
-  `--no-guess-tests` warns and is ignored; both flags disappear in a
-  future release (#270). A `--subject` run infers only from the named
-  subjects' files, so an unrelated spec-less file no longer stops a
-  one-method run. The unmatched-file guidance names the expected specs
-  and tells you to re-run the same command with `--test` followed by your
-  existing spec paths, or to append `--all`, instead of printing a
-  reconstructed command. `--test` may stand alone (the configured include
-  names the sources), so agent rerun/replay commands stay executable; a
-  whole-suite `--all` run is recorded in the agent provenance only when
-  no tests resolved, so a configured `:all` combined with named tests
-  still produces runnable follow-up commands. Baseline evidence is
-  fingerprinted from the declared config before inference narrows the
-  test list, so `baseline propose` and `baseline check` agree again
-  (#275). Two stale ignore-list entries for
-  `Saboteur::CLI#define_execution_options` are gone: full runs no longer
-  generate those description-string mutants, so the entries could never
-  match again.
-  A `--subject` run combined with `--since` now infers specs only for
-  named subjects inside the diff scope: an unchanged subject file, one
-  whose changes sit in other methods, or one with a comment-only change
-  no longer stops the run before boot. Agent provenance records tests
-  defined in the config file, so rerun and replay commands keep their
-  scope instead of falling back to inference.
-
-### Fixed
 - Fixed two encoding failures in mutant children running under a non-UTF-8
   locale such as `LANG=C` (seen on CI, where the Landlock sandbox engages):
   the inherited-fd sweep compared a locale-tagged descriptor target against
@@ -284,9 +326,9 @@ All notable changes are documented here. The format follows
 - Fixed `--guess-tests` falling back to the whole suite when a changed
   file has no mutation subjects on its changed lines, such as a deletion
   whose remaining context is blank or comment lines or a comment-only
-  change: such files no longer require a guessed spec. And when some
-  changed files still have no spec named after them, the run now narrows
-  to the specs it found and warns, instead of running the whole suite.
+  change: such files no longer require a guessed spec. A changed file
+  that does need a spec but has none now stops before boot with exit 2,
+  matching the default-inference policy above (#275).
   Guesses come only from files with a changed mutation subject, and when
   no changed file has one the run reports that there is nothing to mutate
   (fixes #268).
@@ -304,32 +346,6 @@ All notable changes are documented here. The format follows
   preserve path bytes rather than replacing invalid UTF-8 bytes; the
   cache, coverage-map and worker-message boundaries reject invalid UTF-8
   instead of rewriting it.
-
-### Added
-- Three new default-on operators: `method_swap` swaps a method with its
-  semantic opposite (`min`/`max`, `any?`/`all?`, `map`/`each`; a receiver
-  is required, so bare `max(a, b)` is untouched) (#237),
-  `operand_replacement` replaces an arithmetic or comparison operation
-  with each operand in turn (`a + b` yields `a` and `b`; boolean
-  connectors stay with `boolean_logic`) (#238), and
-  `interpolation_removal` removes each `#{expr}` and each literal segment
-  of an interpolated string (#239). The hazard guard now also recognizes
-  `send`, `public_send` and `__send__` with a literal symbol or string
-  selector and applies the same checks as for the direct call to the
-  resolved selector, with the arguments shifted past it: a destructive
-  method name on any receiver (`helper.send(:rmtree, path)`), the
-  configured hazard patterns, `Kernel#system` / `Process#spawn`, and
-  `Kernel#open` with a "| command" argument all stay suppressed. Dynamic
-  selectors stay out of scope as documented (#240).
-- `--since` warns when a changed Ruby file in scope has no subjects
-  covering the changed lines, so nothing is mutated from it (#232). A
-  silent zero-subject scope used to pass as a clean run. Comment-only or
-  formatting-only changes within discovered methods are skipped without
-  this warning; the run reports those skipped methods. `--since` also
-  warns when a changed Ruby file is covered by an include pattern but
-  removed by `c.exclude`, naming up to five such files, so a too-wide
-  exclude can no longer dogfood as a clean empty scope (#282).
-### Fixed
 - An unexpected internal error now prints `saboteur: internal error (...)
   - please report it` and exits 3, instead of escaping as a bare stack
   trace with an accidental exit 1. The crash message is normalized to one
@@ -354,9 +370,8 @@ All notable changes are documented here. The format follows
   the installer's Gemfile and `.gitignore` probes (`.gitignore` is
   rewritten losslessly), and the JSON reads in the test helpers.
 - CI now runs the suite on Ubuntu Ruby 3.4 with `LANG=C` and `LC_ALL=C`
-  to catch locale regressions exercised by the tests. The job is advisory
-  for now: it is not part of the required-check policy, and whether it
-  gates is a separate maintainer decision.
+  to catch locale regressions exercised by the tests. The panel gate's
+  required-check policy includes this job (#281).
 
 ## [0.6.0] - 2026-10-14
 
