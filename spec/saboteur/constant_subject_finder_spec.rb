@@ -370,3 +370,50 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "qualified-write identity (#319 
     expect(parsed.unsupported.map(&:id).sort).to eq(["Shop::RULES", "Shop::RULES"])
   end
 end
+
+RSpec.describe Saboteur::ConstantSubjectFinder, "unrooted qualified writes (#319 round 2)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def find(text)
+    file = File.join(@root, "sample.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file)
+  end
+
+  # An unrooted `Shop::RULES` inside `module Outer; module Shop` resolves
+  # lexically to Outer::Shop::RULES, so it may overwrite the bare write's
+  # constant even though the written slice names a different id.
+  it "demotes the literal an unrooted qualified write may overwrite" do
+    parsed = find("module Outer\n  module Shop\n    RULES = [:a, :b]\n    Shop::RULES = [:c]\n  end\nend\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:id)).to include("Outer::Shop::RULES", "Shop::RULES")
+    expect(parsed.unsupported.find { |u| u.id == "Outer::Shop::RULES" }.reason)
+      .to eq("an unrooted qualified write may overwrite it")
+  end
+
+  # Same shape with the shortest nesting names.
+  it "demotes the literal for a single-letter nesting" do
+    parsed = find("module A\n  module B\n    RULES = [:a]\n    B::RULES = [:b]\n  end\nend\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:id)).to include("A::B::RULES", "B::RULES")
+  end
+
+  # The write sits one scope out from the literal and still resolves to it.
+  it "demotes the nested literal the outer unrooted write may overwrite" do
+    parsed = find("module Shop\n  module Inner\n    RULES = [:a]\n  end\n  Inner::RULES = [:b]\nend\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:id)).to include("Shop::Inner::RULES", "Inner::RULES")
+  end
+
+  # A rooted target is absolute, so the nested lexical constant is safe.
+  it "keeps the nested literal when the qualified write is rooted" do
+    parsed = find("module Shop\n  module Inner\n    RULES = [:a]\n  end\n  ::Inner::RULES = [:b]\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Shop::Inner::RULES"])
+    expect(parsed.unsupported.map(&:id)).to eq(["Inner::RULES"])
+  end
+end

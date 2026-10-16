@@ -47,9 +47,10 @@ module Saboteur
       return Parsed.new(subjects: [], unsupported: [], errors: result.errors.map(&:message)) if result.failure?
 
       ctx = { file: file, source: source, frozen: frozen_literals?(result) }
-      out = { subjects: [], unsupported: [] }
+      out = { subjects: [], unsupported: [], ambiguous: [] }
       walk(result.value, [], out, **ctx)
       reject_duplicates(out, **ctx)
+      demote_ambiguous(out, **ctx)
       Parsed.new(subjects: out[:subjects], unsupported: out[:unsupported], errors: [])
     end
 
@@ -175,20 +176,41 @@ module Saboteur
     end
 
     def record_unsupported(out, node, nesting, reason, **ctx)
-      # A bare target takes the lexical owner. A qualified target names its
-      # constant absolutely: "::RULES" is RULES anywhere, and "Shop::RULES"
-      # resolves through the lexical scope, so the written slice (minus a
-      # leading ::) is the identity and the owner does not prefix it.
-      # Over-matching a duplicate only demotes both writes to unsupported.
+      # A bare target takes the lexical owner. A ROOTED qualified target names
+      # its constant absolutely ("::RULES" is RULES anywhere). An UNROOTED one
+      # resolves through the lexical scope: "Shop::RULES" inside
+      # `module Outer; module Shop` writes Outer::Shop::RULES. Every id on the
+      # write's scope chain is a candidate, so each goes on the ambiguous list
+      # for demotion after the walk; over-matching only demotes a subject.
       if node.respond_to?(:name)
         name = node.name
         owner = owner_path(nesting)
       else
         name = node.target.slice.sub(/\A::/, "")
         owner = nil
+        unless node.target.slice.start_with?("::")
+          nesting.length.downto(0) do |depth|
+            prefix = owner_path(nesting[0...depth])
+            out[:ambiguous] << (prefix ? "#{prefix}::#{name}" : name)
+          end
+        end
       end
       out[:unsupported] << Unsupported.new(name: name, owner: owner, file: ctx[:file],
                                            node: node, reason: reason)
+    end
+
+    # A subject whose id an unrooted qualified write may resolve to cannot be
+    # mutated safely: replaying the file lets that write overwrite it.
+    def demote_ambiguous(out, **ctx)
+      return if out[:ambiguous].empty?
+
+      poisoned = out[:subjects].select { |subject| out[:ambiguous].include?(subject.id) }
+      out[:subjects] -= poisoned
+      poisoned.each do |subject|
+        out[:unsupported] << Unsupported.new(name: subject.name, owner: subject.owner, file: ctx[:file],
+                                             node: subject.node,
+                                             reason: "an unrooted qualified write may overwrite it")
+      end
     end
 
     # Lexical path of the enclosing class/module, or nil at the top level.

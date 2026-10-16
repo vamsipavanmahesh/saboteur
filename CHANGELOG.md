@@ -89,10 +89,13 @@ All notable changes are documented here. The format follows
 - Constant replay hardening from the #319 lens review: `require` and
   `require_relative` count as vetted load code only with a plain
   literal-string argument and no block, so `require(build_path)` no longer
-  reruns helper code on every mutant; rooted and qualified constant writes
-  (`::RULES`, `Shop::RULES`, `::Shop::RULES`) share one identity with the
-  bare write, so a re-assigning write demotes the first literal to
-  unsupported instead of leaving it scored; the --all consumer scan reads
+  reruns helper code on every mutant; rooted constant writes (`::RULES`,
+  `::Shop::RULES`) share one identity with the bare write, and an
+  unrooted qualified write (`Shop::RULES`) resolves through the lexical
+  scope, so it demotes every literal on its scope chain it may overwrite
+  (`Shop::RULES` inside `module Outer; module Shop` overwrites
+  `Outer::Shop::RULES`); either way a re-assigning write demotes the
+  first literal to unsupported instead of leaving it scored; the --all consumer scan reads
   the configured integration's loaded spec files instead of guessing the
   conventional spec tree; and an arid pattern that cannot judge an entry's
   bytes (binary source against a UTF-8 pattern) keeps the mutant instead
