@@ -67,6 +67,7 @@ module Saboteur
       "max_duration" => nil,
       "max_duration_ok" => false,
       "tests" => [],
+      "test_command" => nil,
       "fingerprint_extra" => [],
       "threshold" => nil,
       "max_timeouts" => nil,
@@ -270,6 +271,24 @@ module Saboteur
       raise ConfigError, "test_selection must be one of: auto, all"
     end
 
+    # --test-command replaces the whole in-process machinery, on the
+    # EFFECTIVE config: CLI flags and config-file entries alike (#305).
+    # The command runs unsandboxed, so "strict" cannot be honored.
+    def validate_test_command!
+      command = self["test_command"]
+      # nil alone means unset: false, arrays and numbers are all rejected,
+      # never coerced and never sent to String methods (#305 QA).
+      raise ConfigError, "test_command must be a string" unless command.nil? || command.is_a?(String)
+      raise ConfigError, "test_command must not be blank" if command&.strip&.empty?
+
+      return if command.to_s.empty?
+      raise ConfigError, "test_command cannot be combined with tests" unless self["tests"].empty?
+      raise ConfigError, "test_command cannot be combined with incremental" if self["incremental"]
+      return unless self["sandbox"] == "strict"
+
+      raise ConfigError, 'test_command runs the command unsandboxed, so sandbox "strict" cannot be honored'
+    end
+
     def validate_reeval!
       raise ConfigError, "reeval must be one of: #{Execution::Reevaluator::STRATEGIES.join(', ')}" unless
         Execution::Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
@@ -292,6 +311,7 @@ module Saboteur
 
       validate_reeval!
       validate_operator_config!
+      validate_test_command!
     end
 
     public

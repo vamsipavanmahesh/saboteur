@@ -6,7 +6,38 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `--test-command` survivors no longer carry the `missing_test`
+  classification: the run's only recorded evidence is the pseudo-test id,
+  which is not real coverage (#305).
+
+### Fixed
+- `--test-command` on macOS no longer refuses every tree containing an
+  internal symlink: the disposable copy root is canonicalized before
+  symlink targets are judged against it (/var vs /private/var) (#305).
+
 ### Added
+- `--test-command CMD` / `c.test_command`: run an external command per
+  mutant and take its exit status as the verdict - for apps that cannot
+  load inside saboteur's Ruby. Serial, no coverage, unsandboxed. Mutants
+  are applied in a fresh disposable copy of the tree per execution - the
+  runner's own writes never touch the real files or follow symlinks - and
+  the command's process group is terminated on every exit path. One
+  budget-bounded neutral preflight checks the command on an untouched
+  copy before any mutant exists; the shell's 126/127 read as setup
+  errors, blank and non-string commands are rejected, and nested
+  saboteur runs are refused (#140, #305). The preflight runs under an
+  absolute deadline admitted after the tree copy, and a spent budget
+  stops the run as budget-exhausted rather than a command failure.
+  Internal symlinks are rebuilt as relative links inside the copy, so an
+  alias sees the mutant while nothing can link out; escaping or looping
+  links refuse the run. Copy and write failures become error outcomes
+  with bounded context instead of crashing the run. Output capture is a
+  bounded in-memory ring buffer, scrubbed to valid UTF-8 for reports,
+  and its drain is time-bounded so a session-escaped descendant holding
+  the pipe cannot stall the run. Subjects outside the project root are
+  refused.
 - Survivor classification labels in the JSON report (#192): each survivor
   carries `classification` - `likely_equivalent` when the mutant compiles
   to the original's instructions, `arid` when every line an edit touches

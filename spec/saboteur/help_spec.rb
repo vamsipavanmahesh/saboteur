@@ -144,6 +144,10 @@ RSpec.describe Saboteur::Help do
                                                                  "ignored - use --all for the whole suite")
   end
 
+  it "describes --test-command in the run help (#140)" do
+    expect(help.command("run")).to include("--test-command CMD", "exit 0 means the mutant survived")
+  end
+
   it "does not list options for a command that takes none" do
     expect(help.command("version")).not_to include("--since")
   end

@@ -18,6 +18,25 @@ end
 # re-evaluated unchanged; a timeout only if the unchanged method finishes in
 # time. So the scheduler re-runs the evidence, not the whole suite: a method
 # that every factory calls can have hundreds of tests and a handful of killers.
+RSpec.describe Saboteur::Engine::Scheduler, "verify_loaded guard (#305)" do
+  # External runner mode has no in-process loaded methods to guard, so the
+  # scheduler must not resolve owners or ask the reevaluator anything.
+  it "never touches the reevaluator when verify_loaded is false" do
+    reevaluator = instance_double(Saboteur::Execution::Reevaluator)
+    scheduler = described_class.new(config: Saboteur::Config.new({}),
+                                    runner: instance_double(Saboteur::Execution::Runner),
+                                    map: instance_double(Saboteur::Selection::CoverageMap),
+                                    reevaluator: reevaluator,
+                                    diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new),
+                                    verify_loaded: false)
+    subject = subjects_in("class K
+  def m = 1
+end
+").first
+    expect(scheduler.send(:load_problem, subject)).to eq([nil, nil])
+  end
+end
+
 RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
   let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
   let(:subject_under_test) { subjects_in("class SchedulerTarget\n  def m(a)\n    a + 1\n  end\nend\n").first }

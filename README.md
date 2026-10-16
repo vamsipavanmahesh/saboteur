@@ -354,6 +354,64 @@ default inference and `--no-guess-tests` warns and is ignored; use `--all` for
 the whole suite. `--all` cannot be combined with `--test` or `--guess-tests`,
 and `--guess-tests` cannot be combined with `--test`. Keep whole-project runs
 on main: diff mode does not check every method affected by a dependency change.
+
+### External test commands
+
+`--test-command CMD` (config `c.test_command`, #140) replaces the whole
+in-process test machinery: for each execution a fresh pristine copy of the
+project tree is materialized under the system tmp dir, the mutant is
+written into that copy - never your real files - and CMD runs there with
+the copy as its working directory. Neutral runs (baseline probes and
+verification re-runs) write the file's unchanged bytes, so a neutral copy
+is byte-identical to the pristine tree. The exit status decides the
+verdict: 0 survived, non-zero killed (except the shell's 126/127, which
+read as command/setup errors), the per-mutant deadline
+(`c.baseline_timeout`) a timeout. Use it when the target app cannot load
+inside saboteur's Ruby, for example an app pinned to an older Ruby.
+
+**Warning: CMD runs unsandboxed with your user permissions - full network
+access and every side effect it chooses, exactly as if you typed it into a
+shell.** Only point it at commands you trust. The per-execution copy is
+the only tree CMD is pointed at, and mutants are applied there, so nothing
+saboteur writes can reach the real tree - but the copy is not a jail, and
+a command that goes looking for your real files can still touch them.
+Symlinks are not followed into the real tree: a relative link that
+resolves inside the project is rebuilt inside the copy as a relative
+link, so requiring an alias sees the same - possibly mutated - content
+as the real path. A link that escapes the tree or loops is refused with
+an error naming the path, and so is an absolute link even when it points
+into the project: it resolves to the real tree, not the copy. Captured
+output is held in memory and capped at 64 KB.
+
+On every shutdown path saboteur terminates the command's whole process
+group, escalating from SIGTERM to SIGKILL, including on Ctrl-C. One case
+is outside that guarantee: if saboteur itself is SIGKILLed it cannot send
+those signals, so the group may keep running against the leftover copy,
+and the temp directory may not be cleaned up. Descendants that escaped
+the process group (setsid or daemonized) are outside that cleanup too:
+the run does not wait for them, but they keep running until they exit.
+Saboteur's own mutation writes still never touch the real tree - the
+leftover state lives only under the system tmp dir.
+
+The mode is explicitly slower: the whole command runs once per mutant, so
+a mutant count in the hundreds means hundreds of full suite runs, plus one
+recursive copy of the project per execution, mutant or neutral. It is
+serial, uses no coverage and no test selection, skips the baseline and
+the sandbox, applies no resource caps to the command, and cannot combine
+with `--test` or `--incremental` (config `tests:`/`incremental:` count
+too; `sandbox: "strict"` is rejected because it cannot be honored). Before
+any mutant is created, one neutral preflight runs CMD on the unchanged
+copy: a command that fails there fails the whole run up front with its
+exit status and captured output (exit 3). The preflight runs under an absolute
+deadline - whichever ends sooner, its own `c.baseline_timeout` slice or
+the overall run budget. The deadline bounds when the command is admitted
+and how long the run waits for it; the tree copy beforehand and the
+TERM/KILL grace and capture drain afterward are not charged to it. A
+budget already spent, or spent while waiting, is a budget stop, not a
+command failure. A blank `--test-command` is a
+config error. A saboteur run refuses to start inside CMD's own
+environment, so a test command that itself invokes saboteur cannot mutate
+the copy mid-run.
 [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 

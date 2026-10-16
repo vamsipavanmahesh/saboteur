@@ -257,6 +257,35 @@ RSpec.describe Saboteur::Config, "details" do
                                                                               /baseline_passes must be >= 1/)
   end
 
+  # --test-command replaces the in-process machinery, so conflicting
+  # settings are rejected on the EFFECTIVE config, wherever they came
+  # from (#305).
+  it "rejects test_command combined with tests, incremental, or strict sandbox" do
+    expect { described_class.new({ "test_command" => "make test", "tests" => ["spec/a_spec.rb"] }) }
+      .to raise_error(Saboteur::ConfigError, /test_command cannot be combined with tests/)
+    expect { described_class.new({ "test_command" => "make test", "incremental" => true }) }
+      .to raise_error(Saboteur::ConfigError, /test_command cannot be combined with incremental/)
+    expect { described_class.new({ "test_command" => "make test", "sandbox" => "strict" }) }
+      .to raise_error(Saboteur::ConfigError, /sandbox "strict" cannot be honored/)
+    expect(described_class.new({ "test_command" => "make test" })["test_command"]).to eq("make test")
+  end
+
+  it "rejects a non-string test_command (#305 Architect)" do
+    expect { described_class.new({ "test_command" => %w[make test] }) }
+      .to raise_error(Saboteur::ConfigError, /test_command must be a string/)
+    expect { described_class.new({ "test_command" => 42 }) }
+      .to raise_error(Saboteur::ConfigError, /test_command must be a string/)
+    expect { described_class.new({ "test_command" => false }) }
+      .to raise_error(Saboteur::ConfigError, /test_command must be a string/)
+  end
+
+  it "rejects a blank test_command instead of treating it as unset (#305 QA)" do
+    expect { described_class.new({ "test_command" => "" }) }
+      .to raise_error(Saboteur::ConfigError, /test_command must not be blank/)
+    expect { described_class.new({ "test_command" => "   " }) }
+      .to raise_error(Saboteur::ConfigError, /test_command must not be blank/)
+  end
+
   it "leaves max_duration unset by default and validates it when given (#245)" do
     expect(described_class.new({})["max_duration"]).to be_nil
     expect(described_class.new({})["max_duration_ok"]).to eq(false)

@@ -10,6 +10,10 @@ module Saboteur
       # A test suite that (perhaps only under a mutant) starts a saboteur run
       # would otherwise run saboteur inside a saboteur child, recursively.
       def self.refuse_recursion!
+        if ENV[Execution::ExternalRunner::CHILD_MARKER]
+          raise Error, "refusing to start: this process runs inside a saboteur external test command " \
+                       "(#{Execution::ExternalRunner::CHILD_MARKER} is set); a nested run could race its tree"
+        end
         return unless ENV[Execution::Supervisor::CHILD_ENV]
 
         raise Error, "refusing to start: this process is a saboteur child " \
