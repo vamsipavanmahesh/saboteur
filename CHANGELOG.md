@@ -7,6 +7,12 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Survivor classification labels in the JSON report (#192): each survivor
+  carries `classification` - `likely_equivalent` when the mutant compiles
+  to the original's instructions, `arid` when every line an edit touches
+  matches an arid pattern, `missing_test` when a test covered the line
+  and passed. Labels are heuristics for triage order only, never a
+  diagnosis: scores and the exit code never change.
 - Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
   when the cache dir is read-only, is occupied by a regular file, or holds an
   unwritable baseline log (#251).

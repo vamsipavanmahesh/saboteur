@@ -24,6 +24,32 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("files", "person.rb", "language")).to eq("ruby")
   end
 
+  it "labels survivors with their classification, and only survivors (#192)" do
+    covered = result_for(:survived, covered_by: %w[t1])
+    report = report_of(covered, result_for(:killed, covered_by: %w[t1]))
+    mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
+    expect(mutants.map { |m| m["classification"] }).to eq(["missing_test", nil])
+  end
+
+  it "builds valid JSON with multibyte source on and before the edited line (#192)" do
+    source = "class Person\n  # caf\u00e9\n  def tell(msg)\n    puts \"\u00e9 \#{msg}\"\n  end\nend\n"
+    dir = Dir.mktmpdir("saboteur-stryker-utf8-")
+    path = File.join(dir, "person.rb")
+    File.write(path, source)
+    subject = Saboteur::SubjectFinder.new.call(path).subjects.first
+    at = source.b.index("puts".b)
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 4,
+                                              replacement: "nil")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                      edits: [edit], coarse: false)
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(mutation.edits), covered_by: [])
+    report = Saboteur::Report.new(results: [result], subjects: [subject], wall_time: 1.0,
+                                  root: dir, seed: 1, operator_policy: Saboteur::Config.new({}).operator_policy)
+    mutant = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants").first
+    expect(mutant["classification"]).to eq("arid")
+  end
+
   it "carries the operator policy under the saboteur key" do
     expected = JSON.parse(JSON.generate(Saboteur::Config.new({}).operator_policy))
     expect(json.dig("saboteur", "operatorPolicy")).to eq(expected)
