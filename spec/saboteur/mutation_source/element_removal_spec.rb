@@ -52,8 +52,8 @@ RSpec.describe Saboteur::MutationSource::ElementRemoval do
     expect(texts("LIST = [<<~A, 2]\n  text\nA\n")).to eq(["LIST = [<<~A ]"])
   end
 
-  it "removes splat elements" do
-    expect(texts("LIST = [*A, 2]\n")).to eq(["LIST = [ 2]", "LIST = [*A ]"])
+  it "leaves splat elements intact" do
+    expect(texts("LIST = [*A, 2]\n")).to eq(["LIST = [*A ]"])
   end
 
   it "names the operator and source element_removal" do

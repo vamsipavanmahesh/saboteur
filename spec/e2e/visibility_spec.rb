@@ -32,6 +32,9 @@ RSpec.describe "visibility matrix (end to end)", :e2e do
     expect(mutants(run).map { |m| m["status"] } - %w[Killed Survived]).to be_empty
     expect(killed.map { |m| m["mutatorName"] }.uniq)
       .to contain_exactly("body_raise", "argument_removal", "chain_removal")
-    expect(mutants(run).size).to eq(92) # 68 + 24 operand_replacement (2 per value body)
+    # 68 + 24 operand_replacement (2 per value body) + 5 element_removal
+    # (one per element of run_hidden's array; the specs read no value, so
+    # they survive like the operand mutants).
+    expect(mutants(run).size).to eq(97)
   end
 end

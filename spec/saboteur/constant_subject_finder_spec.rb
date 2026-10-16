@@ -36,9 +36,38 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
     expect(subject.literal_node).to be_a(Prism::ArrayNode)
   end
 
-  it "looks through argument-free, block-free calls such as .freeze" do
-    parsed = find("N = [1].dup.freeze\n")
+  it "looks through .freeze calls" do
+    parsed = find("N = [1].freeze\n")
     expect(parsed.subjects.first.literal_node).to be_a(Prism::ArrayNode)
+  end
+
+  it "rejects a receiver chain that transforms the literal" do
+    parsed = find("N = [1].compact.freeze\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.first.reason).to include("not a hash or array literal")
+  end
+
+  it "skips a write guarded by if or unless" do
+    parsed = find("RULES = [:a] unless defined?(RULES)\nOTHER = [1] if flag\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:reason)).to eq(["guarded by a condition", "guarded by a condition"])
+  end
+
+  it "skips a write inside a block-form conditional" do
+    parsed = find("if flag\n  RULES = [:a]\nend\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.first.reason).to eq("guarded by a condition")
+  end
+
+  it "rejects a constant assigned twice in one file, both times" do
+    parsed = find("RULES = [:a]\nRULES = [:b]\n")
+    expect(parsed.subjects).to be_empty
+    expect(parsed.unsupported.map(&:reason).uniq).to eq(["assigned more than once in this file"])
+  end
+
+  it "keeps same-named constants in different scopes" do
+    parsed = find("module A\n  RULES = [:a]\nend\nmodule B\n  RULES = [:b]\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(%w[A::RULES B::RULES])
   end
 
   it "carries the frozen_string_literal magic comment" do
@@ -77,7 +106,7 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
     def read_lines(text, constant)
       file = File.join(@root, "reads.rb")
       File.write(file, text)
-      Saboteur::ConstantReads.across([file], constant)[file]
+      Saboteur::ConstantReads.across([file], constant)[file]&.runtime
     end
 
     let(:constant) do
@@ -110,6 +139,28 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
       top = find("RULES = { a: 1 }\n").subjects.first
       lines = read_lines("module Anywhere\n  def self.m = RULES\nend\n", top)
       expect(lines).to eq([2])
+    end
+
+    it "classifies statement-level reads as load and def or block reads as runtime" do
+      file = File.join(@root, "mixed.rb")
+      File.write(file, "COPY = RULES\ndef m = RULES\n3.times { RULES }\n")
+      top = find("RULES = { a: 1 }\n").subjects.first
+      reads = Saboteur::ConstantReads.across([file], top)[file]
+      expect(reads.load).to eq([1])
+      expect(reads.runtime).to eq([2, 3])
+      expect(reads.defs).to eq([2])
+    end
+
+    it "ignores reads shadowed by an inner scope's own constant" do
+      lines = read_lines("module Shop\n  class Inner\n    RULES = { b: 2 }\n    def own = RULES\n  end\nend\n",
+                         constant)
+      expect(lines).to be_nil
+    end
+
+    it "still matches the full path spelling under a shadowing scope" do
+      lines = read_lines("module Shop\n  class Inner\n    RULES = { b: 2 }\n    def outer = Shop::RULES\n  end\nend\n",
+                         constant)
+      expect(lines).to eq([4])
     end
   end
 end

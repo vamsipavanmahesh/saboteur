@@ -16,6 +16,11 @@ module Saboteur
       BOUNDARIES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode,
                     Prism::ParametersNode, Prism::BlockParametersNode].freeze
 
+      def initialize(arid: []) # rubocop:disable Lint/MissingSuper
+        # arid is accepted for parity with the other delegated sources;
+        # removing an array element never touches a call receiver.
+      end
+
       def name
         "element_removal"
       end
@@ -45,7 +50,10 @@ module Saboteur
       def remove_elements(node, subject, found, tokens)
         elements = node.elements
         elements.each_with_index do |element, index|
-          next if heredoc?(element)
+          # A splat's separator handling is fragile (`[*A, 2]` vs `[2, *A]`)
+          # and removing one can silently change what expands where; leave
+          # splats intact, like pair_removal does.
+          next if heredoc?(element) || element.is_a?(Prism::SplatNode)
 
           edits = [delete_entry(subject, element.location)]
           separator = entry_separator(elements, index, ending_for(node), tokens)

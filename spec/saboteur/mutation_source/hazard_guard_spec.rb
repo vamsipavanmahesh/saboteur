@@ -312,3 +312,26 @@ RSpec.describe Saboteur::MutationSource::HazardGuard do
     expect([kept.size, suppressed.size]).to eq([0, 1])
   end
 end
+
+RSpec.describe Saboteur::MutationSource::HazardGuard, "#load_time_hazards (#319)" do
+  def slices(text)
+    described_class.new.load_time_hazards(Prism.parse(text).value)
+  end
+
+  it "flags side-effecting top-level and class-body code" do
+    expect(slices("FileUtils.rm_rf(\"/tmp/x\")\nclass A\n  system(\"ls\")\nend\n"))
+      .to contain_exactly("FileUtils.rm_rf(\"/tmp/x\")", "system(\"ls\")")
+  end
+
+  it "ignores def bodies: they run when called, not at load" do
+    expect(slices("def clean\n  FileUtils.rm_rf(\"/tmp/x\")\nend\n")).to be_empty
+  end
+
+  it "flags a hazardous call inside a block that runs at load" do
+    expect(slices("3.times { system(\"ls\") }\n")).to eq(["system(\"ls\")"])
+  end
+
+  it "leaves a pure literal assignment alone" do
+    expect(slices("RULES = { a: 1 }.freeze\n")).to be_empty
+  end
+end

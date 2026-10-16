@@ -10,9 +10,12 @@ All notable changes are documented here. The format follows
 - `--since` mutates changed entries of constant hash and array literals:
   the assignments join the diff scope as subjects, `pair_removal` edits hash
   entries, the new default-on `element_removal` operator edits array
-  elements, and the tests are the specs covering a read of the constant.
-  Changed constant assignments of unsupported forms are named in the
-  diagnostics (#306).
+  elements (in methods too, so array literals grow mutant totals the way
+  hashes do), and the tests are the specs covering a read of the constant.
+  Unsupported forms (namespaced targets, `||=`/`&&=`, non-literal values,
+  condition-guarded or repeated writes), files with side-effecting code at
+  load, and constants only captured at load time elsewhere are named in the
+  diagnostics instead of being mutated or reported survived (#306).
 - Fault-injection e2e specs pin exit 3 with a clear, test-blame-free message
   when the cache dir is read-only, is occupied by a regular file, or holds an
   unwritable baseline log (#251).

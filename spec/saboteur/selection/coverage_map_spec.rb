@@ -290,3 +290,23 @@ RSpec.describe Saboteur::Selection::CoverageMap, "constant subjects (issue #306)
     expect(map.tests_for(subject)).to eq([])
   end
 end
+
+RSpec.describe Saboteur::Selection::CoverageMap, "constant reads in endless defs (#319)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  it "falls back to the def's method-call counter when the read has no line coverage" do
+    file = File.join(@root, "constants.rb")
+    File.write(file, "MAP = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(file).subjects.first
+    app = File.join(@root, "app.rb")
+    subject.consumer_lines = { app => [2] }
+    subject.consumer_defs = { app => [1] }
+    map = described_class.new(lines: {}, tests: %w[t1 t2], methods: { app => { 1 => %w[t2] } })
+    expect(map.tests_for(subject)).to eq(%w[t2])
+  end
+end

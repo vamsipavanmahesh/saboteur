@@ -43,6 +43,26 @@ module Saboteur
         "hazard_guard"
       end
 
+      # Slices of hazardous calls that would RUN when the file holding the
+      # root node is evaluated: everything outside def bodies (a method body
+      # runs when called, not at load). A constant mutant re-evaluates its
+      # whole file, so this is what makes that replay safe to consider (#319).
+      def load_time_hazards(root)
+        slices = []
+        stack = [root]
+        until stack.empty?
+          node = stack.pop
+          next if node.nil? || node.is_a?(Prism::DefNode)
+
+          if hazardous?(node)
+            slices << node.slice
+            next
+          end
+          stack.concat(node.compact_child_nodes)
+        end
+        slices
+      end
+
       # candidates: [[mutation, mutated_text]]. Returns [kept, suppressed].
       def partition(candidates, subject)
         spans = hazard_spans(subject.node)

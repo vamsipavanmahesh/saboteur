@@ -23,13 +23,18 @@ module Saboteur
     # { "/abs/file.rb" => [lines reading the constant] } across the include
     # set, filled in after selection (the finder sees one file at a time).
     attr_accessor :consumer_lines
+    # { "/abs/file.rb" => [def start lines] }: the def each runtime read
+    # sits in, for the method-call counter fallback (endless defs have no
+    # line coverage).
+    attr_accessor :consumer_defs
 
     def initialize(name:, owner:, file:, node:, literal_node:, file_source:, nesting:, frozen_literals:,
-                   consumer_lines: {})
+                   consumer_lines: {}, consumer_defs: {})
       super(name:, owner:, singleton: false, sclass: false, file:, node:, file_source:, nesting:,
             frozen_literals:, sig_span: nil)
       @literal_node = literal_node
       @consumer_lines = consumer_lines
+      @consumer_defs = consumer_defs
     end
 
     # "Shop::RULES", or "RULES" at the top level. The :: separator keeps a

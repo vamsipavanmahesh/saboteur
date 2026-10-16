@@ -54,9 +54,15 @@ module Saboteur
 
       # A constant is observable wherever it is read: the tests that ran
       # any read of it, across every file the consumer scan found (#306).
+      # A read inside an endless def has no line coverage, so its def's
+      # per-test method-call counter stands in (#319).
       def tests_for_constant(subject)
-        ids = subject.consumer_lines.flat_map { |file, lines| tests_for_lines(file, lines) }.uniq
-        sort_test_ids(ids)
+        ids = subject.consumer_lines.flat_map { |file, lines| tests_for_lines(file, lines) }
+        ids += subject.consumer_defs.flat_map do |file, def_lines|
+          by_method = methods[CoverageMap.canonical(file)]
+          by_method ? def_lines.flat_map { |line| by_method.fetch(line, []) } : []
+        end
+        sort_test_ids(ids.uniq)
       end
 
       # Attach the parent's boot counters without losing the child's method coverage.

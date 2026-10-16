@@ -324,16 +324,29 @@ files left after excludes.
 A changed entry of a constant hash or array literal is a behavior change no
 method owns, so `--since` also selects those assignments as subjects (#306).
 `RULES = { city: "required", zip: "optional" }.freeze` gains a `state:` entry,
-and `pair_removal` proposes removing each changed pair; the new default-on
+and `pair_removal` proposes removing each changed pair; the default-on
 `element_removal` operator does the same for changed elements of array
 literals (`%w[...]` included). A constant mutant runs against the specs that
-cover a line reading the constant, and the whole file is re-evaluated because
-re-assigning a constant is not a method swap. The diff scope is line-granular:
-a literal written on a single line puts every entry on that line in scope, so
-write one entry per line to mutate only what changed. Unchanged entries on
-unchanged lines are not mutated. A changed constant assignment saboteur cannot
-mutate - a namespaced target, `||=`, or a value that is not a hash or array
-literal - is named in the diagnostics instead of silently counting as covered.
+cover a line reading the constant - and the specs can read the constant
+directly - and the whole file is re-evaluated because re-assigning a constant
+is not a method swap. The diff scope is line-granular: a literal written on a
+single line puts every entry on that line in scope, so write one entry per
+line to mutate only what changed. Unchanged entries on unchanged lines are
+not mutated.
+
+Boundaries are named, never silently scored. A changed constant assignment
+saboteur cannot mutate - a namespaced target, `||=`/`&&=`, a value that is
+not a hash or array literal (only `.freeze` calls are looked through), a
+write guarded by `if`/`unless`, or a constant assigned twice in one file -
+gets a diagnostic instead of mutants. Two safety rules can skip a changed
+constant entirely, each with its own warning: the file runs side-effecting
+code at load (mutants re-evaluate the whole file; move the literal into its
+own file), or every read of the constant captures the value at load time in
+another file (`COPY = A::RULES` keeps the original, so no test can observe a
+change). Consumer matching is a lexical heuristic: reads reached through a
+superclass, `const_get`, or a compact `class Shop::Item` scope are not
+resolved, and a constant only read that way reports ran-at-load or
+no-coverage rather than a guessed survivor.
 
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
@@ -925,6 +938,9 @@ This is the array counterpart of `pair_removal`, on by default under the name
 `element_removal`, and it is what mutates changed elements of constant array
 literals under `--since` (#306). Bracketed arrays and `%w[...]` lists are
 supported; splats stay intact and elements holding heredocs are skipped.
+Being default-on, it adds mutants wherever array literals appear in mutated
+methods: totals grow with the number of elements, the way `pair_removal`
+grows them for hashes.
 
 Both parenthesized and command calls are supported. Splats stay intact; pairs
 containing heredocs, parameter defaults, arid statements and nested definitions

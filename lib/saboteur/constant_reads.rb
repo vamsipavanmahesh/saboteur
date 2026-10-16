@@ -12,23 +12,49 @@ module Saboteur
   # Matching is lexical and honest about its edges. A bare `RULES` matches
   # when its scope is the constant's owner or nested under it (constant
   # lookup climbs lexical scopes) or the constant is top-level; a
-  # `Shop::RULES` path matches by its full spelling. Reads reached through a
-  # superclass, `const_get`, or a compact `class Shop::Item` scope are not
-  # resolved: a constant only read that way finds no consumer here, and the
-  # run reports it as ran-at-load instead of guessing.
+  # `Shop::RULES` path matches by its full spelling. A scope that writes its
+  # own `RULES` shadows the outer constant: reads under it resolve to the
+  # inner one and do not count. Reads reached through a superclass,
+  # `const_get`, or a compact `class Shop::Item` scope are not resolved: a
+  # constant only read that way finds no consumer here, and the run reports
+  # it as ran-at-load instead of guessing.
+  #
+  # Runtime reads (inside a def body) observe the constant when the mutant
+  # runs; load-time reads outside the constant's own file do not: the other
+  # file was loaded once with the original value and re-evaluating the
+  # constant's file does not run it again, so a read like
+  # `COPY = A::RULES` there keeps the original (#319).
   module ConstantReads
+    Reads = Data.define(:runtime, :load, :defs)
+
     module_function
 
-    # { "/abs/file.rb" => [1-based lines] } for the files that read the
-    # constant. Only files whose text mentions the name are parsed.
+    # { "/abs/file.rb" => Reads } for the files that read the constant.
+    # runtime: def-body and block lines - a block runs when its caller runs
+    # it (an `it` block during the example), and line coverage decides
+    # whether any test reached it. load: top-level or class-body statement
+    # lines (observable only in the constant's own file, which the mutant
+    # re-evaluates). defs: the start line of each def a runtime read sits
+    # in, for the method-call counter fallback (endless defs have no line
+    # coverage). Only files whose text mentions the name are parsed.
     def across(files, constant)
       mention = /\b#{Regexp.escape(constant.name.to_s)}\b/
       files.each_with_object({}) do |file, hits|
         source = File.binread(file)
         next unless mentions?(source, mention)
 
-        lines = lines_in(source, constant)
-        hits[file] = lines unless lines.empty?
+        reads = reads_in(source, constant)
+        hits[file] = reads unless reads.runtime.empty? && reads.load.empty?
+      end
+    end
+
+    # The lines a mutant of the constant can be observed through: runtime
+    # reads everywhere, load reads in the constant's own file only.
+    def observable_lines(reads_by_file, constant)
+      reads_by_file.each_with_object({}) do |(file, reads), hits|
+        lines = reads.runtime.dup
+        lines.concat(reads.load) if file == constant.file
+        hits[file] = lines.uniq.sort unless lines.empty?
       end
     end
 
@@ -38,37 +64,65 @@ module Saboteur
       false
     end
 
-    def lines_in(source, constant)
+    def reads_in(source, constant)
       result = Prism.parse(source)
-      return [] if result.failure?
+      return Reads.new([], [], []) if result.failure?
 
-      lines = []
-      walk(result.value, [], constant, lines)
-      lines.uniq.sort
+      out = { runtime: [], load: [], defs: [] }
+      walk(result.value, [], constant, out, in_def: nil, in_block: false, shadowed: false)
+      Reads.new(out[:runtime].uniq.sort, out[:load].uniq.sort, out[:defs].uniq.sort)
     end
 
-    def walk(node, nesting, constant, lines)
+    def walk(node, nesting, constant, out, in_def:, in_block:, shadowed:)
       return if node.nil?
 
       case node
+      when Prism::DefNode
+        walk(node.body, nesting, constant, out, in_def: node.location.start_line, in_block: false,
+                                                shadowed: shadowed)
+      when Prism::BlockNode, Prism::LambdaNode
+        walk(node.body, nesting, constant, out, in_def: in_def, in_block: true, shadowed: shadowed)
       when Prism::ConstantReadNode
-        lines << node.location.start_line if bare_match?(node, nesting, constant)
+        record(node, out, in_def, in_block) if !shadowed && bare_match?(node, nesting, constant)
       when Prism::ConstantPathNode
         # `Shop::RULES` holds no ConstantReadNode for RULES, only for Shop;
         # match the path's full spelling.
-        lines << node.location.start_line if node.slice.delete_prefix("::") == constant.id.to_s
-        walk_children(node, nesting, constant, lines)
+        record(node, out, in_def, in_block) if node.slice.delete_prefix("::") == constant.id.to_s
+        walk_children(node, nesting, constant, out, in_def: in_def, in_block: in_block, shadowed: shadowed)
       when Prism::ModuleNode, Prism::ClassNode
-        walk(node.body, nesting + [node.constant_path.slice.delete_prefix("::")], constant, lines)
+        walk_scope(node, nesting, constant, out, shadowed)
       else
-        # `class << self` and blocks do not add a lexical constant scope
-        # worth separating here.
-        walk_children(node, nesting, constant, lines)
+        # `class << self` does not add a lexical constant scope worth
+        # separating here.
+        walk_children(node, nesting, constant, out, in_def: in_def, in_block: in_block, shadowed: shadowed)
       end
     end
 
-    def walk_children(node, nesting, constant, lines)
-      node.compact_child_nodes.each { |child| walk(child, nesting, constant, lines) }
+    def walk_scope(node, nesting, constant, out, shadowed)
+      inner = node.constant_path.slice.delete_prefix("::")
+      path = (nesting + [inner]).join("::")
+      # A scope writing its own RULES shadows the outer constant for every
+      # read below it - unless the scope is the constant's owner itself.
+      shadowed ||= path != constant.owner.to_s && writes_constant?(node.body, constant.name)
+      walk(node.body, nesting + [inner], constant, out, in_def: nil, in_block: false, shadowed: shadowed)
+    end
+
+    def walk_children(node, nesting, constant, out, in_def:, in_block:, shadowed:)
+      node.compact_child_nodes.each do |child|
+        walk(child, nesting, constant, out, in_def: in_def, in_block: in_block, shadowed: shadowed)
+      end
+    end
+
+    def record(node, out, in_def, in_block)
+      line = node.location.start_line
+      if in_def
+        out[:runtime] << line
+        out[:defs] << in_def
+      elsif in_block
+        out[:runtime] << line
+      else
+        out[:load] << line
+      end
     end
 
     # A bare `RULES` reads this constant when the read's scope is the
@@ -78,6 +132,17 @@ module Saboteur
 
       path = nesting.join("::")
       constant.owner.nil? || path == constant.owner || path.start_with?("#{constant.owner}::")
+    end
+
+    # True when the scope body assigns the constant name at its own level
+    # (not inside a nested def or scope).
+    def writes_constant?(body, name)
+      return false if body.nil?
+
+      statements = body.is_a?(Prism::StatementsNode) ? body.body : [body]
+      statements.any? do |statement|
+        statement.is_a?(Prism::ConstantWriteNode) && statement.name == name
+      end
     end
   end
 end
