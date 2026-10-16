@@ -425,6 +425,17 @@ like any other unmatched file. With `--since` only named subjects on changed
 lines count: an unchanged subject file, one whose changes sit in other
 methods, or one with a comment-only change is skipped, not stopped.
 
+With `--since`, every `*_spec.rb` under the root that the diff adds or changes
+(committed since the base, uncommitted or untracked) also runs, next to the
+inferred specs and listed once. A pull request often tests a change through a
+request or controller spec whose name maps to no changed file; without it a
+mutant only that spec kills would survive. Unchanged specs are not added, and
+changed non-spec files such as `spec_helper.rb` or support files are not run as
+specs. A spec the diff deletes cannot run: the run names it and goes on.
+Changed specs join only a run that mutates something, and an unmatched file
+still stops the run. `--test` replaces inference, changed specs included, and
+`--all` runs the whole suite as before.
+
 A file that needs a spec and has none stops the run before it boots (exit 2)
 and names both ways out: `--test` with the specs to run, or `--all` for the
 whole suite. An unmatched file no longer silently narrows the selected source

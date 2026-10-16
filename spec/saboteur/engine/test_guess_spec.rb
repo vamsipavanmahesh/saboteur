@@ -75,11 +75,13 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect([result.specs, result.unmatched, result.changed]).to eq([["spec/a_spec.rb"], ["lib/c.rb"], 2])
   end
 
+  # A changed spec is not a changed source file: it needs no spec of its
+  # own. It still runs, as a spec changed in the diff (#307).
   it "ignores changed files that saboteur would not mutate" do
     write("lib/a.rb", changed_source)
     write("spec/stray_spec.rb", "# changed\n")
     result = guess
-    expect([result.specs, result.unmatched, result.changed]).to eq([["spec/a_spec.rb"], [], 1])
+    expect([result.specs, result.unmatched, result.changed]).to eq([%w[spec/a_spec.rb spec/stray_spec.rb], [], 1])
   end
 
   it "only drops the lib or app directory when guessing, not any first directory" do
@@ -358,6 +360,95 @@ RSpec.describe Saboteur::Engine::TestGuess do
     write("lib/c.rb", changed_source)
     result = guess
     expect(result.hints).to eq("lib/c.rb" => "spec/c_spec.rb")
+  end
+
+  describe "specs changed in the diff (#307)" do
+    it "adds a changed spec whose name does not map to the changed source file" do
+      write("spec/requests/widgets_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "request spec")
+      write("lib/a.rb", changed_source)
+      write("spec/requests/widgets_spec.rb", "# changed\n")
+      result = guess
+      expect(result.specs).to eq(%w[spec/a_spec.rb spec/requests/widgets_spec.rb])
+      expect(result.changed_specs).to eq(%w[spec/requests/widgets_spec.rb])
+    end
+
+    it "adds a spec the branch committed since the base" do
+      git("branch", "-q", "base")
+      write("lib/a.rb", changed_source)
+      write("spec/requests/widgets_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "feature")
+      config = Saboteur::Config.new({ "since" => "base", "include" => ["lib/**/*.rb"] }, root: dir)
+      result = described_class.new(config).call
+      expect(result.specs).to eq(%w[spec/a_spec.rb spec/requests/widgets_spec.rb])
+    end
+
+    it "adds an untracked new spec" do
+      write("lib/a.rb", changed_source)
+      write("spec/requests/new_spec.rb")
+      expect(guess.specs).to eq(%w[spec/a_spec.rb spec/requests/new_spec.rb])
+    end
+
+    it "lists a spec both inferred and changed once" do
+      write("lib/a.rb", changed_source)
+      write("spec/a_spec.rb", "# changed\n")
+      result = guess
+      expect(result.specs).to eq(%w[spec/a_spec.rb])
+      expect(result.changed_specs).to eq(%w[spec/a_spec.rb])
+    end
+
+    it "leaves unchanged unrelated specs and changed non-spec files out" do
+      write("lib/a.rb", changed_source)
+      write("spec/spec_helper.rb", "# changed\n")
+      write("spec/support/widget_helper.rb", "# new\n")
+      expect(guess.specs).to eq(%w[spec/a_spec.rb])
+    end
+
+    it "does not run a spec the diff deletes, and names it" do
+      write("lib/a.rb", changed_source)
+      File.delete(File.join(dir, "spec/stray_spec.rb"))
+      result = guess
+      expect(result.specs).to eq(%w[spec/a_spec.rb])
+      expect(result.deleted_specs).to eq(%w[spec/stray_spec.rb])
+    end
+
+    it "adds no changed spec when no changed file has a mutation subject" do
+      write("spec/requests/widgets_spec.rb")
+      result = guess
+      expect(result.specs).to be_empty
+      expect(result.changed_specs).to be_empty
+    end
+
+    it "keeps a source file with no conventional spec unmatched even when another spec changed" do
+      write("lib/c.rb", changed_source)
+      write("spec/requests/widgets_spec.rb")
+      expect(guess.unmatched).to eq(%w[lib/c.rb])
+    end
+
+    # The root can be a subdirectory of the repository (a monorepo app):
+    # a spec changed elsewhere in the repository is not one of its specs.
+    it "takes changed specs only from inside the configured root, relative to it" do
+      write("svc/lib/a.rb", base_source)
+      write("svc/spec/a_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "svc")
+      write("svc/lib/a.rb", changed_source)
+      write("svc/spec/requests/widgets_spec.rb")
+      write("other/spec/outside_spec.rb")
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] },
+                                    root: File.join(dir, "svc"))
+      expect(described_class.new(config).call.specs).to eq(%w[spec/a_spec.rb spec/requests/widgets_spec.rb])
+    end
+
+    it "adds changed specs to a --subject run inside the diff" do
+      write("lib/a.rb", changed_source)
+      write("spec/requests/widgets_spec.rb")
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+      result = described_class.new(config).call_for(["lib/a.rb"], ["Widget#thing"])
+      expect(result.specs).to eq(%w[spec/a_spec.rb spec/requests/widgets_spec.rb])
+    end
   end
 
   describe "call_for under --since (a --subject run stays inside the diff)" do
