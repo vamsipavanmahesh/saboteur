@@ -26,6 +26,8 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
                                            coarse: false)
   end
 
+  def monotonic_now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
   def run_in(dir, command, timeout: 5, mutation: :real)
     subject = subject_in(dir)
     runner = described_class.new(command: command, root: dir)
@@ -150,7 +152,9 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
 ")
     File.symlink(outside, File.join(@dir, "linked.rb"))
     runner = described_class.new(command: "true", root: @dir)
-    expect { runner.preflight! }.to raise_error(Saboteur::Error, /links outside itself: linked\.rb/)
+    expect do
+      runner.preflight!(deadline: monotonic_now + 60)
+    end.to raise_error(Saboteur::Error, /links outside itself: linked\.rb/)
   ensure
     File.unlink(outside) if outside && File.exist?(outside)
   end
@@ -315,7 +319,7 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
   it "scrubs invalid UTF-8 from captured output" do
     subject_in(@dir)
     runner = described_class.new(command: "printf 'ok \\303\\050 end'; exit 1", root: @dir)
-    expect { runner.preflight! }.to raise_error(Saboteur::Error) do |error|
+    expect { runner.preflight!(deadline: monotonic_now + 60) }.to raise_error(Saboteur::Error) do |error|
       expect(error.message).to include("ok ( end")
       expect(error.message.encoding).to eq(Encoding::UTF_8)
       expect(error.message.valid_encoding?).to be(true)
@@ -408,20 +412,20 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     it "passes when the command exits 0 on the unchanged copy" do
       subject_in(@dir)
       runner = described_class.new(command: "true", root: @dir)
-      expect(runner.preflight!).to be(true)
+      expect(runner.preflight!(deadline: monotonic_now + 60)).to be(true)
     end
 
     it "fails the run with the exit status and the command's own output" do
       subject_in(@dir)
       runner = described_class.new(command: "echo oops >&2; exit 1", root: @dir)
-      expect { runner.preflight! }
+      expect { runner.preflight!(deadline: monotonic_now + 60) }
         .to raise_error(Saboteur::Error, /unchanged tree \(exit 1\):.*oops/m)
     end
 
     it "explains a 127 as the shell being unable to run the command" do
       subject_in(@dir)
       runner = described_class.new(command: "definitely-not-a-command-xyz", root: @dir)
-      expect { runner.preflight! }
+      expect { runner.preflight!(deadline: monotonic_now + 60) }
         .to raise_error(Saboteur::Error, /exit 127 - the shell could not run the command/)
     end
 
@@ -435,7 +439,7 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     it "bounds the captured output" do
       subject_in(@dir)
       runner = described_class.new(command: "yes X | head -c 200000; exit 1", root: @dir)
-      expect { runner.preflight! }.to raise_error(Saboteur::Error) do |error|
+      expect { runner.preflight!(deadline: monotonic_now + 60) }.to raise_error(Saboteur::Error) do |error|
         expect(error.message.bytesize).to be < described_class::OUTPUT_LIMIT + 200
       end
     end

@@ -12,6 +12,10 @@ RSpec.describe "Engine external test-command pipeline" do
   before do
     stub_const("ENV", ENV.to_h.except(Saboteur::Execution::Supervisor::CHILD_ENV,
                                       Saboteur::Execution::ExternalRunner::CHILD_MARKER))
+    # The external pipeline never boots. Without this, a flipped dispatch
+    # condition walks every example through a real (slow) boot and the
+    # mutant run reports Timeout instead of Killed (#305 dogfood).
+    allow(Saboteur::Engine::Boot).to receive(:new).and_raise("the external pipeline must not boot")
   end
 
   def with_fixture
@@ -187,6 +191,60 @@ RSpec.describe "Engine external test-command pipeline" do
         allow(engine).to receive(:budget_deadline).and_return(1003.0)
         expect(engine.send(:preflight_deadline)).to eq(1003.0)
       end
+    end
+  end
+
+  # condition_true / body_true / chain_removal on the dispatch or its
+  # predicate all send a command-less run into the external pipeline; the
+  # external-only specs above can never see that side of the flip (#305
+  # dogfood).
+  it "never takes the external pipeline without a test command" do
+    with_fixture do |root|
+      engine = Saboteur::Engine.new(Saboteur::Config.new({}, root: root))
+      expect(engine).not_to receive(:call_external)
+      allow(Saboteur::Engine::Boot).to receive(:new)
+        .with(an_instance_of(Saboteur::Config), an_instance_of(Saboteur::Hooks))
+        .and_raise("booted the in-process pipeline")
+      expect { engine.send(:run_pipeline, nil, 0.0) }.to raise_error("booted the in-process pipeline")
+    end
+  end
+
+  # The flipped dispatch condition otherwise walks every covering spec
+  # through a full in-process boot until the mutant slice times out; the
+  # delegation spec fails fast instead (#305 dogfood timeout).
+  it "never boots the target when a test command is configured" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      expect(Saboteur::Engine::Boot).not_to receive(:new)
+      Saboteur::Engine.new(config).call
+    end
+  end
+
+  it "admits the preflight with both its own deadline and the run budget deadline" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true", "baseline_timeout" => 7,
+                                      "max_duration" => 50 }, root: root)
+      engine = Saboteur::Engine.new(config)
+      seen = nil
+      allow_any_instance_of(Saboteur::Execution::ExternalRunner).to receive(:preflight!)
+        .and_wrap_original do |method, **kwargs|
+          seen = kwargs
+          method.call(**kwargs)
+        end
+      engine.call
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      expect(seen[:deadline]).to be_within(2).of(now + 7)
+      expect(seen[:budget_deadline]).to be_within(2).of(now + 50)
+    end
+  end
+
+  it "passes the configured whole_file list to the reevaluator" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true", "reeval" => "nesting",
+                                      "whole_file" => ["K#m"] }, root: root)
+      expect(Saboteur::Execution::Reevaluator).to receive(:new).with("nesting", whole_file: ["K#m"])
+                                                               .and_call_original
+      Saboteur::Engine.new(config).call
     end
   end
 

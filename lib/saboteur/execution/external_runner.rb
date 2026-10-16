@@ -86,7 +86,7 @@ module Saboteur
       # cause is fixed at the moment of admission or timeout, before
       # TERM/KILL and the drain can cross the budget and relabel it (#305
       # Principal).
-      def preflight!(deadline: monotonic + 60, budget_deadline: nil)
+      def preflight!(deadline:, budget_deadline: nil)
         budget_limited = !budget_deadline.nil? && budget_deadline <= deadline
         result = with_fresh_copy do
           remaining = deadline - monotonic
