@@ -257,4 +257,13 @@ RSpec.describe Saboteur::IgnoreList do
       expect { described_class.load(path) }.not_to raise_error
     end
   end
+
+  # A reason split across lines without a continuation backslash silently
+  # keeps only its first line, so guard the shipped file against truncated
+  # reasons (they always end in the first line's trailing space).
+  it "keeps every reason in the shipped ignore file complete" do
+    config = File.expand_path("../../config/saboteur_ignore.rb", __dir__)
+    reasons = described_class.load(config).entries.map(&:reason)
+    expect(reasons).to all(match(/\S\z/))
+  end
 end
