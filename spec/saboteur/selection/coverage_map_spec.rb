@@ -78,6 +78,18 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(spec_only.empty?).to be(false)
   end
 
+  # Each recorded kind counts, and the file set is canonicalized before the
+  # lookup: the recorder stores canonical paths.
+  it "checks methods and load lines too, under any spelling of the file" do
+    method_only = described_class.new(lines: {}, tests: %w[t1], methods: { file => { 2 => %w[t1] } })
+    expect(method_only.empty_for?([file])).to be(false)
+    load_only = described_class.new(lines: {}, tests: %w[t1], load_lines: { file => [3] })
+    expect(load_only.empty_for?([file])).to be(false)
+    dotted = File.join(File.dirname(file), ".", File.basename(file))
+    with_hits = described_class.new(lines: { file => { 2 => %w[t1] } }, tests: %w[t1])
+    expect(with_hits.empty_for?([dotted])).to be(false)
+  end
+
   it "round-trips method coverage through JSON" do
     with_methods = described_class.new(lines: {}, tests: %w[t1 t2], methods: { file => { 2 => %w[t2 t1] } })
     expect(described_class.from_json(with_methods.to_json).methods).to eq(file => { 2 => %w[t2 t1] })

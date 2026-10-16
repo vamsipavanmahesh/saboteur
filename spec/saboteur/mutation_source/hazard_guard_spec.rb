@@ -362,6 +362,16 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
     expect(slices("require \"json\"\nrequire_relative \"helper\"\nRULES = { a: 1 }\n")).to eq([])
   end
 
+  # A vetted require is exactly one literal string argument to a
+  # SAFE_LOAD_REQUIRES name and nothing else: each conjunct stops a
+  # different abuse, so each gets its own flagged case here.
+  it "flags requires with extra or missing arguments and other single-string calls" do
+    expect(slices("require(\"a\", \"b\")\n")).to eq(['require("a", "b")'])
+    expect(slices("require(build_path, \"a\")\n")).to eq(["require(build_path, \"a\")"])
+    expect(slices("require()\n")).to eq(["require()"])
+    expect(slices("system(\"ls\")\n")).to eq(['system("ls")'])
+  end
+
   it "passes requires, pure defs, nesting with a constant superclass and literal assignments" do
     expect(slices(<<~RUBY)).to eq([])
       require "json"

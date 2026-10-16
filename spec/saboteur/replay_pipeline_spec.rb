@@ -34,6 +34,14 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     expect(run.send(:result_cache)).to be_nil
   end
 
+  # The run hands the boot integration's test files to selection so --all
+  # discovery follows the configured suite, not a root/spec guess (#319).
+  it "wires the given test files into subject selection" do
+    expect(Saboteur::Engine::SubjectSelection).to receive(:new)
+      .with(anything, anything, test_files: ["spec/custom/a_spec.rb"]).and_return(selection)
+    expect(engine.send(:select_subjects, [], test_files: ["spec/custom/a_spec.rb"])).to eq([[subject], nil])
+  end
+
   it "keeps ordinary selection and its incremental cache without a replay" do
     run = engine
     expect(run.send(:select_subjects, [])).to eq([[subject], nil])

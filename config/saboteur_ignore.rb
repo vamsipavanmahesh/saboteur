@@ -586,4 +586,10 @@ Saboteur.ignore do |i|
   i.mutation "c86d5a883ca1fd49",
              subject: "Saboteur::MutationSource::HazardGuard#vet_statements",
              reason: "equivalent: the block's vet_statement side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+  # Over-matching a duplicate only demotes both writes, and a local assigned
+  # in any branch is nil in the others: owner reads nil either way.
+  i.mutation "c239b7bcac4b5ae4",
+             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
+             reason: "equivalent: owner is assigned in the if branch, so Ruby defines it as nil on the else path; the " \
+                     "explicit owner = nil is documentation"
 end
