@@ -32,8 +32,16 @@ module Saboteur
 
       # Where a verdict comes from: the exact selection and the state of the working
       # source before the run started. subjects, tests and sources are arrays.
+      # typed_settings: the settings keys typed on the command line, so the
+      # generated commands can tell a typed empty list (which may clear a
+      # config-file value) from one the config itself supplies.
       Provenance = Data.define(:ref, :seed, :head, :working_tree, :changed_files, :mode, :json_report, :subjects,
-                               :tests, :sources, :config_path, :digest, :cache, :incremental, :settings)
+                               :tests, :sources, :config_path, :digest, :cache, :incremental, :settings,
+                               :typed_settings) do
+        def initialize(typed_settings: [], **fields)
+          super
+        end
+      end
 
       class << self
         def call(report, provenance)
