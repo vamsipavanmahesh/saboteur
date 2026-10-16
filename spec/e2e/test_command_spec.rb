@@ -24,12 +24,12 @@ RSpec.describe "--test-command", :e2e do
     expect(File.read(File.join(dir, "lib", "people.rb"))).to eq(original)
   end
 
-  # The unchanged-tree control: a command that also fails without the
-  # mutant cannot claim kills, so every verdict becomes an error (exit 3)
-  # and no test is blamed by name.
-  it "rejects kills when the command also fails on the unchanged tree" do
+  # The unchanged-tree control: one neutral preflight runs the command
+  # before any mutant exists, so a command that fails without the mutant
+  # fails the whole run up front with its own exit status (exit 3, #305).
+  it "refuses to run when the command fails on the unchanged tree" do
     run = saboteur(dir, "--test-command", "false")
     expect(run.status).to eq(3)
-    expect(run.out).to include("also fails with the method unchanged")
+    expect(run.err).to include("the test command fails on the unchanged tree (exit 1)")
   end
 end

@@ -36,7 +36,8 @@ module Saboteur
       # baseline - every mutant runs the command on the mutated tree,
       # serially, with no sandbox. The command is arbitrary user code.
       def call_external(ignore_list, started)
-        @diagnostics.inform("external test command: #{config['test_command']} (serial, no coverage, unsandboxed)")
+        @diagnostics.inform("external test command: #{config['test_command']} " \
+                            "(serial, no coverage, unsandboxed, mutants applied in a disposable copy)")
         files = config.included_files
         subjects, scope = select_subjects(files)
         results = subjects.empty? ? [] : mutate_external(subjects, scope, ignore_list)
@@ -45,8 +46,12 @@ module Saboteur
       end
 
       def mutate_external(subjects, scope, ignore_list)
+        runner = external_runner
+        # One neutral run before any mutant exists: a command that fails on
+        # the unchanged tree can never claim kills (#305).
+        runner.preflight!(timeout: config["baseline_timeout"] || 60)
         map = Selection::ExternalTestMap.new
-        scheduler = Scheduler.new(config:, runner: external_runner, map:,
+        scheduler = Scheduler.new(config:, runner:, map:,
                                   reevaluator: Execution::Reevaluator.new(config["reeval"],
                                                                           whole_file: config["whole_file"]),
                                   diagnostics: @diagnostics, deadline: budget_deadline, verify_loaded: false)

@@ -358,20 +358,33 @@ on main: diff mode does not check every method affected by a dependency change.
 ### External test commands
 
 `--test-command CMD` (config `c.test_command`, #140) replaces the whole
-in-process test machinery: each mutant is written to the real file, CMD
-runs in the project root, and its exit status decides the verdict - 0
-survived, non-zero killed, the per-mutant deadline (`c.baseline_timeout`)
-a timeout. Use it when the target app cannot load inside saboteur's Ruby,
-for example an app pinned to an older Ruby. The original file bytes come
-back after every mutant, even on a timeout or a crash.
+in-process test machinery: each mutant is written into a disposable copy
+of the project tree - never your real files - and CMD runs there. Its
+exit status decides the verdict: 0 survived, non-zero killed (except the
+shell's 126/127, which read as command/setup errors), the per-mutant
+deadline (`c.baseline_timeout`) a timeout. Use it when the target app
+cannot load inside saboteur's Ruby, for example an app pinned to an older
+Ruby.
+
+**Warning: CMD runs unsandboxed with your user permissions - full network
+access and every side effect it chooses, exactly as if you typed it into a
+shell.** Only point it at commands you trust. Mutants are applied in the
+copy, so even a SIGKILL of saboteur, a failed write, or a command that
+keeps writing in the background cannot damage the real tree; the worst
+case is a leftover temp directory under the system tmp dir. The command's
+whole process group is terminated on every exit path, including Ctrl-C.
 
 The mode is explicitly slower: the whole command runs once per mutant, so
-a mutant count in the hundreds means hundreds of full suite runs. It is
-serial, uses no coverage and no test selection, skips the baseline and the
-sandbox (the command is arbitrary code), and cannot combine with `--test`
-or `--incremental`. A kill only stands when CMD also passes on the
-unchanged tree: a command that fails without a mutant turns every verdict
-into an error (exit 3), so check the command on a clean tree first.
+a mutant count in the hundreds means hundreds of full suite runs, plus one
+recursive copy of the project per run. It is serial, uses no coverage and
+no test selection, skips the baseline and the sandbox, and cannot combine
+with `--test` or `--incremental` (config `tests:`/`incremental:` count
+too; `sandbox: "strict"` is rejected because it cannot be honored). Before
+any mutant is created, one neutral preflight runs CMD on the unchanged
+copy: a command that fails there fails the whole run up front with its
+exit status and captured output (exit 3). A saboteur run refuses to start
+inside CMD's own environment, so a test command that itself invokes
+saboteur cannot mutate the copy mid-run.
 [The pull-request guide](docs/pull-requests.md) covers
 checkout history, a GitHub Actions example, configuration and limits.
 

@@ -271,6 +271,18 @@ module Saboteur
       raise ConfigError, "test_selection must be one of: auto, all"
     end
 
+    # --test-command replaces the whole in-process machinery, on the
+    # EFFECTIVE config: CLI flags and config-file entries alike (#305).
+    # The command runs unsandboxed, so "strict" cannot be honored.
+    def validate_test_command!
+      return if self["test_command"].to_s.empty?
+      raise ConfigError, "test_command cannot be combined with tests" unless self["tests"].empty?
+      raise ConfigError, "test_command cannot be combined with incremental" if self["incremental"]
+      return unless self["sandbox"] == "strict"
+
+      raise ConfigError, 'test_command runs the command unsandboxed, so sandbox "strict" cannot be honored'
+    end
+
     def validate_reeval!
       raise ConfigError, "reeval must be one of: #{Execution::Reevaluator::STRATEGIES.join(', ')}" unless
         Execution::Reevaluator::STRATEGIES.include?(self["reeval"].to_s)
@@ -293,6 +305,7 @@ module Saboteur
 
       validate_reeval!
       validate_operator_config!
+      validate_test_command!
     end
 
     public
