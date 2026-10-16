@@ -19,7 +19,14 @@ module Saboteur
       # not exist; that is why the file is unmatched), for the stop-before-boot
       # error. The result also builds its own messages, so a stubbed guess in
       # the engine's specs formats exactly like a real one.
-      Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints) do
+      # changed_specs: spec files the diff adds or changes, already in
+      # specs; deleted_specs: spec files the diff deletes.
+      Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
+                           :deleted_specs) do
+        def initialize(changed_specs: [], deleted_specs: [], **fields)
+          super
+        end
+
         # The stop-before-boot usage error: names each expected spec and the
         # ways out as an append-only instruction - never a reconstructed
         # command, which could carry a hostile ref or a wrong source scope.
@@ -28,6 +35,11 @@ module Saboteur
           "no spec found for #{pairs.join(', ')}, so nothing ran. Re-run the same command with --test " \
             "followed by your existing spec paths, or append --all to use the whole suite without " \
             "changing the source scope."
+        end
+
+        # The spec files the diff deleted, which cannot run.
+        def deleted_message
+          "inferred specs: #{deleted_specs.join(', ')} deleted in the diff, so not run"
         end
 
         # Why the subjectless files needed no spec.
@@ -40,7 +52,8 @@ module Saboteur
         # explicit tests, with the cross-file coverage caveat that brings.
         def scope_message(since:)
           what = since ? "a changed file" : "a source file"
-          "inferred specs: running only #{specs.join(', ')}. A spec that reaches " \
+          added = changed_specs.any? ? " (changed in the diff: #{changed_specs.join(', ')})" : ""
+          "inferred specs: running only #{specs.join(', ')}#{added}. A spec that reaches " \
             "#{what} only through another file does not run, so a mutant only it would kill can " \
             "survive, and a line no inferred spec executes is reported as NoCoverage"
         end
@@ -71,10 +84,13 @@ module Saboteur
       end
 
       # specs: existing spec files (relative paths) guessed for the files in
-      # scope; unmatched: such files with no guessed spec; subjectless: files
-      # with no mutation subject the run checks, which neither need nor get a
-      # spec; changed: how many source files are in scope; hints: each
-      # unmatched file's conventional spec path.
+      # scope, plus every spec file the diff adds or changes (#307): a pull
+      # request often tests a change through a request or controller spec
+      # whose name maps to no changed file. unmatched: such files with no
+      # guessed spec; subjectless: files with no mutation subject the run
+      # checks, which neither need nor get a spec; changed: how many source
+      # files are in scope; hints: each unmatched file's conventional spec
+      # path.
       def call_diff
         lines_by_file = changed_lines_by_file
         subjectless = subjectless_files(lines_by_file)
@@ -122,13 +138,34 @@ module Saboteur
         end
       end
 
+      # Changed specs join only a run that mutates something: with no file
+      # in scope there is nothing for them to kill, and an unmatched file
+      # stops the run before any spec runs.
       def result(guesses, subjectless, changed)
         unmatched = guesses.select { |_, spec| spec.nil? }.keys
-        Result.new(specs: guesses.values.compact.uniq.sort,
+        diff = @config["since"] && guesses.any? && unmatched.empty? ? specs_in_diff : { present: [], deleted: [] }
+        Result.new(specs: (guesses.values.compact + diff[:present]).uniq.sort,
                    unmatched: unmatched,
                    subjectless: subjectless,
                    changed: changed,
-                   hints: unmatched.to_h { |file| [file, candidates_for(file).first] })
+                   hints: unmatched.to_h { |file| [file, candidates_for(file).first] },
+                   changed_specs: diff[:present],
+                   deleted_specs: diff[:deleted])
+      end
+
+      # Spec files (*_spec.rb) under the root that the diff since the base
+      # adds, changes or deletes. A present path must still be a file: an
+      # untracked directory entry or a vanished path cannot run.
+      def specs_in_diff
+        paths = Selection::GitDiff.changed_paths(@config["since"], root: @root)
+        {
+          present: paths[:present].select { |path| spec?(path) && File.file?(File.join(@root, path)) },
+          deleted: paths[:deleted].select { |path| spec?(path) }
+        }
+      end
+
+      def spec?(path)
+        path.end_with?("_spec.rb")
       end
 
       # Included files relative to the root, sorted for stable output.
