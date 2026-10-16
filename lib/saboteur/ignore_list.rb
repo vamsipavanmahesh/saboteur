@@ -26,7 +26,10 @@ module Saboteur
     # score), todo records the decision to fix and lets the survivor count.
     STATES = %w[accepted_equivalent wont_fix todo].freeze
 
-    Entry = Data.define(:subject, :mutation, :reason, :state)
+    Entry = Data.define(:subject, :mutation, :reason, :state) do
+      # Entries built without a state predate triage states: they accept.
+      def initialize(subject:, mutation:, reason:, state: "accepted_equivalent") = super
+    end
 
     # Collects the entries a saboteur_ignore.rb file declares.
     class Collector
@@ -111,7 +114,10 @@ module Saboteur
     # True when this result is a survivor the list accepts: a todo entry
     # records the triage but keeps the survivor counting as unignored.
     def accepts?(result)
-      result.survived? && (entry = @index[[result.subject.id, result.digest]]) && entry.state != "todo"
+      return false unless result.survived?
+
+      entry = @index[[result.subject.id, result.digest]]
+      !entry.nil? && entry.state != "todo"
     end
 
     # Marks matching survivors as ignored. Returns warnings for stale entries:
