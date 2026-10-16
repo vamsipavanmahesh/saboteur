@@ -213,7 +213,7 @@ module Saboteur
 
       map = store.fetch(files)
       inform_about_run(subjects, map)
-      cache = result_cache
+      cache = result_cache(map, files)
       scheduler = scheduler_for(map, integration, cache)
       lists = candidate_lists(subjects, scope, map)
       work = subjects.zip(lists).reject { |_, list| list.empty? }
@@ -316,14 +316,15 @@ module Saboteur
       @sandbox_policy.hook
     end
 
-    def result_cache
+    def result_cache(map = nil, files = [])
       return nil if @replay
       return nil unless config["incremental"]
 
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }
                                             .merge("operator_policy" => config.operator_policy))
       ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
-                      suite_digest: SuiteFiles.new(config).digest)
+                      suite_digest: SuiteFiles.new(config).digest,
+                      coverage: map, fallback_files: files)
     end
 
     # A cleanup failure must never mask the run's own outcome - not even

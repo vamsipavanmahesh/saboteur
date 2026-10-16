@@ -65,6 +65,12 @@ All notable changes are documented here. The format follows
   (`.rspec` `--format progress`) and spec output stay on stdout and cannot
   corrupt the report.
 
+
+- `--incremental` no longer reuses a verdict when a file the covering
+  tests touched changed: the dependency files from the run's coverage map
+  join the verdict fingerprint, and when the dependency set is unknown
+  every source file is watched instead - reuse turns conservative, never
+  stale (#197).
 - `--test-command` survivors no longer carry the `missing_test`
   classification: the run's only recorded evidence is the pseudo-test id,
   which is not real coverage (#305).
