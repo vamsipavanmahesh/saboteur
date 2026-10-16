@@ -31,12 +31,22 @@ module Saboteur
       end
 
       # Distance to the nearest changed line in this file. Unknown outside
-      # the diff is nil, not a made-up nearby location.
+      # the diff is nil, not a made-up nearby location. A range answers
+      # geometrically - 0 when the edit overlaps, else the gap to the nearer
+      # endpoint - so a whole-file range never materializes one entry per
+      # line.
       def distance_for(subject, mutation)
         changed = lines_for(subject)
         mutation.edits.map do |edit|
           first, last = edited_lines(subject, edit).minmax
-          changed.map { |line| (line - line.clamp(first, last)).abs }.min
+          if changed.is_a?(Range)
+            if last < changed.begin then changed.begin - last
+            elsif first > changed.end then first - changed.end
+            else 0
+            end
+          else
+            changed.map { |line| (line - line.clamp(first, last)).abs }.min
+          end
         end.min
       end
 

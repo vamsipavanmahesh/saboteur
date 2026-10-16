@@ -39,6 +39,18 @@ RSpec.describe Saboteur::Engine::TestGuess do
     git("commit", "-q", "-m", "base")
   end
 
+  it "warns through its diagnostics when untracked files cannot be opened race-free" do
+    write("lib/new.rb", base_source)
+    diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+    allow(diagnostics).to receive(:warn)
+    allow(File).to receive(:const_defined?).and_call_original
+    allow(File).to receive(:const_defined?).with(:NOFOLLOW).and_return(false)
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+    described_class.new(config, diagnostics: diagnostics).call
+
+    expect(diagnostics).to have_received(:warn).with(/untracked/)
+  end
+
   it "finds the spec named after each changed source file" do
     %w[lib/a.rb lib/deep/b.rb app/models/d.rb lib/e.rb].each { |file| write(file, changed_source) }
     result = guess
@@ -137,6 +149,27 @@ RSpec.describe Saboteur::Engine::TestGuess do
     it "does not borrow a spec from another pack or the root" do
       write("packs/billing/app/models/orphan.rb", changed_source)
       expect(guess(include: ["packs/**/*.rb"]).unmatched).to eq(["packs/billing/app/models/orphan.rb"])
+    end
+
+    it "uses the nearest pack when packs nest" do
+      write("packs/billing/inner/package.yml", "enforce_dependencies: true\n")
+      write("packs/billing/inner/lib/gem.rb", base_source)
+      write("packs/billing/spec/gem_spec.rb")
+      write("packs/billing/inner/spec/gem_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "nested pack")
+      write("packs/billing/inner/lib/gem.rb", changed_source)
+      expect(guess(include: ["packs/**/*.rb"]).specs).to eq(["packs/billing/inner/spec/gem_spec.rb"])
+    end
+
+    it "does not treat a package.yml at the root as a pack" do
+      write("package.yml", "enforce_dependencies: true\n")
+      write("lib/plain.rb", base_source)
+      write("spec/plain_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "root package.yml")
+      write("lib/plain.rb", changed_source)
+      expect(guess.specs).to eq(["spec/plain_spec.rb"])
     end
 
     it "finds packs at any depth from package.yml, not a hardcoded packs directory" do
@@ -245,6 +278,15 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guess.unmatched).to eq(["lib/c.rb", "lib/z.rb"])
   end
 
+  it "is not subjectless when the changed lines span two subjects" do
+    write("lib/c.rb", "class Widget\n  def thing\n    __LINE__\n  end\n\n  def other\n    __LINE__\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "two subjects")
+    write("lib/c.rb",
+          "class Widget\n  def thing\n    1 + __LINE__\n  end\n\n  def other\n    2 + __LINE__\n  end\nend\n")
+    expect(guess.subjectless).to eq([])
+  end
+
   it "stays subjectless when a comment added above a method shifts its __LINE__" do
     write("lib/c.rb", "class Widget\n  def thing\n    __LINE__\n  end\nend\n")
     git("add", ".")
@@ -252,6 +294,17 @@ RSpec.describe Saboteur::Engine::TestGuess do
     write("lib/c.rb", "# a note\nclass Widget\n  def thing\n    __LINE__\n  end\nend\n")
     result = guess
     expect([result.unmatched, result.subjectless]).to eq([[], ["lib/c.rb"]])
+  end
+
+  it "scopes the diff to the included files and reports through the run diagnostics" do
+    write("lib/c.rb", changed_source)
+    lines = { File.join(dir, "lib/c.rb") => Set[3] }
+    allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).and_return(lines)
+    diagnostics = instance_double(Saboteur::Engine::Diagnostics, warn: nil, inform: nil)
+    config = Saboteur::Config.new({ "since" => "HEAD" }, root: dir)
+    described_class.new(config, diagnostics: diagnostics).call
+    expect(Saboteur::Selection::GitDiff).to have_received(:changed_lines)
+      .with("HEAD", root: dir, include: config.included_files.to_set, diagnostics: diagnostics)
   end
 
   it "reports nothing changed" do
@@ -265,6 +318,24 @@ RSpec.describe Saboteur::Engine::TestGuess do
   end
 
   describe "call_for under --since (a --subject run stays inside the diff)" do
+    it "keeps a file when any one of its subjects matches the pattern" do
+      write("lib/c.rb", "class Widget\n  def thing\n    1\n  end\n  def added\n    2\n  end\nend\n")
+      write("spec/c_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "two subjects")
+      write("lib/c.rb", "class Widget\n  def thing\n    1\n  end\n  def added\n    3\n  end\nend\n")
+      expect(guess_for(["lib/c.rb"], ["Widget#added"]).specs).to eq(["spec/c_spec.rb"])
+    end
+
+    it "keeps a file when its subject matches any one of the patterns" do
+      write("lib/c.rb", "class Widget\n  def thing\n    1\n  end\n  def added\n    2\n  end\nend\n")
+      write("spec/c_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "two subjects")
+      write("lib/c.rb", "class Widget\n  def thing\n    1\n  end\n  def added\n    3\n  end\nend\n")
+      expect(guess_for(["lib/c.rb"], ["Widget#added", "Widget#nope"]).specs).to eq(["spec/c_spec.rb"])
+    end
+
     def guess_for(files, patterns)
       config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
       described_class.new(config).call_for(files, patterns)

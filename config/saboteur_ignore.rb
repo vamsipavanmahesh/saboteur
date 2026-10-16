@@ -179,13 +179,41 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Selection::GitDiff#unquote",
              reason: "equivalent: .b only retags the string and the force_encoding right after overwrites the tag; bytes never change"
 
-  i.mutation "7bdbaeaf5479aacf",
-             subject: "Saboteur::Selection::GitDiff#union_untracked",
+  i.mutation "168aa39476e05d6b",
+             subject: "Saboteur::Selection::UntrackedChanges#union",
              reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
 
-  i.mutation "58be6cd5a69d283b",
-             subject: "Saboteur::Selection::GitDiff#count_lines",
-             reason: "equivalent: IO#read with a positive length is nil at EOF and never "", so the empty-chunk arm is unreachable; the guard only bounds a no-arg-read mutant's spin"
+  i.mutation "40c51d744af42a0e",
+             subject: "Saboteur::Selection::UntrackedChanges#count_lines",
+             reason: "equivalent: IO#read with a positive length is nil at EOF and never empty, so the empty-chunk arm is unreachable; the guard only bounds a no-arg-read mutant's spin"
+
+  i.mutation "55c265f587f07d8f",
+             subject: "Saboteur::Engine::DiffScope#distance_for",
+             reason: "equivalent: at first == changed.end the subtraction is 0, exactly the overlap arm's answer, so > and >= agree everywhere"
+
+  i.mutation "b6971b0205b221fb",
+             subject: "Saboteur::Engine::DiffScope#distance_for",
+             reason: "equivalent: at last == changed.begin the subtraction is 0, exactly the overlap arm's answer, so < and <= agree everywhere"
+
+  i.mutation "bde3ce6eba713256",
+             subject: "Saboteur::Engine::SubjectSelection#find",
+             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
+
+  i.mutation "2a03e98d1de4dcfb",
+             subject: "Saboteur::Engine::SubjectSelection#by_pattern",
+             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
+
+  i.mutation "33b888a35f749d05",
+             subject: "Saboteur::Engine::TestGuess#call_all",
+             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
+
+  i.mutation "1585456d1fd69b1a",
+             subject: "Saboteur::Engine::SubjectSelection#report_unchanged_syntax",
+             reason: "equivalent: Subject#to_s is its id, so joining subjects reads the same as joining their ids"
+
+  i.mutation "b3fd9ed8d22fac26",
+             subject: "Saboteur::Engine::SubjectSelection#report_unchanged_syntax",
+             reason: "equivalent: Subject#to_s is its id, and the block's return value is only joined, so map and each read the same"
 
   i.mutation "460c99badd064fe9",
              subject: "Saboteur::Frameworks::Rails#sqlite_absolute",

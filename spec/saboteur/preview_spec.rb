@@ -55,6 +55,7 @@ RSpec.describe Saboteur::Preview do
       .and_return(target.file => [4])
     allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("base")
     allow(Saboteur::Selection::GitDiff).to receive(:file_at).and_return(nil)
+    allow(Saboteur::Selection::UntrackedChanges).to receive(:paths).and_return([])
     scoped = config(since: "base")
     selection = Saboteur::Engine::SubjectSelection.new(scoped, Saboteur::Engine::Diagnostics.new(StringIO.new))
     subjects = selection.select(scoped.included_files)

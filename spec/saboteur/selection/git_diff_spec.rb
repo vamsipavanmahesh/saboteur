@@ -180,7 +180,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
         File.symlink(File.join(@dir, "real.rb"), File.join(@dir, "link.rb"))
         allow(described_class).to receive(:git).and_call_original
         allow(described_class).to receive(:git)
-          .with(@dir, "ls-files", "-z", "--others", "--exclude-standard").and_return("link.rb\0")
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("link.rb\0")
         changed = described_class.changed_lines("HEAD", root: @dir)
         expect(changed.keys.map { |path| File.basename(path) }).to eq([])
       end
@@ -190,7 +190,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
         File.mkfifo(File.join(@dir, "pipe.rb"))
         allow(described_class).to receive(:git).and_call_original
         allow(described_class).to receive(:git)
-          .with(@dir, "ls-files", "-z", "--others", "--exclude-standard").and_return("pipe.rb\0")
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("pipe.rb\0")
         Timeout.timeout(3) do
           expect(described_class.changed_lines("HEAD", root: @dir)).to eq({})
         end
@@ -200,7 +200,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
         commit_file("a.rb", "1\n")
         allow(described_class).to receive(:git).and_call_original
         allow(described_class).to receive(:git)
-          .with(@dir, "ls-files", "-z", "--others", "--exclude-standard").and_return("gone.rb\0")
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("gone.rb\0")
         expect(described_class.changed_lines("HEAD", root: @dir)).to eq({})
       end
 
@@ -282,7 +282,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
         sleep 0.1
         allow(described_class).to receive(:git).and_call_original
         allow(described_class).to receive(:git)
-          .with(@dir, "ls-files", "-z", "--others", "--exclude-standard").and_return("pipe.rb\0")
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("pipe.rb\0")
         expect(described_class.changed_lines("HEAD", root: @dir)).to eq({})
       ensure
         reader&.close
@@ -298,11 +298,40 @@ RSpec.describe Saboteur::Selection::GitDiff do
       end
 
       it "bounds every read while counting lines" do
+        untracked = Saboteur::Selection::UntrackedChanges
         io = StringIO.new("1\n2\n")
-        allow(io).to receive(:read).with(described_class::BINARY_SNIFF_BYTES).and_call_original
-        allow(io).to receive(:read).with(described_class::READ_CHUNK_BYTES).and_return(nil)
-        expect(described_class.count_lines(io)).to eq(2)
-        expect(io).to have_received(:read).with(described_class::BINARY_SNIFF_BYTES)
+        allow(io).to receive(:read).with(untracked::BINARY_SNIFF_BYTES).and_call_original
+        allow(io).to receive(:read).with(untracked::READ_CHUNK_BYTES).and_return(nil)
+        expect(untracked.count_lines(io)).to eq(2)
+        expect(io).to have_received(:read).with(untracked::BINARY_SNIFF_BYTES)
+      end
+
+      it "warns when an included untracked file vanishes before the read" do
+        commit_file("a.rb", "1\n")
+        path = File.join(@dir, "gone.rb")
+        File.write(path, "1\n")
+        include = [File.realpath(path)].to_set
+        File.delete(path)
+        diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+        allow(diagnostics).to receive(:warn)
+        allow(described_class).to receive(:git).and_call_original
+        allow(described_class).to receive(:git)
+          .with(File.realpath(@dir), "ls-files", "-z", "--others", "--exclude-standard").and_return("gone.rb\0")
+        changed = described_class.changed_lines("HEAD", root: @dir, include: include, diagnostics: diagnostics)
+        expect(changed).to eq({})
+        expect(diagnostics).to have_received(:warn).with(/included untracked file.*gone\.rb/m)
+      end
+
+      it "warns when an included untracked file cannot be read" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "secret.rb"), "1\n")
+        File.chmod(0o000, File.join(@dir, "secret.rb"))
+        include = [File.realpath(File.join(@dir, "secret.rb"))].to_set
+        diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+        allow(diagnostics).to receive(:warn)
+        changed = described_class.changed_lines("HEAD", root: @dir, include: include, diagnostics: diagnostics)
+        expect(changed).to eq({})
+        expect(diagnostics).to have_received(:warn).with(/included untracked file.*secret\.rb/m)
       end
 
       it "skips gitignored, empty and binary untracked files" do

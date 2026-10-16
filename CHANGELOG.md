@@ -21,6 +21,17 @@ All notable changes are documented here. The format follows
   few kilobytes, and the map holds a range of lines instead of one entry per
   line, keeping memory bounded. On platforms without those open flags the
   union is skipped with a warning.
+- `--since` no longer drops an include-eligible untracked file quietly when
+  it cannot be read (vanished, unreadable, or replaced by a link or special
+  file between the listing and the open): the run now names it in a warning,
+  since its subjects are silently uncovered otherwise (#297).
+- The excluded-changes warning now also names untracked files in excluded
+  territory: they never appear in the diff, so an exclude that removes one
+  used to hide the removal entirely (#297).
+- Distance and overlap checks over the whole-file ranges the untracked
+  union produces are now geometric, so subject selection, test guessing and
+  survivor ranking answer in O(1) per subject instead of scanning one entry
+  per line of a large new file (#297).
 
 ### Changed
 - Report-artifact write semantics (#296): a failed HTML report or score

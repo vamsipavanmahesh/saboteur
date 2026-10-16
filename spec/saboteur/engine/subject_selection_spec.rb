@@ -25,8 +25,45 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     described_class.new(config, diagnostics).select(files)
   end
 
+  it "registers inline suppressions and warns with the parser's message for a broken file" do
+    allow(Saboteur::InlineSuppression).to receive(:new).and_call_original
+    diags = Saboteur::Engine::Diagnostics.new(StringIO.new)
+    file = write("broken.rb", "def nope(\n")
+    config = Saboteur::Config.new({}, root: @root)
+    described_class.new(config, diags).select([file])
+    expect(Saboteur::InlineSuppression).to have_received(:new).with(file, "def nope(\n")
+    expect(diags.warnings).to include(a_string_matching(/broken\.rb does not parse: \S/))
+  end
+
   it "finds every def in the files" do
     expect(select([write("cart.rb", source)]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
+  end
+
+  it "stays quiet when a pattern matches one of several subjects in a file" do
+    select([write("cart.rb", source)], subjects: ["Shop::Cart#total"])
+    expect(diagnostics.warnings).to be_empty
+  end
+
+  it "selects a subject that matches any one of the patterns" do
+    result = select([write("cart.rb", source)], subjects: ["Shop::Cart#total", "Nope#nope"])
+    expect(result.map(&:id)).to eq(["Shop::Cart#total"])
+  end
+
+  it "warns for a subjectless changed file when the root is reached through a symlink" do
+    Dir.mktmpdir do |link_base|
+      link = File.join(link_base, "link")
+      File.symlink(@root, link)
+      note = File.join(link, "note.rb")
+      File.write(note, "# just a comment\n")
+      [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: link)
+      end
+      File.write(note, "# just a comment\n# more\n")
+      diags = Saboteur::Engine::Diagnostics.new(StringIO.new)
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: link)
+      described_class.new(config, diags).select([note])
+      expect(diags.warnings).to include(a_string_matching(/have no subjects covering the changed lines/))
+    end
   end
 
   it "keeps subjects matching --subject patterns, including namespace prefixes" do
@@ -104,6 +141,14 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     it "names five and then an ellipsis when more were skipped" do
       expect(commented_methods(6)).to be_empty
       expect(err.string).to include("6 changed method(s)").and end_with("Cart#m4, Cart#m5, ...\n")
+    end
+
+    it "scopes the diff to the selected files and reports through the run diagnostics" do
+      file = commit_base(two_methods)
+      allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).and_call_original
+      select([file], since: "HEAD")
+      expect(Saboteur::Selection::GitDiff).to have_received(:changed_lines)
+        .with("HEAD", root: @root, include: [file].to_set, diagnostics: diagnostics)
     end
 
     it "does not look up the merge base when no method changed" do
@@ -192,6 +237,18 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     # --subject only filters subjects inside the files left after excludes,
     # so it cannot recover an excluded file; a positional operand clears
     # configured excludes (cli.rb's use_explicit_sources sets exclude: []).
+    it "names an untracked new file that c.include covers but c.exclude removes" do
+      write("cart.rb", source)
+      write("note.rb", "class Note\n  def text = \"n\"\nend\n")
+      commit_all
+      File.write(File.join(@root, "fresh.rb"), "class Fresh\n  def new = 1\nend\n")
+
+      select([], since: "HEAD", include: ["*.rb"], exclude: ["fresh.rb"])
+
+      expect(diagnostics.warnings.size).to eq(1)
+      expect(diagnostics.warnings.first).to include("them: fresh.rb")
+    end
+
     it "advises narrowing c.exclude or a positional operand, never --subject" do
       cart = write("cart.rb", source)
       commit_all
@@ -202,6 +259,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       warning = diagnostics.warnings.first
       expect(warning).to include("Narrow or remove the c.exclude entry",
                                  "pass the file as a positional source operand")
+      expect(warning).to end_with("(configured excludes are then ignored).")
       expect(warning).not_to include("--subject")
     end
 
@@ -293,6 +351,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings.first).to include("--since: 1 changed Ruby file(s) have no subjects " \
                                                     "covering the changed lines, so nothing is mutated " \
                                                     "from them: cart.rb")
+      expect(diagnostics.warnings.first).to end_with("The file may not parse, or every change may sit " \
+                                                     "outside a method.")
       expect(diagnostics.warnings.first).not_to include("...")
     end
 
@@ -394,6 +454,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       c = write("c.rb", "class Cee\n  def m\n    1\n  end\nend\n")
       expect(described_class.files_matching(@root, [c, b, a], ["Bee", "Ay#m"])).to eq(["a.rb", "b.rb"])
       expect(described_class.files_matching(@root, [c, a, b], ["Nope"])).to eq([])
+
+      two = write("two.rb", "class Two\n  def m = 1\n  def n = 2\nend\n")
+      expect(described_class.files_matching(@root, [two], ["Two#m"])).to eq(["two.rb"])
     end
   end
 end
