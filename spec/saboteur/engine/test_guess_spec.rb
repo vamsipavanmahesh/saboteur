@@ -470,6 +470,43 @@ RSpec.describe Saboteur::Engine::TestGuess do
       end
     end
 
+    # RSpec lists the suite once per run, not once per changed spec, and a
+    # failed listing is not retried for each one.
+    [[:list, nil], [:fail, Encoding::CompatibilityError]].each do |kind, error|
+      it "asks RSpec for the suite's files once when the listing #{kind == :list ? 'succeeds' : 'fails'}" do
+        write("lib/a.rb", changed_source)
+        write("spec/requests/one_spec.rb")
+        write("spec/requests/two_spec.rb")
+        calls = 0
+        allow_any_instance_of(Saboteur::Integration::RSpec).to receive(:configured_spec_files) do
+          calls += 1
+          raise error, "incompatible" if error
+
+          %w[spec/requests/one_spec.rb spec/requests/two_spec.rb]
+        end
+        guess
+        expect(calls).to eq(1)
+      end
+    end
+
+    it "names only deleted spec files, not other deleted files" do
+      write("lib/a.rb", changed_source)
+      File.delete(File.join(dir, "spec/stray_spec.rb"))
+      File.delete(File.join(dir, "lib/e.rb"))
+      expect(guess.skipped_specs).to eq("spec/stray_spec.rb" => "deleted in the diff")
+    end
+
+    it "lists skipped spec files in path order, whatever the reason" do
+      write(".rspec", "--exclude-pattern spec/fixtures/**/*_spec.rb\n")
+      git("add", ".")
+      git("commit", "-q", "-m", "rspec options")
+      write("lib/a.rb", changed_source)
+      write("spec/fixtures/a_spec.rb")
+      File.delete(File.join(dir, "spec/stray_spec.rb"))
+      File.delete(File.join(dir, "spec/deep/b_spec.rb"))
+      expect(guess.skipped_specs.keys).to eq(%w[spec/deep/b_spec.rb spec/fixtures/a_spec.rb spec/stray_spec.rb])
+    end
+
     it "names changed specs instead of running them when the suite's files cannot be listed" do
       write("lib/a.rb", changed_source)
       write("spec/requests/widgets_spec.rb")
