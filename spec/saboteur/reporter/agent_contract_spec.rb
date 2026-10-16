@@ -37,8 +37,9 @@ RSpec.describe "agent output contract (docs/stability.md)" do
   def budget_partial_survivor_report
     Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1,
                          root: File.dirname(person_subject.file), seed: 7,
-                         early_stop: Saboteur::EarlyStop.new(reason: "max_duration", unreached: [person_subject],
-                                                             truncated: [], unverified: 2))
+                         early_stop: Saboteur::EarlyStop.new(reason: "max_duration",
+                                                             unreached: [person_subject.id],
+                                                             truncated: [], unverified: []))
   end
 
   it "pins the payload version" do

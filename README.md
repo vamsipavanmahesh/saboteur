@@ -488,7 +488,17 @@ when their covering tests, reuse status and changed lines are identical;
 otherwise each distinct set of evidence is printed above its own mutations.
 Hints are suggestions, not diagnoses: a survivor can also be an equivalent
 mutant. The HTML page shows the same list in the
-survivor's notes. The JSON report goes to `.saboteur/report.json` and a self-contained HTML
+survivor's notes. Each survivor in the JSON report also carries a
+`classification` field: `likely_equivalent` (the mutant compiles to the
+original's instructions), `arid` (every line an edit touches matches an
+arid pattern), or `missing_test` (a planned covering test passed with the
+mutant applied). One label per survivor, first match in that order; the
+field is omitted when no signal applies. Labels are heuristics for triage
+order, not diagnoses - inspect a survivor before acting on its label, and
+never add a test or ignore a mutant from the label alone. Labels never
+change scores or the exit code. See
+[docs/guides/reading-survivors.md](docs/guides/reading-survivors.md). The
+JSON report goes to `.saboteur/report.json` and a self-contained HTML
 report (one file, no scripts, no network) to `.saboteur/report.html`. Change
 the paths with `--json` / `--html` or `c.json_report` / `c.html_report` in
 `config/saboteur.rb`; set either to `nil` to turn that report off. The two paths
@@ -835,6 +845,28 @@ end
 ```
 
 An entry without a reason is rejected.
+
+Each entry also carries a triage state (#155) chosen with `state:` -
+`accepted_equivalent` (the default) or `wont_fix` suppress the survivor's
+exit failure (it still counts in the score), `todo` records the decision
+to fix and keeps the survivor counting as an unignored survivor:
+
+```ruby
+i.mutation "9f8e7d6c5b4a3210",
+           subject: "Billing::Invoice#discount",
+           reason: "dead code on the legacy pricing path",
+           state: "wont_fix"
+```
+
+The HTML report badges the state (`Accepted`, `Won't fix`, `Todo`). In the
+JSON report only `wont_fix` and `todo` mark `statusReason` - `ignored:
+<reason> (wont_fix)` and `todo: <reason>` - while an `accepted_equivalent`
+survivor reads as a plain `ignored: <reason>`, byte-identical to an entry
+without a triage state. All three keep status `Survived`. A `todo` entry
+keeps the survivor counting as an unignored survivor, subject to the normal
+exit-code and threshold gates. `statusReason` is human-readable text for
+reports, not a structured field: parse `status`, never the reason string,
+which does not distinguish every triage state.
 
 ### SimpleCov
 
