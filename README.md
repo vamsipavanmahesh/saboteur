@@ -160,12 +160,15 @@ whose C library cannot be located (musl is tried by soname first).
 `c.sandbox = "strict"` turns that degraded note into a refusal;
 `c.sandbox = false` opts out.
 
-In short, per platform: on Linux 6.2+ mutant children are
-filesystem-sandboxed as described above; on older Linux kernels and on macOS
-there is no sandbox (Landlock is Linux-only) and mutants run with the hazard
-guard and canary only. Network access is never restricted on any platform -
-a mutant can reach real APIs if a test is not stubbed. When a mutant could
-write outside the project or reach the network, run saboteur in a container.
+In short, per platform: on Linux 6.2+ mutant children can be
+filesystem-sandboxed as described above (the kernel capability, not a proof
+of isolation - `saboteur doctor` probes what your setup actually allows); on
+older Linux kernels and on macOS there is no sandbox (Landlock is
+Linux-only) and mutants run with the hazard guard and canary only. Network
+access is never restricted on any platform - a mutant can reach real APIs if
+a test is not stubbed. When a mutant could write outside the project, run
+saboteur in a container; a plain container keeps outbound network access, so
+when a mutant could reach real APIs, deny the network or stub the APIs.
 `saboteur doctor` reports the platform's sandbox status.
 
 

@@ -13,9 +13,10 @@ All notable changes are documented here. The format follows
 - `docs/stability.md`: the agent JSON payload and the exit codes are stable
   public APIs with a deprecation process, pinned by a new contract spec; a
   governance note in CONTRIBUTING covers maintainer availability (#249).
-- `saboteur doctor` says plainly on macOS that mutants run unsandboxed and
-  advises a container, and the README carries a short per-platform sandbox
-  and network statement (#247).
+- `saboteur doctor` says plainly on macOS that mutants run unsandboxed,
+  advising a container for filesystem containment and network denial or
+  stubbing for real-API risk, and the README carries a short per-platform
+  sandbox and network statement (#247).
 
 ### Removed
 - The stale self-deprecating benchmark claims in the README ('rerun

@@ -71,17 +71,18 @@ RSpec.describe Saboteur::Doctor do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
       stub_const("RUBY_PLATFORM", "arm64-darwin23")
       doctor.call
-      mac_note = "Sandbox: macOS runs mutants unsandboxed (Landlock is Linux-only), and network access " \
-                 "is never restricted on any platform - run in a container when a mutant could write " \
-                 "outside the project or reach real APIs"
-      expect(out.string).to include(mac_note)
+      sandbox_note = "macOS: mutants run unsandboxed (Landlock is Linux-only) - a container contains " \
+                     "filesystem writes outside the project"
+      network_note = "Network: never restricted on any platform, and a plain container keeps outbound " \
+                     "access - deny or stub the network when a mutant could reach real APIs"
+      expect(out.string).to include(sandbox_note, network_note)
     end
 
     it "keeps the macOS note off other platforms" do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
       stub_const("RUBY_PLATFORM", "x86_64-linux")
       doctor.call
-      expect(out.string).not_to include("macOS runs mutants unsandboxed")
+      expect(out.string).not_to include("mutants run unsandboxed (Landlock is Linux-only)")
     end
 
     it "reports the sandbox as off when configured off" do

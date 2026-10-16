@@ -4,9 +4,13 @@
 require "json"
 
 # The agent JSON payload and the process exit codes are public APIs with a
-# deprecation process (docs/stability.md). This contract fails when a key,
-# the version or an exit code changes without a deliberate version bump.
+# deprecation process (docs/stability.md). This contract fails when a pinned
+# key, a status or verdict value, the version or an exit code changes without
+# a deliberate version bump. Keys are pinned by presence per shape, never by
+# position: JSON key order is not API.
 RSpec.describe "agent output contract (docs/stability.md)" do
+  let(:agent) { Saboteur::Reporter::Agent }
+
   def provenance
     Saboteur::Reporter::Agent::Provenance.new(
       ref: "origin/main", seed: 7, head: "abc1234", working_tree: "clean", changed_files: 0, mode: "all",
@@ -16,39 +20,81 @@ RSpec.describe "agent output contract (docs/stability.md)" do
   end
 
   def payload_for(report)
-    JSON.parse(Saboteur::Reporter::Agent.render(Saboteur::Reporter::Agent.call(report, provenance)))
+    JSON.parse(agent.render(agent.call(report, provenance)))
+  end
+
+  def empty_report
+    Saboteur::Report.new(results: [], subjects: [], wall_time: 0.1, root: "/tmp", seed: 7)
+  end
+
+  def partial_report
+    Saboteur::Report.new(results: [], subjects: [person_subject], wall_time: 1,
+                         root: File.dirname(person_subject.file), seed: 7,
+                         skipped_subjects: { person_subject => "no coverage" })
   end
 
   it "pins the payload version" do
-    expect(Saboteur::Reporter::Agent::VERSION).to eq(1)
+    expect(agent::VERSION).to eq(1)
   end
 
-  it "pins the exit codes" do
-    expect([Saboteur::Reporter::Agent::EXIT_CLEAN, Saboteur::Reporter::Agent::EXIT_REVIEW,
-            Saboteur::Reporter::Agent::EXIT_INVOCATION, Saboteur::Reporter::Agent::EXIT_INCOMPLETE])
+  it "pins the exit codes: the ordinary CLI has 0-4, agent mode is verdict-driven 0-3" do
+    expect([agent::EXIT_CLEAN, agent::EXIT_REVIEW, agent::EXIT_INVOCATION, agent::EXIT_INCOMPLETE])
       .to eq([0, 1, 2, 3])
     expect([Saboteur::CLI::EXIT_OK, Saboteur::CLI::EXIT_SURVIVORS, Saboteur::CLI::EXIT_USAGE,
             Saboteur::CLI::EXIT_TOOL, Saboteur::CLI::EXIT_BUDGET]).to eq([0, 1, 2, 3, 4])
   end
 
-  it "pins the run payload's top-level keys and their order" do
-    report = Saboteur::Report.new(results: [], subjects: [], wall_time: 0.1, root: "/tmp", seed: 7)
-    expect(payload_for(report).keys).to eq(%w[version status verdict exitCode provenance counts score
-                                              scoreDefinition incomplete timeoutCountedAsDetected findings
-                                              warnings next])
+  it "pins the run payload's top-level keys by presence, not position" do
+    expect(payload_for(empty_report).keys)
+      .to contain_exactly("version", "status", "verdict", "exitCode", "provenance", "counts", "score",
+                          "scoreDefinition", "incomplete", "timeoutCountedAsDetected", "findings",
+                          "warnings", "next")
   end
 
   it "pins the failure payload's keys" do
-    expect(Saboteur::Reporter::Agent.failure("boom", 3).keys)
-      .to eq(%i[version status verdict exitCode message next])
+    expect(agent.failure("boom", 3).keys)
+      .to contain_exactly(:version, :status, :verdict, :exitCode, :message, :next)
   end
 
-  it "maps each status to its documented exit code" do
-    clean = payload_for(report_of(result_for(:killed)))
-    incomplete = payload_for(Saboteur::Report.new(results: [], subjects: [person_subject], wall_time: 1,
-                                                  root: File.dirname(person_subject.file), seed: 7,
-                                                  skipped_subjects: { person_subject => "no coverage" }))
-    expect([clean.values_at("verdict", "exitCode"), incomplete.values_at("verdict", "exitCode")])
-      .to eq([["clean", 0], ["incomplete", 3]])
+  it "pins the truncated last-resort shape to the four guaranteed keys plus the marker" do
+    allow(agent).to receive(:render).and_return("x" * (agent::BYTE_BUDGET + 1))
+    expect(agent.call(report_of(result_for(:killed)), provenance))
+      .to eq(version: 1, status: "complete", verdict: "clean", exitCode: 0, truncated: true)
+  end
+
+  # The shape/mode table from docs/stability.md: every documented status,
+  # verdict and exit code, in both run and failure shapes.
+  {
+    "clean run" => [-> { report_of(result_for(:killed)) },   "complete",       "clean",           0],
+    "survivors" => [-> { report_of(result_for(:survived)) }, "complete",       "survivors",       1],
+    "incomplete run" => [-> { partial_report }, "partial", "incomplete", 3],
+    "nothing selected" => [-> { empty_report }, "not_applicable", "not_applicable", 3]
+  }.each do |name, (build, status, verdict, exit_code)|
+    it "maps #{name} to status #{status}, verdict #{verdict}, exit #{exit_code}" do
+      expect(payload_for(instance_exec(&build)).values_at("status", "verdict", "exitCode"))
+        .to eq([status, verdict, exit_code])
+    end
+  end
+
+  {
+    "usage error" => [2, "invalid_invocation"],
+    "tool failure" => [3, "tool_failure"]
+  }.each do |name, (exit_code, verdict)|
+    it "maps a #{name} to status error, verdict #{verdict}, exit #{exit_code}" do
+      expect(agent.failure("boom", exit_code).values_at(:status, :verdict, :exitCode))
+        .to eq(["error", verdict, exit_code])
+    end
+  end
+
+  it "documents every status and verdict value the shapes can emit" do
+    run_payloads = [payload_for(report_of(result_for(:killed))), payload_for(partial_report),
+                    payload_for(empty_report)]
+    failures = [agent.failure("boom", 2), agent.failure("boom", 3)]
+    expect(run_payloads.map { |p| p["status"] } | failures.map { |f| f[:status] })
+      .to contain_exactly("complete", "partial", "not_applicable", "error")
+    expect(run_payloads.map { |p| p["verdict"] } + [payload_for(report_of(result_for(:survived)))["verdict"]] +
+           failures.map { |f| f[:verdict] })
+      .to contain_exactly("clean", "survivors", "incomplete", "not_applicable", "invalid_invocation",
+                          "tool_failure")
   end
 end
