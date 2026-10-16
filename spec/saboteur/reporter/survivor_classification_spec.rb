@@ -84,6 +84,26 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to eq("likely_equivalent")
   end
 
+  it "sorts edits before splicing: unsorted edits must not land on stale offsets" do
+    # argument_removal/pair_removal emit [argument, comma] with the comma
+    # BEFORE the argument when the last one goes - unsorted by start_byte.
+    # Without the sort the reversed splices run early-to-late and the
+    # second lands two bytes off, mangling bytecode-identical code.
+    result = survivor_for_edits("class A\n  def old?(age)\n    age >= 18 && age < 65\n  end\nend\n",
+                                [["< 65", "< (65)"], ["18", "(18)"]])
+    expect(described_class.label(result)).to eq("likely_equivalent")
+  end
+
+  it "reads the line an edit reaches into through its final byte" do
+    # The edit ends on the "b" that opens the bar line: end_byte - 1 is
+    # that "b", so the line search must start there and include the rest
+    # of the bar line. One byte earlier finds the newline inside the edit
+    # and drops the bar line entirely.
+    result = survivor_for("class A\n  def m\nfoo\nbar\n  end\nend\n",
+                          from: "foo\nb", to: "nil")
+    expect(described_class.label(result, arid: ["\\Afoo\\z"])).to eq("missing_test")
+  end
+
   it "compiles with the subject's frozen-string-literal setting" do
     result = survivor_for("# frozen_string_literal: true\nclass A\n  def tell(msg)\n    puts msg\n  end\nend\n",
                           from: "puts msg", to: "nil")
