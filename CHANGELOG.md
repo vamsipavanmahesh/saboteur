@@ -6,44 +6,53 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
-### Fixed
-- `--since` no longer skips untracked files silently (#295): a never-committed
-  source file is invisible to `git diff`, so it used to contribute no changed
-  lines and every subject in it was skipped without a word - even the
-  changed-files-without-subjects warning could not name it. Untracked files
-  now union into the changed-lines map as fully changed, so their subjects
-  are selected, and one without subjects triggers the warning like any other
-  changed file. Ignored (`.gitignore`), binary and empty files stay out, and
-  only files inside the configured `include` set are considered, so a large
-  unrelated untracked file is never opened. Each unioned file is opened
-  `O_NOFOLLOW`/`O_NONBLOCK` and validated on that descriptor (a swapped-in
-  symlink or FIFO is skipped quietly), the binary sniff reads only the first
-  few kilobytes, and the map holds a range of lines instead of one entry per
-  line, keeping memory bounded. On platforms without those open flags the
-  union is skipped with a warning.
-- `--since` no longer drops an include-eligible untracked file quietly when
-  it cannot be read (vanished, unreadable, or replaced by a link or special
-  file between the listing and the open): the run names it in a warning and
-  records it as a discovery failure, so an agent run over mixed tested and
-  omitted source reports `partial`/`incomplete` with the `unreadable` reason
-  instead of a clean result. Files that do not parse (`invalid_file_syntax`)
-  surface the same way instead of only warning (#297).
-- Include membership for untracked files is lexical first: an included path
-  swapped to a symlink is attempted, rejected by the safe open and reported,
-  instead of being filtered out silently on its resolved target. A symlinked
-  repository root stays in scope through the canonical fallback (#297).
-- Test inference under `--since` no longer enumerates a whole-file change
-  range per method when deciding whether a changed file needs a spec; it
-  answers ranges by interval, like the run's own subject selection (#297).
-- The excluded-changes warning now also names untracked files in excluded
-  territory: they never appear in the diff, so an exclude that removes one
-  used to hide the removal entirely (#297).
-- Distance and overlap checks over the whole-file ranges the untracked
-  union produces are now geometric, so subject selection, test guessing and
-  survivor ranking answer in O(1) per subject instead of scanning one entry
-  per line of a large new file (#297).
+## [0.7.0] - 2026-10-16
+
+### Upgrade notes
+- Inferred test selection is now the default. Use `--all` or
+  `c.test_selection = :all` to keep the 0.6.0 whole-suite behavior; use
+  `--test` to name specs explicitly. Missing inferred specs stop before
+  boot with exit 2. `--guess-tests` is now a deprecated alias for the
+  default; `--no-guess-tests` warns and is ignored.
+- Three new default-on operators change the mutation set, runtime and
+  scores. Review survivor baselines and CI thresholds after upgrading;
+  use `--exclude-operators` to omit operators you do not want.
+- Harness integrations should handle budget-exhausted runs (exit 4),
+  unverified mutants outside the score, and explicit JSON report write
+  failures (exit 3). `--max-duration-ok` does not certify an unscored run.
 
 ### Changed
+- Breaking: inferred test selection is now the default. Without `--test`,
+  a run picks the spec named after each mutated file and runs only those
+  for the baseline passes, the coverage pass and every mutant, as `--test`
+  would; with `--since` only the changed files count. A file that needs a
+  spec and has none now stops the run before it boots (exit 2) and names
+  both ways out, instead of silently running the whole suite. Use `--all`
+  or `c.test_selection = :all` to keep the old whole-suite behavior.
+  `--guess-tests` is a deprecated alias for the default and
+  `--no-guess-tests` warns and is ignored; both flags disappear in a
+  future release (#270). A `--subject` run infers only from the named
+  subjects' files, so an unrelated spec-less file no longer stops a
+  one-method run. The unmatched-file guidance names the expected specs
+  and tells you to re-run the same command with `--test` followed by your
+  existing spec paths, or to append `--all`, instead of printing a
+  reconstructed command. `--test` may stand alone (the configured include
+  names the sources), so agent rerun/replay commands stay executable; a
+  whole-suite `--all` run is recorded in the agent provenance only when
+  no tests resolved, so a configured `:all` combined with named tests
+  still produces runnable follow-up commands. Baseline evidence is
+  fingerprinted from the declared config before inference narrows the
+  test list, so `baseline propose` and `baseline check` agree again
+  (#275). Two stale ignore-list entries for
+  `Saboteur::CLI#define_execution_options` are gone: full runs no longer
+  generate those description-string mutants, so the entries could never
+  match again.
+  A `--subject` run combined with `--since` now infers specs only for
+  named subjects inside the diff scope: an unchanged subject file, one
+  whose changes sit in other methods, or one with a comment-only change
+  no longer stops the run before boot. Agent provenance records tests
+  defined in the config file, so rerun and replay commands keep their
+  scope instead of falling back to inference.
 - Report-artifact write semantics (#296): a failed HTML report or score
   history write now warns and lets the run exit by its results, so a
   read-only tree (a sandboxed child holding the project read-only) no
@@ -100,16 +109,6 @@ All notable changes are documented here. The format follows
   `max_duration` even with `--fail-fast`. Agent output names unverified
   mutants in `incomplete[]`, and `--max-duration-ok` only passes a run
   whose verified verdicts (kills, survivors, timeouts) can carry a score.
-
-### Fixed
-- A baseline check or coverage map build that hit only its
-  budget-shortened timeout failed the run as a suite error (exit 3) with
-  no partial report; it now reports budget exhaustion with every selected
-  subject unreached and exits 4 (#296).
-- The unscoped-suite warning pluralizes zero baseline checks correctly
-  ("0 baseline checks", not "0 baseline check") (#296).
-
-### Added
 - `saboteur pr [REF]` and `saboteur audit` presets: opinionated bundles of
   existing flags - the PR loop (changed lines since REF, one baseline
   check, a ten-minute non-failing budget) and the full audit (whole
@@ -142,8 +141,72 @@ All notable changes are documented here. The format follows
   unknown thread can break (#263). A `chain_removal` survivor's hint
   appends a conditional equivalence note: if the shorter chain proves
   equivalent across the intended inputs, simplify or ignore (#264).
+- Three new default-on operators: `method_swap` swaps a method with its
+  semantic opposite (`min`/`max`, `any?`/`all?`, `map`/`each`; a receiver
+  is required, so bare `max(a, b)` is untouched) (#237),
+  `operand_replacement` replaces an arithmetic or comparison operation
+  with each operand in turn (`a + b` yields `a` and `b`; boolean
+  connectors stay with `boolean_logic`) (#238), and
+  `interpolation_removal` removes each `#{expr}` and each literal segment
+  of an interpolated string (#239). The hazard guard now also recognizes
+  `send`, `public_send` and `__send__` with a literal symbol or string
+  selector and applies the same checks as for the direct call to the
+  resolved selector, with the arguments shifted past it: a destructive
+  method name on any receiver (`helper.send(:rmtree, path)`), the
+  configured hazard patterns, `Kernel#system` / `Process#spawn`, and
+  `Kernel#open` with a "| command" argument all stay suppressed. Dynamic
+  selectors stay out of scope as documented (#240).
+- `--since` warns when a changed Ruby file in scope has no subjects
+  covering the changed lines, so nothing is mutated from it (#232). A
+  silent zero-subject scope used to pass as a clean run. Comment-only or
+  formatting-only changes within discovered methods are skipped without
+  this warning; the run reports those skipped methods. `--since` also
+  warns when a changed Ruby file is covered by an include pattern but
+  removed by `c.exclude`, naming up to five such files, so a too-wide
+  exclude can no longer dogfood as a clean empty scope (#282).
 
 ### Fixed
+- `--since` no longer skips untracked files silently (#295): a never-committed
+  source file is invisible to `git diff`, so it used to contribute no changed
+  lines and every subject in it was skipped without a word - even the
+  changed-files-without-subjects warning could not name it. Untracked files
+  now union into the changed-lines map as fully changed, so their subjects
+  are selected, and one without subjects triggers the warning like any other
+  changed file. Ignored (`.gitignore`), binary and empty files stay out, and
+  only files inside the configured `include` set are considered, so a large
+  unrelated untracked file is never opened. Each unioned file is opened
+  `O_NOFOLLOW`/`O_NONBLOCK` and validated on that descriptor (a swapped-in
+  symlink or FIFO is rejected and reported as unreadable), the binary sniff reads only the first
+  few kilobytes, and the map holds a range of lines instead of one entry per
+  line, keeping memory bounded. On platforms without those open flags the
+  union is skipped with a warning.
+- `--since` no longer drops an include-eligible untracked file quietly when
+  it cannot be read (vanished, unreadable, or replaced by a link or special
+  file between the listing and the open): the run names it in a warning and
+  records it as a discovery failure, so an agent run over mixed tested and
+  omitted source reports `partial`/`incomplete` with the `unreadable` reason
+  instead of a clean result. Files that do not parse (`invalid_file_syntax`)
+  surface the same way instead of only warning (#297).
+- Include membership for untracked files is lexical first: an included path
+  swapped to a symlink is attempted, rejected by the safe open and reported,
+  instead of being filtered out silently on its resolved target. A symlinked
+  repository root stays in scope through the canonical fallback (#297).
+- Test inference under `--since` no longer enumerates a whole-file change
+  range per method when deciding whether a changed file needs a spec; it
+  answers ranges by interval, like the run's own subject selection (#297).
+- The excluded-changes warning now also names untracked files in excluded
+  territory: they never appear in the diff, so an exclude that removes one
+  used to hide the removal entirely (#297).
+- Distance and overlap checks over the whole-file ranges the untracked
+  union produces are now geometric, so subject selection, test guessing and
+  survivor ranking answer in O(1) per subject instead of scanning one entry
+  per line of a large new file (#297).
+- A baseline check or coverage map build that hit only its
+  budget-shortened timeout failed the run as a suite error (exit 3) with
+  no partial report; it now reports budget exhaustion with every selected
+  subject unreached and exits 4 (#296).
+- The unscoped-suite warning pluralizes zero baseline checks correctly
+  ("0 baseline checks", not "0 baseline check") (#296).
 - Review hardening for the 0.5.0 loop flags (#245): the `--max-duration`
   clock starts when the run starts (boot, baselines and the coverage map
   all spend the budget) and is checked before dispatching every subject,
@@ -234,41 +297,6 @@ All notable changes are documented here. The format follows
   hazard guard suppresses such mutants and reports the hazard (#234).
 - An extensionless `hooks` path now boots: it resolves its `.rb` at load
   time, the way `require` does and matching what doctor accepts (#267).
-
-### Changed
-- Breaking: inferred test selection is now the default. Without `--test`,
-  a run picks the spec named after each mutated file and runs only those
-  for the baseline passes, the coverage pass and every mutant, as `--test`
-  would; with `--since` only the changed files count. A file that needs a
-  spec and has none now stops the run before it boots (exit 2) and names
-  both ways out, instead of silently running the whole suite. Use `--all`
-  or `c.test_selection = :all` to keep the old whole-suite behavior.
-  `--guess-tests` is a deprecated alias for the default and
-  `--no-guess-tests` warns and is ignored; both flags disappear in a
-  future release (#270). A `--subject` run infers only from the named
-  subjects' files, so an unrelated spec-less file no longer stops a
-  one-method run. The unmatched-file guidance names the expected specs
-  and tells you to re-run the same command with `--test` followed by your
-  existing spec paths, or to append `--all`, instead of printing a
-  reconstructed command. `--test` may stand alone (the configured include
-  names the sources), so agent rerun/replay commands stay executable; a
-  whole-suite `--all` run is recorded in the agent provenance only when
-  no tests resolved, so a configured `:all` combined with named tests
-  still produces runnable follow-up commands. Baseline evidence is
-  fingerprinted from the declared config before inference narrows the
-  test list, so `baseline propose` and `baseline check` agree again
-  (#275). Two stale ignore-list entries for
-  `Saboteur::CLI#define_execution_options` are gone: full runs no longer
-  generate those description-string mutants, so the entries could never
-  match again.
-  A `--subject` run combined with `--since` now infers specs only for
-  named subjects inside the diff scope: an unchanged subject file, one
-  whose changes sit in other methods, or one with a comment-only change
-  no longer stops the run before boot. Agent provenance records tests
-  defined in the config file, so rerun and replay commands keep their
-  scope instead of falling back to inference.
-
-### Fixed
 - Fixed two encoding failures in mutant children running under a non-UTF-8
   locale such as `LANG=C` (seen on CI, where the Landlock sandbox engages):
   the inherited-fd sweep compared a locale-tagged descriptor target against
@@ -304,32 +332,6 @@ All notable changes are documented here. The format follows
   preserve path bytes rather than replacing invalid UTF-8 bytes; the
   cache, coverage-map and worker-message boundaries reject invalid UTF-8
   instead of rewriting it.
-
-### Added
-- Three new default-on operators: `method_swap` swaps a method with its
-  semantic opposite (`min`/`max`, `any?`/`all?`, `map`/`each`; a receiver
-  is required, so bare `max(a, b)` is untouched) (#237),
-  `operand_replacement` replaces an arithmetic or comparison operation
-  with each operand in turn (`a + b` yields `a` and `b`; boolean
-  connectors stay with `boolean_logic`) (#238), and
-  `interpolation_removal` removes each `#{expr}` and each literal segment
-  of an interpolated string (#239). The hazard guard now also recognizes
-  `send`, `public_send` and `__send__` with a literal symbol or string
-  selector and applies the same checks as for the direct call to the
-  resolved selector, with the arguments shifted past it: a destructive
-  method name on any receiver (`helper.send(:rmtree, path)`), the
-  configured hazard patterns, `Kernel#system` / `Process#spawn`, and
-  `Kernel#open` with a "| command" argument all stay suppressed. Dynamic
-  selectors stay out of scope as documented (#240).
-- `--since` warns when a changed Ruby file in scope has no subjects
-  covering the changed lines, so nothing is mutated from it (#232). A
-  silent zero-subject scope used to pass as a clean run. Comment-only or
-  formatting-only changes within discovered methods are skipped without
-  this warning; the run reports those skipped methods. `--since` also
-  warns when a changed Ruby file is covered by an include pattern but
-  removed by `c.exclude`, naming up to five such files, so a too-wide
-  exclude can no longer dogfood as a clean empty scope (#282).
-### Fixed
 - An unexpected internal error now prints `saboteur: internal error (...)
   - please report it` and exits 3, instead of escaping as a bare stack
   trace with an accidental exit 1. The crash message is normalized to one
@@ -354,9 +356,8 @@ All notable changes are documented here. The format follows
   the installer's Gemfile and `.gitignore` probes (`.gitignore` is
   rewritten losslessly), and the JSON reads in the test helpers.
 - CI now runs the suite on Ubuntu Ruby 3.4 with `LANG=C` and `LC_ALL=C`
-  to catch locale regressions exercised by the tests. The job is advisory
-  for now: it is not part of the required-check policy, and whether it
-  gates is a separate maintainer decision.
+  to catch locale regressions exercised by the tests. The panel gate's
+  required-check policy includes this job (#281).
 
 ## [0.6.0] - 2026-10-14
 
