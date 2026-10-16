@@ -288,6 +288,15 @@ RSpec.describe Saboteur::Reporter::Html do
     expect(page).not_to include('<span class="classification">')
   end
 
+  it "keeps the triage badge next to the classification label on an ignored survivor" do
+    accepted = result_for(:survived, covered_by: %w[t1])
+    accepted.ignored = "equivalent"
+    page = described_class.build(report_of(accepted))
+    badges = '<span class="status Survived">Survived</span> <span class="status Accepted">Accepted</span> ' \
+             '<span class="classification">missing_test</span>'
+    expect(page).to include(badges)
+  end
+
   it "marks an ignore-list survivor with an Accepted badge" do
     accepted = result_for(:survived, replacement: "==")
     accepted.ignored = "equivalent"

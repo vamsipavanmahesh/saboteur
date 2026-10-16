@@ -11,8 +11,8 @@ diff, covering tests), not the exact text. Use a digest from your own run.
 
 ## Classification labels
 
-The JSON report labels each survivor (#192), most useful first. Every
-label is a heuristic - a hint about where to look first, not a diagnosis.
+The JSON report labels a survivor when a classification signal applies
+(#192), most useful first. Every label is a heuristic - a hint about where to look first, not a diagnosis.
 Inspect the survivor before acting; never add a test or ignore a mutant
 from the label alone.
 
