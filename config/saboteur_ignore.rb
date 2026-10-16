@@ -592,4 +592,10 @@ Saboteur.ignore do |i|
              subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
              reason: "equivalent: owner is assigned in the if branch, so Ruby defines it as nil on the else path; the " \
                      "explicit owner = nil is documentation"
+  # A vetted require takes exactly one argument, so first and last are the
+  # same element whenever the length check passes; otherwise the
+  # conjunction short-circuits before either is read.
+  i.mutation "602ff9565dc30342",
+             subject: "Saboteur::MutationSource::HazardGuard#vetted_call?",
+             reason: "equivalent: arguments.length == 1 short-circuits the conjunction, and with one argument first and last are the same node"
 end
