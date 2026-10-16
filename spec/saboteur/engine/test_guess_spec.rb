@@ -391,6 +391,13 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(guess.specs).to eq(%w[spec/a_spec.rb spec/requests/new_spec.rb])
     end
 
+    # A path git lists can still be no file: a dangling symlink cannot run.
+    it "leaves out a changed spec path that is not a file" do
+      write("lib/a.rb", changed_source)
+      File.symlink("missing_target.rb", File.join(dir, "spec/dangling_spec.rb"))
+      expect(guess.specs).to eq(%w[spec/a_spec.rb])
+    end
+
     it "lists a spec both inferred and changed once" do
       write("lib/a.rb", changed_source)
       write("spec/a_spec.rb", "# changed\n")

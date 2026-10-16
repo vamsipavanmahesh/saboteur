@@ -453,4 +453,75 @@ RSpec.describe Saboteur::Selection::GitDiff do
       expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2])
     end
   end
+
+  describe ".changed_paths (#307)" do
+    around do |example|
+      Dir.mktmpdir do |dir|
+        @dir = File.realpath(dir)
+        git("init", "-q")
+        write("spec/kept_spec.rb", "1\n")
+        write("spec/old_name_spec.rb", "1\n")
+        write("spec/gone_spec.rb", "1\n")
+        write("svc/spec/inner_spec.rb", "1\n")
+        git("add", ".")
+        git("commit", "-q", "-m", "base")
+        example.run
+      end
+    end
+
+    def git(*args)
+      _, err, status = Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args,
+                                      chdir: @dir)
+      raise err unless status.success?
+    end
+
+    def write(path, text)
+      FileUtils.mkdir_p(File.dirname(File.join(@dir, path)))
+      File.write(File.join(@dir, path), text)
+    end
+
+    def paths(root = @dir)
+      described_class.changed_paths("HEAD", root: root)
+    end
+
+    it "lists changed and untracked paths as present and removed ones as deleted, sorted" do
+      write("spec/kept_spec.rb", "2\n")
+      write("spec/a_new_spec.rb", "1\n")
+      File.delete(File.join(@dir, "spec/gone_spec.rb"))
+      expect(paths).to eq(present: %w[spec/a_new_spec.rb spec/kept_spec.rb], deleted: %w[spec/gone_spec.rb])
+    end
+
+    it "counts a rename as a deletion of the old path and an addition of the new one" do
+      git("mv", "spec/old_name_spec.rb", "spec/new_name_spec.rb")
+      expect(paths).to eq(present: %w[spec/new_name_spec.rb], deleted: %w[spec/old_name_spec.rb])
+    end
+
+    it "lists only paths under the root, relative to it" do
+      write("svc/spec/inner_spec.rb", "2\n")
+      write("svc/spec/fresh_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      File.delete(File.join(@dir, "spec/gone_spec.rb"))
+      expect(paths(File.join(@dir, "svc"))).to eq(present: %w[spec/fresh_spec.rb spec/inner_spec.rb], deleted: [])
+    end
+
+    it "leaves out untracked files git ignores" do
+      write(".gitignore", "tmp/\n")
+      write("tmp/scratch_spec.rb", "1\n")
+      expect(paths[:present]).to eq([".gitignore"])
+    end
+
+    it "keeps paths with spaces, newlines and non-ASCII bytes whole, as UTF-8" do
+      write("spec/kept_spec.rb", "2\n")
+      write("spec/caf\u00e9 two_spec.rb", "1\n")
+      write("spec/line\nbreak_spec.rb", "1\n")
+      present = paths[:present]
+      expect(present).to eq(["spec/caf\u00e9 two_spec.rb", "spec/kept_spec.rb", "spec/line\nbreak_spec.rb"])
+      expect(present.map(&:encoding).uniq).to eq([Encoding::UTF_8])
+    end
+
+    it "refuses a ref that is not a commit, as a usage error" do
+      expect { described_class.changed_paths("no-such-ref", root: @dir) }
+        .to raise_error(Saboteur::ConfigError, /no-such-ref: not a commit/)
+    end
+  end
 end

@@ -49,10 +49,11 @@ module Saboteur
       def changed_paths(ref, root:)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
-        diff = %w[diff -z --name-only --relative --no-renames --no-ext-diff]
+        diff = %w[diff -z --name-only --relative --no-renames]
         {
+          # An untracked file is never in the diff, so the two lists are disjoint.
           present: (names(root, *diff, "--diff-filter=d", base, "--") +
-                    names(root, "ls-files", "-z", "--others", "--exclude-standard")).uniq.sort,
+                    names(root, "ls-files", "-z", "--others", "--exclude-standard")).sort,
           deleted: names(root, *diff, "--diff-filter=D", base, "--").sort
         }
       end

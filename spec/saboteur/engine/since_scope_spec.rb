@@ -65,11 +65,12 @@ RSpec.describe Saboteur::Engine, "test selection" do
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
   end
 
-  def guess(specs:, unmatched:, changed:, subjectless: [])
+  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], deleted_specs: [])
     hints = unmatched.to_h { |file| [file, "spec/#{File.basename(file, '.rb')}_spec.rb"] }
-    result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:)
+    result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:,
+                                                     changed_specs:, deleted_specs:)
     allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
-                                                                                   call: result))
+                                                                                   call: result, call_for: result))
   end
 
   def tests_the_run_used
@@ -161,6 +162,22 @@ RSpec.describe Saboteur::Engine, "test selection" do
   end
 
   describe "inferred specs (the default)" do
+    it "names the specs changed in the diff and the ones it deleted (#307)" do
+      guess(specs: %w[spec/a_spec.rb spec/requests/a_spec.rb], unmatched: [], changed: 1,
+            changed_specs: %w[spec/requests/a_spec.rb], deleted_specs: %w[spec/old_spec.rb])
+      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(used).to eq(%w[spec/a_spec.rb spec/requests/a_spec.rb])
+      expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/requests/a_spec.rb " \
+                                    "(changed in the diff: spec/requests/a_spec.rb). A spec that reaches",
+                                    "inferred specs: spec/old_spec.rb deleted in the diff, so not run")
+    end
+
+    it "says nothing about deleted specs when the diff deletes none" do
+      guess(specs: %w[spec/a_spec.rb], unmatched: [], changed: 1)
+      tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(err.string).not_to include("deleted in the diff")
+    end
+
     it "scopes the run to the inferred specs and says which" do
       guess(specs: %w[spec/a_spec.rb spec/b_spec.rb], unmatched: [], changed: 2)
       used = tests_the_run_used { @report = run_engine("since" => "origin/main") }
@@ -293,6 +310,13 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(err.string).to include("inferred specs: running only spec/people_spec.rb")
       expect(Saboteur::Engine::TestGuess).to have_received(:new)
         .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
+    end
+
+    it "names the specs the diff deleted in a --subject run (#307)" do
+      write_subject_project
+      guess(specs: %w[spec/people_spec.rb], unmatched: [], changed: 1, deleted_specs: %w[spec/old_spec.rb])
+      tests_the_run_used { run_engine("since" => "HEAD", "subjects" => ["Person#adult?"]) }
+      expect(err.string).to include("inferred specs: spec/old_spec.rb deleted in the diff, so not run")
     end
 
     it "stops before boot when the named subject's own file has no spec" do
