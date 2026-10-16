@@ -120,6 +120,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection, "real candidate pipeline" d
     selected = selection.for(subject, scope: scope)
     expect(selected.map { |mutation, _| mutation.operator }).to eq(["nil", "a - 2"])
     expect(diagnostics.invalid_mutations).to eq(1)
-    expect(diagnostics.warnings).to eq(["K#m: omitted 1 mutant(s) above max_mutants_per_method (2)"])
+    expect(diagnostics.warnings).to eq(["K#m: dropped a + mutation (did not parse)",
+                                        "K#m: omitted 1 mutant(s) above max_mutants_per_method (2)"])
   end
 end
