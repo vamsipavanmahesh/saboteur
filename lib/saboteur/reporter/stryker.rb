@@ -108,6 +108,9 @@ module Saboteur
       def self.optional_fields(result, test_ids)
         {
           statusReason: status_reason(result),
+          # Why the survivor is worth a look, as a label only: scores and
+          # the exit code never change (#192).
+          classification: SurvivorClassification.label(result),
           killedBy: result.killed_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
           coveredBy: result.covered_by.map { |name| test_ids.fetch(name) }.then { |ids| ids.empty? ? nil : ids },
           duration: result.runtime && (result.runtime * 1000).round

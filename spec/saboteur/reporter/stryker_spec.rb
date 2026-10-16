@@ -24,6 +24,13 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("files", "person.rb", "language")).to eq("ruby")
   end
 
+  it "labels survivors with their classification, and only survivors (#192)" do
+    covered = result_for(:survived, covered_by: %w[t1])
+    report = report_of(covered, result_for(:killed, covered_by: %w[t1]))
+    mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
+    expect(mutants.map { |m| m["classification"] }).to eq(["missing_test", nil])
+  end
+
   it "carries the operator policy under the saboteur key" do
     expected = JSON.parse(JSON.generate(Saboteur::Config.new({}).operator_policy))
     expect(json.dig("saboteur", "operatorPolicy")).to eq(expected)

@@ -8,6 +8,22 @@ digests depend on your source, and the terminal report layout can change
 between versions, so compare the parts (subject, operator, digest, location,
 diff, covering tests), not the exact text. Use a digest from your own run.
 
+
+## Classification labels
+
+The JSON report labels each survivor (#192), most useful first:
+
+- `likely_equivalent` - the mutant compiles to the same instructions as
+  the original, so no test can kill it; check it is truly equivalent and
+  ignore it with a reason.
+- `arid` - the mutated line matches an arid pattern (logging and
+  friends), so an assertion is unlikely to pay off.
+- `missing_test` - a test covered the line and passed: the suite reaches
+  the code but asserts too little. This is where a new test belongs.
+
+A survivor with no label has no signal either way. Labels never change
+scores or the exit code.
+
 ## Anatomy of a survivor
 
 ```
