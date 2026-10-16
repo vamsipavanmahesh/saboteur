@@ -178,7 +178,8 @@ module Saboteur
     def reject_test_command_conflicts
       return unless options[:test_command]
 
-      raise UsageError, "--test-command cannot be combined with --test" if options[:tests]&.any?
+      # options[:tests] is nil or a non-empty list, so truthiness is the check.
+      raise UsageError, "--test-command cannot be combined with --test" if options[:tests]
       raise UsageError, "--test-command cannot be combined with --incremental" if options[:incremental]
     end
 

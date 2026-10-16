@@ -388,6 +388,11 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("--test-command cannot be combined with --incremental")
   end
 
+  it "lets --test-command stand alone (#140)" do
+    expect { cli("run", "--test-command", "make test").send(:reject_test_command_conflicts) }
+      .not_to raise_error
+  end
+
   it "warns that --no-guess-tests is deprecated and no longer restores the whole suite" do
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
     cli("run", "--no-guess-tests").call
