@@ -527,6 +527,10 @@ RSpec.describe Saboteur::Engine::CoverageStore, "successful recording" do
       writer = StringIO.new
       allow($stdout).to receive(:reopen)
       allow($stderr).to receive(:reopen)
+      # Stub exit! like the validation spec above: a mutant that leaves
+      # recorder nil raises inside record's rescue, and a real exit! would
+      # kill the spec process and report a RuntimeError instead of a kill.
+      allow(store).to receive(:exit!)
       store.send(:record, writer, ["/root/lib/a.rb"])
       expect(recorded).to eq(["/root/lib/a.rb", "/root/spec/a_spec.rb"])
       expect(JSON.parse(writer.string)["tests"]).to eq(["t1"])
