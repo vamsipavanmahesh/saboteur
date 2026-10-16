@@ -226,15 +226,19 @@ RSpec.describe "Engine external test-command pipeline" do
                                       "max_duration" => 50 }, root: root)
       engine = Saboteur::Engine.new(config)
       seen = nil
+      at_preflight = nil
       allow_any_instance_of(Saboteur::Execution::ExternalRunner).to receive(:preflight!)
         .and_wrap_original do |method, **kwargs|
           seen = kwargs
+          # Sample at the preflight call: the deadlines are fixed immediately
+          # before it, while sampling after engine.call lets a slow CI box
+          # push the preflight subprocess past any tolerance.
+          at_preflight = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           method.call(**kwargs)
         end
       engine.call
-      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      expect(seen[:deadline]).to be_within(2).of(now + 7)
-      expect(seen[:budget_deadline]).to be_within(2).of(now + 50)
+      expect(seen[:deadline]).to be_within(1).of(at_preflight + 7)
+      expect(seen[:budget_deadline]).to be_within(1).of(at_preflight + 50)
     end
   end
 

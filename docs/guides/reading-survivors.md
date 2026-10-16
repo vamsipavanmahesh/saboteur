@@ -28,7 +28,7 @@ from the label alone.
   list is only the planned coverage: whole-body (coarse) mutants carry
   method-level guesses and never get this label, and neither does
   anything without real coverage - a `--test-command` run records only
-  the pseudo-test for every mutant, so its survivors stay unlabeled.
+  the pseudo-test for every mutant, so its survivors never receive missing_test from pseudo evidence.
 
 A survivor with no signal stays unlabeled - the field is omitted, never
 empty. One label per survivor, first match in the order above. Labels

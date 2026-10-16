@@ -24,7 +24,7 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("files", "person.rb", "language")).to eq("ruby")
   end
 
-  it "omits the classification on a --test-command survivor: the pseudo id is not coverage (#305)" do
+  it "never labels a --test-command survivor missing_test from pseudo evidence (#305)" do
     external = result_for(:survived, covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
     report = report_of(external, result_for(:survived, covered_by: %w[t1], replacement: "<="))
     mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
