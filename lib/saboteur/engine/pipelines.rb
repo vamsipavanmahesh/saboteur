@@ -52,7 +52,7 @@ module Saboteur
         # run budget with an ABSOLUTE deadline, admitted after the tree copy:
         # a budget already spent is a budget stop, not a command error.
         begin
-          runner.preflight!(deadline: preflight_deadline)
+          runner.preflight!(deadline: preflight_deadline, budget_deadline: budget_deadline)
         rescue BudgetPhaseTimeout => e
           return budget_phase_stop(e, subjects)
         end

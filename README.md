@@ -375,10 +375,13 @@ shell.** Only point it at commands you trust. The per-execution copy is
 the only tree CMD is pointed at, and mutants are applied there, so nothing
 saboteur writes can reach the real tree - but the copy is not a jail, and
 a command that goes looking for your real files can still touch them.
-Symlinks are not followed into the real tree: a symlink that stays inside
-the project is materialized in the copy as a plain copy of its target, and
-a symlink that escapes the tree or loops is refused with an error naming
-the path. Captured output is held in memory and capped at 64 KB.
+Symlinks are not followed into the real tree: a relative link that
+resolves inside the project is rebuilt inside the copy as a relative
+link, so requiring an alias sees the same - possibly mutated - content
+as the real path. A link that escapes the tree or loops is refused with
+an error naming the path, and so is an absolute link even when it points
+into the project: it resolves to the real tree, not the copy. Captured
+output is held in memory and capped at 64 KB.
 
 On every shutdown path saboteur terminates the command's whole process
 group, escalating from SIGTERM to SIGKILL, including on Ctrl-C. One case
@@ -401,8 +404,11 @@ any mutant is created, one neutral preflight runs CMD on the unchanged
 copy: a command that fails there fails the whole run up front with its
 exit status and captured output (exit 3). The preflight runs under an absolute
 deadline - whichever ends sooner, its own `c.baseline_timeout` slice or
-the overall run budget - and a budget already spent before the command
-can start is a budget stop, not a command failure. A blank `--test-command` is a
+the overall run budget. The deadline bounds when the command is admitted
+and how long the run waits for it; the tree copy beforehand and the
+TERM/KILL grace and capture drain afterward are not charged to it. A
+budget already spent, or spent while waiting, is a budget stop, not a
+command failure. A blank `--test-command` is a
 config error. A saboteur run refuses to start inside CMD's own
 environment, so a test command that itself invokes saboteur cannot mutate
 the copy mid-run.

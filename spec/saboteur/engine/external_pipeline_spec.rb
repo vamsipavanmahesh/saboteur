@@ -54,6 +54,18 @@ RSpec.describe "Engine external test-command pipeline" do
     end
   end
 
+  # The preflight wait hitting the overall run budget is a budget stop,
+  # not a command failure: early stop max_duration, no preflight error
+  # (#305 QA).
+  it "records a budget stop when the budget cuts the preflight" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "sleep 5", "max_duration" => 0.2 }, root: root)
+      report = Saboteur::Engine.new(config).call
+      expect(report.early_stop&.reason).to eq("max_duration")
+      expect(report.results).to eq([])
+    end
+  end
+
   it "leaves the real tree untouched" do
     with_fixture do |root|
       before = File.read(File.join(root, "lib", "k.rb"))

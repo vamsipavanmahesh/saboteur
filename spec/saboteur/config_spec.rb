@@ -275,6 +275,8 @@ RSpec.describe Saboteur::Config, "details" do
       .to raise_error(Saboteur::ConfigError, /test_command must be a string/)
     expect { described_class.new({ "test_command" => 42 }) }
       .to raise_error(Saboteur::ConfigError, /test_command must be a string/)
+    expect { described_class.new({ "test_command" => false }) }
+      .to raise_error(Saboteur::ConfigError, /test_command must be a string/)
   end
 
   it "rejects a blank test_command instead of treating it as unset (#305 QA)" do

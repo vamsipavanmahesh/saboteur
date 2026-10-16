@@ -77,14 +77,20 @@ module Saboteur
       # the command is admitted only with the time then remaining, so the
       # copy can never eat the budget while the command still gets its full
       # slice (#305 Architect). An already-spent deadline is a budget stop,
-      # not a command failure.
-      def preflight!(deadline: monotonic + 60)
+      # not a command failure - and so is a wait cut short with the overall
+      # run budget also spent: the run is out of time, the command is not
+      # at fault (#305 QA).
+      def preflight!(deadline: monotonic + 60, budget_deadline: nil)
         result = with_fresh_copy do
           remaining = deadline - monotonic
           raise BudgetPhaseTimeout, "the --max-duration budget stopped the external preflight" if remaining <= 0
 
           spawn_and_wait(remaining)
         end
+        if result == :timeout && budget_deadline && monotonic >= budget_deadline
+          raise BudgetPhaseTimeout, "the --max-duration budget stopped the external preflight"
+        end
+
         case result
         when 0 then true
         when Exception

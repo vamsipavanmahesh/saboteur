@@ -250,16 +250,23 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     end
   end
 
-  # Architect repro: a setsid descendant holding stdout keeps EOF open
-  # forever; the drain is bounded, so the run finishes near its own time,
-  # not the descendant's (#305). Escaped sessions are not contained.
+  # Architect repro: a session-escaped descendant holding stdout keeps EOF
+  # open forever; the drain is bounded, so the run finishes near its own
+  # time, not the descendant's (#305). Escaped sessions are not contained.
+  # Process.setsid in Ruby, not the setsid utility: macOS has no setsid(1).
   it "does not wait out a session-escaped descendant holding stdout" do
-    command = "setsid sh -c 'sleep 3' & sleep 0.05; exit 0"
+    mark = File.join(@dir, "escaped-ran")
+    ruby = RbConfig.ruby
+    # The parent lingers so the child escapes its session BEFORE the group
+    # TERM lands: an escapee killed during boot proves nothing (#305 QA).
+    command = "#{ruby} -e 'Process.setsid; File.write(ARGV[0], \"1\"); sleep 3' #{mark} & sleep 0.3; exit 0"
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     outcome, = run_in(@dir, command, timeout: 5)
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
     expect(outcome.status).to eq(:survived)
     expect(elapsed).to be < 2.0
+    # The descendant really escaped and ran, or the drain tests nothing.
+    expect(File.exist?(mark)).to be(true)
   end
 
   # A subject outside the root is refused, never joined onto the copy
@@ -292,17 +299,30 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
   end
 
   # Copy/write failures become an error Outcome with context, never a
-  # raised crash of the run (#305 QA).
+  # raised crash of the run (#305 QA). Injected, not chmod-based: root
+  # ignores permission bits, so a chmod probe is not portable (#305
+  # Architect, same lesson as #303).
   it "reports a copy failure as an error outcome with context" do
     subject = subject_in(@dir)
-    File.chmod(0o000, File.join(@dir, "calc.rb"))
+    allow(FileUtils).to receive(:cp_r).and_raise(Errno::EACCES, "denied")
     runner = described_class.new(command: "true", root: @dir)
     outcome = runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 5,
                          mutation: mutation_for(subject))
     expect(outcome.status).to eq(:error)
-    expect(outcome.message).not_to be_empty
-  ensure
-    File.chmod(0o644, File.join(@dir, "calc.rb"))
+    expect(outcome.message).to match(/denied/)
+  end
+
+  # A wait cut short when the overall run budget is also spent is a budget
+  # stop, not a command failure (#305 QA); without the budget, the same
+  # timeout stays the command's own error.
+  it "raises BudgetPhaseTimeout when the run budget cuts the preflight wait" do
+    subject_in(@dir)
+    runner = described_class.new(command: "sleep 30", root: @dir)
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    expect { runner.preflight!(deadline: now + 0.3, budget_deadline: now + 0.1) }
+      .to raise_error(Saboteur::BudgetPhaseTimeout, /budget stopped the external preflight/)
+    expect { runner.preflight!(deadline: Process.clock_gettime(Process::CLOCK_MONOTONIC) + 0.1) }
+      .to raise_error(Saboteur::Error, /timed out/)
   end
 
   # The budget is admitted AFTER the copy: a deadline already spent is a

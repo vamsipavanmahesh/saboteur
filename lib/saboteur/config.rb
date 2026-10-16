@@ -276,7 +276,9 @@ module Saboteur
     # The command runs unsandboxed, so "strict" cannot be honored.
     def validate_test_command!
       command = self["test_command"]
-      raise ConfigError, "test_command must be a string" if command && !command.is_a?(String)
+      # nil alone means unset: false, arrays and numbers are all rejected,
+      # never coerced and never sent to String methods (#305 QA).
+      raise ConfigError, "test_command must be a string" unless command.nil? || command.is_a?(String)
       raise ConfigError, "test_command must not be blank" if command&.strip&.empty?
 
       return if command.to_s.empty?
