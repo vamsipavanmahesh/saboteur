@@ -307,6 +307,24 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(err.string).to eq("")
     end
 
+    it "selects every subject of an untracked file, as fully changed (#295)" do
+      committed = write("old.rb", "class Old\n  def x = 1\nend\n")
+      commit_all
+      fresh = write("fresh.rb", source)
+      expect(select([committed, fresh], since: "HEAD").map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
+      expect(diagnostics.warnings).to be_empty
+    end
+
+    it "warns for an untracked file whose lines cover no subject (#295)" do
+      committed = write("old.rb", "class Old\n  def x = 1\nend\n")
+      commit_all
+      fresh = write("fresh.rb", "KIND = :none\n")
+      expect(select([committed, fresh], since: "HEAD")).to be_empty
+      expect(diagnostics.warnings.size).to eq(1)
+      expect(diagnostics.warnings.first).to include("--since: 1 changed Ruby file(s) have no subjects")
+        .and include("fresh.rb")
+    end
+
     it "names only the changed file without subjects when another file matched" do
       cart = write("cart.rb", source)
       note = write("note.rb", "class Note\n  KIND = :note\n\n  def text = \"n\"\nend\n")

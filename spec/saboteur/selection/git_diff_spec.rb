@@ -68,6 +68,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
       expect(described_class.unquote('"b/h\\303\\251llo.rb"')).to eq("b/h\u00e9llo.rb")
       expect(described_class.unquote('"b/a\\tb\\"c.rb"')).to eq("b/a\tb\"c.rb")
       expect(described_class.unquote("b/plain.rb")).to eq("b/plain.rb")
+      expect(described_class.unquote('"b/a\\q.rb"')).to eq("b/aq.rb")
     end
   end
 
@@ -131,6 +132,51 @@ RSpec.describe Saboteur::Selection::GitDiff do
       Dir.mktmpdir do |plain|
         expect { described_class.verify_ref!("HEAD", root: plain) }
           .to raise_error(Saboteur::ConfigError, "--since needs a git repository")
+      end
+    end
+
+    describe ".changed_lines with untracked files (#295)" do
+      it "treats every line of an untracked file as changed" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "new.rb"), "1\n2\n3\n")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.transform_keys { |path| File.basename(path) }).to eq("new.rb" => Set[1, 2, 3])
+      end
+
+      it "counts a final line without a trailing newline" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "new.rb"), "1\n2")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.transform_keys { |path| File.basename(path) }).to eq("new.rb" => Set[1, 2])
+      end
+
+      it "reads untracked files whose names are not valid UTF-8" do
+        commit_file("a.rb", "1\n")
+        name = "h\xE9llo.rb".b
+        File.binwrite(File.join(@dir, name), "1\n2\n")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.transform_keys { |path| File.basename(path) }).to eq(
+          name.dup.force_encoding(Encoding::UTF_8) => Set[1, 2]
+        )
+      end
+
+      it "skips untracked symlinks instead of reading through them" do
+        commit_file("a.rb", "1\n")
+        File.write(File.join(@dir, "real.rb"), "1\n")
+        File.symlink(File.join(@dir, "real.rb"), File.join(@dir, "link.rb"))
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.keys.map { |path| File.basename(path) }).to eq(["real.rb"])
+      end
+
+      it "skips gitignored, empty and binary untracked files" do
+        commit_file("a.rb", "1\n")
+        commit_file(".gitignore", "ignored.rb\n")
+        File.write(File.join(@dir, "ignored.rb"), "1\n")
+        File.write(File.join(@dir, "empty.rb"), "")
+        File.binwrite(File.join(@dir, "blob.bin"), "a\0b\n")
+        File.write(File.join(@dir, "new.rb"), "1\n")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+        expect(changed.keys.map { |path| File.basename(path) }).to eq(["new.rb"])
       end
     end
 
@@ -213,7 +259,9 @@ RSpec.describe Saboteur::Selection::GitDiff do
       File.write(File.join(dir, sha), "x\n")
       File.write(File.join(dir, "a.rb"), "1\n2\n")
       changed = described_class.changed_lines("base", root: dir)
-      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2])
+      # The SHA-named file is untracked, so the diff still yields only a.rb;
+      # the file joins the map as fully changed via the untracked union (#295).
+      expect(changed.transform_keys { |k| File.basename(k) }).to eq("a.rb" => Set[2], sha => Set[1])
     end
   end
   it "compares against the merge base, not the index, so committed changes count" do

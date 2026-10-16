@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- `--since` no longer skips untracked files silently (#295): a never-committed
+  source file is invisible to `git diff`, so it used to contribute no changed
+  lines and every subject in it was skipped without a word - even the
+  changed-files-without-subjects warning could not name it. Untracked files
+  now union into the changed-lines map as fully changed, so their subjects
+  are selected, and one without subjects triggers the warning like any other
+  changed file. Ignored (`.gitignore`), binary and empty files stay out.
+
 ### Changed
 - Report-artifact write semantics (#296): a failed HTML report or score
   history write now warns and lets the run exit by its results, so a

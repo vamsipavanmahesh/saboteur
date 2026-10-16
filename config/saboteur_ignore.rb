@@ -167,6 +167,22 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Selection::GitDiff#unquote",
              reason: "equivalent: git quotes a whole path, so a path that starts with a quote also ends with one"
 
+  i.mutation "515df7ed36a74cbe",
+             subject: "Saboteur::Selection::GitDiff#unquote",
+             reason: "equivalent: start_with?(\"\") is always true, reducing the guard to the end_with? check ignored above"
+
+  i.mutation "47379b177b6b3178",
+             subject: "Saboteur::Selection::GitDiff#unquote",
+             reason: "equivalent: end_with?(\"\") is always true, reducing the guard to the start_with? check ignored above"
+
+  i.mutation "d730c8559c9f15b3",
+             subject: "Saboteur::Selection::GitDiff#unquote",
+             reason: "equivalent: .b only retags the string and the force_encoding right after overwrites the tag; bytes never change"
+
+  i.mutation "72b06a699781d95b",
+             subject: "Saboteur::Selection::GitDiff#union_untracked",
+             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
+
   i.mutation "460c99badd064fe9",
              subject: "Saboteur::Frameworks::Rails#sqlite_absolute",
              reason: "equivalent: File.expand_path ignores the root for an absolute path, so dropping the early return changes nothing"

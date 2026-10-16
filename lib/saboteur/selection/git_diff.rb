@@ -48,8 +48,31 @@ module Saboteur
         # would rename a raw-byte path). Parse the diff body as bytes and
         # tag each extracted path UTF-8 at the boundary.
         top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
-        parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
-                  "--no-ext-diff", base, "--").b, top)
+        changes = parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
+                            "--no-ext-diff", base, "--").b, top)
+        union_untracked(changes, top)
+        changes
+      end
+
+      # A diff cannot see untracked files, so a never-committed source file
+      # would silently contribute no changed lines - and, being in no map,
+      # not even the changed-files-without-subjects warning (#295). Union
+      # every untracked file as fully changed: a new file is the strongest
+      # possible "changed since ref" signal. Ignored files stay invisible
+      # (--exclude-standard), and binary or empty files carry no lines,
+      # matching how a committed binary diffs to no hunks. Git's untracked
+      # walk only ever lists regular files and symlinks (never sockets,
+      # FIFOs or devices), so a symlink skip is the only guard needed.
+      def union_untracked(changes, top)
+        git(top, "ls-files", "-z", "--others", "--exclude-standard").b.split("\0").each do |name|
+          file = File.join(top, Text.utf8_identity(name))
+          next if File.symlink?(file)
+
+          content = File.binread(file)
+          next if content.empty? || content.include?("\0")
+
+          changes[file] = (1..(content.count("\n") + (content.end_with?("\n") ? 0 : 1))).to_set
+        end
       end
 
       def parse(diff, top)

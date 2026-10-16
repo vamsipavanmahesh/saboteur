@@ -293,7 +293,10 @@ workflow recommendation, not a CLI default: plain `run` still checks the whole
 configured project. To scope the specs yourself, pass them with `--test` and no
 source operands: `bundle exec saboteur run --since origin/main --test spec/billing_spec.rb`.
 A changed Ruby file whose changed lines cover no method mutates nothing; the run
-warns and names the file instead of silently selecting zero subjects. Comment-only
+warns and names the file instead of silently selecting zero subjects. Untracked
+files count as fully changed: a brand-new, never-committed source file is
+selected in full rather than silently skipped, because a diff cannot see it
+(#295). Comment-only
 or formatting-only changes within discovered methods are skipped without this
 warning; the run reports those skipped methods. A changed Ruby file that an
 include pattern covers but `c.exclude` removes mutates nothing either, and the
