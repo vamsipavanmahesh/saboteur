@@ -19,7 +19,9 @@ All notable changes are documented here. The format follows
   use `--exclude-operators` to omit operators you do not want.
 - Harness integrations should handle budget-exhausted runs (exit 4),
   unverified mutants outside the score, and explicit JSON report write
-  failures (exit 3). `--max-duration-ok` does not certify an unscored run.
+  failures (exit 3). In agent mode, exit codes remain verdict-driven;
+  budget exhaustion appears in `incomplete[]` and `earlyStop` instead.
+  `--max-duration-ok` does not certify an unscored run.
 
 ### Changed
 - Breaking: inferred test selection is now the default. Without `--test`,
@@ -65,9 +67,9 @@ All notable changes are documented here. The format follows
   integrity, record-size and lock failures stay hard errors.
 - Crash-log fallback hardening (#296): when the cache dir cannot hold
   `internal-error.log`, the fallback in the system temp dir is created
-  privately (`O_EXCL | O_NOFOLLOW`, mode 0600) instead of following a
-  predictable path, and it is only computed after the primary write
-  fails. Every crash log is now written private (0600) through a
+  privately (`O_EXCL | O_NOFOLLOW`, mode 0600) instead of following or
+  overwriting a pre-existing path. The pid-keyed fallback path is only
+  computed after the primary write fails. Every crash log is now written private (0600) through a
   no-follow, non-blocking open - a planted symlink cannot redirect the
   write and a planted FIFO cannot block it - and the runner reads it
   back the same way, accepting only a regular file owned by the same uid
@@ -81,10 +83,11 @@ All notable changes are documented here. The format follows
 ### Added
 - Dogfood/mutation diagnostics (#296): a rejected kill now reports why the
   killing test failed with the method unchanged - the exception class, its
-  full message and the first backtrace frames, bounded to 2000 chars -
-  instead of only the first line ("expected: 0"). Frames inside rspec's own
-  gems are dropped first, so the cap keeps the project frame that names the
-  failing spec line. The terminal report
+  message and up to five backtrace frames, bounded to 2000 chars -
+  instead of only the first line ("expected: 0"). Filtering frames whose
+  paths contain `/gems/rspec` prioritizes project frames; the message and
+  frame limits do not guarantee that the failing spec line survives.
+  The terminal report
   prints the detail as indented continuation lines and the JSON report's
   `statusReason` keeps every line; one-line reasons are unchanged. An `unverified` verdict also keeps the runner's own
   reason (for example "the --max-duration budget is spent") rather than a
@@ -93,7 +96,9 @@ All notable changes are documented here. The format follows
   dogfood's own cli_spec) crashes the nested CLI as exit 3, and the crash
   lands in the run's internal-error.log. A child whose tests wrote a fresh
   log appends its first lines to the failure detail, so a verdict check's
-  rejection names the nested crash instead of only the exit-code diff.
+  rejection includes crash context instead of only the exit-code diff.
+  The excerpt is freshness-matched and may be from another run; it is
+  not proof that this nested run wrote the log.
 - `--max-duration` budget-exhaustion semantics (#296): a verdict check or
   timeout calibration the budget cannot admit is skipped rather than run
   with a zero-length timeout, so genuine kills are no longer misclassified
@@ -103,7 +108,9 @@ All notable changes are documented here. The format follows
   budget is spent, and unverified verdicts are never cached. Affected
   mutants report as `unverified` - outside the score - the early stop
   lists their subjects (`unverifiedSubjects` in the JSON report), and the
-  run exits 4. Baseline checks and the coverage map build are now capped
+  CLI run exits 4 unless `--max-duration-ok` is set. Agent mode remains
+  verdict-driven and records the budget in `incomplete[]` and `earlyStop`.
+  Baseline checks and the coverage map build are now capped
   at the time left in the budget, and the early-stop reason comes from the
   actual truncation state, so mid-subject budget stops report
   `max_duration` even with `--fail-fast`. Agent output names unverified
@@ -111,14 +118,20 @@ All notable changes are documented here. The format follows
   whose verified verdicts (kills, survivors, timeouts) can carry a score.
 - `saboteur pr [REF]` and `saboteur audit` presets: opinionated bundles of
   existing flags - the PR loop (changed lines since REF, one baseline
-  check, a ten-minute non-failing budget) and the full audit (whole
-  project, whole suite, JSON and HTML reports). The run prints the
-  expansion up front and explicit flags override it (#244).
+  check, a ten-minute budget with `--max-duration-ok`) and the audit
+  preset (`--all`, all operators, two baseline checks, JSON and HTML
+  reports). The PR preset opts out of the budget-specific exit 4, not
+  normal or incomplete verdict failures. The audit keeps configured
+  `since`, subjects, exclusions and budgets; explicit tests replace its
+  injected `--all`. The run prints the expansion up front and explicit
+  flags override it (#244).
 - `--max-duration` (config `max_duration`, e.g. `10m`) budgets the whole
   run, baselines included: past the budget the run stops before the next
   subject, reports which selected subjects never ran, marks the JSON and
-  agent output partial, and exits 4; `--max-duration-ok` leaves the exit
-  to the plain verdict (which can still fail the run). Works with
+  agent output partial, and exits 4 in ordinary CLI mode;
+  `--max-duration-ok` leaves the exit to the plain verdict (which can
+  still fail the run). Agent exits remain verdict-driven, with budget
+  exhaustion in `incomplete[]` and `earlyStop`. Works with
   `--jobs` by halting the worker pool (#245).
 - `baseline_passes` (config and `--baseline-passes`) sets how many times the
   unchanged suite runs before mutation (default 2). `1` is the fast PR
@@ -204,7 +217,8 @@ All notable changes are documented here. The format follows
 - A baseline check or coverage map build that hit only its
   budget-shortened timeout failed the run as a suite error (exit 3) with
   no partial report; it now reports budget exhaustion with every selected
-  subject unreached and exits 4 (#296).
+  subject unreached and exits 4 in ordinary CLI mode unless
+  `--max-duration-ok` is set; agent exits remain verdict-driven (#296).
 - The unscoped-suite warning pluralizes zero baseline checks correctly
   ("0 baseline checks", not "0 baseline check") (#296).
 - Review hardening for the 0.5.0 loop flags (#245): the `--max-duration`
@@ -312,9 +326,9 @@ All notable changes are documented here. The format follows
 - Fixed `--guess-tests` falling back to the whole suite when a changed
   file has no mutation subjects on its changed lines, such as a deletion
   whose remaining context is blank or comment lines or a comment-only
-  change: such files no longer require a guessed spec. And when some
-  changed files still have no spec named after them, the run now narrows
-  to the specs it found and warns, instead of running the whole suite.
+  change: such files no longer require a guessed spec. A changed file
+  that does need a spec but has none now stops before boot with exit 2,
+  matching the default-inference policy above (#275).
   Guesses come only from files with a changed mutation subject, and when
   no changed file has one the run reports that there is nothing to mutate
   (fixes #268).
