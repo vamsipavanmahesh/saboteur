@@ -732,6 +732,46 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(guess.unmatched_message).to include("lib/a.rb (expected spec/a_spec.rb)")
     end
 
+    # A same-basename spec anywhere under spec/** is a near miss worth
+    # naming in the stop, so the user can --test it without hunting (#370).
+    it "names same-basename specs found under spec/** when the run stops" do
+      FileUtils.mkdir_p(File.join(dir, "spec/models"))
+      write("lib/x.rb", changed_source)
+      write("spec/models/x_spec.rb")
+      expect(guess.unmatched_message).to include("lib/x.rb (expected spec/x_spec.rb; found: spec/models/x_spec.rb)")
+    end
+
+    # The near misses come sorted and bounded at three: more same-basename
+    # specs than that are cut after the third in path order (#585 dogfood).
+    it "names at most the first three same-basename specs, sorted" do
+      write("lib/x.rb", changed_source)
+      write("spec/a.b/x_spec.rb")
+      write("spec/a/x_spec.rb")
+      write("spec/models/x_spec.rb")
+      write("spec/requests/x_spec.rb")
+      expect(guess.unmatched_message).to include(
+        "lib/x.rb (expected spec/x_spec.rb; found: spec/a.b/x_spec.rb, spec/a/x_spec.rb, spec/models/x_spec.rb)"
+      )
+      expect(guess.unmatched_message).not_to include("spec/models/x_spec.rb, spec/requests/x_spec.rb)")
+    end
+
+    # A changed spec that exists but cannot run (a dangling symlink) was
+    # not deleted: the stop must not say it was.
+    it "does not call an unrunnable expected spec deleted in the diff" do
+      File.delete(File.join(dir, "spec/a_spec.rb"))
+      File.symlink("missing_target.rb", File.join(dir, "spec/a_spec.rb"))
+      write("lib/a.rb", changed_source)
+      expect(guess.skipped_specs).to eq("spec/a_spec.rb" => "not a regular file")
+      expect(guess.unmatched_message).to include("lib/a.rb (expected spec/a_spec.rb)")
+      expect(guess.unmatched_message).not_to include("deleted in the diff")
+    end
+
+    it "adds no found clause when no same-basename spec exists" do
+      write("lib/y.rb", changed_source)
+      expect(guess.unmatched_message).to include("lib/y.rb (expected spec/y_spec.rb)")
+      expect(guess.unmatched_message).not_to include("found:")
+    end
+
     # The same comparison on every platform: the suite lists the NFD
     # spelling while git reports the NFC one.
     it "finds a changed spec in a suite list that spells it in another Unicode form" do

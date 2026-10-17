@@ -7,6 +7,7 @@ require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
+require_relative "engine/gated_run"
 require_relative "engine/out_of_scope_guard"
 require_relative "engine/run_budget"
 require_relative "engine/selection_announcement"
@@ -22,6 +23,7 @@ module Saboteur
     include EarlyStopRecording
     include OutOfScopeGuard
     include RunBudget
+    include GatedRun
     include SelectionAnnouncement
 
     # Everything besides sources and tests that can change a verdict.
@@ -78,18 +80,6 @@ module Saboteur
     # map does not rot silently. doctor fails on stale keys.
     def test_guess = TestGuess.new(config, diagnostics: @diagnostics, custom_map: load_custom_map)
 
-    # Name the files needing no spec, stop on spec-less files, then say
-    # which specs the run scopes to (or why nothing mutates).
-    def announce_guess(guess)
-      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      inform_skipped_specs(guess)
-      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
-
-      refuse_out_of_scope_changes(guess)
-
-      announce_selection(guess)
-    end
-
     def load_custom_map
       @load_custom_map ||= @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
     end
@@ -122,7 +112,10 @@ module Saboteur
 
       guess = test_guess.call
       @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
-      announce_guess(guess)
+      report_unmapped(guess)
+      refuse_out_of_scope_changes(guess)
+
+      announce_selection(guess)
     end
 
     # A --subject run infers only from the files holding the named subjects:

@@ -784,6 +784,9 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
 
+  i.mutation "d5995bea5d0f1b12",
+             subject: "Saboteur::Engine::GatedRun#stop_or_warn_unmapped",
+             reason: "equivalent: each and map both announce every unmatched file's warning; the collected array is discarded - the method's return value is unused by its only caller, report_unmapped"
   i.mutation "4cde174a623048a8",
              subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
              reason: "equivalent: covered_by entries are non-nil test id strings, so all? is true exactly when any? is " \
