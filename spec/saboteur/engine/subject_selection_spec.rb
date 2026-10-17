@@ -99,7 +99,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     file = write("cart.rb", source)
     expect(select([file], subjects: ["Shop::Cart.empty"]).map(&:id)).to eq(["Shop::Cart.empty"])
     expect(select([file], subjects: ["Shop"]).size).to eq(2)
-    expect { select([file], subjects: ["Sho"]) }.to raise_error(Saboteur::ConfigError, /--subject Sho matches no subject/)
+    expect { select([file], subjects: ["Sho"]) }.to raise_error(Saboteur::ConfigError,
+                                                                /--subject Sho matches no subject/)
   end
 
   # A typo must not pass silently: when EVERY pattern misses, the run is
