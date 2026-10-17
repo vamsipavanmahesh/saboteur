@@ -1,7 +1,9 @@
 # saboteur design
 
 Status: describes saboteur 0.3.x. Sections marked OPEN wait for a maintainer
-decision; open work is tracked in GitHub Issues.
+decision; open work is tracked in GitHub Issues. Main is much newer: treat
+the README (flags, exit codes, --agent mapping), docs/operators/ and
+docs/scores.md as authoritative where they disagree with a section here.
 
 ## 1. Goal
 
@@ -47,6 +49,12 @@ config + CLI
   explicit receiver, a lambda argument, or no block cannot be named, and a
   call in a block whose owner is unknown stays skipped ("defined inside a
   block").
+- A `class_eval`/`module_eval <<-HEREDOC ... HEREDOC` call with a
+  non-interpolated heredoc contributes its defs as subjects of the enclosing
+  owner (#544): the heredoc body is re-parsed in place (everything outside
+  it blanked, newlines kept), so offsets and lines stay the real file's and
+  mutants apply through the ordinary byte path. An interpolated heredoc has
+  no 1:1 byte map and stays on the code-in-strings warning (#467).
 - Subject id: `Outer::Klass#meth` or `Outer::Klass.meth`, from the lexical
   nesting Prism reports (ModuleNode / ClassNode / SingletonClassNode chain).
 - Skipped in v1: DSL calls in a class body, constants, code
@@ -81,6 +89,11 @@ mutated bytes changes the id; that is deliberate (the ignore reason may no
 longer hold).
 
 ## 5. Operators (v1)
+
+Only the v1 set lives here. Everything shipped since - endpoint_replacement,
+range, operator_assignment, condition_negation, method_swap, operand_replacement,
+interpolation_removal, chain_removal, element_removal, regex_replacement -
+is documented under docs/operators/.
 
 Coarse (run first per subject):
 - body -> `nil`
@@ -221,6 +234,8 @@ eval("module Outer; class Person; #{mutated_def}; end; end",
   lexical scope (`Outer = Class.new do Inner = ... end` makes
   `FactoryProbe::Inner`, never `FactoryProbe::Outer::Inner`), so factory
   scopes join a def's owner but never a nested constant's path (#339).
+  A `class << self` scope joins a constant subject's owner as
+  `<attached>.singleton_class`, matching where Ruby binds the constant (#380).
 - Refinements (`using`) are lexical and are lost. Subjects in files that call
   `using` are skipped in v1 ("refinements").
 
@@ -341,10 +356,16 @@ harness problem or a runaway mutant cannot raise the score silently.
   report holds the same ones.
 - Incremental mode (`--incremental`, opt-in): a stored verdict (killed,
   survived, timeout) is reused while the method source, the mutant, the set
-  of covering tests, their files' contents, the lockfile, the verdict-
-  relevant config and the saboteur version are unchanged. When every verdict
-  of a method is reusable, nothing forks. Hole:
-  changes in callees are invisible (as in PIT), hence opt-in.
+  of covering tests, their files' contents, every project source the
+  coverage run loaded - including helpers required lazily inside a test,
+  outside the include list - the lockfile, the verdict-relevant config and
+  the saboteur version are unchanged. When every verdict
+  of a method is reusable, nothing forks. Watching covers Ruby sources
+  only: a change to a non-Ruby input (YAML, locales, ERB, SQL fixtures)
+  is in no fingerprint, so rerun without `--incremental` after touching
+  one - `--no-cache` only rebuilds the coverage map and still reuses the
+  old verdict. Run without `--incremental` now and then anyway (and in CI
+  on the main branch).
 - Order: tests that killed earlier mutants of the same subject first, then
   fastest first (suite order breaks ties). With fail-fast, a mutant is killed
   by its cheapest killing test. The verdict check (section 8) re-runs the
@@ -413,6 +434,10 @@ One interface (`Saboteur::Integration::Base`): `setup`, `all_tests`,
 
 ## 10. Config, CLI, output
 
+This section predates exit 4 (--max-duration budget), the --max-timeouts/
+--max-errors quality gates and the pr/audit presets; the README documents
+the current flags, exit codes and --agent mapping.
+
 `config/saboteur.rb`, overridden by CLI flags:
 
 ```ruby
@@ -443,7 +468,9 @@ CLI: `saboteur help` lists every command and flag.
 Output:
 - Terminal: counts per status, score, wall time, then a unified diff per survivor.
 - HTML report (`html_report`) and per-method findings (`reporter/html.rb`, `reporter/findings.rb`).
-- JSON: Stryker mutation-testing-report-schema (schemaVersion "2"). Status
+- JSON: Stryker mutation-testing-report-schema (schemaVersion "2"). The
+  `saboteur` object carries the run's peak-memory record (`memory`: per-worker
+  `peakMb` and `supervisorPeakMb`) where the platform measured it (#202). Status
   mapping: killed->Killed, survived->Survived, timeout->Timeout,
   error->RuntimeError, resource_limit->RuntimeError (statusReason "resource limit: ..."),
   skipped->Ignored (reason in `statusReason`), no coverage

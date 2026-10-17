@@ -27,6 +27,15 @@ RSpec.describe Saboteur::Report do
     expect(report_of(result_for(:killed)).shard).to be_nil
   end
 
+  it "freezes its own copy of the discovery failures (#589)" do
+    failures = [{ file: "a.rb", message: "boom" }]
+    report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), discovery_failures: failures)
+    failures << { file: "b.rb", message: "later" }
+    expect(report.discovery_failures).to eq([{ file: "a.rb", message: "boom" }])
+    expect(report.discovery_failures).to be_frozen
+  end
+
   it "counts every status separately" do
     expect(report.counts).to eq(killed: 2, survived: 1, timeout: 1, resource_limit: 0, error: 1,
                                 skipped: 1, ran_at_load: 0, unreachable: 0, unverified: 0)

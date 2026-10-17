@@ -26,6 +26,7 @@ module Saboteur
       # which refuses instead.
       def hook
         return nil unless @config["sandbox"]
+        return seatbelt_hook if @config["sandbox"] == "seatbelt" && Execution::Seatbelt.darwin?
 
         abi = sandbox_abi
         return restrict_hook if abi >= 3
@@ -62,6 +63,43 @@ module Saboteur
       def restrict_hook
         writable = sandbox_writable_dirs
         ->(keep_fds) { Execution::Sandbox.restrict!(writable: writable, keep_fds: keep_fds) }
+      end
+
+      # c.sandbox = "seatbelt" (the macOS opt-in, #436): the probe decides.
+      # Confine when Seatbelt truly enforces; a clean "no Seatbelt here"
+      # degrades to the guard and canary with a one-time note; anything
+      # else - an errored probe, or an API claiming success its profile
+      # cannot prove - refuses the run, exactly like the Landlock probe
+      # (#178): opting into a sandbox must never buy silent confinement
+      # theatre. Fail-closed lives one layer down too: a child whose
+      # profile refuses to apply raises instead of running the mutant.
+      def seatbelt_hook
+        case (verdict = Execution::Seatbelt.probe)
+        when :ok
+          writable = sandbox_writable_dirs
+          ->(keep_fds) { Execution::Seatbelt.restrict!(writable: writable, keep_fds: keep_fds) }
+        when :unavailable
+          seatbelt_note("this macOS lacks Seatbelt")
+          nil
+        else
+          raise Error, "sandbox is \"seatbelt\" but the Seatbelt probe #{verdict_description(verdict)}; refusing to " \
+                       "run unsandboxed - set c.sandbox = true to run with the hazard guard and canary only, " \
+                       "or false to opt out"
+        end
+      end
+
+      def verdict_description(verdict)
+        case verdict
+        when :unenforced then "reported a profile that did not enforce - a macOS update may have changed it (#436)"
+        else "failed (#{verdict}) - #436 tracks the deprecation"
+        end
+      end
+
+      def seatbelt_note(reason)
+        return if @sandbox_note_given
+
+        @sandbox_note_given = true
+        @diagnostics.warn(%(sandbox is "seatbelt" but #{reason}; children run with the hazard guard and canary only))
       end
 
       # c.sandbox_writable adds the dirs a suite genuinely needs (db/, log/,
