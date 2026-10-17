@@ -38,6 +38,14 @@ All notable changes are documented here. The format follows
   survived: the closure captured while the app loads keeps the pristine
   definition, so replacing the method later cannot judge them. They now
   report as `ran at load`, outside the score (#409).
+- A `c.sources` entry that looks like a source glob now fails with a
+  pointer to `c.include` (#488): `c.sources` registers custom operator
+  sources (`builtin` or `path.rb:ClassName`), not the files to mutate.
+- A baseline stopped by a containment limit (process count or memory)
+  now names the knob and its current value in the refusal (#459): a
+  suite that forks heavily by design, or legitimately needs more
+  memory, is pointed at `c.max_processes` / `c.max_memory_mb` instead
+  of reading as a suite failure.
 
 - A baseline that passed but leaked child processes no longer reads as a
   suite failure quoting an empty "Failures:" section (#486): the refusal
