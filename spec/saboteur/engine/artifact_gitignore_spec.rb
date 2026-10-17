@@ -35,6 +35,21 @@ RSpec.describe Saboteur::Engine, "self-ignoring artifact dir (#426)" do
     engine({ "cache_dir" => "tmp/sab" }).send(:ensure_artifacts_self_ignored)
     expect(File.read(File.join(@root, "tmp", "sab", ".gitignore"))).to eq("*\n")
   end
+  it "fails soft when the artifact dir path is a regular file (#512 fault injection)" do
+    File.write(File.join(@root, ".saboteur"), "not a directory")
+    expect { engine.send(:ensure_artifacts_self_ignored) }.not_to raise_error
+  end
+
+  it "fails soft when the artifact dir is read-only (#512 fault injection)" do
+    dir = File.join(@root, ".saboteur")
+    FileUtils.mkdir_p(dir)
+    FileUtils.chmod(0o555, dir)
+    skip "write permission cannot be revoked here (root or capabilities)" if File.writable?(dir)
+    expect { engine.send(:ensure_artifacts_self_ignored) }.not_to raise_error
+  ensure
+    FileUtils.chmod(0o755, dir)
+  end
+
   it "self-ignores the artifact dir from Engine#call itself (#426 call site)" do
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     eng = engine
