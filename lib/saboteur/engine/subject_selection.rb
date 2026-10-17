@@ -118,8 +118,17 @@ module Saboteur
       def changed_line_maps
         maps = Selection::GitDiff.line_maps(@config["since"], root: @root, include: @files.to_set,
                                                               diagnostics: @diagnostics)
+        # A deletion-only file yields no subject and no fine-grained mutant
+        # (#484); TestGuess reads the same list, so inference never demands
+        # a spec for it either.
         canonical = ->(map) { map.transform_keys { |file| Selection::CoverageMap.canonical(file) } }
-        [canonical.call(maps.changed), canonical.call(maps.behavior)]
+        changed = canonical.call(maps.changed)
+        return [changed, canonical.call(maps.behavior)] if changed.empty?
+
+        # deletion_only_files returns canonical-absolute paths, the same
+        # space as the canonical map keys in any project-root layout.
+        deletion_only = Selection::GitDiff.deletion_only_files(@config["since"], root: @root)
+        [changed.except(*deletion_only), canonical.call(maps.behavior).except(*deletion_only)]
       end
 
       # Changed entries of a constant hash or array literal are behavior
