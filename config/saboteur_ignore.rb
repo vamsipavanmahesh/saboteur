@@ -761,4 +761,44 @@ Saboteur.ignore do |i|
   i.mutation "e7a053a591c446e5",
              subject: "Saboteur::Subject#surrounding_text",
              reason: "equivalent: force_encoding mutates in place, so each returns the same two already-forced strings map would collect"
+
+  i.mutation "9aac96519cbf11fa",
+             subject: "Saboteur::Subject#coverage_lines_for",
+             reason: "equivalent: prism nodes delegate start_line to their location, so statement.start_line is statement.location.start_line"
+
+  i.mutation "06dab602bbc57fd1",
+             subject: "Saboteur::Subject#coverage_lines_for",
+             reason: "equivalent: edit.end_byte - 1 is always >= edit.start_byte for a nonempty edit, so dropping it from the max changes nothing"
+
+  i.mutation "4399e0c4953e5bb3",
+             subject: "Saboteur::Subject#coverage_lines_for",
+             reason: "equivalent: the edit lies inside the statement, so last >= first always and dropping first from the max changes nothing"
+
+  i.mutation "62246b9b752b46ec",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: the block return value is unused, so each and map behave the same"
+
+  i.mutation "16f22a22f4197997",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent: the block return value is unused, so each and map behave the same"
+
+  i.mutation "5409e3abe122067b",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: prism nodes delegate start_offset to their location"
+
+  i.mutation "67547e3f6461ff28",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: prism nodes delegate end_offset to their location"
+
+  i.mutation "479d085040fd2673",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: StatementsNode delegates find to its body array"
+
+  i.mutation "e8d05de3635878b8",
+             subject: "Saboteur::Subject#contains_edit?",
+             reason: "equivalent: prism nodes delegate start_offset to their location"
+
+  i.mutation "15307bd521a10280",
+             subject: "Saboteur::Subject#contains_edit?",
+             reason: "equivalent: prism nodes delegate end_offset to their location"
 end

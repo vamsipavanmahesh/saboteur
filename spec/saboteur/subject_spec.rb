@@ -116,6 +116,14 @@ RSpec.describe Saboteur::Subject do
   end
 
   describe "#coverage_lines_for" do
+    it "maps an edit in an empty method to the whole method" do
+      empty = subjects_in("class A\n  def m\n  end\nend\n").first
+      at = empty.file_source.index("def m") + 3
+      edit = Saboteur::MutationSource::Edit.new(file: empty.file, start_byte: at, end_byte: at + 1,
+                                                replacement: "x")
+      expect(empty.coverage_lines_for(edit)).to eq(empty.coverage_lines)
+    end
+
     let(:branchy) do
       subjects_in(<<~RUBY).first
         class A
@@ -208,6 +216,26 @@ RSpec.describe Saboteur::Subject do
 
     it "falls back to the statement line for an edit inside a clause body" do
       expect(matchy.coverage_lines_for(match_edit("2"))).to eq([6])
+    end
+
+    it "covers a pattern from inside it, not only at its exact boundaries" do
+      expect(matchy.coverage_lines_for(match_edit("Inte"))).to eq([3, 4])
+    end
+
+    it "maps an edit spanning two clauses" do
+      source = matchy.file_source
+      start = source.index("then")
+      edit = Saboteur::MutationSource::Edit.new(file: matchy.file, start_byte: start,
+                                                end_byte: source.index("String") + 3, replacement: "x")
+      expect(matchy.coverage_lines_for(edit)).to eq([3, 4, 5])
+    end
+
+    it "handles an in clause with an empty body" do
+      empty = subjects_in("class A\n  def m(x)\n    case x\n    in Integer\n    end\n  end\nend\n").first
+      at = empty.file_source.index("Integer")
+      edit = Saboteur::MutationSource::Edit.new(file: empty.file, start_byte: at, end_byte: at + 7,
+                                                replacement: "x")
+      expect(empty.coverage_lines_for(edit)).to eq([3, 4])
     end
   end
 
