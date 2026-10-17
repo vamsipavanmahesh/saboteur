@@ -643,6 +643,26 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
     expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
   end
 
+  it "uses the plural form when several constant-literal files are unmatched (#537)" do
+    file_a = commit_base("rules_a.rb", "RULES_A = build_a\n")
+    file_b = commit_base("rules_b.rb", "RULES_B = build_b\n")
+    File.write(file_a, "RULES_A = build_more_a\n")
+    File.write(file_b, "RULES_B = build_more_b\n")
+
+    expect(select([file_a, file_b], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("outside a method. 2 of these files have changes inside a constant literal that is not mutated")
+  end
+
+  it "counts a file with two unsupported changed constants once in the umbrella note (#537)" do
+    file = commit_base("rules.rb", "RULES = build_rules\nLIMITS = build_limits\n")
+    File.write(file, "RULES = build_more_rules\nLIMITS = build_more_limits\n")
+
+    expect(select([file], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 of these file has changes inside a constant literal that is not mutated")
+  end
+
   it "admits a skipped constant through the whole_file opt-in" do
     file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nvalidate!(RULES)\n")
     File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
