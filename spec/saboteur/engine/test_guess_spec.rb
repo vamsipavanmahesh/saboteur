@@ -239,9 +239,12 @@ RSpec.describe Saboteur::Engine::TestGuess do
   it "lists candidates most specific first, with the lib variant before the full stem" do
     guesser = described_class.new(Saboteur::Config.new({}, root: dir))
     expect(guesser.send(:candidates_for, "app/models/user.rb"))
-      .to eq(["spec/models/user_spec.rb", "spec/lib/models/user_spec.rb", "spec/app/models/user_spec.rb"])
+      .to eq(["spec/models/user_spec.rb", "spec/lib/models/user_spec.rb", "spec/app/models/user_spec.rb",
+              "spec/unit/models/user_spec.rb", "spec/unit/lib/models/user_spec.rb",
+              "spec/unit/app/models/user_spec.rb", "spec/user_spec.rb", "spec/unit/user_spec.rb"])
     expect(guesser.send(:candidates_for, "lib/a/b.rb"))
-      .to eq(["spec/a/b_spec.rb", "spec/lib/a/b_spec.rb"])
+      .to eq(["spec/a/b_spec.rb", "spec/lib/a/b_spec.rb", "spec/unit/a/b_spec.rb",
+              "spec/unit/lib/a/b_spec.rb", "spec/b_spec.rb", "spec/unit/b_spec.rb"])
   end
 
   it "adds request spec names only for controllers" do
@@ -809,5 +812,46 @@ RSpec.describe Saboteur::Engine::TestGuess do
         FileUtils.remove_entry(outside)
       end
     end
+  end
+  # A gem can keep specs at the spec/ root without mirroring the lib
+  # namespace dir: pundit tests lib/pundit/policy_finder.rb in
+  # spec/policy_finder_spec.rb (#394).
+  it "finds a spec flattened at the spec root when the namespace dir is not mirrored (#394)" do
+    write("lib/pundit/policy_finder.rb", changed_source)
+    write("spec/policy_finder_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/policy_finder_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # Both committed, so the changed-spec pickup cannot mask which one the
+  # guess itself names.
+  it "prefers the mirrored spec when both it and a flattened one exist" do
+    write("lib/pundit/policy_finder.rb", base_source)
+    write("spec/pundit/policy_finder_spec.rb")
+    write("spec/policy_finder_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "both specs")
+    write("lib/pundit/policy_finder.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/pundit/policy_finder_spec.rb"])
+  end
+
+  # Older gems keep unit specs under a spec/unit/ prefix: shoulda-matchers
+  # mirrors the path below it (#393), aasm flattens it (#370).
+  it "finds a mirrored spec under a spec/unit prefix (#393)" do
+    write("lib/shoulda/matchers/equal.rb", changed_source)
+    write("spec/unit/shoulda/matchers/equal_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/unit/shoulda/matchers/equal_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  it "finds a flattened spec under a spec/unit prefix (#370)" do
+    write("lib/aasm/base.rb", changed_source)
+    write("spec/unit/base_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/unit/base_spec.rb"])
+    expect(result.unmatched).to eq([])
   end
 end
