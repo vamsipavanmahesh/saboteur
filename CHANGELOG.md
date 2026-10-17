@@ -8,6 +8,14 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The project-local bundler path (`.bundle/config`'s `BUNDLE_PATH`) now
+  joins the dependency shield in its quoted and non-canonical forms
+  (#567): matching quotes are stripped, an inline `#` comment is ignored
+  the way Bundler::YAMLSerializer ignores it, a relative path is
+  normalized against the project root, and an absolute path (the system
+  bundle) stays outside the shield. A config that is not a regular file
+  or cannot be parsed - including a NUL byte in the value - means no
+  shield rather than a crash or a hang.
 - Spec and test files vendored under `lib/` (capybara ships its driver
   suite at `lib/capybara/spec/**`) are no longer swept into the default
   mutation scope (#504): the default exclude now shields
