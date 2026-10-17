@@ -75,9 +75,11 @@ fail the step on its own. Explicit flags after the preset win.
 The Action caches the coverage map files (`.saboteur/coverage-*.json`) and
 nothing else - not reports, logs or `--incremental` verdicts. The map's name
 contains a hash of the files it was built from, so editing a source file,
-spec file or `config/saboteur.rb` rebuilds it automatically; the cache key
-adds the runner OS, `Gemfile.lock` and the commit, and restores the newest
-earlier entry with the same prefix. A rebuild runs the specs selected for the
+spec file or `config/saboteur.rb` rebuilds it automatically; the Action's
+cache key hashes `Gemfile.lock`, `config/saboteur.rb`,
+`config/saboteur_custom_map.rb` and `config/saboteur_ignore.rb`, plus the
+runner OS and the commit, and restores the newest earlier entry with the
+same prefix. A rebuild runs the specs selected for the
 run once - the inferred specs in diff mode, the whole suite with `--all`.
 
 If a run looks wrong, one run with `cache: "false"` rebuilds from scratch.
