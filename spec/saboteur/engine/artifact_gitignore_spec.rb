@@ -36,6 +36,7 @@ RSpec.describe Saboteur::Engine, "self-ignoring artifact dir (#426)" do
     expect(File.read(File.join(@root, "tmp", "sab", ".gitignore"))).to eq("*\n")
   end
   it "self-ignores the artifact dir from Engine#call itself (#426 call site)" do
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     eng = engine
     expect(eng).to receive(:ensure_artifacts_self_ignored).and_call_original
     # Stop the run right after the call site; later stages need a full project.
