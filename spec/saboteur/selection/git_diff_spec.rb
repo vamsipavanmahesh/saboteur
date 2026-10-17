@@ -235,6 +235,23 @@ RSpec.describe Saboteur::Selection::GitDiff do
           .to eq(Set[])
       end
 
+      it "maps lines against the base, not the index, when the change is staged" do
+        commit_file("a.rb", "a\n  b\n")
+        File.write(File.join(@dir, "a.rb"), "new\na\n    b\n")
+        git("add", "a.rb")
+
+        expect(described_class.changed_lines("HEAD", root: @dir).fetch(File.join(File.realpath(@dir), "a.rb")))
+          .to eq(Set[1])
+      end
+
+      it "drops a blank line that only gained spaces" do
+        expect(changed_after("a = 1\n\nb = 2\n", "a = 1\n  \nb = 2\n")).to eq(Set[])
+      end
+
+      it "keeps a re-indented heredoc body line, since heredoc text is a token" do
+        expect(changed_after("x = <<~T\n  a\nT\n", "x = <<~T\n    a\nT\n")).to eq(Set[2])
+      end
+
       it "leaves an untracked file fully changed" do
         commit_file("b.rb", "b = 1\n")
         File.write(File.join(@dir, "c.rb"), "  c = 1\n")

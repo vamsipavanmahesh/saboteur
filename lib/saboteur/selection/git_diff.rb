@@ -61,7 +61,6 @@ module Saboteur
       def parse(diff, top)
         changes = Hash.new { |hash, file| hash[file] = Set.new }
         each_hunk(diff, top) { |file, (_, _, start, count)| changes[file].merge(touched_lines(start, count)) }
-        changes.default_proc = nil
         changes
       end
 
