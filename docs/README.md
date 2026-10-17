@@ -27,6 +27,7 @@
 
 ## Operators
 
+- [argument_removal](operators/argument_removal.md)
 - [arithmetic](operators/arithmetic.md)
 - [body_false](operators/body_false.md)
 - [body_nil](operators/body_nil.md)
@@ -40,20 +41,26 @@
 - [condition_true](operators/condition_true.md)
 - [element_removal](operators/element_removal.md)
 - [endpoint_replacement](operators/endpoint-replacement.md)
+- [filter_replacement](operators/filter_replacement.md)
 - [interpolation_removal](operators/interpolation_removal.md)
+- [literal_boolean](operators/literal_boolean.md)
+- [literal_number](operators/literal_number.md)
+- [literal_string](operators/literal_string.md)
 - [method_swap](operators/method_swap.md)
 - [negation_removal](operators/negation_removal.md)
 - [operand_replacement](operators/operand_replacement.md)
 - [operator_assignment](operators/operator_assignment.md)
 - [or_assign](operators/or_assign.md)
+- [pair_removal](operators/pair_removal.md)
 - [range](operators/range.md)
 - [safe_navigation](operators/safe_navigation.md)
 - [statement_removal](operators/statement_removal.md)
-- [Literal mutations](literal-operators.md), [filter mutations](filter-operators.md),
-  [argument removal](argument-removal.md), [pair removal](pair-removal.md)
 
 ## Decisions and background
 
+- [Literal operator expansion](literal-operators.md), [filter polarity](filter-operators.md),
+  [positional argument removal](argument-removal.md), [hash and keyword pair removal](pair-removal.md) -
+  the design notes behind those operator families.
 - [Minitest](minitest.md) - why saboteur is RSpec-only, and what an adapter would take.
 - [Design](design.md) - how the engine works.
 - [Prior art](prior-art.md) - the public research the design builds on.
