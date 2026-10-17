@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Engine setup load failures are reported clearly instead of as a bare
+  quit (#378): when RSpec dies while loading spec files, the error names
+  the files that failed to load, parsed from RSpec's own load-failure
+  output, and suggests the remedy - exclude the broken subtrees with
+  `--exclude-pattern` (for a Rails engine's embedded spec/dummy) or name
+  the suite with `--test`.
 - `--incremental` no longer reuses a stored verdict after the project source
   set changes: a file added after the coverage map was built (a conditional
   require, a Zeitwerk autoload) can load into a mutant run unseen, and the
