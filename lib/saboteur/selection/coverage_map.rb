@@ -17,11 +17,12 @@ module Saboteur
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
     class CoverageMap
-      FORMAT = 9
+      FORMAT = 10
 
       RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
 
-      attr_reader :lines, :tests, :build_seconds, :durations, :methods, :load_lines, :load_methods, :branches
+      attr_reader :lines, :tests, :build_seconds, :loaded_files, :durations, :methods, :load_lines, :load_methods,
+                  :branches
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
       # methods: { "/abs/file.rb" => { 12 => ["id1", "id2"] } } keyed by the
@@ -29,7 +30,7 @@ module Saboteur
       # so methods carry those subjects (issue #107).
       # durations: { "id1" => seconds }
       def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {}, load_methods: {},
-                     branches: {})
+                     branches: {}, loaded_files: nil)
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
@@ -38,6 +39,30 @@ module Saboteur
         @load_lines = load_lines
         @load_methods = load_methods
         @branches = branches
+        @loaded_files = loaded_files || []
+      end
+
+      # Source files the given tests touched, sorted and deduped: the
+      # dependency set a cached verdict must watch (#197). The inversion is
+      # built once per map and memoized.
+      def files_for(test_ids)
+        by_test = @files_by_test ||= invert_coverage
+        test_ids.flat_map { |id| by_test.fetch(id, []) }.uniq.sort
+      end
+
+      # { test id => [source files it touched] }, built once per map. Line
+      # and method coverage both count: an endless def's file has only
+      # method evidence (#107), and a change there must still invalidate (#344).
+      def invert_coverage
+        [lines, methods].each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |hits, acc|
+          hits.each { |file, line_tests| line_tests.each_value { |ids| ids.each { |id| acc[id] << file } } }
+        end
+      end
+
+      # Files that ran while the app loaded: their state precedes every
+      # test, so every cached verdict depends on them (#344).
+      def boot_files
+        load_lines.keys.sort
       end
 
       def tests_for(subject)
@@ -70,7 +95,8 @@ module Saboteur
       # Attach the parent's boot counters without losing the child's method coverage.
       def with_load_lines(load_lines, load_methods = {})
         self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
-                       methods: methods, load_lines: load_lines, load_methods: load_methods, branches: branches)
+                       methods: methods, load_lines: load_lines, load_methods: load_methods, branches: branches,
+                       loaded_files: loaded_files)
       end
 
       # A def the boot called (a def-time macro's class-body caller, say)
@@ -168,13 +194,17 @@ module Saboteur
         JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encode.call(lines),
                       methods: encode.call(methods), load_lines: load_lines, load_methods: load_methods,
                       branches: encode_branches(index),
-                      durations: tests.map { |id| durations[id]&.round(6) })
+                      durations: tests.map { |id| durations[id]&.round(6) }, loaded_files: loaded_files)
       end
 
       def self.from_json(json)
         data = JSON.parse(json)
         raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
 
+        from_data(data)
+      end
+
+      def self.from_data(data)
         tests = data["tests"]
         decode = lambda do |hits|
           hits.transform_values do |by_line|
@@ -185,7 +215,7 @@ module Saboteur
         new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
             durations: durations, methods: decode.call(data["methods"] || {}),
             load_lines: int_lists(data, "load_lines"), load_methods: int_lists(data, "load_methods"),
-            branches: decode_branches(data.fetch("branches", {}), tests))
+            branches: decode_branches(data.fetch("branches", {}), tests), loaded_files: data["loaded_files"])
       end
 
       def self.int_lists(data, key)
@@ -212,6 +242,15 @@ module Saboteur
         File.realpath(path)
       rescue SystemCallError
         File.expand_path(path)
+      end
+
+      # Every spelling the root can have in $LOADED_FEATURES: a symlink on
+      # the root path (macOS /var -> /private/var) gives the same directory
+      # both the resolved and the spelled form, and canonical() resolves a
+      # loaded feature only while its file exists. Match membership against
+      # both, each with a trailing slash so prefix siblings stay out.
+      def self.root_prefixes(root)
+        [File.realpath(root), File.expand_path(root)].uniq.map { |path| "#{path}/" }
       end
 
       def self.load(path)

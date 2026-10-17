@@ -26,6 +26,7 @@ module Saboteur
         @load_lines = load_lines
         @load_methods = load_methods
         @root = File.realpath(config.root)
+        @root_prefixes = Selection::CoverageMap.root_prefixes(config.root)
       end
 
       # True when fetch would reuse the cached map instead of running the
@@ -50,6 +51,21 @@ module Saboteur
       end
 
       private
+
+      def write_map(writer, recorder, build_seconds)
+        writer.write(recorder.result(build_seconds: build_seconds, loaded_files: loaded_project_files).to_json)
+        writer.close
+      end
+
+      # Every project source this child loaded, even a lazy require outside the
+      # include list that the recorder drops: --incremental must watch it, or a
+      # change there keeps stale verdicts (#353).
+      def loaded_project_files
+        $LOADED_FEATURES.filter_map do |file|
+          path = Text.utf8_strict(Selection::CoverageMap.canonical(file))
+          path if path.end_with?(".rb") && @root_prefixes.any? { |prefix| path.start_with?(prefix) }
+        end
+      end
 
       def cache_path(files)
         File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}.json")
@@ -191,9 +207,7 @@ module Saboteur
           raise Error, "the unchanged suite failed while building coverage. Fix the suite, then run again " \
                        "with seed #{@config['seed']}."
         end
-        build_seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-        writer.write(recorder.result(build_seconds: build_seconds).to_json)
-        writer.close
+        write_map(writer, recorder, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
       rescue Exception => e # rubocop:disable Lint/RescueException
         writer.write(JSON.generate(error: "#{e.class}: #{e.message}"))
         exit!(1)
