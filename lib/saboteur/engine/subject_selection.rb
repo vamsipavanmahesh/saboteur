@@ -111,8 +111,9 @@ module Saboteur
         changed = canonical.call(maps.changed)
         return [changed, canonical.call(maps.behavior)] if changed.empty?
 
+        # deletion_only_files returns canonical-absolute paths, the same
+        # space as the canonical map keys in any project-root layout.
         deletion_only = Selection::GitDiff.deletion_only_files(@config["since"], root: @root)
-                                          .map { |file| Selection::CoverageMap.canonical(File.join(@root, file)) }
         [changed.except(*deletion_only), canonical.call(maps.behavior).except(*deletion_only)]
       end
 
