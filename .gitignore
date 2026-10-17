@@ -6,3 +6,5 @@
 .rspec_status
 Gemfile.lock
 .saboteur/
+/preview.json
+/coverage-*.json

@@ -145,9 +145,7 @@ module Saboteur
 
     # A spec file the diff touched that cannot run is named, also before a
     # stop on an unmatched file: --test, the way out, never reads the diff.
-    def inform_skipped_specs(guess)
-      @diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?
-    end
+    def inform_skipped_specs(guess) = (@diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?)
 
     def selection_message(guess)
       if guess.changed.zero?
@@ -178,9 +176,7 @@ module Saboteur
     end
 
     # The run's immutable report, built once the last result is in.
-    def announce_operators
-      @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
-    end
+    def announce_operators = @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
 
     def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
@@ -225,7 +221,7 @@ module Saboteur
 
       map = store.fetch(files)
       inform_about_run(subjects, map)
-      cache = result_cache
+      cache = result_cache(map, files)
       scheduler = scheduler_for(map, integration, cache)
       lists = candidate_lists(subjects, scope, map)
       work = subjects.zip(lists).reject { |_, list| list.empty? }
@@ -331,13 +327,25 @@ module Saboteur
       @sandbox_policy.hook
     end
 
-    def result_cache
-      return nil if @replay || !config["incremental"]
+    # The dependency universe a cached verdict watches when coverage
+    # cannot speak: every project file the booted process loaded, plus
+    # the run's own files (#344).
+    def source_files(files, prefixes: Selection::CoverageMap.root_prefixes(config.root))
+      $LOADED_FEATURES.filter_map do |file|
+        path = Text.utf8_strict(Saboteur::Selection::CoverageMap.canonical(file))
+        path if path.end_with?(".rb") && prefixes.any? { |prefix| path.start_with?(prefix) }
+      end | files
+    end
+
+    def result_cache(map = nil, files = [])
+      return nil if @replay
+      return nil unless config["incremental"]
 
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }
                                             .merge("operator_policy" => config.operator_policy))
       ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
-                      suite_digest: SuiteFiles.new(config).digest)
+                      suite_digest: SuiteFiles.new(config).digest,
+                      coverage: map, fallback_files: source_files(files))
     end
 
     # A cleanup failure must never mask the run's own outcome - not even
@@ -357,11 +365,7 @@ module Saboteur
     # Each subject's candidates, narrowed to changed lines in diff mode.
     # The hazard guard is off only when the user explicitly asks for the
     # dangerous mutants (issue #102); the canary then still watches the tree.
-    def hazard_guard
-      return nil if config["allow_hazardous"]
-
-      MutationSource::HazardGuard.new(config["hazard"])
-    end
+    def hazard_guard = (MutationSource::HazardGuard.new(config["hazard"]) unless config["allow_hazardous"])
 
     # Checks the tree after each subject's mutants; a vanished file means a
     # mutant deleted it, so abort with the most recent mutant's digest.

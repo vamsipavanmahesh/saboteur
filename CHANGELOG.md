@@ -148,6 +148,15 @@ All notable changes are documented here. The format follows
   (`.rspec` `--format progress`) and spec output stay on stdout and cannot
   corrupt the report.
 
+
+- `--incremental` no longer reuses a verdict when a file the covering
+  tests touched changed: the dependency files from the run's coverage map
+  join the verdict fingerprint (#197). The same holds for a dependency
+  with only method coverage (an endless def), a file that ran while the
+  app loaded, a loaded source the coverage map never observed, and a
+  helper required lazily inside a test outside the include list, which
+  the coverage build now records in the map so its changes invalidate
+  verdicts too (#344, #353; coverage map format 10).
 - `--test-command` survivors no longer carry the `missing_test`
   classification: the run's only recorded evidence is the pseudo-test id,
   which is not real coverage (#305).
@@ -156,6 +165,13 @@ All notable changes are documented here. The format follows
   symlink targets are judged against it (/var vs /private/var) (#305).
 
 ### Added
+
+- guess-tests now tries the flattened spec root and a `spec/unit/` prefix
+  after the mirrored guesses: `lib/pundit/policy_finder.rb` finds
+  `spec/policy_finder_spec.rb` and `lib/aasm/base.rb` finds
+  `spec/unit/base_spec.rb`, so `--subject` and `--since` stop hard-stopping
+  on pundit, aasm and shoulda-matchers style layouts (#394, #370, #393).
+
 
 - Methods defined in the four core class factories (`X = Data.define(...)`,
   `Struct.new`, `Class.new`, `Module.new` with a block) are mutation
