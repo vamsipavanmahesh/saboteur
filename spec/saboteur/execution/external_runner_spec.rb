@@ -36,6 +36,31 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     [outcome, runner, subject]
   end
 
+  # Contention-tolerant handshake: on a starved leg (a 2-vCPU CI shard
+  # mid-run) the runner thread can need far longer than a fixed cap to
+  # copy the tree and spawn the command; wait for the ready file while
+  # the thread lives and a generous deadline holds (#431 flake).
+  def wait_for_ready(thread, timeout: 30)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+    sleep 0.05 until File.exist?(File.join(@dir, "ready")) || !thread.alive? ||
+                     Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+  end
+
+  # A failed ready assertion leaves the worker thread and its process
+  # group running while the around hook removes the tempdir: interrupt
+  # and join any live worker, then drop the runner's copy (idempotent).
+  def stop_runner(thread, runner)
+    if thread.alive?
+      thread.raise(Interrupt)
+      begin
+        thread.join
+      rescue Interrupt
+        nil
+      end
+    end
+    runner.close
+  end
+
   # Functional proof the group is gone: a reaped zombie still answers
   # kill(0), so watch the descendant's tick file stop growing instead.
   def expect_ticks_stopped(path)
@@ -219,17 +244,47 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 30,
                  mutation: mutation_for(subject))
     end
-    100.times do
-      break if File.exist?(File.join(@dir, "ready"))
-
-      sleep 0.05
+    begin
+      wait_for_ready(thread)
+      # The handshake must have happened, or the interrupt tests nothing.
+      expect(File.exist?(File.join(@dir, "ready"))).to be(true)
+      thread.raise(Interrupt)
+      expect { thread.join }.to raise_error(Interrupt)
+      expect_ticks_stopped(ticks)
+      expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
+    ensure
+      stop_runner(thread, runner)
     end
-    # The handshake must have happened, or the interrupt tests nothing.
-    expect(File.exist?(File.join(@dir, "ready"))).to be(true)
-    thread.raise(Interrupt)
-    expect { thread.join }.to raise_error(Interrupt)
-    expect_ticks_stopped(ticks)
-    expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
+  end
+
+  # The fixed 5s handshake behind the #431 shard flake, forced: when the
+  # runner thread is starved past that cap (here: a 6s tree copy), the
+  # ready file simply does not exist yet - the interrupt test must wait
+  # for the start instead of failing the handshake.
+  it "still interrupts when the runner starts slowly" do
+    subject_in(@dir)
+    ticks = File.join(@dir, "ticks")
+    allow(FileUtils).to receive(:cp_r).and_wrap_original do |original, *args, **kwargs|
+      sleep 6
+      original.call(*args, **kwargs)
+    end
+    command = "touch #{@dir}/ready; (while :; do echo t >> #{ticks}; sleep 0.1; done) & wait"
+    runner = described_class.new(command: command, root: @dir)
+    subject = Saboteur::SubjectFinder.new.call(File.join(@dir, "calc.rb")).subjects.first
+    thread = Thread.new do
+      runner.run(subject: subject, text: subject.source, test_ids: [], timeout: 30,
+                 mutation: mutation_for(subject))
+    end
+    begin
+      wait_for_ready(thread)
+      expect(File.exist?(File.join(@dir, "ready"))).to be(true)
+      thread.raise(Interrupt)
+      expect { thread.join }.to raise_error(Interrupt)
+      expect_ticks_stopped(ticks)
+      expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
+    ensure
+      stop_runner(thread, runner)
+    end
   end
 
   it "kills background descendants that outlive the command" do
