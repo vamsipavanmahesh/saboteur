@@ -189,6 +189,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
         .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics),
                                                 custom_map: an_instance_of(Saboteur::CustomMap))
       expect(@scoped_root).to eq(@root)
+      expect(err.string).not_to include("intentionally untested")
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/b_spec.rb. " \
                                     "A spec the diff did not change that reaches")
       expect(err.string).not_to include("running the loaded suite unscoped")
@@ -226,11 +227,33 @@ RSpec.describe Saboteur::Engine, "test selection" do
     # Every file in scope intentionally untested: name them and mutate
     # nothing; an empty guess must never read as "run the whole suite"
     # (#369 review).
+    # A mixed guess: the excluded files are named AND the matched specs
+    # still run - the exclusion note must not depend on an empty run
+    # (#369 review dogfood).
+    it "names excluded files alongside the specs that still run" do
+      guess(specs: ["a_spec.rb"], unmatched: [], changed: 2, excluded: ["lib/b.rb"])
+      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(used).to eq(["a_spec.rb"])
+      expect(err.string).to include("no spec is required for lib/b.rb: intentionally untested")
+      expect(err.string).to include("running only a_spec.rb")
+    end
+
+    # The map is read from disk once per run and shared with guessing and
+    # subject selection (#369 review dogfood).
+    it "loads the custom map once per run" do
+      guess(specs: ["a_spec.rb"], unmatched: [], changed: 1)
+      allow(Saboteur::CustomMap).to receive(:load).and_call_original
+      run_engine("since" => "origin/main")
+      expect(Saboteur::CustomMap).to have_received(:load).once
+    end
+
     it "names map-excluded files and runs nothing instead of the whole suite" do
       guess(specs: [], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
       used = tests_the_run_used { run_engine("since" => "origin/main") }
       expect(used).to eq([])
-      expect(err.string).to include("lib/b.rb", "intentionally untested")
+      expect(err.string).to include("inferred specs: no spec is required for lib/b.rb: " \
+                                    "intentionally untested in config/saboteur_custom_map.rb, " \
+                                    "so there is nothing to mutate")
       expect(err.string).not_to include("running only")
     end
 
@@ -308,6 +331,34 @@ RSpec.describe Saboteur::Engine, "test selection" do
   end
 
   describe "--subject runs" do
+    # The exclusion note fires in a --subject run only when the guess
+    # actually excluded files (#369 review dogfood).
+    it "names excluded files in a --subject run" do
+      write_subject_project
+      guess(specs: ["spec/people_spec.rb"], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
+      used = tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
+      expect(used).to eq(["spec/people_spec.rb"])
+      expect(err.string).to include("no spec is required for lib/b.rb: intentionally untested")
+    end
+
+    it "prints no exclusion note in a --subject run without excluded files" do
+      write_subject_project
+      guess(specs: ["spec/people_spec.rb"], unmatched: [], changed: 1)
+      tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
+      expect(err.string).not_to include("intentionally untested")
+    end
+
+    # Every in-scope file intentionally untested: the --subject run mutates
+    # nothing and never announces a guessed selection (#369 review dogfood).
+    it "runs nothing in a --subject run when every file is map-excluded" do
+      write_subject_project
+      guess(specs: [], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
+      used = tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
+      expect(used).to eq([])
+      expect(err.string).to include("intentionally untested")
+      expect(err.string).not_to include("running only")
+    end
+
     def write_subject_project(with_spec: true)
       FileUtils.mkdir_p(File.join(@root, "lib"))
       File.write(File.join(@root, "lib", "people.rb"), "class Person\n  def adult?\n    true\n  end\nend\n")

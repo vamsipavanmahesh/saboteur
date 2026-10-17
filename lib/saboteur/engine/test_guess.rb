@@ -334,7 +334,7 @@ module Saboteur
             [spec]
           end
         end
-        expanded = expanded.uniq.sort.select { |path| File.file?(File.join(@root, path)) }
+        expanded = expanded.select { |path| File.file?(File.join(@root, path)) }
         return expanded unless expanded.empty?
 
         raise ConfigError, "custom map entry for #{file} names spec(s) #{specs.join(', ')}, which match no file"

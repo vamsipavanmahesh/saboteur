@@ -171,7 +171,54 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(result.unmatched).to eq([])
     expect(result.specs).to eq([])
     expect(result.excluded).to eq(["lib/c.rb"])
-    expect(result.excluded_message).to include("lib/c.rb", "intentionally untested")
+    expect(result.excluded_message).to eq("inferred specs: no spec is required for lib/c.rb: " \
+                                          "intentionally untested in config/saboteur_custom_map.rb")
+  end
+
+  # Every excluded file is named, sorted, wherever the map lists them; an
+  # excluded file contributes no spec and is not unmatched.
+  it "collects every map-excluded file sorted" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/z.rb\" => [],\n  \"lib/a.rb\" => []\n}.freeze\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/z.rb", changed_source)
+    write("lib/a.rb", changed_source)
+    write("lib/e.rb", changed_source)
+
+    result = guess
+    expect(result.excluded).to eq(%w[lib/a.rb lib/z.rb])
+    expect(result.specs).to eq(["spec/lib/e_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # An injected map wins over the one on disk: the engine shares one load
+  # with guessing, so guessing must not quietly reload (#369 review).
+  it "uses the injected custom map instead of loading from disk" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => []\n}.freeze\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+    result = described_class.new(config, custom_map: Saboteur::CustomMap.new([])).call
+    expect(result.excluded).to eq([])
+    expect(result.unmatched).to eq(["lib/c.rb"])
+  end
+
+  # Glob expansion keeps regular files only: a matched directory can never
+  # run, and two patterns expanding to one spec run it once.
+  it "drops directory matches and duplicate expansions from mapped globs" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/unit/*\", \"spec/unit/c_*.rb\"]\n}.freeze\n")
+    write("spec/unit/c_spec.rb")
+    FileUtils.mkdir_p(File.join(dir, "spec/unit/nested_dir"))
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    expect(guess.specs).to eq(["spec/unit/c_spec.rb"])
   end
 
   # Glob spec values are expanded against the root: the literal glob string
@@ -188,6 +235,20 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guess.specs).to eq(["spec/unit/c_spec.rb", "spec/unit/deep/c_extra_spec.rb"])
   end
 
+  # Every vanished spec is named, in order, comma-separated (#369 review).
+  it "names each vanished spec in the config error" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  %r{\\Alib/extra/(.*)\\.rb\\z} => " \
+          "['spec/extra/\\1_spec.rb', 'spec/other/\\1_spec.rb']\n}.freeze\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/extra/widget.rb", changed_source)
+
+    expect { guess }.to raise_error(Saboteur::ConfigError,
+                                    "custom map entry for lib/extra/widget.rb names spec(s) " \
+                                    "spec/extra/widget_spec.rb, spec/other/widget_spec.rb, which match no file")
+  end
+
   # A regexp backreference can fill in a spec that does not exist: the
   # mapping is broken, so the run stops naming the entry - it must not
   # silently guess on and run the wrong specs (#369 review).
@@ -199,7 +260,9 @@ RSpec.describe Saboteur::Engine::TestGuess do
     git("commit", "-q", "-m", "map")
     write("lib/extra/widget.rb", changed_source)
 
-    expect { guess }.to raise_error(Saboteur::ConfigError, %r{spec/extra/widget_spec\.rb})
+    expect { guess }.to raise_error(Saboteur::ConfigError,
+                                    "custom map entry for lib/extra/widget.rb names spec(s) " \
+                                    "spec/extra/widget_spec.rb, which match no file")
   end
 
   # A changed spec is not a changed source file: it needs no spec of its

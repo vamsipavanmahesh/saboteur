@@ -39,6 +39,64 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(select([write("cart.rb", source)]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
   end
 
+  # Past five skipped files the note stays readable: the count and the
+  # first five ids, then an ellipsis (#369 review dogfood).
+  it "names the count and first five ids when six files are intentionally untested" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    entries = (1..6).map { |i| "  \"f#{i}.rb\" => []" }.join(",\n")
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n#{entries}\n}.freeze\n")
+    io = StringIO.new
+    diags = Saboteur::Engine::Diagnostics.new(io)
+    files = (1..6).map { |i| write("f#{i}.rb", "module M#{i}\n  def self.m = 1\nend\n") }
+    config = Saboteur::Config.new({}, root: @root)
+
+    expect(described_class.new(config, diags).select(files)).to eq([])
+    expect(io.string).to include("6 subject(s) skipped: intentionally untested in config/saboteur_custom_map.rb: " \
+                                 "M1.m, M2.m, M3.m, M4.m, M5.m, ...")
+    expect(io.string).not_to include("M6.m")
+  end
+
+  # Below five every id fits as well: no ellipsis, and the count matches.
+  it "lists every id without an ellipsis at three skipped subjects" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    entries = (1..3).map { |i| "  \"f#{i}.rb\" => []" }.join(",\n")
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n#{entries}\n}.freeze\n")
+    io = StringIO.new
+    diags = Saboteur::Engine::Diagnostics.new(io)
+    files = (1..3).map { |i| write("f#{i}.rb", "module M#{i}\n  def self.m = 1\nend\n") }
+    config = Saboteur::Config.new({}, root: @root)
+
+    expect(described_class.new(config, diags).select(files)).to eq([])
+    expect(io.string).to include("3 subject(s) skipped: intentionally untested in config/saboteur_custom_map.rb: " \
+                                 "M1.m, M2.m, M3.m")
+    expect(io.string).not_to include("...")
+  end
+
+  # An injected map wins over the one on disk: the engine shares one load
+  # with guessing, so selection must not quietly reload (#369 review).
+  it "uses the injected custom map instead of loading from disk" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n  \"cart.rb\" => []\n}.freeze\n")
+    config = Saboteur::Config.new({}, root: @root)
+    selection = described_class.new(config, diagnostics, custom_map: Saboteur::CustomMap.new([]))
+    expect(selection.select([write("cart.rb", source)]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
+  end
+
+  # At exactly five every id fits: the note lists them all, no ellipsis.
+  it "lists every id without an ellipsis at five skipped subjects" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    entries = (1..5).map { |i| "  \"f#{i}.rb\" => []" }.join(",\n")
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n#{entries}\n}.freeze\n")
+    io = StringIO.new
+    diags = Saboteur::Engine::Diagnostics.new(io)
+    files = (1..5).map { |i| write("f#{i}.rb", "module M#{i}\n  def self.m = 1\nend\n") }
+    config = Saboteur::Config.new({}, root: @root)
+
+    expect(described_class.new(config, diags).select(files)).to eq([])
+    expect(io.string).to include("5 subject(s) skipped: intentionally untested in config/saboteur_custom_map.rb:")
+    expect(io.string).not_to include("...")
+  end
+
   # A file the custom map marks intentionally untested ("path" => []) is
   # never mutated: with no test there is no signal, and a guessed selection
   # would read its empty spec list as "run the whole suite" (#369 review).
