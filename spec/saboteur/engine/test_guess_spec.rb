@@ -423,6 +423,42 @@ RSpec.describe Saboteur::Engine::TestGuess do
       .with("HEAD", root: dir, include: config.included_files.to_set, diagnostics: diagnostics)
   end
 
+  # ruby-jwt consolidates claim specs: lib/jwt/claims/decode_verifier.rb is
+  # covered by spec/jwt/claims_spec.rb, which the per-file guess never finds.
+  # When the diff itself changes that consolidated spec and the spec reads a
+  # constant the uncovered file defines, the file is covered and the pr
+  # preset must not hard-stop (#538).
+  it "treats a consolidated spec changed in the diff as covering the file it exercises (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT::Claims::DecodeVerifier.new.call\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    " \
+          "2.times { JWT::Claims::DecodeVerifier.new.call }\n  end\nend\n")
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/jwt/claims_spec.rb")
+  end
+
+  it "still stops for a mutable change no changed spec exercises (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT.decode\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT.decode\n    JWT.decode\n  end\nend\n")
+    expect(guess.unmatched).to eq(["lib/jwt/claims/decode_verifier.rb"])
+  end
+
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
   end
