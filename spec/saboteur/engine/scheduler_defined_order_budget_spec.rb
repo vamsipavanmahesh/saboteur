@@ -69,4 +69,58 @@ RSpec.describe Saboteur::Engine::Scheduler, "defined-order retry and --max-durat
     results(nil)
     expect(mutant_runs).to all(be > 5.0)
   end
+
+  # A retry that the budget cut short and that times out proves nothing:
+  # it is unverified, like every other budget-cut check (#296), never a
+  # timeout verdict and never a kill.
+  it "marks the mutant retry unverified, not timed out, when the budget capped it" do
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, **|
+      if test_ids == prefix && mutation
+        outcome(:timeout)
+      elsif test_ids == prefix
+        clock[:now] = 95.0
+        outcome(:survived)
+      elsif mutation
+        outcome(:killed, failed_ids: [asserting_example])
+      else
+        outcome(:killed)
+      end
+    end
+    final = results(100.0)
+    expect(final.map { |result| [result.status, result.reason] }.uniq)
+      .to eq([[:unverified, described_class::BUDGET_RETRY_REASON]])
+  end
+
+  it "lets the mutant retry's timeout stand when the budget left it the full time" do
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, **|
+      if test_ids == prefix && mutation
+        outcome(:timeout)
+      elsif test_ids == prefix
+        clock[:now] = 0.0
+        outcome(:survived)
+      elsif mutation
+        outcome(:killed, failed_ids: [asserting_example])
+      else
+        outcome(:killed)
+      end
+    end
+    final = results(1000.0)
+    expect(final.map(&:status).uniq).to eq([:timeout])
+  end
+
+  it "lets the mutant retry's kill stand when the budget capped only its timeout" do
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, **|
+      if mutation
+        outcome(:killed, failed_ids: [asserting_example])
+      elsif test_ids == prefix
+        clock[:now] = 95.0
+        outcome(:survived)
+      else
+        outcome(:killed)
+      end
+    end
+    final = results(100.0)
+    expect(final.map { |result| [result.status, result.killed_by] }.uniq)
+      .to eq([[:killed, [asserting_example]]])
+  end
 end
