@@ -135,9 +135,14 @@ module Saboteur
 
     # Constant-introducing declarations (class/module keywords and factory
     # assignments) bind on the enclosing lexical scope: factory blocks open
-    # none, so their scopes never join a new constant's path (#339).
+    # none, so their scopes never join a new constant's path (#339) - unless
+    # an sclass follows the factory: `class << self` inside a factory block
+    # attaches to the factory's class at runtime (class_eval sets self), and
+    # the sclass needs the factory's path to name that attachment (#438).
     def lexical_nesting(nesting)
-      nesting.reject(&:factory?)
+      nesting.each_with_index.reject do |scope, index|
+        scope.factory? && nesting[(index + 1)..].none?(&:sclass?)
+      end.map(&:first)
     end
 
     def class_factory?(call)
@@ -181,14 +186,31 @@ module Saboteur
     end
 
     # Lexical path of the enclosing class/module. `class ::Foo` restarts at the top.
+    # A bare `class << self` scope leaves the owner alone (its defs are the
+    # attached class's singleton methods), but a factory constant assigned
+    # through it binds on the singleton class (#352), so the sclass renders
+    # as a `singleton_class` path segment when a factory scope sits after it
+    # (#406): `Host.singleton_class::Widget`, mirroring the constant side
+    # (#380).
     def owner_path(nesting)
-      parts = nesting.reject(&:sclass?).map(&:path)
-      return nil if parts.empty?
+      segments = nesting.each_with_index.filter_map do |scope, index|
+        if scope.sclass?
+          :singleton_class if nesting[(index + 1)..].any?(&:factory?)
+        else
+          scope.path
+        end
+      end
+      return nil if segments.empty?
 
-      parts.each_with_object([]) do |path, acc|
-        acc.clear if path.start_with?("::")
-        acc << path.delete_prefix("::")
-      end.join("::")
+      segments.each_with_object(+"") do |segment, out|
+        if segment == :singleton_class
+          out << ".singleton_class"
+        else
+          out.clear if segment.start_with?("::")
+          out << "::" unless out.empty?
+          out << segment.delete_prefix("::")
+        end
+      end
     end
 
     def mark_refinements(subjects, program)
