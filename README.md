@@ -150,7 +150,7 @@ v0.7.0 yet; use a local checkout for it and expect it to change before release.
 - **Focused execution.** Coverage selects the tests that can matter, then
   kill checks rerun them against the unchanged method.
 - **Safety controls.** A hazard guard, canary, resource limits, and (on Linux
-  6.2+) a Landlock sandbox helps contain destructive mutants.
+  6.2+) a Landlock sandbox help contain destructive mutants.
 - **Team workflow.** Terminal, JSON, HTML and agent reports, thresholds,
   baselines, ignore reasons, score history, and a GitHub Action.
 - **Open extension points.** Add mutants through the public interface and
