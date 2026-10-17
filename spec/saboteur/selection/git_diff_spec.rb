@@ -698,6 +698,22 @@ RSpec.describe Saboteur::Selection::GitDiff do
       expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
     end
 
+    # BUNDLE_PATH: . installs the bundle into the project root - unusual
+    # but valid. An empty normalized prefix matches every path, shielding
+    # the whole tree from --since (#580).
+    it "shields nothing when BUNDLE_PATH is the project root (#580)" do
+      write(".bundle/config", "BUNDLE_PATH: .\n")
+      write("lib/app.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "lib/app.rb", "spec/kept_spec.rb"])
+    end
+
+    it "shields nothing when BUNDLE_PATH is ./ (#580)" do
+      write(".bundle/config", "BUNDLE_PATH: ./\n")
+      write("lib/app.rb", "1\n")
+      expect(paths[:present]).to eq([".bundle/config", "lib/app.rb"])
+    end
+
     it "refuses a ref that is not a commit, as a usage error" do
       expect { described_class.changed_paths("no-such-ref", root: @dir) }
         .to raise_error(Saboteur::ConfigError, /no-such-ref: not a commit/)
