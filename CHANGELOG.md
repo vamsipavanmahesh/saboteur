@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `--incremental` no longer reuses a stored verdict after the project source
+  set changes: a file added after the coverage map was built (a conditional
+  require, a Zeitwerk autoload) can load into a mutant run unseen, and the
+  reused verdict read as a false green. The set is paths only; content edits
+  to other files stay the documented cross-file tradeoff (#396).
 - A factory assigned inside `class << self` now keeps its own scope in the
   owner path, so a constant defined there is named after the factory's
   singleton: `Host::W.singleton_class::V#n`. An outer factory with no
