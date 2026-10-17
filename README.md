@@ -75,23 +75,55 @@ the count into changes inside the mutation scope, outside it, and
 saboteur's own setup files. Mutants run your code, so run on a clean,
 committed tree or a CI checkout.
 
+Code that only runs while the app loads cannot be judged by replacing the
+method later, so it reports as `ran at load`, outside the score. The same
+holds for def-time macros - a `deprecate`-style helper, a `before_action`
+block, any DSL whose only caller is a class body: the closure captured at
+load keeps the pristine definition, so the boot's def-call counters mark
+the macro itself `ran at load` instead of letting its mutants survive.
+
 ## What you get
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
   you changed. The GitHub Action runs on every pull request and caches
   the coverage map between runs.
 - **Honest verdicts.** Every kill is verified against the unchanged
-  method; a kill the suite cannot confirm stays out of the score.
+  method; a kill the suite cannot confirm stays out of the score. A spec
+  file whose examples depend on earlier ones is retried in defined order
+  before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
+- **A plan before the run.** `saboteur run --dry-run --format json` prints
+  the versioned [mutant inventory](docs/dry-run-json.md) - every planned
+  mutant with its stable digest and edits - without booting the suite.
 - **A review workflow.** An ignore list with reasons and triage states,
   an opt-in survivor baseline, score thresholds and score history.
+- **A local README badge.** `saboteur badge` writes Shields endpoint JSON
+  from the score history and `saboteur trend` prints the score delta -
+  no hosted service:
+
+  ```md
+  ![mutation score](https://img.shields.io/endpoint?url=<raw-url-of-the-badge-json>)
+  ```
+
+  Incomplete runs are refused as badge evidence unless `--mark-partial`
+  labels them, and the trend never compares runs with different
+  selection, inventory or operator policy.
 - **Safety controls.** A hazard guard, canary values, and time, memory
   and process-count limits on every mutant in the default in-process
   mode; a Landlock sandbox on Linux
   6.2 and newer.
 - **Extension points.** Add your own mutation operators through the
   public interface.
+
+Per-path score gates are on the way: `c.score_gate "app/payments/**/*",
+min_score: 95` in `config/saboteur.rb` (repeatable) is already accepted and
+validated - `min_score` must be between 0 and 100 and the pattern must match
+at least one included file - but nothing enforces the gates yet; enforcement
+lands with #570. Until then `--threshold` (or `c.threshold`) stays the
+global gate. See
+[choosing and raising a threshold](docs/best-practices.md#choosing-and-raising-a-threshold)
+for how to pick a number.
 
 ## Honest limits
 
@@ -102,8 +134,41 @@ committed tree or a CI checkout.
 - `--since` and `--incremental` are iteration aids. Run the whole project
   on main and before a release.
 - The hazard guard is syntactic, sandboxing varies by platform (Landlock
-  on Linux 6.2+; mutants run unsandboxed on macOS), and network access is
+  on Linux 6.2+; on macOS mutants run unsandboxed unless `c.sandbox = "seatbelt"`
+  opts into a probe-gated Seatbelt profile; see
+  [the macOS Seatbelt sandbox](docs/guides/macos-seatbelt-sandbox.md)), and network access is
   never restricted. Stub real APIs and use a container when that matters.
+
+### Custom spec mapping
+
+When the naming guess does not fit the project's layout, teach the mapping
+once in `config/saboteur_custom_map.rb` instead of passing `--test` on every
+run:
+
+```ruby
+SABOTEUR_CUSTOM_MAP = {
+  "lib/aasm/core/state.rb" => ["spec/unit/state_spec.rb"],
+  "app/jobs/**/*.rb"       => ["spec/jobs/**/*_spec.rb"],
+  %r{\Aapp/jobs/(.*)\.rb\z} => ['spec/jobs/\1_spec.rb'],
+  "app/generated/**/*.rb"  => [], # intentionally untested
+}.freeze
+```
+
+A matching entry wins over the naming convention: the file stops being
+unmatched and its mapped specs run as the inferred ones. Keys are exact
+paths, globs or Regexps; an empty array marks the file intentionally
+untested, so it needs no inferred spec. The file loads before the app
+boots, so keep it plain Ruby. `saboteur doctor` validates it.
+
+### Rejected kills
+
+The terminal lists them in a `Rejected kills` section and annotates the error
+count (`error 3 (2 rejected kills)`); JSON flags each rejected mutant with
+`rejectedKill: true` and keeps the `rejectedKills` count. These are fresh
+per-mutant kill claims whose tests also fail with the method unchanged. They
+stay errors outside the score. Timeout checks, other errors and reused cached
+kills are not included. See [rejected kills](docs/rejected-kills.md) for
+details.
 
 ### Rails apps
 
@@ -119,17 +184,25 @@ This writes `config/saboteur.rb`, a `bin/saboteur` binstub (it sets
 `RAILS_ENV=test` for you) and a `.gitignore` entry for `.saboteur/`. It
 never overwrites an existing file unless you pass `--force`.
 
+Until a config names your sources, a run whose include selects no Ruby
+file refuses with exit 2 and points at the install generator above -
+a first CI run on an unconfigured tree fails loud instead of passing
+with 0 subjects.
+
 Prefer to do it by hand, or on a version without the generator? Put this
 in `config/saboteur.rb`:
 
 ```ruby
 Saboteur.configure do |c|
-  c.include = ["app/**/*.rb"]
+  c.include = ["app/**/*.rb"]         # spec/test dirs vendored under lib/ are excluded by default
   c.require = ["./config/environment"] # boots the app
   c.rails = true                       # reconnects ActiveRecord after fork, per-worker databases
   c.jobs = 4                           # optional; the default is 1
 end
 ```
+
+An engine gem whose specs live under `spec/dummy` needs an exclude for them; see
+[Rails engines and dummy apps](docs/guides/rails-engines-and-dummy-apps.md).
 
 ## SimpleCov
 
