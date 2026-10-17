@@ -77,6 +77,9 @@ summary lists them apart with the reason from the ignore list.
 | `fail-on-survivors` | `false` | `true` or `false`; any other value fails the step. `true` fails the step when a mutant survives, and also when the run is incomplete (see below). |
 | `cache` | `true` | `true` or `false`; any other value fails the step. `false` skips restoring the cached coverage map and also passes `--no-cache` to saboteur, so the map is rebuilt. |
 | `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only, and it may not start with `-`. |
+| `artifact-name` | `saboteur-report-<job>-<matrix leg>` | Name of the uploaded JSON report artifact. Set it when one job uses this action more than once: upload-artifact rejects a second upload under one name. |
+| `baseline` | empty | Path of an accepted survivor baseline. Runs `saboteur baseline check` instead of the diff-mode run; see "Failing on new survivors with a baseline" below. |
+| `baseline-epsilon` | empty | Only with `baseline`. The largest allowed score drop in percentage points (0 to 100, at most three decimals). |
 
 The action runs only on `pull_request` events. On any other event, such as
 `push`, it prints a notice and does nothing. It does not support
@@ -166,8 +169,9 @@ name contains a hash of the files it was built from, so changing a listed input
 hash cannot see everything: an environment variable, a database fixture or the
 Ruby version can change coverage without changing a listed file. If a run
 looks wrong, set `cache: "false"`. That skips the restore and passes
-`--no-cache`, which makes saboteur rebuild the map. Building the map runs your
-whole suite once, which is the fixed cost of a run.
+`--no-cache`, which makes saboteur rebuild the map. The rebuild runs the specs
+saboteur selected for the run once: the inferred specs by default, or the whole
+suite when the run passes `--all`.
 
 The cache key uses the runner OS, `Gemfile.lock` and `config/saboteur.rb`, plus the
 commit. A run restores the newest earlier entry with the same prefix. If you

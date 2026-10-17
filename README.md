@@ -9,25 +9,165 @@
 [![CI](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml/badge.svg)](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml)
 [![Gem Version](https://img.shields.io/gem/v/saboteur)](https://rubygems.org/gems/saboteur)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Ruby 3.3+](https://img.shields.io/badge/ruby-%3E%3D%203.3-cc342d?logo=ruby)](https://www.ruby-lang.org/)
+[![Gem Downloads](https://img.shields.io/gem/dt/saboteur)](https://rubygems.org/gems/saboteur)
 
-Your suite is green and coverage says 95%. That tells you the tests *ran* your
-code. It does not tell you they would *notice* if the code were wrong.
+[Quick start](#60-second-quick-start) · [Getting started](docs/guides/getting-started.md) · [Best practices](docs/best-practices.md) · [FAQ](docs/faq.md) · [Contributing](CONTRIBUTING.md)
 
-saboteur finds out. It makes small deliberate changes to your methods (flips a
-`<` to `<=`, swaps `+` for `-`, replaces a body with `nil`), runs the tests that
-cover each change, and reports every change your suite let through. Each of
-those survivors can point at a missing test. It can also be an equivalent
-change that no test could notice, a flaky test, or a limit of the tool, so
-each one needs a human look.
+Your suite can be green and still not notice broken behavior. saboteur
+makes small, deliberate changes to your code, runs the tests that cover each
+change, and reports every change the suite lets through. Each survivor is a
+review lead: a missing test, an equivalent change, a flaky test, or a limit
+of the tool.
 
+<a id="try-it-in-a-minute"></a>
+## 60-second quick start
+
+Requirements: Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
+Minitest is not supported; see [Minitest](docs/minitest.md) for why and what
+it would take.
+
+```ruby
+# Gemfile
+group :test do
+  gem "saboteur"
+end
 ```
-$ bundle exec saboteur run --since origin/main
+
+```sh
+bundle install
+bundle exec saboteur doctor
+bundle exec saboteur run --subject 'YourClass#your_method'
 ```
 
-Never heard of mutation testing? It asks "if I broke this, would a test
-fail?" for many small breakages and lists the ones nobody noticed. Read the
-[design notes](docs/design.md) when you want the details. For adopting it on a team, see the
-[best practices guide](docs/best-practices.md).
+Outside a Bundler project, `gem install saboteur` installs the same
+executable. The run checks the unchanged suite first, maps which tests cover
+the method, then runs only those tests against each mutant. You get counts
+per status, a covered score, timing, and the exact surviving changes to
+review. The JSON and HTML reports land in `.saboteur/report.json` and
+`.saboteur/report.html`.
+
+Example output from saboteur's own `People::Person#adult?` fixture, trimmed:
+
+```text
+Survivors (2):
+
+lib/people.rb
+  People::Person#adult?
+    lib/people.rb:14 in People::Person#adult?
+      14: def adult?; @age >= 18; end
+      2 tests covered this line and still passed (the missing check may belong in one of them):
+        ./spec/person_spec.rb[1:1]
+        ./spec/person_spec.rb[1:2]
+      - literal_number 18 -> 19 6efe213a68e7ddc9
+        hint: try asserting something that depends on this number
+      - comparison >= -> > f5f5bc39bd01444f
+        hint: try an example at the boundary: equal values, or values one apart
+
+saboteur 0.7.0: 1 subjects, 10 mutants, wall 2.39 s, seed 1
+killed 8  survived 2  timeout 0  resource limit 0  error 0  skipped 0
+score 80.0 %
+```
+
+A run with survivors exits 1. Each survivor can be a missing test, an
+equivalent change, a flaky test, or a tool limit, so review the diff before
+adding a test or accepting it.
+
+Rails app? Follow the [Rails quickstart](#rails-apps): the defaults are for
+plain gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
+
+<details>
+<summary><strong>Try saboteur without touching your Gemfile</strong></summary>
+
+**Trying it without touching your Gemfile** (#310): put saboteur in a separate
+Gemfile that loads yours, and start its lockfile from a copy of yours.
+
+```ruby
+# Gemfile.saboteur
+eval_gemfile File.expand_path("Gemfile", __dir__)
+gem "saboteur", group: :test
+# or a local checkout: gem "saboteur", path: "/path/to/your/saboteur/checkout", group: :test
+```
+
+```sh
+cp Gemfile.lock Gemfile.saboteur.lock
+BUNDLE_GEMFILE=Gemfile.saboteur bundle lock      # adds saboteur to Gemfile.saboteur.lock
+BUNDLE_GEMFILE=Gemfile.saboteur bundle install
+BUNDLE_GEMFILE=Gemfile.saboteur bundle exec saboteur run --subject 'YourClass#your_method'
+```
+
+`Gemfile` and `Gemfile.lock` are not modified. The copy keeps every locked gem
+that still satisfies the combined Gemfile; Bundler moves one only when saboteur
+needs another version (it depends on `prism` and `fiddle`). Without the copy,
+Bundler resolves from scratch and may pick newer gems than your app runs.
+`bundle lock` also works where Bundler is frozen or in deployment mode, where
+`bundle install` refuses to change a lockfile. The `test` group must be
+installed: check `bundle config get without`.
+
+Keep the variable on every command: `bundle exec saboteur ...` and
+`bin/saboteur ...` become `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec
+saboteur ...` and `BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`, and a bare
+`saboteur ...` line in this README becomes `BUNDLE_GEMFILE=Gemfile.saboteur
+bundle exec saboteur ...`. In a Rails app, skip the quickstart's `bundle add`
+and run the generator as `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec rails
+generate saboteur:install` (ignore its hint to edit `Gemfile`), then run
+`BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`: the generated binstub sets
+`RAILS_ENV=test`, which `bundle exec saboteur` does not (add `RAILS_ENV=test` if
+you use that form). Rails' own `config/boot.rb` sets `BUNDLE_GEMFILE` only when
+it is unset, so the trial Gemfile stays in use. The generator appends
+`.saboteur/` to `.gitignore`: that is an edit to your application, so revert it
+after the trial if you do not keep saboteur.
+
+To keep the trial files out of `git status` without committing anything, list
+them by exact, root-anchored name in `.git/info/exclude`: `/Gemfile.saboteur`,
+`/Gemfile.saboteur.lock`, `/.saboteur/`, and `/config/saboteur.rb` and
+`/bin/saboteur` if you created them. A broad pattern could hide your own changes. To undo the trial,
+delete those files and those exclude lines.
+
+</details>
+
+## Why teams use it
+
+- **PR scope.** `saboteur pr` or `--since origin/main` mutates the methods
+  your branch changed.
+- **Focused runs.** Per-test coverage selection runs only the tests that can
+  matter.
+- **Checked kills.** A kill counts only after the same tests pass against the
+  unchanged code.
+
+New to mutation testing? It asks "if I broke this, would a test fail?" for
+many small breakages and lists the ones nobody noticed. Continue with
+[Getting started](docs/guides/getting-started.md), [Usage](#usage),
+[Configuration](#configuration), [Design](docs/design.md), or
+[Best practices](docs/best-practices.md).
+
+This README tracks `main`. Behavior marked "unreleased on main" is not in
+v0.7.0 yet; use a local checkout for it and expect it to change before release.
+
+## What you get
+
+- **Pull-request scope.** `--since origin/main` mutates the methods your
+  branch changed, while `saboteur pr` bundles the PR loop.
+- **Focused execution.** Coverage selects the tests that can matter, then
+  kill checks rerun them against the unchanged method.
+- **Safety controls.** A hazard guard, canary, resource limits, and (on Linux
+  6.2+) a Landlock sandbox help contain destructive mutants.
+- **Team workflow.** Terminal, JSON, HTML and agent reports, thresholds,
+  baselines, ignore reasons, score history, and a GitHub Action.
+- **Open extension points.** Add mutants through the public interface and
+  consume the Stryker-compatible JSON report.
+
+## Honest limits
+
+- saboteur is RSpec-only and needs `fork`; there is no Windows or Minitest
+  support today.
+- A survivor is review evidence, not automatic proof of a bug in your tests.
+- Diff and incremental modes are iteration aids; run the whole project without
+  them on main or before a release.
+- The hazard guard is syntactic, the sandbox varies by platform, and network
+  access is never restricted. Stub real APIs and use a container when needed.
+
+## Run model, safety and evidence
 
 Declared external inputs are checked against cache and report paths using their
 physical paths, including aliased parent directories. An overlap makes the run
@@ -45,7 +185,16 @@ The public opt-in `baseline propose`, `baseline accept` and `baseline check`
 commands use this evidence to review and compare survivors. They never skip
 accepted mutants or change their scores. See [Opt-in survivor baseline](#opt-in-survivor-baseline).
 
-### The unchanged suite is checked first
+### Safety guardrails
+
+| Layer | What it does | What it does not do |
+| --- | --- | --- |
+| Baseline | Runs the unchanged suite before mutation. | Does not prove a suite is free of flaky tests. |
+| Hazard guard | Suppresses mutants in known destructive call forms. | Is syntactic; aliases, variables and dynamic selectors can escape it. |
+| Canary | Aborts the run when tracked files disappear after a mutant. | Detects damage after it starts; it restores nothing. |
+| Landlock | When available on Linux 6.2+, makes the project tree read-only to mutant children. | Is Linux-only and covers the filesystem only; network is never restricted. |
+
+#### The unchanged suite is checked first
 
 Every run with selected subjects runs the loaded unchanged suite twice (the specs chosen with `--test` if given,
 otherwise the inferred specs) in fresh
@@ -77,9 +226,9 @@ the empty map is not cached. With `--test` an empty map instead stays a
 legitimate "no coverage" outcome, because the chosen specs may not touch the
 selected sources.
 Two passes detect observed instability, not every possible flaky test. See
-[baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
+[baseline stability](docs/baseline-stability.md) for limits and hook behavior.
 
-### Hazardous calls are not mutated, and a canary watches the tree
+#### Hazardous calls are not mutated, and a canary watches the tree
 
 Mutants run in your checkout, so a mutant inside a destructive call could do
 real damage: a string mutation inside `FileUtils.rm_rf(File.join(Dir.pwd,
@@ -160,93 +309,29 @@ whose C library cannot be located (musl is tried by soname first).
 `c.sandbox = "strict"` turns that degraded note into a refusal;
 `c.sandbox = false` opts out.
 
-In short, per platform: on Linux 6.2+ mutant children can be
-filesystem-sandboxed as described above (the kernel capability, not a proof
-of isolation - `saboteur doctor` probes what your setup actually allows); on
-older Linux kernels and on macOS there is no sandbox (Landlock is
-Linux-only) and mutants run with the hazard guard and canary only. Network
-access is never restricted on any platform - a mutant can reach real APIs if
-a test is not stubbed. When a mutant could write outside the project, run
-saboteur in a container; a plain container keeps outbound network access, so
-when a mutant could reach real APIs, deny the network or stub the APIs.
-`saboteur doctor` reports the platform's sandbox status.
+#### Platform support
+
+| Platform | Mutant-child filesystem protection | Effective guard |
+| --- | --- | --- |
+| Linux 6.2+ (Landlock ABI 3) | Available; doctor confirms the probe. Read-only project tree, except explicit grants. | Landlock + hazard guard + canary. |
+| Linux 5.13-6.1 (Landlock ABI 1-2) | No sandbox: `truncate()` cannot be restricted. | Hazard guard + canary. |
+| Other supported Linux | No usable Landlock. | Hazard guard + canary. |
+| macOS | No sandbox; Landlock is Linux-only. | Hazard guard + canary. |
+
+Network access is never restricted on any platform: a mutant can reach real
+APIs if a test is not stubbed. When a mutant could write outside the project,
+run saboteur in a container; when it could reach real APIs, deny the network
+or stub the APIs. `saboteur doctor` probes and reports what your platform
+actually allows.
 
 
-## 🚀 Try it in a minute
-
-Add saboteur to the test group of your project's Gemfile (Ruby 3.3+, RSpec):
-
-```ruby
-gem "saboteur", group: :test
-```
-
-```sh
-bundle install
-bundle exec saboteur run --subject 'YourClass#your_method'
-```
-
-Outside a Bundler project, `gem install saboteur` installs the same executable.
-Rails app? Follow the [Rails quickstart](#rails-apps) below: the defaults are for
-plain gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
-
-**Trying it without touching your Gemfile** (#310): put saboteur in a separate
-Gemfile that loads yours, and start its lockfile from a copy of yours.
-
-```ruby
-# Gemfile.saboteur
-eval_gemfile File.expand_path("Gemfile", __dir__)
-gem "saboteur", group: :test
-# or a local checkout: gem "saboteur", path: "/path/to/your/saboteur/checkout", group: :test
-```
-
-```sh
-cp Gemfile.lock Gemfile.saboteur.lock
-BUNDLE_GEMFILE=Gemfile.saboteur bundle lock      # adds saboteur to Gemfile.saboteur.lock
-BUNDLE_GEMFILE=Gemfile.saboteur bundle install
-BUNDLE_GEMFILE=Gemfile.saboteur bundle exec saboteur run --subject 'YourClass#your_method'
-```
-
-`Gemfile` and `Gemfile.lock` are not modified. The copy keeps every locked gem
-that still satisfies the combined Gemfile; Bundler moves one only when saboteur
-needs another version (it depends on `prism` and `fiddle`). Without the copy,
-Bundler resolves from scratch and may pick newer gems than your app runs.
-`bundle lock` also works where Bundler is frozen or in deployment mode, where
-`bundle install` refuses to change a lockfile. The `test` group must be
-installed: check `bundle config get without`.
-
-Keep the variable on every command: `bundle exec saboteur ...` and
-`bin/saboteur ...` become `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec
-saboteur ...` and `BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`, and a bare
-`saboteur ...` line in this README becomes `BUNDLE_GEMFILE=Gemfile.saboteur
-bundle exec saboteur ...`. In a Rails app, skip the quickstart's `bundle add`
-and run the generator as `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec rails
-generate saboteur:install` (ignore its hint to edit `Gemfile`), then run
-`BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`: the generated binstub sets
-`RAILS_ENV=test`, which `bundle exec saboteur` does not (add `RAILS_ENV=test` if
-you use that form). Rails' own `config/boot.rb` sets `BUNDLE_GEMFILE` only when
-it is unset, so the trial Gemfile stays in use. The generator appends
-`.saboteur/` to `.gitignore`: that is an edit to your application, so revert it
-after the trial if you do not keep saboteur.
-
-To keep the trial files out of `git status` without committing anything, list
-them by exact, root-anchored name in `.git/info/exclude`: `/Gemfile.saboteur`,
-`/Gemfile.saboteur.lock`, `/.saboteur/`, and `/config/saboteur.rb` and
-`/bin/saboteur` if you created them. A broad pattern could hide your own changes. To undo the trial,
-delete those files and those exclude lines.
-
-Start with one method. You get counts per status, a score, timing, and a
-unified diff for every survivor, so you can read the exact change your tests
-missed. The JSON report lands in `.saboteur/report.json`.
-
-📋 Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
-Minitest is not supported; see [Minitest](docs/minitest.md) for why and what it would take.
-
+<a id="why-it-is-built-the-way-it-is"></a>
 ## 🧠 Why it is built the way it is
 
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
-run. A change no test reaches is reported as "no coverage", not as a survivor. Branch coverage separates arms on the same line: an edit inside an arm no test took reports "no coverage (branch not taken)". Ruby does not expose `&&`/`||` right operands as branches, so those keep line-based selection. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies. Methods defined inside blocks (`Class.new do`, `Data.define do`, `included do`) are not mutated yet; the run lists them as skipped, "defined inside a block".
+run. A change no test reaches is reported as "no coverage", not as a survivor. Branch coverage separates arms on the same line: an edit inside an arm no test took reports "no coverage (branch not taken)". Ruby does not expose `&&`/`||` right operands as branches, so those keep line-based selection. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies. On main, methods defined by the four core class factories (`X = Data.define(...)`, `Struct.new`, `Class.new`, `Module.new` with a block) and literal-name `define_method(:name) { ... }` calls are ordinary mutation subjects, not skipped; those cases are unreleased and not in v0.7.0. Defs inside non-factory blocks still get the "defined inside a block" skip reason.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
 whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
@@ -280,27 +365,34 @@ starts.
 
 **It is open.** The report is JSON in the Stryker mutation-testing-report
 schema, and you can add your own mutants through a small public interface.
-The agent JSON format and the exit codes are stable APIs with a deprecation
-process: [docs/stability](docs/stability.md).
+The main branch documents a stability policy for the agent JSON format and
+exit codes: [docs/stability](docs/stability.md). That policy is unreleased on
+main and is not part of v0.7.0.
 
+<a id="usage"></a>
 ## 🛠️ Usage
 
-```sh
-bundle exec saboteur run                          # whole project
-bundle exec saboteur doctor                       # environment checks only
-bundle exec saboteur doctor --suite --seed 42     # plus two unchanged suite checks
-bundle exec saboteur run --since origin/main      # methods changed on this branch
-bundle exec saboteur run --subject 'Billing::Invoice#total'
-bundle exec saboteur run --subject Billing        # a namespace
-bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
-bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
-bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
-bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
-bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
-bundle exec saboteur run --fail-fast              # stop after the first subject with a survivor
-bundle exec saboteur run --matrix                 # every covering test per mutant: blind and redundant tests
-bundle exec saboteur run --verbose --no-color     # add score split, timings and kill causes; no colour
-```
+### Choose a run
+
+| I want to... | Command | Notes |
+| --- | --- | --- |
+| Check the setup | `bundle exec saboteur doctor` | No mutation run, reports or caches. |
+| Try one method | `bundle exec saboteur run --subject 'Billing::Invoice#total'` | Best first run. |
+| Review a pull request | `bundle exec saboteur pr origin/main` | Preset: changed methods, one baseline pass, 10-minute budget. |
+| Set the diff scope yourself | `bundle exec saboteur run --since origin/main` | Mutates methods changed since the ref; on main, supported constants too (not in v0.7.0). |
+| Audit the whole project | `bundle exec saboteur audit` | Whole scope, all operators, both baseline checks and both reports. |
+| Choose files and specs | `bundle exec saboteur run lib/a.rb --test spec/a_spec.rb` | Sources and test selection are explicit. |
+| Iterate locally | `bundle exec saboteur run --incremental` | Reuses verdicts whose recorded inputs are unchanged; see the limits below. |
+| Repeat a run | `bundle exec saboteur run --seed 1234` | Use the seed printed by the earlier run. |
+| Replay one mutant | `bundle exec saboteur run --id DIGEST --seed 1234` | Uses the full current digest. |
+| Gate CI on score | `bundle exec saboteur run --threshold 90` | Exits 1 below 90%; incomplete runs still fail closed. |
+| Inspect test quality | `bundle exec saboteur run --matrix` | Runs every covering test to find blind and redundant tests. |
+| Preview the work | `bundle exec saboteur run --dry-run` | Discovers subjects and mutants without booting the app. |
+| List operators | `bundle exec saboteur run --list-operators` | Shows the effective operator policy. |
+| Stop early | `bundle exec saboteur run --fail-fast` | Serial runs only; always exits 1 when it stops. |
+| Add detail | `bundle exec saboteur run --verbose --no-color` | Score split, timings, kill causes and no color. |
+
+### Sources, specs and gates
 
 Positional operands name the sources to mutate: Ruby files, or directories
 (all their `.rb` files). Each must exist; a typo or a non-Ruby file exits 2
@@ -311,7 +403,8 @@ files are the sources) replaces only the files RSpec runs. Other
 `rspec_args` and `.rspec` options such as `--require` stay. When neither
 `rspec_args` nor `.rspec` names a file or directory to run, saboteur runs the
 default path (`--default-path` from `.rspec`, else `spec`), as the `rspec`
-command does. The coverage map
+command does. That default-path fallback is unreleased on main; v0.7.0 needs
+an explicit file or directory when RSpec's parse finds none. The coverage map
 is built from only those specs, each mutant runs only the ones that cover it,
 and the selection is part of the coverage and `--incremental` cache keys.
 
@@ -333,7 +426,8 @@ above the limit, with `exitCause` `maxTimeouts` or `maxErrors` in the JSON repor
 `--max-errors`, errored mutants are judged by that limit instead of making a
 `--threshold` run exit 3. Survivors and a score below the threshold keep
 their own causes when they fail too. The gates cannot be combined with `--agent`.
-The GitHub Action has no input for them yet.
+The GitHub Action has no dedicated inputs for them yet; pass them through its
+`arguments` input.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`, `--baseline-passes N`, `--max-duration DUR`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
@@ -348,6 +442,8 @@ saboteur exits 2 and names the focused examples. Remove the focus, or pass `--al
 as `--tag slow`, and example selectors such as `--test spec/a_spec.rb:12`, are on purpose and are not refused. The
 check compares what RSpec runs with what it would run without the stray focus, so examples RSpec leaves out anyway
 (`:if` / `:unless`, `--tag`, exclusions, selectors in another file) never count as hidden.
+
+### Pull requests and inferred specs
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
@@ -368,6 +464,9 @@ run warns and names up to five such files - narrow or remove the `c.exclude`
 entry, or pass the file as a positional source operand (configured excludes are
 then ignored). `--subject` cannot help here: it filters subjects inside the
 files left after excludes.
+
+**Unreleased on main:** constant-literal diffing and `element_removal` are
+not in v0.7.0.
 
 A changed entry of a constant hash or array literal is a behavior change no
 method owns, so `--since` also selects those assignments as subjects (#306).
@@ -428,6 +527,9 @@ like any other unmatched file. With `--since` only named subjects on changed
 lines count: an unchanged subject file, one whose changes sit in other
 methods, or one with a comment-only change is skipped, not stopped.
 
+**Unreleased on main:** `--since` also runs every spec file the diff adds or
+changes, subject to the suite rules below. v0.7.0 runs only the inferred specs.
+
 With `--since`, every spec file under the root that the diff adds or changes
 (committed since the base, uncommitted or untracked) also runs, next to the
 inferred specs and listed once. A pull request often tests a change through a
@@ -467,7 +569,7 @@ the whole suite. `--all` cannot be combined with `--test` or `--guess-tests`,
 and `--guess-tests` cannot be combined with `--test`. Keep whole-project runs
 on main: diff mode does not check every method affected by a dependency change.
 
-### External test commands
+### External test commands (unreleased on main)
 
 `--test-command CMD` (config `c.test_command`, #140) replaces the whole
 in-process test machinery: for each execution a fresh pristine copy of the
@@ -560,7 +662,17 @@ non-Ruby input (YAML, locales, ERB, SQL fixtures), rerun with `--no-cache`,
 and run without `--incremental` now and then (and in CI on the main
 branch).
 
-Output: survivors first, then a short summary last, so the summary stays on
+### Output, reports and scores
+
+| Output | Default | Best for |
+| --- | --- | --- |
+| Terminal report | stdout; progress on stderr | Human triage and the full replay command. |
+| JSON report | `.saboteur/report.json` | CI, dashboards, findings and stable machine evidence. |
+| HTML report | `.saboteur/report.html` | Reviewing survivors in a self-contained browser page. |
+| Agent JSON | stdout with `--agent` | Automation: exactly one bounded JSON payload. |
+| Score history | off by default | Comparing covered score across matching selections. |
+
+The terminal puts survivors first, then a short summary last, so the summary stays on
 screen. Survivors are grouped by file, then method, then line. Each line is
 printed once as `path:line in Subject`, with the source line and the tests that
 covered it, then one compact line per mutation: `operator original -> replacement digest`,
@@ -574,10 +686,11 @@ shell-escaped and printed in full however long it gets, so running it
 as-is replays the survivor with the same selection. Framework and
 generation settings from the config file (arid/hazard patterns,
 whole-file, require, rspec_args, rails) ride along through the command's
-`--config` or the default config path. An empty `--operators` or
+`--config` or the default config path. On main, an empty `--operators` or
 `--exclude-operators` list is left out unless you typed it: the config the
 command reads again supplies the same empty list, while a typed
 `--exclude-operators ''` may clear a configured exclusion and so stays.
+v0.7.0 keeps that empty list in the replay command.
 Only knobs that cannot change a by-digest replay (`--max-mutants-per-method`,
 `--fail-fast`, `--threshold`) are left out. The agent protocol instead omits a command
 longer than 1024 bytes, and the agent rebuilds it from the run's
@@ -605,7 +718,7 @@ when their covering tests, reuse status and changed lines are identical;
 otherwise each distinct set of evidence is printed above its own mutations.
 Hints are suggestions, not diagnoses: a survivor can also be an equivalent
 mutant. The HTML page shows the same list in the
-survivor's notes. Each survivor in the JSON report also carries a
+survivor's notes. **Unreleased on main:** each survivor in the JSON report also carries a
 `classification` field: `likely_equivalent` (the mutant compiles to the
 original's instructions), `arid` (every line an edit touches matches an
 arid pattern), or `missing_test` (a planned covering test passed with the
@@ -672,7 +785,7 @@ section: a bounded, deterministically ordered list of survivors, coarse
 mutants first (a surviving coarse mutant hints that no test pins the method's
 behavior - it can also be a re-evaluation limit or an equivalent mutant),
 then file, line and digest. Each finding holds the file, line, digest,
-subject, operator, original and replacement a note on a pull-request diff
+subject, operator, original and replacement that a pull-request note
 needs, plus one entry per edit for mutants that edit more than one spot.
 Survivors accepted on the ignore list are listed separately with their
 reason, and `survivorsTruncated` and `acceptedTruncated` count what the bound
@@ -689,11 +802,15 @@ changed line and prints none.
 
 New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md) walks one from the diff to the test that kills it.
 
-Exit codes: 0 no survivors (or all on the ignore list), or the score
-meets `--threshold`; 1 survivors, or the score is below `--threshold` or
-missing; 2 bad configuration or a missing source or test; 3 the tool
-failed (with `--threshold`, also any errored or resource-limited
-mutant). Unexpected `StandardError` or `LoadError` failures print
+| Exit code | Meaning |
+| --- | --- |
+| 0 | Complete pass: no unignored survivors, or the covered score meets `--threshold`. |
+| 1 | Test signal: unignored survivors, the covered score is below `--threshold` or missing, or a configured error/timeout limit is exceeded. |
+| 2 | Invalid use: bad configuration, a missing source or test, or an unsupported combination. |
+| 3 | Tool failure or an incomplete run: internal error, error majority, or any errored/resource-limited mutant with `--threshold`. |
+| 4 | Text-mode `--max-duration` budget exhausted; `--max-duration-ok` and agent mode keep verdict-driven exits. |
+
+Unexpected `StandardError` or `LoadError` failures print
 `saboteur: internal error (...) - please report it` and exit 3, rather
 than dying with a bare stack trace and an accidental exit code. The full
 backtrace lands in `<cache_dir>/internal-error.log` (default
@@ -725,12 +842,31 @@ with the method unchanged. They stay errors outside the score. Timeout checks,
 other errors and reused cached kills are not included. See
 [rejected kills](docs/rejected-kills.md) for details.
 
+<a id="configuration"></a>
 ## ⚙️ Configuration
 
 `config/saboteur.rb` in the project root; CLI flags override it. Keep the shared
 config usable for whole-project runs and pass `--since` in the pull-request
 job. A PR-only config may set `c.since = "origin/main"`; omit `since` (or use
 `c.since = nil`) in the config for audits on main. Use your actual target branch.
+
+### Common settings
+
+| Setting | Default | Use |
+| --- | --- | --- |
+| `c.include` | `["lib/**/*.rb"]` | Source files to mutate. |
+| `c.exclude` | `[]` | Remove sources from `include`. |
+| `c.require` | `[]` | Boot files loaded before tests. |
+| `c.jobs` | `1` | Mutation worker processes. |
+| `c.threshold` | none | Minimum covered score for CI. |
+| `c.max_duration` | none | Whole-run wall-clock budget in seconds. |
+| `c.max_mutants_per_method` | `100` | Cap valid mutants per covered method. |
+| `c.incremental` | `false` | Reuse verdicts whose recorded inputs are unchanged. |
+| `c.sandbox` | `true` | Read-only project tree for mutant children where supported. |
+| `c.ignore_file` | `config/saboteur_ignore.rb` | Accepted survivors; triage state is unreleased on main. |
+| `c.score_history` | off | Append one score-history JSONL record per finished report. |
+
+### Reference example
 
 ```ruby
 Saboteur.configure do |c|
@@ -907,10 +1043,11 @@ Surgical re-evaluation refuses a method whose owner it cannot resolve or whose
 loaded definition is not the one in the file. The skip reason ends with a hint.
 List such subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
 `"Geometry::*"`) and the child evaluates the whole mutated file instead. This
-applies to methods saboteur already finds as subjects; it does not make new
-kinds of definitions selectable (methods inside `Data.define` or `Struct.new`
-blocks are still not found). The file's top-level code then runs again in every
-child, after the run's seed is set: load-time side effects repeat and constants
+applies to methods saboteur already finds as subjects. On main, that includes
+the core class factories and literal-name `define_method` blocks noted above;
+those discoveries are unreleased and not in v0.7.0. Defs inside
+non-factory blocks stay undiscovered. The file's top-level code then runs
+again in every child, after the run's seed is set: load-time side effects repeat and constants
 it assigns are rebuilt, with redefinition warnings silenced. If a later
 definition in the same file replaces the mutated method, the mutant could never
 run, so a survivor there is reported as unreachable instead. It is off by
@@ -965,7 +1102,8 @@ end
 
 An entry without a reason is rejected.
 
-Each entry also carries a triage state (#155) chosen with `state:` -
+**Unreleased on main:** each entry also carries a triage state (#155) chosen
+with `state:` -
 `accepted_equivalent` (the default) or `wont_fix` suppress the survivor's
 exit failure (it still counts in the score), `todo` records the decision
 to fix and keeps the survivor counting as an unignored survivor:
@@ -1013,128 +1151,34 @@ Any other thread gets a generic caveat: a thread that does not run in a
 child cannot do background work a mutant's test may rely on, so results
 can differ when one is left behind.
 
-## Filter mutations
+<a id="filter-mutations"></a>
+<a id="literal-mutations"></a>
+<a id="chain-removal"></a>
+<a id="argument-removal"></a>
+<a id="hash-and-keyword-pair-removal"></a>
+## Operator guide
 
-The built-in source also swaps `select` / `reject` and `select!` / `reject!`.
-These catch a filter that keeps the items it should discard (or discards the
-items it should keep). For example, a command replacement should remove the
-old command, not keep only that command:
+The detailed operator references live in [docs/operators](docs/operators/). The
+newest fine-grained operators:
 
-```ruby
-commands.reject! { |name, _| name == replaced_name }
-# mutant: commands.select! { |name, _| name == replaced_name }
-```
+| Operator | Example | What a survivor means |
+| --- | --- | --- |
+| [filter_replacement](docs/operators/filter_replacement.md) | `select` -> `reject` | No test tells the kept set from the dropped set. |
+| [literal_boolean](docs/operators/literal_boolean.md) | `true` -> `false` | The flag's effect is not asserted on either side. |
+| [literal_string](docs/operators/literal_string.md) | `"pending"` -> `""` | The string's content is never asserted. |
+| [literal_number](docs/operators/literal_number.md) | `18` -> `19` | No test pins the exact boundary or value. |
+| [chain_removal](docs/operators/chain_removal.md) | `user.name.strip` -> `user.strip` | The middle link's effect is invisible, or the shorter chain is equivalent. |
+| [argument_removal](docs/operators/argument_removal.md) | `includes(:a, :b)` -> `includes(:b)` | The argument makes no observed difference. |
+| [pair_removal](docs/operators/pair_removal.md) | `{city: "required", zip: "optional"}` -> `{zip: "optional"}` | The pair's effect is invisible to the tests. |
 
-Only explicit-receiver calls with a block and no ordinary arguments are
-changed. A block passed as `&predicate` counts; safe navigation is preserved.
-`relation.select(:name)`, bare `select { ... }`, and `items.select` without a
-block are not changed. Arid statements and nested definitions remain skipped.
-Ruby dispatch is dynamic: a matching name does not prove the receiver is an
-Enumerable, and a custom receiver can make the replacement fail. No type or
-real-fault detection guarantee is made.
+**Unreleased on main:** `element_removal` removes one element from an array
+literal, including array literals in methods and changed constant arrays. It
+runs by default; splats, heredoc elements and arid statements are skipped.
 
-These are fine mutants, appended after the existing built-in operators. For unchanged subjects, old
-mutant digests and relative order stay unchanged, but runs can produce more
-mutants, change their score, and hit the per-method cap. The operator and source
-name in reports is `filter_replacement`.
+Use `bundle exec saboteur run --list-operators` for the full current inventory
+and examples from your installed version.
 
-See [the operator rationale](docs/filter-operators.md) for the Ruby fault used
-to choose this family and the limits of that evidence.
-
-## Literal mutations
-
-Builtin now swaps `true` / `false` literals and replaces nonempty static strings
-with `""`. These test boolean choices and the difference between meaningful
-text and empty input. Operator names are `literal_boolean` and `literal_string`;
-the source name is `literal_replacement`.
-
-Only method bodies are visited. Default arguments, arid statements, nested
-definitions, empty strings, heredocs, interpolation, word/symbol lists, symbols,
-regexes and command strings are unchanged. Quoted and static percent strings
-are supported. The new proposals follow the earlier built-in operators; the
-normal duplicate check and per-method cap still apply. Old digests and order
-remain stable for unchanged subjects, but more mutants can change a run's score.
-No speed, type-safety or real-fault detection improvement is claimed. See
-[the literal operator rationale](docs/literal-operators.md) for fault evidence
-and limits, including string encoding/frozen-value behavior.
-
-## Chain removal
-
-Builtin drops one link from the middle of a dotted method chain: `user.name.strip`
-becomes `user.strip`, and `a.b.c.d` gives `a.c.d` and `a.b.d`. The first receiver
-and the last call stay, so a test has to notice that a step in between went
-missing. The link goes whole, with its arguments and block. The operator and
-source name is `chain_removal`.
-
-Operators, index calls and bare-name receivers are not chains and are unchanged.
-The target of a write (`user.account.profile.name = 1`, `+=`, `||=`, `a.b[0] = 1`)
-is left whole: no link of its receiver chain is dropped, however long. Only
-the value on the right can be mutated. `freeze`, `dup`, `clone`, `itself`
-and `tap` links are never removed. Tests can observe frozenness, copies and a
-`tap` block's effects, but those are other contracts than a missing step in a
-query chain, and dropping such a link mostly yields noise, so this operator
-leaves them out. Arid statements and nested definitions are skipped.
-
-If you confirm the shorter chain is equivalent across the intended
-inputs (for example a duplicated column), simplify the code or ignore
-the mutant.
-
-Chain removal is on by default, like `argument_removal` and `pair_removal`.
-Its proposals follow the other fine proposals, with the same validation,
-deduplication and `max_mutants_per_method` cap.
-
-## Argument removal
-
-Builtin removes one ordinary positional argument from a parenthesized call.
-For `Model.includes(:a, :b, c: :d)`, the two proposals remove `:a` or `:b`,
-without deleting the statement or changing `c: :d`. This lets a preload check
-exercise missing associations instead of only a missing return value.
-The operator and source name is `argument_removal`.
-
-Only parenthesized calls are supported in this first version. Keyword hashes,
-splats, argument forwarding, bracket indexing/assignment syntax and arguments containing
-heredocs are unchanged. Explicit hash arguments count as positional arguments.
-Blocks and keyword pairs remain intact; separators come from Prism tokens,
-so commas inside strings or comments are not mistaken for separators.
-Arid statements, parameter defaults and nested definitions are skipped.
-
-These fine proposals follow existing builtin proposals, with the same validation,
-deduplication and `max_mutants_per_method` cap. Earlier digests and relative order
-stay unchanged for unchanged subjects. Extra proposals can change scores or be
-omitted by the cap. Removing an argument can still raise an arity error; no
-non-crashing guarantee is made. The regression uses a small preload-like receiver
-and checks the missing associations, not an ActiveRecord SQL benchmark. See
-[the validation notes](docs/argument-removal.md) for the pinned snapshot migration.
-
-## Hash and keyword pair removal
-
-Builtin removes one key/value association from a hash literal or keyword list.
-`Model.includes(:a, :b, c: :d)` becomes `Model.includes(:a, :b )`, so a nested
-preload guard can be exercised without deleting the whole statement. A sole
-hash pair becomes `{}`. Operator and source name: `pair_removal`.
-
-## Array element removal
-
-Builtin removes one element from an array literal: `[:a, :b]` becomes `[:a]`.
-This is the array counterpart of `pair_removal`, on by default under the name
-`element_removal`, and it is what mutates changed elements of constant array
-literals under `--since` (#306). Bracketed arrays and `%w[...]` lists are
-supported; splats stay intact, and elements holding heredocs or sitting in
-arid statements are skipped, like `pair_removal`.
-Being default-on, it adds mutants wherever array literals appear in mutated
-methods: totals grow with the number of elements, the way `pair_removal`
-grows them for hashes.
-
-Both parenthesized and command calls are supported. Splats stay intact; pairs
-containing heredocs, parameter defaults, arid statements and nested definitions
-are skipped. Token-based separator edits preserve comments and blocks. Nested
-hash values and callable bodies are visited. Removing a required keyword can
-still crash; the regression uses a preload-like receiver, not an ActiveRecord
-SQL benchmark. These fine proposals follow earlier builtin proposals and use
-the usual validation, deduplication, order and `max_mutants_per_method` cap.
-More proposals can change scores and cap coverage. See
-[the validation notes](docs/pair-removal.md) for snapshot changes.
-
+<a id="extending"></a>
 ## 🔌 Extending
 
 Public API, stable across minor versions:
@@ -1148,16 +1192,25 @@ Public API, stable across minor versions:
   :around_mutant)` in files listed under `hooks:`. An extensionless hooks
   path resolves its `.rb`, the way `require` does.
 
-## 🌍 Where it has run
+<a id="dated-validation-runs"></a>
+<a id="where-it-has-run"></a>
+## 🌍 Dated validation runs
 
 Tested on the RSpec suites of plain gems
 (dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
 human-essentials on Postgres (4,080 mutants, 6 workers; the 2026-10-10 run, before
-the baseline check and the coarse-gate removal) and lobsters on SQLite,
-both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
+the baseline check and the coarse-gate removal) and lobsters on SQLite in the
+2026-10-10 comparison, both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
 design. Results: [docs/validation](docs/validation).
 
-## ⚖️ How it compares
+<a id="dated-comparisons-and-measurements"></a>
+<a id="how-it-compares"></a>
+## ⚖️ Dated comparisons and measurements
+
+The tables below are dated evidence snapshots, not live rankings or current
+performance guarantees. Current behavior and limits are described above.
+
+### saboteur vs mutineer (2026-10-10 snapshot)
 
 A small, non-exhaustive comparison with [mutineer](https://github.com/davidteren/mutineer)
 1.6.0 on four RSpec projects (two libraries, two Rails apps). Each configuration
@@ -1183,7 +1236,8 @@ per-process RSS, which counts shared pages more than once, and it was measured
 before the fork-memory work. Read it as history, not a ranking of physical
 memory.
 
-### Independent review, saboteur 0.4.0 vs mutineer 1.6.0
+<a id="independent-review-saboteur-040-vs-mutineer-160"></a>
+### Independent review, saboteur 0.4.0 vs mutineer 1.6.0 (2026-10-12)
 
 A private consultant review ("saboteur 0.4.0 - Deep Review", 12 October 2026,
 not published) ran saboteur 0.4.0 at 38b1834 and mutineer 1.6.0 at a766c96 on
@@ -1212,7 +1266,8 @@ numbers.
 Not in the review and still pending: a rerun on current main, memory and
 per-mutant time on the benchmark apps, and any mutineer release after 1.6.0.
 
-### Memory after the fork-memory work (hashie @ 9c81e83)
+<a id="memory-after-the-fork-memory-work-hashie--9c81e83"></a>
+### Memory after the fork-memory work (2026-10-11, hashie @ 9c81e83)
 
 Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with
 AB/BA alternation and cold caches, on a 2 vCPU / 2 GB shared sandbox. Peak
@@ -1240,36 +1295,7 @@ sampler cadence and excluded from wall analysis. Absolute times are specific to
 this 2-core sandbox. Environment, method and the contention log are on the
 [benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
 
-## 🗺️ Where it is going
-
-[ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
-team workflow (GitHub Action, baseline, HTML report), then 1.0. saboteur stays
-RSpec-only. Design
-details are in [docs/design.md](docs/design.md), prior art in
-[docs/prior-art.md](docs/prior-art.md), and project status in
-[docs/status.md](docs/status.md).
-
-## 🤝 Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
-
-Before you ask for review, run the local preflight check on your exact head:
-
-```sh
-ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast
-bundle exec rspec <the specs your change touches>
-bundle exec exe/saboteur run --since origin/main   # the changed-method dogfood
-```
-
-Fast mode runs scope, sign-off, SPDX, full RuboCop and the harness specs, and writes a report under `tmp/preflight/`; the full suite runs in CI on every push. Use `--mode full` to run the full suite locally when CI is not available. A pass is not an approval; fast mode is partial. See [docs/preflight.md](docs/preflight.md).
-
-## Acknowledgements
-
-Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build saboteur.
-
-## License
-
-MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
+## Advanced workflow features
 
 Internal baseline capture blocks a subject with empty generation, including a subject for which the builtin source yields no candidates. Context comparison is an extra consistency check; file fingerprint verification normally also catches source drift. Neither check proves external state stability.
 
@@ -1366,3 +1392,43 @@ Inspired by mutineer's inline suppression comments (github.com/davidteren/mutine
 Inline suppressions bound completeness: classic scores still exclude suppressed candidates, but baseline evidence is incomplete when any inline candidate is suppressed. Agent output reports `inline_suppressed` with its count and points to the full audit. Reasons are audited, not proof that suppressed work was checked.
 
 Source-only `--dry-run` lists the suppressed count and each audit row in selected methods, before diff restriction and the per-method cap. They are outside the planned total. Preview still does not boot the app or write reports.
+
+<a id="where-it-is-going"></a>
+## 🗺️ Where it is going
+
+[ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
+team workflow (GitHub Action, baseline, HTML report), then 1.0. saboteur stays
+RSpec-only. Design
+details are in [docs/design.md](docs/design.md), prior art in
+[docs/prior-art.md](docs/prior-art.md), and project status in
+[docs/status.md](docs/status.md).
+
+<a id="contributing"></a>
+## 🤝 Contributing
+
+New here? Start with an [open issue](https://github.com/vamsipavanmahesh/saboteur/issues)
+or a small pull request, and read [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Before you ask for review:
+
+- Sign every commit with `git commit -s`; the DCO check requires it.
+- Add specs for behavior changes and a CHANGELOG entry under "Unreleased".
+- Follow the clean-room rule: do not copy code, specs or fixtures from
+  restrictively licensed mutation tools.
+- Run the local preflight check on your exact head:
+
+```sh
+ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast
+bundle exec rspec <the specs your change touches>
+bundle exec exe/saboteur run --since origin/main   # the changed-method dogfood
+```
+
+Fast mode runs scope, sign-off, SPDX, full RuboCop and the harness specs, and writes a report under `tmp/preflight/`; the full suite runs in CI on every push. Use `--mode full` to run the full suite locally when CI is not available. A pass is not an approval; fast mode is partial. See [docs/preflight.md](docs/preflight.md).
+
+## Acknowledgements
+
+Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build saboteur.
+
+## License
+
+MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).

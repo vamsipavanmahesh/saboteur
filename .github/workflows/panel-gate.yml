@@ -7,7 +7,7 @@ on:
     types: [created, edited, deleted]
   workflow_run:
     workflows: [CI, DCO]
-    types: [requested, in_progress, completed]
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
