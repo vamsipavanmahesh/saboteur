@@ -86,6 +86,20 @@ RSpec.describe Saboteur::DirtyTreeWarning do
     expect(warning(change("lib/gone.rb"))).to include("1 inside the mutation scope")
   end
 
+  it "derives the trial lockfile with bundler's rule: gems.rb locks to gems.locked (#503 review)" do
+    files = described_class.setup_files(Dir.pwd, config_path: nil, gemfile: "gems.rb")
+    expect(files).to eq(["config/saboteur.rb", "gems.rb", "gems.locked"])
+    other = described_class.setup_files(Dir.pwd, config_path: nil, gemfile: "Gemfile.saboteur")
+    expect(other).to eq(["config/saboteur.rb", "Gemfile.saboteur", "Gemfile.saboteur.lock"])
+  end
+
+  it "matches the include patterns with the filesystem's case sensitivity (#503 review)" do
+    expected = if RUBY_PLATFORM.include?("darwin") then "1 inside the mutation scope"
+               else "none inside the mutation scope"
+               end
+    expect(warning(change("Lib/A.rb"))).to include(expected)
+  end
+
   it "keeps a setup file that the include patterns cover in the setup group only" do
     text = warning(change("config/saboteur.rb"), include: ["**/*.rb"])
 
