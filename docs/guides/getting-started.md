@@ -16,7 +16,8 @@ bundle install
 ```
 
 Trying saboteur without touching your Gemfile, or on a Rails app, is covered
-by the README's "Try it in a minute" and "Rails apps" sections - the defaults
+by the README's [60-second quick start](../README.md#60-second-quick-start)
+and [Rails apps](../README.md#rails-apps) sections - the defaults
 (`lib/**/*.rb`, `rails: false`, `jobs: 1`) are for plain gems. Use SimpleCov?
 Turn it off for the run: saboteur needs Ruby's `Coverage` for itself, and most
 projects already guard SimpleCov with an environment variable.
@@ -29,7 +30,7 @@ bundle exec saboteur doctor
 
 `doctor` reports Ruby, coverage, integration, Rails/SimpleCov and boot-file
 checks, and writes nothing. Add `--suite` to also run the unchanged suite
-twice with your seed - the same check every real run starts with. See
+(two passes by default) with your seed - the same check every real run starts with. See
 [Check a project before mutation testing](doctor.md).
 
 ## 3. Run one method first
@@ -46,8 +47,8 @@ else, the run stops with exit 2 before anything boots and names the ways
 out: pass `--test spec/your_spec.rb`, or append `--all` to use the whole
 suite for this one method.
 
-The run first executes the unchanged tests twice - a kill only counts when the
-same tests pass on the code without the change - then builds a per-test
+The run first executes the unchanged tests (two passes by default) - a kill
+only counts when the same tests pass on the code without the change - then builds a per-test
 coverage map (cached for later runs), then mutates. You get counts per
 status, a score, and a unified diff for every survivor. The JSON report lands
 in `.saboteur/report.json`.
