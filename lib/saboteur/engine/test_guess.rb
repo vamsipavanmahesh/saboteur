@@ -162,6 +162,7 @@ module Saboteur
         unmatched = guesses.select { |_, spec| spec.nil? }.keys
         inferred = guesses.values.compact
         diff = @config["since"] && guesses.any? ? specs_in_diff(inferred) : { run: [], skipped: {} }
+        unmatched -= covered_by_changed_specs(unmatched, diff[:run])
         Result.new(specs: (inferred + diff[:run]).uniq.sort,
                    unmatched: unmatched,
                    subjectless: subjectless,
@@ -189,6 +190,37 @@ module Saboteur
           reason.nil?
         end
         { run: run, skipped: skipped.sort.to_h }
+      end
+
+      # A consolidated spec (claims_spec.rb style) never matches the
+      # per-file guess, but when the diff itself changes that spec and the
+      # spec reads a constant the unmatched file defines, the file is
+      # covered: the spec already runs via changed_specs, so stopping would
+      # block a run that had something to kill (#538). A mutable change no
+      # changed spec exercises still stops.
+      def covered_by_changed_specs(unmatched, changed_specs)
+        return [] if unmatched.empty? || changed_specs.empty?
+
+        specs = changed_specs.map { |path| File.join(@root, path) }
+        unmatched.select do |file|
+          defined_constants(file).any? { |constant| ConstantReads.across(specs, constant).any? }
+        end
+      end
+
+      # The constants a file defines: owners of its def subjects
+      # ("JWT::Claims::DecodeVerifier" from "...#call") and its constant
+      # literal subjects. Shaped for ConstantReads, which matches a bare
+      # read under the owner's scope or the constant's full path.
+      DefinedConstant = Data.define(:name, :owner, :id)
+
+      def defined_constants(file)
+        path = File.join(@root, file)
+        owners = SubjectFinder.new.call(path).subjects.filter_map { |subject| subject.id.split(/[#.]/).first }
+        literals = ConstantSubjectFinder.new.call(path).subjects.map(&:id)
+        (owners + literals).uniq.map do |id|
+          owner, _, name = id.rpartition("::")
+          DefinedConstant.new(name: name.to_sym, owner: owner.empty? ? nil : owner, id: id)
+        end
       end
 
       # The spec the stop names for an unmatched file: a candidate the diff
