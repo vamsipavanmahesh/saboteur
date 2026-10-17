@@ -248,13 +248,13 @@ RSpec.describe Saboteur::Engine, "test selection" do
     end
 
     # Two excluded files read as a sentence, not a concatenation (#376 dogfood).
-  it "separates excluded files with a comma in the note" do
-    guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 2, excluded: ["lib/a.rb", "lib/b.rb"])
-    run_engine("since" => "origin/main")
-    expect(err.string).to include("no spec is required for lib/a.rb, lib/b.rb:")
-  end
+    it "separates excluded files with a comma in the note" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 2, excluded: ["lib/a.rb", "lib/b.rb"])
+      run_engine("since" => "origin/main")
+      expect(err.string).to include("no spec is required for lib/a.rb, lib/b.rb:")
+    end
 
-  it "names map-excluded files and runs nothing instead of the whole suite" do
+    it "names map-excluded files and runs nothing instead of the whole suite" do
       guess(specs: [], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
       used = tests_the_run_used { run_engine("since" => "origin/main") }
       expect(used).to eq([])
