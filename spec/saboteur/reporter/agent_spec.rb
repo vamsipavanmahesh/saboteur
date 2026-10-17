@@ -40,8 +40,33 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(words.each_cons(2).to_a).to include(["--operators", "range,arithmetic"],
                                                  ["--exclude-operators", "range"])
     end
-    cleared = commands.rerun(provenance_with(settings: { exclude_operators: [] }))
-    expect(Shellwords.split(cleared).each_cons(2).to_a).to include(["--exclude-operators", ""])
+  end
+
+  # An empty list typed on the command line can clear a config-file value
+  # (c.exclude_operators = [...]), so it must survive into the commands.
+  it "keeps an empty operator list typed on the command line" do
+    commands = described_class::Commands
+    cleared = provenance_with(settings: { exclude_operators: [] }, typed_settings: [:exclude_operators])
+    [commands.rerun(cleared), commands.replay(cleared, "abc", capped: false)].each do |command|
+      expect(Shellwords.split(command).each_cons(2).to_a).to include(["--exclude-operators", ""])
+    end
+  end
+
+  # An empty list nobody typed came from the config (or its default), which
+  # the command reads again, so the flag is only noise (#317).
+  it "omits empty operator lists that were not typed on the command line" do
+    commands = described_class::Commands
+    source = provenance_with(settings: { operators: [], exclude_operators: [] })
+    [commands.rerun(source), commands.replay(source, "abc", capped: false)].each do |command|
+      expect(command).not_to include("--operators", "--exclude-operators")
+    end
+  end
+
+  it "keeps a non-empty operator list whether or not it was typed" do
+    source = provenance_with(settings: { operators: [], exclude_operators: %w[range arithmetic] })
+    words = Shellwords.split(described_class::Commands.replay(source, "abc", capped: false))
+    expect(words.each_cons(2).to_a).to include(["--exclude-operators", "range,arithmetic"])
+    expect(words).not_to include("--operators")
   end
 
   it "records a whole-suite run as a bare --all so rerun and replay keep that scope" do
