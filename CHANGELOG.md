@@ -20,6 +20,12 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
+- The `each`/`map` method swap is no longer emitted where the call stands
+  as a non-last statement (#399): its return value is discarded there, and
+  both names run the same block, so the swap was equivalent by
+  construction. The last statement of a body and calls nested inside an
+  expression stay swappable.
+
 - The rerun and replay commands in the Next steps footer and the agent
   protocol leave out an empty `--operators` or `--exclude-operators` list
   that was not typed on the command line (#317): the config the command
