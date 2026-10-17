@@ -116,6 +116,15 @@ RSpec.describe Saboteur::Subject do
   end
 
   describe "#coverage_lines_for" do
+    it "maps an edit spanning two statements to the whole method" do
+      two = subjects_in("class B\n  def m\n    a = 1\n    b = 2\n  end\nend\n").first
+      source = two.file_source
+      start = source.index("a = 1")
+      edit = Saboteur::MutationSource::Edit.new(file: two.file, start_byte: start,
+                                                end_byte: source.index("b = 2") + 5, replacement: "x")
+      expect(two.coverage_lines_for(edit)).to eq(two.coverage_lines)
+    end
+
     it "maps an edit in an empty method to the whole method" do
       empty = subjects_in("class A\n  def m\n  end\nend\n").first
       at = empty.file_source.index("def m") + 3
