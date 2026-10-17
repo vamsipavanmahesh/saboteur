@@ -108,7 +108,7 @@ module Saboteur
     end
 
     def score_gate_subset(gate, report)
-      prefix = "#{report.root}/"
+      prefix = File.join(File.realpath(report.root), "")
       report.results.select do |result|
         relative = result.subject.file.delete_prefix(prefix)
         File.fnmatch?(gate["pattern"], relative, File::FNM_PATHNAME | File::FNM_EXTGLOB)
