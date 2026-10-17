@@ -8,6 +8,10 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Uncovered examples in a run are attributed to the coverage entry that
+  owns their example group (#389), so the uncovered-examples report names
+  the file and line responsible instead of a bare list of spec ids.
+
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
   class, so re-evaluation now resolves a factory constant after a sclass
