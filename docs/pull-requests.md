@@ -26,7 +26,12 @@ as the same tokens, so whitespace inside a string, heredoc or regexp still
 counts as a change. The method's whole-body mutants still run. Plain `saboteur run` still mutates the whole
 configured project, but since 0.7.0 it infers the specs named after the
 mutated files and runs only those; a mutated file with no conventional spec
-stops the run (exit 2) with the ways out. Pass `--all` (config
+stops the run (exit 2) with the ways out. A `--since` run keeps that stop
+only when a score gate (`--threshold` or a mutant-count gate) is set or no
+changed file maps to a spec: a gate judges the score, and a partial mapping
+would narrow what it covers. Without a gate, each unmapped changed file gets
+a loud warning and the run mutates the mapped subset; lines nothing else
+covers surface as NoCoverage (#370). Pass `--all` (config
 `c.test_selection = :all`) to keep the whole configured suite.
 
 ## GitHub Actions
@@ -97,6 +102,10 @@ selected method, it keeps fine mutants whose edits touch changed lines, plus
 the available coarse whole-method mutants (`nil`, or `true`/`false` for
 predicates, and `raise` where applicable). Keep new files tracked so git diff
 can see them.
+
+The run executes every spec file the diff adds or changes, on top of the
+specs inferred for the mutated files: a spec-only PR still exercises its own
+specs against any mutants the change selected.
 
 Diff mode still builds a per-test coverage map from the inferred or named
 specs when there is no valid cached map. A smaller mutation scope does not

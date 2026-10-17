@@ -19,7 +19,16 @@ defaults target plain gems, so a Rails app sets `c.include`, `c.require` and
 PostgreSQL and SQLite, including parallel workers (`--jobs N`), where each
 extra worker gets its own database copy. MySQL is not supported for `--jobs`
 above 1, and older Rails versions have not been tried yet - the tested matrix
-is in the README under [Dated validation runs](../README.md#dated-validation-runs).
+is in the README under [Benchmarks and validation](../README.md#benchmarks-and-validation).
+
+## The baseline fails with "Could not find table" on a sqlite in-memory database
+
+A sqlite `:memory:` database is per-process: saboteur's forked children
+reconnect to a fresh, EMPTY in-memory database, so a schema loaded at
+require time is gone. The refusal names the remedies: load the schema in a
+`before(:suite)` hook, or in an `after_fork` hook
+(`config/saboteur_hooks.rb` via `c.hooks`). Rails apps with file-backed
+sqlite, PostgreSQL or SQLite test databases are unaffected.
 
 ## Does saboteur work with SimpleCov?
 
@@ -34,7 +43,7 @@ an environment variable; key it so saboteur runs skip it.
 | 0 | Clean: no unignored survivors (or `--threshold` met) |
 | 1 | Survivors to review, or the score is below `--threshold` |
 | 2 | Usage or configuration error, including a mutated file with no conventional spec |
-| 3 | Tool failure or an incomplete run, such as most mutants erroring |
+| 3 | Tool failure or an incomplete run, such as most mutants erroring, or a `--since` run that skipped every subject of the change (refinements, no coverage), so the change is unverified |
 | 4 | The `--max-duration` budget stopped the run (never with `--max-duration-ok`) |
 
 Agent mode (`--agent`) has no exit 4 and reports budget exhaustion as partial

@@ -28,6 +28,8 @@ module Saboteur
 
         return EXIT_TOOL if untested_partial?(report)
 
+        return EXIT_TOOL if unverifiable_scope?(report)
+
         return EXIT_TOOL if mostly_errored?(report)
 
         return EXIT_TOOL if incomplete_under_threshold?(report)
@@ -51,6 +53,23 @@ module Saboteur
 
         @err.puts("saboteur: the run stopped before any mutant was tested, so there is no score to judge")
         true
+      end
+
+      # A scoped run whose subjects were all skipped (refinements, no
+      # coverage, ...) verified none of the change under review; exit 0
+      # with score n/a would green-light an untested change (#574).
+      def unverifiable_scope?(report)
+        return false unless unverifiable_review?(report)
+
+        report.skipped_subjects.each do |subject, reason|
+          @err.puts("saboteur: #{subject.id} was skipped (#{reason}), so the change under test was not verified")
+        end
+        true
+      end
+
+      def unverifiable_review?(report)
+        report.review? && report.subjects.any? &&
+          report.subjects.all? { |subject| report.skipped_subjects.key?(subject) }
       end
 
       def gates = (@gates ||= Gates.new(config))
@@ -89,8 +108,10 @@ module Saboteur
         else
           if report.majority_errored?
             "errorMajority"
+          elsif unverifiable_review?(report) || (report.early_stop && report.score_breakdown.tested.zero?)
+            "incomplete"
           else
-            report.early_stop && report.score_breakdown.tested.zero? ? "incomplete" : "incompleteUnderThreshold"
+            "incompleteUnderThreshold"
           end
         end
       end

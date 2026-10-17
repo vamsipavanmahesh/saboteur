@@ -222,7 +222,7 @@ h1,h2{text-wrap:balance}
 </tbody></table></div><p style="color:var(--muted);font-size:.93rem">Selected files and their configured RSpec suites, not whole-app scores. Post-removal engine <code>1154806</code>; single complete runs with seed <code>1</code> and <code>--jobs 2</code>, not a performance comparison. Chatwoot is pending.</p><div class="note">The score includes assertion kills, crash kills and timeouts. Errors, resource-limit stops and no-coverage work are excluded. A high score does not prove broad coverage or the absence of flaky tests.</div><p><a class="more" href="benchmark/">Full method, scope and caveats</a></p></div></section>
 <section id="compare"><div class="wrap"><p class="eyebrow">Compare</p>
 <h2>Measured head-to-head</h2>
-<p class="sub">Pinned historical runs against mutineer 1.6.0, kept in the <a href="benchmark/archive.html">archive</a>. Measured versions, not a claim about today's tools; the fresh comparison is still pending.</p>
+<p class="sub">Pinned historical runs against mutineer 1.6.0, kept in the <a href="benchmark/archive.html">archive</a>. Measured versions, not a claim about today's tools; the fresh comparison is still pending. For the wider picture, see the <a href="compare.html">open-source landscape comparison</a>.</p>
 <div class="grid">
 <div class="card"><h3>No fake kills</h3><p>On lobsters, the 8 mutants both tools built identically were all reported as kills by mutineer - all 8 were fake. saboteur reported the same 8 as missed, which was correct, and 0 of its 20 randomly sampled kills were fake. It also refused 3 of its own kills, because those tests failed even without the mutant.</p></div>
 <div class="card"><h3>5-11x faster per mutant</h3><p>Cold-cache wall time per mutant on the pinned libraries, and 1.2x on the Rails app; mutineer used less peak memory. On 6 workers, saboteur finished the Rails run in 125 s instead of 442 s with all 231 verdicts identical.</p></div>
@@ -243,8 +243,8 @@ bundle exec saboteur run</code></pre></div>
 <pre><code>Saboteur.configure do |c|
   c.include = ["app/**/*.rb"]
   c.require = ["./config/environment"] <span class="c"># boots the app</span>
-  c.rails = true                       <span class="c"># reconnects ActiveRecord after fork, per-worker databases</span>
-  c.jobs = 4                           <span class="c"># optional; the default is 1</span>
+  c.rails = true                       <span class="c"># per-worker databases after fork</span>
+  c.jobs = 4                           <span class="c"># optional; default is 1</span>
 end</code></pre></div>
 <p><a class="more" href="quickstart.html">Full Rails setup in the quickstart</a></p>
 </div></section>
