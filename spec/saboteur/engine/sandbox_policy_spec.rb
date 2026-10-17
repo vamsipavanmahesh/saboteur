@@ -20,10 +20,10 @@ RSpec.describe Saboteur::Engine::SandboxPolicy, "seatbelt probe refusal (#436)" 
 
   it "names an unenforced-profile verdict in the refusal" do
     allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:unenforced)
-    expect { policy.seatbelt_hook }.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape(
-      "the Seatbelt probe reported a profile that did not enforce - a macOS update may have changed it (#436); refusing to " \
-      "run unsandboxed - set c.sandbox = true to run with the hazard guard and canary only, " \
-      "or false to opt out")))
+    message = "the Seatbelt probe reported a profile that did not enforce - a macOS update may have changed it " \
+              "(#436); refusing to run unsandboxed - set c.sandbox = true to run with the hazard guard and " \
+              "canary only, or false to opt out"
+    expect { policy.seatbelt_hook }.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape(message)))
   end
 
   it "names an errored probe verdict in the refusal" do
