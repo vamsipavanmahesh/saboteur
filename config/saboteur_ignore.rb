@@ -718,15 +718,8 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
              reason: "equivalent: for a string node, node.start_line and node.opening_loc.start_line are the same line"
 
-  i.mutation "7c7483680caeff7f",
-             subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
-             reason: "equivalent: a heredoc terminator never changes alone - renaming it edits the opening line too, and that line stays covered"
-
   i.mutation "517bdd5e24a7af96",
              subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
              reason: "equivalent: each and map iterate the same children; the recursion uses spans, not the return value"
 
-  i.mutation "a917152ec0a67c23",
-             subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
-             reason: "equivalent: the guard already restricts node to strings, and a string's slice starts with << exactly when its opening does"
 end

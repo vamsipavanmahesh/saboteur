@@ -109,6 +109,27 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(diagnostics.warnings.join).not_to match(/may not parse/)
   end
 
+  # A %w element is a StringNode with no opening_loc at all: the heredoc
+  # scan must not chain into it (disproves the a917152e equivalence: the
+  # safe navigation is load-bearing, the bare chain raises NoMethodError).
+  it "scans a %w array without tripping on its nil opening locations (#540)" do
+    file = write("ops.rb", "OPS = %w[<< >> <=]\n")
+    selection = described_class.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root), diagnostics)
+    selection.instance_variable_set(:@changed_lines, { file => [1] })
+    expect { selection.send(:changed_lines_inside_heredoc?, file) }.not_to raise_error
+    expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(false)
+  end
+
+  # The span's end is inclusive and closing_loc.end_line counts the
+  # terminator's newline, so the line after the heredoc reads as covered
+  # (disproves the 7c748368 equivalence: .. to ... drops that line).
+  it "covers the line after the terminator as inside the heredoc span (#540)" do
+    file = write("hd.rb", "x = <<-END\n  body\nEND\ny = 2\n")
+    selection = described_class.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root), diagnostics)
+    selection.instance_variable_set(:@changed_lines, { file => [4] })
+    expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(true)
+  end
+
   it "keeps the parse/method hint when the changed lines fall outside every heredoc (#467)" do
     file = write("note.rb", "TEXT = <<~JS\n  drag()\nJS\n# just a comment\n")
     [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
