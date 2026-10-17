@@ -158,6 +158,9 @@ Saboteur.configure do |c|
 end
 ```
 
+An engine gem whose specs live under `spec/dummy` needs an exclude for them; see
+[Rails engines and dummy apps](docs/guides/rails-engines-and-dummy-apps.md).
+
 ## SimpleCov
 
 saboteur needs Ruby's `Coverage` for itself, so leave SimpleCov off for
