@@ -348,6 +348,39 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     end
   end
 
+  # excerpt: false only matters when the log has lines to quote: a
+  # passing suite's log must not leak its RSpec output into the
+  # pass-with-leaks refusal (#546).
+  it "keeps the log excerpt out of the leftover refusal even when the log has lines" do
+    FileUtils.mkdir_p(File.join(@root, ".saboteur"))
+    File.write(File.join(@root, ".saboteur", "baseline-1.log"), "1 example, 0 failures\n")
+    allow(supervisor).to receive(:run).and_return(response.with(leftover_pids: [123]))
+    expect { guard.call }.to raise_error(Saboteur::Error) do |error|
+      expect(error.message).to include("left 1 child process behind")
+      expect(error.message).not_to include("The log says:")
+    end
+  end
+
+  it "words a refusal exactly, log path and no-mutants hint included" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :timeout))
+    expect { guard.call }.to raise_error(
+      Saboteur::Error,
+      "baseline check 1 failed at seed 42: the suite stopped: timeout (deadline). " \
+      "See the full log at #{File.join(@root, '.saboteur', 'baseline-1.log')}. " \
+      "Fix the suite or its setup, then run saboteur again with the same seed. No mutants were started."
+    )
+  end
+
+  it "names the leftover pids, comma-joined, when the supervisor took no notes" do
+    allow(supervisor).to receive(:run).and_return(response.with(leftover_pids: [123, 124]))
+    expect { guard.call }.to raise_error(
+      Saboteur::Error,
+      "baseline check 1 failed at seed 42: the suite passed but left 2 child processes behind: 123, 124. " \
+      "See the full log at #{File.join(@root, '.saboteur', 'baseline-1.log')}. " \
+      "Fix the suite or its setup, then run saboteur again with the same seed. No mutants were started."
+    )
+  end
+
   it "refuses supervision stops, missing payloads, malformed payloads and adapter errors" do
     [response(stopped: :timeout), response(payload: ""), response(payload: "{"),
      response(error: "boot failed")].each do |result|
