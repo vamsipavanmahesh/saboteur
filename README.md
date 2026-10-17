@@ -359,9 +359,14 @@ are in [bench/since](bench/since/README.md).
 **It checks its own kills.** After a method's mutants run, saboteur re-runs the
 killing tests against the *unchanged* method. If they fail there too, the kill
 is not credited and becomes an error. In one comparison on lobsters, 0 of 20
-randomly sampled kills were fake. Every mutant runs in a supervised child with deadline,
-memory and process limits, and saboteur tracks and kills the processes it
-starts.
+randomly sampled kills were fake. Every mutant runs in a supervised child
+with deadline, memory and process limits, and saboteur tracks and kills the
+processes it starts. On Linux, each child also carries a unique marker in
+its environment and process name; when a test daemonizes through `setsid`
+and its intermediate parent exits between polls, the end-of-run kill sweeps
+the process table for that marker. The sweep is Linux-only, and a daemon
+that renames itself can still escape it, so the inherited CPU limit stays
+the backstop.
 
 **It is open.** The report is JSON in the Stryker mutation-testing-report
 schema, and you can add your own mutants through a small public interface.
