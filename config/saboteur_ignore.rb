@@ -930,6 +930,36 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
+  i.mutation "8bfe1be557e2b75f",
+             subject: "Saboteur::Selection::DependencyShield#bundler_path",
+             reason: "equivalent: an empty value expands to the project root (File.expand_path(\"\", base)), " \
+                     "so the expanded == base return two lines later yields the same nil the early return did"
+
+  i.mutation "564f54594f1c2428",
+             subject: "Saboteur::Selection::DependencyShield#bundler_path",
+             reason: "equivalent: when expanded == base, expanded never starts with \"\#{base}/\", so the " \
+                     "!start_with? disjunct already returns on exactly the inputs this comparison covered"
+
+  i.mutation "ced239d4dcdd786a",
+             subject: "Saboteur::Selection::DependencyShield#bundler_path",
+             reason: "equivalent: the dropped == base disjunct is redundant - base never starts with " \
+                     "\"\#{base}/\", so the remaining !start_with? disjunct fires on the same inputs"
+
+  i.mutation "4af40140fd3e6e17",
+             subject: "Saboteur::Selection::DependencyShield#strip_comment",
+             reason: "equivalent: the include? guard ensures the value contains #, and split's first element " \
+                     "is the text before the first # for any positive limit, so .first is invariant"
+
+  i.mutation "afba0fd1ccf31ad9",
+             subject: "Saboteur::Selection::DependencyShield#strip_comment",
+             reason: "equivalent: limit 0 splits every field like no limit at all, and .first is still the " \
+                     "text before the first # under the include? guard"
+
+  i.mutation "517fd716d4c51104",
+             subject: "Saboteur::Selection::DependencyShield#strip_comment",
+             reason: "equivalent: split without a limit differs from limit 2 only in fields after the " \
+                     "first, and .first is identical under the include? guard"
+
   i.mutation "af0bf54f269aa87b",
              subject: "Saboteur::Engine::RunBudget#refuse_unaffordable_coverage_build",
              reason: "equivalent: dropping the per_pass <= 0 arm changes no outcome - with per_pass <= 0 " \
