@@ -13,6 +13,7 @@ require_relative "preview"
 require_relative "cli/run_reporting"
 require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
+require_relative "cli/selection_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
 require_relative "cli/history_command"
@@ -24,6 +25,7 @@ module Saboteur
     include RunReporting
     include SourceSet
     include RunBudgetOptions
+    include SelectionOptions
     include Presets
     include HistoryCommand
     include HelpOptions
@@ -341,22 +343,6 @@ module Saboteur
 
       Preview.new(config, out: @out, err: @err, format: @format).call
       EXIT_OK
-    end
-
-    def define_selection_options(opts)
-      opts.on("--operators NAMES", Array, "Choose operator names (default: all)") do |v|
-        set(:operators, v)
-      end
-      opts.on("--exclude-operators NAMES", Array, "Exclude operator names from the selected set") do |v|
-        set(:exclude_operators, v)
-      end
-      opts.on("--list-operators", "List operator names and descriptions") { set(:list_operators, true) }
-      opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
-      opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
-      opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
-      flaky_desc = "Confirm a fresh verdict (survivors, decisive) with one reordered rerun"
-      opts.on("--flaky-check MODE", %w[off survivors decisive], flaky_desc) { |v| set(:flaky_check, v) }
-      opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
     end
 
     def define_execution_options(opts)
