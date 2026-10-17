@@ -41,7 +41,7 @@ module Saboteur
           end
           changed = changed_specs.any? ? " Specs the diff adds or changes: #{changed_specs.join(', ')}." : ""
           "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
-            "--test followed by your existing spec paths, or append --all to use the whole suite without " \
+            "one --test per existing spec path, or append --all to use the whole suite without " \
             "changing the source scope."
         end
 

@@ -37,6 +37,10 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `saboteur run --test a_spec.rb b_spec.rb` refused: spec files in the source scope now fail as a
+  usage error pointing at repeating `--test`, instead of a green run that mutates nothing; the
+  `--since` "no subjects covering" warning names the misuse when every file is a spec file (#371).
+
 - The Landlock ABI probe no longer flakes fail-closed with "Success -
   landlock_create_ruleset probe" on runners where the first errno read
   gets clobbered between the syscall and the read: the errno reader is
