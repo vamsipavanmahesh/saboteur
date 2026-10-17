@@ -823,6 +823,24 @@ config usable for whole-project runs and pass `--since` in the pull-request
 job. A PR-only config may set `c.since = "origin/main"`; omit `since` (or use
 `c.since = nil`) in the config for audits on main. Use your actual target branch.
 
+### Common settings
+
+| Setting | Default | Use |
+| --- | --- | --- |
+| `c.include` | `["lib/**/*.rb"]` | Source files to mutate. |
+| `c.exclude` | `[]` | Remove sources from `include`. |
+| `c.require` | `[]` | Boot files loaded before tests. |
+| `c.jobs` | `1` | Mutation worker processes. |
+| `c.threshold` | none | Minimum covered score for CI. |
+| `c.max_duration` | none | Whole-run wall-clock budget in seconds. |
+| `c.max_mutants_per_method` | `100` | Cap valid mutants per covered method. |
+| `c.incremental` | `false` | Reuse verdicts whose recorded inputs are unchanged. |
+| `c.sandbox` | `true` | Read-only project tree for mutant children where supported. |
+| `c.ignore_file` | `config/saboteur_ignore.rb` | Accepted survivors and triage state. |
+| `c.score_history` | off | Append one score-history JSONL record per finished report. |
+
+### Reference example
+
 ```ruby
 Saboteur.configure do |c|
   c.include = ["lib/**/*.rb"]
