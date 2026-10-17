@@ -7,6 +7,35 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine::Distribution do
   let(:diagnostics) { Saboteur::Engine::Diagnostics.new(StringIO.new) }
 
+  # The run's peak-memory record for the JSON report (#202): nil when the
+  # platform measured nothing, otherwise the sorted worker rows and the
+  # supervisor's own peak.
+  describe "#memory_report (#202)" do
+    def memory_distribution
+      described_class.new(jobs: 2, scheduler: ->(_subject, _list) { [] }, diagnostics:, cache: nil)
+    end
+
+    it "is nil when neither the workers nor the supervisor were measured" do
+      allow(Saboteur::Execution::PeakMemory).to receive(:peak_mb).and_return(nil)
+      expect(memory_distribution.memory_report).to be_nil
+    end
+
+    it "lists each worker's peak sorted by worker number" do
+      distribution = memory_distribution
+      peaks = { 2 => 300.0, 1 => 200.5 }
+      distribution.instance_variable_set(:@pool, instance_double(Saboteur::Execution::WorkerPool,
+                                                                 worker_peaks: peaks))
+      allow(Saboteur::Execution::PeakMemory).to receive(:peak_mb).and_return(nil)
+      expect(distribution.memory_report)
+        .to eq(workers: [{ worker: 1, peakMb: 200.5 }, { worker: 2, peakMb: 300.0 }])
+    end
+
+    it "keeps the supervisor's own peak beside an empty worker list" do
+      allow(Saboteur::Execution::PeakMemory).to receive(:peak_mb).and_return(30.5)
+      expect(memory_distribution.memory_report).to eq(workers: [], supervisorPeakMb: 30.5)
+    end
+  end
+
   it "invokes after_subject with each subject's results in serial" do
     scheduler = ->(subject, list) { [subject, list] }
     seen = []
