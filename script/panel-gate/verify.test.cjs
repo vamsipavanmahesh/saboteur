@@ -555,11 +555,12 @@ test('lane overlap: only a newer live lane sharing a PR defers this run', async 
   assert.equal(await overlappingNewerLane(api([{...lane(99, '1'), context: 'panel/revoked/pr-1'}]), [1]), false);
   assert.equal(await overlappingNewerLane(api([lane(99, '1')]), []), false);
 });
-test('lane overlap: the latest record per lane key wins, malformed fails closed', async () => {
+test('lane overlap: the newest record per lane key wins, malformed fails closed', async () => {
   process.env.GITHUB_RUN_ID = '41';
   const now = new Date().toISOString();
   const lane = state => ({context: 'panel/lane', state, description: 'run-99:pr-1', created_at: now});
-  const api = {pages: async () => [lane('pending'), {...lane('success')}]};
+  // The API lists statuses newest first: the resolved record leads.
+  const api = {pages: async () => [lane('success'), lane('pending')]};
   assert.equal(await overlappingNewerLane(api, [1]), false);
   const bad = {pages: async () => [{context: 'panel/lane', state: 'pending', description: 'garbage', created_at: now}]};
   await assert.rejects(() => overlappingNewerLane(bad, [1]), /invalid lane record/);

@@ -369,8 +369,9 @@ async function closeLane(api, description, ok) {
     console.error(`lane resolution failed; the TTL retires it: ${error.message}`);
   }
 }
-// Latest record per lane key wins; malformed lane records fail closed like
-// every other record read from the trusted anchor.
+// The statuses API lists newest first, so the first record per lane key is
+// the current one; malformed lane records fail closed like every other
+// record read from the trusted anchor.
 async function overlappingNewerLane(api, numbers) {
   const self = Number(process.env.GITHUB_RUN_ID);
   demand(Number.isSafeInteger(self) && self > 0, 'invalid run id for lane check');
@@ -378,7 +379,7 @@ async function overlappingNewerLane(api, numbers) {
   const mine = new Set(numbers);
   const latest = new Map();
   for (const record of await api.pages(`commits/${policy.revocationAnchor}/statuses`)) {
-    if (record.context !== laneContext) continue;
+    if (record.context !== laneContext || latest.has(record.description)) continue;
     latest.set(record.description, record);
   }
   for (const [description, record] of latest) {
