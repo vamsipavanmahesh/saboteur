@@ -14,7 +14,9 @@ RSpec.describe "macOS Seatbelt sandbox", :e2e do
   it "runs confined children end to end with the logs intact" do
     dir = copy_fixture("people")
     config = File.join(dir, "config", "saboteur.rb")
-    File.write(config, "#{File.read(config)}\n  c.sandbox = \"seatbelt\"\n")
+    # Insert inside the configure block: appended after its end, the line
+    # would be top-level code and ConfigFile.load would raise.
+    File.write(config, File.read(config).sub(/\nend\s*\z/, "\n  c.sandbox = \"seatbelt\"\nend\n"))
     run = saboteur(dir)
     expect(run.status).to eq(0)
     expect(run.out).not_to include("hazard guard and canary only")
