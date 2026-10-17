@@ -85,4 +85,107 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
       FileUtils.chmod(0o600, log)
     end
   end
+
+  # #300: removing the cache dir while a run is in flight must not break the
+  # run. Every phase that writes optional state recreates the directory
+  # (mkdir_p) or keeps writing to its already-open log, so the run finishes
+  # with its verdicts and report intact; only rebuildable state (the coverage
+  # cache, the in-flight baseline log) is lost. This probe removes the
+  # directory at a controlled point - after startup, while the baseline suite
+  # is held open by a sync spec - and pins that recovery. A control run pins
+  # the exit code and verdicts the probe run must match.
+  it "recovers when the cache dir is removed mid-run" do
+    marker = File.join(dir, "sync-marker")
+    release = File.join(dir, "sync-release")
+    write_sync_spec(dir, marker, release)
+
+    control = saboteur(copy_fixture("people"), "--all")
+
+    env = { "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") }
+    command = [RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE, "run", "--all"]
+    Open3.popen3(env, *command, chdir: dir) do |stdin, stdout, stderr, wait_thr|
+      stdin.close
+      # Drain both pipes so the child never blocks on a full buffer.
+      Thread.new { stdout.read }
+      err_reader = Thread.new { stderr.read }
+
+      await_marker(marker, wait_thr, err_reader)
+      cache = File.join(dir, ".saboteur")
+      expect(File.directory?(cache)).to be(true)
+
+      FileUtils.rm_rf(cache)
+      File.write(release, "go")
+
+      unless wait_thr.join(120)
+        Process.kill("KILL", wait_thr.pid)
+        flunk "the run did not finish after the cache dir was removed: #{err_reader.value}"
+      end
+      status = wait_thr.value.exitstatus
+      err = err_reader.value
+
+      # The exit code still belongs to the results: the same survivor-driven
+      # exit as the untouched control run, with no test blamed for the
+      # missing directory.
+      expect(status).to eq(control.status)
+      expect(err).not_to include("killing test")
+
+      # Required evidence is recreated: the report holds the same verdicts
+      # as the control run.
+      report = File.join(cache, "report.json")
+      expect(File).to exist(report)
+      expect(verdicts(report)).to eq(verdicts(File.join(control.dir, ".saboteur", "report.json")))
+
+      # The baseline log is the only state lost: it is written before the
+      # removal and only diagnoses a failed baseline. Every later phase
+      # recreates its own optional state - the coverage map and preview are
+      # built after the baseline, so they land in the recreated directory.
+      expect(File).not_to exist(File.join(cache, "baseline-1.log"))
+      expect(Dir.glob(File.join(cache, "coverage-*.json"))).not_to be_empty
+      expect(File).to exist(File.join(cache, "preview.json"))
+    end
+  end
+
+  # A spec file added to the copied fixture. It holds the baseline open at a
+  # known point - the baseline log exists, so startup is done - until the
+  # probe releases it. The marker and release files live outside the cache
+  # dir, so they survive the removal and every later phase passes straight
+  # through. The deadline turns a stuck probe into a failed example instead
+  # of a hung suite.
+  def write_sync_spec(dir, marker, release)
+    File.write(File.join(dir, "spec", "sync_spec.rb"), <<~RUBY)
+      RSpec.describe "cache probe sync" do
+        it "waits for the probe once" do
+          marker = #{marker.inspect}
+          release = #{release.inspect}
+          if !File.exist?(marker) && File.exist?(File.join(Dir.pwd, ".saboteur", "baseline-1.log"))
+            File.write(marker, "baseline is running")
+            deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 120
+            until File.exist?(release)
+              raise "the probe never released the run" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+
+              sleep 0.05
+            end
+          end
+        end
+      end
+    RUBY
+  end
+
+  # Fails fast, with the run's stderr, when the run exits before the sync
+  # point or never reaches it. join(0.05) doubles as the poll interval.
+  def await_marker(marker, wait_thr, err_reader)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 120
+    until File.exist?(marker)
+      flunk "the run exited before the sync point: #{err_reader.value}" if wait_thr.join(0.05)
+      raise "the run never reached the sync point" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+    end
+  end
+
+  # { mutant id => status } for every mutant in a report, so a verdict
+  # comparison is insensitive to file and mutant ordering.
+  def verdicts(report_path)
+    report = JSON.parse(File.read(report_path, encoding: "UTF-8"))
+    report.fetch("files").values.flat_map { |file| file.fetch("mutants") }
+          .to_h { |mutant| [mutant.fetch("id"), mutant.fetch("status")] }
+  end
 end

@@ -52,6 +52,12 @@ All notable changes are documented here. The format follows
   symlink targets are judged against it (/var vs /private/var) (#305).
 
 ### Added
+- A fault-injection e2e probe now pins mid-run cache-dir removal (#300):
+  deleting `.saboteur` while the baseline holds the suite open changes
+  neither the exit code nor the run evidence - later phases recreate the
+  directory and the report holds the same verdicts; only the in-flight
+  baseline log is lost, and `saboteur help` documents the cache as safe
+  to delete, even mid-run.
 - `--test-command CMD` / `c.test_command`: run an external command per
   mutant and take its exit status as the verdict - for apps that cannot
   load inside saboteur's Ruby. Serial, no coverage, unsandboxed. Mutants
