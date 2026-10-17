@@ -14,6 +14,7 @@ require_relative "cli/run_reporting"
 require_relative "cli/run_budget_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
+require_relative "cli/history_command"
 
 module Saboteur
   class CLI
@@ -22,6 +23,7 @@ module Saboteur
     include RunReporting
     include RunBudgetOptions
     include Presets
+    include HistoryCommand
     include HelpOptions
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
@@ -58,7 +60,8 @@ module Saboteur
       case command
       when "run" then run_command
       when "baseline" then baseline
-      when "doctor" then help_requested? ? show_help("doctor") : doctor
+      when "doctor" then doctor_command
+      when "badge", "trend" then history_entry(command)
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help", "--help", "-h" then show_help(@argv.shift)
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
@@ -98,9 +101,11 @@ module Saboteur
 
     private
 
-    def run_command
-      help_requested? ? show_help("run") : run
-    end
+    def run_command = help_requested? ? show_help("run") : run
+
+    def doctor_command = help_requested? ? show_help("doctor") : doctor
+
+    def history_entry(command) = help_requested? ? show_help(command) : history_command(command)
 
     def help_requested?
       @argv.intersect?(%w[--help -h])

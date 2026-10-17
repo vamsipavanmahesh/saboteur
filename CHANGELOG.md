@@ -6,6 +6,17 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `saboteur badge` writes Shields endpoint JSON from the opt-in score
+  history and `saboteur trend` prints the covered-score delta against the
+  last comparable record (#474). A README badge needs no hosted service:
+  commit the written JSON and point a Shields endpoint badge at its raw
+  URL. An incomplete run is refused as badge evidence unless
+  `--mark-partial` labels the badge as partial, and the trend never
+  compares records with different selection, inventory, schema version
+  or operator policy.
+
 ### Fixed
 
 - The marker sweep no longer kills a marked process it cannot identify
