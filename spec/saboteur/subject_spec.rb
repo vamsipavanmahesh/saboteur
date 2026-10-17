@@ -292,6 +292,11 @@ RSpec.describe Saboteur::Subject do
     expect(inline.surrounding_text).to eq(["  x = 1; ", "; y = 2"])
   end
 
+  it "keeps the whole line when a one-line class leaves no newline around the def" do
+    one_liner = subjects_in("class A; def x; 1; end; end").first
+    expect(one_liner.surrounding_text).to eq(["class A; ", "; end"])
+  end
+
   it "returns surrounding text in UTF-8" do
     expect(subject_under_test.surrounding_text.map(&:encoding)).to eq([Encoding::UTF_8, Encoding::UTF_8])
   end
