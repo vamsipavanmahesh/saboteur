@@ -209,7 +209,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
     it "stops before boot when a changed file has no spec named after it" do
       guess(specs: ["spec/a_spec.rb"], unmatched: %w[lib/b.rb lib/c.rb], changed: 3)
       message = "no spec found for lib/b.rb (expected spec/b_spec.rb), lib/c.rb (expected spec/c_spec.rb), " \
-                "so nothing ran. Re-run the same command with --test followed by your existing spec paths, " \
+                "so nothing ran. Re-run the same command with one --test per existing spec path, " \
                 "or append --all to use the whole suite without changing the source scope."
       expect { run_engine("since" => "origin/main") }.to raise_error(Saboteur::ConfigError, message)
       expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
@@ -281,7 +281,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
       ["origin/main", "-rf"].each do |ref|
         expect { run_engine("since" => ref) }
           .to raise_error(Saboteur::ConfigError,
-                          /Re-run the same command with --test followed by your existing spec paths/)
+                          /Re-run the same command with one --test per existing spec path/)
       end
       expect { run_engine("since" => "weird ref;$(rm -rf)") }
         .to raise_error(Saboteur::ConfigError) { |error| expect(error.message).not_to include("weird ref") }

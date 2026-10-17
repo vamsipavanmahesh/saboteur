@@ -36,9 +36,10 @@ Details and limits of diff mode are in
 - `--since` needs the ref to exist locally and enough git history to find the
   merge base. In CI that means `fetch-depth: 0`. A bad ref fails the run; it
   does not quietly fall back to a full run.
-- Diff mode still builds the coverage map by running your whole suite once
-  when no valid cached map exists. That fixed cost does not shrink with the
-  diff, so do not expect a PR run to take seconds on a slow suite.
+- Diff mode still builds a coverage map from the inferred or named specs
+  when no valid cached map exists (`--all` uses the whole suite). That fixed
+  cost comes before mutation, so do not expect every PR run to take seconds
+  on a slow suite.
 - An untracked Ruby file inside the configured `include` set counts as fully
   changed. A new file outside `include` is not seen until you add it there.
 
@@ -47,10 +48,10 @@ Keep one shared `config/saboteur.rb` and pass `--since` only in the PR job. A
 there is no `--no-since`. If you want a PR-only config, make it a separate
 file (`--config config/saboteur_pr.rb`).
 
-`--incremental` reuses earlier verdicts while the method, mutant, covering
-tests, lockfile and config are unchanged. It cannot see a change in a method
-the subject calls. Use it for local iteration, and run without it on main now
-and then.
+`--incremental` reuses an earlier verdict while the method, its whole file,
+the mutant, its covering tests and their files, the lockfile and the config
+are unchanged. It cannot see a change in another file that the subject uses.
+Use it for local iteration, and run without it on main now and then.
 
 ## The GitHub Action
 
@@ -76,8 +77,9 @@ Practical points:
   `incomplete` output is false.
 - **Do not trust the PR score as a project score.** It covers only the
   selected methods, capped at `max_mutants_per_method` per method.
-- **If a cached run looks wrong, set `cache: "false"`.** The coverage-map hash
-  cannot see environment variables, database fixtures or the Ruby version.
+- **If a cached run looks wrong, set `cache: "false"`.** saboteur's map
+  fingerprint covers declared fixtures and config, but the Action's restore
+  key does not include environment variables or the Ruby version.
 - Do not use `pull_request_target`, and do not run untrusted PR code with
   secrets. The Action refuses `pull_request_target`.
 
