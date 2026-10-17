@@ -103,6 +103,15 @@ RSpec.describe Saboteur::Config do
       .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
   end
 
+  it "validates score gates against the real path of a symlinked root (#473)" do
+    write("app/payments/x.rb", "class X; end\n")
+    write("config/saboteur.rb",
+          'Saboteur.configure { |c| c.include = ["app/**/*.rb"]; c.score_gate "app/payments/**/*", min_score: 95 }')
+    link = File.join(Dir.mktmpdir, "linked")
+    File.symlink(@root, link)
+    expect { described_class.load(root: link) }.not_to raise_error
+  end
+
   it "rejects a score gate whose pattern matches no included file (#473)" do
     write("app/x.rb", "class X; end\n")
     write("config/saboteur.rb",
