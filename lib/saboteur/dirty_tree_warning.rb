@@ -18,6 +18,10 @@ module Saboteur
   class DirtyTreeWarning
     SHOWN_PATHS = 5
     MATCH_FLAGS = File::FNM_PATHNAME | File::FNM_EXTGLOB
+    # Dir.glob (Config#included_files) follows the filesystem, and the
+    # default macOS volume is case-insensitive, so the warning's
+    # fnmatch? must be too or the scope split disagrees with the run.
+    MATCH_FLAGS |= File::FNM_CASEFOLD if RUBY_PLATFORM.include?("darwin")
     ADVICE = "Mutants run your code and could alter or delete files; " \
              "run on a clean, committed tree or a CI checkout."
 
@@ -35,10 +39,20 @@ module Saboteur
     def self.setup_files(root, config_path:, gemfile:)
       files = [File.expand_path(config_path || Config::FILE, root)]
       if gemfile && File.expand_path(gemfile, root) != File.join(root, "Gemfile")
-        files.push(File.expand_path(gemfile, root), "#{File.expand_path(gemfile, root)}.lock")
+        trial = File.expand_path(gemfile, root)
+        files.push(trial, lockfile_for(trial))
       end
       prefix = File.join(root, "")
       files.select { |file| file.start_with?(prefix) }.map { |file| file.delete_prefix(prefix) }
+    end
+
+    # Bundler's own rule, the same one preflight's execution inputs check
+    # against Bundler.default_lockfile: a gems.rb trial locks to gems.locked
+    # next to it; every other name gets ".lock" appended.
+    def self.lockfile_for(gemfile)
+      return File.join(File.dirname(gemfile), "gems.locked") if File.basename(gemfile) == "gems.rb"
+
+      "#{gemfile}.lock"
     end
 
     # git status paths are relative to the root, so the patterns are too:
