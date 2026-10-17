@@ -550,6 +550,45 @@ RSpec.describe Saboteur::Engine::CoverageStore, "successful recording" do
     end
   end
 
+  # A symlink on the root path (macOS /var -> /private/var, a tmpdir symlink)
+  # gives the same directory two spellings: realpath resolves config.root,
+  # while $LOADED_FEATURES keeps the spelling used at require time, which
+  # realpath resolves only for files that still exist. Membership must
+  # recognize both spellings or every loaded file is dropped.
+  it "records sources loaded under a symlinked root spelling (#353)" do
+    Dir.mktmpdir do |target|
+      Dir.mktmpdir do |parent|
+        root = File.join(parent, "project")
+        File.symlink(target, root)
+        config = Saboteur::Config.new({}, root: root)
+        integration = instance_double(Saboteur::Integration::RSpec, run_all: true, test_files: [])
+        recorder = instance_double(Saboteur::Selection::Recorder, start: nil)
+        captured = nil
+        allow(recorder).to receive(:result) do |**kwargs|
+          captured = kwargs
+          Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"], loaded_files: kwargs[:loaded_files])
+        end
+        allow(Saboteur::Selection::Recorder).to receive(:new).and_return(recorder)
+        store = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                    supervisor: nil, diagnostics: nil)
+        writer = StringIO.new
+        allow($stdout).to receive(:reopen)
+        allow($stderr).to receive(:reopen)
+        allow(store).to receive(:exit!)
+
+        loaded = File.join(root, "lib", "lazy.rb")
+        $LOADED_FEATURES.push(loaded)
+        begin
+          store.send(:record, writer, [])
+        ensure
+          $LOADED_FEATURES.delete(loaded)
+        end
+
+        expect(captured[:loaded_files]).to include(loaded)
+      end
+    end
+  end
+
   it "writes a map after a green suite and does not lose the adapter return" do
     Dir.mktmpdir do |root|
       config = Saboteur::Config.new({}, root: root)
