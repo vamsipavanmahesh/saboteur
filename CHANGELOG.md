@@ -289,6 +289,17 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
+- The dirty-tree warning splits its count (#309, #316): changes inside
+  the mutation scope (the Ruby files the configured include and
+  exclude select; source operands narrow the run after the warning),
+  outside it, and saboteur setup files (the config file the run reads, a
+  `BUNDLE_GEMFILE` trial Gemfile and its lock), each as tracked and
+  untracked, naming up to five scope and setup paths. The groups add up
+  to the count. A tree of untracked notes or trial setup files no longer
+  reads like application edits about to be mutated.
+- A broken `.rb` symlink under `include` (dangling, a loop, or through a
+  regular file) is skipped instead of ending the run with an internal
+  error: it has no real path, so it is not mutation source (#503).
 - The `each`/`map` method swap is no longer emitted where the call stands
   as a non-last statement (#399): its return value is discarded there, and
   both names run the same block, so the swap is treated as equivalent.
