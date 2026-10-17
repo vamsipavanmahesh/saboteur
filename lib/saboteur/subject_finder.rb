@@ -181,14 +181,24 @@ module Saboteur
     end
 
     # Lexical path of the enclosing class/module. `class ::Foo` restarts at the top.
+    # A class << self wrapping more named scopes joins them as
+    # "<attached>.singleton_class", matching the constant side (#380): without
+    # it a factory defined in both a class body and its class << self collides
+    # on one subject id (#406). A trailing class << self names no new constant,
+    # so it keeps dropping out of the path.
     def owner_path(nesting)
-      parts = nesting.reject(&:sclass?).map(&:path)
+      parts = []
+      nesting.each_with_index do |scope, index|
+        if scope.sclass?
+          parts[-1] = "#{parts.last}.singleton_class" if parts.any? && index < nesting.size - 1
+          next
+        end
+        path = scope.path
+        path.start_with?("::") ? (parts = [path.delete_prefix("::")]) : parts << path.delete_prefix("::")
+      end
       return nil if parts.empty?
 
-      parts.each_with_object([]) do |path, acc|
-        acc.clear if path.start_with?("::")
-        acc << path.delete_prefix("::")
-      end.join("::")
+      parts.join("::")
     end
 
     def mark_refinements(subjects, program)

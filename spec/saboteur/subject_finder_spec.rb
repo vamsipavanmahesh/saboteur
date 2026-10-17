@@ -140,6 +140,22 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(found.map { |subject| [subject.id, subject.skip_reason] }).to eq([["A#inside", "defined inside a block"]])
   end
 
+  it "gives a factory inside class << self the singleton-class owner, so same-name factories never collide (#406)" do
+    found = subjects_in(<<~RUBY)
+      class Host
+        Widget = Data.define(:count) do
+          def doubled = count * 100
+        end
+        class << self
+          Widget = Data.define(:count) do
+            def doubled = count * 2
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to contain_exactly("Host::Widget#doubled", "Host.singleton_class::Widget#doubled")
+  end
+
   it "names the owner for each core class factory, and only for those" do
     {
       "Data.define(:a)" => true, "Struct.new(:a)" => true, "Class.new" => true, "Module.new" => true,
