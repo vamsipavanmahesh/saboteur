@@ -37,6 +37,11 @@ All notable changes are documented here. The format follows
   the baseline is done (#465): with a cold coverage cache the remaining
   pass is the coverage map build, and the message now names the coverage
   build and any remaining baseline passes separately.
+- A mutant on the continuation line of a multi-line interpolated
+  statement is no longer misclassified missing_test (#498): attribution
+  now spans the whole enclosing statement, because an interpolation's own
+  statements are eager and Ruby's per-line events on continuation lines
+  are not reliable per example.
 - `--incremental` now sees dependency-declaration edits on projects
   that commit no lockfile (the library convention): the verdict
   fingerprint hashed only `Gemfile.lock` / `gems.locked`, so the digest
@@ -166,6 +171,18 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
+- The `each`/`map` method swap is no longer emitted where the call stands
+  as a non-last statement (#399): its return value is discarded there, and
+  both names run the same block, so the swap is treated as equivalent.
+  The last statement of a body and calls nested inside an
+  expression stay swappable, as does any call on a lazy receiver:
+  lazy.map defers its block, so the swap is not equivalent there (#431).
+  Only a `.lazy` in the receiver chain is detected: a lazy enumerator held
+  in a variable, parameter or instance variable is not, and its swaps are
+  suppressed.
+  The discard analysis now recurses through branch tails: an each/map call
+  that is the last expression of a discarded if/elsif/else/unless/case/when
+  branch, begin/rescue body, or while/until body is suppressed too (#440).
 - A `--since` run where only some changed files have a guessed spec now
   runs the mapped subset with a loud warning per unmapped file instead of
   stopping with "so nothing ran"; the stop message and the warning name

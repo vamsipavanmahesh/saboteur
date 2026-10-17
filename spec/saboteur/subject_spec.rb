@@ -206,6 +206,41 @@ RSpec.describe Saboteur::Subject do
     it "maps an edit outside every statement to the whole method" do
       expect(branchy.coverage_lines_for(edit_at("(x)"))).to eq(branchy.coverage_lines)
     end
+
+    it "maps an edit inside a continuation-line interpolation to the whole statement (#498)" do
+      interpolated = subjects_in(<<~'RUBY').first
+        class A
+          def announce(number, remaining)
+            inform("check #{number}; about #{remaining} s left for " \
+                   "the remaining #{remaining == 1 ? 'pass' : 'passes'} at that rate")
+          end
+        end
+      RUBY
+      source = interpolated.file_source
+      at = source.index("remaining == 1")
+      edit = Saboteur::MutationSource::Edit.new(file: interpolated.file, start_byte: at,
+                                                end_byte: at + "remaining == 1".bytesize, replacement: "x")
+      expect(interpolated.coverage_lines_for(edit)).to eq([3, 4])
+    end
+
+    it "keeps the embedded flag sticky through a second nesting level (#541)" do
+      nested = subjects_in(<<~'RUBY').first
+        class A
+          def m(flag)
+            inform("check #{
+              if flag
+                x = 1
+              end
+            } done")
+          end
+        end
+      RUBY
+      source = nested.file_source
+      at = source.index("x = 1")
+      edit = Saboteur::MutationSource::Edit.new(file: nested.file, start_byte: at,
+                                                end_byte: at + "x = 1".bytesize, replacement: "y")
+      expect(nested.coverage_lines_for(edit)).to eq([3, 4, 5])
+    end
   end
 
   describe "#coverage_lines_for with pattern matching" do
