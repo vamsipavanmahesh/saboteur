@@ -106,6 +106,31 @@ RSpec.describe Saboteur::SubjectFinder do
     end
   end
 
+  # An arg-less call reaches every predicate with node.arguments == nil:
+  # the graceful nil skip must stay a skip, not a NoMethodError (#571
+  # dogfood survivors). literal_name? guards the public path first, so the
+  # lambda_body?/block_only? guards are pinned directly as well.
+  it "rejects arg-less calls instead of raising" do
+    %w[
+      define_method
+      define_singleton_method
+      scope
+    ].each do |call|
+      expect(subjects_in("class Model\n  def check; end\n  #{call}\nend\n").map(&:id))
+        .to eq(["Model#check"]), call
+    end
+  end
+
+  it "answers false for arg-less call nodes in every definition predicate" do
+    bare = Prism.parse("scope").value.statements.body.first
+    blocked = Prism.parse("define_method { 1 }").value.statements.body.first
+    finder = described_class.new
+    expect(finder.send(:literal_name?, bare)).to be(false)
+    expect(finder.send(:lambda_body?, bare)).to be(false)
+    expect(finder.send(:block_only?, bare)).to be(false)
+    expect(finder.send(:block_only?, blocked)).to be(false)
+  end
+
   it "exposes a call-defined subject's body: the block for define_method, the lambda for scope and the lambda form" do
     dm = subjects_in("class A\n  define_method(:dm) { 1 }\nend\n").first
     scope = subjects_in("class Model\n  scope :x, -> { order(:name) }\nend\n").first
