@@ -27,6 +27,7 @@ module Saboteur
       FORMAT = 1
       STORED = %i[killed survived timeout].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
+      SOURCE_EXCLUDES = %w[.git vendor node_modules].freeze
 
       # suite_digest: SuiteFiles#digest, so an edit to a spec helper or
       # support file invalidates every verdict.
@@ -70,6 +71,16 @@ module Saboteur
 
       private
 
+      # The current project source files, relative and sorted. A file added
+      # after the map was built changes the set and invalidates every stored
+      # verdict, whether or not any watched file references it yet.
+      def source_set
+        @source_set ||= Dir.glob("**/*.rb", base: @root)
+                           .reject { |rel| SOURCE_EXCLUDES.include?(rel.split("/").first) }
+                           .sort
+                           .join("\0")
+      end
+
       def load
         data = JSON.parse(Text.utf8_strict(File.read(@path)))
         data["format"] == FORMAT ? data["entries"] : {}
@@ -83,7 +94,7 @@ module Saboteur
 
       def fingerprint(subject, tests)
         digest = Digest::SHA256.new
-        digest << VERSION << "\0" << @inputs << "\0" << @suite_digest << "\0" << subject.source << "\0"
+        digest << [VERSION, @inputs, @suite_digest, source_set, subject.source].join("\0") << "\0"
         # A hex digest has a fixed width, so it needs no separator after it.
         digest << Digest::SHA256.hexdigest(subject.file_source)
         digest_tests(digest, tests)

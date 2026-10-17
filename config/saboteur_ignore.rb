@@ -174,10 +174,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::Builtin#visit_statements",
              reason: "equivalent: the loop never sees an empty sequence, so != 1 and > 1 agree"
 
-  i.mutation "908676542a888c9d",
-             subject: "Saboteur::MutationSource::Builtin#mutate_call",
-             reason: "equivalent: only binary calls are named like a comparison or arithmetic operator in practice"
-
   i.mutation "4cc9db1f1c23f253",
              subject: "Saboteur::MutationSource::Builtin#mutate_call",
              reason: "equivalent: Prism always gives ! a receiver"
@@ -749,6 +745,10 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
+  i.mutation "d9aeb909564db3e1",
+             subject: "Saboteur::Engine::SubjectSelection#by_pattern",
+             reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
+
   i.mutation "d689ef2e6305183f",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: nesting[index..] adds only the sclass scope itself to the any?(&:factory?) check, and a scope's kind is either :sclass or :factory, never both"
@@ -756,6 +756,15 @@ Saboteur.ignore do |i|
   i.mutation "70a77934c3856a1e",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
+
+  i.mutation "4d3d5ac0703067d2",
+             subject: "Saboteur::SubjectFinder#lexical_nesting",
+             reason: "equivalent: replacing (index + 1) with index only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
+  i.mutation "8953e46e984e97b6",
+             subject: "Saboteur::SubjectFinder#lexical_nesting",
+             reason: "equivalent: index + 0 is index, which only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
   i.mutation "036e4fb956df510f",
              subject: "Saboteur::Engine::ResultCache#digest_tests",
              reason: "equivalent: the following SHA256 hexdigest has a fixed width, so the dropped separator " \
