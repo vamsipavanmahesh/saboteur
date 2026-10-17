@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A run whose effective include set selects no Ruby file now refuses with
+  exit 2 instead of passing with 0 subjects (#447). The default include
+  targets plain gems, so a first run on a Rails-shaped tree used to be a
+  green gate that mutated nothing on every CI run; the refusal names the
+  stale pattern and points at the Rails quickstart and the install
+  generator.
+
 ### Fixed
 
 - The marker sweep no longer kills a marked process it cannot identify
