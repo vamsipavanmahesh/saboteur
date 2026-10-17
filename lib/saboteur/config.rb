@@ -161,8 +161,17 @@ module Saboteur
       matched = self["include"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       excluded = self["exclude"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       (matched - excluded).select { |file| file.end_with?(".rb") }
-                          .map { |file| File.realpath(File.expand_path(Text.utf8_identity(file), root)) }
+                          .filter_map { |file| real_source_path(file) }
                           .uniq.sort
+    end
+
+    # A dangling symlink matches Dir.glob but has no real path: it is not
+    # mutation source, so it is skipped rather than crashing the run with
+    # Errno::ENOENT (#503).
+    def real_source_path(file)
+      File.realpath(File.expand_path(Text.utf8_identity(file), root))
+    rescue Errno::ENOENT
+      nil
     end
 
     # Patterns that match no file. A pattern goes stale when files move;
