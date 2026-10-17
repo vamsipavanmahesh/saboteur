@@ -447,6 +447,63 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect([result.unmatched, result.subjectless]).to eq([[], ["lib/c.rb"]])
   end
 
+  # Issue #484: a deletion-only edit that keeps the enclosing method must not
+  # hard-stop the pr preset. The neighbor lines around the deletion mark the
+  # method as changed, but a file whose diff adds no new lines has no new code
+  # to mutate - the diff itself is the change the suite covers.
+  it "does not require a spec for a deletion-only edit that leaves the method's remaining lines mutable" do
+    write("lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.validate(1)
+          Helper.call(1, 2)
+        end
+
+        def helper_body
+          0
+        end
+      end
+    RUBY
+    git("add", ".")
+    git("commit", "-q", "-m", "plugin")
+    write("lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.call(1, 2)
+        end
+      end
+    RUBY
+    result = guess
+    expect([result.unmatched, result.subjectless]).to eq([[], ["lib/plugin.rb"]])
+  end
+
+  # Monorepo layout: the project root sits below the git toplevel, so git
+  # diff paths carry the subdir prefix while the guess's line map is
+  # project-root-relative. The exclusion must still fire (#484).
+  it "treats a deletion-only file as subjectless when the project root sits below the git toplevel" do
+    write("sub/lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.validate(1)
+          Helper.call(1, 2)
+        end
+      end
+    RUBY
+    git("add", ".")
+    git("commit", "-q", "-m", "plugin")
+    write("sub/lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.call(1, 2)
+        end
+      end
+    RUBY
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] },
+                                  root: File.join(dir, "sub"))
+    result = described_class.new(config).call
+    expect([result.unmatched, result.subjectless]).to eq([[], ["lib/plugin.rb"]])
+  end
+
   it "does not require a spec when the changed method differs only in comments" do
     write("lib/c.rb", "class Widget\n  def thing\n    # a note\n    1\n  end\nend\n")
     git("add", ".")
@@ -563,6 +620,96 @@ RSpec.describe Saboteur::Engine::TestGuess do
     described_class.new(config, diagnostics: diagnostics).call
     expect(Saboteur::Selection::GitDiff).to have_received(:changed_lines)
       .with("HEAD", root: dir, include: config.included_files.to_set, diagnostics: diagnostics)
+  end
+
+  # ruby-jwt consolidates claim specs: lib/jwt/claims/decode_verifier.rb is
+  # covered by spec/jwt/claims_spec.rb, which the per-file guess never finds.
+  # When the diff itself changes that consolidated spec and the spec reads a
+  # constant the uncovered file defines, the file is covered and the pr
+  # preset must not hard-stop (#538).
+  it "treats a consolidated spec changed in the diff as covering the file it exercises (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT::Claims::DecodeVerifier.new.call\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    " \
+          "2.times { JWT::Claims::DecodeVerifier.new.call }\n  end\nend\n")
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/jwt/claims_spec.rb")
+  end
+
+  it "still stops for a mutable change no changed spec exercises (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT.decode\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT.decode\n    JWT.decode\n  end\nend\n")
+    expect(guess.unmatched).to eq(["lib/jwt/claims/decode_verifier.rb"])
+  end
+
+  # The top-level literal is this file's coverage link to the changed
+  # spec: drop it (the def's owner alone matches nothing) and the stop returns.
+  it "treats a changed spec reading a constant literal as covering the file that assigns it (#538)" do
+    write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", "RSpec.describe \"rules\" do\n  it { RULES }\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/rules.rb", "RULES = [2]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", "RSpec.describe \"rules\" do\n  it { RULES }\n  it { RULES }\nend\n")
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/shop_spec.rb")
+  end
+  it "covers a top-level constant read inside a nested spec scope (#538)" do
+    write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    spec = "module Shop\n  RSpec.describe \"rules\" do\n    it { RULES }\n%s  end\nend\n"
+    write("spec/shop_spec.rb", format(spec, ""))
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/rules.rb", "RULES = [2]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", format(spec, "    it { RULES }\n"))
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/shop_spec.rb")
+  end
+
+  it "treats a changed spec reading the constant bare under its owner scope as covering (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "module JWT\n  module Claims\n    RSpec.describe DecodeVerifier do\n      " \
+          "it { DecodeVerifier.new.call }\n    end\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "module JWT\n  module Claims\n    RSpec.describe DecodeVerifier do\n      " \
+          "it { DecodeVerifier.new.call }\n      it { DecodeVerifier.new.call }\n    end\n  end\nend\n")
+    expect(guess.unmatched).to eq([])
+  end
+
+  it "still stops when the changed spec reads the constant bare outside its owner scope (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/other_spec.rb", "RSpec.describe \"other\" do\n  it { DecodeVerifier }\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/other_spec.rb", "RSpec.describe \"other\" do\n  it { DecodeVerifier }\n  it { DecodeVerifier }\nend\n")
+    expect(guess.unmatched).to eq(["lib/jwt/claims/decode_verifier.rb"])
   end
 
   it "reports nothing changed" do

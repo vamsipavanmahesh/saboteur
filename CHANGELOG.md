@@ -39,6 +39,15 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A changed file the diff only deletes from no longer hard-stops a
+  --since run for want of a spec (#484): a deletion-only file yields no
+  subject and no fine-grained mutant, so test inference treats it as
+  subjectless instead of demanding a spec, and the run goes ahead.
+- The pr preset no longer hard-stops when a changed file's coverage
+  lives in a consolidated spec the diff itself touches: a spec added
+  or changed in the diff that reads a constant the uncovered file
+  defines covers that file and runs, instead of exit 2 (#538). The
+  stop remains for a mutable change no changed spec exercises.
 - Dependency trees are never treated as changed source on a `--since`
   run (#504): a vendored bundle or `node_modules`, tracked or
   untracked, git-ignored or not, is rejected at enumeration, so the
@@ -131,7 +140,6 @@ All notable changes are documented here. The format follows
   `*_spec.rb` / `*_test.rb` / `test_*.rb` shapes under `lib/`. A config's
   own `c.exclude` replaces the shields wholesale, and the shields never
   trip the stale-pattern warning.
-
 
 - A --since run whose changed lines sit inside a heredoc now says so
   (#467). Code embedded in a string - a class_eval/module_eval argument or
