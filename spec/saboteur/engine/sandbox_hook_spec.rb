@@ -266,9 +266,25 @@ RSpec.describe Saboteur::Engine, 'sandbox hook with c.sandbox = "seatbelt"' do
     message = Regexp.escape(prefix + "reported a profile that did not enforce - a macOS update may have changed it " \
                                      "(#436); refusing to run unsandboxed - set c.sandbox = true")
     expect { engine_for({ "sandbox" => "seatbelt" }).send(:sandbox_hook) }.to raise_error(Saboteur::Error, /#{message}/)
+    expect { engine_for({ "sandbox" => "seatbelt" }).send(:sandbox_hook) }
+      .to raise_error(Saboteur::Error, /or false to opt out/)
     allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:error)
     message = Regexp.escape("#{prefix}failed (error) - #436 tracks the deprecation")
     expect { engine_for({ "sandbox" => "seatbelt" }).send(:sandbox_hook) }.to raise_error(Saboteur::Error, /#{message}/)
+  end
+
+  it "keeps the Landlock path on macOS unless the value is exactly seatbelt" do
+    allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:ok)
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+    [true, "strict"].each do |value|
+      engine = engine_for({ "sandbox" => value })
+      if value == "strict"
+        expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error, /this kernel lacks Landlock/)
+      else
+        expect(engine.send(:sandbox_hook)).to be_nil
+      end
+    end
+    expect(Saboteur::Execution::Seatbelt).not_to have_received(:probe)
   end
 
   it "accepts the value off macOS and falls through to the Landlock path" do
