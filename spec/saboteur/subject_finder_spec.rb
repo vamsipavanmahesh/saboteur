@@ -436,6 +436,26 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(subjects_in(source).map(&:id)).to eq(["Host::W.singleton_class::V#n"])
   end
 
+  # An outer factory scope dropped from the path must be judged only on
+  # scopes AFTER it: a class << self that ENCLOSES the factory is not
+  # inside it, so it cannot keep the factory in the path. A slice start
+  # at 1 or at index - 1 pulls that earlier sclass into the check (#555
+  # dogfood).
+  it "drops an outer factory with no sclass of its own, even inside class << self (#555)" do
+    source = <<~RUBY
+      class Host
+        class << self
+          A = Data.define(:x) do
+            B = Data.define(:y) do
+              def n = y
+            end
+          end
+        end
+      end
+    RUBY
+    expect(subjects_in(source).map(&:id)).to eq(["Host.singleton_class::B#n"])
+  end
+
   # #339 preserved: a factory scope with no sclass inside still opens no
   # lexical constant scope, so a def in a plain factory block names the
   # factory class only.
