@@ -191,9 +191,10 @@ jobs:
     # Mutates the methods a pull request changed, so it runs on the manual
     # dispatch (the pull_request trigger is gone) but not on main pushes.
     if: github.event_name == 'workflow_dispatch'
-    # 2x4 keeps the whole pull request job set inside the 32 vCPU trial
-    # budget; --jobs 2 matches the 2 vCPUs.
-    runs-on: nscloud-ubuntu-24.04-amd64-2x4
+    # The long pole of a pull request run at ~6 minutes: 4x8 with --jobs 4
+    # halves it. The dispatched job set takes 27 vCPU, inside the 32 vCPU
+    # trial budget.
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -207,7 +208,7 @@ jobs:
         uses: ./
         with:
           command: bundle exec exe/saboteur
-          arguments: --baseline-passes 1 --jobs 2
+          arguments: --baseline-passes 1 --jobs 4
           fail-on-survivors: "true"
       - name: Keep the report
         if: always()
