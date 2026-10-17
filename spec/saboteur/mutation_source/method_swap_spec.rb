@@ -71,4 +71,50 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
   it "treats a statement matching any one arid pattern as arid" do
     expect(described_class.new(arid: %w[min zzz]).mutations_for(subject_for("xs.min { |x| x }"))).to be_empty
   end
+  # #399: each and map run the block the same way and differ only in the
+  # return value. When the call's value is provably discarded - a non-last
+  # statement - the swap is an equivalent mutant, so it is not emitted.
+  describe "statement-position each/map swap suppression (#399)" do
+    it "does not swap each in a non-last statement (return discarded)" do
+      expect(replacements("xs.each { |x| log(x) }\n    xs.sum")).to be_empty
+    end
+
+    it "does not swap map in a non-last statement (return discarded)" do
+      expect(replacements("xs.map { |x| log(x) }\n    xs.sum")).to be_empty
+    end
+
+    it "still swaps each in return position, where the value is used" do
+      expect(replacements("xs.each { |x| log(x) }")).to eq(["def pick(xs)\n    xs.map { |x| log(x) }\n  end"])
+    end
+
+    it "still swaps each when the value is assigned" do
+      expect(replacements("collected = xs.each { |x| log(x) }")).not_to be_empty
+    end
+
+    it "still swaps any? in a non-last statement: early-stop sides differ" do
+      expect(replacements("xs.any? { |x| log(x) }\n    xs.sum")).not_to be_empty
+    end
+
+    # A lazy receiver changes everything: lazy.map never runs the block
+    # (the value is discarded AND the enumeration is deferred), so each ->
+    # map on it drops the side effects - not an equivalent mutant (#431).
+    it "still swaps each in a non-last statement on a lazy receiver (#431)" do
+      expect(replacements("xs.lazy.each { |x| log(x) }
+    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps map in a non-last statement on a lazy receiver (#431)" do
+      expect(replacements("xs.lazy.map { |x| log(x) }.force
+    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps each in a non-last statement when lazy is deeper in the chain (#431)" do
+      expect(replacements("xs.lazy.select { |x| x }.each { |x| log(x) }
+    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps min in a non-last statement (out of #399's scope)" do
+      expect(replacements("xs.min { |x| x }\n    xs.sum")).not_to be_empty
+    end
+  end
 end

@@ -27,6 +27,31 @@ module Saboteur
 
       private
 
+      # Overrides OperatorVisit#visit to learn which calls stand as a
+      # non-last statement: their return value is provably discarded. each
+      # and map differ only in that value (both run the block the same way),
+      # so swapping them there yields an equivalent mutant (#399). The last
+      # statement is the body's value and stays swappable, as does any call
+      # nested inside an expression. A lazy receiver breaks the equivalence:
+      # lazy.map defers the block, so discarding it runs nothing (#431).
+      def visit(node, subject, found)
+        return super unless node.is_a?(Prism::StatementsNode)
+
+        node.body.each_with_index do |statement, index|
+          next if arid?(statement)
+
+          @discarded = statement if index < node.body.size - 1
+          visit(statement, subject, found)
+          @discarded = nil
+        end
+      end
+
+      # Any `.lazy` in the receiver chain, syntactically.
+      def lazy_receiver?(node)
+        node = node.receiver while node.is_a?(Prism::CallNode) && node.name != :lazy
+        node.is_a?(Prism::CallNode)
+      end
+
       def mutate_node(node, subject, found)
         swap(node, subject, found) if node.is_a?(Prism::CallNode)
       end
@@ -34,6 +59,7 @@ module Saboteur
       def swap(node, subject, found)
         replacement = SWAPS[node.name]
         return unless replacement && node.receiver
+        return if node.equal?(@discarded) && %w[each map].include?(node.name.to_s) && !lazy_receiver?(node.receiver)
 
         location = node.message_loc
         edit = Edit.new(file: subject.file, start_byte: location.start_offset,
