@@ -497,4 +497,35 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
   end
+
+  # Mutation-visibility check (#441): a command that still passes with the
+  # subject file replaced by a load-time error cannot see mutants in it, so
+  # the run warns loudly instead of reporting every mutant survived.
+  describe "#visibility_check" do
+    it "returns nil when the command fails on the file made unloadable" do
+      subject = subject_in(@dir)
+      runner = described_class.new(command: "! grep -q 'saboteur mutation visibility check' calc.rb", root: @dir)
+      expect(runner.visibility_check(subject: subject, deadline: monotonic_now + 60)).to be_nil
+    end
+
+    it "warns when the command passes with the file made unloadable" do
+      subject = subject_in(@dir)
+      runner = described_class.new(command: "true", root: @dir)
+      expect(runner.visibility_check(subject: subject, deadline: monotonic_now + 60))
+        .to match(/mutation visibility check failed for calc\.rb: the test command still passed/)
+    end
+
+    it "warns when the check times out" do
+      subject = subject_in(@dir)
+      runner = described_class.new(command: "sleep 30", root: @dir)
+      expect(runner.visibility_check(subject: subject, deadline: monotonic_now + 0.2)).to match(/timed out/)
+    end
+
+    it "leaves the real file untouched by the check" do
+      subject = subject_in(@dir)
+      runner = described_class.new(command: "true", root: @dir)
+      runner.visibility_check(subject: subject, deadline: monotonic_now + 60)
+      expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
+    end
+  end
 end

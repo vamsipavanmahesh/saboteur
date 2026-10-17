@@ -6,6 +6,16 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+
+### Added
+
+- `--test-command` runs a mutation-visibility check before the first
+  mutant (#441). The command runs once with the first subject's file
+  replaced by a load-time error; if it still passes, the command cannot
+  see mutants in that file - a `RUBYLIB`/`-I` path or an installed gem
+  anchors it to the real tree, or the suite never loads the file - and
+  the run warns loudly that the score would read 0.0 % instead of
+  silently reporting every mutant Survived.
 ### Fixed
 
 - `--test-command` no longer inherits bundler anchors (`BUNDLE_GEMFILE`,
