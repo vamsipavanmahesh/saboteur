@@ -11,5 +11,6 @@ permissions:
 jobs:
   rails-target:
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
+    timeout-minutes: 60
     steps:
       - run: echo "Pinned large Rails app run lands in Phase 4."
