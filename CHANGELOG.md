@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A baseline that passed but leaked child processes no longer reads as a
+  suite failure quoting an empty "Failures:" section (#486): the refusal
+  says the suite passed, names each leaked process (pid and command,
+  captured before the supervisor's kill) and skips the log excerpt, which
+  only holds RSpec output.
+
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
