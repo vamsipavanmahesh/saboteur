@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Usage: script/rspec-shard INDEX TOTAL [extra rspec args...]
+#
+# Runs one deterministic shard of the spec suite: the sorted spec file list
+# is dealt round-robin across TOTAL shards, so every shard mixes fast unit
+# specs with slow e2e specs and each file lands in exactly one shard.
+# INDEX is 1-based. Kept Bash 3.2 compatible for the macOS runners (no
+# mapfile/readarray).
+set -euo pipefail
+
+index=$1
+total=$2
+shift 2
+
+specs=()
+# Fixture projects carry their own specs as test data; they are not part
+# of the suite (the .rspec exclude-pattern skips them too).
+while IFS= read -r file; do
+  specs+=("$file")
+done < <(git ls-files 'spec/**/*_spec.rb' ':(exclude)spec/fixtures/**' | sort)
+
+picked=()
+for i in "${!specs[@]}"; do
+  if (( i % total == index - 1 )); then
+    picked+=("${specs[$i]}")
+  fi
+done
+
+echo "shard ${index}/${total}: ${#picked[@]} of ${#specs[@]} spec files"
+exec bundle exec rspec "$@" "${picked[@]}"

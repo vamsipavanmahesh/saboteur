@@ -23,7 +23,7 @@ module Saboteur
       def mutations_for(subject)
         found = []
         tokens = Prism.lex(subject.file_source).value.map(&:first)
-        visit(subject.node.body, subject, found, tokens)
+        visit(subject.body_node, subject, found, tokens)
         found
       end
 

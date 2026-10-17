@@ -29,6 +29,12 @@ module ReevalTargets
       new(age)
     end
 
+    # define_method bodies are subjects too (#194): re-evaluating the whole
+    # call redefines the method on the enclosing class.
+    define_method(:dm_doubled) do |n|
+      n * 2
+    end
+
     class << self
       def factory
         :factory
