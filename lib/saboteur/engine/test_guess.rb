@@ -6,7 +6,9 @@ require "pathname"
 module Saboteur
   class Engine
     # The specs that sit next to the mutated source files by
-    # naming convention (lib/a/b.rb -> spec/a/b_spec.rb). A guess, not a
+    # naming convention (lib/a/b.rb -> spec/a/b_spec.rb), or the explicit
+    # mapping from config/saboteur_custom_map.rb for layouts the convention
+    # cannot guess (#369). A guess, not a
     # coverage fact: a spec that only reaches the file through another one
     # is not found. Packwerk packs (a directory with a package.yml) map to the
     # spec directory inside the same pack, and controllers also map to request
@@ -23,8 +25,8 @@ module Saboteur
       # in specs; skipped_specs: spec files the diff touches that cannot run,
       # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
-                           :skipped_specs) do
-        def initialize(changed_specs: [], skipped_specs: {}, **fields)
+                           :skipped_specs, :out_of_scope, :excluded, :near) do
+        def initialize(changed_specs: [], skipped_specs: {}, out_of_scope: [], excluded: [], near: {}, **fields)
           super
         end
 
@@ -34,16 +36,23 @@ module Saboteur
         # When the diff deleted the expected spec or added others, it says
         # so: a renamed spec is the usual cause.
         def unmatched_message
-          pairs = unmatched.map do |file|
-            expected = hints.fetch(file)
-            gone = skipped_specs[expected] == DELETED ? ", deleted in the diff" : ""
-            "#{file} (expected #{expected}#{gone})"
-          end
+          pairs = unmatched.map { |file| pair_description(file) }
           changed = changed_specs.any? ? " Specs the diff adds or changes: #{changed_specs.join(', ')}." : ""
           "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
             "one --test per existing spec path, or append --all to use the whole suite without " \
             "changing the source scope."
         end
+
+        private
+
+        def pair_description(file)
+          expected = hints.fetch(file)
+          gone = skipped_specs[expected] == DELETED ? ", deleted in the diff" : ""
+          found = near.fetch(file, []).any? ? "; found: #{near.fetch(file).join(', ')}" : ""
+          "#{file} (expected #{expected}#{gone}#{found})"
+        end
+
+        public
 
         # The spec files the diff touched that do not run, with the reasons.
         def skipped_message
@@ -55,6 +64,47 @@ module Saboteur
         def subjectless_message(since:)
           detail = since ? "no changed mutation subjects" : "no mutation subjects"
           "inferred specs: no spec is required for #{subjectless.join(', ')}: they have #{detail}"
+        end
+
+        # The per-file warning when the run proceeds with the mapped
+        # subset (#370): the file's mutants run only against the inferred
+        # specs, so lines nothing else covers surface as NoCoverage.
+        def unmatched_warning(file)
+          "inferred specs: no spec found for #{pair_description(file)}; its mutants run only " \
+            "against the inferred specs and a line they miss is reported as NoCoverage"
+        end
+
+        # The stop for a --since run whose changed source files all sit outside the
+        # include scope (#483): falling back to the whole suite would run the slowest
+        # possible suite against zero subjects, so the run refuses and names what the
+        # scope hid. Append-only recovery, like unmatched_message: extend include, or
+        # name the specs with --test.
+        def out_of_scope_message
+          named = out_of_scope.first(10).join(", ")
+          more = out_of_scope.size - 10
+          named += " and #{more} more" if more.positive?
+          "no changed source file lies inside the include scope, so nothing ran. " \
+            "Changed source files outside it: #{named}. Extend include to cover them, " \
+            "or re-run the same command with one --test per existing spec path."
+        end
+
+        # Why an empty guess mutates nothing rather than widening the run
+        # to the whole suite (#369).
+        def no_specs_message(since:)
+          return "#{excluded_message}, so there is nothing to mutate" if excluded.any?
+
+          if since
+            "inferred specs: no changed file has a mutation subject on its changed lines, " \
+              "so there is nothing to mutate"
+          else
+            "inferred specs: no source file has a mutation subject, so there is nothing to mutate"
+          end
+        end
+
+        # Why the custom-map-excluded files needed no spec (#369).
+        def excluded_message
+          "inferred specs: no spec is required for #{excluded.join(', ')}: " \
+            "intentionally untested in config/saboteur_custom_map.rb"
         end
 
         # The warning for a guess-scoped run: the guessed specs now stand as
@@ -76,12 +126,13 @@ module Saboteur
                       "leaves it out"
       NOT_REGULAR = "not a regular file"
 
-      def initialize(config, diagnostics: nil)
+      def initialize(config, diagnostics: nil, custom_map: nil)
         @diagnostics = diagnostics
         # Retagged losslessly like Config#root, so a join with a UTF-8 git
         # path never mixes encodings whatever the locale tagged it with.
         @root = Text.utf8_identity(File.realpath(config.root))
         @config = config
+        @custom_map = custom_map || CustomMap.load(config.path("custom_map"), root: config.root)
       end
 
       def call
@@ -115,7 +166,9 @@ module Saboteur
         # subjectless file mutates nothing, so its spec would only narrow the
         # run for no reason.
         guesses = lines_by_file.except(*subjectless).to_h { |file| [file, guess_for(file)] }
-        result(guesses, subjectless, lines_by_file.size)
+        # Nothing in scope: name the changed source the include hid (#483).
+        out_of_scope = lines_by_file.empty? ? out_of_scope_source_files : []
+        result(guesses, subjectless, lines_by_file.size, out_of_scope: out_of_scope)
       end
 
       # Without --since every included file is in scope: a file needs its
@@ -158,17 +211,32 @@ module Saboteur
 
       # Changed specs join only a run that mutates something: with no file
       # in scope there is nothing for them to kill.
-      def result(guesses, subjectless, changed)
-        unmatched = guesses.select { |_, spec| spec.nil? }.keys
-        inferred = guesses.values.compact
+      def result(guesses, subjectless, changed, out_of_scope: [])
+        unmatched = guesses.select { |_, specs| specs.nil? }.keys
+        excluded = guesses.select { |_, specs| specs == :excluded }.keys.sort
+        inferred = guesses.values.grep(Array).flatten
         diff = @config["since"] && guesses.any? ? specs_in_diff(inferred) : { run: [], skipped: {} }
+        unmatched -= covered_by_changed_specs(unmatched, diff[:run])
         Result.new(specs: (inferred + diff[:run]).uniq.sort,
                    unmatched: unmatched,
                    subjectless: subjectless,
                    changed: changed,
                    hints: unmatched.to_h { |file| [file, expected_spec(file, diff[:skipped])] },
+                   near: unmatched.to_h { |file| [file, nearby_specs(file)] },
                    changed_specs: diff[:run],
-                   skipped_specs: diff[:skipped])
+                   skipped_specs: diff[:skipped],
+                   out_of_scope: out_of_scope,
+                   excluded: excluded)
+      end
+
+      # Changed Ruby files the include scope hides (#483), relative to the
+      # root: the diff touched source, but none of it lands inside include.
+      # A changed spec is a test, not hidden source; a spec-only diff keeps
+      # the whole-suite fallback it always had.
+      def out_of_scope_source_files
+        included = included_files.to_set
+        Selection::GitDiff.changed_paths(@config["since"], root: @root)[:present]
+                          .select { |path| path.end_with?(".rb") && !spec?(path) && !included.include?(path) }
       end
 
       # Spec files under the root that the diff since the base adds, changes
@@ -191,12 +259,52 @@ module Saboteur
         { run: run, skipped: skipped.sort.to_h }
       end
 
+      # A consolidated spec (claims_spec.rb style) never matches the
+      # per-file guess, but when the diff itself changes that spec and the
+      # spec reads a constant the unmatched file defines, the file is
+      # covered: the spec already runs via changed_specs, so stopping would
+      # block a run that had something to kill (#538). A mutable change no
+      # changed spec exercises still stops.
+      def covered_by_changed_specs(unmatched, changed_specs)
+        return [] if unmatched.empty? || changed_specs.empty?
+
+        specs = changed_specs.map { |path| File.join(@root, path) }
+        unmatched.select do |file|
+          defined_constants(file).any? { |constant| ConstantReads.across(specs, constant).any? }
+        end
+      end
+
+      # The constants a file defines: owners of its def subjects
+      # ("JWT::Claims::DecodeVerifier" from "...#call") and its constant
+      # literal subjects. Shaped for ConstantReads, which matches a bare
+      # read under the owner's scope or the constant's full path.
+      DefinedConstant = Data.define(:name, :owner, :id)
+
+      def defined_constants(file)
+        path = File.join(@root, file)
+        owners = SubjectFinder.new.call(path).subjects.filter_map { |subject| subject.id.split(/[#.]/).first }
+        literals = ConstantSubjectFinder.new.call(path).subjects.map(&:id)
+        (owners + literals).uniq.map do |id|
+          owner, _, name = id.rpartition("::")
+          DefinedConstant.new(name: name.to_sym, owner: owner.empty? ? nil : owner, id: id)
+        end
+      end
+
       # The spec the stop names for an unmatched file: a candidate the diff
       # deleted (a renamed request spec is not always the first), else the
       # most specific one.
       def expected_spec(file, skipped)
         candidates = candidates_for(file)
         candidates.find { |path| skipped[path] == DELETED } || candidates.first
+      end
+
+      # Existing spec files with the same basename anywhere under the spec
+      # root: the stop and the warning point at them so the user can
+      # --test without hunting (#370). Bounded; computed only for
+      # unmatched files, which are about to stop or warn.
+      def nearby_specs(file)
+        Dir.glob("spec/**/#{File.basename(file, '.rb')}_spec.rb", base: @root)
+           .select { |path| File.file?(File.join(@root, path)) }.sort.first(3)
       end
 
       # lstat, not stat: a symlink can point anywhere, including a spec of
@@ -267,7 +375,20 @@ module Saboteur
         comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(@config["since"], root: @root), root: @root)
         finder = SubjectFinder.new
         constant_finder = ConstantSubjectFinder.new
+        # A file whose diff only deletes lines has no new code to mutate:
+        # the deletion is the change the suite itself covers. Its marked
+        # neighbor lines would otherwise demand a spec the file never had
+        # (#484). Subject selection reads the same list, so both layers
+        # agree: no subject, no mutant, no spec demand. The list is
+        # canonical-absolute; the line map's keys are root-relative, so
+        # compare in absolute space (a monorepo root below the git
+        # toplevel must not silently disable this).
+        deletion_only = Selection::GitDiff.deletion_only_files(@config["since"], root: @root)
         lines_by_file.reject do |file, lines|
+          # (reject keeps the files WITH a changed subject; subjectless
+          # is what remains)
+          next false if deletion_only.include?(File.join(@root, file))
+
           subjects_in(finder, constant_finder, file)
             .select { |subject| subject.overlaps_lines?(lines) }
             .any? { |subject| !comparison.unchanged?(subject) }
@@ -281,8 +402,39 @@ module Saboteur
         finder.call(path).subjects + constant_finder.call(path).subjects
       end
 
+      # The custom map wins over the naming convention: it exists for the
+      # layouts the convention cannot guess (#369). Its entries come back as
+      # an array of spec paths, or :excluded for a file the map marks
+      # intentionally untested - such a file needs no guessed spec, so it is
+      # neither unmatched nor given one. Returns the guessed spec paths, nil
+      # when neither the map nor the convention names an existing spec.
       def guess_for(file)
-        candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
+        mapped = @custom_map.specs_for(file)
+        return :excluded if mapped == :excluded
+        return expand_mapped(file, mapped) if mapped
+
+        conventional = candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
+        conventional && [conventional]
+      end
+
+      # A mapped spec can be a glob (expanded against the root) or a regexp
+      # backreference filled at match time, and neither is validated to
+      # exist when the map loads. Only specs that exist run; the literal
+      # glob string never reaches RSpec. When the winning entry's specs all
+      # vanish the mapping is broken: stop naming it rather than silently
+      # guessing on and running the wrong specs (#369).
+      def expand_mapped(file, specs)
+        expanded = specs.flat_map do |spec|
+          if spec.match?(/[*?\[{]/)
+            Dir.glob(File.join(@root, spec)).map { |path| path.delete_prefix("#{@root}/") }
+          else
+            [spec]
+          end
+        end
+        expanded = expanded.select { |path| File.file?(File.join(@root, path)) }
+        return expanded unless expanded.empty?
+
+        raise ConfigError, "custom map entry for #{file} names spec(s) #{specs.join(', ')}, which match no file"
       end
 
       # Candidate specs for a source file, most specific first: the nearest
@@ -303,7 +455,20 @@ module Saboteur
         # spec/acts_as_taggable_on/x_spec.rb. The literal name still wins
         # when both exist (#383).
         names = names.flat_map { |name| [name, name.tr("-", "_")] }.uniq
+        names = layout_variants(names) if rooted
         names.map { |name| "#{spec_root}/#{name}_spec.rb" }
+      end
+
+      # Layouts that mirror less of the source path, after every mirrored
+      # guess (#394): a spec/unit/ prefix (shoulda-matchers mirrors below
+      # it, #393), the basename at the spec root (pundit), and both
+      # together (aasm, #370). Weaker guesses come last: the first
+      # candidate that exists wins. A file outside the source roots
+      # keeps its literal guess only: dropping directories from a path
+      # the roots never anchored would guess any same-named spec.
+      def layout_variants(names)
+        flat = names.map { |name| name.split("/").last }.uniq
+        (names + names.map { |name| "unit/#{name}" } + flat + flat.map { |name| "unit/#{name}" }).uniq
       end
 
       # Rails tests controllers as request specs: spec/requests/users_spec.rb

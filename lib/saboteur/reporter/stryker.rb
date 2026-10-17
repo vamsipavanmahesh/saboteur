@@ -42,6 +42,7 @@ module Saboteur
           saboteur: { findings: Findings.build(report), scores: scores(report),
                       inlineSuppressions: inline_audit(report) }
                      .merge(operatorPolicy: report.operator_policy).merge(exit_cause ? { exitCause: exit_cause } : {})
+                     .merge(report.memory ? { memory: report.memory } : {})
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
       end
 
@@ -107,6 +108,10 @@ module Saboteur
 
       def self.optional_fields(result, test_ids)
         {
+          # A rejected kill is a verdict, not a tool error: the tests failed
+          # but also fail with the method unchanged. Flag it per mutant;
+          # the top-level rejectedKills stays a bare count (#375).
+          rejectedKill: (true if result.rejected_kill?),
           statusReason: status_reason(result),
           # Why the survivor is worth a look, as a label only: scores and
           # the exit code never change (#192).

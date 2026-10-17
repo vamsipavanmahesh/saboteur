@@ -40,6 +40,27 @@ module Saboteur
         end
       end
 
+      # kill_all minus an excluded root, with the pre-kill member
+      # descriptions: [killed pids, notes]. The notes are taken first -
+      # after the kill the command lines are gone (#486).
+      def kill_all_except(root)
+        notes = describe_except(root)
+        [kill_all - [root], notes]
+      end
+
+      # One "pid (command)" note per live member other than an excluded
+      # root, for the leftover-children refusal (#486). Best effort: a
+      # process that vanished mid-look lists its pid alone. Call before the
+      # kill - after it, the command lines are gone.
+      def describe_except(root, table = ProcessTable.snapshot)
+        live_members(table).filter_map do |entry|
+          next if entry.pid == root
+
+          command = ProcessTable.command(entry.pid)
+          command ? "#{entry.pid} (#{command})" : entry.pid.to_s
+        end
+      end
+
       # Count and resident memory of the live members. rss_baseline_kb is the
       # supervisor's own RSS: forked children share its pages, so only growth
       # beyond it is counted per process.
