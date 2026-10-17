@@ -234,7 +234,10 @@ RSpec.describe "operator selection and source-only preview" do
     command = Saboteur::CLI.new(%w[run --help], out: out)
     expect(command.call).to eq(0)
     expect(out.string).to include("Choose operator names (default: all)", "List operator names and descriptions",
-                                  "Preview mutants without boot, tests, forks or report writes")
+                                  "Preview mutants without boot, tests, forks or report writes",
+                                  "--id DIGEST", "Replay exactly one current mutant by its full digest",
+                                  "--since REF", "Only mutate subjects changed since git REF",
+                                  "--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable")
     parsed = Saboteur::CLI.new(%w[run --operators arithmetic,comparison])
     parsed.parser.parse!(%w[--operators arithmetic,comparison])
     expect(parsed.options[:operators]).to eq(%w[arithmetic comparison])
