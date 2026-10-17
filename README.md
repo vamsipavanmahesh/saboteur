@@ -14,49 +14,13 @@
 
 [Quick start](#60-second-quick-start) · [Getting started](docs/guides/getting-started.md) · [Best practices](docs/best-practices.md) · [FAQ](docs/faq.md) · [Contributing](CONTRIBUTING.md)
 
-<details>
-<summary>Contents</summary>
+Your suite can be green and still not notice a broken behavior. saboteur
+makes small, deliberate changes to your code, runs the tests that cover each
+change, and reports every change the suite lets through. Each survivor is a
+review lead: a missing test, an equivalent change, a flaky test, or a limit
+of the tool.
 
-- [Install](#install)
-- [60-second quick start](#60-second-quick-start)
-- [What you get](#what-you-get)
-- [Honest limits](#honest-limits)
-- [Run model, safety and evidence](#run-model-safety-and-evidence)
-- [Why it is built the way it is](#why-it-is-built-the-way-it-is)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Operator guide](#operator-guide)
-- [Extending](#extending)
-- [Dated validation runs](#dated-validation-runs)
-- [Dated comparisons and measurements](#dated-comparisons-and-measurements)
-- [Advanced workflow features](#advanced-workflow-features)
-- [Where it is going](#where-it-is-going)
-- [Contributing](#contributing)
-- [Acknowledgements](#acknowledgements)
-- [License](#license)
-
-</details>
-
-Your suite is green and coverage says 95%. That tells you the tests *ran* your
-code. It does not tell you they would *notice* if the code were wrong.
-
-saboteur finds out. It makes small deliberate changes to your methods (flips a
-`<` to `<=`, swaps `+` for `-`, replaces a body with `nil`), runs the tests that
-cover each change, and reports every change your suite let through. Each of
-those survivors can point at a missing test. It can also be an equivalent
-change that no test could notice, a flaky test, or a limit of the tool, so
-each one needs a human look.
-
-```
-$ bundle exec saboteur run --since origin/main
-```
-
-Never heard of mutation testing? It asks "if I broke this, would a test
-fail?" for many small breakages and lists the ones nobody noticed. Read the
-[design notes](docs/design.md) when you want the details. For adopting it on a team, see the
-[best practices guide](docs/best-practices.md).
-
-## Install
+## 60-second quick start
 
 Requirements: Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
 Minitest is not supported; see [Minitest](docs/minitest.md) for why and what
@@ -71,26 +35,16 @@ end
 
 ```sh
 bundle install
-```
-
-Outside a Bundler project, `gem install saboteur` installs the same executable.
-
-This README tracks `main`. Behavior marked "unreleased on main" is not in
-v0.7.0 yet; use a local checkout for it and expect it to change before release.
-
-## 60-second quick start
-
-Start with one method, not the whole suite:
-
-```sh
 bundle exec saboteur doctor
 bundle exec saboteur run --subject 'YourClass#your_method'
 ```
 
-The run checks the unchanged suite first, maps which tests cover the method,
-then runs only those tests against each mutant. You get counts per status, a
-covered score, timing, and the exact surviving changes to review. The JSON
-and HTML reports land in `.saboteur/report.json` and `.saboteur/report.html`.
+Outside a Bundler project, `gem install saboteur` installs the same
+executable. The run checks the unchanged suite first, maps which tests cover
+the method, then runs only those tests against each mutant. You get counts
+per status, a covered score, timing, and the exact surviving changes to
+review. The JSON and HTML reports land in `.saboteur/report.json` and
+`.saboteur/report.html`.
 
 Example output from saboteur's own `People::Person#adult?` fixture, trimmed:
 
@@ -170,6 +124,24 @@ them by exact, root-anchored name in `.git/info/exclude`: `/Gemfile.saboteur`,
 delete those files and those exclude lines.
 
 </details>
+
+## Why teams use it
+
+- **PR scope.** `saboteur pr` or `--since origin/main` mutates the methods
+  your branch changed.
+- **Focused runs.** Per-test coverage selection runs only the tests that can
+  matter.
+- **Checked kills.** A kill counts only after the same tests pass against the
+  unchanged code.
+
+New to mutation testing? It asks "if I broke this, would a test fail?" for
+many small breakages and lists the ones nobody noticed. Continue with
+[Getting started](docs/guides/getting-started.md), [Usage](#usage),
+[Configuration](#configuration), [Design](docs/design.md), or
+[Best practices](docs/best-practices.md).
+
+This README tracks `main`. Behavior marked "unreleased on main" is not in
+v0.7.0 yet; use a local checkout for it and expect it to change before release.
 
 ## What you get
 
