@@ -38,6 +38,11 @@ RSpec.describe Saboteur::Execution::Reevaluator do
         expect(person.public_method_defined?(:greeting)).to be(true)
       end
 
+      it "redefines a define_method body on the class (#194)" do
+        reeval("ReevalTargets::Person#dm_doubled", strategy, from: "n * 2", to: "n * 3")
+        expect(person.new(1).dm_doubled(2)).to eq(6)
+      end
+
       it "redefines def self.x on the class" do
         reeval("ReevalTargets::Person.make", strategy, from: "new(age)", to: ":mutated")
         expect(person.make(1)).to eq(:mutated)

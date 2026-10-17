@@ -78,7 +78,7 @@ RSpec.describe Saboteur::MutationSource::FilterReplacement do
     ["class Nested; def apply(items); items.select { true }; end; end",
      "module Nested; def apply(items); items.select { true }; end; end"].each do |body|
       statements = Prism.parse(body).value.statements
-      subject = double("subject", node: double("definition", body: statements))
+      subject = double("subject", body_node: statements)
       expect(source.mutations_for(subject)).to be_empty
     end
   end

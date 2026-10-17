@@ -72,6 +72,12 @@ module Saboteur
       "#{owner}#{singleton ? '.' : '#'}#{name}"
     end
 
+    # The node whose children are the method's statements: the block body
+    # for `define_method(:m) { ... }` (#194), the def body otherwise.
+    def body_node
+      node.is_a?(Prism::CallNode) ? node.block&.body : node.body
+    end
+
     def source
       @source ||= file_source.byteslice(start_byte, end_byte - start_byte).force_encoding(Encoding::UTF_8)
     end
@@ -100,10 +106,10 @@ module Saboteur
     # An edit outside every statement (signature, around the def, whole
     # body) maps to the whole method.
     def coverage_lines_for(edit)
-      pattern_lines = pattern_coverage_lines(node.body, edit)
+      pattern_lines = pattern_coverage_lines(body_node, edit)
       return pattern_lines if pattern_lines
 
-      statement = innermost_statement(node.body, edit.start_byte, edit.end_byte)
+      statement = innermost_statement(body_node, edit.start_byte, edit.end_byte)
       return coverage_lines unless statement
 
       first = statement.location.start_line
@@ -114,7 +120,7 @@ module Saboteur
     # True when anything in the body can turn an error into a value: a
     # rescue or else clause, a modifier rescue, a nested begin/rescue.
     def recovers?
-      rescuing?(node.body)
+      rescuing?(body_node)
     end
 
     # The 1-based line of the file that holds this byte offset.

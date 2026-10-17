@@ -57,11 +57,12 @@ RSpec.describe Saboteur::SubjectFinder do
       end
     RUBY
     found = subjects_in(source)
-    expect(found.map(&:id)).to eq(["A#outer", "A#in_block", "A::Klass#anon"])
-    # A Class.new factory block names its class, so its defs re-evaluate
-    # through Klass.class_eval and are ordinary subjects (#290); the
+    expect(found.map(&:id)).to eq(["A#outer", "A#dm", "A#in_block", "A::Klass#anon"])
+    # define_method with a literal name and a block is a subject (#194), and
+    # a Class.new factory block names its class so its defs re-evaluate
+    # through Klass.class_eval as ordinary subjects (#290/#339); the
     # `included do` block keeps its defs skipped.
-    expect(found.map(&:skip_reason)).to eq([nil, "defined inside a block", nil])
+    expect(found.map(&:skip_reason)).to eq([nil, nil, "defined inside a block", nil])
   end
 
   it "names a def in an anonymous block after the block, not after the file" do
@@ -286,5 +287,85 @@ RSpec.describe Saboteur::SubjectFinder do
 
   it "keeps walking a constant assigned to a plain value" do
     expect(ids("class A\n  LIMIT = 3\n  def m; end\nend\n")).to eq(["A#m"])
+  end
+
+  it "makes define_method with a block a subject of the enclosing owner (#194)" do
+    source = <<~RUBY
+      module Outer
+        class Person
+          define_method(:adult?) { @age >= 18 }
+        end
+      end
+    RUBY
+    expect(ids(source)).to eq(["Outer::Person#adult?"])
+  end
+
+  it "accepts a do...end block and a string name for define_method (#194)" do
+    source = <<~RUBY
+      class A
+        define_method("m") do |x|
+          x * 2
+        end
+      end
+    RUBY
+    expect(ids(source)).to eq(["A#m"])
+  end
+
+  it "treats define_method inside class << self as a singleton subject (#194)" do
+    source = <<~RUBY
+      class A
+        class << self
+          define_method(:build) { new }
+        end
+      end
+    RUBY
+    found = subjects_in(source)
+    expect(found.map { |subject| [subject.id, subject.singleton, subject.sclass] }).to eq([["A.build", true, true]])
+  end
+
+  it "skips define_method in a block whose owner is unknown, keeping the reason (#194)" do
+    source = <<~RUBY
+      class A
+        included do
+          define_method(:m) { 1 }
+        end
+      end
+    RUBY
+    found = subjects_in(source)
+    expect(found.map { |subject| [subject.id, subject.skip_reason] }).to eq([["A#m", "defined inside a block"]])
+  end
+
+  it "walks past a call with an empty block without tripping on the nil body (#194)" do
+    # The empty block's body is nil; the nil guard in walk must return
+    # instead of letting nil reach the child-walk.
+    expect(ids("class A\n  def m; end\nend\nconfigure { }\n")).to eq(["A#m"])
+  end
+  it "ignores define_method with a name it cannot read, and without a block (#194)" do
+    expect(ids("class A\n  define_method(name) { 1 }\nend\n")).to eq([])
+    expect(ids("class A\n  define_method(:m, -> { 1 })\nend\n")).to eq([])
+    expect(ids("class A\n  define_method(:m)\nend\n")).to eq([])
+    expect(ids("class A\n  define_method { 1 }\nend\n")).to eq([])
+  end
+
+  it "ignores a two-argument define_method: the block is dead code there (#194)" do
+    expect(ids("class A\n  define_method(:m, proc { 7 }) { 8 }\nend\n")).to eq([])
+  end
+
+  it "ignores a block call that is not define_method, even with a symbol argument (#194)" do
+    expect(ids("class A\n  foo(:m) { 1 }\nend\n")).to eq([])
+  end
+
+  it "skips define_method in a top-level block with the anonymous owner (#194)" do
+    found = subjects_in("included do\n  define_method(:m) { 1 }\nend\n")
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["(anonymous block)#m", "defined inside a block"]])
+  end
+
+  it "ignores define_method with an explicit receiver (#194)" do
+    expect(ids("class A\n  mod.define_method(:m) { 1 }\nend\n")).to eq([])
+  end
+
+  it "drops a top-level define_method with no owner, like a top-level def (#194)" do
+    expect(ids("define_method(:m) { 1 }\n")).to eq([])
   end
 end

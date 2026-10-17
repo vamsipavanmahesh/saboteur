@@ -60,16 +60,61 @@ module Saboteur
       when Prism::SingletonClassNode
         walk_singleton_class(node, nesting, out, **ctx)
       when Prism::StatementsNode
-        previous_child = nil
-        node.body.each do |child|
-          walk(child, nesting, out, previous: previous_child, **ctx)
-          previous_child = child
-        end
+        walk_statements(node, nesting, out, **ctx)
       when Prism::DefNode
         add_subject(node, nesting, out, previous: previous, **ctx)
+      when Prism::CallNode
+        walk_call(node, nesting, out, **ctx)
       else
         node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) }
       end
+    end
+
+    # `define_method(:m) { ... }` is a method definition: the block body is
+    # the method body, and re-evaluating the whole call redefines the method
+    # on the enclosing owner (#194). Only a bare call with a literal name and
+    # a block counts; a computed name, an explicit receiver, or a lambda
+    # argument says nothing the finder can name.
+    # A define_method subject's body is its block; any other call is walked
+    # through its children.
+    def walk_call(node, nesting, out, **ctx)
+      return walk_children(node, nesting, out, **ctx) unless define_method_subject?(node)
+
+      in_sclass = nesting.last&.sclass? || false
+      owner = owner_path(nesting)
+      owner ||= ANONYMOUS_OWNER if ctx[:in_block]
+      return walk_children(node, nesting, out, **ctx) unless owner
+
+      name = node.arguments.arguments.first.unescaped.to_sym
+      subject = Subject.new(name: name, owner: owner, singleton: in_sclass, sclass: in_sclass,
+                            file: ctx[:file], node: node, file_source: ctx[:source], nesting: nesting,
+                            frozen_literals: ctx[:frozen], sig_span: nil)
+      subject.skip_reason = "defined inside a block" if ctx[:in_block]
+      out << subject
+    end
+
+    # Statements carry `previous` so a def can see the sig comment above it.
+    def walk_statements(node, nesting, out, **ctx)
+      previous_child = nil
+      node.body.each do |child|
+        walk(child, nesting, out, previous: previous_child, **ctx)
+        previous_child = child
+      end
+    end
+
+    def walk_children(node, nesting, out, **ctx)
+      node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) }
+    end
+
+    def define_method_subject?(node)
+      return false unless node.name == :define_method && node.receiver.nil?
+      return false unless node.block.is_a?(Prism::BlockNode)
+
+      # With two arguments the second is the body and the block is dead code.
+      return false unless node.arguments&.arguments&.size == 1
+
+      name_arg = node.arguments.arguments.first
+      name_arg.is_a?(Prism::SymbolNode) || name_arg.is_a?(Prism::StringNode)
     end
 
     # `Point = Data.define(:x) do ... end`: the defs belong to Point. Only the
