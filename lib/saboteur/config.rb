@@ -271,7 +271,7 @@ module Saboteur
       rescue ArgumentError, TypeError
         raise ConfigError, "score_gate min_score must be between 0 and 100, got #{gate['min_score'].inspect}"
       end
-      unless floor.between?(0, 100)
+      unless floor.finite? && floor.between?(0, 100)
         raise ConfigError, "score_gate min_score must be between 0 and 100, got #{gate['min_score'].inspect}"
       end
       raise ConfigError, "score_gate pattern must not be empty" if pattern.empty?
