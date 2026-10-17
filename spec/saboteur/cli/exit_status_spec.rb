@@ -231,6 +231,25 @@ RSpec.describe Saboteur::CLI::ExitStatus do
       expect(harness.err.string).to be_empty
     end
 
+    # A review of zero subjects verified nothing only when subjects exist
+    # and were all skipped; an empty subject list is just a green run
+    # (#587 dogfood).
+    it "does not call a review with no subjects unverifiable" do
+      report = Saboteur::Report.new(results: [], subjects: [], wall_time: 1.0,
+                                    root: File.dirname(person_subject.file),
+                                    review: true, seed: 1, skipped_subjects: {},
+                                    operator_policy: Saboteur::Config.new({}).operator_policy)
+      expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_OK)
+      expect(harness.err.string).to be_empty
+    end
+
+    it "prints the full skipped-subject sentence" do
+      report = review_report(skipped: { person_subject => "refinements" })
+      harness.code(report)
+      expect(harness.err.string).to include("saboteur: Person#adult? was skipped (refinements), " \
+                                            "so the change under test was not verified")
+    end
+
     it "judges the run by its results when other subjects ran" do
       refined = subjects_in("class Refined\n  def x\n    1\n  end\nend\n", name: "refined.rb").first
       report = review_report(skipped: { refined => "refinements" },
