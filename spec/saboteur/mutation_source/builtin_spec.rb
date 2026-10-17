@@ -209,7 +209,7 @@ RSpec.describe Saboteur::MutationSource::Builtin do
     end
 
     it "registers every single-purpose source in the delegated walk" do
-      expect(described_class.new.send(:delegated).size).to eq(13)
+      expect(described_class.new.send(:delegated).size).to eq(14)
     end
 
     it "wires custom arid patterns into pair removal" do
