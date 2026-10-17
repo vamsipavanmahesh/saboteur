@@ -43,12 +43,12 @@ RSpec.describe Saboteur::CoverageReads do
       .to raise_error(Saboteur::Error, /application/i)
   end
 
-  it "still refuses when the error names no offender" do
+  it "still refuses when the error names no offender, without accusing an unnamed class" do
     type_error.set_backtrace(["/x.rb:1:in 'result'"])
     allow(Coverage).to receive(:result).and_raise(type_error)
 
     expect { described_class.result(stop: false, clear: false) }
-      .to raise_error(Saboteur::Error, /could not be named/)
+      .to raise_error(Saboteur::Error, /usual cause.*names no offender/m)
   end
 
   it "re-raises errors that are not TypeError" do
