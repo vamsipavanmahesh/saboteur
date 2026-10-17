@@ -48,6 +48,31 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expect(cache.lookup(person_subject, comparison_mutation, tests + ["./spec/person_spec.rb[1:2]"])).to be_nil
   end
 
+  # Libraries conventionally commit no lockfile; the cache must still see
+  # a dependency-declaration edit (#408).
+  it "forgets it when the Gemfile changes and no lockfile is committed" do
+    File.delete(File.join(@root, "Gemfile.lock"))
+    File.write(File.join(@root, "Gemfile"), "gem \"rspec\", \"~> 3.12\"\n")
+    stored
+    File.write(File.join(@root, "Gemfile"), "gem \"rspec\", \"~> 3.13\"\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  # Gemspecs are dependency declarations too, and appear in no cache input
+  # otherwise (#408).
+  it "forgets it when a gemspec's dependency declaration changes" do
+    File.write(File.join(@root, "app.gemspec"), "Gem::Specification.new { |s| s.add_dependency 'a', '1.0' }\n")
+    stored
+    File.write(File.join(@root, "app.gemspec"), "Gem::Specification.new { |s| s.add_dependency 'a', '2.0' }\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  it "forgets it when a gemspec appears where there was none" do
+    stored
+    File.write(File.join(@root, "app.gemspec"), "Gem::Specification.new { |s| s.name = 'app' }\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
   it "forgets it when the lockfile or the run's inputs change" do
     stored
     File.write(File.join(@root, "Gemfile.lock"), "lock 2\n")
