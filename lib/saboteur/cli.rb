@@ -203,7 +203,8 @@ module Saboteur
     # Agent mode allows no score gates (one strict exit 0); the json inventory is --dry-run planning only.
     def reject_format_conflicts
       if agent? && (config["threshold"] || gates.any?)
-        raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
+        raise UsageError, "#{config['threshold'] ? '--threshold' : gates.agent_option_name} " \
+                          "cannot be combined with --agent"
       end
       return unless @format == "json" && !options[:dry_run]
 
@@ -213,8 +214,7 @@ module Saboteur
     # One line naming the reports written, paths relative to the root when
     # they sit under it (a blank line before it, as the old JSON line had).
     def announce_reports(reports)
-      written = reports.select { |path, _label| path }
-      return if written.empty?
+      return if (written = reports.select { |path, _label| path }).empty?
 
       root = File.join(File.realpath(config.root), "")
       names = written.map do |path, label|

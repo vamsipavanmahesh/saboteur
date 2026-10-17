@@ -35,6 +35,125 @@ RSpec.describe Saboteur::Gates do
     end
   end
 
+  describe "per-path score gates (#473)" do
+    around do |example|
+      Dir.mktmpdir do |dir|
+        @root = File.realpath(dir)
+        example.run
+      end
+    end
+
+    def subject_at(relative, index)
+      path = File.join(@root, relative)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, "class Klass#{index}\n  def a; 1 > 0; end\nend\n")
+      Saboteur::SubjectFinder.new.call(path).subjects.first
+    end
+
+    def result_on(subject, status)
+      at = subject.file_source.index(">")
+      edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 1,
+                                                replacement: ">=")
+      mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison",
+                                                        edits: [edit])
+      Saboteur::MutantResult.new(subject:, mutation:, status:,
+                                 mutated_source: subject.apply(mutation.edits))
+    end
+
+    def report_with(pairs, root: @root)
+      results = pairs.map { |subject, status| result_on(subject, status) }
+      Saboteur::Report.new(results:, subjects: results.map(&:subject), wall_time: 1.0, root:,
+                           warnings: [], seed: 1,
+                           operator_policy: Saboteur::Config.new({}).operator_policy)
+    end
+
+    def score_gates(pattern, min_score)
+      described_class.new({ "max_timeouts" => nil, "max_errors" => nil,
+                            "score_gates" => [{ "pattern" => pattern, "min_score" => min_score }] })
+    end
+
+    it "fails when a path gate's subset scores under its floor" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      old = subject_at("app/legacy/old.rb", 2)
+      report = report_with([[charge, :killed], [charge, :survived], [old, :killed], [old, :killed]])
+      found = score_gates("app/payments/**/*", 90).violations(report)
+      expect(found.map(&:cause)).to eq(["scoreGate"])
+      expect(found.first.message).to include("app/payments/**/*", "score 50.0 below 90")
+    end
+
+    it "still matches gates when the project root is a symlink" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      link = File.join(Dir.mktmpdir, "linked-root")
+      File.symlink(@root, link)
+      report = report_with([[charge, :killed], [charge, :survived]], root: link)
+      expect(score_gates("app/payments/**/*", 90).violations(report).map(&:cause)).to eq(["scoreGate"])
+    end
+
+    it "passes when the subset meets its floor" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      report = report_with([[charge, :killed], [charge, :survived]])
+      expect(score_gates("app/payments/**/*", 50).violations(report)).to be_empty
+    end
+
+    it "passes when the subset scores strictly above its floor" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      report = report_with([[charge, :killed], [charge, :killed], [charge, :survived]])
+      expect(score_gates("app/payments/**/*", 50).violations(report)).to be_empty
+    end
+
+    it "passes vacuously when nothing executed under the gate, and says so" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      report = report_with([[charge, :killed]])
+      err = StringIO.new
+      expect(score_gates("app/legacy/**/*", 95).failed?(report, err)).to be(false)
+      expect(err.string).to include("app/legacy/**/*", "nothing executed")
+    end
+
+    it "prints the score-gate violation with its exact wording" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      report = report_with([[charge, :killed], [charge, :survived]])
+      err = StringIO.new
+      expect(score_gates("app/payments/**/*", 90).failed?(report, err)).to be(true)
+      expect(err.string).to eq("saboteur: score gate app/payments/**/*: score 50.0 below 90 " \
+                               "(2 mutants under it)\n")
+    end
+
+    it "prints the vacuous note as one exact saboteur line, and never for an executed gate" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      report = report_with([[charge, :killed]])
+      g = described_class.new({ "max_timeouts" => nil, "max_errors" => nil,
+                                "score_gates" => [{ "pattern" => "app/payments/**/*", "min_score" => 95 },
+                                                  { "pattern" => "app/legacy/**/*", "min_score" => 95 }] })
+      err = StringIO.new
+      expect(g.failed?(report, err)).to be(false)
+      expect(err.string).to eq("saboteur: score gate app/legacy/**/*: nothing executed under it, " \
+                               "passing vacuously\n")
+    end
+
+    it "counts toward any?, so --agent refuses the combination like --threshold" do
+      expect(score_gates("app/**/*", 95).any?).to be(true)
+    end
+  end
+
+  describe "#any? and #agent_option_name" do
+    it "is true with --max-* limits alone and names them for the --agent rejection" do
+      g = gates("max_timeouts" => 1)
+      expect(g.any?).to be(true)
+      expect(g.agent_option_name).to eq("--max-* gates")
+    end
+
+    it "is true with score gates alone and names them for the --agent rejection" do
+      g = described_class.new({ "max_timeouts" => nil, "max_errors" => nil,
+                                "score_gates" => [{ "pattern" => "app/**/*", "min_score" => 95 }] })
+      expect(g.any?).to be(true)
+      expect(g.agent_option_name).to eq("score gates")
+    end
+
+    it "is false with no gates at all" do
+      expect(gates.any?).to be(false)
+    end
+  end
+
   describe "#violations" do
     it "passes when no gate is set, whatever the counts" do
       expect(gates.violations(report(:timeout, :error, :killed))).to be_empty

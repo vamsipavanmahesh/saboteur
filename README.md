@@ -123,12 +123,11 @@ the macro itself `ran at load` instead of letting its mutants survive.
 - **Extension points.** Add your own mutation operators through the
   public interface.
 
-Per-path score gates are on the way: `c.score_gate "app/payments/**/*",
-min_score: 95` in `config/saboteur.rb` (repeatable) is already accepted and
-validated - `min_score` must be between 0 and 100 and the pattern must match
-at least one included file - but nothing enforces the gates yet; enforcement
-lands with #570. Until then `--threshold` (or `c.threshold`) stays the
-global gate. See
+Per-path score gates hold one subtree to a stricter floor: `c.score_gate
+"app/payments/**/*", min_score: 95` in config/saboteur.rb (repeatable). Each
+gate scores only the mutants under its pattern and fails the run under its
+floor; a gate with nothing executed under it passes vacuously and says so.
+See
 [choosing and raising a threshold](docs/best-practices.md#choosing-and-raising-a-threshold)
 for how to pick a number.
 
