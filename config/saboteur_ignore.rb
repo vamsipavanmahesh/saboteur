@@ -667,4 +667,12 @@ Saboteur.ignore do |i|
   i.mutation "7777f925324c357d",
              subject: "Saboteur::SubjectFinder#walk_singleton_class",
              reason: "equivalent: the sclass scope's path is never read: owner_path rejects sclass scopes and its header is hardcoded"
+
+  i.mutation "2a4bb090c8f8c83d",
+             subject: "Saboteur::Execution::Sandbox#abi_version",
+             reason: "equivalent: the probe is idempotent, so dropping the memo guard only repeats the same syscall for the same answer"
+
+  i.mutation "01105c9e0b831a5c",
+             subject: "Saboteur::Execution::Sandbox#abi_version",
+             reason: "equivalent: off Linux the unknown syscall number answers ENOSYS, which probe_abi already maps to ABI 0"
 end

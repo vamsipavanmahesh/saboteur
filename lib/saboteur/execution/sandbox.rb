@@ -57,8 +57,15 @@ module Saboteur
         return @abi_version if defined?(@abi_version)
         return @abi_version = 0 unless linux?
 
-        version = LibC.syscall_fn.call(SYS_CREATE_RULESET, 0, 0, CREATE_RULESET_VERSION, 0)
-        errno = last_errno
+        # Build the errno reader BEFORE the probe: its lazy dlopen/dlsym run
+        # libc calls that can set errno, so building it between the probe and
+        # the read can replace the real answer with a stale 0.
+        LibC.errno_location_fn
+        version, errno = probe_once
+        # A failed syscall always sets errno, so (failure, errno 0) is never
+        # the kernel's real answer - the read was clobbered between the call
+        # and here. Probe once more, now with every Fiddle function warm.
+        version, errno = probe_once if !version.positive? && errno.zero?
         @abi_version = probe_abi(version, errno)
       rescue Fiddle::DLError
         # No usable libc (an unusual musl/ldso layout): the sandbox cannot
@@ -70,6 +77,12 @@ module Saboteur
       # no Landlock to give: run unsandboxed, noted once. Anything else
       # (EPERM under a seccomp policy, ...) means the kernel is there but
       # refused - fail closed rather than run without the promised sandbox.
+      # One create-ruleset version probe with its errno read paired to it.
+      def probe_once
+        version = LibC.syscall_fn.call(SYS_CREATE_RULESET, 0, 0, CREATE_RULESET_VERSION, 0)
+        [version, last_errno]
+      end
+
       def probe_abi(version, errno)
         return version if version.positive?
         return 0 if UNSUPPORTED_ERRNOS.include?(errno)
