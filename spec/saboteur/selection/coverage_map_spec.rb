@@ -440,3 +440,22 @@ RSpec.describe Saboteur::Selection::CoverageMap, "dependency files (#344)" do
     expect(map.boot_files).to eq(["/a/boot.rb"])
   end
 end
+
+RSpec.describe Saboteur::Selection::CoverageMap, ".root_prefixes (#353)" do
+  it "lists the resolved and the spelled root, each with a trailing slash" do
+    Dir.mktmpdir do |target|
+      Dir.mktmpdir do |parent|
+        link = File.join(parent, "project")
+        File.symlink(target, link)
+        expect(described_class.root_prefixes(link)).to eq(["#{File.realpath(link)}/", "#{link}/"])
+      end
+    end
+  end
+
+  it "lists one prefix when the root has no symlink component" do
+    Dir.mktmpdir do |dir|
+      root = File.realpath(dir)
+      expect(described_class.root_prefixes(root)).to eq(["#{root}/"])
+    end
+  end
+end
