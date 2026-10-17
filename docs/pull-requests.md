@@ -98,6 +98,10 @@ the available coarse whole-method mutants (`nil`, or `true`/`false` for
 predicates, and `raise` where applicable). Keep new files tracked so git diff
 can see them.
 
+The run executes every spec file the diff adds or changes, on top of the
+specs inferred for the mutated files: a spec-only PR still exercises its own
+specs against any mutants the change selected.
+
 Diff mode still builds a per-test coverage map from the inferred or named
 specs when there is no valid cached map. A smaller mutation scope does not
 remove that fixed cost. `--incremental` is a separate opt-in verdict cache,
