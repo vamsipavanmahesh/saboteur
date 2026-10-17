@@ -37,8 +37,9 @@ jobs:
           bundler-cache: true
       - run: script/rspec-shard ${{ matrix.shard }} 3
 
-  # macOS legs run on the owner's self-hosted Mac (three runner instances
-  # labelled saboteur-mac). Self-hosted runners never execute fork code:
+  # macOS legs run on the owner's self-hosted Mac (a pool of runner
+  # instances labelled saboteur-mac on one machine, sized to the hardware).
+  # Self-hosted runners never execute fork code:
   # fork pull requests skip these legs entirely (the Linux legs still cover
   # them), and the repository additionally requires approval for all external
   # contributors before any fork workflow runs. Pull requests run the smallest
@@ -51,8 +52,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       fail-fast: false
-      # Three physical runner instances, so at most three legs at once.
-      max-parallel: 3
       # (No spaces after the JSON colons: a colon+space would break the YAML
       # plain scalar. The matrix itself is normal JSON.)
       matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
@@ -71,7 +70,7 @@ jobs:
           # Remove it. The shared bundler cache, the toolcache and stray
           # processes stay untouched on purpose: the cache is a speed
           # trade-off for a separate decision, and a process pattern cannot
-          # tell this runner instance's children from the other two
+          # tell this runner instance's children from the sibling
           # instances' on the same machine.
           git clean -ffdx
 
