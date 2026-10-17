@@ -35,15 +35,31 @@ module Saboteur
         line = File.foreach(config).find { |entry| entry.start_with?("BUNDLE_PATH:") }
         return unless line
 
-        value = line.split(":", 2).last.strip.delete('"')
-        return if value.empty? || value.start_with?("/")
+        value = scalar(line.split(":", 2).last.strip)
+        return if value.empty?
 
-        # BUNDLE_PATH: . (or ./) is the project root itself; the empty
-        # prefix would match every path and shield the whole tree (#580).
-        prefix = File.join(value, "/").delete_prefix("./")
-        prefix unless prefix.empty?
+        # BUNDLE_PATH: . (or ./) is the project root itself - the empty
+        # prefix would match every path and shield the whole tree (#580) -
+        # and anything outside the root is the system bundle, not project
+        # source. The prefix is the normalized path, not the raw scalar:
+        # ./deps/../deps shields deps/.
+        base = File.expand_path(root)
+        expanded = File.expand_path(value, base)
+        return if expanded == base || !expanded.start_with?("#{base}/")
+
+        "#{expanded.delete_prefix("#{base}/")}/"
       rescue SystemCallError
         nil
+      end
+
+      # The scalar after "BUNDLE_PATH:": bundler writes a bare word, but
+      # YAML also allows it quoted - surrounding matching quotes are not
+      # part of the path.
+      def scalar(raw)
+        quote = raw[0]
+        return raw[1..-2] if raw.length >= 2 && raw[-1] == quote && ["'", '"'].include?(quote)
+
+        raw
       end
     end
   end
