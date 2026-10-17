@@ -57,6 +57,14 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `c.sandbox = "seatbelt"` grants now match real paths on macOS: the
+  kernel resolves `/var` to `/private/var` when it checks a write
+  against a Seatbelt subpath grant, so a granted dir under a symlinked
+  parent (like `Dir.mktmpdir` under `/var/folders`) silently matched
+  nothing and the child saw its own writable dir denied. Granted dirs
+  are now resolved with `File.realpath` before the profile is built,
+  the same view `fcntl(F_GETPATH)` reports back.
+
 - Rejected kills no longer surface as generic errors: the terminal
   lists them in a `Rejected kills` section and annotates the error count,
   and report.json flags each rejected mutant with `rejectedKill: true`

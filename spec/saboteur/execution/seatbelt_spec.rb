@@ -104,6 +104,25 @@ RSpec.describe Saboteur::Execution::Seatbelt, ".restrict! and inherited files" d
     end
   end
 
+  it "realpaths granted dirs: Seatbelt matches the kernel's resolved path, not a symlink" do
+    fn = double("sandbox_init", call: 0)
+    allow(described_class::LibSandbox).to receive(:sandbox_init_fn).and_return(fn)
+    Dir.mktmpdir do |dir|
+      real = File.realpath(dir)
+      link = File.join(File.dirname(real), "seatbelt-link-#{Process.pid}")
+      File.symlink(real, link)
+      begin
+        described_class.restrict!(writable: [link], keep_fds: [])
+        expect(fn).to have_received(:call) do |profile, _flags, _errbuf|
+          expect(profile).to include(%((subpath "#{real}")))
+          expect(profile).not_to include(link)
+        end
+      ensure
+        File.unlink(link)
+      end
+    end
+  end
+
   it "fails closed: a refused profile means the mutant never runs" do
     fn = double("sandbox_init")
     allow(fn).to receive(:call).and_return(-1)

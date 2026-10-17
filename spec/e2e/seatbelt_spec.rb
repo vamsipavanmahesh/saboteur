@@ -7,12 +7,14 @@
 # verdicts are normal - the probe found Seatbelt enforcing, so no
 # degrade note. Fixture copies live under the system temp dir, which the
 # sandbox always grants, so this asserts wiring, not write denial; the
-# denial half is the child-confinement spec in execution/seatbelt_spec.rb.
+# denial half is the child-confinement spec in
+# execution/seatbelt_confinement_spec.rb. The aliases fixture kills every
+# mutant, so a normal run exits 0.
 RSpec.describe "macOS Seatbelt sandbox", :e2e do
   before { skip "Seatbelt unavailable" unless Saboteur::Execution::Seatbelt.available? }
 
   it "runs confined children end to end with the logs intact" do
-    dir = copy_fixture("people")
+    dir = copy_fixture("aliases")
     config = File.join(dir, "config", "saboteur.rb")
     # Insert inside the configure block: appended after its end, the line
     # would be top-level code and ConfigFile.load would raise.
