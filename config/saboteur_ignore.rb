@@ -152,10 +152,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::Builtin#visit_statements",
              reason: "equivalent: the loop never sees an empty sequence, so != 1 and > 1 agree"
 
-  i.mutation "908676542a888c9d",
-             subject: "Saboteur::MutationSource::Builtin#mutate_call",
-             reason: "equivalent: only binary calls are named like a comparison or arithmetic operator in practice"
-
   i.mutation "4cc9db1f1c23f253",
              subject: "Saboteur::MutationSource::Builtin#mutate_call",
              reason: "equivalent: Prism always gives ! a receiver"
