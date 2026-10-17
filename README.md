@@ -1225,10 +1225,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
 Before you ask for review, run the local preflight check on your exact head:
 
 ```sh
-ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode full
+ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast
+bundle exec rspec <the specs your change touches>
+bundle exec exe/saboteur run --since origin/main   # the changed-method dogfood
 ```
 
-It runs scope, sign-off, SPDX, full RuboCop and the specs, and writes a report under `tmp/preflight/`. A pass is not an approval; fast mode is partial. See [docs/preflight.md](docs/preflight.md).
+Fast mode runs scope, sign-off, SPDX, full RuboCop and the harness specs, and writes a report under `tmp/preflight/`; the full suite runs in CI on every push. Use `--mode full` to run the full suite locally when CI is not available. A pass is not an approval; fast mode is partial. See [docs/preflight.md](docs/preflight.md).
 
 ## Acknowledgements
 
