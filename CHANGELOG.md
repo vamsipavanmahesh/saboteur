@@ -39,6 +39,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The artifact dir now ignores itself (#426): a run writes logs,
+  coverage maps and reports under the cache dir, and the marker
+  `.gitignore` keeps a `git add -A` from committing them. An existing
+  `.gitignore` there is left alone.
+
 - Dependency trees are never treated as changed source on a `--since`
   run (#504): a vendored bundle or `node_modules`, tracked or
   untracked, git-ignored or not, is rejected at enumeration, so the
@@ -131,7 +136,6 @@ All notable changes are documented here. The format follows
   `*_spec.rb` / `*_test.rb` / `test_*.rb` shapes under `lib/`. A config's
   own `c.exclude` replaces the shields wholesale, and the shields never
   trip the stale-pattern warning.
-
 
 - A --since run whose changed lines sit inside a heredoc now says so
   (#467). Code embedded in a string - a class_eval/module_eval argument or
