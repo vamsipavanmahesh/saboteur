@@ -83,11 +83,23 @@ module Saboteur
       end
 
       def by_pattern(subjects, patterns)
-        patterns.each do |pattern|
-          next if subjects.any? { |subject| self.class.match?(subject.id, pattern) }
-
+        missed = patterns.reject do |pattern|
+          subjects.any? { |subject| self.class.match?(subject.id, pattern) }
+        end
+        missed.each do |pattern|
           @diagnostics.warn("--subject #{pattern} matches no subject (patterns are names like " \
                             "Klass, Klass#meth or Klass.meth, not globs)")
+        end
+        # A total miss is a typo: refuse instead of a green zero-subject
+        # summary (#379). A partial miss runs, but the matched count is
+        # on the record.
+        if missed.size == patterns.size
+          raise ConfigError, "--subject #{patterns.join(', ')} matches no subject (patterns are names like " \
+                             "Klass, Klass#meth or Klass.meth, not globs)"
+        end
+
+        if missed.any?
+          @diagnostics.warn("#{patterns.size - missed.size} of #{patterns.size} --subject patterns matched")
         end
         subjects.select { |subject| patterns.any? { |pattern| self.class.match?(subject.id, pattern) } }
       end

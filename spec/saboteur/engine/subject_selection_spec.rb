@@ -99,15 +99,26 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     file = write("cart.rb", source)
     expect(select([file], subjects: ["Shop::Cart.empty"]).map(&:id)).to eq(["Shop::Cart.empty"])
     expect(select([file], subjects: ["Shop"]).size).to eq(2)
-    expect(select([file], subjects: ["Sho"])).to be_empty
+    expect { select([file], subjects: ["Sho"]) }.to raise_error(Saboteur::ConfigError, /--subject Sho matches no subject/)
   end
 
-  # Patterns are names, not globs: "Item*" matches nothing, and a silent
-  # empty run looks like a clean one.
-  it "warns about a --subject pattern that matches no subject" do
+  # A typo must not pass silently: when EVERY pattern misses, the run is
+  # usage-class (exit 2 at the CLI) instead of a green zero-subject
+  # summary (#379).
+  it "refuses the run when every --subject pattern matches nothing" do
+    file = write("cart.rb", source)
+    expect { select([file], subjects: ["Shop::Car", "Nope"]) }
+      .to raise_error(Saboteur::ConfigError, /--subject Shop::Car, Nope matches no subject/)
+  end
+
+  # Patterns are names, not globs: "Item*" matches nothing. A partial
+  # miss keeps the run but names both the missing pattern and the
+  # matched count, so a typo is visible in CI logs (#379).
+  it "warns about a --subject pattern that matches no subject and reports the matched count" do
     select([write("cart.rb", source)], subjects: ["Shop::Cart", "Cart*"])
     expect(diagnostics.warnings).to eq(["--subject Cart* matches no subject (patterns are names like " \
-                                        "Klass, Klass#meth or Klass.meth, not globs)"])
+                                        "Klass, Klass#meth or Klass.meth, not globs)",
+                                        "1 of 2 --subject patterns matched"])
   end
 
   it "keeps only methods with a line changed since the ref" do
@@ -492,14 +503,13 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings).to be_empty
     end
 
-    it "stays quiet when a --subject pattern, already warned about, filtered the subjects" do
+    it "refuses when a --subject pattern matched no subject, even before the diff narrows (#379)" do
       file = write("cart.rb", source)
       commit_all
       File.write(file, source.sub("def total = 1", "def total = 2"))
 
-      expect(select([file], since: "HEAD", subjects: ["Other"])).to be_empty
-      expect(diagnostics.warnings.size).to eq(1)
-      expect(diagnostics.warnings.first).to include("--subject Other matches no subject")
+      expect { select([file], since: "HEAD", subjects: ["Other"]) }
+        .to raise_error(Saboteur::ConfigError, /--subject Other matches no subject/)
     end
   end
 
