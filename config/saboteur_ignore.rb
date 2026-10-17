@@ -727,4 +727,10 @@ Saboteur.ignore do |i|
   i.mutation "6c755a9350011f9b",
              subject: "Saboteur::ConstantReads#walk_scope",
              reason: "equivalent: scopes holds exactly one element (the owner), so any? and all? agree"
+
+  i.mutation "698e9c03fc5cfa99",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: the none? check only runs when path is inside the owner subtree, and a live shadow " \
+                     "there was itself set inside the subtree (outside shadows lift at the owner boundary), so " \
+                     "shadowed always starts with scope + :: and the bare-prefix check agrees"
 end
