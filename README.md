@@ -90,7 +90,11 @@ the macro itself `ran at load` instead of letting its mutants survive.
   file uses refinements. The GitHub Action runs on every pull request and
   caches the coverage map between runs.
 - **Honest verdicts.** Every kill is verified against the unchanged
-  method; a kill the suite cannot confirm stays out of the score. A spec
+  method; a kill the suite cannot confirm stays out of the score.
+  Suspect a flaky test? `--flaky-check survivors` confirms each new
+  survivor with one reordered rerun (`decisive` also confirms fresh
+  kills); a verdict the rerun disagrees with becomes `unverified`,
+  named with its tests, and stays out of the score. A spec
   file whose examples depend on earlier ones is retried in defined order
   before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible

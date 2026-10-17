@@ -767,6 +767,41 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
+  i.mutation "fd1253fb224794ff",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; dropping the size guard changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "7955f85bfb432312",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size >= 1 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "17068564717dfd5d",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size != 1 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "50e206442fdad447",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size > 0 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "1734bd1a82e156ea",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; a bare size (always truthy) changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "f719923d733c3339",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; a bare 1 (always truthy) changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
   i.mutation "ce91efaab8362061",
              subject: "Saboteur::ConstantReads#walk_scope",
              reason: "equivalent: shadowed's only non-nil assignment is guarded by path != scopes.first and scopes " \
