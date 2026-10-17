@@ -38,7 +38,10 @@ module Saboteur
         value = line.split(":", 2).last.strip.delete('"')
         return if value.empty? || value.start_with?("/")
 
-        File.join(value, "/").delete_prefix("./")
+        # BUNDLE_PATH: . (or ./) is the project root itself; the empty
+        # prefix would match every path and shield the whole tree (#580).
+        prefix = File.join(value, "/").delete_prefix("./")
+        prefix unless prefix.empty?
       rescue SystemCallError
         nil
       end
