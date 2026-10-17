@@ -43,6 +43,7 @@ module Saboteur
   end
 end
 
+require_relative "saboteur/coverage_reads"
 require_relative "saboteur/hooks"
 require_relative "saboteur/mutation_source/base"
 require_relative "saboteur/mutation_source/builtin"
