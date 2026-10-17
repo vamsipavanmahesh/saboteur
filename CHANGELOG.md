@@ -33,6 +33,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A mutant on the continuation line of a multi-line interpolated
+  statement is no longer misclassified missing_test (#498): attribution
+  now spans the whole enclosing statement, because an interpolation's own
+  statements are eager and Ruby's per-line events on continuation lines
+  are not reliable per example.
 - `--incremental` now sees dependency-declaration edits on projects
   that commit no lockfile (the library convention): the verdict
   fingerprint hashed only `Gemfile.lock` / `gems.locked`, so the digest
