@@ -266,7 +266,8 @@ module Saboteur
       def arid_statement?(statement)
         return false unless arid?(statement)
 
-        body = statement.is_a?(Prism::CallNode) ? statement.block&.body : nil
+        block = statement.is_a?(Prism::CallNode) ? statement.block : nil
+        body = block.is_a?(Prism::BlockNode) ? block.body : nil
         body.nil? || body.body.all? { |inner| arid_statement?(inner) }
       end
 

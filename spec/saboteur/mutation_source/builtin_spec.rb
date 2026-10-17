@@ -227,6 +227,10 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts(body, "body_nil")).to eq(["nil"])
     end
 
+    it "treats an arid call with a &: block argument as noise, not a crash" do
+      expect(texts("    p(&:first)", "body_nil")).to be_empty
+    end
+
     it "still treats an arid statement without a block, or with an empty one, as noise" do
       expect(texts("    Notifications.instrument \"x\"\n    logger.info(a)", "body_nil")).to be_empty
       expect(texts("    Notifications.instrument(\"x\") {}", "body_nil")).to be_empty
