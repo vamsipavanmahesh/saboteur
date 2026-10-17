@@ -88,12 +88,36 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
   end
 
   it "badge --help and trend -h print their help instead of reading history" do
+    # Without the dispatch, badge --help reaches badge_parser, whose officious
+    # --help handler prints the parser help and EXITS the process; the
+    # raise_error guard turns that into a clean failure instead of
+    # truncating the whole suite at a random point.
+    expect { cli("badge", "--help") }.not_to raise_error
     code, out, err = cli("badge", "--help")
     expect([code, err]).to eq([0, ""])
     expect(out).to include("saboteur badge")
+    expect { cli("trend", "-h") }.not_to raise_error
     code, out, err = cli("trend", "-h")
     expect([code, err]).to eq([0, ""])
     expect(out).to include("saboteur trend")
+  end
+
+  it "badge --help reaches the help dispatch through CLI#call and never runs badge" do
+    out = StringIO.new
+    instance = Saboteur::CLI.new(%w[badge --help], out: out, err: StringIO.new)
+    allow(instance).to receive(:badge)
+    expect(instance.call).to eq(0)
+    expect(out.string).to start_with("saboteur badge - ")
+    expect(instance).not_to have_received(:badge)
+  end
+
+  it "trend --help reaches the help dispatch through CLI#call and never runs trend" do
+    out = StringIO.new
+    instance = Saboteur::CLI.new(%w[trend --help], out: out, err: StringIO.new)
+    allow(instance).to receive(:trend)
+    expect(instance.call).to eq(0)
+    expect(out.string).to start_with("saboteur trend - ")
+    expect(instance).not_to have_received(:trend)
   end
 
   it "badge --high/--low parse as floats and steer the color at exact boundaries" do
