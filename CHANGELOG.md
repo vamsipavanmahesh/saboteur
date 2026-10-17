@@ -18,6 +18,7 @@ All notable changes are documented here. The format follows
   silently reporting every mutant Survived.
 ### Fixed
 
+<<<<<<< HEAD
 
 
 - A factory assigned inside `class << self` now keeps its own scope in the
@@ -26,6 +27,8 @@ All notable changes are documented here. The format follows
   `class << self` of its own still opens no scope, even when a `class <<
   self` encloses it (#438).
 
+=======
+>>>>>>> origin/unbundle-test-command-child-435
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
   unrelated classes each keep their own subjects: the singleton-side one is
@@ -37,6 +40,7 @@ All notable changes are documented here. The format follows
   project gem from the real tree, never exercised the mutated copy, and
   reported every mutant Survived; the child now gets the unbundled
   environment and resolves its Gemfile from the mutated copy.
+<<<<<<< HEAD
 
 
 - Test selection consults `config/saboteur_custom_map.rb` again (#369).
@@ -52,6 +56,8 @@ All notable changes are documented here. The format follows
   is dropped from mutation with a named diagnostic instead of running
   the whole suite (#369 review).
 
+=======
+>>>>>>> origin/unbundle-test-command-child-435
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
