@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A spec file whose later examples rely on state left by earlier ones no
+  longer turns its mutants into errors (#557). When a covering example
+  fails even with the method unchanged, saboteur retries once with the
+  file's examples in defined order, from the start through the last
+  covering example. The kill stands only if that run passes unchanged.
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
   unrelated classes each keep their own subjects: the singleton-side one is
