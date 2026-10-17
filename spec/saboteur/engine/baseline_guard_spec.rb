@@ -81,6 +81,22 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     end.to raise_error(Saboteur::Error, /the suite stopped: memory.*c\.max_memory_mb \(currently \d+ MB\)/)
   end
 
+  it "pins the exact fork-limit stopped_reason string, hint and parens included (#459)" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :processes))
+    expect do
+      guard.call
+    end.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape("the suite stopped: processes (deadline). " \
+      "If this suite forks heavily by design, raise the limit with c.max_processes (currently 64)")))
+  end
+
+  it "pins the exact memory-limit stopped_reason string, hint and parens included (#459)" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :memory))
+    expect do
+      guard.call
+    end.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape("the suite stopped: memory (deadline). " \
+      "If this suite legitimately needs more memory, raise the limit with c.max_memory_mb (currently 2048 MB)")))
+  end
+
   it "estimates the remaining full passes once the first baseline pass is timed (#260)" do
     err = StringIO.new
     allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
