@@ -3,16 +3,6 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
-  i.mutation "5a87a7155a4e0e9b",
-             subject: "Saboteur::CLI::HistoryCommand#history_path",
-             reason: "equivalent: the UsageError raised on that line is a ConfigError, so the method's own rescue " \
-                     "replaces it with the identical-purpose message on the next raise; its text never reaches the user"
-
-  i.mutation "ac58690d8b48a18c",
-             subject: "Saboteur::CLI::HistoryCommand#print_trend",
-             reason: "equivalent: the each result is discarded (the next statement is a guard), and map runs the " \
-                     "same block with the same output"
-
   i.mutation "4847bf6cc927ad36",
              subject: "Saboteur::Reporter::HistoryReader#read",
              reason: "equivalent: gets(limit + 2) only changes how many bytes of an oversized line are read; any line " \
