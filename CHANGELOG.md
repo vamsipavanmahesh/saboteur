@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- A `regex_replacement` operator (#135): drops each regex anchor
+  (`\A`, `\z`, `\Z`, `^`, `$`) in turn and swaps each bare `+` or `*`
+  quantifier, so a validation like `/\A\d+\z/` finally gets mutants.
+  Escaped characters, character classes and lazy or possessive stacks stay
+  untouched; interpolated regexes stay out. The operator policy version
+  moves to 3: histories stamped with an older policy stay readable but
+  never trend-compare against new runs.
 - Methods defined by a non-interpolated `class_eval`/`module_eval` heredoc
   are mutation subjects (#544): the heredoc body is re-parsed against the
   real file's bytes, so mutants inside it are generated and judged like
