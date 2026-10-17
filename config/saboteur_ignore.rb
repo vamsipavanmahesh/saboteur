@@ -1138,4 +1138,33 @@ Saboteur.ignore do |i|
              reason: "equivalent: dropping the unmatched.empty? check leaves select running on an empty list, " \
                      "which returns [] exactly like the early return"
 
+  i.mutation "18a3dccbcb3e3f87",
+             subject: "Saboteur::CLI::SurvivorsBrowser#all_survivors",
+             reason: "equivalent: the memoized list is a pure function of @report, so dropping ||= for = only " \
+                     "recomputes the same value on repeat calls - hand-applied mutant leaves all 16 browser " \
+                     "pin examples green (#520)"
+
+  i.mutation "25001e3b3f1acb36",
+             subject: "Saboteur::CLI::SurvivorsBrowser#findings_by_digest",
+             reason: "equivalent: the memoized index is a pure function of @findings, so dropping ||= for = only " \
+                     "recomputes the same value on repeat calls - hand-applied mutant leaves all 16 browser " \
+                     "pin examples green (#520)"
+
+  i.mutation "8bc1d296bb4eea51",
+             subject: "Saboteur::CLI::SurvivorsBrowser#original_line",
+             reason: "equivalent on reachable inputs: the report entry's source is always a String and " \
+                     "String#to_s is identity - hand-applied mutant leaves all 16 browser pin examples green (#520)"
+
+  i.mutation "8cf9af2d9d2832d2",
+             subject: "Saboteur::CLI::SurvivorsBrowser#original_line",
+             reason: "equivalent on reachable inputs: the mutant's line always exists in the same entry's " \
+                     "source (both come from one report entry), so lines[i] is a String and its to_s is " \
+                     "identity - hand-applied mutant leaves all 16 browser pin examples green (#520)"
+
+  i.mutation "49370ec53fcedd1f",
+             subject: "Saboteur::CLI::SurvivorsBrowser#ranked_order",
+             reason: "digest is the final tie-break of the ranked sort key and only decides under a full " \
+                     "[rank, -coverage, path, line] tie; removing it leaves equal keys whose order Ruby's " \
+                     "sort_by leaves unspecified, which no deterministic spec can pin - hand-applied mutant " \
+                     "leaves all 16 browser pin examples green (#520)"
 end
