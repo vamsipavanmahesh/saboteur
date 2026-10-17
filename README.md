@@ -12,7 +12,7 @@
 [![Ruby 3.3+](https://img.shields.io/badge/ruby-%3E%3D%203.3-cc342d?logo=ruby)](https://www.ruby-lang.org/)
 [![Gem Downloads](https://img.shields.io/gem/dt/saboteur)](https://rubygems.org/gems/saboteur)
 
-[Quick start](#60-second-quick-start) · [Best practices](docs/best-practices.md) · [Contributing](CONTRIBUTING.md)
+[Quick start](#60-second-quick-start) · [Getting started](docs/guides/getting-started.md) · [Best practices](docs/best-practices.md) · [FAQ](docs/faq.md) · [Contributing](CONTRIBUTING.md)
 
 Your suite is green and coverage says 95%. That tells you the tests *ran* your
 code. It does not tell you they would *notice* if the code were wrong.
@@ -63,8 +63,8 @@ bundle exec saboteur run --subject 'YourClass#your_method'
 
 The run checks the unchanged suite first, maps which tests cover the method,
 then runs only those tests against each mutant. You get counts per status, a
-covered score, timing, and the exact surviving changes to review. JSON and
-Reports land in `.saboteur/report.json` and `.saboteur/report.html`.
+covered score, timing, and the exact surviving changes to review. The JSON
+and HTML reports land in `.saboteur/report.json` and `.saboteur/report.html`.
 
 Example output from saboteur's own `People::Person#adult?` fixture, trimmed:
 
@@ -423,7 +423,8 @@ above the limit, with `exitCause` `maxTimeouts` or `maxErrors` in the JSON repor
 `--max-errors`, errored mutants are judged by that limit instead of making a
 `--threshold` run exit 3. Survivors and a score below the threshold keep
 their own causes when they fail too. The gates cannot be combined with `--agent`.
-The GitHub Action has no input for them yet.
+The GitHub Action has no dedicated inputs for them yet; pass them through its
+`arguments` input.
 
 Other flags: `--jobs N` (concurrent workers), `--timeout-factor N`, `--baseline-passes N`, `--max-duration DUR`,
 `--config PATH`, `--integration NAME`, `--reeval class_eval|nesting`,
