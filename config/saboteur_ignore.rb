@@ -713,4 +713,12 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "d689ef2e6305183f",
+             subject: "Saboteur::SubjectFinder#owner_path",
+             reason: "equivalent: nesting[index..] adds only the sclass scope itself to the any?(&:factory?) check, and a scope's kind is either :sclass or :factory, never both"
+
+  i.mutation "70a77934c3856a1e",
+             subject: "Saboteur::SubjectFinder#owner_path",
+             reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
 end

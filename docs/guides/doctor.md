@@ -8,8 +8,8 @@ bundle exec saboteur doctor --config config/saboteur.rb --suite
 ```
 
 By default doctor makes the environment checks only, so it finishes in seconds
-even on a large suite. `--suite` also runs the unchanged suite, two passes by
-default (`--baseline-passes N` changes the count), and `--test PATH`
+even on a large suite. `--suite` also runs the unchanged suite, always exactly two
+passes (`--baseline-passes N` only changes the count for `saboteur run`), and `--test PATH`
 (repeatable) runs only those specs; `--test` implies `--suite`.
 
 Doctor checks Ruby 3.3+ and fork support, suspended line coverage, configured

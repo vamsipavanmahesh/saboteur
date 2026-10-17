@@ -368,4 +368,54 @@ RSpec.describe Saboteur::SubjectFinder do
   it "drops a top-level define_method with no owner, like a top-level def (#194)" do
     expect(ids("define_method(:m) { 1 }\n")).to eq([])
   end
+
+  # A factory constant assigned inside class << self binds on the singleton
+  # class (#352): two unrelated classes each get their own method, so the
+  # subjects must not share one id (#406). Mirrors the constant-side
+  # singleton_class rendering (#380).
+  it "gives a factory def inside class << self a singleton_class owner, distinct from the class-body twin" do
+    source = <<~RUBY
+      class Host
+        Widget = Data.define(:count) do
+          def doubled = count * 100
+        end
+        class << self
+          Widget = Data.define(:count) do
+            def doubled = count * 2
+          end
+        end
+      end
+    RUBY
+    found = subjects_in(source)
+    expect(found.map(&:id)).to eq(["Host::Widget#doubled", "Host.singleton_class::Widget#doubled"])
+    expect(found.map { |subject| [subject.singleton, subject.sclass] }).to eq([[false, false], [false, false]])
+  end
+
+  # The sclass segment consults only scopes AFTER it for a factory (#430
+  # dogfood pins): a factory before the sclass never justifies the
+  # singleton_class segment, so the slice start must stay index + 1 -
+  # a start at index - 1 or at 1 pulls the earlier factory into the check.
+  it "drops the sclass segment when a top-level factory wraps the sclass" do
+    source = <<~RUBY
+      Widget = Data.define(:count) do
+        class << self
+          def doubled = count * 2
+        end
+      end
+    RUBY
+    expect(subjects_in(source).map(&:id)).to eq(["Widget.doubled"])
+  end
+
+  it "drops the sclass segment when a namespaced factory wraps the sclass" do
+    source = <<~RUBY
+      class Host
+        Widget = Data.define(:count) do
+          class << self
+            def doubled = count * 2
+          end
+        end
+      end
+    RUBY
+    expect(subjects_in(source).map(&:id)).to eq(["Host::Widget.doubled"])
+  end
 end

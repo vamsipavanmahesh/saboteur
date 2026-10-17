@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A class factory assigned inside `class << self` no longer shares its
+  method ids with a same-named factory in the class body (#406). The two
+  unrelated classes each keep their own subjects: the singleton-side one is
+  now named `Host.singleton_class::Widget#doubled`, so reports, `--subject`
+  filters, ignore entries and the unchanged-syntax comparison can name it.
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
