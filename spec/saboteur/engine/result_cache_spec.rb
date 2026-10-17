@@ -73,6 +73,35 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
   end
 
+  # Monorepo sub-gems carry their own dependency declarations below the
+  # project root; a root-only scan cannot see them (#561).
+  it "forgets it when a sub-gem's gemspec dependency declaration changes" do
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    File.write(File.join(@root, "sub", "sub.gemspec"), "Gem::Specification.new { |s| s.add_dependency 'a', '1.0' }\n")
+    stored
+    File.write(File.join(@root, "sub", "sub.gemspec"), "Gem::Specification.new { |s| s.add_dependency 'a', '2.0' }\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  it "forgets it when a sub-gem's Gemfile changes" do
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    File.write(File.join(@root, "sub", "Gemfile"), "gem \"a\", \"1.0\"\n")
+    stored
+    File.write(File.join(@root, "sub", "Gemfile"), "gem \"a\", \"2.0\"\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  # Vendored installs hold hundreds of gemspecs; hashing them would poison
+  # every fingerprint with dependency artifacts the project does not declare.
+  it "ignores vendored gemspecs and manifests" do
+    FileUtils.mkdir_p(File.join(@root, "vendor", "bundle", "gems", "a"))
+    vendored = File.join(@root, "vendor", "bundle", "gems", "a", "a.gemspec")
+    File.write(vendored, "Gem::Specification.new { |s| s.name = 'a' }\n")
+    stored
+    File.write(vendored, "Gem::Specification.new { |s| s.name = 'b' }\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+  end
+
   it "forgets it when the lockfile or the run's inputs change" do
     stored
     File.write(File.join(@root, "Gemfile.lock"), "lock 2\n")
