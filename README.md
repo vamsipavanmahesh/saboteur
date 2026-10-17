@@ -109,6 +109,27 @@ for how to pick a number.
   on Linux 6.2+; mutants run unsandboxed on macOS), and network access is
   never restricted. Stub real APIs and use a container when that matters.
 
+### Custom spec mapping
+
+When the naming guess does not fit the project's layout, teach the mapping
+once in `config/saboteur_custom_map.rb` instead of passing `--test` on every
+run:
+
+```ruby
+SABOTEUR_CUSTOM_MAP = {
+  "lib/aasm/core/state.rb" => ["spec/unit/state_spec.rb"],
+  "app/jobs/**/*.rb"       => ["spec/jobs/**/*_spec.rb"],
+  %r{\Aapp/jobs/(.*)\.rb\z} => ['spec/jobs/\1_spec.rb'],
+  "app/generated/**/*.rb"  => [], # intentionally untested
+}.freeze
+```
+
+A matching entry wins over the naming convention: the file stops being
+unmatched and its mapped specs run as the inferred ones. Keys are exact
+paths, globs or Regexps; an empty array marks the file intentionally
+untested, so it needs no inferred spec. The file loads before the app
+boots, so keep it plain Ruby. `saboteur doctor` validates it.
+
 ### Rails apps
 
 Quickstart for a Rails + RSpec app. The defaults target a plain gem, so a

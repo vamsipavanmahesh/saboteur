@@ -98,6 +98,22 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(run.out).to include("0 subjects, 0 mutants")
     end
 
+    # A misspelled --subject must not read as a green zero-subject run
+    # in CI (#379).
+    it "exits 2 when every --subject pattern matches nothing" do
+      run = saboteur(dir, "--all", "--subject", "People::Person#typo_xyz")
+      expect(run.status).to eq(2)
+      expect(run.err).to include("--subject People::Person#typo_xyz matches no subject")
+    end
+
+    it "keeps the run and reports the matched count when one --subject pattern misses" do
+      run = saboteur(dir, "--all", "--subject", "People::Person#adult?", "--subject", "People::Person#typo_xyz")
+      expect(run.status).not_to eq(2)
+      expect(run.out).to include("warning: --subject People::Person#typo_xyz matches no subject")
+      expect(run.out).to include("warning: 1 of 2 --subject patterns matched")
+      expect(mutants(run)).not_to be_empty
+    end
+
     it "exits 2 for an unknown ref, before the target boots" do
       run = saboteur(dir, "--since", "no-such-ref", "--all")
       expect(run.status).to eq(2)
