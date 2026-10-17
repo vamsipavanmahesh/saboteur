@@ -109,8 +109,7 @@ module Saboteur
     # from the named subjects' files, so one unrelated spec-less file can
     # never block a one-method run.
     def select_tests
-      return unless config["tests"].empty?
-      return if @replay || config["all"] || config["test_selection"] == "all"
+      return if !config["tests"].empty? || @replay || config["all"] || config["test_selection"] == "all"
 
       subjects = config["subjects"]
       return select_subject_tests(subjects) if subjects.any?
@@ -333,8 +332,7 @@ module Saboteur
     end
 
     def result_cache
-      return nil if @replay
-      return nil unless config["incremental"]
+      return nil if @replay || !config["incremental"]
 
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }
                                             .merge("operator_policy" => config.operator_policy))
