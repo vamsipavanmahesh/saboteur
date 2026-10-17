@@ -115,4 +115,82 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       expect(out.string).to include("saboteur run --id #{'b' * 16}")
     end
   end
+
+  describe "CLI parse layer (#520 dogfood survivors)" do
+    it "orders by the report's ranked findings with --ranked, by path and digest without" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        report = JSON.parse(File.read(path))
+        report["saboteur"]["findings"]["survivors"].unshift(
+          { "digest" => "b" * 16, "path" => "lib/order.rb", "line" => 3, "subject" => "Order#total",
+            "operator" => "and_to_or", "original" => "items", "replacement" => "items",
+            "classification" => "missing_test" }
+        )
+        File.write(path, JSON.generate(report))
+
+        expect(cli("survivors", path).call).to eq(0)
+        expect(out.string.index("a" * 16)).to be < out.string.index("b" * 16)
+
+        ranked_out = StringIO.new
+        expect(described_class.new(["survivors", path, "--ranked"], out: ranked_out, err: err).call).to eq(0)
+        expect(ranked_out.string.index("b" * 16)).to be < ranked_out.string.index("a" * 16)
+      end
+    end
+
+    it "filters survivors by path substring with --file" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--file", "no-such-file").call).to eq(0)
+        expect(out.string).to include("no survivors (file~no-such-file)")
+      end
+    end
+
+    it "filters survivors by classification with --triage" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "--triage", "missing_test").call).to eq(0)
+        expect(out.string).to include("a" * 16)
+        expect(out.string).not_to include("b" * 16)
+      end
+    end
+
+    it "refuses a missing report path with the exact usage line and exit 2" do
+      expect(cli("survivors").call).to eq(2)
+      expect(err.string).to eq("saboteur: survivors expects a report path: saboteur survivors .saboteur/report.json\n")
+    end
+
+    it "refuses extra arguments with the exact message and exit 2" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        expect(cli("survivors", path, "extra", "args").call).to eq(2)
+        expect(err.string).to eq("saboteur: unexpected arguments: extra args\n")
+      end
+    end
+
+    # OptionParser's officious --help prints the option list - descriptions
+    # included - to the real stdout and exits 0.
+    it "prints every flag's description on --help" do
+      captured = StringIO.new
+      $stdout = captured
+      begin
+        expect { cli("survivors", "--help").call }.to raise_error(SystemExit)
+      ensure
+        $stdout = STDOUT
+      end
+      expect(captured.string).to include("Review-priority order",
+                                         "Only survivors whose path contains SUBSTR",
+                                         "Only survivors of operator NAME",
+                                         "Only survivors classified LABEL",
+                                         "Diff, replay command and ignore template")
+    end
+
+    it "does not leak subcommand flags into the CLI's options" do
+      Dir.mktmpdir do |dir|
+        path = write_report(dir, survivors: [])
+        command = cli("survivors", path, "--triage", "missing_test")
+        expect(command.call).to eq(0)
+        expect(command.options).to eq({})
+      end
+    end
+  end
 end
