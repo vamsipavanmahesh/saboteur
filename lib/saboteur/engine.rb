@@ -328,13 +328,9 @@ module Saboteur
     end
 
     # The dependency universe a cached verdict watches when coverage
-    # cannot speak: every project file the booted process loaded, plus
-    # the run's own files (#344).
+    # cannot speak lives in Selection::CoverageMap (#344).
     def source_files(files, prefixes: Selection::CoverageMap.root_prefixes(config.root))
-      $LOADED_FEATURES.filter_map do |file|
-        path = Text.utf8_strict(Saboteur::Selection::CoverageMap.canonical(file))
-        path if path.end_with?(".rb") && prefixes.any? { |prefix| path.start_with?(prefix) }
-      end | files
+      Selection::CoverageMap.loaded_project_files(files, prefixes: prefixes)
     end
 
     def result_cache(map = nil, files = [])
