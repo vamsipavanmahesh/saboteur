@@ -1,9 +1,9 @@
 # Minitest
 
-Saboteur supports RSpec only. A Minitest suite cannot be run with it today, and
-there is no supported way to point it at another test command: `--test-command`
-(#140) is not built, and it is planned as a fallback for apps on Ruby older than
-3.3, not as a Minitest path. This page records how much of the engine depends on
+Saboteur supports RSpec only. A Minitest suite cannot be run with it today.
+`--test-command` (#140) runs an external command per mutant, but it is a
+fallback for apps that cannot load inside saboteur's Ruby - serial, without
+coverage, unsandboxed - not a Minitest path. This page records how much of the engine depends on
 RSpec, so the decision to add a Minitest adapter, or to keep the stance, is made
 on measured facts.
 
