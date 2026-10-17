@@ -31,8 +31,8 @@ Top-level keys:
 
 Each `mutants` entry names one planned mutant:
 
-- `digest` - the stable 16-hex-character id a run or `saboteur replay --id`
-  computes for the same mutant.
+- `digest` - the stable 16-hex-character id a run or `saboteur run --id`
+  replay computes for the same mutant.
 - `subject`, `operator`, `file` and `line` (the 1-based line of the first
   edit).
 - `edits` - every edit as `start_byte`/`end_byte` offsets into the file as
