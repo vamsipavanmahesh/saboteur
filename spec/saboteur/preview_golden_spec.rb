@@ -223,5 +223,74 @@ RSpec.describe "Saboteur::Preview golden output" do
       expect(payload["totals"]["incomplete_files"]).to eq(1)
       expect(payload["estimated_seconds"]).to be_nil
     end
+
+    it "slices multi-byte edits whole" do
+      File.write(target.file, "class PreviewCases\n  def m(x)\n    x == 1\n    x != 2\n  end\nend\n")
+      settings = config(operators: ["comparison"])
+      run_preview(settings, format: "json")
+      originals = payload["mutants"].flat_map { |entry| entry["edits"] }.map { |edit| edit["original"] }
+      expect(originals).to include("x == 1")
+      expect(originals).to include("x != 2")
+    end
+
+    it "gives no estimate for incomplete discovery when the receipt matches and subjects exist" do
+      other = File.join(root, "other.rb")
+      File.write(other, "class Other\n  def m(x)\n    x + 1\n  end\nend\n")
+      File.write(target.file, "def broken(")
+      settings = config(operators: ["arithmetic"])
+      map = Saboteur::Selection::CoverageMap.new(lines: { other => { 3 => ["t1"] } }, tests: ["t1"],
+                                                 durations: { "t1" => 0.5 })
+      FileUtils.mkdir_p(File.join(root, ".saboteur"))
+      cache = File.join(root, ".saboteur", "coverage.json")
+      map.save(cache)
+      identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
+      File.write(File.join(root, ".saboteur", "preview.json"), JSON.generate(path: cache, fingerprint: identity))
+      run_preview(settings, format: "json")
+      expect(payload["totals"]["incomplete_files"]).to eq(1)
+      expect(payload["subjects"]).not_to be_empty
+      expect(payload["estimated_seconds"]).to be_nil
+    end
+
+    it "lists only hazard-guard refusals when other generation events exist" do
+      File.write(target.file,
+                 "class PreviewCases\n  def m\n    FileUtils.rm_rf(\"tmp\")\n  end\n\n  def noop\n  end\nend\n")
+      settings = config
+      diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+      guard = Saboteur::MutationSource::HazardGuard.new(settings["hazard"])
+      sources = Saboteur::Engine::Candidates.build_sources(settings)
+      Saboteur::SubjectFinder.new.call(target.file).subjects.each do |subject|
+        Saboteur::Engine::Candidates.new(sources, diagnostics, hazard_guard: guard).for(subject)
+      end
+      events, others = diagnostics.generation_events.partition { |event| event.source == "hazard_guard" }
+      expect(events).not_to be_empty
+      expect(others).not_to be_empty
+      run_preview(settings, format: "json")
+      hazards = payload["skipped"].select { |entry| entry["reason"] == "hazardous" }
+      expect(hazards).to eq(events.map do |event|
+        { "subject" => event.subject, "operator" => event.operator.to_s, "file" => base, "reason" => "hazardous" }
+      end)
+    end
+
+    it "locates the line from the first edit when a mutant edits several lines" do
+      File.write(target.file, "class PreviewCases\n  def m(x)\n    {\n      a: x,\n      b: x\n    }\n  end\nend\n")
+      settings = config(operators: ["pair_removal"])
+      subject = Saboteur::SubjectFinder.new.call(target.file).subjects.first
+      diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+      guard = Saboteur::MutationSource::HazardGuard.new(settings["hazard"])
+      multi = Saboteur::Engine::Candidates
+              .new(Saboteur::Engine::Candidates.build_sources(settings), diagnostics, hazard_guard: guard)
+              .for(subject).map(&:first).select do |mutation|
+        mutation.edits.size > 1 &&
+          subject.line_of(mutation.edits.first.start_byte) != subject.line_of(mutation.edits.last.start_byte)
+      end
+      expect(multi).not_to be_empty
+      run_preview(settings, format: "json")
+      multi.each do |mutation|
+        digest = mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+        entry = payload["mutants"].find { |candidate| candidate["digest"] == digest }
+        expect(entry).not_to be_nil
+        expect(entry["line"]).to eq(subject.line_of(mutation.edits.first.start_byte))
+      end
+    end
   end
 end

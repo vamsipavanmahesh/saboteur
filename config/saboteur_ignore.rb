@@ -773,4 +773,34 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
+  i.mutation "4e0d9e10a1d1193d",
+             subject: "Saboteur::Preview#planned",
+             reason: "equivalent: the record_skip calls this guard gates only write to @skipped, which is read " \
+                     "solely by print_inventory; print_inventory runs only in json mode, where @json is already true"
+
+  i.mutation "c24fd3712e351930",
+             subject: "Saboteur::Preview#planned",
+             reason: "equivalent: at size == limit the >= branch records a zero-count omission and skips nothing, " \
+                     "and dry-run output reads omissions only as sum(&:count), so nothing observable changes"
+
+  i.mutation "9e7b23c513922ced",
+             subject: "Saboteur::Preview#planned",
+             reason: "equivalent: the block's @skipped append is the whole behavior and the enumerator's return " \
+                     "value is unused, so each and map agree"
+
+  i.mutation "f678a7b533ec56a6",
+             subject: "Saboteur::Preview#planned",
+             reason: "equivalent: the block's @inventory append is the whole behavior and the enumerator's return " \
+                     "value is unused, so each and map agree"
+
+  i.mutation "e2ab34c9185bc8b1",
+             subject: "Saboteur::Preview#estimated_seconds",
+             reason: "equivalent: work_seconds rescues StandardError and returns nil, so calling it with a nil map " \
+                     "yields nil exactly like the && guard"
+
+  i.mutation "53b1c800a4bd394d",
+             subject: "Saboteur::Preview#source_span",
+             reason: "equivalent: an in-range two-arg byteslice is already a String, so .to_s only matters for " \
+                     "the out-of-range nil that in-range edits never produce"
+
 end
