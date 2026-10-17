@@ -35,6 +35,20 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     false
   end
 
+  # #411: a spec that calls exit at load makes rspec-core set the quit flag
+  # and re-raise SystemExit. The run must refuse - exit 3 with the refusal
+  # on stderr and rspec's wording naming the file on stdout - never adopt
+  # the spec's own status: exit(0) would pass CI without mutating anything.
+  it "refuses the run when a spec file calls exit at load" do
+    File.write(File.join(dir, "spec", "exit_spec.rb"), "exit(0)\n")
+
+    run = saboteur(dir, "--all")
+
+    expect(run.status).to eq(3)
+    expect(run.err).to include("called exit while loading")
+    expect(run.out).to include("exit_spec.rb")
+  end
+
   it "exits 3 and names the cache dir when it is read-only" do
     cache = File.join(dir, ".saboteur")
     FileUtils.mkdir_p(cache)
