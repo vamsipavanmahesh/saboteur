@@ -95,6 +95,24 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
       expect(replacements("xs.any? { |x| log(x) }\n    xs.sum")).not_to be_empty
     end
 
+    # A lazy receiver changes everything: lazy.map never runs the block
+    # (the value is discarded AND the enumeration is deferred), so each ->
+    # map on it drops the side effects - not an equivalent mutant (#431).
+    it "still swaps each in a non-last statement on a lazy receiver (#431)" do
+      expect(replacements("xs.lazy.each { |x| log(x) }
+    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps map in a non-last statement on a lazy receiver (#431)" do
+      expect(replacements("xs.lazy.map { |x| log(x) }.force
+    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps each in a non-last statement when lazy is deeper in the chain (#431)" do
+      expect(replacements("xs.lazy.select { |x| x }.each { |x| log(x) }
+    xs.sum")).not_to be_empty
+    end
+
     it "still swaps min in a non-last statement (out of #399's scope)" do
       expect(replacements("xs.min { |x| x }\n    xs.sum")).not_to be_empty
     end
