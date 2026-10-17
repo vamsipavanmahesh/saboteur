@@ -89,12 +89,15 @@ module Saboteur
 
       # Resolves the subject's owner the way Ruby would resolve the nesting in
       # the file. const_get also triggers autoload (Zeitwerk) before any reopening.
+      # A `class << self` scope resolves the scopes after it (a factory
+      # constant assigned there binds on the singleton class, #352); when the
+      # subject's own scope is the singleton class, the owner is still the
+      # attached class.
       def resolve_owner(subject)
-        scopes = [Object]
-        subject.nesting.reject(&:sclass?).each do |scope|
-          scopes << resolve_path(scope.path, scopes)
+        scopes = subject.nesting.each_with_object([Object]) do |scope, resolved|
+          resolved << (scope.sclass? ? resolved.last.singleton_class : resolve_path(scope.path, resolved))
         end
-        owner = scopes.last
+        owner = subject.sclass ? scopes[-2] : scopes.last
         raise Error, "#{subject.owner} is not a class or module" unless owner.is_a?(Module)
 
         owner

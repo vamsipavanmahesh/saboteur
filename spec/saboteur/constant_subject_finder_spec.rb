@@ -47,11 +47,27 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
     expect(parsed.subjects.first.owner).to eq("A::B")
   end
 
-  # A factory block opens its own scope under the enclosing nesting:
-  # constants in the block belong to the factory's class, under its module.
-  it "keeps the enclosing module when a factory block opens a scope" do
+  # A factory block opens no lexical constant scope: a constant assigned in
+  # the block binds on the enclosing lexical scope, never on the class the
+  # factory builds (#352).
+  it "names a factory-block constant by its lexical owner" do
     parsed = find("module M\n  Point = Data.define(:x) do\n    HELPER = [1]\n  end\nend\n")
-    expect(parsed.subjects.map(&:id)).to include("M::Point::HELPER")
+    subject = parsed.subjects.first
+    expect(subject.id).to eq("M::HELPER")
+    expect(subject.skip_reason).to be_nil
+  end
+
+  # A `class` keyword inside a factory block re-enters the lexical scope: the
+  # class and its constants bind on the enclosing lexical scope, so
+  # `FactoryProbe::Nested::RULES` is an ordinary subject, not a phantom
+  # `FactoryProbe::Outer::Nested::RULES` skipped as defined inside a
+  # block (#352).
+  it "names a class declared inside a factory block by its lexical owner" do
+    parsed = find("module FactoryProbe\n  Outer = Class.new do\n    class Nested\n      " \
+                  "RULES = { a: 1 }\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["FactoryProbe::Nested::RULES"])
+    expect(parsed.subjects.first.skip_reason).to be_nil
+    expect(parsed.unsupported).to be_empty
   end
 
   it "looks through .freeze calls" do
@@ -112,12 +128,12 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
                                                     "its value is not a hash or array literal"])
   end
 
-  it "treats a class factory as a scope, not as data: constants in its block belong to it" do
+  it "treats a class factory as a scope, not as data: a constant in its block binds lexically" do
     parsed = find("Point = Data.define(:x) do\n  MAP = { a: 1 }\nend\n")
     expect(parsed.unsupported).to be_empty
     subject = parsed.subjects.first
-    expect(subject.id).to eq("Point::MAP")
-    expect(subject.skip_reason).to eq("defined inside a block")
+    expect(subject.id).to eq("MAP")
+    expect(subject.skip_reason).to be_nil
   end
 
   it "marks a constant inside a block as skipped, like a def" do
@@ -295,6 +311,21 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "walk branches (#319 dogfood)" d
     expect(parsed.subjects.first.skip_reason).to eq("defined inside a block")
   end
 
+  # A keyword class or module re-enters the lexical scope even inside an
+  # ordinary block: `class Nested` binds on M, so its constant is an
+  # ordinary subject, not one defined inside a block (#352).
+  it "treats a constant in a keyword class inside an ordinary block as an ordinary subject" do
+    parsed = find("module M\n  1.times do\n    class Nested\n      RULES = { a: 1 }\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["M::Nested::RULES"])
+    expect(parsed.subjects.first.skip_reason).to be_nil
+  end
+
+  it "treats a constant in a keyword module inside an ordinary block as an ordinary subject" do
+    parsed = find("module M\n  1.times do\n    module Nested\n      RULES = { a: 1 }\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["M::Nested::RULES"])
+    expect(parsed.subjects.first.skip_reason).to be_nil
+  end
+
   it "finds a constant write nested inside a literal value" do
     parsed = find("MAP = { x: (Y = []) }\n")
     expect(parsed.subjects.map(&:id)).to eq(%w[MAP Y])
@@ -302,9 +333,9 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "walk branches (#319 dogfood)" d
 
   it "keeps the factory's receiver and arguments in the enclosing scope" do
     parsed = find("Point = Data.define(FIELDS = [:x]) do\n  HELP = [1]\nend\n")
-    point = parsed.subjects.find { |s| s.id == "Point::HELP" }
-    expect(point.nesting.last.path).to eq("Point")
-    expect(point.nesting.last.kind).to eq(:class)
+    help = parsed.subjects.find { |s| s.id == "HELP" }
+    expect(help.nesting.last.path).to eq("Point")
+    expect(help.nesting.last.kind).to eq(:factory)
     expect(parsed.subjects.map(&:id)).to include("FIELDS")
   end
 
