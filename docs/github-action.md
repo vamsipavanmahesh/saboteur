@@ -173,8 +173,8 @@ looks wrong, set `cache: "false"`. That skips the restore and passes
 saboteur selected for the run once: the inferred specs by default, or the whole
 suite when the run passes `--all`.
 
-The cache key uses the runner OS, `Gemfile.lock` and `config/saboteur.rb`, plus the
-commit. A run restores the newest earlier entry with the same prefix. If you
+The cache key uses the runner OS, `Gemfile.lock`, `config/saboteur.rb`,
+`config/saboteur_custom_map.rb` and `config/saboteur_ignore.rb`, plus the commit. A run restores the newest earlier entry with the same prefix. If you
 change `cache_dir` in `config/saboteur.rb`, the action does not cache your new
 directory. Verdict reuse (`--incremental`) is not on by default and is not
 cached.
@@ -205,4 +205,3 @@ script against a stand-in saboteur command, including real shallow-fetch and
 merge-base cases, annotation escaping, artifact handling, and malformed
 reports. The repository's dogfood workflow uses the action on its own pull
 requests.
-
