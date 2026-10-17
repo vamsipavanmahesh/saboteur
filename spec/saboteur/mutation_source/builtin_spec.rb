@@ -200,6 +200,42 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    logger.info(msg: a)\n    a", "pair_removal")).to be_empty
     end
 
+    it "walks the block body of an arid statement: the call is noise, the block is real work" do
+      body = "    ActiveSupport::Notifications.instrument \"m.compile\" do |payload|\n      " \
+             "payload[:a] = b\n      " \
+             "payload[:c] = d || e\n    " \
+             "end"
+      head = "ActiveSupport::Notifications.instrument \"m.compile\" do |payload|\n"
+      expect(texts(body, "statement_removal")).to eq(["#{head}      nil\n      payload[:c] = d || e\n    end",
+                                                      "#{head}      payload[:a] = b\n      nil\n    end"])
+      expect(texts(body, "boolean_logic").size).to eq(3)
+    end
+
+    it "keeps an arid statement with a real block out of nothing-to-remove" do
+      body = "    ActiveSupport::Notifications.instrument \"m.compile\" do |payload|\n      " \
+             "payload[:a] = b\n    " \
+             "end"
+      expect(texts(body, "body_nil")).to eq(["nil"])
+    end
+
+    it "still treats an arid statement whose block is only noise as noise" do
+      expect(texts("    Notifications.instrument(\"x\") { puts y }", "body_nil")).to be_empty
+    end
+
+    it "mutates the body when the arid statement's block mixes noise with real work" do
+      body = "    Notifications.instrument \"x\" do\n      puts y\n      real_work\n    end"
+      expect(texts(body, "body_nil")).to eq(["nil"])
+    end
+
+    it "treats an arid call with a &: block argument as noise, not a crash" do
+      expect(texts("    p(&:first)", "body_nil")).to be_empty
+    end
+
+    it "still treats an arid statement without a block, or with an empty one, as noise" do
+      expect(texts("    Notifications.instrument \"x\"\n    logger.info(a)", "body_nil")).to be_empty
+      expect(texts("    Notifications.instrument(\"x\") {}", "body_nil")).to be_empty
+    end
+
     it "wires custom arid patterns into element removal" do
       source = described_class.new(arid: ['\\Atrack\\b'])
       subject = subjects_in("class K\n  def m\n    track([1, 2])\n    use([3, 4])\n  end\nend\n").first

@@ -8,6 +8,15 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- An arid statement (a logging or instrumentation call) whose block carries
+  real work is now mutated inside the block (#464). The walk used to skip
+  the whole statement, so a method like one wrapped in
+  `Notifications.instrument ... do |payload| ... end` produced only the
+  coarse `body_raise` and no statement_removal, boolean_logic or other
+  fine mutants on the changed lines. The block body is walked like any
+  other, and such a statement also keeps the method out of the
+  nothing-to-remove coarse check.
+
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
