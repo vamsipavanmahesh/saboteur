@@ -169,8 +169,9 @@ name contains a hash of the files it was built from, so changing a listed input
 hash cannot see everything: an environment variable, a database fixture or the
 Ruby version can change coverage without changing a listed file. If a run
 looks wrong, set `cache: "false"`. That skips the restore and passes
-`--no-cache`, which makes saboteur rebuild the map. Building the map runs your
-whole suite once, which is the fixed cost of a run.
+`--no-cache`, which makes saboteur rebuild the map. The rebuild runs the specs
+saboteur selected for the run once: the inferred specs by default, or the whole
+suite when the run passes `--all`.
 
 The cache key uses the runner OS, `Gemfile.lock` and `config/saboteur.rb`, plus the
 commit. A run restores the newest earlier entry with the same prefix. If you

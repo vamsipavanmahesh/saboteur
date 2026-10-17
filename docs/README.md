@@ -19,7 +19,7 @@
 - [GitHub Action](github-action.md) - advisory-by-default PR checks, baseline gate.
 - [Scores](scores.md) - what every number on the report counts.
 - [Stability policy](stability.md) - the agent JSON, exit codes and report contracts.
-- [Baseline stability check](baseline-stability.md) - the two unchanged-suite runs.
+- [Baseline stability check](baseline-stability.md) - the unchanged-suite runs before mutants start.
 - [Rejected kills](rejected-kills.md) - why a kill can turn into an error.
 - [Survivor ranking](survivor-ranking.md) - the review order of findings.
 - [Recipes](recipes/README.md) - hooks for common test tools.
