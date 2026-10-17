@@ -109,7 +109,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
   it "refuses the run when every --subject pattern matches nothing" do
     file = write("cart.rb", source)
     expect { select([file], subjects: ["Shop::Car", "Nope"]) }
-      .to raise_error(Saboteur::ConfigError, /--subject Shop::Car, Nope matches no subject/)
+      .to raise_error(Saboteur::ConfigError,
+                      "--subject Shop::Car, Nope matches no subject (patterns are names like " \
+                      "Klass, Klass#meth or Klass.meth, not globs)")
   end
 
   # Patterns are names, not globs: "Item*" matches nothing. A partial
@@ -120,6 +122,13 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(diagnostics.warnings).to eq(["--subject Cart* matches no subject (patterns are names like " \
                                         "Klass, Klass#meth or Klass.meth, not globs)",
                                         "1 of 2 --subject patterns matched"])
+  end
+
+  # The count is a subtraction, not a restatement of the miss count: with
+  # three patterns and one miss the matched count is two (#379 dogfood).
+  it "reports the matched count when only one of three patterns misses" do
+    select([write("cart.rb", source)], subjects: ["Shop::Cart", "Shop::Cart.empty", "Nope"])
+    expect(diagnostics.warnings).to include("2 of 3 --subject patterns matched")
   end
 
   it "keeps only methods with a line changed since the ref" do
