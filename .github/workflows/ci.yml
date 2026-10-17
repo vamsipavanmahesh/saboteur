@@ -21,9 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Namespace trial: macOS legs run on nscloud (Apple Silicon, 6 vCPU / 14 GB).
-        # Revert to macos-latest to fall back to GitHub-hosted runners.
-        os: [ubuntu-latest, nscloud-macos-sequoia-arm64-6x14]
+        os: [ubuntu-latest, macos-latest]
         ruby: ["3.3", "3.4", "ruby"] # "ruby" = latest stable
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
