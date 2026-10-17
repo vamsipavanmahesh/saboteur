@@ -713,4 +713,8 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "d9aeb909564db3e1",
+             subject: "Saboteur::Engine::SubjectSelection#by_pattern",
+             reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
 end
