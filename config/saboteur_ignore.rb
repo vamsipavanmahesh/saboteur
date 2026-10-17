@@ -797,4 +797,33 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
+  i.mutation "b555c2d28d9c78cf",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent: with empty nesting the loop never runs and the trailing parts.empty? returns nil " \
+                     "identically; the early return is a fast path, not behavior (10-fixture probe, no divergence)"
+
+  i.mutation "2cbbbc0d9f00d01a",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent: the block's parts/factory_path mutations are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree (10-fixture probe, no divergence)"
+
+  i.mutation "736552442b711990",
+             subject: "Saboteur::ConstantSubjectFinder#walk_singleton_class",
+             reason: "equivalent: a singleton scope's path is never read - Scope#header returns the literal " \
+                     "'class << self', owner_path branches on the sclass? kind, and the reevaluator resolves via " \
+                     "singleton_class - so the string surfaces in no output (10-fixture probe, no divergence)"
+
+  i.mutation "b02e8e86ab88faa3",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent (unreachable): keyword classes and nested factories reject factories from the " \
+                     "nesting, so a factory scope is always last or followed only by one singleton scope; after " \
+                     "the singleton branch consumes factory_path no later iteration can read the stale value " \
+                     "(10-fixture probe over factory/sclass/keyword shapes, no divergence)"
+
+  i.mutation "f03123ea505a2c88",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent (unreachable): factory_path is non-nil only immediately after a factory scope, " \
+                     "and a plain class/module scope never follows a factory in the nesting (lexical_nesting " \
+                     "rejects factories), so the plain branch always sees nil (10-fixture probe, no divergence)"
+
 end
