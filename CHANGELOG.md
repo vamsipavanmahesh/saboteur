@@ -140,6 +140,15 @@ All notable changes are documented here. The format follows
   (`.rspec` `--format progress`) and spec output stay on stdout and cannot
   corrupt the report.
 
+
+- `--incremental` no longer reuses a verdict when a file the covering
+  tests touched changed: the dependency files from the run's coverage map
+  join the verdict fingerprint (#197). The same holds for a dependency
+  with only method coverage (an endless def), a file that ran while the
+  app loaded, a loaded source the coverage map never observed, and a
+  helper required lazily inside a test outside the include list, which
+  the coverage build now records in the map so its changes invalidate
+  verdicts too (#344, #353; coverage map format 10).
 - `--test-command` survivors no longer carry the `missing_test`
   classification: the run's only recorded evidence is the pseudo-test id,
   which is not real coverage (#305).
