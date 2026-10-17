@@ -78,7 +78,7 @@ RSpec.describe Saboteur::Gates do
       report = report_with([[charge, :killed], [charge, :survived], [old, :killed], [old, :killed]])
       found = score_gates("app/payments/**/*", 90).violations(report)
       expect(found.map(&:cause)).to eq(["scoreGate"])
-      expect(found.first.message).to include("app/payments/**/*", "50", "90")
+      expect(found.first.message).to include("app/payments/**/*", "score 50.0 below 90")
     end
 
     it "still matches gates when the project root is a symlink" do
@@ -92,6 +92,12 @@ RSpec.describe Saboteur::Gates do
     it "passes when the subset meets its floor" do
       charge = subject_at("app/payments/charge.rb", 1)
       report = report_with([[charge, :killed], [charge, :survived]])
+      expect(score_gates("app/payments/**/*", 50).violations(report)).to be_empty
+    end
+
+    it "passes when the subset scores strictly above its floor" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      report = report_with([[charge, :killed], [charge, :killed], [charge, :survived]])
       expect(score_gates("app/payments/**/*", 50).violations(report)).to be_empty
     end
 
