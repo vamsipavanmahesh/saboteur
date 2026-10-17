@@ -801,4 +801,28 @@ Saboteur.ignore do |i|
   i.mutation "15307bd521a10280",
              subject: "Saboteur::Subject#contains_edit?",
              reason: "equivalent: prism nodes delegate end_offset to their location"
+
+  i.mutation "246ec3db3f5b071f",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: a child passing only the end-side check starts after the edit starts, so the recursion finds no deeper statement and returns the same found"
+
+  i.mutation "49fd677035a05b1e",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: same as the dropped start-side check - a child that starts after the edit cannot contain it, so the outcome never changes"
+
+  i.mutation "32ae9c2e217dfa10",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: prism nodes delegate start_offset to their location"
+
+  i.mutation "037d2ad73ecee43b",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: prism nodes delegate end_offset to their location"
+
+  i.mutation "1a1000b9463ba380",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: comparing start_offset with itself is always true, and a child passing only the end-side check cannot contain the edit, so the recursion returns the same found"
+
+  i.mutation "01db290da06b7eb7",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: start_byte <= start_byte is always true, and a child passing only the end-side check cannot contain the edit, so the recursion returns the same found"
 end
