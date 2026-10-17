@@ -15,6 +15,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The artifact dir now ignores itself (#426): a run writes logs,
+  coverage maps and reports under the cache dir, and the marker
+  `.gitignore` keeps a `git add -A` from committing them. An existing
+  `.gitignore` there is left alone.
+
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a
