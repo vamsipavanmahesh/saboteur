@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A class factory assigned inside `class << self` no longer shares its
+  method ids with a same-named factory in the class body (#406). The two
+  unrelated classes each keep their own subjects: the singleton-side one is
+  now named `Host.singleton_class::Widget#doubled`, so reports, `--subject`
+  filters, ignore entries and the unchanged-syntax comparison can name it.
+
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
   class, so re-evaluation now resolves a factory constant after a sclass

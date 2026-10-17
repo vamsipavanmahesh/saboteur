@@ -368,4 +368,26 @@ RSpec.describe Saboteur::SubjectFinder do
   it "drops a top-level define_method with no owner, like a top-level def (#194)" do
     expect(ids("define_method(:m) { 1 }\n")).to eq([])
   end
+
+  # A factory constant assigned inside class << self binds on the singleton
+  # class (#352): two unrelated classes each get their own method, so the
+  # subjects must not share one id (#406). Mirrors the constant-side
+  # singleton_class rendering (#380).
+  it "gives a factory def inside class << self a singleton_class owner, distinct from the class-body twin" do
+    source = <<~RUBY
+      class Host
+        Widget = Data.define(:count) do
+          def doubled = count * 100
+        end
+        class << self
+          Widget = Data.define(:count) do
+            def doubled = count * 2
+          end
+        end
+      end
+    RUBY
+    found = subjects_in(source)
+    expect(found.map(&:id)).to eq(["Host::Widget#doubled", "Host.singleton_class::Widget#doubled"])
+    expect(found.map { |subject| [subject.singleton, subject.sclass] }).to eq([[false, false], [false, false]])
+  end
 end
