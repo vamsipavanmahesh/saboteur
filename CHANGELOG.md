@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- ERB generator templates (`.rb` files with ERB interpolation, as Rails
+  generators carry under `lib/generators/**/templates/`) no longer print a
+  per-file "does not parse" warning on every discovery pass: they can
+  never parse as plain Ruby, so they are skipped with one summarized note
+  per run. A real syntax error in a plain Ruby file still warns per file
+  (#372).
+
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
