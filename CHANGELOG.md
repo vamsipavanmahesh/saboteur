@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `--flaky-check survivors|decisive` (#476): one reordered confirmation
+  rerun per new survivor (and per fresh kill in `decisive` mode). A
+  verdict the confirmation disagrees with becomes `unverified` - named
+  with its decisive tests, outside the score, never retried until it
+  passes.
 - `saboteur badge` writes Shields endpoint JSON from the opt-in score
   history and `saboteur trend` prints the covered-score delta against the
   last comparable record (#474). A README badge needs no hosted service:
