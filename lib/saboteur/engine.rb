@@ -210,7 +210,7 @@ module Saboteur
       selection = SubjectSelection.new(config, @diagnostics,
                                        test_files: test_files, custom_map: load_custom_map)
       subjects = selection.select(files)
-      scope = selection.changed_lines && DiffScope.new(selection.changed_lines)
+      scope = selection.behavior_lines && DiffScope.new(selection.behavior_lines)
       return replay_subject(subjects, scope) if @replay
 
       [subjects, scope]

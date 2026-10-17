@@ -236,6 +236,29 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
                                     "skipped: Cart#count")
     end
 
+    # The layout filter narrows mutants, never subject selection (#313): a
+    # re-indented method is still found, then reported as formatting-only.
+    it "reports a method that was only re-indented as formatting-only, not as a file without subjects" do
+      file = commit_base(two_methods)
+      File.write(file, two_methods.sub("    1 + 1\n", "      1 + 1\n"))
+
+      expect(select([file], since: "HEAD")).to be_empty
+      expect(err.string).to eq("saboteur: 1 changed subject(s) differ only in comments or formatting, " \
+                               "so they are skipped: Cart#total\n")
+    end
+
+    it "reports a re-indented sibling beside a real edit, and scopes mutants to the real edit" do
+      file = commit_base(two_methods)
+      File.write(file, two_methods.sub("1 + 1", "1 + 2").sub("    2\n", "      2\n"))
+      selection = Saboteur::Engine::SubjectSelection.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root),
+                                                         diagnostics)
+
+      expect(selection.select([file]).map(&:id)).to eq(["Cart#total"])
+      expect(err.string).to include("skipped: Cart#count")
+      expect(selection.changed_lines.values.first).to eq(Set[3, 7])
+      expect(selection.behavior_lines.values.first).to eq(Set[3])
+    end
+
     def commented_methods(count)
       text = (1..count).map { |n| "  def m#{n}\n    #{n}\n  end\n" }.join("\n")
       file = commit_base("class Cart\n#{text}end\n")
@@ -255,9 +278,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
     it "scopes the diff to the selected files and reports through the run diagnostics" do
       file = commit_base(two_methods)
-      allow(Saboteur::Selection::GitDiff).to receive(:changed_lines).and_call_original
+      allow(Saboteur::Selection::GitDiff).to receive(:line_maps).and_call_original
       select([file], since: "HEAD")
-      expect(Saboteur::Selection::GitDiff).to have_received(:changed_lines)
+      expect(Saboteur::Selection::GitDiff).to have_received(:line_maps)
         .with("HEAD", root: @root, include: [file].to_set, diagnostics: diagnostics)
     end
 

@@ -645,6 +645,16 @@ Saboteur.ignore do |i|
   i.mutation "71f06a1870dbfcb4",
              subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
              reason: "equivalent: the loop's Unsupported-building side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "782448b779a4bb89",
+             subject: "Saboteur::Selection::GitDiff#drop_layout_only_lines",
+             reason: "equivalent: without the slash the path starts with /, and git show reads base:.//path like base:./path"
+
+  i.mutation "7929cdd27cf508cb",
+             subject: "Saboteur::Selection::LayoutOnlyLines#base_line_of",
+             reason: "equivalent: start <= line differs from start + count <= line only for a line inside a -b hunk, " \
+                     "which restrict keeps through spaced_lines whatever same_tokens? answers"
+
   i.mutation "bf95736e576b6691",
              subject: "Saboteur::SubjectFinder#walk",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
@@ -716,4 +726,12 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "d689ef2e6305183f",
+             subject: "Saboteur::SubjectFinder#owner_path",
+             reason: "equivalent: nesting[index..] adds only the sclass scope itself to the any?(&:factory?) check, and a scope's kind is either :sclass or :factory, never both"
+
+  i.mutation "70a77934c3856a1e",
+             subject: "Saboteur::SubjectFinder#owner_path",
+             reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
 end

@@ -18,7 +18,7 @@ RSpec.describe Saboteur::Engine, "ignore list warnings" do
       integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       ignore_list = instance_double(Saboteur::IgnoreList, apply: ["ignored survivor abc is gone"])
       allow(Saboteur::IgnoreList).to receive(:load).and_return(ignore_list)

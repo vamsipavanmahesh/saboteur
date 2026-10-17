@@ -51,11 +51,14 @@ function panel(comments, head, revoked = {}) {
   }
   return Object.fromEntries(latest);
 }
-function jobsPass(jobs, names, head) {
-  demand(jobs.length === names.length, 'unexpected job count');
-  demand(new Set(jobs.map(j => j.name)).size === names.length, 'duplicate jobs');
+function jobsPass(jobs, names, head, advisory = []) {
+  // Advisory legs (a proving Ruby line) may be present or absent and never
+  // change the verdict. Any other unexpected job still fails closed.
+  const counted = jobs.filter(j => !advisory.includes(j.name));
+  demand(counted.length === names.length, 'unexpected job count');
+  demand(new Set(counted.map(j => j.name)).size === names.length, 'duplicate jobs');
   for (const name of names) {
-    const job = jobs.find(j => j.name === name);
+    const job = counted.find(j => j.name === name);
     demand(job && job.head_sha === head && job.status === 'completed' && job.conclusion === 'success', `job not green: ${name}`);
   }
 }
@@ -240,7 +243,9 @@ async function workflows(api, number, head) {
     demand(fresh.id === run.id && matches(fresh) && Number.isSafeInteger(fresh.run_attempt) && fresh.run_attempt > 0 &&
       fresh.status === 'completed' && fresh.conclusion === 'success', `workflow not green: ${path}`);
     const jobs = await api.pages(`actions/runs/${run.id}/attempts/${fresh.run_attempt}/jobs`, 'jobs');
-    jobsPass(jobs, names, head);
+    const advisory = policy.advisoryJobs?.[path] ?? [];
+    demand(advisory.every(n => !names.includes(n)), `advisory job also required: ${path}`);
+    jobsPass(jobs, names, head, advisory);
     checked.push({path, id: fresh.id, attempt: fresh.run_attempt, status: fresh.status, conclusion: fresh.conclusion,
       jobs: jobs.map(j => [j.id, j.name, j.head_sha, j.status, j.conclusion]).sort((a, b) => a[1].localeCompare(b[1]))});
   }

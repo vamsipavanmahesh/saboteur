@@ -27,8 +27,13 @@ code, so a broken suite never counts as a kill.
 You need Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
 
 ```sh
+# Install the gem:
 gem install saboteur
-# or: bundle add saboteur --group test
+
+# Or add it to the Gemfile:
+bundle add saboteur --group test
+
+# Either way:
 bundle exec saboteur run
 ```
 
@@ -37,7 +42,9 @@ map is cached and reused while your code and tests stay unchanged, so
 later runs start fast.
 
 On a branch, `bundle exec saboteur pr` mutates only the methods you
-changed, with one baseline pass and a ten-minute budget.
+changed relative to `main`, with one baseline pass and a ten-minute
+budget. Pass `--since` for a different base, for example
+`bundle exec saboteur pr --since master`.
 
 Setup, configuration and CI:
 [the quickstart](https://vamsipavanmahesh.github.io/saboteur/quickstart.html).
@@ -75,7 +82,8 @@ never change the score.
 - **A review workflow.** An ignore list with reasons and triage states,
   an opt-in survivor baseline, score thresholds and score history.
 - **Safety controls.** A hazard guard, canary values, and time, memory
-  and process-count limits on every mutant; a Landlock sandbox on Linux
+  and process-count limits on every mutant in the default in-process
+  mode; a Landlock sandbox on Linux
   6.2 and newer.
 - **Extension points.** Add your own mutation operators through the
   public interface.
@@ -138,6 +146,13 @@ Saboteur.configure do |c|
   c.jobs = 4                           # optional; the default is 1
 end
 ```
+
+## SimpleCov
+
+saboteur needs Ruby's `Coverage` for itself, so leave SimpleCov off for
+saboteur runs - for example, start it only when `ENV["COVERAGE"]` is set.
+The [recipes](docs/recipes/README.md) cover this and VCR, WebMock and
+Sidekiq.
 
 <a id="dated-validation-runs"></a>
 <a id="where-it-has-run"></a>
