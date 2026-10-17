@@ -8,13 +8,37 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `c.sandbox = "seatbelt"`, an opt-in macOS sandbox for mutant children
+  (#436): each child applies a Seatbelt profile (writes denied except the
+  granted dirs, the system temp dir, and its own inherited logs) via
+  `sandbox_init`, after a forked probe proves a deny-default profile
+  really blocks a write. A macOS without Seatbelt degrades to the hazard
+  guard and canary with a one-time note; an errored probe or a profile
+  that does not enforce refuses the run (the Landlock probe's pinned
+  semantics, #178), and a child whose profile refuses to apply fails
+  closed instead of running the mutant.
+  On Linux the value behaves like `true`. Opt-in because Apple deprecates
+  `sandbox_init` without a published replacement; #436 tracks the
+  ecosystem's response.
+- `saboteur run --dry-run --format json` prints a versioned machine-readable
+  mutant inventory without booting the suite (#469): schema version, run
+  metadata, subjects, every planned mutant with its stable digest, operator,
+  file, line and byte-range edits, and every skipped candidate with its
+  reason (inline suppression, hazard refusal or the per-method cap).
+  `--dry-run --agent` now names this flag instead of only refusing.
+- A `regex_replacement` operator (#135): drops each regex anchor
+  (`\A`, `\z`, `\Z`, `^`, `$`) in turn and swaps each bare `+` or `*`
+  quantifier, so a validation like `/\A\d+\z/` finally gets mutants.
+  Escaped characters, character classes and lazy or possessive stacks stay
+  untouched; interpolated regexes stay out. The operator policy version
+  moves to 3: histories stamped with an older policy stay readable but
+  never trend-compare against new runs.
 - Methods defined by a non-interpolated `class_eval`/`module_eval` heredoc
   are mutation subjects (#544): the heredoc body is re-parsed against the
   real file's bytes, so mutants inside it are generated and judged like
   ordinary defs (the faraday shape that used to produce 0 subjects). An
   interpolated heredoc still yields no subjects and keeps the
   code-in-strings warning (#467).
-
 - Per-path score gate config (#473, slice 1): `score_gate "app/payments/**/*",
   min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
   validated at load (min_score 0-100, pattern must match an included file).
@@ -26,6 +50,11 @@ All notable changes are documented here. The format follows
   non-additive. The section is omitted where procfs is unavailable.
 ### Changed
 
+- A run whose effective include set selects no Ruby file now refuses with
+  exit 2 instead of passing with 0 subjects (#447). The default include
+  targets plain gems, so a first run on a Rails-shaped tree used to be a
+  green gate that mutated nothing on every CI run; the refusal names the
+  stale pattern and points at the install generator.
 - A `--subject` pattern that matches no subject now fails the run (exit 2)
   instead of passing silently with zero subjects (#379). When some patterns
   match, the run keeps them and the summary names the missing pattern and
@@ -39,6 +68,104 @@ All notable changes are documented here. The format follows
   subject with its reason, and a partially skipped diff announces each
   skip up front instead of only in the end-of-run summary (#574).
 
+- `c.sandbox = "seatbelt"` grants now match real paths on macOS: the
+  kernel resolves `/var` to `/private/var` when it checks a write
+  against a Seatbelt subpath grant, so a granted dir under a symlinked
+  parent (like `Dir.mktmpdir` under `/var/folders`) silently matched
+  nothing and the child saw its own writable dir denied. Granted dirs
+  are now resolved with `File.realpath` before the profile is built,
+  the same view `fcntl(F_GETPATH)` reports back.
+
+- The artifact dir now ignores itself (#426): a run writes logs,
+  coverage maps and reports under the cache dir, and the marker
+  `.gitignore` keeps a `git add -A` from committing them. An existing
+  `.gitignore` there is left alone.
+- Rejected kills no longer surface as generic errors: the terminal
+  lists them in a `Rejected kills` section and annotates the error count,
+  and report.json flags each rejected mutant with `rejectedKill: true`
+  instead of carrying only the `rejectedKills` count (#375).
+
+- A changed file the diff only deletes from no longer hard-stops a
+  --since run for want of a spec (#484): a deletion-only file yields no
+  subject and no fine-grained mutant, so test inference treats it as
+  subjectless instead of demanding a spec, and the run goes ahead.
+- The pr preset no longer hard-stops when a changed file's coverage
+  lives in a consolidated spec the diff itself touches: a spec added
+  or changed in the diff that reads a constant the uncovered file
+  defines covers that file and runs, instead of exit 2 (#538). The
+  stop remains for a mutable change no changed spec exercises.
+- Dependency trees are never treated as changed source on a `--since`
+  run (#504): a vendored bundle or `node_modules`, tracked or
+  untracked, git-ignored or not, is rejected at enumeration, so the
+  diff scope never lists, reads or warns on it. The `.bundle/config`
+  file itself is project configuration and stays visible.
+- The project-local bundler path (`.bundle/config`'s `BUNDLE_PATH`) now
+  joins the dependency shield in its quoted and non-canonical forms
+  (#567): matching quotes are stripped, an inline `#` comment is ignored
+  the way Bundler::YAMLSerializer ignores it, a relative path is
+  normalized against the project root, and an absolute path (the system
+  bundle) stays outside the shield. A config that is not a regular file
+  or cannot be parsed - including a NUL byte in the value - means no
+  shield rather than a crash or a hang.
+
+- A `--max-duration` budget that cannot cover the cold coverage map build
+  now stops the run before the build starts, instead of spending the
+  whole budget mid-build and keeping nothing - the trap where every
+  `--incremental` resume redid the baselines and died at the same point.
+  Once the baseline passes are timed, a build costing about one more
+  full pass than the budget holds is refused up front, with the
+  shortfall and the remedies (a higher budget, fewer
+  `--baseline-passes`, or one unbudgeted run to warm the coverage
+  cache) in the message (#427).
+
+- The first-pass ETA no longer reads like a second baseline check when
+  the baseline is done (#465): with a cold coverage cache the remaining
+  pass is the coverage map build, and the message now names the coverage
+  build and any remaining baseline passes separately.
+- Def-time macro mutants - a `deprecate`-style helper, a `before_action`
+  block, any DSL whose only caller is a class body - no longer report as
+  survived: the closure captured while the app loads keeps the pristine
+  definition, so replacing the method later cannot judge them. They now
+  report as `ran at load`, outside the score (#409).
+- A mutant on the continuation line of a multi-line interpolated
+  statement is no longer misclassified missing_test (#498): attribution
+  now spans the whole enclosing statement, because an interpolation's own
+  statements are eager and Ruby's per-line events on continuation lines
+  are not reliable per example.
+- `--incremental` now sees dependency-declaration edits on projects
+  that commit no lockfile (the library convention): the verdict
+  fingerprint hashed only `Gemfile.lock` / `gems.locked`, so the digest
+  was a constant and every cached verdict was reused across a `Gemfile`,
+  `gems.rb` or `*.gemspec` edit (#408). Manifests and gemspecs anywhere
+  under the project root are hashed always.
+
+- A `--since` change inside a constant literal saboteur refuses to mutate
+  (unvettable load-time code, or an unsupported literal form) no longer
+  reads like an unexplained miss in the umbrella "no subjects covering the
+  changed lines" warning: the warning now says how many of the files sit
+  in a constant literal that is not mutated, named by the constant
+  warnings above it (#537).
+
+- ERB generator templates (`.rb` files with ERB interpolation, as Rails
+  generators carry under `lib/generators/**/templates/`) no longer print a
+  per-file "does not parse" warning on every discovery pass: they can
+  never parse as plain Ruby, so they are skipped with one summarized note
+  per run. A real syntax error in a plain Ruby file still warns per file
+  (#372).
+- A `c.sources` entry that looks like a source glob now fails with a
+  pointer to `c.include` (#488): `c.sources` registers custom operator
+  sources (`builtin` or `path.rb:ClassName`), not the files to mutate.
+- A baseline stopped by a containment limit (process count or memory)
+  now names the knob and its current value in the refusal (#459): a
+  suite that forks heavily by design, or legitimately needs more
+  memory, is pointed at `c.max_processes` / `c.max_memory_mb` instead
+  of reading as a suite failure.
+
+- A baseline that passed but leaked child processes no longer reads as a
+  suite failure quoting an empty "Failures:" section (#486): the refusal
+  says the suite passed, names each leaked process (pid and command,
+  captured before the supervisor's kill) and skips the log excerpt, which
+  only holds RSpec output.
 - Engine setup load failures are reported clearly instead of as a bare
   quit (#378): when RSpec dies while loading spec files, the error names
   the files that failed to load, parsed from RSpec's own load-failure
@@ -66,6 +193,7 @@ All notable changes are documented here. The format follows
   the generic "may not parse, or every change may sit outside a method"
   hint misdiagnosed it; the warning now names the files and the
   code-in-a-string blind spot.
+
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a
@@ -128,12 +256,32 @@ All notable changes are documented here. The format follows
   `M::HELPER` are now ordinary subjects under their lexical owner instead
   of a phantom `FactoryProbe::Outer::Nested::RULES` skipped as defined
   inside a block.
+- Constants assigned inside `class << self` are now named with their real
+  owner, the singleton class (`Host.singleton_class::RULES`), instead of the
+  attached class (#380, #390). A same-named constant in the class body no
+  longer collides with it or triggers a false "assigned more than once"
+  refusal. Read matching follows: reads inside `class << self` still count
+  toward the attached class's constant through singleton ancestry, and a
+  singleton-class write shadows the attached class's constant for reads
+  below it.
 
 - A spec file that calls `exit` at load now refuses the run with a
   clear diagnostic instead of terminating the loader mid-require (#411).
 
 ### Changed
 
+- The `each`/`map` method swap is no longer emitted where the call stands
+  as a non-last statement (#399): its return value is discarded there, and
+  both names run the same block, so the swap is treated as equivalent.
+  The last statement of a body and calls nested inside an
+  expression stay swappable, as does any call on a lazy receiver:
+  lazy.map defers its block, so the swap is not equivalent there (#431).
+  Only a `.lazy` in the receiver chain is detected: a lazy enumerator held
+  in a variable, parameter or instance variable is not, and its swaps are
+  suppressed.
+  The discard analysis now recurses through branch tails: an each/map call
+  that is the last expression of a discarded if/elsif/else/unless/case/when
+  branch, begin/rescue body, or while/until body is suppressed too (#440).
 - A `--since` run where only some changed files have a guessed spec now
   runs the mapped subset with a loud warning per unmapped file instead of
   stopping with "so nothing ran"; the stop message and the warning name
@@ -234,7 +382,6 @@ All notable changes are documented here. The format follows
   redirecting RSpec's output stream, so a project's progress formatter
   (`.rspec` `--format progress`) and spec output stay on stdout and cannot
   corrupt the report.
-
 
 - `--incremental` no longer reuses a verdict when a file the covering
   tests touched changed: the dependency files from the run's coverage map
@@ -382,7 +529,6 @@ All notable changes are documented here. The format follows
 - The stale self-deprecating benchmark claims in the README ('rerun
   pending'): speed and memory numbers now live only with the harness and raw
   data that reproduce them, or are framed as dated history (#243).
-
 
 ## [0.7.0] - 2026-10-16
 

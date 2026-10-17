@@ -24,6 +24,30 @@ RSpec.describe Saboteur::Engine, "--max-duration budget (#245)" do
     expect(err.string.scan("--max-duration reached").size).to eq(1)
   end
 
+  def unreusable_store
+    Object.new.tap { |store| def store.reusable?(_files) = false }
+  end
+
+  it "refuses a cold coverage build the budget cannot cover, naming the shortfall and remedies (#427)" do
+    engine = engine_with({ "max_duration" => 60 }, StringIO.new)
+    engine.instance_variable_set(:@run_started, Process.clock_gettime(Process::CLOCK_MONOTONIC) - 55.0)
+    expect { engine.send(:refuse_unaffordable_coverage_build, unreusable_store, [], 50.0, 2) }
+      .to raise_error(Saboteur::BudgetPhaseTimeout, /cannot cover the coverage map build.*--baseline-passes/m)
+  end
+
+  it "admits the build when the budget covers about one more pass (#427)" do
+    engine = engine_with({ "max_duration" => 120 }, StringIO.new)
+    engine.instance_variable_set(:@run_started, Process.clock_gettime(Process::CLOCK_MONOTONIC) - 55.0)
+    expect { engine.send(:refuse_unaffordable_coverage_build, unreusable_store, [], 50.0, 2) }.not_to raise_error
+  end
+
+  it "never refuses a reusable coverage map, however tight the budget (#427)" do
+    engine = engine_with({ "max_duration" => 56 }, StringIO.new)
+    engine.instance_variable_set(:@run_started, Process.clock_gettime(Process::CLOCK_MONOTONIC) - 55.0)
+    reusable = Object.new.tap { |store| def store.reusable?(_files) = true }
+    expect { engine.send(:refuse_unaffordable_coverage_build, reusable, [], 50.0, 2) }.not_to raise_error
+  end
+
   it "never trips without a configured budget" do
     engine = engine_with({}, StringIO.new)
     expect(engine.send(:budget_exceeded?)).to eq(false)
@@ -69,7 +93,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
   # entry: with the run started at 100 and the budget 60, a check at 161
   # trips. A lazy first-check clock would start at the check itself.
   it "anchors the budget clock at call entry, before boot and baselines" do
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
@@ -112,7 +136,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
   end
 
   it "hands the scheduler the budget deadline and the result cache (#245)" do
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
@@ -143,7 +167,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
   end
 
   it "installs no budget halt check without a configured budget (#245)" do
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
@@ -184,7 +208,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
   end
 
   it "reports a budget stop as max_duration even without fail_fast (#245)" do
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [])

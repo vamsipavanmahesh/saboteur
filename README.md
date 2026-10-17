@@ -70,6 +70,13 @@ Each survivor comes with its diff, the tests that ran, and a triage label
 The labels are heuristics for reading order, never a diagnosis, and they
 never change the score.
 
+Code that only runs while the app loads cannot be judged by replacing the
+method later, so it reports as `ran at load`, outside the score. The same
+holds for def-time macros - a `deprecate`-style helper, a `before_action`
+block, any DSL whose only caller is a class body: the closure captured at
+load keeps the pristine definition, so the boot's def-call counters mark
+the macro itself `ran at load` instead of letting its mutants survive.
+
 ## What you get
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
@@ -83,6 +90,9 @@ never change the score.
   before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
+- **A plan before the run.** `saboteur run --dry-run --format json` prints
+  the versioned [mutant inventory](docs/dry-run-json.md) - every planned
+  mutant with its stable digest and edits - without booting the suite.
 - **A review workflow.** An ignore list with reasons and triage states,
   an opt-in survivor baseline, score thresholds and score history.
 - **Safety controls.** A hazard guard, canary values, and time, memory
@@ -110,7 +120,9 @@ for how to pick a number.
 - `--since` and `--incremental` are iteration aids. Run the whole project
   on main and before a release.
 - The hazard guard is syntactic, sandboxing varies by platform (Landlock
-  on Linux 6.2+; mutants run unsandboxed on macOS), and network access is
+  on Linux 6.2+; on macOS mutants run unsandboxed unless `c.sandbox = "seatbelt"`
+  opts into a probe-gated Seatbelt profile; see
+  [the macOS Seatbelt sandbox](docs/guides/macos-seatbelt-sandbox.md)), and network access is
   never restricted. Stub real APIs and use a container when that matters.
 
 ### Custom spec mapping
@@ -134,6 +146,16 @@ paths, globs or Regexps; an empty array marks the file intentionally
 untested, so it needs no inferred spec. The file loads before the app
 boots, so keep it plain Ruby. `saboteur doctor` validates it.
 
+### Rejected kills
+
+The terminal lists them in a `Rejected kills` section and annotates the error
+count (`error 3 (2 rejected kills)`); JSON flags each rejected mutant with
+`rejectedKill: true` and keeps the `rejectedKills` count. These are fresh
+per-mutant kill claims whose tests also fail with the method unchanged. They
+stay errors outside the score. Timeout checks, other errors and reused cached
+kills are not included. See [rejected kills](docs/rejected-kills.md) for
+details.
+
 ### Rails apps
 
 Quickstart for a Rails + RSpec app. The defaults target a plain gem, so a
@@ -147,6 +169,11 @@ bundle exec rails generate saboteur:install
 This writes `config/saboteur.rb`, a `bin/saboteur` binstub (it sets
 `RAILS_ENV=test` for you) and a `.gitignore` entry for `.saboteur/`. It
 never overwrites an existing file unless you pass `--force`.
+
+Until a config names your sources, a run whose include selects no Ruby
+file refuses with exit 2 and points at the install generator above -
+a first CI run on an unconfigured tree fails loud instead of passing
+with 0 subjects.
 
 Prefer to do it by hand, or on a version without the generator? Put this
 in `config/saboteur.rb`:

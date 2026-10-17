@@ -61,6 +61,13 @@ Contract specs (`spec/saboteur/reporter/agent_contract_spec.rb`) fail when a
 pinned key, a `status` or `verdict` value, the version or an exit code
 moves.
 
+### The dry-run inventory (`saboteur run --dry-run --format json`)
+
+The planned mutation set as one JSON document, described in
+[dry-run-json.md](dry-run-json.md). It carries an integer `schema_version`
+(currently `1`); consumers must ignore keys they do not know, and key order
+is not API. Only a breaking change raises the number.
+
 ## How they change
 
 Each surface is governed by its own version:
@@ -77,6 +84,8 @@ Each surface is governed by its own version:
   there is no overlap period where one invocation can emit both the old and
   the new code.
 - **The machine report** follows the upstream Stryker schema versioning.
+- **The dry-run inventory** is governed by its integer `schema_version`,
+  under the same additive-versus-breaking rules as the agent payload.
 
 ## Not covered
 

@@ -506,6 +506,23 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(diagnostics.warnings.size).to eq(1)
   end
 
+  it "skips ERB generator templates with one summarized note instead of a per-file warning" do
+    template = write("migration.rb",
+                     "class AasmCreate<%= table_name.camelize %> < ApplicationMigration\nend\n")
+    expect(select([template])).to be_empty
+    expect(diagnostics.warnings.grep(/does not parse/)).to be_empty
+    expect(diagnostics.warnings.size).to eq(1)
+    expect(diagnostics.warnings.first).to include("ERB")
+  end
+
+  it "emits the ERB template note once across repeated discovery passes" do
+    template = write("x_template.rb", "class A<%= b %>\nend\n")
+    selection = described_class.new(Saboteur::Config.new({}, root: @root), diagnostics)
+    selection.select([template])
+    selection.select([template])
+    expect(diagnostics.warnings.size).to eq(1)
+  end
+
   it "warns about files that do not parse and skips them" do
     expect(select([write("broken.rb", "class X\n  def (\nend\n")])).to be_empty
     expect(diagnostics.warnings.first).to start_with("broken.rb does not parse")
@@ -811,6 +828,26 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant literals in --since
     expect(err.string).to include("1 changed subject(s) differ only in comments or formatting")
   end
 
+  # Monorepo layout: the project root sits below the git toplevel, so the
+  # diff paths carry the subdir prefix. The deletion-only exclusion must
+  # still fire - in canonical-absolute space (#484).
+  it "selects nothing from a deletion-only file when the project root sits below the git toplevel (#484)" do
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    file = commit_base("module Plugin\n  def rules\n    Helper.validate(1)\n    Helper.call(1, 2)\n  end\nend\n",
+                       "sub/plugin.rb")
+    File.write(file, "module Plugin\n  def rules\n    Helper.call(1, 2)\n  end\nend\n")
+    config = Saboteur::Config.new({ "since" => "HEAD" }, root: File.join(@root, "sub"))
+    expect(described_class.new(config, diagnostics).select([file])).to be_empty
+  end
+
+  it "returns an empty changed map and an empty behavior map when nothing changed since the ref" do
+    file = commit_base(base)
+    config = Saboteur::Config.new({ "since" => "HEAD" }, root: @root)
+    selection = described_class.new(config, diagnostics)
+    selection.select([file])
+    expect(selection.send(:changed_line_maps)).to eq([{}, {}])
+  end
+
   it "narrows constant subjects to --subject patterns by their Klass::CONST id" do
     file = commit_base(base)
     File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
@@ -892,6 +929,27 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     expect(select([file], since: "HEAD")).to be_empty
     expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
+  end
+
+  it "uses the plural form when several constant-literal files are unmatched (#537)" do
+    file_a = commit_base("rules_a.rb", "RULES_A = build_a\n")
+    file_b = commit_base("rules_b.rb", "RULES_B = build_b\n")
+    File.write(file_a, "RULES_A = build_more_a\n")
+    File.write(file_b, "RULES_B = build_more_b\n")
+
+    expect(select([file_a, file_b], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("outside a method. 2 of these files have changes " \
+                                "inside a constant literal that is not mutated")
+  end
+
+  it "counts a file with two unsupported changed constants once in the umbrella note (#537)" do
+    file = commit_base("rules.rb", "RULES = build_rules\nLIMITS = build_limits\n")
+    File.write(file, "RULES = build_more_rules\nLIMITS = build_more_limits\n")
+
+    expect(select([file], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 of these file has changes inside a constant literal that is not mutated")
   end
 
   it "admits a skipped constant through the whole_file opt-in" do
@@ -1118,6 +1176,27 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant selection edges (#3
     expect(select([file], since: "HEAD")).to be_empty
     expect(diagnostics.warnings.first).to include("changed constant RULES in rules.rb is not mutated",
                                                   ". Only hash and array literal entries are mutated")
+  end
+
+  it "splits constant-literal files out of the umbrella no-subjects warning (#537)" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nRegistry.register(RULES)\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 changed Ruby file(s)", "rules.rb",
+                                "1 of these file has changes inside a constant literal that is not mutated")
+    expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
+  end
+
+  it "leaves the umbrella hint alone when no constant warning fired" do
+    file = commit_base("note.rb", "# a note\n")
+    File.write(file, "# a note\n# more\n")
+
+    select([file], since: "HEAD")
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 changed Ruby file(s)", "note.rb", "outside a method")
+    expect(umbrella).not_to include("constant literal")
   end
 
   it "keeps a constant read at runtime even when another file captures it at load" do
