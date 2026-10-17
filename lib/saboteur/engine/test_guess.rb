@@ -25,8 +25,8 @@ module Saboteur
       # in specs; skipped_specs: spec files the diff touches that cannot run,
       # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
-                           :skipped_specs, :excluded) do
-        def initialize(changed_specs: [], skipped_specs: {}, excluded: [], **fields)
+                           :skipped_specs, :out_of_scope, :excluded) do
+        def initialize(changed_specs: [], skipped_specs: {}, out_of_scope: [], excluded: [], **fields)
           super
         end
 
@@ -57,6 +57,20 @@ module Saboteur
         def subjectless_message(since:)
           detail = since ? "no changed mutation subjects" : "no mutation subjects"
           "inferred specs: no spec is required for #{subjectless.join(', ')}: they have #{detail}"
+        end
+
+        # The stop for a --since run whose changed source files all sit outside the
+        # include scope (#483): falling back to the whole suite would run the slowest
+        # possible suite against zero subjects, so the run refuses and names what the
+        # scope hid. Append-only recovery, like unmatched_message: extend include, or
+        # name the specs with --test.
+        def out_of_scope_message
+          named = out_of_scope.first(10).join(", ")
+          more = out_of_scope.size - 10
+          named += " and #{more} more" if more.positive?
+          "no changed source file lies inside the include scope, so nothing ran. " \
+            "Changed source files outside it: #{named}. Extend include to cover them, " \
+            "or re-run the same command with one --test per existing spec path."
         end
 
         # Why an empty guess mutates nothing rather than widening the run
@@ -137,7 +151,9 @@ module Saboteur
         # subjectless file mutates nothing, so its spec would only narrow the
         # run for no reason.
         guesses = lines_by_file.except(*subjectless).to_h { |file| [file, guess_for(file)] }
-        result(guesses, subjectless, lines_by_file.size)
+        # Nothing in scope: name the changed source the include hid (#483).
+        out_of_scope = lines_by_file.empty? ? out_of_scope_source_files : []
+        result(guesses, subjectless, lines_by_file.size, out_of_scope: out_of_scope)
       end
 
       # Without --since every included file is in scope: a file needs its
@@ -180,7 +196,7 @@ module Saboteur
 
       # Changed specs join only a run that mutates something: with no file
       # in scope there is nothing for them to kill.
-      def result(guesses, subjectless, changed)
+      def result(guesses, subjectless, changed, out_of_scope: [])
         unmatched = guesses.select { |_, specs| specs.nil? }.keys
         excluded = guesses.select { |_, specs| specs == :excluded }.keys.sort
         inferred = guesses.values.grep(Array).flatten
@@ -192,7 +208,18 @@ module Saboteur
                    hints: unmatched.to_h { |file| [file, expected_spec(file, diff[:skipped])] },
                    changed_specs: diff[:run],
                    skipped_specs: diff[:skipped],
+                   out_of_scope: out_of_scope,
                    excluded: excluded)
+      end
+
+      # Changed Ruby files the include scope hides (#483), relative to the
+      # root: the diff touched source, but none of it lands inside include.
+      # A changed spec is a test, not hidden source; a spec-only diff keeps
+      # the whole-suite fallback it always had.
+      def out_of_scope_source_files
+        included = included_files.to_set
+        Selection::GitDiff.changed_paths(@config["since"], root: @root)[:present]
+                          .select { |path| path.end_with?(".rb") && !spec?(path) && !included.include?(path) }
       end
 
       # Spec files under the root that the diff since the base adds, changes

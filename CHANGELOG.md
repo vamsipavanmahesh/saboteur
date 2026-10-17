@@ -121,6 +121,12 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
+- A `--since` run now stops when every changed source file sits outside the
+  include scope (#483), naming the hidden files and the ways out (extend
+  `include`, or `--test` the specs). The old fallback ran the whole suite
+  against zero subjects - the slow full run the `pr` preset exists to
+  avoid - and its message read as if the diff had touched no source.
+
 - The rerun and replay commands in the Next steps footer and the agent
   protocol leave out an empty `--operators` or `--exclude-operators` list
   that was not typed on the command line (#317): the config the command

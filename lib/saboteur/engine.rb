@@ -7,6 +7,7 @@ require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
+require_relative "engine/out_of_scope_guard"
 require_relative "engine/run_budget"
 require_relative "engine/selection_announcement"
 require_relative "engine/thread_warnings"
@@ -19,6 +20,7 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     include EarlyStopRecording
+    include OutOfScopeGuard
     include RunBudget
     include SelectionAnnouncement
 
@@ -82,6 +84,8 @@ module Saboteur
       @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
       inform_skipped_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
+
+      refuse_out_of_scope_changes(guess)
 
       announce_selection(guess)
     end
@@ -148,17 +152,6 @@ module Saboteur
     # A spec file the diff touched that cannot run is named, also before a
     # stop on an unmatched file: --test, the way out, never reads the diff.
     def inform_skipped_specs(guess) = (@diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?)
-
-    def selection_message(guess)
-      if guess.changed.zero?
-        target = config["since"] ? "no changed source file" : "no source file"
-        "inferred specs: #{target} to infer a spec for, so the whole suite runs"
-      elsif guess.specs.empty?
-        guess.no_specs_message(since: config["since"])
-      else
-        scope_to_guesses(guess)
-      end
-    end
 
     # Stop before boot: name the spec-less files and the ways out. The
     # hinted spec paths are the conventional ones - they do not exist (that
