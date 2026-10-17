@@ -5,77 +5,93 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Archived comparison: saboteur vs mutineer</title>
 <meta name="description" content="A small, non-exhaustive benchmark of two Ruby mutation testing tools on four RSpec projects.">
+<meta property="og:title" content="Archived comparison: saboteur vs mutineer">
+<meta property="og:description" content="A small, non-exhaustive benchmark of two Ruby mutation testing tools on four RSpec projects.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://vamsipavanmahesh.github.io/saboteur/benchmark/archive.html">
+<meta property="og:image" content="https://vamsipavanmahesh.github.io/saboteur/assets/og-card.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #ffffff; --surface: #f6f7f9; --text: #1d2125; --muted: #5d6670; --line: #e3e6ea;
-    --good: #1f8a4c; --good-bg: #e3f4e9; --bad: #c4372f; --bad-bg: #fbe7e5;
-    --tie: #6b7280; --tie-bg: #eef0f2; --accent: #2f6fdb; --note-bg: #fff7e0; --note-line: #e8b931;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #14171a; --surface: #1c2024; --text: #e8eaed; --muted: #a0a8b1; --line: #2c3238;
-      --good: #4cc27d; --good-bg: #17331f; --bad: #f0746b; --bad-bg: #3a1c1a;
-      --tie: #9aa2ab; --tie-bg: #24292e; --accent: #6b9cf0; --note-bg: #2e2812; --note-line: #c99d22;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #14171a; --surface: #1c2024; --text: #e8eaed; --muted: #a0a8b1; --line: #2c3238;
-    --good: #4cc27d; --good-bg: #17331f; --bad: #f0746b; --bad-bg: #3a1c1a;
-    --tie: #9aa2ab; --tie-bg: #24292e; --accent: #6b9cf0; --note-bg: #2e2812; --note-line: #c99d22;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-  main { max-width: 920px; margin: 0 auto; padding: 40px 16px 64px; }
-  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
-  h2 { font-size: 1.35rem; margin: 48px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
-  p { margin: 0 0 12px; }
-  .byline { color: var(--muted); margin-bottom: 20px; }
-  .lead { font-size: 1.1rem; }
-  .note { background: var(--note-bg); border-left: 4px solid var(--note-line); padding: 12px 16px;
-          border-radius: 6px; margin: 20px 0; }
-  .finding { font-weight: 600; }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
-         background: var(--surface); padding: 1px 5px; border-radius: 4px; }
-  a { color: var(--accent); }
-  .table-wrap { overflow-x: auto; margin: 12px 0 16px; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
-  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; }
-  .score td { padding: 6px; border-bottom: none; }
-  .score td:first-child { padding-left: 2px; }
-  .cell { border-radius: 8px; padding: 9px 12px; font-weight: 500; white-space: nowrap; }
-  .win { background: var(--good-bg); color: var(--good); }
-  .lose { background: var(--bad-bg); color: var(--bad); }
-  .tie { background: var(--tie-bg); color: var(--tie); }
-  .win::before { content: "\2713  "; }
-  .lose::before { content: "\2717  "; }
-  .tie::before { content: "=  "; }
-  .totals { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0 8px; }
-  .pill { border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 0.95rem; }
-  .bars { margin: 16px 0; }
-  .bar-row { display: grid; grid-template-columns: minmax(150px, 280px) 1fr; gap: 12px; align-items: center; margin: 10px 0; }
-  .bar-label small { display: block; color: var(--muted); font-size: 0.8rem; }
-  .bar-track { position: relative; height: 30px; }
-  .bar { height: 100%; background: var(--good); opacity: 0.8; border-radius: 4px; min-width: 4px; }
-  .bar-value { position: absolute; top: 4px; font-weight: 700; padding-left: 8px; }
-  .legend { color: var(--muted); font-size: 0.85rem; }
-  ul, ol { padding-left: 22px; margin: 0 0 12px; }
-  li { margin: 4px 0; }
-  dl.gloss { display: grid; grid-template-columns: minmax(130px, 220px) 1fr; gap: 8px 16px; margin: 12px 0; }
-  dl.gloss dt { font-weight: 600; }
-  dl.gloss dd { margin: 0; color: var(--text); }
-  footer { margin-top: 56px; color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 16px; }
-  @media (max-width: 600px) {
-    h1 { font-size: 1.6rem; }
-    .cell { white-space: normal; }
-    .bar-row { grid-template-columns: 1fr; gap: 4px; }
-    dl.gloss { grid-template-columns: 1fr; }
-    dl.gloss dd { margin-bottom: 8px; }
-  }
+:root{
+--bg:#08090b;--bg-2:#0c0e11;--surface:#111418;
+--text:#f2f4f6;--muted:#9aa4ae;--faint:#6b7680;
+--line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.15);
+--accent:#ff5c38;--accent-2:#ff8a5c;--link:#7aa5f8;
+--good:#3ecf8e;--bad:#f0746b;--warn:#f5c342;
+--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(255,92,56,.3)}
+a{color:var(--link);text-decoration:none}
+a:hover{text-decoration:underline}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,9,11,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .navwrap{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:22px;height:60px;overflow-x:auto;white-space:nowrap}
+nav .brand{display:flex;align-items:center;font-weight:700;font-size:1.05rem;color:var(--text);margin-right:auto;letter-spacing:-.01em}
+nav .brand:hover{text-decoration:none}
+nav .brand span{color:var(--accent)}
+nav .brand-logo{height:28px;width:28px;margin-right:9px}
+nav a.navlink{color:var(--muted);font-size:.92rem;font-weight:500}
+nav a.navlink:hover{color:var(--text);text-decoration:none}
+main{max-width:920px;margin:0 auto;padding:48px 24px 72px}
+h1{font-size:clamp(1.7rem,4vw,2.3rem);line-height:1.15;margin:0 0 10px;letter-spacing:-.025em;font-weight:800}
+h2{font-size:1.4rem;margin:52px 0 14px;padding-top:12px;border-top:1px solid var(--line);letter-spacing:-.02em}
+p{margin:0 0 12px}
+.byline{color:var(--muted);margin-bottom:20px}
+.lead{font-size:1.1rem}
+.note{background:rgba(245,195,66,.06);border:1px solid rgba(245,195,66,.2);border-left:3px solid var(--warn);padding:14px 18px;border-radius:10px;margin:22px 0;color:var(--muted)}
+.finding{font-weight:600}
+code{font-family:var(--mono);font-size:.88em;background:rgba(255,255,255,.06);padding:1.5px 6px;border-radius:5px;overflow-wrap:anywhere}
+.table-wrap{overflow-x:auto;margin:12px 0 16px;border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background .12s ease}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+td{font-variant-numeric:tabular-nums}
+a:focus-visible{outline:2px solid var(--accent-2);outline-offset:3px;border-radius:4px}
+th{color:var(--faint);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.07em}
+.score td{padding:6px;border-bottom:none}
+.score td:first-child{padding-left:2px}
+.cell{border-radius:8px;padding:9px 12px;font-weight:500;white-space:nowrap}
+.win{background:rgba(62,207,142,.12);color:var(--good)}
+.lose{background:rgba(240,116,107,.12);color:var(--bad)}
+.tie{background:rgba(255,255,255,.06);color:var(--muted)}
+.win::before{content:"\2713  "}
+.lose::before{content:"\2717  "}
+.tie::before{content:"=  "}
+.totals{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0 8px}
+.pill{border-radius:999px;padding:6px 14px;font-weight:600;font-size:.95rem}
+.bars{margin:16px 0}
+.bar-row{display:grid;grid-template-columns:minmax(150px,280px) 1fr;gap:12px;align-items:center;margin:10px 0}
+.bar-label small{display:block;color:var(--muted);font-size:.8rem}
+.bar-track{position:relative;height:30px}
+.bar{height:100%;background:var(--good);opacity:.8;border-radius:4px;min-width:4px}
+.bar-value{position:absolute;top:4px;font-weight:700;padding-left:8px}
+.legend{color:var(--muted);font-size:.85rem}
+ul,ol{padding-left:22px;margin:0 0 12px}
+li{margin:4px 0}
+dl.gloss{display:grid;grid-template-columns:minmax(130px,220px) 1fr;gap:8px 16px;margin:12px 0}
+dl.gloss dt{font-weight:600}
+dl.gloss dd{margin:0;color:var(--muted)}
+footer{margin-top:56px;color:var(--faint);font-size:.85rem;border-top:1px solid var(--line);padding-top:16px}
+th:nth-child(2),td:nth-child(2){white-space:nowrap}
+@media(max-width:600px){h1{font-size:1.6rem}.cell{white-space:normal}.bar-row{grid-template-columns:1fr;gap:4px}dl.gloss{grid-template-columns:1fr}dl.gloss dd{margin-bottom:8px}}
+h1,h2{text-wrap:balance}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#262b31;border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+*{scrollbar-width:thin;scrollbar-color:#262b31 transparent}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
+<nav><div class="navwrap">
+<a class="brand" href="../"><img class="brand-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="" width="28" height="28">sabo<span>teur</span></a>
+<a class="navlink" href="../">Home</a><a class="navlink" href="../quickstart.html">Quickstart</a><a class="navlink" href="./">Benchmarks</a><a class="navlink" href="archive.html">Archive</a><a class="navlink" href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
+</div></nav>
 <main>
 
 <h1>Archived comparison: saboteur vs mutineer</h1>
@@ -333,4 +349,4 @@ are written up in <code>upstream-issues.md</code>.</p>
 
 </main>
 </body>
-</html>
+      </html>

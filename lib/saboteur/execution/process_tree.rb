@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "process_table"
+require_relative "marker_sweep"
 
 module Saboteur
   module Execution
@@ -12,14 +13,19 @@ module Saboteur
     # setsid (a nested saboteur run does exactly that) and leave the group.
     # Parent links survive that, so the tree is rebuilt from the process table
     # on every poll, and every pid ever seen in it is remembered, so a
-    # descendant whose parent exits (re-parented to init) is still known.
+    # descendant whose parent exits (re-parented to init) is still known -
+    # but only if some poll SAW the parent link while the intermediate lived.
+    # A descendant that leaves the group and loses that parent between two
+    # polls is never seen (#365); the marker sweep in kill_all is the net
+    # for exactly that case.
     #
     # Identity is pid plus start time, so a recycled pid is never signalled.
     class ProcessTree
       attr_reader :root
 
-      def initialize(root)
+      def initialize(root, marker: nil)
         @root = root
+        @marker = marker
         @known = {} # pid => start time
       end
 
@@ -44,21 +50,37 @@ module Saboteur
       end
 
       # Stops every member (a stopped process cannot fork), rescans until no new
-      # member appears, then kills them all. Returns the pids it killed.
+      # member appears, then kills them all. Each round also sweeps for
+      # never-seen escapees carrying the run's marker (#365). Returns the
+      # pids it killed.
       def kill_all(rounds: 20)
         killed = []
         rounds.times do
           live = stop_until_stable
-          break if live.empty?
+          escaped = marked_escapees
+          break if live.empty? && escaped.empty?
 
           live.each { |entry| signal("KILL", entry.pid) }
-          killed.concat(live.map(&:pid))
+          escaped.each { |pid| signal("KILL", pid) }
+          killed.concat(live.map(&:pid), escaped)
           sleep 0.01
         end
         killed.uniq
       end
 
       private
+
+      # Live, non-zombie pids carrying the run's marker that the tree never
+      # learned: the setsid-and-orphan escapees (#365). Members match the
+      # marker too, but the same round kills them anyway.
+      def marked_escapees
+        return [] unless @marker && MarkerSweep.available?
+
+        table = ProcessTable.snapshot
+        MarkerSweep.marked_pids(@marker, Supervisor::TREE_ENV).select do |pid|
+          (entry = table[pid]) && !entry.zombie && !@known.key?(pid)
+        end
+      end
 
       def grow(table)
         @known[root] = table[root].started if @known.empty? && table[root]

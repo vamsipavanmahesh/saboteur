@@ -14,49 +14,14 @@
 
 [Quick start](#60-second-quick-start) · [Getting started](docs/guides/getting-started.md) · [Best practices](docs/best-practices.md) · [FAQ](docs/faq.md) · [Contributing](CONTRIBUTING.md)
 
-<details>
-<summary>Contents</summary>
+Your suite can be green and still not notice broken behavior. saboteur
+makes small, deliberate changes to your code, runs the tests that cover each
+change, and reports every change the suite lets through. Each survivor is a
+review lead: a missing test, an equivalent change, a flaky test, or a limit
+of the tool.
 
-- [Install](#install)
-- [60-second quick start](#60-second-quick-start)
-- [What you get](#what-you-get)
-- [Honest limits](#honest-limits)
-- [Run model, safety and evidence](#run-model-safety-and-evidence)
-- [Why it is built the way it is](#why-it-is-built-the-way-it-is)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Operator guide](#operator-guide)
-- [Extending](#extending)
-- [Dated validation runs](#dated-validation-runs)
-- [Dated comparisons and measurements](#dated-comparisons-and-measurements)
-- [Advanced workflow features](#advanced-workflow-features)
-- [Where it is going](#where-it-is-going)
-- [Contributing](#contributing)
-- [Acknowledgements](#acknowledgements)
-- [License](#license)
-
-</details>
-
-Your suite is green and coverage says 95%. That tells you the tests *ran* your
-code. It does not tell you they would *notice* if the code were wrong.
-
-saboteur finds out. It makes small deliberate changes to your methods (flips a
-`<` to `<=`, swaps `+` for `-`, replaces a body with `nil`), runs the tests that
-cover each change, and reports every change your suite let through. Each of
-those survivors can point at a missing test. It can also be an equivalent
-change that no test could notice, a flaky test, or a limit of the tool, so
-each one needs a human look.
-
-```
-$ bundle exec saboteur run --since origin/main
-```
-
-Never heard of mutation testing? It asks "if I broke this, would a test
-fail?" for many small breakages and lists the ones nobody noticed. Read the
-[design notes](docs/design.md) when you want the details. For adopting it on a team, see the
-[best practices guide](docs/best-practices.md).
-
-## Install
+<a id="try-it-in-a-minute"></a>
+## 60-second quick start
 
 Requirements: Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
 Minitest is not supported; see [Minitest](docs/minitest.md) for why and what
@@ -71,26 +36,16 @@ end
 
 ```sh
 bundle install
-```
-
-Outside a Bundler project, `gem install saboteur` installs the same executable.
-
-This README tracks `main`. Behavior marked "unreleased on main" is not in
-v0.7.0 yet; use a local checkout for it and expect it to change before release.
-
-## 60-second quick start
-
-Start with one method, not the whole suite:
-
-```sh
 bundle exec saboteur doctor
 bundle exec saboteur run --subject 'YourClass#your_method'
 ```
 
-The run checks the unchanged suite first, maps which tests cover the method,
-then runs only those tests against each mutant. You get counts per status, a
-covered score, timing, and the exact surviving changes to review. The JSON
-and HTML reports land in `.saboteur/report.json` and `.saboteur/report.html`.
+Outside a Bundler project, `gem install saboteur` installs the same
+executable. The run checks the unchanged suite first, maps which tests cover
+the method, then runs only those tests against each mutant. You get counts
+per status, a covered score, timing, and the exact surviving changes to
+review. The JSON and HTML reports land in `.saboteur/report.json` and
+`.saboteur/report.html`.
 
 Example output from saboteur's own `People::Person#adult?` fixture, trimmed:
 
@@ -171,6 +126,24 @@ delete those files and those exclude lines.
 
 </details>
 
+## Why teams use it
+
+- **PR scope.** `saboteur pr` or `--since origin/main` mutates the methods
+  your branch changed.
+- **Focused runs.** Per-test coverage selection runs only the tests that can
+  matter.
+- **Checked kills.** A kill counts only after the same tests pass against the
+  unchanged code.
+
+New to mutation testing? It asks "if I broke this, would a test fail?" for
+many small breakages and lists the ones nobody noticed. Continue with
+[Getting started](docs/guides/getting-started.md), [Usage](#usage),
+[Configuration](#configuration), [Design](docs/design.md), or
+[Best practices](docs/best-practices.md).
+
+This README tracks `main`. Behavior marked "unreleased on main" is not in
+v0.7.0 yet; use a local checkout for it and expect it to change before release.
+
 ## What you get
 
 - **Pull-request scope.** `--since origin/main` mutates the methods your
@@ -178,7 +151,7 @@ delete those files and those exclude lines.
 - **Focused execution.** Coverage selects the tests that can matter, then
   kill checks rerun them against the unchanged method.
 - **Safety controls.** A hazard guard, canary, resource limits, and (on Linux
-  6.2+) a Landlock sandbox helps contain destructive mutants.
+  6.2+) a Landlock sandbox help contain destructive mutants.
 - **Team workflow.** Terminal, JSON, HTML and agent reports, thresholds,
   baselines, ignore reasons, score history, and a GitHub Action.
 - **Open extension points.** Add mutants through the public interface and
@@ -253,7 +226,7 @@ the empty map is not cached. With `--test` an empty map instead stays a
 legitimate "no coverage" outcome, because the chosen specs may not touch the
 selected sources.
 Two passes detect observed instability, not every possible flaky test. See
-[baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
+[baseline stability](docs/baseline-stability.md) for limits and hook behavior.
 
 #### Hazardous calls are not mutated, and a canary watches the tree
 
@@ -386,9 +359,14 @@ are in [bench/since](bench/since/README.md).
 **It checks its own kills.** After a method's mutants run, saboteur re-runs the
 killing tests against the *unchanged* method. If they fail there too, the kill
 is not credited and becomes an error. In one comparison on lobsters, 0 of 20
-randomly sampled kills were fake. Every mutant runs in a supervised child with deadline,
-memory and process limits, and saboteur tracks and kills the processes it
-starts.
+randomly sampled kills were fake. Every mutant runs in a supervised child
+with deadline, memory and process limits, and saboteur tracks and kills the
+processes it starts. On Linux, each child also carries a unique marker in
+its environment and process name; when a test daemonizes through `setsid`
+and its intermediate parent exits between polls, the end-of-run kill sweeps
+the process table for that marker. The sweep is Linux-only, and a daemon
+that renames itself can still escape it, so the inherited CPU limit stays
+the backstop.
 
 **It is open.** The report is JSON in the Stryker mutation-testing-report
 schema, and you can add your own mutants through a small public interface.
@@ -417,7 +395,7 @@ main and is not part of v0.7.0.
 | Preview the work | `bundle exec saboteur run --dry-run` | Discovers subjects and mutants without booting the app. |
 | List operators | `bundle exec saboteur run --list-operators` | Shows the effective operator policy. |
 | Stop early | `bundle exec saboteur run --fail-fast` | Serial runs only; always exits 1 when it stops. |
-| Add detail | `bundle exec saboteur run --verbose --no-color` | Score split, timings, kill causes and no colour. |
+| Add detail | `bundle exec saboteur run --verbose --no-color` | Score split, timings, kill causes and no color. |
 
 ### Sources, specs and gates
 
@@ -449,6 +427,11 @@ Saboteur.configure do |c|
   c.rspec_args = ["--exclude-pattern", "spec/dummy/**/*_spec.rb,spec/integration/**/*_spec.rb"]
 end
 ```
+**Unreleased on main:** each `--test` takes one spec path; repeat the flag
+for several specs. A spec file passed as a positional source exits 2 with a
+message telling you to repeat `--test`. Spec files in `--since` scope are
+never mutated; when every subjectless changed file is a spec, the warning
+says so and points back to `--test`.
 
 `--threshold PERCENT` (0 to 100, or `c.threshold` in `config/saboteur.rb`) is for CI.
 The run exits 1 when the score is below PERCENT and 0 when it is at or above,
@@ -553,7 +536,8 @@ way reports ran-at-load or no-coverage rather than a guessed survivor.
 
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
-too) runs for the baseline passes, the coverage pass and every mutant, as
+too, and a dashed path also tries its underscored require name:
+`lib/acts-as-taggable-on/x.rb` finds `spec/acts_as_taggable_on/x_spec.rb`) runs for the baseline passes, the coverage pass and every mutant, as
 `--test` would. With `--since` only the changed files count; without it every
 included file does. It is a naming guess, not coverage: a spec that reaches the
 mutated file only through another file does not run, so a mutant only that
@@ -1191,6 +1175,11 @@ Any other thread gets a generic caveat: a thread that does not run in a
 child cannot do background work a mutant's test may rely on, so results
 can differ when one is left behind.
 
+<a id="filter-mutations"></a>
+<a id="literal-mutations"></a>
+<a id="chain-removal"></a>
+<a id="argument-removal"></a>
+<a id="hash-and-keyword-pair-removal"></a>
 ## Operator guide
 
 The detailed operator references live in [docs/operators](docs/operators/). The
@@ -1228,6 +1217,7 @@ Public API, stable across minor versions:
   path resolves its `.rb`, the way `require` does.
 
 <a id="dated-validation-runs"></a>
+<a id="where-it-has-run"></a>
 ## 🌍 Dated validation runs
 
 Tested on the RSpec suites of plain gems
@@ -1238,6 +1228,7 @@ the baseline check and the coarse-gate removal) and lobsters on SQLite in the
 design. Results: [docs/validation](docs/validation).
 
 <a id="dated-comparisons-and-measurements"></a>
+<a id="how-it-compares"></a>
 ## ⚖️ Dated comparisons and measurements
 
 The tables below are dated evidence snapshots, not live rankings or current
@@ -1269,6 +1260,7 @@ per-process RSS, which counts shared pages more than once, and it was measured
 before the fork-memory work. Read it as history, not a ranking of physical
 memory.
 
+<a id="independent-review-saboteur-040-vs-mutineer-160"></a>
 ### Independent review, saboteur 0.4.0 vs mutineer 1.6.0 (2026-10-12)
 
 A private consultant review ("saboteur 0.4.0 - Deep Review", 12 October 2026,
@@ -1298,6 +1290,7 @@ numbers.
 Not in the review and still pending: a rerun on current main, memory and
 per-mutant time on the benchmark apps, and any mutineer release after 1.6.0.
 
+<a id="memory-after-the-fork-memory-work-hashie--9c81e83"></a>
 ### Memory after the fork-memory work (2026-10-11, hashie @ 9c81e83)
 
 Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with
