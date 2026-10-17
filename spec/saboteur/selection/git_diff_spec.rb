@@ -735,7 +735,11 @@ RSpec.describe Saboteur::Selection::GitDiff, ".deletion_only_files" do
   it "resolves the toplevel when its path holds raw non-UTF-8 bytes" do
     original = @dir
     raw = File.join(File.dirname(@dir), "r\xE9pos".b + File.basename(@dir).b)
-    File.rename(original, raw)
+    begin
+      File.rename(original, raw)
+    rescue Errno::EILSEQ, Errno::EINVAL
+      skip "this platform rejects filenames that are not valid UTF-8"
+    end
     begin
       @dir = raw
       commit_changes
