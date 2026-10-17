@@ -26,6 +26,14 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Spec and test files vendored under `lib/` (capybara ships its driver
+  suite at `lib/capybara/spec/**`) are no longer swept into the default
+  mutation scope (#504): the default exclude now shields
+  `lib/**/spec/**`, `lib/**/test/**`, `lib/**/tests/**` and the
+  `*_spec.rb` / `*_test.rb` / `test_*.rb` shapes under `lib/`. A config's
+  own `c.exclude` replaces the shields wholesale, and the shields never
+  trip the stale-pattern warning.
+
 - A --since run whose changed lines sit inside a heredoc now says so
   (#467). Code embedded in a string - a class_eval/module_eval argument or
   a template constant - evaluates methods the static walk cannot see, so
