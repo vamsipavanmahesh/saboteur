@@ -449,4 +449,78 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
   end
+  it "accepts a subject file spelled through a symlinked root" do
+    # macOS tmp dirs are /var/folders/... symlinked to /private/var/...: the
+    # runner canonicalizes its root while the subject keeps the spelled path,
+    # and the containment check must still recognize the file as inside (#442).
+    real = Dir.mktmpdir
+    Dir.mktmpdir do |holder|
+      link = File.join(holder, "link")
+      File.symlink(real, link)
+      outcome, = run_in(link, "true")
+      expect(outcome.status).to eq(:survived)
+    end
+  end
+
+  # A `bundle exec saboteur` parent (or an exported BUNDLE_GEMFILE) anchors
+  # the child command's bundler to the REAL tree: the mutated copy is never
+  # exercised and every mutant survives (#435).
+  describe "child environment (#435)" do
+    def anchors
+      { "BUNDLE_GEMFILE" => "/real/tree/Gemfile", "BUNDLE_BIN_PATH" => "/real/tree/bin/bundle",
+        "BUNDLER_SETUP" => "/real/tree/setup.rb", "BUNDLER_VERSION" => "2.5.0",
+        "BUNDLE_APP_CONFIG" => "/real/tree/.bundle" }
+    end
+
+    def with_anchors
+      keys = anchors.keys
+      saved = keys.to_h { |k| [k, ENV.fetch(k, nil)] }
+      saved_rubyopt = ENV.fetch("RUBYOPT", nil)
+      anchors.each { |k, v| ENV[k] = v }
+      ENV["RUBYOPT"] = "-W0 -rbundler/setup"
+      yield
+    ensure
+      keys.each { |k| saved[k] ? ENV[k] = saved[k] : ENV.delete(k) }
+      saved_rubyopt ? ENV["RUBYOPT"] = saved_rubyopt : ENV.delete("RUBYOPT")
+    end
+
+    # Proof through a real spawned child, read back through the runner's
+    # own bounded capture instead of a `env > file` bridge: on the macOS
+    # runners the bridged file never appeared (ENOENT at File.read), and
+    # the bridge could only fail silently - a spawn error is reported as
+    # an Outcome, not raised. The capture shows the child's bytes (or sh's
+    # own error) either way, so a failure names its cause.
+    def child_env_output(dir)
+      outcome, runner, = run_in(dir, "env")
+      expect(outcome.status).to eq(:survived), "the env child never ran: #{outcome.message}"
+      runner.send(:last_output)
+    end
+
+    it "drops bundler anchors and bundler's RUBYOPT token, keeps the rest" do
+      with_anchors do
+        # unbundled_env starts from the pre-bundler environment, not the
+        # current ENV: the anchors and a bundler-token RUBYOPT must be in
+        # ORIGINAL_ENV for the scrub to be exercised at all.
+        stub_const("Bundler::ORIGINAL_ENV",
+                   Bundler::ORIGINAL_ENV.merge(anchors).merge("RUBYOPT" => "-W0 -rbundler/setup"))
+        Dir.mktmpdir do |dir|
+          child = child_env_output(dir)
+          anchors.each_key { |k| expect(child).not_to include("#{k}=") }
+          expect(child).to include("RUBYOPT=-W0")
+          expect(child).not_to include("bundler/setup")
+          expect(child).to include("SABOTEUR_EXTERNAL_CHILD=1")
+        end
+      end
+    end
+
+    it "still passes PATH and HOME through" do
+      with_anchors do
+        Dir.mktmpdir do |dir|
+          child = child_env_output(dir)
+          expect(child).to include("PATH=")
+          expect(child).to include("HOME=")
+        end
+      end
+    end
+  end
 end
