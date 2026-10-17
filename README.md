@@ -9,153 +9,84 @@
 [![CI](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml/badge.svg)](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml)
 [![Gem Version](https://img.shields.io/gem/v/saboteur)](https://rubygems.org/gems/saboteur)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Ruby 3.3+](https://img.shields.io/badge/ruby-%3E%3D%203.3-cc342d?logo=ruby)](https://www.ruby-lang.org/)
-[![Gem Downloads](https://img.shields.io/gem/dt/saboteur)](https://rubygems.org/gems/saboteur)
 
-[Quick start](#60-second-quick-start) · [Getting started](docs/guides/getting-started.md) · [Best practices](docs/best-practices.md) · [FAQ](docs/faq.md) · [Contributing](CONTRIBUTING.md)
+Line coverage tells you which code ran. It does not tell you if a test
+would notice when that code breaks. Mutation testing does.
 
-Your suite can be green and still not notice broken behavior. saboteur
-makes small, deliberate changes to your code, runs the tests that cover each
-change, and reports every change the suite lets through. Each survivor is a
-review lead: a missing test, an equivalent change, a flaky test, or a limit
-of the tool.
+saboteur makes one small change to your code at a time and runs only the
+tests that touch it, so it is fast. If the tests still pass, you see the
+exact change they missed. Every kill is re-checked against the unchanged
+code, so a broken suite never counts as a kill.
 
-<a id="try-it-in-a-minute"></a>
-## 60-second quick start
+**Docs, benchmarks and guides live on the site:
+[vamsipavanmahesh.github.io/saboteur](https://vamsipavanmahesh.github.io/saboteur/)**
 
-Requirements: Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
-Minitest is not supported; see [Minitest](docs/minitest.md) for why and what
-it would take.
+<a id="60-second-quick-start"></a>
+## 30-second quick start
 
-```ruby
-# Gemfile
-group :test do
-  gem "saboteur"
-end
-```
+You need Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
 
 ```sh
-bundle install
-bundle exec saboteur doctor
-bundle exec saboteur run --subject 'YourClass#your_method'
+# Install the gem:
+gem install saboteur
+
+# Or add it to the Gemfile:
+bundle add saboteur --group test
+
+# Either way:
+bundle exec saboteur run
 ```
 
-Outside a Bundler project, `gem install saboteur` installs the same
-executable. The run checks the unchanged suite first, maps which tests cover
-the method, then runs only those tests against each mutant. You get counts
-per status, a covered score, timing, and the exact surviving changes to
-review. The JSON and HTML reports land in `.saboteur/report.json` and
-`.saboteur/report.html`.
+The first run builds a coverage map of which tests touch which code. The
+map is cached and reused while your code and tests stay unchanged, so
+later runs start fast.
 
-Example output from saboteur's own `People::Person#adult?` fixture, trimmed:
+On a branch, `bundle exec saboteur pr` mutates only the methods you
+changed relative to `main`, with one baseline pass and a ten-minute
+budget. Pass `--since` for a different base, for example
+`bundle exec saboteur pr --since master`.
+
+Setup, configuration and CI:
+[the quickstart](https://vamsipavanmahesh.github.io/saboteur/quickstart.html).
+
+## Why RSpec-only
+
+A mutation verdict is only worth anything if the test selection behind it
+is exact. RSpec's example structure lets saboteur map each method to the
+examples that cover it, rerun just those against each change, and re-check
+every kill against the code before the change. One framework, done
+properly - that is the bet. Minitest is not supported today;
+[why, and what it would take](docs/minitest.md).
+
+## What a run tells you
 
 ```text
-Survivors (2):
-
-lib/people.rb
-  People::Person#adult?
-    lib/people.rb:14 in People::Person#adult?
-      14: def adult?; @age >= 18; end
-      2 tests covered this line and still passed (the missing check may belong in one of them):
-        ./spec/person_spec.rb[1:1]
-        ./spec/person_spec.rb[1:2]
-      - literal_number 18 -> 19 6efe213a68e7ddc9
-        hint: try asserting something that depends on this number
-      - comparison >= -> > f5f5bc39bd01444f
-        hint: try an example at the boundary: equal values, or values one apart
-
-saboteur 0.7.0: 1 subjects, 10 mutants, wall 2.39 s, seed 1
-killed 8  survived 2  timeout 0  resource limit 0  error 0  skipped 0
-score 80.0 %
+saboteur 0.7.0: 1 subjects, 10 mutants, wall 0.70 s, seed 1
+killed 8  survived 2  timeout 0  resource limit 0  error 0  score 80.0 %
 ```
 
-A run with survivors exits 1. Each survivor can be a missing test, an
-equivalent change, a flaky test, or a tool limit, so review the diff before
-adding a test or accepting it.
-
-Rails app? Follow the [Rails quickstart](#rails-apps): the defaults are for
-plain gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
-
-<details>
-<summary><strong>Try saboteur without touching your Gemfile</strong></summary>
-
-**Trying it without touching your Gemfile** (#310): put saboteur in a separate
-Gemfile that loads yours, and start its lockfile from a copy of yours.
-
-```ruby
-# Gemfile.saboteur
-eval_gemfile File.expand_path("Gemfile", __dir__)
-gem "saboteur", group: :test
-# or a local checkout: gem "saboteur", path: "/path/to/your/saboteur/checkout", group: :test
-```
-
-```sh
-cp Gemfile.lock Gemfile.saboteur.lock
-BUNDLE_GEMFILE=Gemfile.saboteur bundle lock      # adds saboteur to Gemfile.saboteur.lock
-BUNDLE_GEMFILE=Gemfile.saboteur bundle install
-BUNDLE_GEMFILE=Gemfile.saboteur bundle exec saboteur run --subject 'YourClass#your_method'
-```
-
-`Gemfile` and `Gemfile.lock` are not modified. The copy keeps every locked gem
-that still satisfies the combined Gemfile; Bundler moves one only when saboteur
-needs another version (it depends on `prism` and `fiddle`). Without the copy,
-Bundler resolves from scratch and may pick newer gems than your app runs.
-`bundle lock` also works where Bundler is frozen or in deployment mode, where
-`bundle install` refuses to change a lockfile. The `test` group must be
-installed: check `bundle config get without`.
-
-Keep the variable on every command: `bundle exec saboteur ...` and
-`bin/saboteur ...` become `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec
-saboteur ...` and `BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`, and a bare
-`saboteur ...` line in this README becomes `BUNDLE_GEMFILE=Gemfile.saboteur
-bundle exec saboteur ...`. In a Rails app, skip the quickstart's `bundle add`
-and run the generator as `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec rails
-generate saboteur:install` (ignore its hint to edit `Gemfile`), then run
-`BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`: the generated binstub sets
-`RAILS_ENV=test`, which `bundle exec saboteur` does not (add `RAILS_ENV=test` if
-you use that form). Rails' own `config/boot.rb` sets `BUNDLE_GEMFILE` only when
-it is unset, so the trial Gemfile stays in use. The generator appends
-`.saboteur/` to `.gitignore`: that is an edit to your application, so revert it
-after the trial if you do not keep saboteur.
-
-To keep the trial files out of `git status` without committing anything, list
-them by exact, root-anchored name in `.git/info/exclude`: `/Gemfile.saboteur`,
-`/Gemfile.saboteur.lock`, `/.saboteur/`, and `/config/saboteur.rb` and
-`/bin/saboteur` if you created them. A broad pattern could hide your own changes. To undo the trial,
-delete those files and those exclude lines.
-
-</details>
-
-## Why teams use it
-
-- **PR scope.** `saboteur pr` or `--since origin/main` mutates the methods
-  your branch changed.
-- **Focused runs.** Per-test coverage selection runs only the tests that can
-  matter.
-- **Checked kills.** A kill counts only after the same tests pass against the
-  unchanged code.
-
-New to mutation testing? It asks "if I broke this, would a test fail?" for
-many small breakages and lists the ones nobody noticed. Continue with
-[Getting started](docs/guides/getting-started.md), [Usage](#usage),
-[Configuration](#configuration), [Design](docs/design.md), or
-[Best practices](docs/best-practices.md).
-
-This README tracks `main`. Behavior marked "unreleased on main" is not in
-v0.7.0 yet; use a local checkout for it and expect it to change before release.
+Each survivor comes with its diff, the tests that ran, and a triage label
+(`likely_equivalent`, `arid`, `missing_test`) to sort what to read first.
+The labels are heuristics for reading order, never a diagnosis, and they
+never change the score.
 
 ## What you get
 
-- **Pull-request scope.** `--since origin/main` mutates the methods your
-  branch changed, while `saboteur pr` bundles the PR loop.
-- **Focused execution.** Coverage selects the tests that can matter, then
-  kill checks rerun them against the unchanged method.
-- **Safety controls.** A hazard guard, canary, resource limits, and (on Linux
-  6.2+) a Landlock sandbox help contain destructive mutants.
-- **Team workflow.** Terminal, JSON, HTML and agent reports, thresholds,
-  baselines, ignore reasons, score history, and a GitHub Action.
-- **Open extension points.** Add mutants through the public interface and
-  consume the Stryker-compatible JSON report.
+- **Fast pull-request runs.** `--since main` scopes the run to the methods
+  you changed. The GitHub Action runs on every pull request and caches
+  the coverage map between runs.
+- **Honest verdicts.** Every kill is verified against the unchanged
+  method; a kill the suite cannot confirm stays out of the score.
+- **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
+  JSON report, and a stable agent JSON API with a deprecation policy.
+- **A review workflow.** An ignore list with reasons and triage states,
+  an opt-in survivor baseline, score thresholds and score history.
+- **Safety controls.** A hazard guard, canary values, and time, memory
+  and process-count limits on every mutant in the default in-process
+  mode; a Landlock sandbox on Linux
+  6.2 and newer.
+- **Extension points.** Add your own mutation operators through the
+  public interface.
 
 ## Honest limits
 
@@ -879,55 +810,53 @@ job. A PR-only config may set `c.since = "origin/main"`; omit `since` (or use
 | `c.score_history` | off | Append one score-history JSONL record per finished report. |
 
 ### Reference example
+- saboteur is RSpec-only and needs `fork`: no Windows, no Minitest.
+- A survivor is review evidence, not proof of a bug in your tests. It can
+  be a missing test, an equivalent change, a flaky test, or a limit of
+  the tool. Read it before you write a test for it.
+- `--since` and `--incremental` are iteration aids. Run the whole project
+  on main and before a release.
+- The hazard guard is syntactic, sandboxing varies by platform (Landlock
+  on Linux 6.2+; mutants run unsandboxed on macOS), and network access is
+  never restricted. Stub real APIs and use a container when that matters.
+
+### Custom spec mapping
+
+When the naming guess does not fit the project's layout, teach the mapping
+once in `config/saboteur_custom_map.rb` instead of passing `--test` on every
+run:
 
 ```ruby
-Saboteur.configure do |c|
-  c.include = ["lib/**/*.rb"]
-  c.exclude = ["lib/my_gem/version.rb"]
-  c.require = []                 # boot files, e.g. ./config/environment
-  c.whole_file = []              # subject ids or globs to re-evaluate as a whole file (see below)
-  c.reeval = "nesting"           # or "class_eval"; see docs/design.md 6.1
-  c.timeout_factor = 3           # per-mutant deadline = factor x its tests' recorded time
-  c.timeout_min = 5
-  c.max_memory_mb = 2048         # memory growth cap per mutant process tree
-  c.max_processes = 64
-  c.max_mutants_per_method = 100 # positive integer; raise it for a broader run
-  c.hazard = Saboteur::MutationSource::HazardGuard::DEFAULT_HAZARD # calls whose arguments are never mutated
-  c.sandbox = true               # read-only project tree for mutant children (Linux 6.2+); "strict" refuses to run degraded
-  c.sandbox_writable = []        # extra dirs mutant children may write, e.g. ["db", "log"]
-  c.ignore_file = "config/saboteur_ignore.rb"
-  c.seed = 1                     # Ruby's random seed in every test run
-  c.baseline_passes = 2          # unchanged-suite checks before mutating; 1 skips the order-stability check (#55)
-  c.max_duration = nil           # wall-clock budget in seconds, e.g. 600; an exhausted budget exits 4 (#245)
-  c.max_duration_ok = false        # true: an exhausted budget does not fail the run
-  c.allow_focus = false          # true runs a suite narrowed by fit/fdescribe/:focus instead of exit 2
-  c.fingerprint_extra = []       # extra globs whose contents invalidate caches, e.g. ["data/*.csv"]
-end
+SABOTEUR_CUSTOM_MAP = {
+  "lib/aasm/core/state.rb" => ["spec/unit/state_spec.rb"],
+  "app/jobs/**/*.rb"       => ["spec/jobs/**/*_spec.rb"],
+  %r{\Aapp/jobs/(.*)\.rb\z} => ['spec/jobs/\1_spec.rb'],
+  "app/generated/**/*.rb"  => [], # intentionally untested
+}.freeze
 ```
+
+A matching entry wins over the naming convention: the file stops being
+unmatched and its mapped specs run as the inferred ones. Keys are exact
+paths, globs or Regexps; an empty array marks the file intentionally
+untested, so it needs no inferred spec. The file loads before the app
+boots, so keep it plain Ruby. `saboteur doctor` validates it.
 
 ### Rails apps
 
-Quickstart for a Rails + RSpec app. The defaults target a plain gem, so a Rails
-app needs a few settings; the generator writes them for you.
-
-**1. Add the gem**
+Quickstart for a Rails + RSpec app. The defaults target a plain gem, so a
+Rails app needs a few settings; the generator writes them for you:
 
 ```sh
 bundle add saboteur --group test
-```
-
-**2. Generate the setup**
-
-```sh
 bundle exec rails generate saboteur:install
 ```
 
-This writes `config/saboteur.rb`, a `bin/saboteur` binstub (it sets `RAILS_ENV=test`
-for you) and a `.gitignore` entry for `.saboteur/`. It never overwrites an
-existing file unless you pass `--force`, and never edits your Gemfile.
+This writes `config/saboteur.rb`, a `bin/saboteur` binstub (it sets
+`RAILS_ENV=test` for you) and a `.gitignore` entry for `.saboteur/`. It
+never overwrites an existing file unless you pass `--force`.
 
-Prefer to do it by hand, or on a version without the generator? Put this in
-`config/saboteur.rb`:
+Prefer to do it by hand, or on a version without the generator? Put this
+in `config/saboteur.rb`:
 
 ```ruby
 Saboteur.configure do |c|
@@ -938,509 +867,29 @@ Saboteur.configure do |c|
 end
 ```
 
-**3. Check the setup**
+## SimpleCov
 
-```sh
-bin/saboteur doctor
-```
-
-Doctor boots your app, checks the config and the test database host, and runs
-your suite twice before any mutation. Fix whatever it reports first. Turn
-SimpleCov off for the run if you use it.
-
-The database check refuses any test database whose host is not local
-(`localhost`, `127.0.0.1`, `::1`, `0.0.0.0` or a socket), so a remote
-database is never mutated by accident. `0.0.0.0` counts as local: compose
-setups write it into database URLs, and connecting to it reaches this
-machine. For another disposable test database host, assert it yourself:
-`c.allow_db_hosts = ["db.internal"]` in `config/saboteur.rb`.
-
-**4. Test what your branch changed**
-
-```sh
-bin/saboteur run --since main
-```
-
-It mutates only the methods changed since `main` and reports each survivor with
-its diff: a change your tests did not notice. Write a test that fails on that
-diff, then run again. Use `--since origin/main` in CI. Without the generator, use
-`bundle exec saboteur` and `RAILS_ENV=test` instead of `bin/saboteur`.
-
-saboteur puts the app's `spec/` directory on the load path before
-processing `require`, matching rspec, so a boot file like a dummy app's
-`spec/rails_helper.rb` can require its siblings.
-
-With `jobs` above 1 on SQLite, each extra worker gets a copy of the test
-database made through SQLite's backup API, so the copy is a consistent
-snapshot. A relative `database:` path resolves against `Rails.root`, the
-same as Rails 7.1+ does, for the copy and for its cleanup. The copy
-checkpoints the source first (`PRAGMA wal_checkpoint(TRUNCATE)`) and
-refuses to run when a reader keeps the WAL busy, because copying on
-would silently miss committed rows. A source file that does not exist is
-an error, not a skipped copy. An in-memory SQLite database (`:memory:`) is
-never copied, renamed or disconnected. After the app boots, each in-memory
-database is snapshotted to a temporary file through SQLite's backup API,
-and every forked child restores the snapshot into its own fresh database -
-a child cannot keep the parent's connection (ActiveRecord discards
-inherited pools and sqlite3 closes inherited writable handles), so without
-the snapshot it would see an empty database.
-
-For a Rails engine, point `require` at the dummy app's environment -
-`test/dummy/config/environment.rb`, usually loaded for you by
-`spec/rails_helper.rb`. Only a dynamically created dummy app has no
-environment file; there, require the helper that calls setup instead,
-such as `DummyApp.setup` in `spec/rails_helper.rb`.
-
-Bootsnap needs no extra setting: bytecode from its compile cache carries no
-coverage counters, so saboteur sets `DISABLE_BOOTSNAP_COMPILE_CACHE=1` for its
-own process when the variable is not already set (Bootsnap treats any set
-value as off) and runs the eager load with Coverage active. App code is seen
-by Coverage with the app unchanged.
-
-With `jobs: 4` (or more), each extra worker gets a copy of every test
-database, named `<database>_saboteur2` and up, made with
-`CREATE DATABASE ... TEMPLATE` on Postgres or a file copy on SQLite.
-saboteur drops the copies when the run ends, on a best-effort basis: a
-drop that fails is reported as a warning and never changes the run's
-outcome. A copy left behind - by a failed drop or a killed run - is
-reclaimed by the next run, whose prepare starts from
-`DROP DATABASE IF EXISTS`. MySQL is not supported for `jobs` above 1.
-
-Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
-`db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
-cache fingerprint automatically. Use `fingerprint_extra` for any other file your
-tests read.
-
-### Load-time code, captured methods and Sorbet signatures
-
-Code that runs while the target boots, before tests run, cannot be checked by
-replacing a method later. saboteur reports these changes as `ran_at_load` rather
-than survivors. Calls from test setup, including RSpec `before(:all)`, are still
-checked. Load-time detection follows the `ran_at_load` idea in
-[mutineer #187](https://github.com/davidteren/mutineer/pull/187).
-
-A saved `Method` or `UnboundMethod` can keep calling the old definition after
-saboteur replaces it. When tests pass without calling the replacement and a
-saved method still points to the old definition, the result is `unreachable`.
-A targeted execution check must also confirm the replacement was not called.
-Each mutant is checked separately; one unreachable result does not skip later mutants.
-The reason names the old definition's source location. A lambda that looks up
-the method when it runs is still checked normally.
-
-Coverage caches now store both per-test method hits and load-time line hits.
-Older caches are rebuilt; load-time accounting preserves endless-method coverage.
-
-One-line and endless method definitions need boot method-call counters to prove
-the body ran at load; merely defining them is not execution evidence. If methods
-share a physical line and any sibling is uncalled, the line is ambiguous and is
-conservatively reported as no coverage, even for its called sibling.
-Agent mode reports ran-at-load and unreachable work as incomplete.
-
-A whole-suite map with only load-time hits is valid and reports load-only subjects
-with their ran-at-load reason, rather than failing as an empty coverage build.
-It has no mutation score when no mutant can be tested.
-
-Both statuses are listed separately in terminal output and excluded from the
-mutation score. Stryker JSON reports them as `Ignored`, with the explanation in
-`statusReason`; they are not entries on your survivor ignore list.
-
-Methods wrapped by `sorbet-runtime` signatures are checked rather than skipped
-as shadowed definitions. saboteur re-evaluates the adjacent `sig` with the
-changed method so the replacement keeps its signature wrapper. Missing adjacent signatures and unknown wrappers are skipped when saboteur cannot
-preserve the loaded method semantics.
-
-### Whole-file re-evaluation (opt-in)
-
-Surgical re-evaluation refuses a method whose owner it cannot resolve or whose
-loaded definition is not the one in the file. The skip reason ends with a hint.
-List such subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
-`"Geometry::*"`) and the child evaluates the whole mutated file instead. This
-applies to methods saboteur already finds as subjects. On main, that includes
-the core class factories and literal-name `define_method` blocks noted above;
-those discoveries are unreleased and not in v0.7.0. Defs inside
-non-factory blocks stay undiscovered. The file's top-level code then runs
-again in every child, after the run's seed is set: load-time side effects repeat and constants
-it assigns are rebuilt, with redefinition warnings silenced. If a later
-definition in the same file replaces the mutated method, the mutant could never
-run, so a survivor there is reported as unreachable instead. It is off by
-default, and the cache key includes the list.
-Signature text alone does not remove mutants. `body_nil` and last-statement
-removal remain available even when `sig` declares a non-nil return type.
-`checked(:never)`, unchecked `checked(:tests)` signatures, configured default
-levels, custom validation handlers and wrapper shims can all allow nil to
-reach real assertions. saboteur does not verify enforcement, evaluate return
-type expressions or infer types from constant names. Aliases, enclosing
-namespace constants and transformed generic types therefore cannot change
-mutation generation. RBS signatures are not read yet. Type-only crash kills
-remain visible in the crash share, not silently pruned.
-
-The Sorbet E2E fixture is a wrapper/registry shim without runtime type checking.
-It tests re-evaluation and assertion detection, not real Sorbet enforcement or
-proof of type-check noise reduction.
-
-### Skipped subjects and the mutant cap
-
-Subjects with no test coverage are skipped before mutation sources run. They
-remain in the subject count, are listed as skipped subjects in terminal output,
-and appear under `skippedSubjects` in JSON. They are not invented mutants and do
-not enter saboteur's mutation score. Stryker dashboards may ignore the extra
-`skippedSubjects` field and calculate scores from mutant entries alone, so
-removing previously generated `NoCoverage` mutants can raise a dashboard's score
-even when test detection has not improved. Changes inside a covered method that
-no test reaches still produce mutant-level "no coverage" results.
-
-Each covered method keeps at most `max_mutants_per_method` valid, distinct
-mutants (100 by default). Coarse mutants come first, then fine mutants in
-configured mutation-source order and each source's proposal order. The cap keeps
-a prefix of that order, so earlier sources can use the entire limit within a
-method. Later methods have their own limit. In diff mode, changed-line selection
-happens before the cap. A warning names each capped method and the number
-omitted; JSON keeps these warnings under `warnings`. The score describes this
-selected subset, not every possible mutation. Raise the limit to examine more
-mutants; the limit does not bound how many proposals a custom source creates.
-
-### Ignoring a survivor
-
-Every survivor is printed with a digest. Accept it with a reason:
-
-```ruby
-# config/saboteur_ignore.rb
-Saboteur.ignore do |i|
-  i.mutation "1a2b3c4d5e6f7a8b",
-             subject: "Billing::Invoice#total",
-             reason: "equivalent: amounts are always whole cents"
-end
-```
-
-An entry without a reason is rejected.
-
-**Unreleased on main:** each entry also carries a triage state (#155) chosen
-with `state:` -
-`accepted_equivalent` (the default) or `wont_fix` suppress the survivor's
-exit failure (it still counts in the score), `todo` records the decision
-to fix and keeps the survivor counting as an unignored survivor:
-
-```ruby
-i.mutation "9f8e7d6c5b4a3210",
-           subject: "Billing::Invoice#discount",
-           reason: "dead code on the legacy pricing path",
-           state: "wont_fix"
-```
-
-The HTML report badges the state (`Accepted`, `Won't fix`, `Todo`). In the
-JSON report only `wont_fix` and `todo` mark `statusReason` - `ignored:
-<reason> (wont_fix)` and `todo: <reason>` - while an `accepted_equivalent`
-survivor reads as a plain `ignored: <reason>`, byte-identical to an entry
-without a triage state. All three keep status `Survived`. A `todo` entry
-keeps the survivor counting as an unignored survivor, subject to the normal
-exit-code and threshold gates. `statusReason` is human-readable text for
-reports, not a structured field: parse `status`, never the reason string,
-which does not distinguish every triage state.
-
-### SimpleCov
-
-saboteur needs Ruby's `Coverage` for itself. Disable SimpleCov for the run
-(most projects already guard it with an environment variable).
-
-### Threads alive at fork time
-
-Threads do not survive `fork`, so a run names any that are alive when the
-workers fork. Two are well known:
-
-- `AR Pool Reaper` only maintains the parent's connection pool. It is
-  expected harmless when children reconnect the database after fork -
-  saboteur's rails mode does exactly that. Without verified
-  reconnection, do not assume the inherited connection state is safe.
-- `DEBUGGER__::SESSION@server` is the debug gem's remote console. What
-  it does in children depends on `RUBY_DEBUG_FORK_MODE`: with `parent`
-  no debugger runs in children; with `child` or `both` (the gem's
-  default) the debugger activates in children and can pause or
-  interfere with supervised mutation runs. For unattended runs, do not
-  start the remote debugger at all: drop `RUBY_DEBUG_OPEN` or require
-  `debug` without `:open`.
-
-Any other thread gets a generic caveat: a thread that does not run in a
-child cannot do background work a mutant's test may rely on, so results
-can differ when one is left behind.
-
-<a id="filter-mutations"></a>
-<a id="literal-mutations"></a>
-<a id="chain-removal"></a>
-<a id="argument-removal"></a>
-<a id="hash-and-keyword-pair-removal"></a>
-## Operator guide
-
-The detailed operator references live in [docs/operators](docs/operators/). The
-newest fine-grained operators:
-
-| Operator | Example | What a survivor means |
-| --- | --- | --- |
-| [filter_replacement](docs/operators/filter_replacement.md) | `select` -> `reject` | No test tells the kept set from the dropped set. |
-| [literal_boolean](docs/operators/literal_boolean.md) | `true` -> `false` | The flag's effect is not asserted on either side. |
-| [literal_string](docs/operators/literal_string.md) | `"pending"` -> `""` | The string's content is never asserted. |
-| [literal_number](docs/operators/literal_number.md) | `18` -> `19` | No test pins the exact boundary or value. |
-| [chain_removal](docs/operators/chain_removal.md) | `user.name.strip` -> `user.strip` | The middle link's effect is invisible, or the shorter chain is equivalent. |
-| [argument_removal](docs/operators/argument_removal.md) | `includes(:a, :b)` -> `includes(:b)` | The argument makes no observed difference. |
-| [pair_removal](docs/operators/pair_removal.md) | `{city: "required", zip: "optional"}` -> `{zip: "optional"}` | The pair's effect is invisible to the tests. |
-
-**Unreleased on main:** `element_removal` removes one element from an array
-literal, including array literals in methods and changed constant arrays. It
-runs by default; splats, heredoc elements and arid statements are skipped.
-
-Use `bundle exec saboteur run --list-operators` for the full current inventory
-and examples from your installed version.
-
-<a id="extending"></a>
-## 🔌 Extending
-
-Public API, stable across minor versions:
-
-- `Saboteur::MutationSource::Base#mutations_for(subject)` returning
-  `Saboteur::MutationSource::Mutation` objects made of `Edit`s (file, byte
-  range, replacement). Register with `sources: [builtin, path.rb:ClassName]`.
-- `Saboteur::Integration::Base` for other test frameworks (RSpec is the only one
-  that ships).
-- `Saboteur.hook(:before_boot | :after_boot | :before_fork | :after_fork |
-  :around_mutant)` in files listed under `hooks:`. An extensionless hooks
-  path resolves its `.rb`, the way `require` does.
+saboteur needs Ruby's `Coverage` for itself, so leave SimpleCov off for
+saboteur runs - for example, start it only when `ENV["COVERAGE"]` is set.
+The [recipes](docs/recipes/README.md) cover this and VCR, WebMock and
+Sidekiq.
 
 <a id="dated-validation-runs"></a>
 <a id="where-it-has-run"></a>
-## 🌍 Dated validation runs
+## Benchmarks and validation
 
-Tested on the RSpec suites of plain gems
-(dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
-human-essentials on Postgres (4,080 mutants, 6 workers; the 2026-10-10 run, before
-the baseline check and the coarse-gate removal) and lobsters on SQLite in the
-2026-10-10 comparison, both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
-design. Results: [docs/validation](docs/validation).
+Speed and memory numbers live with the harness and the raw data that
+reproduce them, framed as dated measurements rather than standing claims:
+the [benchmarks page](https://vamsipavanmahesh.github.io/saboteur/benchmark/)
+on the site and [docs/benchmark](docs/benchmark/) in this repo.
 
-<a id="dated-comparisons-and-measurements"></a>
-<a id="how-it-compares"></a>
-## ⚖️ Dated comparisons and measurements
+## Project
 
-The tables below are dated evidence snapshots, not live rankings or current
-performance guarantees. Current behavior and limits are described above.
-
-### saboteur vs mutineer (2026-10-10 snapshot)
-
-A small, non-exhaustive comparison with [mutineer](https://github.com/davidteren/mutineer)
-1.6.0 on four RSpec projects (two libraries, two Rails apps). Each configuration
-ran once on sampled files, so treat the numbers as indicative. The table was
-measured at 2b6ec02 and both tools have changed since; the scripts and raw
-data that reproduce it are in [bench/vs-mutineer](bench/vs-mutineer).
-mutineer is ahead on number of operators and CI extras, and it supports
-Minitest.
-
-| Metric | saboteur | mutineer |
-|---|---|---|
-| Fake kills (lobsters) | 0 of 20 sampled at random | 8 of 8 hand-checked (identical mutants, not a random sample) |
-| Rails app with 6 workers | yes, same verdicts as 1 worker | 1 worker only |
-| Runs on the Postgres app | yes | no |
-| Time per mutant, hashie | 0.008 s | 0.092 s |
-| Peak memory, hashie (summed process RSS) | 595 MB | 471 MB |
-| Choice of operators, CI features | fixed set, fewer | 22 operators, baseline, HTML, GitHub Action |
-
-Full results, method and limitations:
-[benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
-Scripts and raw data: [bench/vs-mutineer](bench/vs-mutineer). The memory row sums
-per-process RSS, which counts shared pages more than once, and it was measured
-before the fork-memory work. Read it as history, not a ranking of physical
-memory.
-
-<a id="independent-review-saboteur-040-vs-mutineer-160"></a>
-### Independent review, saboteur 0.4.0 vs mutineer 1.6.0 (2026-10-12)
-
-A private consultant review ("saboteur 0.4.0 - Deep Review", 12 October 2026,
-not published) ran saboteur 0.4.0 at 38b1834 and mutineer 1.6.0 at a766c96 on
-the same machine and projects: Linux x86_64, 1 vCPU, 4 GB, Ruby 3.4.5, Prism
-1.2.0, RSpec 3.13, no Rails or sqlite3. mutineer ran with its default 5
-operators and with all 20. The project and timing rows are one run each. The
-rows describe saboteur at 38b1834; several of its findings have been fixed on
-main since. Read the table as a dated snapshot of that review, not as current
-numbers.
-
-| Measure | saboteur 0.4.0 | mutineer 1.6.0 |
-|---|---|---|
-| Snippets project (11 planted gaps) | 177 mutants, 14 s, 10/11 gaps found, 9 noise survivors | Default: 56 mutants, 18 s, about 5/11. All operators: 191 mutants, 51 s, 10/11, 8 noise and duplicates |
-| Dependency project (A tested only via B) | 239 mutants, 6 s | 254 mutants, 26 s (needed hand-ordered source files) |
-| dry-inflector (real gem) | 551 mutants, 24 survivors, 95.6 %, 133 s | 480 mutants, 47 survivors (31 distinct), 90.1 %, 134 s |
-| Test selection | Whole suite, per example, automatic | Only files passed with --test, per file |
-| Kill verification | Yes (re-runs killers on unchanged code) | No |
-| sorbet sig methods | Skipped at 0.4.0 | Mutated, 24/24 killed |
-| Data.define / Struct.new block methods | Absent at 0.4.0 | Mutated |
-| Load-time code | False survivors at 0.4.0 | ran_at_load status |
-| Endless defs | Tested ones reported as no coverage at 0.4.0 | Tested ones work; untested ones show as survived |
-| Order-dependent specs | Smell exposed, bogus kills rejected | Hidden (whole file runs) |
-| Destructive mutant | Project wiped except .saboteur | Project wiped |
-| Baseline stability | Race at 0.4.0: 4 of 30 green runs failed (13 %), 5 of 25 under CPU contention (20 %) | No failures observed (15/15) |
-
-Not in the review and still pending: a rerun on current main, memory and
-per-mutant time on the benchmark apps, and any mutineer release after 1.6.0.
-
-<a id="memory-after-the-fork-memory-work-hashie--9c81e83"></a>
-### Memory after the fork-memory work (2026-10-11, hashie @ 9c81e83)
-
-Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with
-AB/BA alternation and cold caches, on a 2 vCPU / 2 GB shared sandbox. Peak
-memory is per-process-tree PSS from /proc/smaps_rollup sampled at 0.3s. Verdict
-parity: **0 verdict differences in 23,700 mutant outcomes** (1,580 mutants x 15
-pairs); kill reasons (assertion vs crash class) vary run to run on both
-variants, as before.
-
-| jobs | peak PSS baseline (median, range) | peak PSS PR (median, range) | shared-memory delta |
-|------|-----------------------------------|-----------------------------|---------------------|
-| 1    | 101 MB (101-101)                  | 100 MB (100-102)            | ~0 (no workers to share with) |
-| 2    | 133 MB (116-134)                  | 109 MB (106-121)            | -18% |
-| 6    | 235 MB (192-269)                  | 196 MB (175-201)            | -17% |
-
-Peak RSS is unchanged (median ~660 MB at jobs=6 both variants): the PR does not
-touch less memory, it keeps more of it shared between workers after fork, which
-is what PSS measures. On this workload the PSS drop is about 17-18% at 2 and 6 workers on a
-2 GB sandbox. Swap was not measured.
-
-Wall time on uncontended runs, per-cell minimums, PR first: 48s vs 49s at jobs=1, 32s vs 31s at jobs=2, 30s vs
-32s at jobs=6. These are noisy per-cell minima from historical runs and do not
-show a direction either way. The shared sandbox had multi-minute CPU-starvation
-windows during this session (walls up to 594s); affected runs are flagged via
-sampler cadence and excluded from wall analysis. Absolute times are specific to
-this 2-core sandbox. Environment, method and the contention log are on the
-[benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
-
-## Advanced workflow features
-
-Internal baseline capture blocks a subject with empty generation, including a subject for which the builtin source yields no candidates. Context comparison is an extra consistency check; file fingerprint verification normally also catches source drift. Neither check proves external state stability.
-
-### Opt-in survivor baseline
-
-`baseline check` runs every selected mutant fresh, then compares accepted survivors. It does not skip accepted mutants, change verdicts or change scores. Use whole configured projects or `--subject` filters; diff, replay, incremental reuse and score thresholds are refused. Caps, uncovered work, empty generation, errors, resource limits, omitted malformed files, changed inputs and missing results are incomplete, even with zero survivors.
-
-```sh
-saboteur baseline propose --baseline baseline.json --proposal proposal.json
-# Edit only document.accepted[*].reason in proposal.json. Give each survivor a review reason.
-saboteur baseline accept --baseline baseline.json --proposal proposal.json
-saboteur baseline check --baseline baseline.json
-```
-
-Proposal writes independent owner-private execution evidence under the configured cache directory. Keep that directory until acceptance; deleting it prevents acceptance. Acceptance verifies the private record and current input fingerprint before atomically publishing the manifest. For replacement, give both propose and accept `--previous SHA256`, the hash you reviewed of the current baseline bytes. Output files must not overlap project inputs or the private evidence directory. A baseline normally lives in a separate JSON file outside fixture/config input trees.
-
-Check prints one JSON object: accepted, new, changed, resolved_kills, detected_timeouts, unmatched and errors are separate categories. Exit 0 means a compatible complete clean check; 1 needs survivor review; 2 means incompatible or invalid configuration; 3 means incomplete execution or tool failure. Propose and accept exit 0 only after their file operation succeeds. Context changes require fresh review. Timeouts remain a distinct detected category, not assertion kills.
-
-Score-drop gate: `saboteur baseline check --baseline baseline.json --epsilon POINTS` also fails (exit 1,
-state `review_required`) when the fresh score is more than POINTS percentage points below the score recorded in
-the baseline. Both scores use saboteur's own formula, (killed + timeout) / (killed + timeout + survived), over
-every candidate. The baseline already stores each candidate's status, so no new file format is needed. This
-catches what the survivor comparison cannot: a score that falls because killed mutants disappeared (deleted or
-rewritten code) while every accepted survivor is still matched. A drop of exactly POINTS passes; a rise never
-fails. The check prints a `score` object (`baseline`, `current`, `drop`, `epsilon`, `exceeded`) only when
-`--epsilon` is given. Without it, behavior is unchanged. POINTS is 0 to 100. It lives on `baseline check`,
-not on `run`: the delta gate needs the baseline's fresh whole-scope evidence, which `run` does not produce.
-It is not the same as `--threshold`, which gates an absolute score.
-
-In GitHub Actions, the action's `baseline` and `baseline-epsilon` inputs run this check; see
-[docs/github-action.md](docs/github-action.md).
-
-Local evidence protects against edits to the public proposal except review reasons. It is not remote attestation, a signature, or protection against the account owner changing their private files. File fingerprints cannot prove external database, network or environment stability. `config/saboteur_ignore.rb` remains a separate legacy ignore mechanism; this gate compares every survivor regardless of ignore status.
-
-A baseline that changes during `check` is rejected as configuration/evidence error (exit 2), not an incomplete execution result. Acceptance leaves a private `baseline.json.lock` beside the destination: keep it for cooperating-process publication locks. It contains no evidence or results. Symlinked checkout parents are normalized; symlink artifacts themselves and private-store/lock symlinks are still refused.
-
-The builtin `endpoint_replacement` operator swaps explicit, no-argument `first`/`last` calls. It targets wrong-end/order-selection faults in collection handling. Argument-bearing slices, bare calls and block-bearing APIs are left unchanged. Receivers are not statically typed: a custom object may implement either name differently, so a crash remains a crash kill, not proof of a collection assertion.
-
-JSON findings are ordered by a deterministic [review ranking](docs/survivor-ranking.md): coarse first, then covering-test count, edited-line impact and changed-line proximity, with file/line/digest ties. The terminal groups survivors by file, method and line first; the ranking only orders the survivors on one line, and every survivor is listed, in review mode too. Only consecutive survivors with matching evidence share a test/evidence block; repeated evidence after another group is printed again to keep that order. Ranking does not change scores or execution.
-
-Cache and baseline identities include the policy. Re-propose and review old survivor baselines with `baseline propose`; never auto-accept new survivors. Mutation digests for unchanged edits stay stable.
-
-### Preview and choose operators
-
-`bundle exec saboteur run --dry-run` discovers source methods and generates candidates without booting the app, running tests, forking, or writing reports/caches. It honors `--since`, `--subject` and source arguments. It prints per-method counts and cap omissions. After a matching normal run, a cached estimate shows baseline covering-test work (cached original-test durations times planned mutants; it is not a bound on mutant runtime and excludes boot and fork costs). If any file cannot be parsed, the total is marked INCOMPLETE and no estimate is given.
-
-Trust boundary: `--dry-run` never boots the app or runs its tests, but custom `sources` entries (`path.rb:ClassName`) are still `require`d to generate candidates, so their code runs. Only preview with sources you trust.
-
-`bundle exec saboteur run --list-operators` lists every builtin name and description. All builtin operators run by default, including [`range`](docs/operators/range.md), [`operator_assignment`](docs/operators/operator_assignment.md), [`condition_negation`](docs/operators/condition_negation.md), [`method_swap`](docs/operators/method_swap.md), [`operand_replacement`](docs/operators/operand_replacement.md), and [`interpolation_removal`](docs/operators/interpolation_removal.md). `--operators arithmetic,comparison` or `c.operators = ["arithmetic", "comparison"]` still selects a subset; `all` selects every name. There is no opt-in tier. `--exclude-operators range,condition_negation` or `c.exclude_operators = ["range", "condition_negation"]` removes named operators from that selection; exclusion wins if a name is in both lists. An empty selection means all, while an empty exclusion means none. CLI lists replace their corresponding config lists. These controls apply to builtin operators, not custom source plugins. Selection and exclusions invalidate cached verdict identity and are carried into agent rerun/replay commands.
-
-
-All operators run unless you select a smaller set; exclusions always remove operators from that set.
-Repeated `--operators` or `--exclude-operators` flags use the last list, not a union.
-To re-enable an operator excluded in config: `bundle exec saboteur run --operators range --exclude-operators ''`.
-To keep the 0.5.0 default inventory: `bundle exec saboteur run --exclude-operators range,operator_assignment,condition_negation`.
-The old `core` and `extended` names now give a migration error, not a changed selection in disguise.
-An empty effective selection is a usage error before boot. `--list-operators` loads current config and shows on/off plus examples; preview and the run header show the effective set.
-
-```ruby
-Saboteur.configure do |c|
-  c.operators = [] # all by default; or ["arithmetic", "range"] for a subset
-  c.exclude_operators = ["condition_negation"]
-end
-```
-
-Inspired by mutineer's --dry-run, --list-operators and --operators tiers (github.com/davidteren/mutineer, MIT, by David Teren).
-
-### Agent survivor hints and score history
-
-`--agent` findings include operator-specific `hint` suggestions and a shared
-`hintCaveat`. Hints do not diagnose a missing test or assertion; equivalent
-mutants and limited observation are still possible. Unknown operators have no
-hint unless marked coarse. The normal JSON byte budget still applies.
-
-Use `--score-history PATH` (or `c.score_history = PATH` in your config) to append
-one score-history JSONL record per finished report. History is off by default;
-changes are printed to stderr, not agent stdout. See [score definitions and
-history limits](docs/scores.md). The file can be uploaded by your own artifact
-step; the bundled Action's upload behavior is unchanged.
-
-Score history now refuses non-regular files, symlink paths and report/history
-inode aliases before running the engine or writing reports. Imported records
-have a 64 KiB per-line bound and strict validation of supported version 1
-and version 2 records, including counts, scores and duplicate keys. History is an output, excluded from baseline
-fingerprints. See [history safety and comparison limits](docs/scores.md).
-
-Operator policy version 2, selected names, excluded names and effective names are in JSON/agent/baseline evidence and fresh score-history v2 rows. Old history v1 rows remain readable but are not compared across policy versions.
-### Inline suppression comments
-
-`total = a + b # saboteur:disable-line arithmetic reason="rounding checked elsewhere"` suppresses edits starting on that line, restricted to the named operators. Omit names to suppress all operators. Multiple names are space-separated. Only actual Ruby comments count; directive text in strings does not. A missing or blank reason or unknown operator is a usage error naming file:line. Terminal, JSON and HTML list every suppressed candidate with its reason and digest, outside the score. Moving the commented code keeps the suppression. Multi-line edits use their starting line.
-
-Inspired by mutineer's inline suppression comments (github.com/davidteren/mutineer, MIT, by David Teren).
-
-Inline suppressions bound completeness: classic scores still exclude suppressed candidates, but baseline evidence is incomplete when any inline candidate is suppressed. Agent output reports `inline_suppressed` with its count and points to the full audit. Reasons are audited, not proof that suppressed work was checked.
-
-Source-only `--dry-run` lists the suppressed count and each audit row in selected methods, before diff restriction and the per-method cap. They are outside the planned total. Preview still does not boot the app or write reports.
-
-<a id="where-it-is-going"></a>
-## 🗺️ Where it is going
-
-[ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
-team workflow (GitHub Action, baseline, HTML report), then 1.0. saboteur stays
-RSpec-only. Design
-details are in [docs/design.md](docs/design.md), prior art in
-[docs/prior-art.md](docs/prior-art.md), and project status in
-[docs/status.md](docs/status.md).
-
-<a id="contributing"></a>
-## 🤝 Contributing
-
-New here? Start with an [open issue](https://github.com/vamsipavanmahesh/saboteur/issues)
-or a small pull request, and read [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Before you ask for review:
-
-- Sign every commit with `git commit -s`; the DCO check requires it.
-- Add specs for behavior changes and a CHANGELOG entry under "Unreleased".
-- Follow the clean-room rule: do not copy code, specs or fixtures from
-  restrictively licensed mutation tools.
-- Run the local preflight check on your exact head:
-
-```sh
-ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast
-bundle exec rspec <the specs your change touches>
-bundle exec exe/saboteur run --since origin/main   # the changed-method dogfood
-```
-
-Fast mode runs scope, sign-off, SPDX, full RuboCop and the harness specs, and writes a report under `tmp/preflight/`; the full suite runs in CI on every push. Use `--mode full` to run the full suite locally when CI is not available. A pass is not an approval; fast mode is partial. See [docs/preflight.md](docs/preflight.md).
-
-## Acknowledgements
-
-Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build saboteur.
+- [Changelog](CHANGELOG.md)
+- [All documentation](docs/README.md) - configuration, operators, CI, recipes
+- [Contributing](CONTRIBUTING.md) - every commit needs a DCO `Signed-off-by` line
+- [Design notes](docs/design.md)
 
 ## License
 
-MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
+[MIT](LICENSE).

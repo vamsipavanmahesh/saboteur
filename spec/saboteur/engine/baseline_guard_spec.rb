@@ -359,6 +359,52 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect(excerpt).to include("boom")
     expect(excerpt).not_to include("   \n")
   end
+
+  # The payload is the only channel from the baseline child: every field a
+  # later check reads must be present, and the fork-loss hint belongs to
+  # the failing case only (#387).
+  def record_into(writer, number)
+    allow($stdout).to receive(:reopen)
+    allow($stdout).to receive(:sync=)
+    allow($stderr).to receive(:reopen)
+    guard.send(:record, writer, number)
+    writer
+  end
+
+  it "records passed, failed and executed with no hint when the suite passes" do
+    result = Saboteur::Integration::RunResult.new(passed: true, failed_ids: [], executed_ids: ["t1"], runtime: 0.1)
+    allow(integration).to receive(:run_baseline).with(seed: 42).and_return(result)
+    payload = JSON.parse(record_into(StringIO.new, 1).string)
+    expect(payload).to include("passed" => true, "failed" => [], "executed" => ["t1"])
+    expect(payload).not_to have_key("hint")
+  end
+
+  it "adds the fork-loss hint to the payload when the suite fails (#387)" do
+    allow(Saboteur::Frameworks::SqliteMemoryDatabase).to receive(:fork_loss_hint).and_return("HINT TEXT")
+    result = Saboteur::Integration::RunResult.new(passed: false, failed_ids: ["t1"], executed_ids: ["t1"], runtime: 0.1)
+    allow(integration).to receive(:run_baseline).with(seed: 42).and_return(result)
+    payload = JSON.parse(record_into(StringIO.new, 1).string)
+    expect(payload).to include("passed" => false, "failed" => ["t1"], "hint" => "HINT TEXT")
+  end
+
+  it "passes the child error and its fork-loss hint into the refusal (#387)" do
+    payload = JSON.generate("error" => "SQLite3::SQLException: no such table",
+                            "hint" => "reconnect in an after_fork hook")
+    allow(supervisor).to receive(:run).and_return(response(payload: payload))
+    expect { guard.call }.to raise_error(Saboteur::Error, /no such table.*reconnect in an after_fork hook/)
+  end
+
+  it "names the failed tests with the fork-loss hint when the unchanged suite fails (#387)" do
+    payload = JSON.generate(passed: false, failed: ["t1"], executed: ["t1"], hint: "reconnect in an after_fork hook")
+    allow(supervisor).to receive(:run).and_return(response(payload: payload))
+    expect { guard.call }.to raise_error(Saboteur::Error, /the suite failed: t1\. reconnect in an after_fork hook/)
+  end
+
+  it "appends nothing when the child reported no hint" do
+    payload = JSON.generate(passed: false, failed: ["t1"], executed: ["t1"])
+    allow(supervisor).to receive(:run).and_return(response(payload: payload))
+    expect { guard.call }.to raise_error(Saboteur::Error, /the suite failed: t1\. See the full log/)
+  end
 end
 
 RSpec.describe Saboteur::Engine::BaselineGuard, "mutation hook compatibility" do
