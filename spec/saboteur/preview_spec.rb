@@ -50,9 +50,10 @@ RSpec.describe Saboteur::Preview do
   end
 
   it "uses diff lines both to select methods and to restrict their candidates" do
-    allow(Saboteur::Selection::GitDiff).to receive(:changed_lines)
+    allow(Saboteur::Selection::GitDiff).to receive(:line_maps)
       .with("base", root: root, include: anything, diagnostics: anything)
-      .and_return(target.file => [4])
+      .and_return(Saboteur::Selection::GitDiff::LineMaps.new(changed: { target.file => [4] },
+                                                             behavior: { target.file => [4] }))
     allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("base")
     allow(Saboteur::Selection::GitDiff).to receive(:file_at).and_return(nil)
     allow(Saboteur::Selection::UntrackedChanges).to receive(:paths).and_return([])
@@ -61,7 +62,7 @@ RSpec.describe Saboteur::Preview do
     subjects = selection.select(scoped.included_files)
     all = Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new],
                                            Saboteur::Engine::Diagnostics.new(StringIO.new)).for(subjects.first)
-    expected = Saboteur::Engine::DiffScope.new(selection.changed_lines).restrict(subjects.first, all).size
+    expected = Saboteur::Engine::DiffScope.new(selection.behavior_lines).restrict(subjects.first, all).size
     preview(scoped).call
     expect(out.string).to include("Total: #{expected} mutants")
   end
