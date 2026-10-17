@@ -119,9 +119,7 @@ module Saboteur
 
       guess = test_guess.call
       @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
-      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      inform_skipped_specs(guess)
-      stop_or_warn_unmapped(guess)
+      report_unmapped(guess)
 
       @diagnostics.announce(selection_message(guess))
     end
@@ -148,16 +146,6 @@ module Saboteur
       return if guess.specs.empty?
 
       @diagnostics.announce(scope_to_guesses(guess))
-    end
-
-    # A --since run with a partial mapping runs the mapped subset with a
-    # loud warning per unmapped file (#370); a full run, a zero guess and
-    # a gated run keep the hard stop.
-    def stop_or_warn_unmapped(guess)
-      return if guess.unmatched.empty?
-      raise ConfigError, guess.unmatched_message if !config["since"] || guess.specs.empty? || gated?
-
-      guess.unmatched.each { |file| @diagnostics.announce(guess.unmatched_warning(file)) }
     end
 
     # A spec file the diff touched that cannot run is named, also before a
