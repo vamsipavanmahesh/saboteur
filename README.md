@@ -358,7 +358,7 @@ actually allows.
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
-run. A change no test reaches is reported as "no coverage", not as a survivor. Branch coverage separates arms on the same line: an edit inside an arm no test took reports "no coverage (branch not taken)". Ruby does not expose `&&`/`||` right operands as branches, so those keep line-based selection. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies. On main, methods defined by the four core class factories (`X = Data.define(...)`, `Struct.new`, `Class.new`, `Module.new` with a block) and literal-name `define_method(:name) { ... }` calls are subjects; those cases are unreleased and not in v0.7.0. Other block-defined methods stay skipped as "defined inside a block".
+run. A change no test reaches is reported as "no coverage", not as a survivor. Branch coverage separates arms on the same line: an edit inside an arm no test took reports "no coverage (branch not taken)". Ruby does not expose `&&`/`||` right operands as branches, so those keep line-based selection. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies. On main, methods defined by the four core class factories (`X = Data.define(...)`, `Struct.new`, `Class.new`, `Module.new` with a block) and literal-name `define_method(:name) { ... }` calls are ordinary mutation subjects, not skipped; those cases are unreleased and not in v0.7.0. Defs inside non-factory blocks still get the "defined inside a block" skip reason.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
 whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
@@ -1070,9 +1070,9 @@ List such subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
 `"Geometry::*"`) and the child evaluates the whole mutated file instead. This
 applies to methods saboteur already finds as subjects. On main, that includes
 the core class factories and literal-name `define_method` blocks noted above;
-those discoveries are unreleased and not in v0.7.0. Other block-defined
-methods stay undiscovered. The file's top-level code then runs again in every
-child, after the run's seed is set: load-time side effects repeat and constants
+those discoveries are unreleased and not in v0.7.0. Defs inside
+non-factory blocks stay undiscovered. The file's top-level code then runs
+again in every child, after the run's seed is set: load-time side effects repeat and constants
 it assigns are rebuilt, with redefinition warnings silenced. If a later
 definition in the same file replaces the mutated method, the mutant could never
 run, so a survivor there is reported as unreachable instead. It is off by
