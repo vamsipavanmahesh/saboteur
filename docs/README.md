@@ -15,6 +15,7 @@
 - [Saboteur vs flaky tests](guides/flaky-tests.md) - baseline refusals, real output, fixes.
 - [How to read survivors](guides/reading-survivors.md) - from output to the killing test.
 - [Replay one mutant](guides/replay.md) - re-run a single mutant by its digest.
+- [The dry-run JSON inventory](dry-run-json.md) - the versioned machine-readable mutation plan.
 - [Monorepos, sub-gems and the custom map](guides/monorepo-and-custom-map.md) - include scope, spec paths, real refusals.
 - [Rails engines and dummy apps](guides/rails-engines-and-dummy-apps.md) - exclude `spec/dummy` and env-dependent integration specs.
 - [Reading a survivor report and fixing survivors](guides/reading-and-fixing-survivors.md) - a real batch from report to clean exit.

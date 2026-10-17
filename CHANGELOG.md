@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `saboteur run --dry-run --format json` prints a versioned machine-readable
+  mutant inventory without booting the suite (#469): schema version, run
+  metadata, subjects, every planned mutant with its stable digest, operator,
+  file, line and byte-range edits, and every skipped candidate with its
+  reason (inline suppression, hazard refusal or the per-method cap).
+  `--dry-run --agent` now names this flag instead of only refusing.
 - A `regex_replacement` operator (#135): drops each regex anchor
   (`\A`, `\z`, `\Z`, `^`, `$`) in turn and swaps each bare `+` or `*`
   quantifier, so a validation like `/\A\d+\z/` finally gets mutants.
@@ -220,6 +226,14 @@ All notable changes are documented here. The format follows
   `M::HELPER` are now ordinary subjects under their lexical owner instead
   of a phantom `FactoryProbe::Outer::Nested::RULES` skipped as defined
   inside a block.
+- Constants assigned inside `class << self` are now named with their real
+  owner, the singleton class (`Host.singleton_class::RULES`), instead of the
+  attached class (#380, #390). A same-named constant in the class body no
+  longer collides with it or triggers a false "assigned more than once"
+  refusal. Read matching follows: reads inside `class << self` still count
+  toward the attached class's constant through singleton ancestry, and a
+  singleton-class write shadows the attached class's constant for reads
+  below it.
 
 - A spec file that calls `exit` at load now refuses the run with a
   clear diagnostic instead of terminating the loader mid-require (#411).
