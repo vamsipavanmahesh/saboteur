@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "securerandom"
+
 require_relative "process_tree"
 require_relative "protocol"
 
@@ -21,13 +23,23 @@ module Saboteur
     #   4. Refusing recursion: the child is marked with CHILD_ENV, and Engine
     #      refuses to start a run inside a marked process.
     #   5. On Linux, the supervisor is a child subreaper, so escaped orphans are
-    #      re-parented to it instead of init and stay in its tree.
+    #      re-parented to it instead of init and stay reaped by it.
+    #   6. Every child carries a unique marker in its environment; the tree
+    #      poll can miss a descendant that leaves the group and loses its
+    #      intermediate parent between polls (#365), so kill_all also sweeps
+    #      the process table for the marker, which survives both escapes.
     class Supervisor
       # Set in every child to its nesting depth (1 for a child of a top-level
       # run). Engine refuses to start when it is set; the supervisor itself
       # refuses to fork past MAX_DEPTH, so even a run with that guard removed
       # (a mutant of the guard, say) cannot recurse without bound.
       CHILD_ENV = "SABOTEUR_CHILD"
+      # Colon-joined marker list in a child's environment: the run's own
+      # token last, its ancestors' before it, so any ancestor's sweep still
+      # names a leaked nested run. See ProcessTree's marker sweep.
+      TREE_ENV = "SABOTEUR_TREE"
+      # The comm prefix of a supervised child; comm holds 15 bytes.
+      COMM_PREFIX = "sbt"
       MAX_DEPTH = 4
       # The hard CPU limit, as a multiple of the budget (see limit_cpu).
       HARD_CPU_FACTOR = 20
@@ -132,6 +144,9 @@ module Saboteur
         @peak_growth_kb = 0
         supervisor = Process.pid
         @child_label = label
+        # Read by the forked child through its copy of this process, like
+        # @child_label above.
+        @marker = SecureRandom.hex(6)
         pid = fork { child(reader, writer, supervisor, cpu_seconds, depth + 1, &block) }
         writer.close
         contain(pid, reader, started, timeout, on_tick)
@@ -147,6 +162,8 @@ module Saboteur
         reader.close
         self.class.close_in_child.each { |io| io.close unless io.closed? }
         ENV[CHILD_ENV] = depth.to_s
+        ENV[TREE_ENV] = [ENV.fetch(TREE_ENV, nil), @marker].compact.join(":")
+        MarkerSweep.write_comm(@marker)
         # Best-effort like the parent-side own_group: macOS can refuse the
         # group change (EPERM), and the child must still run (#296).
         own_group(0)
@@ -210,7 +227,7 @@ module Saboteur
       # --- parent ---------------------------------------------------------
 
       def contain(pid, reader, started, timeout, on_tick)
-        tree = ProcessTree.new(pid)
+        tree = ProcessTree.new(pid, marker: @marker)
         self.class.live[pid] = tree
         own_group(pid)
         deadline = started + timeout

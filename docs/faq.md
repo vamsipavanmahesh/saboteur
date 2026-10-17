@@ -19,7 +19,7 @@ defaults target plain gems, so a Rails app sets `c.include`, `c.require` and
 PostgreSQL and SQLite, including parallel workers (`--jobs N`), where each
 extra worker gets its own database copy. MySQL is not supported for `--jobs`
 above 1, and older Rails versions have not been tried yet - the tested matrix
-is in the README under "Where it has run".
+is in the README under [Dated validation runs](../README.md#dated-validation-runs).
 
 ## Does saboteur work with SimpleCov?
 
@@ -95,3 +95,26 @@ debug gem's remote console, which can pause children depending on
 `RUBY_DEBUG_FORK_MODE` - for unattended runs, do not start the remote
 debugger at all. Any other thread gets a generic caveat: background work a
 mutant's test relies on may not run in the child, so results can differ.
+
+## What is the warning about uncommitted changes?
+
+Mutants run your code and could alter or delete files, so before a run on a
+tree with uncommitted changes saboteur warns and splits the count by what is
+at stake (#309, #316). Each change lands in one group, so the groups add up to
+the count: saboteur setup files (the config file the run reads, plus the
+Gemfile `BUNDLE_GEMFILE` names and its lock when that is not the root's own
+`Gemfile`), the mutation scope (a Ruby path that a configured `include`
+pattern matches and no `exclude` pattern does), and everything else, each
+split into tracked and untracked. Up to five paths are named for the scope and
+for the setup files. A change is counted the way `git status` lists it: a
+rename once under its new path, a deletion under the deleted path (a deleted
+source still counts as in scope), and every file of an untracked directory on
+its own. saboteur's cache and reports never count. The scope is the configured
+one: `--since`, `--subject` and source operands narrow a run further after the
+warning.
+
+```
+saboteur: warning: 3972 uncommitted change(s) in the working tree: none inside the mutation scope, 3969 outside it (0 tracked, 3969 untracked), 3 saboteur setup file(s) (0 tracked, 3 untracked).
+  setup files: config/saboteur.rb, Gemfile.saboteur, Gemfile.saboteur.lock
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+```

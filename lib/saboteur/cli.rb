@@ -289,17 +289,15 @@ module Saboteur
     # replace the configured include and exclude patterns. Each must exist,
     # so a typo is an error and not a run over zero subjects.
     def use_explicit_sources
-      if @argv.empty?
-        # --test may stand alone: the configured include (or the --since
-        # diff) names the sources. The files must still exist.
-        options[:tests]&.each { |test| require_existing_test(test) }
-        return
-      end
+      Selection::SourceScope.verify_no_specs!(@argv)
+      options[:tests]&.each { |test| require_existing_test(test) }
+      # --test may stand alone: the configured include (or the --since
+      # diff) names the sources. The files must still exist.
+      return if @argv.empty?
 
       @sources = @argv.dup
       options[:include] = @argv.map { |source| source_pattern(source) }
       options[:exclude] = []
-      options[:tests]&.each { |test| require_existing_test(test) }
     end
 
     def source_pattern(source)

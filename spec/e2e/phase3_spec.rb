@@ -168,7 +168,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       run = saboteur(dir, "--since", "HEAD")
       expect(run.status).to eq(2)
       expect(run.err).to include("no spec found for lib/people.rb (expected spec/people_spec.rb), so nothing ran")
-      expect(run.err).to include("Re-run the same command with --test followed by your existing spec paths")
+      expect(run.err).to include("Re-run the same command with one --test per existing spec path")
       expect(run.err).to include("append --all to use the whole suite without changing the source scope")
       expect(run.err).not_to include("checking the unchanged suite")
     end

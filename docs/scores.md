@@ -15,6 +15,7 @@ counts, so two runs or two tools can be compared fairly.
 | skipped | Never run: no covering test, or a subject saboteur cannot re-evaluate | outside |
 | ran at load | The code runs only at load, so no mutant can be judged | outside |
 | unreachable | No test calls the replacement definition | outside |
+| unverified | The budget ran out before its verdict could be checked | outside |
 
 A survivor accepted on the ignore list is still a survivor here. The ignore
 list changes the exit code, not the score.

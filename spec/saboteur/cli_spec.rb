@@ -381,6 +381,14 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("--guess-tests cannot be combined with --test")
   end
 
+  it "rejects spec files in the source scope with a pointer to repeating --test (#371)" do
+    # One --test followed by several spec paths parses the extras as source
+    # scope; refusing beats a green run that mutates nothing.
+    expect(cli("run", "--test", "spec/a_spec.rb", "spec/b_spec.rb", "lib/x.rb").call).to eq(2)
+    expect(err.string).to include("spec files are not mutated - pass them with --test, one path per use")
+    expect(err.string).to include("spec/b_spec.rb")
+  end
+
   it "rejects --test-command combinations the external mode cannot honor (#140)" do
     expect(cli("run", "--test-command", "make test", "--test", "spec/nope_spec.rb").call).to eq(2)
     expect(err.string).to include("--test-command cannot be combined with --test")
