@@ -1631,6 +1631,49 @@ RSpec.describe Saboteur::CLI, "empty source set (issue #447)" do
     expect(Saboteur::Engine).not_to have_received(:new)
   end
 
+  # The exact wording is the guard against a green 0-subject gate: every
+  # piece (pattern list, comma joins, .rb filter, hint) is pinned (#494).
+  it "words the include-empty refusal exactly" do
+    FileUtils.mkdir_p(%w[lib config])
+    FileUtils.touch("lib/notes.txt")
+    File.write("config/saboteur.rb",
+               "Saboteur.configure { |c| c.include = [\"lib/**/*\", \"app/**/*\"] }\n")
+    expect(cli("run").call).to eq(2)
+    expect(err.string).to include(
+      "include: lib/**/*, app/**/* selects no Ruby file - the run would pass with 0 subjects. " \
+      "Point include at your code (Rails apps: bundle exec rails generate saboteur:install " \
+      "writes the config) or fix the patterns"
+    )
+  end
+
+  it "words the exclude-removes-all refusal exactly" do
+    FileUtils.mkdir_p(%w[lib config])
+    FileUtils.touch("lib/a.rb")
+    File.write("config/saboteur.rb",
+               "Saboteur.configure { |c| c.exclude = [\"lib/**/*.rb\", \"app/**/*.rb\"] }\n")
+    expect(cli("run").call).to eq(2)
+    expect(err.string).to include(
+      "exclude: lib/**/*.rb, app/**/*.rb removes every included file - the run would pass with " \
+      "0 subjects. Point include at your code (Rails apps: bundle exec rails generate " \
+      "saboteur:install writes the config) or fix the patterns"
+    )
+  end
+
+  # The CLI loads config with root: Dir.pwd, but SourceSet's contract is
+  # config.root: globbing from the working directory instead reads whatever
+  # tree the process happens to stand in (#494).
+  it "globs include patterns against the config root, not the working directory" do
+    other = Dir.mktmpdir
+    FileUtils.mkdir_p(File.join(other, "lib"))
+    FileUtils.touch(File.join(other, "lib", "a.rb"))
+    config = Saboteur::Config.new({ "include" => ["lib/**/*.rb"], "exclude" => ["lib/**/*.rb"] },
+                                  root: other)
+    host = Class.new { include Saboteur::CLI::SourceSet }.new
+    host.define_singleton_method(:config) { config }
+    expect { host.send(:refuse_empty_source_set) }
+      .to raise_error(Saboteur::CLI::UsageError, /removes every included file/)
+  end
+
   it "still runs when the include selects at least one Ruby file" do
     FileUtils.mkdir_p("lib")
     FileUtils.touch("lib/a.rb")
