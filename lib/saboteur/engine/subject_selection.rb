@@ -13,6 +13,9 @@ module Saboteur
     class SubjectSelection
       # Lines changed since the --since ref, by file; nil without --since.
       attr_reader :changed_lines
+      # The changed lines minus layout-only ones (#313): the lines that
+      # narrow a changed method's fine-grained mutants.
+      attr_reader :behavior_lines
 
       def initialize(config, diagnostics, test_files: nil)
         @config = config
@@ -25,7 +28,7 @@ module Saboteur
         @files = files
         subjects = find(files)
         if @config["since"]
-          @changed_lines = changed_lines_map
+          @changed_lines, @behavior_lines = changed_line_maps
           subjects += constant_subjects
         end
         @discovered = subjects
@@ -96,11 +99,13 @@ module Saboteur
         drop_unchanged_syntax(changed, ref)
       end
 
-      # Lines changed since the --since ref, canonicalized by file.
-      def changed_lines_map
-        Selection::GitDiff.changed_lines(@config["since"], root: @root, include: @files.to_set,
-                                                           diagnostics: @diagnostics)
-                          .transform_keys { |file| Selection::CoverageMap.canonical(file) }
+      # Lines changed since the --since ref, and their behavior-only
+      # subset, canonicalized by file.
+      def changed_line_maps
+        maps = Selection::GitDiff.line_maps(@config["since"], root: @root, include: @files.to_set,
+                                                              diagnostics: @diagnostics)
+        canonical = ->(map) { map.transform_keys { |file| Selection::CoverageMap.canonical(file) } }
+        [canonical.call(maps.changed), canonical.call(maps.behavior)]
       end
 
       # Changed entries of a constant hash or array literal are behavior

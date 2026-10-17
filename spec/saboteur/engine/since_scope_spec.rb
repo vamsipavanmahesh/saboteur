@@ -46,7 +46,7 @@ RSpec.describe Saboteur::Engine, "test selection" do
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-    selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject_under_test], changed_lines: nil)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject_under_test], behavior_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 
