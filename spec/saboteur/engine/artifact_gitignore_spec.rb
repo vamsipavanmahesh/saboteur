@@ -44,4 +44,3 @@ RSpec.describe Saboteur::Engine, "self-ignoring artifact dir (#426)" do
     expect(File.read(File.join(@root, ".saboteur", ".gitignore"))).to eq("*\n")
   end
 end
-
