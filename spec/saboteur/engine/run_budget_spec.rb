@@ -25,7 +25,10 @@ RSpec.describe Saboteur::Engine, "RunBudget and mutate flow pins (#443 dogfood)"
       "a spent budget (remaining <= 0)" => [{ "max_duration" => 60 }, false, 47.3, 2, 70.0],
       "an untimed (zero-second) baseline" => [{ "max_duration" => 60 }, false, 0.0, 2, 40.0],
       "a budget that covers one more pass" => [{ "max_duration" => 60 }, false, 47.3, 2, 10.0],
-      "a budget at exactly one more pass" => [{ "max_duration" => 60 }, false, 20.0, 2, 50.0]
+      "a budget at exactly one more pass" => [{ "max_duration" => 60 }, false, 20.0, 2, 50.0],
+      # remaining == 0.0 exactly: the spent-budget guard returns before the
+      # affordability check, it does not refuse (kills <= -> <).
+      "a budget spent to the second (remaining == 0.0)" => [{ "max_duration" => 60 }, false, 47.3, 2, 60.0]
     }.each do |name, (config, reusable, elapsed, passes, started_ago)|
       it "admits the build: #{name}" do
         engine = engine_with(config)
@@ -36,6 +39,26 @@ RSpec.describe Saboteur::Engine, "RunBudget and mutate flow pins (#443 dogfood)"
           engine.send(:refuse_unaffordable_coverage_build, store_with(reusable), [], elapsed, passes)
         end.not_to raise_error
       end
+    end
+
+    # remaining in (0, 1]: a sub-second remainder is not a spent budget
+    # (kills remaining <= 0 -> <= 1).
+    it "refuses when a fractional remainder cannot cover the pass" do
+      engine = engine_with({ "max_duration" => 60 })
+      engine.instance_variable_set(:@run_started, 940.5)
+      allow(Process).to receive(:clock_gettime).and_return(1000.0)
+      expect { engine.send(:refuse_unaffordable_coverage_build, store_with(false), [], 4.0, 2) }
+        .to raise_error(Saboteur::BudgetPhaseTimeout)
+    end
+
+    # per_pass in (0, 1]: a fast pass still prices the build
+    # (kills per_pass <= 0 -> <= 1).
+    it "refuses when the pass is fast but the remainder is faster" do
+      engine = engine_with({ "max_duration" => 60 })
+      engine.instance_variable_set(:@run_started, 940.25)
+      allow(Process).to receive(:clock_gettime).and_return(1000.0)
+      expect { engine.send(:refuse_unaffordable_coverage_build, store_with(false), [], 1.0, 2) }
+        .to raise_error(Saboteur::BudgetPhaseTimeout)
     end
 
     it "refuses with the full shortfall message, every interpolation pinned" do
