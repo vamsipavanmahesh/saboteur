@@ -27,13 +27,24 @@
 
 ## Operators
 
+- [arithmetic](operators/arithmetic.md)
+- [boolean_logic](operators/boolean_logic.md)
+- [chain_removal](operators/chain_removal.md)
+- [comparison](operators/comparison.md)
+- [condition_false](operators/condition_false.md)
 - [condition_negation](operators/condition_negation.md)
+- [condition_true](operators/condition_true.md)
+- [element_removal](operators/element_removal.md)
 - [endpoint_replacement](operators/endpoint-replacement.md)
 - [interpolation_removal](operators/interpolation_removal.md)
 - [method_swap](operators/method_swap.md)
+- [negation_removal](operators/negation_removal.md)
 - [operand_replacement](operators/operand_replacement.md)
 - [operator_assignment](operators/operator_assignment.md)
+- [or_assign](operators/or_assign.md)
 - [range](operators/range.md)
+- [safe_navigation](operators/safe_navigation.md)
+- [statement_removal](operators/statement_removal.md)
 - [Literal mutations](literal-operators.md), [filter mutations](filter-operators.md),
   [argument removal](argument-removal.md), [pair removal](pair-removal.md)
 
