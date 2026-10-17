@@ -63,7 +63,18 @@ module Saboteur
         git(root, *args).b.split("\0").map { |name| Text.utf8_identity(name) }
       end
 
+      # The two line maps of a --since diff (#313). changed holds every line
+      # the text diff touches: subject admission and the formatting-only
+      # skip read it, so a method that was only re-indented is still found
+      # and reported as unchanged. behavior drops the layout-only lines:
+      # only it narrows a changed method's fine-grained mutants.
+      LineMaps = Data.define(:changed, :behavior)
+
       def changed_lines(ref, root:, include: nil, diagnostics: nil)
+        line_maps(ref, root: root, include: include, diagnostics: diagnostics).changed
+      end
+
+      def line_maps(ref, root:, include: nil, diagnostics: nil)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
         # Root and paths are filesystem identity: strip as bytes and retag
@@ -73,15 +84,16 @@ module Saboteur
         top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
         diff = %w[-c core.quotePath=false diff --unified=0 --no-color --no-ext-diff]
         changes = parse(git(root, *diff, base, "--").b, top)
-        changes = drop_layout_only_lines(changes, git(root, *diff, "--ignore-space-change", base, "--").b, base,
-                                         top, include: include)
         UntrackedChanges.union(changes, top, include: include, diagnostics: diagnostics)
-        changes
+        behavior = drop_layout_only_lines(changes, git(root, *diff, "--ignore-space-change", base, "--").b, base,
+                                          top, include: include)
+        LineMaps.new(changed: changes, behavior: behavior)
       end
 
       def parse(diff, top)
         changes = Hash.new { |hash, file| hash[file] = Set.new }
         each_hunk(diff, top) { |file, (_, _, start, count)| changes[file].merge(touched_lines(start, count)) }
+        changes.default_proc = nil
         changes
       end
 

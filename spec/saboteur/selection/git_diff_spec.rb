@@ -137,11 +137,22 @@ RSpec.describe Saboteur::Selection::GitDiff do
       end
     end
 
-    describe ".changed_lines with layout-only edits (#313)" do
+    describe ".line_maps behavior lines without layout-only edits (#313)" do
       def changed_after(before, after)
         commit_file("a.rb", before)
         File.write(File.join(@dir, "a.rb"), after)
-        described_class.changed_lines("HEAD", root: @dir).fetch(File.join(File.realpath(@dir), "a.rb"), Set.new)
+        described_class.line_maps("HEAD", root: @dir).behavior.fetch(File.join(File.realpath(@dir), "a.rb"), Set.new)
+      end
+
+      it "keeps every touched line in the changed map, for subject selection" do
+        commit_file("a.rb", "def a\n  one\nend\n")
+        File.write(File.join(@dir, "a.rb"), "def a\n    one\nend\n")
+        maps = described_class.line_maps("HEAD", root: @dir)
+        file = File.join(File.realpath(@dir), "a.rb")
+
+        expect(maps.changed.fetch(file)).to eq(Set[2])
+        expect(maps.behavior.fetch(file)).to eq(Set[])
+        expect(described_class.changed_lines("HEAD", root: @dir).fetch(file)).to eq(Set[2])
       end
 
       it "keeps only the new lines when existing statements are wrapped in a block" do
@@ -213,16 +224,16 @@ RSpec.describe Saboteur::Selection::GitDiff do
         File.write(File.join(@dir, "a.rb"), "def a\n    one\nend\n")
         file = File.join(File.realpath(@dir), "a.rb")
 
-        expect(described_class.changed_lines("HEAD", root: @dir,
-                                                     include: Set["/elsewhere.rb"]).fetch(file)).to eq(Set[2])
-        expect(described_class.changed_lines("HEAD", root: @dir, include: Set[file]).fetch(file)).to eq(Set[])
+        expect(described_class.line_maps("HEAD", root: @dir,
+                                                 include: Set["/elsewhere.rb"]).behavior.fetch(file)).to eq(Set[2])
+        expect(described_class.line_maps("HEAD", root: @dir, include: Set[file]).behavior.fetch(file)).to eq(Set[])
       end
 
       it "keeps every line of a file committed after the base" do
         commit_file("a.rb", "a = 1\n")
         base = git("rev-parse", "HEAD").first.strip
         commit_file("b.rb", "  b = 1\n  c = 2\n")
-        changed = described_class.changed_lines(base, root: @dir)
+        changed = described_class.line_maps(base, root: @dir).behavior
 
         expect(changed.fetch(File.join(File.realpath(@dir), "b.rb"))).to eq(Set[1, 2])
       end
@@ -231,7 +242,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
         commit_file("a b.rb", "def a\n  one\nend\n")
         File.write(File.join(@dir, "a b.rb"), "def a\n    one\nend\n")
 
-        expect(described_class.changed_lines("HEAD", root: @dir).fetch(File.join(File.realpath(@dir), "a b.rb")))
+        expect(described_class.line_maps("HEAD", root: @dir).behavior.fetch(File.join(File.realpath(@dir), "a b.rb")))
           .to eq(Set[])
       end
 
@@ -240,7 +251,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
         File.write(File.join(@dir, "a.rb"), "new\na\n    b\n")
         git("add", "a.rb")
 
-        expect(described_class.changed_lines("HEAD", root: @dir).fetch(File.join(File.realpath(@dir), "a.rb")))
+        expect(described_class.line_maps("HEAD", root: @dir).behavior.fetch(File.join(File.realpath(@dir), "a.rb")))
           .to eq(Set[1])
       end
 
@@ -255,7 +266,7 @@ RSpec.describe Saboteur::Selection::GitDiff do
       it "leaves an untracked file fully changed" do
         commit_file("b.rb", "b = 1\n")
         File.write(File.join(@dir, "c.rb"), "  c = 1\n")
-        changed = described_class.changed_lines("HEAD", root: @dir)
+        changed = described_class.line_maps("HEAD", root: @dir).behavior
 
         expect(changed.fetch(File.join(File.realpath(@dir), "c.rb"))).to eq(1..1)
       end

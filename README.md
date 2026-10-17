@@ -365,7 +365,10 @@ or formatting-only changes within discovered methods are skipped without this
 warning; the run reports those skipped methods. Inside a method that did change, a line
 whose only change is layout is not a changed line either (#313): wrapping
 existing statements in a block re-indents them, and only the new block lines
-and real edits get line-level mutants. A line counts as layout-only when git's
+and real edits get line-level mutants. The filter only narrows mutants:
+subject selection still reads every touched line, so a method that was only
+re-indented is found and reported as formatting-only, like a comment-only
+change. A line counts as layout-only when git's
 whitespace-insensitive diff (`git diff -b`) pairs it with a base line and Prism
 reads both as the same tokens, so whitespace inside a string, heredoc or regexp,
 and a `__LINE__` that moved, still count as changes. The method's whole-body
