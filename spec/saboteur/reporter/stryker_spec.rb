@@ -222,4 +222,29 @@ RSpec.describe Saboteur::Reporter::Stryker do
     document = described_class.build(report)
     expect(document.fetch(:saboteur)).not_to have_key(:exitCause)
   end
+
+  describe "schema keys the #513 dogfood found unpinned" do
+    it "emits the score thresholds" do
+      expect(json["thresholds"]).to eq("high" => 80, "low" => 60)
+    end
+
+    it "emits the framework identity" do
+      expect(json["framework"]).to eq("name" => "saboteur", "version" => Saboteur::VERSION)
+    end
+
+    it "omits the config key when the run recorded no seed" do
+      no_seed = Saboteur::Report.new(results: report.results, subjects: report.subjects,
+                                     wall_time: 1.25, root: report.root,
+                                     operator_policy: report.operator_policy)
+      expect(JSON.parse(JSON.generate(described_class.build(no_seed)))).not_to have_key("config")
+    end
+
+    it "passes the CLI's exit cause through the instance call into the written file" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "out", "report.json")
+        described_class.new(path).call(report, exit_cause: "errorMajority")
+        expect(JSON.parse(File.read(path)).dig("saboteur", "exitCause")).to eq("errorMajority")
+      end
+    end
+  end
 end
