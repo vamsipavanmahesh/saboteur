@@ -254,6 +254,21 @@ RSpec.describe "action/run-saboteur" do
       expect(invocation).to start_with("run --jobs 2 --seed 7 --since #{@base_sha}")
     end
 
+    it "runs on workflow_dispatch with the base SHA from the dispatch input" do
+      _, status = run_action({ "SABOTEUR_EVENT_NAME" => "workflow_dispatch", "GITHUB_REF" => @head_sha })
+      expect(status).to eq(0)
+      expect(invocation).to include("run --since #{@base_sha} --json .saboteur/report.json")
+    end
+
+    it "requires the merge ref on pull_request but not on workflow_dispatch" do
+      output, status = run_action({ "GITHUB_REF" => "refs/heads/feature" })
+      expect(status).to eq(2)
+      expect(output).to include("cannot deepen the pull request checkout safely")
+      _, dispatch_status = run_action({ "SABOTEUR_EVENT_NAME" => "workflow_dispatch", "GITHUB_REF" => @head_sha })
+      expect(dispatch_status).to eq(0)
+      expect(invocation).to include("run --since #{@base_sha}")
+    end
+
     it "does nothing on a push event, even with a base SHA" do
       output, status = run_action({ "SABOTEUR_EVENT_NAME" => "push" })
       expect(status).to eq(0)
