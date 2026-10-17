@@ -1045,7 +1045,10 @@ A file-backed sqlite database survives the fork and needs nothing.
 Code that runs while the target boots, before tests run, cannot be checked by
 replacing a method later. saboteur reports these changes as `ran_at_load` rather
 than survivors. Calls from test setup, including RSpec `before(:all)`, are still
-checked. Load-time detection follows the `ran_at_load` idea in
+checked. The same holds for def-time macros - a `deprecate`-style helper, a
+`before_action` block, any DSL whose only caller is a class body: the closure
+captured at load keeps the pristine definition, so the boot's def-call counters
+mark the macro itself `ran_at_load` instead of letting its mutants survive. Load-time detection follows the `ran_at_load` idea in
 [mutineer #187](https://github.com/davidteren/mutineer/pull/187).
 
 A saved `Method` or `UnboundMethod` can keep calling the old definition after
