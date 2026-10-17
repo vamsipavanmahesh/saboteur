@@ -14,7 +14,7 @@
 
 [Quick start](#60-second-quick-start) · [Getting started](docs/guides/getting-started.md) · [Best practices](docs/best-practices.md) · [FAQ](docs/faq.md) · [Contributing](CONTRIBUTING.md)
 
-Your suite can be green and still not notice a broken behavior. saboteur
+Your suite can be green and still not notice broken behavior. saboteur
 makes small, deliberate changes to your code, runs the tests that cover each
 change, and reports every change the suite lets through. Each survivor is a
 review lead: a missing test, an equivalent change, a flaky test, or a limit
@@ -225,7 +225,7 @@ the empty map is not cached. With `--test` an empty map instead stays a
 legitimate "no coverage" outcome, because the chosen specs may not touch the
 selected sources.
 Two passes detect observed instability, not every possible flaky test. See
-[baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
+[baseline stability](docs/baseline-stability.md) for limits and hook behavior.
 
 #### Hazardous calls are not mutated, and a canary watches the tree
 
@@ -389,7 +389,7 @@ main and is not part of v0.7.0.
 | Preview the work | `bundle exec saboteur run --dry-run` | Discovers subjects and mutants without booting the app. |
 | List operators | `bundle exec saboteur run --list-operators` | Shows the effective operator policy. |
 | Stop early | `bundle exec saboteur run --fail-fast` | Serial runs only; always exits 1 when it stops. |
-| Add detail | `bundle exec saboteur run --verbose --no-color` | Score split, timings, kill causes and no colour. |
+| Add detail | `bundle exec saboteur run --verbose --no-color` | Score split, timings, kill causes and no color. |
 
 ### Sources, specs and gates
 
