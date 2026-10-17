@@ -834,4 +834,10 @@ Saboteur.ignore do |i|
                      "and a plain class/module scope never follows a factory in the nesting (lexical_nesting " \
                      "rejects factories), so the plain branch always sees nil (10-fixture probe, no divergence)"
 
+  i.mutation "f86ef657e4210d26",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent: a factory scope is built only from a ConstantWriteNode name, which never carries " \
+                     "a leading ::, so delete_prefix(\"::\") on its path removes nothing (probed: ::X = Class.new is " \
+                     "not a factory scope and the mutant survives every spec)"
+
 end
