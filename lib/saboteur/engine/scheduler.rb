@@ -224,7 +224,47 @@ module Saboteur
         timeout = timeout_for(tests, plan.slowdown)
         outcome = @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: timeout,
                               mutation: mutation, eval_prefix: eval_prefix(plan))
-        outcome.status == :timeout ? calibrate(plan, mutation, text, tests, timeout) : outcome
+        outcome = calibrate(plan, mutation, text, tests, timeout) if outcome.status == :timeout
+        flaky_check(plan, mutation, text, tests, timeout, outcome)
+      end
+
+      # --flaky-check (#476): one reordered confirmation run per decisive
+      # fresh verdict. A disagreement is unverified - outside the score and
+      # never cached - not "rerun until it passes". A reused verdict is
+      # already trusted evidence and never reaches here. A budget-cut
+      # outcome is already unverified and earns no second fork.
+      def flaky_check(plan, mutation, text, tests, timeout, outcome)
+        return outcome unless flaky_checkable?(outcome)
+        return outcome if budget_spent?
+
+        rerun = @runner.run(subject: plan.subject, text: text, test_ids: reordered(tests),
+                            timeout: timeout, mutation: mutation, eval_prefix: eval_prefix(plan))
+        return outcome if rerun.status == outcome.status
+
+        Execution::Runner::Outcome.new(status: :unverified, runtime: outcome.runtime + rerun.runtime,
+                                       message: flaky_message(outcome, rerun))
+      end
+
+      # A shuffled order that is guaranteed to differ (a two-test shuffle
+      # has even odds of coming out identical): order-dependence is exactly
+      # what the confirmation run hunts.
+      def reordered(tests)
+        shuffled = tests.shuffle(random: Random.new(@config["seed"]))
+        shuffled == tests && shuffled.size > 1 ? shuffled.rotate : shuffled
+      end
+
+      def flaky_checkable?(outcome)
+        case @config["flaky_check"]
+        when "survivors" then outcome.status == :survived
+        when "decisive" then %i[survived killed].include?(outcome.status)
+        else false
+        end
+      end
+
+      def flaky_message(outcome, rerun)
+        decisive = (outcome.failed_ids | rerun.failed_ids).first(3)
+        named = decisive.empty? ? "" : " (decisive tests: #{decisive.join(', ')})"
+        "flaky verdict: first #{outcome.status}, then #{rerun.status} on a reordered confirmation "           "run#{named} - the mutant is unverified, not #{outcome.status}"
       end
 
       # Each mutant is checked separately: changing a body can change which

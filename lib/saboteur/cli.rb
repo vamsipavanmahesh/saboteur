@@ -347,6 +347,10 @@ module Saboteur
       opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
       opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
       opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
+      opts.on("--flaky-check MODE", %w[off survivors decisive],
+              "Confirm each new survivor (survivors) or fresh verdict (decisive) with one reordered rerun; a disagreement is unverified") do |v|
+        set(:flaky_check, v)
+      end
       opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
     end
 

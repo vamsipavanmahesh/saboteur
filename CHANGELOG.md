@@ -6,6 +6,14 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `--flaky-check survivors|decisive` (#476): one reordered confirmation
+  rerun per new survivor (and per fresh kill in `decisive` mode). A
+  verdict the confirmation disagrees with becomes `unverified` - named
+  with its decisive tests, outside the score, never retried until it
+  passes.
+
 ### Fixed
 
 - The marker sweep no longer kills a marked process it cannot identify

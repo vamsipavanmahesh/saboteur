@@ -70,6 +70,10 @@ never change the score.
   the coverage map between runs.
 - **Honest verdicts.** Every kill is verified against the unchanged
   method; a kill the suite cannot confirm stays out of the score.
+  Suspect a flaky test? `--flaky-check survivors` confirms each new
+  survivor with one reordered rerun (`decisive` also confirms fresh
+  kills); a verdict the rerun disagrees with becomes `unverified`,
+  named with its tests, and stays out of the score.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
 - **A review workflow.** An ignore list with reasons and triage states,
