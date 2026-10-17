@@ -3,15 +3,61 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
-  i.mutation "8387aa82e7a9b074",
-             subject: "Saboteur::Engine::TestGuess#expand_mapped",
-             reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
-                     "sees existing literals without glob metacharacters, and Dir.glob of such a path returns exactly it"
+  i.mutation "ede248b5be2b2efa",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: without node = statement the loop walks the StatementsNode's children, finds the " \
+                     "same statement again and recurses into it, ending on the same innermost statement"
+  i.mutation "9339724fc1dce5eb",
+             subject: "Saboteur::SubjectFinder#heredoc_eval?",
+             reason: "equivalent on admitted inputs: the immediately preceding arguments&.size == 1 guard establishes a one-element Array, so first and last agree - not a general first/last equivalence"
+
+  i.mutation "7f27bf4227807c2c",
+             subject: "Saboteur::SubjectFinder#heredoc_eval?",
+             reason: "equivalent conditional on the Prism 1.9.0 AST contract: an admitted node's Location slice is always a String, so &. and . agree - not extended to hand-built nodes"
+
+  i.mutation "05859430e8066ebc",
+             subject: "Saboteur::SubjectFinder#heredoc_eval?",
+             reason: "equivalent conditional on the Prism 1.9.0 AST contract: no admitted direct-argument StringNode has nil opening_loc (nil openers exist only on container parts), so &. and . agree - not extended to hand-built nodes"
+
+  i.mutation "751004d184cd7c5b",
+             subject: "Saboteur::SubjectFinder#heredoc_eval?",
+             reason: "equivalent conditional on the Prism 1.9.0 AST contract: slice starts at the node's first byte, so slice and opening_loc&.slice give the same start_with?(<<) verdict - this is not the killed &.slice removal"
+
+  i.mutation "4121be32fbbef2b5",
+             subject: "Saboteur::SubjectFinder#walk_heredoc_eval",
+             reason: "equivalent on the production call path: walk_heredoc_eval is entered only after heredoc_eval? admitted exactly one argument, so first and last agree - direct calls outside that precondition are not covered"
+
+  i.mutation "e92265a23f2fc9af",
+             subject: "Saboteur::SubjectFinder#walk_heredoc_eval",
+             reason: "equivalent for the current consumers only: subjects take file, source and offsets from ctx[:file] and the failure path returns silently; the dropped filepath does change AST metadata (a def with __FILE__ reads differently), which no current lib consumer reads"
+
+  i.mutation "37df0d8bc4fe17cb",
+             subject: "Saboteur::Config#validate_score_gates!",
+             reason: "equivalent: the each result is discarded (the next statement is an assignment), and map runs the " \
+                     "same block with the same next and raise"
+
+  i.mutation "b815e12e983b69f8",
+             subject: "Saboteur::ConfigFile::Settings#score_gate",
+             reason: "equivalent: caller_locations(1, 2).first is the same frame as caller_locations(1, 1).first"
+
+  i.mutation "44f2824301440254",
+             subject: "Saboteur::ConfigFile::Settings#score_gate",
+             reason: "equivalent: dropping the first argument leaves caller_locations(1), whose first frame is the same " \
+                     "caller frame that .first reads"
+
+  i.mutation "ee83c7a2358752c9",
+             subject: "Saboteur::ConfigFile::Settings#score_gate",
+             reason: "equivalent: dropping the length leaves caller_locations(1), whose first frame is the same frame .first reads"
+
+  i.mutation "6ffd383fed3956f2",
+             subject: "Saboteur::ConfigFile::Settings#score_gate",
+             reason: "equivalent: caller_locations(1, 1) holds one frame, so first and last are the same frame"
 
   i.mutation "bb377adb7ae9ce54",
              subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
              reason: "equivalent: each returns the receiver and join(', ') stringifies via Subject#to_s (the id), " \
                      "so the note reads identically to map(&:id)"
+
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
@@ -723,6 +769,104 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
+  i.mutation "ab2717e302f1bbf4",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: prism nodes delegate start_offset to their location, so node.start_offset is node.location.start_offset"
+
+  i.mutation "92b037ffed4fece1",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: prism nodes delegate end_offset to their location, so node.end_offset is node.location.end_offset"
+
+  i.mutation "585dc5cf9f2b2453",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: prism nodes delegate start_line to their location, so node.start_line is node.location.start_line"
+
+  i.mutation "94d0fb5458708c8f",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: prism nodes delegate end_line to their location, so node.end_line is node.location.end_line"
+
+  i.mutation "eb627023b070245d",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: an unread ivar is nil, so dropping @skip_reason = nil leaves the same default"
+
+  i.mutation "fc9db74a0df1ef3e",
+             subject: "Saboteur::Subject#source",
+             reason: "equivalent: ||= and = compute the same bytes from an immutable file_source; only the memo differs"
+
+  i.mutation "d6f4737bbb1c4026",
+             subject: "Saboteur::Subject#rescuing?",
+             reason: "equivalent: the parser only allows else with rescue, so else_clause non-nil implies rescue_clause non-nil and the extra check never decides"
+
+  i.mutation "e7a053a591c446e5",
+             subject: "Saboteur::Subject#surrounding_text",
+             reason: "equivalent: force_encoding mutates in place, so each returns the same two already-forced strings map would collect"
+
+  i.mutation "9aac96519cbf11fa",
+             subject: "Saboteur::Subject#coverage_lines_for",
+             reason: "equivalent: prism nodes delegate start_line to their location, so statement.start_line is statement.location.start_line"
+
+  i.mutation "06dab602bbc57fd1",
+             subject: "Saboteur::Subject#coverage_lines_for",
+             reason: "equivalent: edit.end_byte - 1 is always >= edit.start_byte for a nonempty edit, so dropping it from the max changes nothing"
+
+  i.mutation "4399e0c4953e5bb3",
+             subject: "Saboteur::Subject#coverage_lines_for",
+             reason: "equivalent: the edit lies inside the statement, so last >= first always and dropping first from the max changes nothing"
+
+  i.mutation "62246b9b752b46ec",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: the block return value is unused, so each and map behave the same"
+
+  i.mutation "16f22a22f4197997",
+             subject: "Saboteur::Subject#pattern_coverage_lines",
+             reason: "equivalent: the block return value is unused, so each and map behave the same"
+
+  i.mutation "5409e3abe122067b",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: prism nodes delegate start_offset to their location"
+
+  i.mutation "67547e3f6461ff28",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: prism nodes delegate end_offset to their location"
+
+  i.mutation "e8d05de3635878b8",
+             subject: "Saboteur::Subject#contains_edit?",
+             reason: "equivalent: prism nodes delegate start_offset to their location"
+
+  i.mutation "15307bd521a10280",
+             subject: "Saboteur::Subject#contains_edit?",
+             reason: "equivalent: prism nodes delegate end_offset to their location"
+
+  i.mutation "246ec3db3f5b071f",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: a child passing only the end-side check starts after the edit starts, so the recursion finds no deeper statement and returns the same found"
+
+  i.mutation "49fd677035a05b1e",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: same as the dropped start-side check - a child that starts after the edit cannot contain it, so the outcome never changes"
+
+  i.mutation "32ae9c2e217dfa10",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: prism nodes delegate start_offset to their location"
+
+  i.mutation "037d2ad73ecee43b",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: prism nodes delegate end_offset to their location"
+
+  i.mutation "1a1000b9463ba380",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: comparing start_offset with itself is always true, and a child passing only the end-side check cannot contain the edit, so the recursion returns the same found"
+
+  i.mutation "01db290da06b7eb7",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: start_byte <= start_byte is always true, and a child passing only the end-side check cannot contain the edit, so the recursion returns the same found"
+  i.mutation "71ae32342742aec3",
+             subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
+             reason: "equivalent: for a string node, node.start_line and node.opening_loc.start_line are the same line"
+
+  i.mutation "517bdd5e24a7af96",
+             subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
+             reason: "equivalent: each and map iterate the same children; the recursion uses spans, not the return value"
   i.mutation "d9aeb909564db3e1",
              subject: "Saboteur::Engine::SubjectSelection#by_pattern",
              reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
@@ -735,6 +879,27 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
 
+  i.mutation "d5995bea5d0f1b12",
+             subject: "Saboteur::Engine::GatedRun#stop_or_warn_unmapped",
+             reason: "equivalent: each and map both announce every unmatched file's warning; the collected array is discarded - the method's return value is unused by its only caller, report_unmapped"
+  i.mutation "4cde174a623048a8",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: covered_by entries are non-nil test id strings, so all? is true exactly when any? is " \
+                     "unless the array is empty; and an empty covered_by makes DefinedOrderPrefix#for return nil (empty " \
+                     "prefix equals empty covering set), so no retry happens either way"
+  i.mutation "a8d5b6b2a673a435",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: an empty covered_by makes DefinedOrderPrefix#for return nil (the empty prefix equals the " \
+                     "empty covering set), so the guard conjunct never changes whether a retry happens"
+  i.mutation "8806b9ad93a5145f",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: Scheduler#reuse never sets rejected_kill: true, so no reused result can pass the first " \
+                     "conjunct and reach the retry"
+  i.mutation "52b79709725195b2",
+             subject: "Saboteur::Engine::Scheduler#rerun_in_prefix",
+             reason: "equivalent: budget_capped clamps the retry timeout to <= the full one, so < and != agree on every " \
+                     "reachable value"
+
   i.mutation "4d3d5ac0703067d2",
              subject: "Saboteur::SubjectFinder#lexical_nesting",
              reason: "equivalent: replacing (index + 1) with index only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
@@ -742,6 +907,7 @@ Saboteur.ignore do |i|
   i.mutation "8953e46e984e97b6",
              subject: "Saboteur::SubjectFinder#lexical_nesting",
              reason: "equivalent: index + 0 is index, which only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
 
   i.mutation "036e4fb956df510f",
              subject: "Saboteur::Engine::ResultCache#digest_tests",
@@ -804,5 +970,16 @@ Saboteur.ignore do |i|
              reason: "equivalent: per_pass is never negative, so per_pass <= -1 never fires, and at " \
                      "per_pass == 0.0 the remaining >= per_pass guard admits identically; the 24-case " \
                      "admit/refuse probe matrix is byte-identical"
+
+  i.mutation "d774d9400d9f0aa8",
+             subject: "Saboteur::Engine::ResultCache#hash_dependency_inputs",
+             reason: "equivalent: the block's digest-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "b61a13a92e68bd24",
+             subject: "Saboteur::Engine::ResultCache#dependency_files",
+             reason: "equivalent: dropping the slash from the stripped prefix only adds a leading empty element " \
+                     "to the split parts, and no excluded directory name is empty, so the exclusion verdict is " \
+                     "identical for every path (probed against the full result_cache specs, no divergence)"
 
 end

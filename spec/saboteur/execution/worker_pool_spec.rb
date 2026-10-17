@@ -11,6 +11,15 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     Process.clock_gettime(Process::CLOCK_MONOTONIC)
   end
 
+  it "collects each worker's peak RSS when the pool drains (#202)" do
+    skip "procfs only" unless File.exist?("/proc/self/status")
+
+    pool = described_class.new(jobs: 2)
+    pool.map([1, 2, 3, 4]) { |n| { "double" => n * 2 } }
+    expect(pool.worker_peaks.keys).to contain_exactly(0, 1)
+    expect(pool.worker_peaks.values).to all(be > 0)
+  end
+
   it "returns each item's result in item order, whatever order workers finish in" do
     results = described_class.new(jobs: 3).map([3, 1, 2, 0]) do |n|
       sleep(n * 0.05)

@@ -106,6 +106,13 @@ exit 1 when the covered score is below PERCENT, even with survivors:
 - Survivors on the ignore list still count as survived in the score, so
   ignoring a survivor does not raise the number.
 
+Per-path gates are accepted and validated by the config already:
+`c.score_gate "app/payments/**/*", min_score: 95` (repeatable) requires a
+`min_score` between 0 and 100 and a pattern that matches at least one
+included file, so a gate cannot pass vacuously on a typo. They are not
+enforced yet - enforcement lands with #570 - so until then `--threshold` is
+the only gate that fails a run.
+
 A sensible way to pick a number:
 
 1. Run a whole-project audit on main and note the score.
