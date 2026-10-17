@@ -262,7 +262,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       run = saboteur(dir, "--since", "HEAD", "--all")
       expect(run.err).to match(/running the loaded suite unscoped: \d+ examples in 3 spec files; \d+ full passes/)
       expect(run.err).to include("2 baseline checks + 1 coverage map build")
-      expect(run.err).to match(/baseline check 1 took \d+ s; about \d+ s left for the remaining \d+ full passes/)
+      expect(run.err).to match(/baseline check 1 took \d+ s; about \d+ s left for the remaining \d+ full pass(?:es)?/)
       expect(run.err.index("running the loaded suite unscoped")).to be < run.err.index("checking the unchanged suite")
     end
   end

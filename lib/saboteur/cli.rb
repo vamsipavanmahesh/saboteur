@@ -11,6 +11,7 @@ require_relative "baseline/command"
 require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
@@ -20,6 +21,7 @@ module Saboteur
     include Baseline::Command
     include ExitStatus
     include RunReporting
+    include SourceSet
     include RunBudgetOptions
     include Presets
     include HelpOptions
@@ -102,9 +104,7 @@ module Saboteur
       help_requested? ? show_help("run") : run
     end
 
-    def help_requested?
-      @argv.intersect?(%w[--help -h])
-    end
+    def help_requested? = @argv.intersect?(%w[--help -h])
 
     def show_help(command_name)
       help = Help.new(option_lines: option_lines)
@@ -121,9 +121,7 @@ module Saboteur
       agent_failure(message || USAGE, EXIT_USAGE)
     end
 
-    def agent?
-      @format == "agent"
-    end
+    def agent? = @format == "agent"
 
     def agent_requested? = self.class.agent_requested?(@argv)
 
@@ -144,6 +142,7 @@ module Saboteur
 
       return preview if options[:list_operators] || options[:dry_run]
 
+      refuse_empty_source_set
       execute_run
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
@@ -185,15 +184,18 @@ module Saboteur
 
     # Usage errors found before the target boots.
     def validate_run_options
-      reject_threshold_with_agent_format
+      reject_format_conflicts
       Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
     end
 
-    # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
-    def reject_threshold_with_agent_format
-      return unless agent? && (config["threshold"] || gates.any?)
+    # Agent mode allows no score gates (one strict exit 0); the json inventory is --dry-run planning only.
+    def reject_format_conflicts
+      if agent? && (config["threshold"] || gates.any?)
+        raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
+      end
+      return unless @format == "json" && !options[:dry_run]
 
-      raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
+      raise UsageError, "--format json is the --dry-run mutant inventory; a run summary is --format agent"
     end
 
     # One line naming the reports written, paths relative to the root when
@@ -324,7 +326,7 @@ module Saboteur
     end
 
     def preview
-      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON" if agent?
+      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON; use --format json" if agent?
       raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
 
       if options[:list_operators]
@@ -332,7 +334,7 @@ module Saboteur
         return EXIT_OK
       end
 
-      Preview.new(config, out: @out, err: @err).call
+      Preview.new(config, out: @out, err: @err, format: @format).call
       EXIT_OK
     end
 
@@ -388,8 +390,7 @@ module Saboteur
       opts.on("--score-history PATH", "Append score history JSONL (opt-in)") { |v| set(:score_history, v) }
       opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
       opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
-      opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
-                                                 "strict exit codes") { |v| @format = v }
+      opts.on("--format FORMAT", %w[text agent json], "text, agent or json (--dry-run inventory)") { |v| @format = v }
       opts.on("--agent", "Same as --format agent") { @format = "agent" }
       opts.on("--verbose", "Text report: also print score split, timings and kill causes;",
               "a crash prints its backtrace") { @verbose = true }
