@@ -65,6 +65,37 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(found.map(&:skip_reason)).to eq([nil, nil, "defined inside a block", nil])
   end
 
+  # #194, narrowed to the two shapes the human-essentials dogfood exposed:
+  # a bare `scope` call with a literal name and a lambda body defines a
+  # singleton method, as does define_singleton_method. Both become singleton
+  # subjects whose whole call re-evaluates on the owner, the way a
+  # define_method subject's call does today.
+  it "finds call-defined singleton methods" do
+    {
+      "scope :alphabetical, -> { order(:name) }" => "Model.alphabetical",
+      "define_singleton_method(:build) { new }" => "Model.build",
+      "define_singleton_method(:pull, -> { 1 })" => "Model.pull"
+    }.each do |call, id|
+      found = subjects_in("class Model\n  #{call}\nend\n")
+      # The dotted id asserts the singleton attribution.
+      expect(found.map { |subject| [subject.id, subject.skip_reason] }).to eq([[id, nil]]), call
+    end
+  end
+
+  it "rejects call shapes that do not define a method body" do
+    [
+      "before_action :check",          # symbol-only call defines nothing here
+      "scope :x, body",                # body must be a lambda literal
+      "scope dynamic_name, -> { 1 }",  # the name must be a literal
+      "scope :x, -> { 1 }, extra",     # unknown extra arguments
+      "Model.scope :x, -> { 1 }",      # an explicit receiver is not a bare DSL call
+      "scope :x do 1 end"              # a block-bodied scope is not a Rails scope
+    ].each do |call|
+      expect(subjects_in("class Model\n  def check; end\n  #{call}\nend\n").map(&:id))
+        .to eq(["Model#check"]), call
+    end
+  end
+
   it "names a def in an anonymous block after the block, not after the file" do
     source = "class A\n  included do\n    def in_block; end\n  end\nend\n" \
              "Cart = Struct.new(:a) do\n  def total = a\nend\n"
