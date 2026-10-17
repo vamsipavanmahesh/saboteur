@@ -21,9 +21,12 @@ module Saboteur
     ADVICE = "Mutants run your code and could alter or delete files; " \
              "run on a clean, committed tree or a CI checkout."
 
-    def self.for(state, config, config_path:, gemfile:)
+    # The warning text for the run's working tree, or nil on a clean or
+    # unknown tree.
+    def self.for(config, config_path:, gemfile: ENV.fetch("BUNDLE_GEMFILE", nil))
+      state = WorkingTree.new(config.root, ignored: config.output_paths).state
       new(state, include: config["include"], exclude: config["exclude"],
-                 setup_files: setup_files(config.root, config_path: config_path, gemfile: gemfile))
+                 setup_files: setup_files(config.root, config_path: config_path, gemfile: gemfile)).to_s
     end
 
     # Files a trial of saboteur adds, relative to the root: the config file
