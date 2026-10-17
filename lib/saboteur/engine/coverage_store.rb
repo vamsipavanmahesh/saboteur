@@ -15,7 +15,8 @@ module Saboteur
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
 
-      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, load_lines: {}, timeout_cap: nil)
+      def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, load_lines: {}, load_methods: {},
+                     timeout_cap: nil)
         @config = config
         @integration = integration
         @hooks = hooks
@@ -23,6 +24,7 @@ module Saboteur
         @diagnostics = diagnostics
         @timeout_cap = timeout_cap
         @load_lines = load_lines
+        @load_methods = load_methods
         @root = File.realpath(config.root)
         @root_prefixes = Selection::CoverageMap.root_prefixes(config.root)
       end
@@ -138,7 +140,7 @@ module Saboteur
       # The parent's load lines merge into the freshly built map: the forked
       # build child cannot inherit the parent's Coverage counters.
       def with_parent_load_lines(map)
-        @load_lines.empty? ? map : map.with_load_lines(@load_lines)
+        @load_lines.empty? && @load_methods.empty? ? map : map.with_load_lines(@load_lines, @load_methods)
       end
 
       # A whole-suite build that records nothing - no line hit and no method

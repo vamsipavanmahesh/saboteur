@@ -917,8 +917,8 @@ Saboteur.ignore do |i|
 
   i.mutation "485c590681bcde38",
              subject: "Saboteur::Selection::CoverageMap#files_for",
-             reason: "equivalent: invert_coverage is a pure function of the map's frozen lines, so recomputing " \
-                     "it on every call yields the identical hash the memo would have returned"
+             reason: "equivalent: nothing mutates the coverage map after construction, so recomputing " \
+                     "invert_coverage on every call yields the identical hash the memo would have returned"
 
   i.mutation "c426c783724e596f",
              subject: "Saboteur::Selection::CoverageMap#invert_coverage",

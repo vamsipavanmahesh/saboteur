@@ -8,6 +8,7 @@ require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
 require_relative "engine/gated_run"
+require_relative "engine/load_coverage"
 require_relative "engine/out_of_scope_guard"
 require_relative "engine/run_budget"
 require_relative "engine/selection_announcement"
@@ -179,8 +180,8 @@ module Saboteur
       [subjects, scope]
     end
 
-    def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
-      store = coverage_store(integration, load_lines)
+    def mutate(subjects, files, integration, scope, ignore_list, load_lines: {}, load_methods: {})
+      store = coverage_store(integration, load_lines, load_methods)
       full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
       warn_unscoped(integration, full_passes)
       check_baseline(integration, full_passes)
@@ -254,8 +255,8 @@ module Saboteur
       ThreadWarnings.warn(@diagnostics)
     end
 
-    def coverage_store(integration, load_lines)
-      CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
+    def coverage_store(integration, load_lines, load_methods = {})
+      CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:, load_methods:,
                         supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
                         timeout_cap: method(:budget_capped_timeout))
     end
@@ -393,46 +394,19 @@ module Saboteur
       end
     end
 
-    # The lines that ran while the app and spec files loaded: the executable
-    # counts from its first line, so this snapshot holds the whole boot.
-    # Read here, in the parent: a forked child does not inherit Coverage
-    # counters. They become the map's load lines, which tell ran-at-load
-    # mutants apart from uncovered ones.
-    def capture_load_lines(files)
-      return {} unless Coverage.state == :suspended
-
-      wanted = files.to_set { |file| Selection::CoverageMap.canonical(file) }
-      Coverage.result(stop: false, clear: false).each_with_object({}) do |(path, data), hits|
-        file = Selection::CoverageMap.canonical(path)
-        next unless wanted.include?(file)
-
-        lines = data[:lines].each_with_index.filter_map { |count, index| index + 1 if count&.positive? }
-        lines -= uncalled_shared_lines(data)
-        hits[file] = lines unless lines.empty?
-      end
-    end
-
-    # A one-line or endless definition executes its def line even when its
-    # body is never called. If any sibling on that physical line is uncalled,
-    # discard its ambiguous line evidence rather than crediting every body.
-    def uncalled_shared_lines(data)
-      shared = data.fetch(:methods, {}).select { |(_owner, _name, first, _column, last, *), _| first == last }
-      calls = shared.group_by { |(_owner, _name, first, *), _count| first }
-      calls.filter_map { |line, entries| line if entries.any? { |_key, count| count.zero? } }
-    end
-
     # Loads the target and stops coverage, returning what the rest of the
     # run needs from that boot.
     def boot_target(boot)
       @diagnostics.inform("loading the application")
       integration = boot.load_target
       files = config.included_files
-      [integration, files, suspend_coverage(files)]
+      load_lines, load_methods = suspend_coverage(files)
+      [integration, files, load_lines, load_methods]
     end
 
     def suspend_coverage(files)
       (@coverage_guard = CoverageGuard.new(@diagnostics)).suspend
-      capture_load_lines(files)
+      LoadCoverage.capture(files)
     end
 
     def monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
