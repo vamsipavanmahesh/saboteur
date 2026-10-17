@@ -470,6 +470,42 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(guess.skipped_specs).to eq({})
     end
 
+    # Only a deleted candidate replaces the first one in the stop: a
+    # candidate skipped for another reason (a dangling symlink) does not.
+    it "names the first candidate when the only skipped candidate was not deleted" do
+      File.delete(File.join(dir, "spec/a_spec.rb"))
+      git("add", ".")
+      git("commit", "-q", "-m", "no spec")
+      write("lib/a.rb", changed_source)
+      FileUtils.mkdir_p(File.join(dir, "spec/lib"))
+      File.symlink("missing_target.rb", File.join(dir, "spec/lib/a_spec.rb"))
+      expect(guess.skipped_specs).to eq("spec/lib/a_spec.rb" => "not a regular file")
+      expect(guess.unmatched_message).to include("lib/a.rb (expected spec/a_spec.rb)")
+    end
+
+    # The same comparison on every platform: the suite lists the NFD
+    # spelling while git reports the NFC one.
+    it "finds a changed spec in a suite list that spells it in another Unicode form" do
+      write("lib/a.rb", changed_source)
+      write("spec/caf\u00e9_spec.rb")
+      allow_any_instance_of(Saboteur::Integration::RSpec).to receive(:configured_spec_files)
+        .and_return(["spec/a_spec.rb", "spec/cafe\u0301_spec.rb"])
+      expect(guess.specs).to eq(["spec/a_spec.rb", "spec/caf\u00e9_spec.rb"])
+    end
+
+    # A spec name that is not valid UTF-8 compares by its bytes: it cannot
+    # be normalized, and it must still be found in the suite list.
+    it "runs a changed spec whose name is not valid UTF-8" do
+      write("lib/a.rb", changed_source)
+      name = "spec/raw_\xFF_spec.rb".b
+      begin
+        File.write(File.join(dir.b, name), "# x\n")
+      rescue Errno::EILSEQ, Errno::EINVAL
+        skip "this platform rejects filenames that are not valid UTF-8"
+      end
+      expect(guess.specs.map(&:b)).to eq(["spec/a_spec.rb".b, name])
+    end
+
     # A non-ASCII root joined with a git path that holds high bytes must not
     # mix encodings; the LANG=C CI job runs this under a US-ASCII locale.
     it "joins a non-ASCII root with a non-ASCII spec path" do

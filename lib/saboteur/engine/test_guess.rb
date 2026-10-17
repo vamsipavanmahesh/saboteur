@@ -212,14 +212,15 @@ module Saboteur
 
       # macOS git reports a precomposed (NFC) name, while the directory
       # entry RSpec lists can be decomposed (NFD): the same spec spelled two
-      # ways. Valid UTF-8 compares in NFC; other bytes compare as they are.
+      # ways. Valid UTF-8 compares in NFC (unicode_normalize's default);
+      # other bytes compare as they are.
       def in_suite?(path)
         suite = suite_files
         suite ? suite.include?(comparable(path)) : false
       end
 
       def comparable(path)
-        path.valid_encoding? ? path.unicode_normalize(:nfc) : path
+        path.valid_encoding? ? path.unicode_normalize : path
       end
 
       # nil when RSpec cannot list the suite: under a non-UTF-8 locale its
