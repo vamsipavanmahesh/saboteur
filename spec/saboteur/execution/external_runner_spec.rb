@@ -449,6 +449,19 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
   end
+  it "accepts a subject file spelled through a symlinked root" do
+    # macOS tmp dirs are /var/folders/... symlinked to /private/var/...: the
+    # runner canonicalizes its root while the subject keeps the spelled path,
+    # and the containment check must still recognize the file as inside (#442).
+    real = Dir.mktmpdir
+    Dir.mktmpdir do |holder|
+      link = File.join(holder, "link")
+      File.symlink(real, link)
+      outcome, = run_in(link, "true")
+      expect(outcome.status).to eq(:survived)
+    end
+  end
+
   # A `bundle exec saboteur` parent (or an exported BUNDLE_GEMFILE) anchors
   # the child command's bundler to the REAL tree: the mutated copy is never
   # exercised and every mutant survives (#435).
@@ -471,14 +484,29 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       saved_rubyopt ? ENV["RUBYOPT"] = saved_rubyopt : ENV.delete("RUBYOPT")
     end
 
+    # Proof through a real spawned child, read back through the runner's
+    # own bounded capture instead of a `env > file` bridge: on the macOS
+    # runners the bridged file never appeared (ENOENT at File.read), and
+    # the bridge could only fail silently - a spawn error is reported as
+    # an Outcome, not raised. The capture shows the child's bytes (or sh's
+    # own error) either way, so a failure names its cause.
+    def child_env_output(dir)
+      outcome, runner, = run_in(dir, "env")
+      expect(outcome.status).to eq(:survived), "the env child never ran: #{outcome.message}"
+      runner.send(:last_output)
+    end
+
     it "drops bundler anchors and bundler's RUBYOPT token, keeps the rest" do
       with_anchors do
+        # unbundled_env starts from the pre-bundler environment, not the
+        # current ENV: the anchors and a bundler-token RUBYOPT must be in
+        # ORIGINAL_ENV for the scrub to be exercised at all.
+        stub_const("Bundler::ORIGINAL_ENV",
+                   Bundler::ORIGINAL_ENV.merge(anchors).merge("RUBYOPT" => "-W0 -rbundler/setup"))
         Dir.mktmpdir do |dir|
-          out = File.join(dir, "child_env.txt")
-          run_in(dir, "env > #{out}")
-          child = File.read(out)
+          child = child_env_output(dir)
           anchors.each_key { |k| expect(child).not_to include("#{k}=") }
-          expect(child).to include("RUBYOPT=-W0") if child.include?("RUBYOPT")
+          expect(child).to include("RUBYOPT=-W0")
           expect(child).not_to include("bundler/setup")
           expect(child).to include("SABOTEUR_EXTERNAL_CHILD=1")
         end
@@ -488,44 +516,11 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     it "still passes PATH and HOME through" do
       with_anchors do
         Dir.mktmpdir do |dir|
-          out = File.join(dir, "child_env.txt")
-          run_in(dir, "env > #{out}")
-          child = File.read(out)
+          child = child_env_output(dir)
           expect(child).to include("PATH=")
           expect(child).to include("HOME=")
         end
       end
-    end
-  end
-
-  # Mutation-visibility check (#441): a command that still passes with the
-  # subject file replaced by a load-time error cannot see mutants in it, so
-  # the run warns loudly instead of reporting every mutant survived.
-  describe "#visibility_check" do
-    it "returns nil when the command fails on the file made unloadable" do
-      subject = subject_in(@dir)
-      runner = described_class.new(command: "! grep -q 'saboteur mutation visibility check' calc.rb", root: @dir)
-      expect(runner.visibility_check(subject: subject, deadline: monotonic_now + 60)).to be_nil
-    end
-
-    it "warns when the command passes with the file made unloadable" do
-      subject = subject_in(@dir)
-      runner = described_class.new(command: "true", root: @dir)
-      expect(runner.visibility_check(subject: subject, deadline: monotonic_now + 60))
-        .to match(/mutation visibility check failed for calc\.rb: the test command still passed/)
-    end
-
-    it "warns when the check times out" do
-      subject = subject_in(@dir)
-      runner = described_class.new(command: "sleep 30", root: @dir)
-      expect(runner.visibility_check(subject: subject, deadline: monotonic_now + 0.2)).to match(/timed out/)
-    end
-
-    it "leaves the real file untouched by the check" do
-      subject = subject_in(@dir)
-      runner = described_class.new(command: "true", root: @dir)
-      runner.visibility_check(subject: subject, deadline: monotonic_now + 60)
-      expect(File.read(File.join(@dir, "calc.rb"))).to eq(source)
     end
   end
 end

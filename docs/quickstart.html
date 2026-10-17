@@ -80,7 +80,7 @@ pre code{background:none;padding:0;font-size:inherit}
 .stat b{display:block;font-size:1.55rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .stat span{color:var(--muted);font-size:.87rem}
 section{padding:80px 0;border-top:1px solid transparent;border-image:linear-gradient(90deg,transparent,rgba(255,255,255,.14) 30%,rgba(255,255,255,.14) 70%,transparent) 1;scroll-margin-top:72px}
-h2{font-size:clamp(1.6rem,3vw,2.1rem);margin:0 0 10px;letter-spacing:-.025em;font-weight:800}
+h1{font-size:clamp(1.6rem,3vw,2.1rem);margin:0 0 10px;letter-spacing:-.025em;font-weight:800}
 .eyebrow{font:600 .78rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
 h3{letter-spacing:-.01em;margin:34px 0 10px}
 .sub{color:var(--muted);margin:0 0 36px;max-width:640px}
@@ -138,11 +138,11 @@ main .wrap{padding-top:64px;padding-bottom:72px}
 </style></head><body>
 <nav><div class="wrap">
 <a class="brand" href="index.html"><img class="brand-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="" width="28" height="28">sabo<span>teur</span></a>
-<a class="navlink" href="index.html">Home</a><a class="navlink" href="quickstart.html">Quickstart</a><a class="navlink" href="benchmark/">Benchmarks</a><a class="navlink" href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
+<a class="navlink" href="index.html">Home</a><a class="navlink" href="quickstart.html">Quickstart</a><a class="navlink" href="compare.html">Compare</a><a class="navlink" href="benchmark/">Benchmarks</a><a class="navlink" href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
 </div></nav>
 <main><div class="wrap">
 <p class="eyebrow">Quickstart</p>
-<h2>Quickstart and configuration</h2>
+<h1>Quickstart and configuration</h1>
 <p class="sub">Needs Ruby 3.3 or newer on Linux or macOS. RSpec only, by design.</p>
 <h3>1. Install</h3>
 <div class="term"><div class="term-bar"><i></i><i></i><i></i><span>install</span></div>
@@ -163,7 +163,7 @@ bundle exec saboteur run --jobs 6                 <span class="c"># parallel wor
 bundle exec saboteur run --max-duration 10m       <span class="c"># stop before the next subject when the budget is spent</span>
 bundle exec saboteur pr                           <span class="c"># PR loop: since main, baseline x1, 10-minute budget</span>
 bundle exec saboteur audit                        <span class="c"># whole project, all operators, JSON and HTML reports</span></code></pre></div>
-<p>Every mutation run first runs the unchanged tests twice, even when the coverage cache is warm (replay of one mutant skips this): a kill only counts when the same tests pass on the unchanged code. <code>--baseline-passes 1</code> makes it one run, for the fast PR loop. Since 0.7.0 the run infers the specs named after each mutated file and runs only those, baseline passes included. A mutated file with no conventional spec stops with exit 2 before anything boots and names both ways out: pass <code>--test</code> with your spec paths, or <code>--all</code> to keep the whole configured suite (the 0.6.0 behavior).</p>
+<p>Every mutation run first runs the unchanged tests twice, even when the coverage cache is warm (replay of one mutant skips this): a kill only counts when the same tests pass on the unchanged code. <code>--baseline-passes 1</code> makes it one run, for the fast PR loop. Since 0.7.0 the run infers the specs named after each mutated file and runs only those, baseline passes included. A mutated file with no conventional spec stops with exit 2 before anything boots and names both ways out: pass <code>--test</code> once per spec path (one path per flag: <code>--test spec/billing_spec.rb --test spec/payments_spec.rb</code>), or <code>--all</code> to keep the whole configured suite (the 0.6.0 behavior).</p>
 <h3>4. Configure (optional)</h3>
 <pre><code><span class="c"># config/saboteur.rb</span>
 Saboteur.configure do |c|
