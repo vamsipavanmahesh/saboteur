@@ -15,6 +15,10 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A `c.sources` entry that looks like a source glob now fails with a
+  pointer to `c.include` (#488): `c.sources` registers custom operator
+  sources (`builtin` or `path.rb:ClassName`), not the files to mutate.
+
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a
