@@ -108,7 +108,26 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
                         full_passes: 3).call
     expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
-    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 2 full passes")
+    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 1 full pass " \
+                                  "and the coverage map build")
+  end
+
+  [true, false].each do |coverage_pending|
+    it "prices two remaining baseline passes with coverage_pending=#{coverage_pending} (#499)" do
+      triple = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 3 }, root: @root)
+      err = StringIO.new
+      allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+      allow(supervisor).to receive(:run).and_return(response)
+      described_class.new(config: triple, integration: integration, hooks: Saboteur::Hooks.new,
+                          supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                          full_passes: coverage_pending ? 4 : 3).call
+      work = "the remaining 2 full passes"
+      work += " and the coverage map build" if coverage_pending
+      seconds = coverage_pending ? 15 : 10
+      expect(err.string).to include("baseline check 1 took 5 s; about #{seconds} s left for #{work} at that rate")
+      expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
+      expect(err.string).not_to include("coverage map build") unless coverage_pending
+    end
   end
 
   it "announces three or more passes in the plural with the seed (#245)" do
@@ -118,6 +137,18 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     described_class.new(config: triple, integration: integration, hooks: Saboteur::Hooks.new,
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err)).call
     expect(err.string).to include("checking the unchanged suite 3 times (seed 42)")
+  end
+
+  it "names the coverage map build when it is the only pass left after baseline_passes 1 (#465)" do
+    single = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 1 }, root: @root)
+    err = StringIO.new
+    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: single, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        full_passes: 2).call
+    expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the coverage map build at that rate")
+    expect(err.string).not_to include("remaining 1 full pass")
   end
 
   it "announces the single remaining pass in the singular" do
