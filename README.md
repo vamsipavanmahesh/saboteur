@@ -63,6 +63,11 @@ Each survivor comes with its diff, the tests that ran, and a triage label
 The labels are heuristics for reading order, never a diagnosis, and they
 never change the score.
 
+A run on a tree with uncommitted changes opens with a warning that splits
+the count into changes inside the mutation scope, outside it, and
+saboteur's own setup files. Mutants run your code, so run on a clean,
+committed tree or a CI checkout.
+
 ## What you get
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
