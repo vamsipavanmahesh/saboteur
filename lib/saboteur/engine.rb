@@ -106,7 +106,18 @@ module Saboteur
       inform_skipped_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
+      refuse_out_of_scope_changes(guess)
+
       @diagnostics.announce(selection_message(guess))
+    end
+
+    # Every changed source file sits outside the include scope (#483): the
+    # whole-suite fallback would run the slowest possible suite against
+    # zero subjects, so stop and name what the scope hid.
+    def refuse_out_of_scope_changes(guess)
+      return unless guess.changed.zero? && guess.out_of_scope.any?
+
+      raise ConfigError, guess.out_of_scope_message
     end
 
     # A --subject run infers only from the files holding the named subjects:
