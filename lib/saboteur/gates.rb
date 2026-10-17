@@ -41,12 +41,18 @@ module Saboteur
 
     def initialize(config)
       @limits = SETTINGS.keys.to_h { |key| [key, self.class.limit(config[key], key)] }
+      @score_gates = Array(config["score_gates"])
     end
 
     attr_reader :cause
 
     def any?
-      @limits.values.any?
+      @limits.values.any? || @score_gates.any?
+    end
+
+    # The flag-style name of the configured gate, for the --agent rejection.
+    def agent_option_name
+      @score_gates.any? ? "score gates" : "--max-* gates"
     end
 
     # --max-errors judges errored mutants, so a threshold run tolerates them.
@@ -56,6 +62,7 @@ module Saboteur
 
     # Prints each failed gate to err and remembers the first one's cause for the JSON report.
     def failed?(report, err)
+      vacuous_gates(report).each { |note| err.puts("saboteur: #{note}") }
       found = violations(report)
       found.each { |violation| err.puts("saboteur: #{violation.message}") }
       @cause = found.first&.cause
@@ -69,10 +76,44 @@ module Saboteur
         next if limit.nil? || !over?(count, limit, report.executed.size)
 
         Violation.new(cause: cause, message: "#{count} #{status} mutants, above #{flag} #{limit}")
-      end
+      end + score_gate_violations(report)
     end
 
     private
+
+    # Per-path gates (#473): each gate scores the results whose subject file
+    # (root-relative) matches its pattern, with the run's own Score formula,
+    # and fails under its floor.
+    def score_gate_violations(report)
+      @score_gates.filter_map do |gate|
+        scored = score_gate_subset(gate, report)
+        breakdown = Score.of(scored)
+        next if breakdown.tested.zero?
+
+        score = breakdown.value * 100
+        next if score >= gate["min_score"]
+
+        Violation.new(cause: "scoreGate",
+                      message: "score gate #{gate['pattern']}: score #{format('%.1f', score)} below " \
+                               "#{gate['min_score']} (#{scored.size} mutants under it)")
+      end
+    end
+
+    # A gate with nothing executed under it passes vacuously and says so.
+    def vacuous_gates(report)
+      @score_gates.filter_map do |gate|
+        breakdown = Score.of(score_gate_subset(gate, report))
+        "score gate #{gate['pattern']}: nothing executed under it, passing vacuously" if breakdown.tested.zero?
+      end
+    end
+
+    def score_gate_subset(gate, report)
+      prefix = File.join(File.realpath(report.root), "")
+      report.results.select do |result|
+        relative = result.subject.file.delete_prefix(prefix)
+        File.fnmatch?(gate["pattern"], relative, File::FNM_PATHNAME | File::FNM_EXTGLOB)
+      end
+    end
 
     def over?(count, limit, executed)
       return count > limit if limit.is_a?(Integer)
