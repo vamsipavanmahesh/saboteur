@@ -572,6 +572,7 @@ unmatched and its mapped specs run as the inferred ones. Keys are exact
 paths, globs or Regexps; an empty array marks the file intentionally
 untested, so it needs no inferred spec. The file loads before the app
 boots, so keep it plain Ruby. `saboteur doctor` validates it.
+
 **Unreleased on main:** `--since` also runs every spec file the diff adds or
 changes, subject to the suite rules below. v0.7.0 runs only the inferred specs.
 
