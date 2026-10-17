@@ -3,6 +3,7 @@
 ## Start here
 
 - [Getting started](guides/getting-started.md) - install to a clean first scope.
+- [Your first 10 minutes on a Rails app](guides/first-10-minutes-rails.md) - a narrated real run: install to a killed survivor.
 - [FAQ](faq.md) - requirements, databases, SimpleCov, exit codes, flaky suites.
 - [Project site](index.html) - pitch and benchmark numbers; the quickstart sits on its own page there.
 - [Best practices](best-practices.md) - thresholds, cadence and review habits.
@@ -12,6 +13,7 @@
 - [Check a project before mutation testing](guides/doctor.md) - `saboteur doctor`.
 - [How to read survivors](guides/reading-survivors.md) - from output to the killing test.
 - [Replay one mutant](guides/replay.md) - re-run a single mutant by its digest.
+- [saboteur in CI on large Rails apps](guides/ci-large-rails.md) - diff mode on PRs, sharded scheduled audits, caching.
 
 ## Using saboteur
 
