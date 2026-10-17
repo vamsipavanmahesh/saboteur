@@ -202,6 +202,12 @@ RSpec.describe Saboteur::Engine::Candidates do
       bad = Saboteur::Config.new({ "sources" => ["lib/my_source.rb"] })
       expect { described_class.build_sources(bad) }.to raise_error(Saboteur::ConfigError, /path.rb:ClassName/)
     end
+
+    it "points a glob-looking entry at c.include (#488)" do
+      glob = Saboteur::Config.new({ "sources" => ["app/**/*.rb"] })
+      expect { described_class.build_sources(glob) }
+        .to raise_error(Saboteur::ConfigError, /looks like a source glob; did you mean c\.include\?/)
+    end
   end
 end
 
