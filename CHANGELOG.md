@@ -8,6 +8,10 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- Per-path score gate config (#473, slice 1): `score_gate "app/payments/**/*",
+  min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
+  validated at load (min_score 0-100, pattern must match an included file).
+  Enforcement lands with slice 2 (#570).
 - Per-path score gates are enforced (#473, slice 2): each `score_gate`
   subtree from slice 1 (#565) is scored with the run's own formula. A gate under its floor fails the run like the
   count gates (`scoreGate` cause in the JSON report); a gate with nothing
