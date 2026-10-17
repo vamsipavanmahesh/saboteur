@@ -413,6 +413,12 @@ an explicit file or directory when RSpec's parse finds none. The coverage map
 is built from only those specs, each mutant runs only the ones that cover it,
 and the selection is part of the coverage and `--incremental` cache keys.
 
+**Unreleased on main:** each `--test` takes one spec path; repeat the flag
+for several specs. A spec file passed as a positional source exits 2 with a
+message telling you to repeat `--test`. Spec files in `--since` scope are
+never mutated; when every subjectless changed file is a spec, the warning
+says so and points back to `--test`.
+
 `--threshold PERCENT` (0 to 100, or `c.threshold` in `config/saboteur.rb`) is for CI.
 The run exits 1 when the score is below PERCENT and 0 when it is at or above,
 even with survivors. It fails closed: a run that tested no mutant has no score
@@ -516,7 +522,8 @@ way reports ran-at-load or no-coverage rather than a guessed survivor.
 
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
-too) runs for the baseline passes, the coverage pass and every mutant, as
+too, and a dashed path also tries its underscored require name:
+`lib/acts-as-taggable-on/x.rb` finds `spec/acts_as_taggable_on/x_spec.rb`) runs for the baseline passes, the coverage pass and every mutant, as
 `--test` would. With `--since` only the changed files count; without it every
 included file does. It is a naming guess, not coverage: a spec that reaches the
 mutated file only through another file does not run, so a mutant only that

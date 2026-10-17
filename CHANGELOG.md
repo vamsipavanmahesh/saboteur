@@ -14,6 +14,11 @@ All notable changes are documented here. The format follows
   and an escapee is signalled only when a fresh snapshot shows the same
   pid still owned by the same start time, so a recycled pid is never
   killed by mistake.
+- The spec-name guess now tries the underscored require name of a dashed
+  path: `lib/acts-as-taggable-on/x.rb` finds
+  `spec/acts_as_taggable_on/x_spec.rb` (and the `spec/lib/` form) instead
+  of stopping on an unmatched file (#383). The literal dashed name still
+  wins when both exist.
 
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
@@ -44,6 +49,9 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `saboteur run --test a_spec.rb b_spec.rb` refused: spec files in the source scope now fail as a
+  usage error pointing at repeating `--test`, instead of a green run that mutates nothing; the
+  `--since` "no subjects covering" warning names the misuse when every file is a spec file (#371).
 - A mutant's test that daemonizes - forks an intermediate child that calls
   `setsid` and exits at once - no longer leaves a sleeping grandchild the
   supervisor never kills (#365). The tree poll can miss a descendant that
