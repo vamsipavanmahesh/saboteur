@@ -98,7 +98,11 @@ RSpec.describe Saboteur::Selection::GitDiff do
     # parser must read them as bytes, not as UTF-8 (#549).
     it "detects a deletion-only file whose name is not valid UTF-8" do
       name = "del_\xFF.rb".b
-      File.write(File.join(@dir, name), "x\ny\n")
+      begin
+        File.write(File.join(@dir, name), "x\ny\n")
+      rescue Errno::EILSEQ, Errno::EINVAL
+        skip "this platform rejects filenames that are not valid UTF-8"
+      end
       git("add", ".")
       git("commit", "-q", "-m", "add")
       File.write(File.join(@dir, name), "x\n")
