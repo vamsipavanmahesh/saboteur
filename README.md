@@ -657,10 +657,11 @@ run.
 file it lives in, the mutant, its covering tests and their files, and every
 project source the coverage run loaded - including helpers required lazily
 inside a test, outside the include list - the lockfile and the config are
-all unchanged. Watching covers Ruby sources only: after changing a
-non-Ruby input (YAML, locales, ERB, SQL fixtures), rerun with `--no-cache`,
-and run without `--incremental` now and then (and in CI on the main
-branch).
+all unchanged. Watching covers Ruby sources only: a change to a
+non-Ruby input (YAML, locales, ERB, SQL fixtures) is in no fingerprint,
+so rerun without `--incremental` after touching one - `--no-cache` only
+rebuilds the coverage map and still reuses the old verdict. Run without
+`--incremental` now and then anyway (and in CI on the main branch).
 
 ### Output, reports and scores
 
