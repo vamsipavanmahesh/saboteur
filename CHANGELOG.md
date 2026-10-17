@@ -50,6 +50,10 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The artifact dir now ignores itself (#426): a run writes logs,
+  coverage maps and reports under the cache dir, and the marker
+  `.gitignore` keeps a `git add -A` from committing them. An existing
+  `.gitignore` there is left alone.
 - Rejected kills no longer surface as generic errors: the terminal
   lists them in a `Rejected kills` section and annotates the error count,
   and report.json flags each rejected mutant with `rejectedKill: true`
