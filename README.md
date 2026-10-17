@@ -1148,6 +1148,11 @@ Any other thread gets a generic caveat: a thread that does not run in a
 child cannot do background work a mutant's test may rely on, so results
 can differ when one is left behind.
 
+<a id="filter-mutations"></a>
+<a id="literal-mutations"></a>
+<a id="chain-removal"></a>
+<a id="argument-removal"></a>
+<a id="hash-and-keyword-pair-removal"></a>
 ## Operator guide
 
 The detailed operator references live in [docs/operators](docs/operators/). The
@@ -1185,6 +1190,7 @@ Public API, stable across minor versions:
   path resolves its `.rb`, the way `require` does.
 
 <a id="dated-validation-runs"></a>
+<a id="where-it-has-run"></a>
 ## 🌍 Dated validation runs
 
 Tested on the RSpec suites of plain gems
@@ -1195,6 +1201,7 @@ the baseline check and the coarse-gate removal) and lobsters on SQLite in the
 design. Results: [docs/validation](docs/validation).
 
 <a id="dated-comparisons-and-measurements"></a>
+<a id="how-it-compares"></a>
 ## ⚖️ Dated comparisons and measurements
 
 The tables below are dated evidence snapshots, not live rankings or current
@@ -1226,6 +1233,7 @@ per-process RSS, which counts shared pages more than once, and it was measured
 before the fork-memory work. Read it as history, not a ranking of physical
 memory.
 
+<a id="independent-review-saboteur-040-vs-mutineer-160"></a>
 ### Independent review, saboteur 0.4.0 vs mutineer 1.6.0 (2026-10-12)
 
 A private consultant review ("saboteur 0.4.0 - Deep Review", 12 October 2026,
@@ -1255,6 +1263,7 @@ numbers.
 Not in the review and still pending: a rerun on current main, memory and
 per-mutant time on the benchmark apps, and any mutineer release after 1.6.0.
 
+<a id="memory-after-the-fork-memory-work-hashie--9c81e83"></a>
 ### Memory after the fork-memory work (2026-10-11, hashie @ 9c81e83)
 
 Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with
