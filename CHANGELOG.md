@@ -33,6 +33,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A baseline stopped by a containment limit (process count or memory)
+  now names the knob and its current value in the refusal (#459): a
+  suite that forks heavily by design, or legitimately needs more
+  memory, is pointed at `c.max_processes` / `c.max_memory_mb` instead
+  of reading as a suite failure.
+
 - A baseline that passed but leaked child processes no longer reads as a
   suite failure quoting an empty "Failures:" section (#486): the refusal
   says the suite passed, names each leaked process (pid and command,
