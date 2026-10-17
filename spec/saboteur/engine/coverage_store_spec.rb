@@ -30,6 +30,15 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                                 detail: nil, runtime: 0.1, leftover_pids: [])
   end
 
+  # Survivor kill for #480's load tracking (#480 dogfood gate).
+  it "merges parent load methods into the map even when load lines are empty" do
+    store = store()
+    store.instance_variable_set(:@load_methods, file => [2])
+    merged = store.send(:with_parent_load_lines, map)
+    expect(merged).not_to equal(map)
+    expect(merged.load_methods).to eq(file => [2])
+  end
+
   def cache_files
     Dir[File.join(@root, ".saboteur", "coverage-*.json")]
   end
