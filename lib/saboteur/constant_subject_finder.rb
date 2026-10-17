@@ -101,15 +101,12 @@ module Saboteur
       # A keyword class or module re-enters the lexical scope: its constants
       # are ordinary subjects even inside a block, and factory scopes never
       # join their paths (#352).
-      when Prism::ModuleNode
-        scope = Scope.new(kind: :module, path: node.constant_path.slice)
+      when Prism::ModuleNode, Prism::ClassNode
+        scope = Scope.new(kind: node.is_a?(Prism::ModuleNode) ? :module : :class, path: node.constant_path.slice)
         walk(node.body, lexical_nesting(nesting) + [scope], out, **ctx, in_block: false)
-      when Prism::ClassNode
-        scope = Scope.new(kind: :class, path: node.constant_path.slice)
-        walk(node.body, lexical_nesting(nesting) + [scope], out, **ctx, in_block: false)
+      when Prism::SingletonClassNode
+        walk_singleton_class(node, nesting, out, **ctx)
       else
-        # A singleton class keeps the enclosing nesting: constant lookup
-        # reaches the attached class's constants from there.
         walk_children(node, nesting, out, **ctx)
       end
     end
@@ -121,6 +118,18 @@ module Saboteur
       walk(node.statements, nesting, out, **ctx, guarded: true)
       walk(node.respond_to?(:subsequent) ? node.subsequent : node.else_clause, nesting, out, **ctx,
            guarded: true)
+    end
+
+    # `class << self` binds constants on the singleton class, not the
+    # attached class, so it opens its own owner segment (#380). A singleton
+    # class over anything but self, or a nested one, cannot be named
+    # lexically: keep the enclosing nesting (constant lookup still reaches
+    # the attached class's constants from there).
+    def walk_singleton_class(node, nesting, out, **ctx)
+      return walk_children(node, nesting, out, **ctx) unless node.expression.is_a?(Prism::SelfNode)
+      return walk_children(node, nesting, out, **ctx) if nesting.empty? || nesting.last.sclass?
+
+      walk(node.body, nesting + [Scope.new(kind: :sclass, path: "self")], out, **ctx, in_block: false)
     end
 
     def walk_children(node, nesting, out, **ctx)
@@ -229,15 +238,22 @@ module Saboteur
     end
 
     # Lexical path of the enclosing class/module, or nil at the top level.
-    # Factory scopes open no lexical constant scope, so they are left out.
+    # Factory scopes open no lexical constant scope, so they are left out. A
+    # `class << self` scope renders as a `.singleton_class` segment: the
+    # constant binds on the singleton class (#380).
     def owner_path(nesting)
-      parts = lexical_nesting(nesting).map(&:path)
-      return nil if parts.empty?
+      segments = lexical_nesting(nesting).map { |scope| scope.sclass? ? :singleton_class : scope.path }
+      return nil if segments.empty?
 
-      parts.each_with_object([]) do |path, acc|
-        acc.clear if path.start_with?("::")
-        acc << path.delete_prefix("::")
-      end.join("::")
+      segments.each_with_object(+"") do |segment, out|
+        if segment == :singleton_class
+          out << ".singleton_class"
+        else
+          out.clear if segment.start_with?("::")
+          out << "::" unless out.empty?
+          out << segment.delete_prefix("::")
+        end
+      end
     end
   end
-end
+  end
