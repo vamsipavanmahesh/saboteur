@@ -102,16 +102,18 @@ RSpec.describe Saboteur::Engine, "RunBudget and mutate flow pins (#443 dogfood)"
       store = store_with(true)
       allow(store).to receive(:fetch).and_return(:map)
       allow(engine).to receive(:coverage_store).and_return(store)
-      stub_mutate_pipeline(engine)
+      stub_mutate_pipeline(engine, store)
       engine
     end
 
     # Everything between the coverage store and the candidate lists is
-    # not under test here: each piece has its own pins.
-    def stub_mutate_pipeline(engine)
+    # not under test here: each piece has its own pins. The refusal check
+    # is an expectation, not a stub: dropping the call must fail (dogfood
+    # e29ae47b39d8c901).
+    def stub_mutate_pipeline(engine, store)
       allow(engine).to receive(:warn_unscoped)
       allow(engine).to receive(:check_baseline)
-      allow(engine).to receive(:refuse_unaffordable_coverage_build)
+      expect(engine).to receive(:refuse_unaffordable_coverage_build).with(store, [])
       allow(engine).to receive(:abandon_for_budget?).and_return(false)
       allow(engine).to receive(:inform_about_run)
       allow(engine).to receive(:result_cache).and_return(nil)

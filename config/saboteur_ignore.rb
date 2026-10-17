@@ -793,4 +793,16 @@ Saboteur.ignore do |i|
                      "a direct call with nil diverges (nil.to_i.zero? admits, nil.zero? raises " \
                      "NoMethodError), and no caller produces it"
 
+  i.mutation "dee396e30de4b83f",
+             subject: "Saboteur::Engine::RunBudget#refuse_unaffordable_coverage_build",
+             reason: "equivalent: per_pass is baseline_elapsed / completed_passes and never negative, " \
+                     "so <= 0 and == 0 differ only below 0, and at exactly 0.0 both fire; the 24-case " \
+                     "admit/refuse probe matrix is byte-identical"
+
+  i.mutation "feb1f2b67bea9964",
+             subject: "Saboteur::Engine::RunBudget#refuse_unaffordable_coverage_build",
+             reason: "equivalent: per_pass is never negative, so per_pass <= -1 never fires, and at " \
+                     "per_pass == 0.0 the remaining >= per_pass guard admits identically; the 24-case " \
+                     "admit/refuse probe matrix is byte-identical"
+
 end
