@@ -214,6 +214,22 @@ RSpec.describe Saboteur::ConstantReads, "class << self scopes (#380)" do
 
   let(:sclass_rules) { find("class Host\n  class << self\n    RULES = { a: 1 }\n  end\nend\n").subjects.first }
   let(:host_rules) { find("class Host\n  RULES = { a: 1 }\nend\n").subjects.first }
+  let(:top_rules) { find("RULES = { a: 1 }\n").subjects.first }
+
+  # A top-level `class << self` has no enclosing scope to attach a
+  # singleton path to: its path is the top level's, so a body that writes
+  # the constant name sets no shadow and the read still resolves (#395).
+  it "matches a read in a top-level class << self whose body writes the constant name" do
+    reads = reads_for("class << self\n  RULES = [0]\n  def m = RULES\nend\n", top_rules)
+    expect(reads.runtime).to eq([3])
+  end
+
+  # `class << obj` opens obj's singleton, which has no static name, so the
+  # enclosing scope stays: the read does not bind the enclosing scope's
+  # singleton-class constant (#395).
+  it "does not match a read inside class << obj to the enclosing singleton-class constant" do
+    expect(reads_for("class Host\n  class << obj\n    def m = RULES\n  end\nend\n", sclass_rules)).to be_nil
+  end
 
   it "matches a read inside class << self to the singleton-class constant" do
     reads = reads_for("class Host\n  class << self\n    def m = RULES\n  end\nend\n", sclass_rules)

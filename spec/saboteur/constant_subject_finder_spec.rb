@@ -504,6 +504,25 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "class << self owners (#380)" do
     expect(subject.skip_reason).to be_nil
   end
 
+  # The factory path carries the full module prefix: the join separator is
+  # observable in the owner path (#395).
+  it "names a constant in class << self inside a factory inside a module by the factory singleton" do
+    source = "module M\n  Point = Data.define(:x) do\n    class << self\n      META = { a: 1 }\n    end\n  end\nend\n"
+    parsed = find(source)
+    expect(parsed.subjects.map(&:id)).to eq(["M::Point.singleton_class::META"])
+  end
+
+  # A keyword scope nested in `class << self` inside a factory drops the
+  # factory from the nesting but keeps the leading singleton scope: a
+  # deeper `class << self` then meets an empty parts list, which must be
+  # skipped rather than suffixed (#395).
+  it "names a constant in class << self under a keyword scope in a factory's class << self" do
+    source = "Point = Data.define(:x) do\n  class << self\n    module M\n      class << self\n        " \
+             "X = { a: 1 }\n      end\n    end\n  end\nend\n"
+    parsed = find(source)
+    expect(parsed.subjects.map(&:id)).to eq(["M.singleton_class::X"])
+  end
+
   # `class << other` opens other's singleton, which has no static name, so
   # the constant keeps the enclosing (attached) naming: conservative, and
   # never confused with the self case.
