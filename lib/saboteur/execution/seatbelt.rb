@@ -18,6 +18,9 @@ module Saboteur
     # irreversible sandbox_init never touches the run's own process.
     module Seatbelt
       LIBSANDBOX = "/usr/lib/system/libsystem_sandbox.dylib"
+      LIBSYSTEM = "/usr/lib/libSystem.B.dylib"
+      F_GETPATH = 50
+      PATH_MAX = 1024
 
       # The probe profile must deny the write it then attempts.
       PROBE_PROFILE = "(version 1)(deny default)"
@@ -52,6 +55,33 @@ module Saboteur
 
       def available?
         probe == :ok
+      end
+
+      # Called at the top of a mutant child, mirroring Sandbox.restrict!:
+      # irreversible and fail-closed - a child whose profile does not apply
+      # must not run the mutant. keep_fds is Sandbox's hook contract
+      # (#234): Landlock gates opens, so its children keep writing through
+      # descriptors the parent opened (their logs); Seatbelt checks
+      # file-write* on EVERY write, so those inherited files join the
+      # profile as literal grants instead. Pipes and sockets among them
+      # have no path and need no grant.
+      def restrict!(writable:, keep_fds: [])
+        profile = Profile.build(writable: writable, inherited_files: fd_paths(keep_fds))
+        rc, message = sandbox_init(profile)
+        unless rc.zero?
+          raise Error, "the Seatbelt sandbox refused to engage (#{message}); the mutant does not run unconfined"
+        end
+
+        nil
+      end
+
+      # fcntl(F_GETPATH) maps an inherited descriptor back to its path; a
+      # descriptor without one (pipe, socket) is skipped.
+      def fd_paths(keep_fds)
+        keep_fds.filter_map do |fd|
+          buffer = Fiddle::Pointer.malloc(PATH_MAX)
+          LibSystem.fcntl_fn.call(fd, F_GETPATH, buffer).negative? ? nil : buffer.to_s
+        end
       end
 
       def classify(verdict)
@@ -106,12 +136,27 @@ module Saboteur
         rc = LibSandbox.sandbox_init_fn.call(profile, 0, errbuf)
         return [0, nil] if rc.zero?
 
+        # errorbuf is a char**: dereference once to reach the message.
         message = begin
-          errbuf.ptr.to_s
+          address = errbuf[0, Fiddle::SIZEOF_VOIDP].unpack1("J")
+          address&.positive? ? Fiddle::Pointer.new(address).to_s : "unknown"
         rescue StandardError
           "unknown"
         end
         [rc, "sandbox_init: #{message}"]
+      end
+
+      # fcntl for the F_GETPATH lookup; lazy like LibSandbox.
+      module LibSystem
+        module_function
+
+        def fcntl_fn
+          @fcntl_fn ||= Fiddle::Function.new(
+            Fiddle.dlopen(Seatbelt::LIBSYSTEM)["fcntl"],
+            [Fiddle::TYPE_INT, Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP],
+            Fiddle::TYPE_INT
+          )
+        end
       end
 
       # Lazy, so requiring the file on Linux or a stripped macOS stays inert
@@ -144,12 +189,16 @@ module Saboteur
 
         module_function
 
-        def build(writable:)
+        # inherited_files: already-open logs the child must keep writing
+        # (#234) - granted per file, never the cache dir that holds them.
+        def build(writable:, inherited_files: [])
           lines = [HEADER, "(allow default)\n", "(deny file-write*)\n"]
           writable.each do |dir|
             lines << %((allow file-write* (subpath "#{escape(dir)}"))\n)
           end
-          lines << %((allow file-write* (literal "#{escape(File::NULL)}"))\n)
+          (inherited_files + [File::NULL]).uniq.each do |file|
+            lines << %((allow file-write* (literal "#{escape(file)}"))\n)
+          end
           lines.join
         end
 
