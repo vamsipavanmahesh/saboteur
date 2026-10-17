@@ -25,6 +25,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The Landlock ABI probe no longer flakes fail-closed with "Success -
+  landlock_create_ruleset probe" on runners where the first errno read
+  gets clobbered between the syscall and the read: the errno reader is
+  built before the probe, and a failure return paired with errno 0
+  (impossible from a real kernel answer) is probed once more. Genuinely
+  unknown errors still fail closed.
 - `rspec_args` that hold only options and their values (such as
   `["--require", "spec_helper"]`) no longer leave the suite with no
   files under `exe/saboteur`: RSpec adds its default path only when `$0`
