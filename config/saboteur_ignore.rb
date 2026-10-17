@@ -733,4 +733,20 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "5a87a7155a4e0e9b",
+             subject: "Saboteur::CLI::HistoryCommand#history_path",
+             reason: "equivalent: UsageError is a ConfigError, so the unless-raise is caught by the method's own " \
+                     "rescue ConfigError and re-raised with the full message; the literal is never observable"
+
+  i.mutation "ac58690d8b48a18c",
+             subject: "Saboteur::CLI::HistoryCommand#print_trend",
+             reason: "equivalent: each vs map on a side-effect-only output loop; the collected array is discarded"
+
+  i.mutation "1fce08bdeaac5a87",
+             subject: "Saboteur::CLI::HistoryCommand#print_trend",
+             reason: "equivalent: unreachable - the dropped clause only matters when a complete, comparable " \
+                     "current record has a nil coveredScore while the previous record is scored; every " \
+                     "nil-coveredScore record is either incomplete or has an empty selection digest, so " \
+                     "comparable? never pairs it with a scored record"
 end
