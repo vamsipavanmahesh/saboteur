@@ -168,10 +168,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::Builtin#visit_statements",
              reason: "equivalent: the loop never sees an empty sequence, so != 1 and > 1 agree"
 
-  i.mutation "908676542a888c9d",
-             subject: "Saboteur::MutationSource::Builtin#mutate_call",
-             reason: "equivalent: only binary calls are named like a comparison or arithmetic operator in practice"
-
   i.mutation "4cc9db1f1c23f253",
              subject: "Saboteur::MutationSource::Builtin#mutate_call",
              reason: "equivalent: Prism always gives ! a receiver"
@@ -746,6 +742,10 @@ Saboteur.ignore do |i|
   i.mutation "a239e75a818e5e27",
              subject: "Saboteur::Engine::TestGuess#defined_constants",
              reason: "equivalent: sole consumer is any? over ConstantReads.across; .uniq removes only byte-identical DefinedConstant tuples, and a duplicate tuple yields the same across result"
+  i.mutation "d9aeb909564db3e1",
+             subject: "Saboteur::Engine::SubjectSelection#by_pattern",
+             reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
+
   i.mutation "d689ef2e6305183f",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: nesting[index..] adds only the sclass scope itself to the any?(&:factory?) check, and a scope's kind is either :sclass or :factory, never both"
