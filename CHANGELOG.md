@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `saboteur run --dry-run --format json` prints a versioned machine-readable
+  mutant inventory without booting the suite (#469): schema version, run
+  metadata, subjects, every planned mutant with its stable digest, operator,
+  file, line and byte-range edits, and every skipped candidate with its
+  reason (inline suppression, hazard refusal or the per-method cap).
+  `--dry-run --agent` now names this flag instead of only refusing.
+
 ### Fixed
 
 - The marker sweep no longer kills a marked process it cannot identify

@@ -3,14 +3,22 @@
 
 require_relative "engine"
 require_relative "text"
+require_relative "version"
 
 module Saboteur
   # Source-only planning. Never boots the host or executes its test suite.
   class Preview
-    def initialize(config, out:, err:)
+    # Version of the --format json inventory (#469). Consumers ignore fields
+    # they do not know; only a breaking change raises this number.
+    SCHEMA_VERSION = 1
+
+    def initialize(config, out:, err:, format: "text")
       @config = config
       @out = out
       @diagnostics = Engine::Diagnostics.new(err)
+      @json = format == "json"
+      @inventory = []
+      @skipped = []
     end
 
     def call
@@ -23,6 +31,8 @@ module Saboteur
       lists = subjects.map { |subject| planned(subject, candidates, scope) }
       inline_suppressions
       incomplete = @diagnostics.discovery_failures.size
+      return print_inventory(subjects, lists, incomplete) if @json
+
       @out.puts("Total: #{lists.sum(&:size)} mutants; #{@diagnostics.omissions.sum(&:count)} " \
                 "dropped by max_mutants_per_method#{incomplete_note(incomplete)}")
       incomplete.zero? ? estimate(subjects, lists) : @out.puts("no estimate: source discovery was incomplete")
@@ -37,20 +47,19 @@ module Saboteur
     end
 
     def announce_operators
-      @out.puts("Operators: #{@config.operator_policy['effective'].join(', ')}")
+      @out.puts("Operators: #{@config.operator_policy['effective'].join(', ')}") unless @json
     end
 
     # Candidate filtering precedes diff restriction and the per-method cap.
     # Name that scope rather than implying these rows were executed or scored.
     def inline_suppressions
       entries = @diagnostics.inline_suppressions
-      return if entries.empty?
+      return if entries.empty? || @json
 
       @out.puts("Inline suppressions: #{entries.size} candidates in selected methods " \
                 "(before diff restriction and per-method cap; outside the planned total)")
       entries.each do |entry|
-        path = entry[:file].delete_prefix("#{@config.root}/")
-        @out.puts("  #{path}:#{entry[:line]} #{entry[:subject]} #{entry[:operator]} " \
+        @out.puts("  #{relative_path(entry[:file])}:#{entry[:line]} #{entry[:subject]} #{entry[:operator]} " \
                   "#{entry[:digest]}: #{entry[:reason]}")
       end
     end
@@ -106,11 +115,101 @@ module Saboteur
       list = candidates.for(subject)
       list = scope.restrict(subject, list) if scope
       limit = @config["max_mutants_per_method"]
-      @diagnostics.record_omission(subject, count: list.size - limit, limit: limit) if list.size > limit
+      if list.size > limit
+        @diagnostics.record_omission(subject, count: list.size - limit, limit: limit)
+        list.drop(limit).each { |(mutation, _)| record_skip(subject, mutation, "max_mutants_per_method") } if @json
+      end
       list = list.first(limit)
-      path = subject.file.delete_prefix("#{@config.root}/")
-      @out.puts("#{path}:#{subject.start_line} #{subject.id}  #{list.size} mutants")
+      if @json
+        list.each { |(mutation, _)| @inventory << mutant_entry(subject, mutation) }
+      else
+        @out.puts("#{relative_path(subject.file)}:#{subject.start_line} #{subject.id}  #{list.size} mutants")
+      end
       list
+    end
+
+    # The machine-readable inventory (#469): every planned mutant named by
+    # the stable digest a run or --id replay computes, plus the candidates
+    # that were planned but not runnable, each with its skip reason.
+    def print_inventory(subjects, lists, incomplete)
+      @out.puts(JSON.pretty_generate(
+                  schema_version: SCHEMA_VERSION,
+                  saboteur_version: VERSION,
+                  mode: "dry-run",
+                  operators: @config.operator_policy["effective"],
+                  test_selection: @config["test_selection"],
+                  tests: @config["tests"],
+                  subjects: subjects.zip(lists).map { |subject, list| subject_entry(subject, list) },
+                  mutants: @inventory,
+                  skipped: @skipped + suppression_entries,
+                  totals: {
+                    mutants: lists.sum(&:size),
+                    dropped_by_max_mutants_per_method: @diagnostics.omissions.sum(&:count),
+                    incomplete_files: incomplete
+                  },
+                  estimated_seconds: incomplete.zero? ? estimated_seconds(subjects, lists) : nil,
+                  warnings: @diagnostics.warnings
+                ))
+      nil
+    end
+
+    def estimated_seconds(subjects, lists)
+      map = cached_map
+      seconds = map && work_seconds(map, subjects, lists)
+      seconds&.round(2)
+    end
+
+    def subject_entry(subject, list)
+      { id: subject.id, file: relative_path(subject.file), start_line: subject.start_line,
+        end_line: subject.end_line, mutants: list.size }
+    end
+
+    # Byte offsets index the file as read from disk, like the Stryker
+    # report; original and replacement text make each edit self-contained.
+    def mutant_entry(subject, mutation)
+      {
+        digest: mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source),
+        subject: subject.id,
+        operator: mutation.operator.to_s,
+        file: relative_path(subject.file),
+        line: line_of(subject, mutation.edits.first.start_byte),
+        edits: mutation.edits.map do |edit|
+          { start_byte: edit.start_byte, end_byte: edit.end_byte,
+            original: source_span(subject, edit), replacement: edit.replacement }
+        end
+      }
+    end
+
+    def record_skip(subject, mutation, reason)
+      @skipped << mutant_entry(subject, mutation).merge(reason: reason)
+    end
+
+    # Inline-suppressed and hazard-refused candidates with their reasons,
+    # recorded during candidate filtering, before diff restriction and the
+    # per-method cap (the same scope the text audit names).
+    def suppression_entries
+      inline = @diagnostics.inline_suppressions.map do |entry|
+        { digest: entry[:digest], subject: entry[:subject], operator: entry[:operator].to_s,
+          file: relative_path(entry[:file]), line: entry[:line], reason: "inline_suppression: #{entry[:reason]}" }
+      end
+      hazards = @diagnostics.generation_events.select { |event| event.source == "hazard_guard" }.map do |event|
+        { subject: event.subject, operator: event.operator.to_s, file: relative_path(event.file),
+          reason: "hazardous" }
+      end
+      inline + hazards
+    end
+
+    def relative_path(file)
+      file.delete_prefix("#{@config.root}/")
+    end
+
+    def line_of(subject, byte)
+      subject.file_source.byteslice(0, byte).count("\n") + 1
+    end
+
+    def source_span(subject, edit)
+      subject.file_source.byteslice(edit.start_byte, edit.end_byte - edit.start_byte).to_s
+             .force_encoding(Encoding::UTF_8)
     end
   end
 end
