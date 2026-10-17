@@ -435,6 +435,21 @@ an explicit file or directory when RSpec's parse finds none. The coverage map
 is built from only those specs, each mutant runs only the ones that cover it,
 and the selection is part of the coverage and `--incremental` cache keys.
 
+### Rails engines and dummy apps
+
+Engine-style gems keep an embedded Rails app under `spec/dummy` whose specs
+load a Rails env (`require "rails_helper"`) the parent process does not have,
+and some repos keep env-dependent integration specs under `spec/`. Loading
+the whole spec tree then dies at setup. When that happens the error names
+the files that failed to load; exclude the broken subtrees in
+`config/saboteur.rb`:
+
+```ruby
+Saboteur.configure do |c|
+  c.rspec_args = ["--exclude-pattern", "spec/dummy/**/*_spec.rb,spec/integration/**/*_spec.rb"]
+end
+```
+
 `--threshold PERCENT` (0 to 100, or `c.threshold` in `config/saboteur.rb`) is for CI.
 The run exits 1 when the score is below PERCENT and 0 when it is at or above,
 even with survivors. It fails closed: a run that tested no mutant has no score
