@@ -44,7 +44,8 @@ module Saboteur
         description: "Builds a per-test coverage map, makes small changes to your methods, runs only the " \
                      "tests that cover each change, and reports survivors (changes no test noticed). Source files or " \
                      "directories after run replace include and exclude. Without --test, the run infers the " \
-                     "specs named after the mutated files and runs only those; a mutated file with no " \
+                     "specs named after the mutated files and runs only those (with --since, plus every " \
+                     "spec file the diff adds or changes that the suite loads); a mutated file with no " \
                      "conventional spec stops the run with exit 2 before anything boots, and --all keeps " \
                      "the whole configured suite. --threshold PERCENT replaces the survivor check: exit 0 " \
                      "when the score is at or above PERCENT, exit 1 when it is below. All operators run " \
@@ -99,7 +100,8 @@ module Saboteur
         summary: "Check the environment, and with --suite run the baseline twice, without mutating anything",
         description: "Boots the target like a run and checks runtime, coverage and boot files. With --suite " \
                      "it also runs your suite twice in the same order with one seed and reports whether both " \
-                     "runs passed; --test PATH limits those runs to some specs. It never mutates anything.",
+                     "runs passed; --test PATH limits those runs to some specs. It never mutates anything. " \
+                     "It certifies no versions of Rails, databases or tools saboteur never invokes (#318).",
         takes_options: true,
         exit_codes: DOCTOR_EXIT_CODE_MEANINGS,
         examples: [["Check the setup before the first run", "saboteur doctor"],
@@ -165,7 +167,7 @@ module Saboteur
       ["config/saboteur_ignore.rb", "Accepted survivors: mutation digests with subject and a required reason."],
       [".saboteur/report.json", "Stryker mutation-testing-report-schema JSON (--json changes the path)."],
       [".saboteur/report.html", "Self-contained HTML report (--html changes the path)."],
-      [".saboteur/", "Cache: coverage map and incremental verdicts. Safe to delete."]
+      [".saboteur/", "Cache: coverage map and incremental verdicts. Safe to delete between runs; stop the run first."]
     ].freeze
 
     # option_lines: the option lines of each command's parser, keyed by command name.

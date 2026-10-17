@@ -70,11 +70,16 @@ module Saboteur
             tests.flat_map { |test| ["--test", test] }
           end
 
+          # An empty list nobody typed came from the config file or its
+          # default, which the command reads again, so its flag is left out
+          # (#317). A typed empty list stays: it may clear a config value.
           def setting_words(provenance)
             SETTING_FLAGS.flat_map do |key, flag|
               next [] unless provenance.settings.key?(key)
 
               value = provenance.settings[key]
+              next [] if value == [] && !provenance.typed_settings.include?(key)
+
               [flag, value.is_a?(Array) ? value.join(",") : value.to_s]
             end
           end

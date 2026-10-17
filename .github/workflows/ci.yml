@@ -16,39 +16,72 @@ concurrency:
 
 jobs:
   test:
-    name: Ruby ${{ matrix.ruby }} / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    # Job names use stable OS labels, not runner labels, so swapping runners
+    # never renames a check the panel gate waits on (see #347).
+    name: Ruby ${{ matrix.ruby }} / linux / shard ${{ matrix.shard }}
+    # 1 vCPU is enough: one rspec process is single-threaded.
+    runs-on: nscloud-ubuntu-24.04-amd64-1x2
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
         ruby: ["3.3", "3.4", "ruby"] # "ruby" = latest stable
+        # The full suite runs as 3 round-robin file shards per Ruby leg so
+        # each parallel job stays short instead of one long leg per version.
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - run: bundle exec rspec
+      - run: script/rspec-shard ${{ matrix.shard }} 3
+
+  # macOS legs are capped at 12 vCPU / 28 GB total on the trial, which fits
+  # exactly three 4x8 legs at once. Pull requests therefore run the smallest
+  # useful matrix - the latest stable Ruby only - while pushes to main still
+  # cover every supported Ruby (those legs queue in waves, which is fine for
+  # a branch that only needs results before the next merge).
+  test-macos:
+    name: Ruby ${{ matrix.ruby }} / macos / shard ${{ matrix.shard }}
+    runs-on: nscloud-macos-sequoia-arm64-4x8
+    strategy:
+      fail-fast: false
+      # Main pushes request 9 legs x 4 vCPU against a 12 vCPU trial cap, so
+      # run at most 3 at once (pull requests only ever have 3 legs here).
+      max-parallel: 3
+      # (No spaces after the JSON colons: a colon+space would break the YAML
+      # plain scalar. The matrix itself is normal JSON.)
+      matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: script/rspec-shard ${{ matrix.shard }} 3
 
   # Non-UTF-8 locale regression net: the whole suite under LANG=C, where
   # external bytes arrive US-ASCII-tagged and any unforced boundary raises.
   locale:
-    name: Ruby 3.4 / LANG=C
-    runs-on: ubuntu-latest
+    name: Ruby 3.4 / LANG=C / shard ${{ matrix.shard }}
+    runs-on: nscloud-ubuntu-24.04-amd64-1x2
     env:
       LANG: C
       LC_ALL: C
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: "3.4"
           bundler-cache: true
-      - run: bundle exec rspec
+      - run: script/rspec-shard ${{ matrix.shard }} 3
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: nscloud-ubuntu-24.04-amd64-1x2
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
@@ -65,7 +98,8 @@ jobs:
 
   integration-gems:
     name: ${{ matrix.target }} (${{ matrix.reeval }})
-    runs-on: ubuntu-latest
+    # Namespace trial: slowest Linux job, moved to an nscloud AMD64 runner.
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
     strategy:
       fail-fast: false
       matrix:
@@ -77,13 +111,17 @@ jobs:
         with:
           ruby-version: "3.3"
       - name: Run against the pinned commit and compare counts
-        run: script/integration-target "${{ matrix.target }}" "$RUNNER_TEMP/targets" --reeval "${{ matrix.reeval }}" --check
+        # --jobs 4 uses all 4 vCPUs of the runner; everything after `--`
+        # is forwarded to saboteur by script/integration-target.
+        run: script/integration-target "${{ matrix.target }}" "$RUNNER_TEMP/targets" --reeval "${{ matrix.reeval }}" --check -- --jobs 4
 
   # saboteur on its own changed methods. Survivors fail the check unless they
   # are on config/saboteur_ignore.rb with a reason.
   dogfood:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    # 2x4 keeps the whole pull request job set inside the 32 vCPU trial
+    # budget; --jobs 2 matches the 2 vCPUs.
+    runs-on: nscloud-ubuntu-24.04-amd64-2x4
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -96,6 +134,7 @@ jobs:
         uses: ./
         with:
           command: bundle exec exe/saboteur
+          arguments: --baseline-passes 1 --jobs 2
           fail-on-survivors: "true"
       - name: Keep the report
         if: always()

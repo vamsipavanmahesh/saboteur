@@ -248,8 +248,14 @@ module Saboteur
         subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || config["tests"]),
         sources: @sources || [],
         config_path: options[:config], digest: options[:id], cache: config["cache"],
-        incremental: config["incremental"], settings: agent_settings
+        incremental: config["incremental"], settings: agent_settings, typed_settings: typed_settings
       )
+    end
+
+    # The settings keys typed on the command line: a typed empty operator
+    # list may clear a config value, so the generated commands keep it.
+    def typed_settings
+      options.keys & Reporter::Agent::Commands::SETTING_FLAGS.keys
     end
 
     # A whole-suite run records its scope as --all, so the generated rerun

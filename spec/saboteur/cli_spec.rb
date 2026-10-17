@@ -762,6 +762,24 @@ RSpec.describe Saboteur::CLI do
       end
       expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
         expect(provenance.settings).to eq(jobs: 2, operators: [], exclude_operators: [])
+        expect(provenance.typed_settings).to eq([:jobs])
+      end
+    end
+
+    # A typed empty list may clear a config-file value, so the generated
+    # commands keep it; the provenance says which settings were typed (#317).
+    it "records the operator settings typed on the command line, empty ones included" do
+      report = report_of(result_for(:killed))
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) { cli("run", "--agent", "--exclude-operators", "").call }
+      end
+      expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
+        expect(provenance.typed_settings).to eq([:exclude_operators])
+        expect(Saboteur::Reporter::Agent::Commands.rerun(provenance)).to include("--exclude-operators ''")
+        expect(Saboteur::Reporter::Agent::Commands.rerun(provenance)).not_to include("--operators ''")
       end
     end
 

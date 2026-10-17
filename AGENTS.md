@@ -37,14 +37,16 @@ Names follow Uncle Bob's Clean Code conventions:
 
 ## Review
 
+- Keep a pull request small: at most about 300 changed lines (added plus removed) of code, specs and docs together. CHANGELOG lines and ignore-list entries do not count. A fix and its tests stay in one pull request; split bigger work by behavior, never by file type. Small pull requests keep dogfood and panel reviews fast, and a bad one is easy to undo.
 - A pull request opens with the first push. Open it as a draft while the work is in progress. No branch sits on origin without a pull request.
 - Adversarial panel reviewers analyze the open pull request in parallel. Each reviewer posts their review as a comment on it as soon as their analysis is done, independently of the others.
 - The author starts resolving each comment as soon as it is posted, without waiting for the rest of the panel. Fixes land as new commits, then the panel re-reviews.
 - Merge only when the panel and the author agree and CI is green.
+- Exception: a docs-only change (Markdown files and `docs/` only, no code, specs, scripts or workflows) may be pushed straight to `main` without a pull request, CI or panel once an independent reviewer has approved the exact diff. It still carries the DCO sign-off.
 
 ## Preflight
 
-- Before asking for review, run `ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode full` on the exact head. See [docs/preflight.md](docs/preflight.md).
+- Before asking for review, run `ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast` on the exact head, plus the specs the change touches and the changed-method dogfood (`bundle exec exe/saboteur run --since origin/main`). The full suite runs in CI; `--mode full` runs it locally when CI is not available. See [docs/preflight.md](docs/preflight.md).
 - A green preflight is not approval and does not replace the panel, CI or the live check of the PR base.
 - Fast mode is partial. Any new push needs a fresh run.
 
