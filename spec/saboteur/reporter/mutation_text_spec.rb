@@ -30,6 +30,12 @@ RSpec.describe Saboteur::Reporter::MutationText do
     expect(described_class.line(result)).to eq(3)
   end
 
+  it "knows a removal-only mutant from one with a replacement (#502)" do
+    expect(described_class.removal?(result_with(edit("first = 1", ""), edit("second = 2", "")))).to be(true)
+    expect(described_class.removal?(result_with(edit("first = 1", ""), edit("second = 2", "2")))).to be(false)
+    expect(described_class.removal?(result_with(edit("first = 1", "one")))).to be(false)
+  end
+
   it "joins the edits in source order with a pipe" do
     result = result_with(edit("second = 2", "B"), edit("first = 1", "A"))
     expect(described_class.original(result)).to eq("first = 1 | second = 2")
