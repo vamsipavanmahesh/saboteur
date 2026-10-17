@@ -71,7 +71,7 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     end
     boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-    selection = instance_double(Saboteur::Engine::SubjectSelection, select: subjects, changed_lines: nil)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, select: subjects, behavior_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 
