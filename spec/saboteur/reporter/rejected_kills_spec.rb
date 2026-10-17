@@ -31,6 +31,51 @@ RSpec.describe "rejected kill accounting" do
     expect(Saboteur::Reporter::Stryker.build(report)[:rejectedKills]).to eq(2)
   end
 
+  # #375: a rejected kill is a verdict (the tests fail with the method
+  # unchanged), not a tool error - report.json must flag it per mutant,
+  # not only in the aggregate count.
+  it "flags each rejected kill per mutant in report.json" do
+    results = reject([result, result(status: :error, killed_by: ["t1"])])
+    report = Saboteur::Report.new(results: results, subjects: [subject_under_test], wall_time: 0.1, root: Dir.pwd)
+    mutants = Saboteur::Reporter::Stryker.build(report)[:files].values.flat_map { |file| file[:mutants] }
+    expect(mutants.map { |mutant| mutant[:rejectedKill] }).to eq([true, nil])
+    expect(mutants.first[:status]).to eq("RuntimeError")
+    expect(mutants.first[:statusReason]).to include("also fails with the method unchanged")
+  end
+
+  # #375: the summary names rejected kills as such instead of folding them
+  # into a generic error count and section.
+  it "names rejected kills in the summary instead of listing them as generic errors" do
+    results = reject([result, result])
+    report = Saboteur::Report.new(results: results, subjects: [subject_under_test], wall_time: 0.1, root: Dir.pwd)
+    terminal = StringIO.new
+    Saboteur::Reporter::Terminal.new(terminal).call(report)
+    expect(terminal.string).to include("error 2 (2 rejected kills)")
+    expect(terminal.string).to include("Rejected kills (tests also fail with the method unchanged")
+    expect(terminal.string).not_to include("Errors (not counted as killed):")
+  end
+
+  it "prints one line per rejected kill under the rejected heading (#429)" do
+    results = reject([result])
+    report = Saboteur::Report.new(results: results, subjects: [subject_under_test], wall_time: 0.1, root: Dir.pwd)
+    terminal = StringIO.new
+    Saboteur::Reporter::Terminal.new(terminal).call(report)
+    section = terminal.string.split("Rejected kills", 2).last
+    expect(section).to include("Counted#m")
+    expect(section).to include("also fails with the method unchanged")
+  end
+
+  it "keeps genuine errors in the error section when both kinds occur" do
+    results = reject([result, result(status: :error, killed_by: ["t1"])])
+    results.last.as_error("boom") # keep the flag off; as_error returns a copy
+    report = Saboteur::Report.new(results: results, subjects: [subject_under_test], wall_time: 0.1, root: Dir.pwd)
+    terminal = StringIO.new
+    Saboteur::Reporter::Terminal.new(terminal).call(report)
+    expect(terminal.string).to include("error 2 (1 rejected kill)")
+    expect(terminal.string).to include("Rejected kills (tests also fail with the method unchanged")
+    expect(terminal.string).to include("Errors (not counted as killed):")
+  end
+
   it "reports zero when no kills were rejected" do
     report = Saboteur::Report.new(results: [result], subjects: [], wall_time: 0.1, root: Dir.pwd)
     expect(report.rejected_kills).to eq(0)
