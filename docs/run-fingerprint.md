@@ -70,7 +70,7 @@ safe write destinations or offer arbitrary artifact exclusions.
 
 Checkout root and configured artifact paths use the same canonical path basis,
 including existing symlink ancestors of missing destinations. Settings identity
-excludes `cache_dir`, `json_report` and `html_report`; overlap checks still inspect
+excludes `cache_dir`, `json_report`, `html_report` and `score_history`; overlap checks still inspect
 them. Restore accepts only normalized relative inventory paths or normalized
 `external:/absolute` paths, known kinds, and present entries with a SHA-256 hash
 (missing/unreadable entries must have no hash).
