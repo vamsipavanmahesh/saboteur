@@ -16,10 +16,12 @@ RSpec.describe Saboteur::Help do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
     expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur pr)",
                            "OPTIONS (saboteur audit)", "OPTIONS (saboteur doctor)",
-                           "OPTIONS (saboteur baseline)", "EXAMPLES",
+                           "OPTIONS (saboteur baseline)", "OPTIONS (saboteur badge)", "OPTIONS (saboteur trend)",
+                           "EXAMPLES",
                            "EXIT CODES (saboteur run)", "EXIT CODES (saboteur pr)", "EXIT CODES (saboteur audit)",
                            "EXIT CODES (saboteur doctor)",
-                           "EXIT CODES (saboteur baseline)",
+                           "EXIT CODES (saboteur baseline)", "EXIT CODES (saboteur badge)",
+                           "EXIT CODES (saboteur trend)",
                            "CONFIG FILE (config/saboteur.rb)", "FILES"])
   end
 
@@ -136,6 +138,15 @@ RSpec.describe Saboteur::Help do
       expect(described_class::COMMANDS.map(&:name)).to include(name)
       parse_options(words.drop(2)) if name == "run"
     end
+  end
+
+  it "describes badge and trend (#526)" do
+    badge = help.command("badge")
+    expect(badge).to include("saboteur badge").and include("--history PATH").and include("--mark-partial")
+    expect(badge).to include("EXAMPLES").and include("EXIT CODES")
+    trend = help.command("trend")
+    expect(trend).to include("saboteur trend").and include("--history PATH")
+    expect(trend).to include("EXAMPLES").and include("EXIT CODES")
   end
 
   it "describes one command in detail" do

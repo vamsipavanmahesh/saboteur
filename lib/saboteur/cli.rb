@@ -61,7 +61,7 @@ module Saboteur
       when "run" then run_command
       when "baseline" then baseline
       when "doctor" then doctor_command
-      when "badge", "trend" then history_command(command)
+      when "badge", "trend" then history_entry(command)
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help", "--help", "-h" then show_help(@argv.shift)
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
@@ -104,6 +104,8 @@ module Saboteur
     def run_command = help_requested? ? show_help("run") : run
 
     def doctor_command = help_requested? ? show_help("doctor") : doctor
+
+    def history_entry(command) = help_requested? ? show_help(command) : history_command(command)
 
     def help_requested?
       @argv.intersect?(%w[--help -h])
