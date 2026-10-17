@@ -152,12 +152,62 @@ RSpec.describe Saboteur::Subject do
       expect(branchy.coverage_lines_for(edit)).to eq([4, 5])
     end
 
+    it "counts a trailing newline as the edit's last line" do
+      source = branchy.file_source
+      start = source.index("x +")
+      edit = Saboteur::MutationSource::Edit.new(file: branchy.file, start_byte: start,
+                                                end_byte: source.index("\n", start) + 1, replacement: "x")
+      expect(branchy.coverage_lines_for(edit)).to eq([4])
+    end
+
+    it "crosses into the next line on the edit's final byte" do
+      source = branchy.file_source
+      start = source.index("x +")
+      edit = Saboteur::MutationSource::Edit.new(file: branchy.file, start_byte: start,
+                                                end_byte: source.index("\n", start) + 2, replacement: "x")
+      expect(branchy.coverage_lines_for(edit)).to eq([4, 5])
+    end
+
     it "maps an edit in a condition to the statement that holds it" do
       expect(branchy.coverage_lines_for(edit_at(">"))).to eq([3])
     end
 
     it "maps an edit outside every statement to the whole method" do
       expect(branchy.coverage_lines_for(edit_at("(x)"))).to eq(branchy.coverage_lines)
+    end
+  end
+
+  describe "#coverage_lines_for with pattern matching" do
+    let(:matchy) do
+      subjects_in(<<~RUBY).first
+        class A
+          def m(x)
+            case x
+            in Integer then 1
+            in String
+              2
+            end
+          end
+        end
+      RUBY
+    end
+
+    def match_edit(text)
+      at = matchy.file_source.index(text)
+      Saboteur::MutationSource::Edit.new(file: matchy.file, start_byte: at, end_byte: at + text.bytesize,
+                                         replacement: "x")
+    end
+
+    it "covers the case line and the in line for an edit exactly covering a pattern" do
+      expect(matchy.coverage_lines_for(match_edit("Integer"))).to eq([3, 4])
+    end
+
+    it "covers the case line, the in line, and the body line for a multi-line clause" do
+      expect(matchy.coverage_lines_for(match_edit("String"))).to eq([3, 5, 6])
+    end
+
+    it "falls back to the statement line for an edit inside a clause body" do
+      expect(matchy.coverage_lines_for(match_edit("2"))).to eq([6])
     end
   end
 
