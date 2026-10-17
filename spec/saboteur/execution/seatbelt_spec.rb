@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "tmpdir"
+require "fileutils"
+
 RSpec.describe Saboteur::Execution::Seatbelt do
   it "recognizes macOS only" do
     stub_const("RUBY_PLATFORM", "arm64-darwin24")
@@ -8,6 +11,11 @@ RSpec.describe Saboteur::Execution::Seatbelt do
     stub_const("RUBY_PLATFORM", "x86_64-linux")
     expect(described_class.darwin?).to be(false)
   end
+
+  # The memoized probe verdict is process-wide: reset it after every
+  # example too, not only before the memo-mutating ones, or a leaked
+  # @probe = :ok fools later specs on this host (seed-dependent).
+  after { reset_probe_memo }
 
   describe ".probe" do
     it "answers unsupported off macOS without forking" do
@@ -79,5 +87,36 @@ RSpec.describe Saboteur::Execution::Seatbelt do
     return unless described_class.instance_variable_defined?(:@probe)
 
     described_class.instance_eval { remove_instance_variable(:@probe) }
+  end
+end
+
+RSpec.describe Saboteur::Execution::Seatbelt, ".restrict! and inherited files" do
+  it "applies the built profile with grants and the inherited child logs as literals" do
+    fn = double("sandbox_init", call: 0)
+    allow(described_class::LibSandbox).to receive(:sandbox_init_fn).and_return(fn)
+    allow(described_class).to receive(:fd_paths).and_return(["/run/.saboteur/logs/child-1.log"])
+    expect(described_class.restrict!(writable: ["/proj/tmp"], keep_fds: [7])).to be_nil
+    expect(fn).to have_received(:call) do |profile, flags, _errbuf|
+      expect(profile).to include("(deny file-write*)")
+      expect(profile).to include('(subpath "/proj/tmp")')
+      expect(profile).to include('(literal "/run/.saboteur/logs/child-1.log")')
+      expect(flags).to eq(0)
+    end
+  end
+
+  it "fails closed: a refused profile means the mutant never runs" do
+    fn = double("sandbox_init")
+    allow(fn).to receive(:call).and_return(-1)
+    allow(described_class::LibSandbox).to receive(:sandbox_init_fn).and_return(fn)
+    expect { described_class.restrict!(writable: [], keep_fds: []) }
+      .to raise_error(Saboteur::Error, /Seatbelt/)
+  end
+
+  it "skips inherited descriptors fcntl cannot map back to a path" do
+    fn = double("fcntl")
+    allow(fn).to receive(:call).and_return(-1)
+    allow(described_class::LibSystem).to receive(:fcntl_fn).and_return(fn)
+    expect(described_class.fd_paths([9, 10])).to eq([])
+    expect(fn).to have_received(:call).twice
   end
 end

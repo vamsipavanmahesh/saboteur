@@ -27,7 +27,9 @@ module Saboteur
       "whole_file" => [],
       "hazard" => MutationSource::HazardGuard::DEFAULT_HAZARD,
       "allow_hazardous" => false,
-      "sandbox" => true, # true, false, or "strict": strict refuses to run without full Landlock
+      # true, false, "strict" or "seatbelt": strict refuses to run without full Landlock;
+      # seatbelt opts into the macOS Seatbelt sandbox (on Linux it behaves like true).
+      "sandbox" => true,
       "sandbox_writable" => [],
       "timeout_factor" => 3.0,
       "timeout_min" => 5.0,
@@ -296,8 +298,8 @@ module Saboteur
 
     def validate!
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
-      unless [true, false, "strict"].include?(self["sandbox"])
-        raise ConfigError, 'sandbox must be true, false, or "strict"'
+      unless [true, false, "strict", "seatbelt"].include?(self["sandbox"])
+        raise ConfigError, 'sandbox must be true, false, "strict", or "seatbelt"'
       end
 
       validate_mutant_limit!

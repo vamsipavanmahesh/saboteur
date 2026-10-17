@@ -211,3 +211,85 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     expect(warnings).to be_empty
   end
 end
+
+# c.sandbox = "seatbelt" (the opt-in macOS sandbox, #436): the probe
+# decides - confine when Seatbelt truly enforces, degrade to guard+canary
+# with a one-time note otherwise; off macOS the value behaves like true.
+RSpec.describe Saboteur::Engine, 'sandbox hook with c.sandbox = "seatbelt"' do
+  around do |example|
+    parent = File.expand_path("../../../tmp/saboteur-hook-fixtures", __dir__)
+    FileUtils.mkdir_p(parent)
+    Dir.mktmpdir("hook-", parent) do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:err) { StringIO.new }
+
+  def engine_for(settings)
+    described_class.new(Saboteur::Config.new(settings, root: @root), err: err)
+  end
+
+  before { allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(true) }
+
+  it "hands a confining hook when the probe enforces" do
+    allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:ok)
+    allow(Saboteur::Execution::Seatbelt).to receive(:restrict!)
+    hook = engine_for({ "sandbox" => "seatbelt" }).send(:sandbox_hook)
+    expect(hook).to be_a(Proc)
+    hook.call([3])
+    expect(Saboteur::Execution::Seatbelt).to have_received(:restrict!) do |writable:, keep_fds:|
+      expect(writable).to include(File.realpath(Dir.tmpdir))
+      expect(writable).not_to include(@root)
+      expect(keep_fds).to eq([3])
+    end
+  end
+
+  it "degrades with a one-time note only when macOS lacks Seatbelt" do
+    allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:unavailable)
+    engine = engine_for({ "sandbox" => "seatbelt" })
+    expect(engine.send(:sandbox_hook)).to be_nil
+    expect(engine.send(:sandbox_hook)).to be_nil
+    warnings = engine.instance_variable_get(:@diagnostics).warnings
+    expect(warnings.size).to eq(1)
+    expect(warnings.first).to eq('sandbox is "seatbelt" but this macOS lacks Seatbelt; children run with the ' \
+                                 "hazard guard and canary only")
+  end
+
+  # Pinned against the Landlock sibling (#178): a probe that errors or
+  # reports success it cannot prove refuses the run - opting into a
+  # sandbox must never buy silent confinement theatre.
+  it "refuses when the probe errors or its profile does not enforce" do
+    prefix = 'sandbox is "seatbelt" but the Seatbelt probe '
+    allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:unenforced)
+    message = Regexp.escape(prefix + "reported a profile that did not enforce - a macOS update may have changed it " \
+                                     "(#436); refusing to run unsandboxed - set c.sandbox = true")
+    expect { engine_for({ "sandbox" => "seatbelt" }).send(:sandbox_hook) }.to raise_error(Saboteur::Error, /#{message}/)
+    allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:error)
+    message = Regexp.escape("#{prefix}failed (error) - #436 tracks the deprecation")
+    expect { engine_for({ "sandbox" => "seatbelt" }).send(:sandbox_hook) }.to raise_error(Saboteur::Error, /#{message}/)
+  end
+
+  it "accepts the value off macOS and falls through to the Landlock path" do
+    allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(false)
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    expect(engine_for({ "sandbox" => "seatbelt" }).send(:sandbox_hook)).to be_a(Proc)
+  end
+
+  # On macOS the seatbelt value takes the Seatbelt path even when the
+  # kernel could deliver Landlock ABI 3: a probe answer, not a hook.
+  it "takes the Seatbelt path on macOS even when Landlock could deliver" do
+    allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:unavailable)
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    expect(engine_for({ "sandbox" => "seatbelt" }).send(:sandbox_hook)).to be_nil
+  end
+
+  # c.sandbox = true stays on the Landlock path on macOS: the seatbelt
+  # dispatch is for the opt-in value only.
+  it "keeps c.sandbox = true on the Landlock path on macOS" do
+    allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
+    expect(Saboteur::Execution::Seatbelt).not_to receive(:probe)
+    expect(engine_for({ "sandbox" => true }).send(:sandbox_hook)).to be_a(Proc)
+  end
+end
