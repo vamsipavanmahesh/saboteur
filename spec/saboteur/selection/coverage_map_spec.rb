@@ -324,6 +324,35 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(recorder.result.lines).to eq({})
     end
   end
+
+  # Survivor kills for #480's load tracking (#480 dogfood gate).
+  it "keeps method, branch and duration evidence when attaching load lines" do
+    map = described_class.new(lines: { file => { 2 => %w[t1] } }, tests: %w[t1],
+                              methods: { file => { 2 => %w[t1] } }, durations: { "t1" => 0.5 },
+                              branches: { file => { 4 => %w[t1] } })
+    merged = map.with_load_lines({ file => [3] }, { file => [2] })
+    expect(merged.methods).to eq(file => { 2 => %w[t1] })
+    expect(merged.branches).to eq(file => { 4 => %w[t1] })
+    expect(merged.durations).to eq("t1" => 0.5)
+    expect(merged.load_lines).to eq(file => [3])
+    expect(merged.load_methods).to eq(file => [2])
+  end
+
+  it "is not load-only when the boot never called the def, even with no test callers" do
+    plain = described_class.new(lines: {}, tests: %w[t1])
+    expect(plain.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  it "is not load-only when the boot called a different line of the file" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [9] })
+    expect(map.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  it "decodes an absent key as empty int lists" do
+    expect(described_class.int_lists({}, "load_methods")).to eq({})
+    expect(described_class.int_lists({ "load_methods" => { "a.rb" => %w[1 2] } }, "load_methods"))
+      .to eq("a.rb" => [1, 2])
+  end
 end
 
 RSpec.describe Saboteur::Selection::CoverageMap, "constant subjects (issue #306)" do
