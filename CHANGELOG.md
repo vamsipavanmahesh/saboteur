@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A --since run whose changed lines sit inside a heredoc now says so
+  (#467). Code embedded in a string - a class_eval/module_eval argument or
+  a template constant - evaluates methods the static walk cannot see, so
+  the generic "may not parse, or every change may sit outside a method"
+  hint misdiagnosed it; the warning now names the files and the
+  code-in-a-string blind spot.
+
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
