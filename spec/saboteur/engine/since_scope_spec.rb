@@ -247,7 +247,14 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(Saboteur::CustomMap).to have_received(:load).once
     end
 
-    it "names map-excluded files and runs nothing instead of the whole suite" do
+    # Two excluded files read as a sentence, not a concatenation (#376 dogfood).
+  it "separates excluded files with a comma in the note" do
+    guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 2, excluded: ["lib/a.rb", "lib/b.rb"])
+    run_engine("since" => "origin/main")
+    expect(err.string).to include("no spec is required for lib/a.rb, lib/b.rb:")
+  end
+
+  it "names map-excluded files and runs nothing instead of the whole suite" do
       guess(specs: [], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
       used = tests_the_run_used { run_engine("since" => "origin/main") }
       expect(used).to eq([])
@@ -255,6 +262,9 @@ RSpec.describe Saboteur::Engine, "test selection" do
                                     "intentionally untested in config/saboteur_custom_map.rb, " \
                                     "so there is nothing to mutate")
       expect(err.string).not_to include("running only")
+      # The empty-specs path says it once, inside the nothing-to-mutate note:
+      # the excluded note before announce must stay quiet there (#376 dogfood).
+      expect(err.string.scan("no spec is required for lib/b.rb").size).to eq(1)
     end
 
     it "says there is nothing to mutate when no changed file has a mutation subject" do

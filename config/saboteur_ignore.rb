@@ -3,6 +3,15 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "8387aa82e7a9b074",
+             subject: "Saboteur::Engine::TestGuess#expand_mapped",
+             reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
+                     "sees existing literals without glob metacharacters, and Dir.glob of such a path returns exactly it"
+
+  i.mutation "bb377adb7ae9ce54",
+             subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
+             reason: "equivalent: each returns the receiver and join(', ') stringifies via Subject#to_s (the id), " \
+                     "so the note reads identically to map(&:id)"
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
