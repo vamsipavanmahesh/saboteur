@@ -449,4 +449,52 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
   end
+  # A `bundle exec saboteur` parent (or an exported BUNDLE_GEMFILE) anchors
+  # the child command's bundler to the REAL tree: the mutated copy is never
+  # exercised and every mutant survives (#435).
+  describe "child environment (#435)" do
+    def anchors
+      { "BUNDLE_GEMFILE" => "/real/tree/Gemfile", "BUNDLE_BIN_PATH" => "/real/tree/bin/bundle",
+        "BUNDLER_SETUP" => "/real/tree/setup.rb", "BUNDLER_VERSION" => "2.5.0",
+        "BUNDLE_APP_CONFIG" => "/real/tree/.bundle" }
+    end
+
+    def with_anchors
+      keys = anchors.keys
+      saved = keys.to_h { |k| [k, ENV.fetch(k, nil)] }
+      saved_rubyopt = ENV.fetch("RUBYOPT", nil)
+      anchors.each { |k, v| ENV[k] = v }
+      ENV["RUBYOPT"] = "-W0 -rbundler/setup"
+      yield
+    ensure
+      keys.each { |k| saved[k] ? ENV[k] = saved[k] : ENV.delete(k) }
+      saved_rubyopt ? ENV["RUBYOPT"] = saved_rubyopt : ENV.delete("RUBYOPT")
+    end
+
+    it "drops bundler anchors and bundler's RUBYOPT token, keeps the rest" do
+      with_anchors do
+        Dir.mktmpdir do |dir|
+          out = File.join(dir, "child_env.txt")
+          run_in(dir, "env > #{out}")
+          child = File.read(out)
+          anchors.each_key { |k| expect(child).not_to include("#{k}=") }
+          expect(child).to include("RUBYOPT=-W0") if child.include?("RUBYOPT")
+          expect(child).not_to include("bundler/setup")
+          expect(child).to include("SABOTEUR_EXTERNAL_CHILD=1")
+        end
+      end
+    end
+
+    it "still passes PATH and HOME through" do
+      with_anchors do
+        Dir.mktmpdir do |dir|
+          out = File.join(dir, "child_env.txt")
+          run_in(dir, "env > #{out}")
+          child = File.read(out)
+          expect(child).to include("PATH=")
+          expect(child).to include("HOME=")
+        end
+      end
+    end
+  end
 end

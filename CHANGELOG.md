@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `--test-command` no longer inherits bundler anchors (`BUNDLE_GEMFILE`,
+  `BUNDLE_BIN_PATH`, `BUNDLER_SETUP`, ...) from a `bundle exec` parent or
+  an exported shell environment (#435). The anchored child resolved the
+  project gem from the real tree, never exercised the mutated copy, and
+  reported every mutant Survived; the child now gets the unbundled
+  environment and resolves its Gemfile from the mutated copy.
+
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
   class, so re-evaluation now resolves a factory constant after a sclass
