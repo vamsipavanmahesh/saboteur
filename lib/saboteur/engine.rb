@@ -191,7 +191,8 @@ module Saboteur
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
-                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures)
+                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
+                 memory: @memory_report)
     end
 
     def complete_evidence(results, subjects)
@@ -251,7 +252,10 @@ module Saboteur
                                       cache: cache, on_start: method(:start_worker),
                                       after_subject: after_subject_hook, stop_after: stop_checks(ignore_list),
                                       halt_check: config["max_duration"] ? method(:budget_exceeded?) : nil)
-      distribution.run(subjects, lists).tap { record_early_stop(distribution) }
+      distribution.run(subjects, lists).tap do
+        record_early_stop(distribution)
+        @memory_report = distribution.memory_report
+      end
     ensure
       @diagnostics.finish_progress
     end
