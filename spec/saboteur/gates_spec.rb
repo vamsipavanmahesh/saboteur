@@ -60,9 +60,9 @@ RSpec.describe Saboteur::Gates do
                                  mutated_source: subject.apply(mutation.edits))
     end
 
-    def report_with(pairs)
+    def report_with(pairs, root: @root)
       results = pairs.map { |subject, status| result_on(subject, status) }
-      Saboteur::Report.new(results:, subjects: results.map(&:subject), wall_time: 1.0, root: @root,
+      Saboteur::Report.new(results:, subjects: results.map(&:subject), wall_time: 1.0, root:,
                            warnings: [], seed: 1,
                            operator_policy: Saboteur::Config.new({}).operator_policy)
     end
@@ -79,6 +79,14 @@ RSpec.describe Saboteur::Gates do
       found = score_gates("app/payments/**/*", 90).violations(report)
       expect(found.map(&:cause)).to eq(["scoreGate"])
       expect(found.first.message).to include("app/payments/**/*", "50", "90")
+    end
+
+    it "still matches gates when the project root is a symlink" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      link = File.join(Dir.mktmpdir, "linked-root")
+      File.symlink(@root, link)
+      report = report_with([[charge, :killed], [charge, :survived]], root: link)
+      expect(score_gates("app/payments/**/*", 90).violations(report).map(&:cause)).to eq(["scoreGate"])
     end
 
     it "passes when the subset meets its floor" do
