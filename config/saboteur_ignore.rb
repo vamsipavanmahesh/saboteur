@@ -731,6 +731,9 @@ Saboteur.ignore do |i|
   i.mutation "698e9c03fc5cfa99",
              subject: "Saboteur::ConstantReads#walk_scope",
              reason: "equivalent: the none? check only runs when path is inside the owner subtree, and a live shadow " \
-                     "there was itself set inside the subtree (outside shadows lift at the owner boundary), so " \
-                     "shadowed always starts with scope + :: and the bare-prefix check agrees"
+                     "there was set inside the subtree: shadows propagate only down their setter's lexical tree " \
+                     "and outside shadows lift at the owner boundary. A string-prefix shadow that is not under " \
+                     "the owner (M2 vs M) sits in a sibling or ancestor subtree - siblings never share shadow " \
+                     "state, ancestors are shorter than the owner so start_with? fails identically - so the " \
+                     "bare-prefix check agrees on every reachable shadowed"
 end
