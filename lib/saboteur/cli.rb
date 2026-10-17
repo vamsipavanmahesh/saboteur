@@ -11,17 +11,23 @@ require_relative "baseline/command"
 require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
+require_relative "cli/selection_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
+require_relative "cli/history_command"
 
 module Saboteur
   class CLI
     include Baseline::Command
     include ExitStatus
     include RunReporting
+    include SourceSet
     include RunBudgetOptions
+    include SelectionOptions
     include Presets
+    include HistoryCommand
     include HelpOptions
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
@@ -58,7 +64,8 @@ module Saboteur
       case command
       when "run" then run_command
       when "baseline" then baseline
-      when "doctor" then help_requested? ? show_help("doctor") : doctor
+      when "doctor" then doctor_command
+      when "badge", "trend" then history_entry(command)
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help", "--help", "-h" then show_help(@argv.shift)
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
@@ -98,13 +105,13 @@ module Saboteur
 
     private
 
-    def run_command
-      help_requested? ? show_help("run") : run
-    end
+    def run_command = help_requested? ? show_help("run") : run
 
-    def help_requested?
-      @argv.intersect?(%w[--help -h])
-    end
+    def doctor_command = help_requested? ? show_help("doctor") : doctor
+
+    def history_entry(command) = help_requested? ? show_help(command) : history_command(command)
+
+    def help_requested? = @argv.intersect?(%w[--help -h])
 
     def show_help(command_name)
       help = Help.new(option_lines: option_lines)
@@ -121,9 +128,7 @@ module Saboteur
       agent_failure(message || USAGE, EXIT_USAGE)
     end
 
-    def agent?
-      @format == "agent"
-    end
+    def agent? = @format == "agent"
 
     def agent_requested? = self.class.agent_requested?(@argv)
 
@@ -144,6 +149,7 @@ module Saboteur
 
       return preview if options[:list_operators] || options[:dry_run]
 
+      refuse_empty_source_set
       execute_run
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")
@@ -155,8 +161,12 @@ module Saboteur
 
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
+    # The scope the warning names is the configured one: positional source
+    # operands narrow the run after the warning, so the include/exclude they
+    # imply stay out of its config (#309, #503 review).
     def warn_dirty_tree
-      WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
+      warning = @sources ? Config.load(path: options[:config], overrides: overrides.except(:include, :exclude)) : config
+      DirtyTreeWarning.for(warning, config_path: options[:config])&.then { |text| @err.puts(text) }
     end
 
     # Contradictory selection flags are a usage error before any file or
@@ -185,22 +195,25 @@ module Saboteur
 
     # Usage errors found before the target boots.
     def validate_run_options
-      reject_threshold_with_agent_format
+      reject_format_conflicts
       Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
     end
 
-    # Agent mode has one strict meaning for exit 0, so a score threshold cannot also decide it.
-    def reject_threshold_with_agent_format
-      return unless agent? && (config["threshold"] || gates.any?)
+    # Agent mode allows no score gates (one strict exit 0); the json inventory is --dry-run planning only.
+    def reject_format_conflicts
+      if agent? && (config["threshold"] || gates.any?)
+        raise UsageError, "#{config['threshold'] ? '--threshold' : gates.agent_option_name} " \
+                          "cannot be combined with --agent"
+      end
+      return unless @format == "json" && !options[:dry_run]
 
-      raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
+      raise UsageError, "--format json is the --dry-run mutant inventory; a run summary is --format agent"
     end
 
     # One line naming the reports written, paths relative to the root when
     # they sit under it (a blank line before it, as the old JSON line had).
     def announce_reports(reports)
-      written = reports.select { |path, _label| path }
-      return if written.empty?
+      return if (written = reports.select { |path, _label| path }).empty?
 
       root = File.join(File.realpath(config.root), "")
       names = written.map do |path, label|
@@ -251,9 +264,7 @@ module Saboteur
 
     # The settings keys typed on the command line: a typed empty operator
     # list may clear a config value, so the generated commands keep it.
-    def typed_settings
-      options.keys & Reporter::Agent::Commands::SETTING_FLAGS.keys
-    end
+    def typed_settings = options.keys & Reporter::Agent::Commands::SETTING_FLAGS.keys
 
     # A whole-suite run records its scope as --all, so the generated rerun
     # and replay commands do not default back to inference (which can exit
@@ -319,12 +330,10 @@ module Saboteur
       raise UsageError, "test file not found: #{test}" unless File.exist?(path)
     end
 
-    def overrides
-      options.except(:config, :id, :suite, :list_operators, :dry_run)
-    end
+    def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
 
     def preview
-      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON" if agent?
+      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON; use --format json" if agent?
       raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
 
       if options[:list_operators]
@@ -332,22 +341,8 @@ module Saboteur
         return EXIT_OK
       end
 
-      Preview.new(config, out: @out, err: @err).call
+      Preview.new(config, out: @out, err: @err, format: @format).call
       EXIT_OK
-    end
-
-    def define_selection_options(opts)
-      opts.on("--operators NAMES", Array, "Choose operator names (default: all)") do |v|
-        set(:operators, v)
-      end
-      opts.on("--exclude-operators NAMES", Array, "Exclude operator names from the selected set") do |v|
-        set(:exclude_operators, v)
-      end
-      opts.on("--list-operators", "List operator names and descriptions") { set(:list_operators, true) }
-      opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
-      opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
-      opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
-      opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
     end
 
     def define_execution_options(opts)
@@ -388,8 +383,7 @@ module Saboteur
       opts.on("--score-history PATH", "Append score history JSONL (opt-in)") { |v| set(:score_history, v) }
       opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
       opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
-      opts.on("--format FORMAT", %w[text agent], "text (default) or agent: one bounded JSON summary on stdout, " \
-                                                 "strict exit codes") { |v| @format = v }
+      opts.on("--format FORMAT", %w[text agent json], "text, agent or json (--dry-run inventory)") { |v| @format = v }
       opts.on("--agent", "Same as --format agent") { @format = "agent" }
       opts.on("--verbose", "Text report: also print score split, timings and kill causes;",
               "a crash prints its backtrace") { @verbose = true }
