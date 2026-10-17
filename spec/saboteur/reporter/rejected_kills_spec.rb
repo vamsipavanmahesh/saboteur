@@ -55,6 +55,16 @@ RSpec.describe "rejected kill accounting" do
     expect(terminal.string).not_to include("Errors (not counted as killed):")
   end
 
+  it "prints one line per rejected kill under the rejected heading (#429)" do
+    results = reject([result])
+    report = Saboteur::Report.new(results: results, subjects: [subject_under_test], wall_time: 0.1, root: Dir.pwd)
+    terminal = StringIO.new
+    Saboteur::Reporter::Terminal.new(terminal).call(report)
+    section = terminal.string.split("Rejected kills", 2).last
+    expect(section).to include("Counted#m")
+    expect(section).to include("also fails with the method unchanged")
+  end
+
   it "keeps genuine errors in the error section when both kinds occur" do
     results = reject([result, result(status: :error, killed_by: ["t1"])])
     results.last.as_error("boom") # keep the flag off; as_error returns a copy
