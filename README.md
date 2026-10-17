@@ -135,6 +135,11 @@ This writes `config/saboteur.rb`, a `bin/saboteur` binstub (it sets
 `RAILS_ENV=test` for you) and a `.gitignore` entry for `.saboteur/`. It
 never overwrites an existing file unless you pass `--force`.
 
+Until a config names your sources, a run whose include selects no Ruby
+file refuses with exit 2 and points at the install generator above -
+a first CI run on an unconfigured tree fails loud instead of passing
+with 0 subjects.
+
 Prefer to do it by hand, or on a version without the generator? Put this
 in `config/saboteur.rb`:
 

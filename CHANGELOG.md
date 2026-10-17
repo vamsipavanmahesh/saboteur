@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
+- A run whose effective include set selects no Ruby file now refuses with
+  exit 2 instead of passing with 0 subjects (#447). The default include
+  targets plain gems, so a first run on a Rails-shaped tree used to be a
+  green gate that mutated nothing on every CI run; the refusal names the
+  stale pattern and points at the install generator.
 - A `--subject` pattern that matches no subject now fails the run (exit 2)
   instead of passing silently with zero subjects (#379). When some patterns
   match, the run keeps them and the summary names the missing pattern and
