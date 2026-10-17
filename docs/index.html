@@ -243,8 +243,8 @@ bundle exec saboteur run</code></pre></div>
 <pre><code>Saboteur.configure do |c|
   c.include = ["app/**/*.rb"]
   c.require = ["./config/environment"] <span class="c"># boots the app</span>
-  c.rails = true                       <span class="c"># reconnects ActiveRecord after fork, per-worker databases</span>
-  c.jobs = 4                           <span class="c"># optional; the default is 1</span>
+  c.rails = true                       <span class="c"># per-worker databases after fork</span>
+  c.jobs = 4                           <span class="c"># optional; default is 1</span>
 end</code></pre></div>
 <p><a class="more" href="quickstart.html">Full Rails setup in the quickstart</a></p>
 </div></section>
@@ -255,4 +255,4 @@ end</code></pre></div>
 <div class="fcol"><h4>Docs</h4><a href="quickstart.html">Quickstart</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/README.md">All docs</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/faq.md">FAQ</a><a href="benchmark/">Benchmarks</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/design.md">Design</a></div>
 </div></footer>
 </body>
-</html>
+      </html>
