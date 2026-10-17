@@ -456,7 +456,31 @@ RSpec.describe Saboteur::CLI do
         expect(cli("run", *args).call).to eq(2)
       end
       expect(err.string).to include("--id replays one mutant: not with --dry-run or --list-operators",
-                                    "--dry-run and --list-operators print text, not --agent JSON")
+                                    "--dry-run and --list-operators print text, not --agent JSON; use --format json")
+    end
+
+    it "refuses --format json without --dry-run as a usage error" do
+      [%w[--format json], %w[--list-operators --format json]].each do |args|
+        out.truncate(0)
+        expect(cli("run", *args).call).to eq(2)
+        expect(err.string).to include("--format json is the --dry-run mutant inventory")
+      end
+    end
+
+    it "prints the mutant inventory with --dry-run --format json and never boots" do
+      expect(Saboteur::Engine).not_to receive(:new)
+      Dir.mktmpdir do |root|
+        FileUtils.mkdir_p(File.join(root, "lib"))
+        File.write(File.join(root, "lib", "widget.rb"), "class Widget\n  def m(x)\n    x + 1\n  end\nend\n")
+        Dir.chdir(root) do
+          expect(cli("run", "--dry-run", "--format", "json").call).to eq(0)
+        end
+      end
+      inventory = JSON.parse(out.string)
+      expect(inventory["schema_version"]).to eq(1)
+      expect(inventory["saboteur_version"]).to eq(Saboteur::VERSION)
+      expect(inventory["mutants"]).to all(include("digest", "operator", "file", "line", "edits"))
+      expect(inventory["mutants"].map { |mutant| mutant["subject"] }).to all(eq("Widget#m"))
     end
 
     it "warns at startup with the number of uncommitted changes" do

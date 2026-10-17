@@ -20,6 +20,12 @@ All notable changes are documented here. The format follows
   On Linux the value behaves like `true`. Opt-in because Apple deprecates
   `sandbox_init` without a published replacement; #436 tracks the
   ecosystem's response.
+- `saboteur run --dry-run --format json` prints a versioned machine-readable
+  mutant inventory without booting the suite (#469): schema version, run
+  metadata, subjects, every planned mutant with its stable digest, operator,
+  file, line and byte-range edits, and every skipped candidate with its
+  reason (inline suppression, hazard refusal or the per-method cap).
+  `--dry-run --agent` now names this flag instead of only refusing.
 - A `regex_replacement` operator (#135): drops each regex anchor
   (`\A`, `\z`, `\Z`, `^`, `$`) in turn and swaps each bare `+` or `*`
   quantifier, so a validation like `/\A\d+\z/` finally gets mutants.
