@@ -51,11 +51,14 @@ function panel(comments, head, revoked = {}) {
   }
   return Object.fromEntries(latest);
 }
-function jobsPass(jobs, names, head) {
-  demand(jobs.length === names.length, 'unexpected job count');
-  demand(new Set(jobs.map(j => j.name)).size === names.length, 'duplicate jobs');
+function jobsPass(jobs, names, head, advisory = []) {
+  // Advisory legs (a proving Ruby line) may be present or absent and never
+  // change the verdict. Any other unexpected job still fails closed.
+  const counted = jobs.filter(j => !advisory.includes(j.name));
+  demand(counted.length === names.length, 'unexpected job count');
+  demand(new Set(counted.map(j => j.name)).size === names.length, 'duplicate jobs');
   for (const name of names) {
-    const job = jobs.find(j => j.name === name);
+    const job = counted.find(j => j.name === name);
     demand(job && job.head_sha === head && job.status === 'completed' && job.conclusion === 'success', `job not green: ${name}`);
   }
 }
@@ -240,7 +243,9 @@ async function workflows(api, number, head) {
     demand(fresh.id === run.id && matches(fresh) && Number.isSafeInteger(fresh.run_attempt) && fresh.run_attempt > 0 &&
       fresh.status === 'completed' && fresh.conclusion === 'success', `workflow not green: ${path}`);
     const jobs = await api.pages(`actions/runs/${run.id}/attempts/${fresh.run_attempt}/jobs`, 'jobs');
-    jobsPass(jobs, names, head);
+    const advisory = policy.advisoryJobs?.[path] ?? [];
+    demand(advisory.every(n => !names.includes(n)), `advisory job also required: ${path}`);
+    jobsPass(jobs, names, head, advisory);
     checked.push({path, id: fresh.id, attempt: fresh.run_attempt, status: fresh.status, conclusion: fresh.conclusion,
       jobs: jobs.map(j => [j.id, j.name, j.head_sha, j.status, j.conclusion]).sort((a, b) => a[1].localeCompare(b[1]))});
   }
@@ -310,6 +315,21 @@ async function verify(api, number, sweep = {}) {
 }
 // Which open PRs an event can change. A comment, a dispatch and a CI run concern named PRs only;
 // a push to main can change every PR's merge base, so it sweeps them all.
+// Only a newer pending PUSH run proves it covers this run's targets: a push
+// sweeps every open PR, while a comment, dispatch or CI-completion run is
+// scoped to its own PRs by targets() and the shared queue hides which ones.
+// Skipping on anything weaker loses verdicts for every intermediate PR in a
+// mixed-PR backlog. Skipping the sweep lets a backed-up queue of push runs
+// drain at seconds per stale run instead of a full sweep of every open PR
+// per run against the token's rate budget. Only 'pending' is consulted:
+// queue:max holds serialized runs in that state.
+async function superseded(api) {
+  const self = Number(process.env.GITHUB_RUN_ID);
+  const file = (process.env.GITHUB_WORKFLOW_REF || '').split('@')[0].split('/').pop();
+  demand(Number.isSafeInteger(self) && self > 0 && /\.ya?ml$/.test(file), 'invalid current run identity');
+  const queued = await api.pages(`actions/workflows/${file}/runs?status=pending`, 'workflow_runs');
+  return queued.some(run => run.id > self && run.event === 'push');
+}
 async function targets(api, name, event) {
   const eligible = p => p.base.ref === policy.baseBranch && !p.draft;
   if (name === 'issue_comment' || name === 'workflow_dispatch') {
@@ -337,6 +357,12 @@ async function main() {
   if (name === 'workflow_run' && event.workflow_run.event !== 'pull_request') return;
   if (name === 'issue_comment' && !event.issue.pull_request) return;
   if (name === 'issue_comment') await revokeEvent(api, event);
+  // Revocation latches above persist even on a stale run; the sweep below is
+  // superseded work when a newer run waits in the serialized queue.
+  if (await superseded(api)) {
+    console.log('A newer queued run supersedes this one; skipping the sweep.');
+    return;
+  }
   const numbers = await targets(api, name, event);
   let failed = false;
   const sweep = {};
@@ -349,5 +375,5 @@ async function main() {
   }
   if (failed) process.exitCode = 1;
 }
-module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, targets, API, RateLimitError};
+module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded, targets, API, RateLimitError};
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });

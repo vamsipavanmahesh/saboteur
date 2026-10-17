@@ -13,6 +13,9 @@ module Saboteur
     class SubjectSelection
       # Lines changed since the --since ref, by file; nil without --since.
       attr_reader :changed_lines
+      # The changed lines minus layout-only ones (#313): the lines that
+      # narrow a changed method's fine-grained mutants.
+      attr_reader :behavior_lines
 
       def initialize(config, diagnostics, test_files: nil)
         @config = config
@@ -25,7 +28,7 @@ module Saboteur
         @files = files
         subjects = find(files)
         if @config["since"]
-          @changed_lines = changed_lines_map
+          @changed_lines, @behavior_lines = changed_line_maps
           subjects += constant_subjects
         end
         @discovered = subjects
@@ -96,11 +99,13 @@ module Saboteur
         drop_unchanged_syntax(changed, ref)
       end
 
-      # Lines changed since the --since ref, canonicalized by file.
-      def changed_lines_map
-        Selection::GitDiff.changed_lines(@config["since"], root: @root, include: @files.to_set,
-                                                           diagnostics: @diagnostics)
-                          .transform_keys { |file| Selection::CoverageMap.canonical(file) }
+      # Lines changed since the --since ref, and their behavior-only
+      # subset, canonicalized by file.
+      def changed_line_maps
+        maps = Selection::GitDiff.line_maps(@config["since"], root: @root, include: @files.to_set,
+                                                              diagnostics: @diagnostics)
+        canonical = ->(map) { map.transform_keys { |file| Selection::CoverageMap.canonical(file) } }
+        [canonical.call(maps.changed), canonical.call(maps.behavior)]
       end
 
       # Changed entries of a constant hash or array literal are behavior
@@ -243,9 +248,15 @@ module Saboteur
 
         names = unmatched.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
         more = unmatched.size > 5 ? ", ..." : ""
+        # Specs land here when one --test carries several paths; the
+        # parse/method guesses do not apply to them, so say what happened.
+        hint = if unmatched.all? { |file| file.end_with?("_spec.rb") }
+                 "These are spec files; specs are not mutated - pass them with --test."
+               else
+                 "The file may not parse, or every change may sit outside a method."
+               end
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
-                          "the changed lines, so nothing is mutated from them: #{names}#{more}. The " \
-                          "file may not parse, or every change may sit outside a method.")
+                          "the changed lines, so nothing is mutated from them: #{names}#{more}. #{hint}")
       end
 
       # A changed Ruby file that an include pattern covers but c.exclude

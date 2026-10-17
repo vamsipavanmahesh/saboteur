@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {parse, panel, jobsPass, dco, verify, revokeEvent, revocations} = require('./verify.cjs');
+const {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded} = require('./verify.cjs');
 const policy = require('./policy.json');
 const HEAD = 'a'.repeat(40), BASE = 'b'.repeat(40);
 const marker = (changes = {}) => ({schema: 1, lens: 'principal', head: HEAD,
@@ -60,6 +60,13 @@ test('latest ID wins even with old SHA; blocker, malformed edit, deletion invali
 test('same lens three times cannot substitute for three lenses', () => {
   assert.throws(() => panel(comments().map(c => ({...c, body: body(marker())})), HEAD));
 });
+test('advisory jobs never change the verdict; any other extra job fails closed', () => {
+  const jobs = [{name: 'lint', head_sha: HEAD, status: 'completed', conclusion: 'success'},
+    {name: 'Ruby 4.0 / linux / shard 1', head_sha: HEAD, status: 'completed', conclusion: 'failure'}];
+  jobsPass(jobs, ['lint'], HEAD, ['Ruby 4.0 / linux / shard 1']);
+  assert.throws(() => jobsPass(jobs, ['lint'], HEAD));
+  assert.throws(() => jobsPass(jobs, ['lint'], HEAD, ['some other job']));
+});
 test('exact successful jobs only, no skip/neutral/duplicate/old-head/missing', () => {
   const jobs = [{name: 'test', head_sha: HEAD, status: 'completed', conclusion: 'success'}];
   jobsPass(jobs, ['test'], HEAD);
@@ -100,12 +107,52 @@ function fakeAPI(change = {}) {
         author: {name: 'Name', email: 'name@example.org'}, message: 'Signed-off-by: Name <name@example.org>'}}];
       if (path.startsWith('actions/runs?')) return change.wrongRun ? runs.map(r => ({...r, head_sha: BASE})) : runs;
       const id = Number(path.split('/')[2]);
-      return policy.workflows[runs[id - 1].path].map(name => ({name, head_sha: HEAD, status: 'completed', conclusion: change.skipped ? 'skipped' : 'success'}));
+      const list = policy.workflows[runs[id - 1].path].map(name => ({name, head_sha: HEAD, status: 'completed', conclusion: change.skipped ? 'skipped' : 'success'}));
+      if (change.advisory && runs[id - 1].path === '.github/workflows/ci.yml') {
+        list.push({name: 'Ruby 4.0 / linux / shard 1', head_sha: HEAD, status: 'completed', conclusion: 'failure'});
+      }
+      return list;
     }
   };
 }
+
+test('superseded: only a strictly newer pending run of the same workflow skips the sweep', async () => {
+  const seen = [];
+  const pushes = {pages: async (path, field) => { seen.push([path, field]); return [{id: 40, event: 'push'}, {id: 42, event: 'push'}]; }};
+  process.env.GITHUB_RUN_ID = '41';
+  process.env.GITHUB_WORKFLOW_REF = 'owner/repo/.github/workflows/panel-gate.yml@refs/heads/main';
+  assert.equal(await superseded(pushes), true);
+  assert.deepEqual(seen[0], ['actions/workflows/panel-gate.yml/runs?status=pending', 'workflow_runs']);
+  process.env.GITHUB_RUN_ID = '42';
+  assert.equal(await superseded(pushes), false);
+  process.env.GITHUB_RUN_ID = '99';
+  assert.equal(await superseded(pushes), false);
+});
+
+test('superseded: a newer run scoped to another PR never skips this run', async () => {
+  // QA blocker on #404: comment, dispatch and CI-completion runs verify only
+  // their own PRs, so in a mixed-PR backlog they cannot supersede anything.
+  process.env.GITHUB_RUN_ID = '41';
+  process.env.GITHUB_WORKFLOW_REF = 'owner/repo/.github/workflows/panel-gate.yml@refs/heads/main';
+  const comments = {pages: async () => [{id: 42, event: 'issue_comment'}, {id: 43, event: 'workflow_run'}, {id: 44, event: 'workflow_dispatch'}]};
+  assert.equal(await superseded(comments), false);
+  const mixed = {pages: async () => [{id: 42, event: 'issue_comment'}, {id: 43, event: 'push'}]};
+  assert.equal(await superseded(mixed), true);
+});
+test('superseded demands a valid run identity before spending API calls', async () => {
+  process.env.GITHUB_RUN_ID = 'not-a-number';
+  process.env.GITHUB_WORKFLOW_REF = 'owner/repo/.github/workflows/panel-gate.yml@refs/heads/main';
+  let called = false;
+  await assert.rejects(() => superseded({pages: async () => { called = true; return []; }}));
+  assert.equal(called, false);
+});
 test('end-to-end API decision posts pending then success for current facts', async () => {
   const api = fakeAPI(); await verify(api, 1);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
+});
+test('a red advisory leg never blocks the verdict', async () => {
+  const api = fakeAPI({advisory: true});
+  await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
 });
 test('a head that trails a moved main still passes when its checks are green', async () => {

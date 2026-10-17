@@ -137,6 +137,145 @@ RSpec.describe Saboteur::Selection::GitDiff do
       end
     end
 
+    describe ".line_maps behavior lines without layout-only edits (#313)" do
+      def changed_after(before, after)
+        commit_file("a.rb", before)
+        File.write(File.join(@dir, "a.rb"), after)
+        described_class.line_maps("HEAD", root: @dir).behavior.fetch(File.join(File.realpath(@dir), "a.rb"), Set.new)
+      end
+
+      it "keeps every touched line in the changed map, for subject selection" do
+        commit_file("a.rb", "def a\n  one\nend\n")
+        File.write(File.join(@dir, "a.rb"), "def a\n    one\nend\n")
+        maps = described_class.line_maps("HEAD", root: @dir)
+        file = File.join(File.realpath(@dir), "a.rb")
+
+        expect(maps.changed.fetch(file)).to eq(Set[2])
+        expect(maps.behavior.fetch(file)).to eq(Set[])
+        expect(described_class.changed_lines("HEAD", root: @dir).fetch(file)).to eq(Set[2])
+      end
+
+      it "keeps only the new lines when existing statements are wrapped in a block" do
+        before = <<~RUBY
+          def save
+            log("saving")
+            write
+          end
+        RUBY
+        after = <<~RUBY
+          def save
+            lock.synchronize do
+              log("saving")
+              write
+            end
+          end
+        RUBY
+
+        expect(changed_after(before, after)).to eq(Set[2, 5])
+      end
+
+      it "keeps a re-indented line whose expression also changed" do
+        before = "def save\n  write(1)\n  log\nend\n"
+        after = "def save\n  lock.synchronize do\n    write(2)\n    log\n  end\nend\n"
+
+        expect(changed_after(before, after)).to eq(Set[2, 3, 5])
+      end
+
+      it "drops a line where only the spacing between tokens changed" do
+        expect(changed_after("x = a + b\ny = 1\n", "x = a   +  b\ny = 2\n")).to eq(Set[2])
+      end
+
+      it "keeps a line where whitespace inside a string changed" do
+        expect(changed_after("log(\"a b\")\n", "log(\"a  b\")\n")).to eq(Set[1])
+      end
+
+      it "keeps a line whose __LINE__ now names another line" do
+        before = "def at\n  __LINE__\nend\n"
+        after = "def at\n  begin\n    __LINE__\n  end\nend\n"
+
+        expect(changed_after(before, after)).to eq(Set[2, 3, 4])
+      end
+
+      it "keeps the old coordinates of a pure deletion beside a re-indented line" do
+        before = "def a\n  one\n  two\n  three\nend\n"
+        after = "def a\n    one\n  three\nend\n"
+
+        expect(changed_after(before, after)).to eq(Set[2, 3])
+      end
+
+      it "keeps a re-indented line inside a multi-line string, whose content changed" do
+        expect(changed_after("x = \"a\n  b\"\n", "x = \"a\n    b\"\n")).to eq(Set[2])
+      end
+
+      it "drops a re-indented __LINE__ that stayed on its line" do
+        expect(changed_after("def at\n  __LINE__\nend\n", "def at\n    __LINE__\nend\n")).to eq(Set[])
+      end
+
+      it "drops a re-indented last line when lines follow it now" do
+        expect(changed_after("  a\n", "    a\nb\n")).to eq(Set[2])
+      end
+
+      it "keeps a line where space now separates tokens that touched" do
+        expect(changed_after("x = a+b\n", "x = a + b\n")).to eq(Set[1])
+      end
+
+      it "keeps every changed line of a file outside the include set, unread" do
+        commit_file("a.rb", "def a\n  one\nend\n")
+        File.write(File.join(@dir, "a.rb"), "def a\n    one\nend\n")
+        file = File.join(File.realpath(@dir), "a.rb")
+
+        expect(described_class.line_maps("HEAD", root: @dir,
+                                                 include: Set["/elsewhere.rb"]).behavior.fetch(file)).to eq(Set[2])
+        expect(described_class.line_maps("HEAD", root: @dir, include: Set[file]).behavior.fetch(file)).to eq(Set[])
+      end
+
+      it "keeps every line of a file committed after the base" do
+        commit_file("a.rb", "a = 1\n")
+        base = git("rev-parse", "HEAD").first.strip
+        commit_file("b.rb", "  b = 1\n  c = 2\n")
+        changed = described_class.line_maps(base, root: @dir).behavior
+
+        expect(changed.fetch(File.join(File.realpath(@dir), "b.rb"))).to eq(Set[1, 2])
+      end
+
+      it "drops re-indented lines in a file whose name holds a space" do
+        commit_file("a b.rb", "def a\n  one\nend\n")
+        File.write(File.join(@dir, "a b.rb"), "def a\n    one\nend\n")
+
+        expect(described_class.line_maps("HEAD", root: @dir).behavior.fetch(File.join(File.realpath(@dir), "a b.rb")))
+          .to eq(Set[])
+      end
+
+      it "maps lines against the base, not the index, when the change is staged" do
+        commit_file("a.rb", "a\n  b\n")
+        File.write(File.join(@dir, "a.rb"), "new\na\n    b\n")
+        git("add", "a.rb")
+
+        expect(described_class.line_maps("HEAD", root: @dir).behavior.fetch(File.join(File.realpath(@dir), "a.rb")))
+          .to eq(Set[1])
+      end
+
+      it "drops a blank line that lost its spaces, and holds no token now" do
+        expect(changed_after("a = 1\n  \nb = 2\n", "a = 1\n\nb = 2\n")).to eq(Set[])
+      end
+
+      it "drops a blank line that only gained spaces" do
+        expect(changed_after("a = 1\n\nb = 2\n", "a = 1\n  \nb = 2\n")).to eq(Set[])
+      end
+
+      it "keeps a re-indented heredoc body line, since heredoc text is a token" do
+        expect(changed_after("x = <<~T\n  a\nT\n", "x = <<~T\n    a\nT\n")).to eq(Set[2])
+      end
+
+      it "leaves an untracked file fully changed" do
+        commit_file("b.rb", "b = 1\n")
+        File.write(File.join(@dir, "c.rb"), "  c = 1\n")
+        changed = described_class.line_maps("HEAD", root: @dir).behavior
+
+        expect(changed.fetch(File.join(File.realpath(@dir), "c.rb"))).to eq(1..1)
+      end
+    end
+
     describe ".changed_lines with untracked files (#295)" do
       it "treats every line of an untracked file as changed" do
         commit_file("a.rb", "1\n")
