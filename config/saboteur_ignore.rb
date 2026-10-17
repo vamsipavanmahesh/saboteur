@@ -3,6 +3,11 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "4fe125f4acde4da3",
+             subject: "Saboteur::Selection::GitDiff#deletion_only_files",
+             reason: "equivalent: git() output is already byte-tagged (Open3.capture3) and Text.utf8_identity " \
+                     "force-tags UTF-8 downstream, so dropping .b changes no observable string; hand-applied " \
+                     "against the byte-named deletion fixture: suite green"
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
