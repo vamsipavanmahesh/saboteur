@@ -76,6 +76,41 @@ RSpec.describe Saboteur::Config do
     end
   end
 
+  it "collects repeatable score gates as pattern/floor pairs (#473)" do
+    write("app/payments/charge.rb", "class Charge; end\n")
+    write("app/legacy/old.rb", "class Old; end\n")
+    write("config/saboteur.rb", <<~RUBY)
+      Saboteur.configure do |c|
+        c.include = ["app/**/*.rb"]
+        c.score_gate "app/payments/**/*", min_score: 95
+        c.score_gate "app/legacy/**/*", min_score: 60.5
+      end
+    RUBY
+    expect(described_class.load(root: @root)["score_gates"]).to eq(
+      [{ "pattern" => "app/payments/**/*", "min_score" => 95.0 },
+       { "pattern" => "app/legacy/**/*", "min_score" => 60.5 }]
+    )
+  end
+
+  it "rejects a score gate floor that is not a 0-100 number (#473)" do
+    write("app/x.rb", "class X; end\n")
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.score_gate "app/**/*", min_score: 101 }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
+
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.score_gate "app/**/*", min_score: "high" }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
+  end
+
+  it "rejects a score gate whose pattern matches no included file (#473)" do
+    write("app/x.rb", "class X; end\n")
+    write("config/saboteur.rb",
+          'Saboteur.configure { |c| c.include = ["app/**/*.rb"]; c.score_gate "app/payments/**/*", min_score: 95 }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, %r{score_gate.*app/payments.*matches no included file})
+  end
+
   it "keeps guess_tests as a no-op alias and warns only on an explicit opt-out" do
     expect(described_class.new({}, root: @root)["guess_tests"]).to be(false)
     expect(described_class.new({}, root: @root).deprecation_warnings).to eq([])
