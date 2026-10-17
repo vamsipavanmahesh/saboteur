@@ -109,6 +109,27 @@ RSpec.describe Saboteur::Gates do
       expect(err.string).to include("app/legacy/**/*", "nothing executed")
     end
 
+    it "prints the score-gate violation with its exact wording" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      report = report_with([[charge, :killed], [charge, :survived]])
+      err = StringIO.new
+      expect(score_gates("app/payments/**/*", 90).failed?(report, err)).to be(true)
+      expect(err.string).to eq("saboteur: score gate app/payments/**/*: score 50.0 below 90 " \
+                               "(2 mutants under it)\n")
+    end
+
+    it "prints the vacuous note as one exact saboteur line, and never for an executed gate" do
+      charge = subject_at("app/payments/charge.rb", 1)
+      report = report_with([[charge, :killed]])
+      g = described_class.new({ "max_timeouts" => nil, "max_errors" => nil,
+                                "score_gates" => [{ "pattern" => "app/payments/**/*", "min_score" => 95 },
+                                                  { "pattern" => "app/legacy/**/*", "min_score" => 95 }] })
+      err = StringIO.new
+      expect(g.failed?(report, err)).to be(false)
+      expect(err.string).to eq("saboteur: score gate app/legacy/**/*: nothing executed under it, " \
+                               "passing vacuously\n")
+    end
+
     it "counts toward any?, so --agent refuses the combination like --threshold" do
       expect(score_gates("app/**/*", 95).any?).to be(true)
     end
