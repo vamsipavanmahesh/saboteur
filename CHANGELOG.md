@@ -6,6 +6,14 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Peak-memory measurement (#202, slice 1): each worker reports its kernel
+  peak RSS (VmHWM) when it retires, and the JSON report records it under
+  `saboteur.memory` as per-worker `peakMb` values plus the supervisor's own
+  peak. No total is printed: fork copy-on-write makes per-process RSS
+  non-additive. The section is omitted where procfs is unavailable.
+
 ### Fixed
 
 - A class factory assigned inside `class << self` no longer shares its
