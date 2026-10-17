@@ -13,6 +13,12 @@ All notable changes are documented here. The format follows
   unrelated classes each keep their own subjects: the singleton-side one is
   now named `Host.singleton_class::Widget#doubled`, so reports, `--subject`
   filters, ignore entries and the unchanged-syntax comparison can name it.
+- `--test-command` no longer inherits bundler anchors (`BUNDLE_GEMFILE`,
+  `BUNDLE_BIN_PATH`, `BUNDLER_SETUP`, ...) from a `bundle exec` parent or
+  an exported shell environment (#435). The anchored child resolved the
+  project gem from the real tree, never exercised the mutated copy, and
+  reported every mutant Survived; the child now gets the unbundled
+  environment and resolves its Gemfile from the mutated copy.
 - Test selection consults `config/saboteur_custom_map.rb` again (#369).
   The map is the documented escape hatch for layouts the naming guess
   cannot match, but guess-tests never called it, so a mapped file still
