@@ -8,15 +8,15 @@
 # that started before the run's root: it inherited the marker through an
 # exec chain the run did not spawn.
 RSpec.describe Saboteur::Execution::ProcessTree do
-  Entry = Saboteur::Execution::ProcessTable::Entry
+  let(:entry_class) { Saboteur::Execution::ProcessTable::Entry }
 
   let(:marker) { "abcd1234ef01" }
   let(:root) { 4000 }
   let(:tree) { described_class.new(root, marker:) }
-  let(:root_entry) { Entry.new(pid: root, ppid: 1, pgid: root, rss_kb: 0, zombie: true, started: 50) }
+  let(:root_entry) { entry_class.new(pid: root, ppid: 1, pgid: root, rss_kb: 0, zombie: true, started: 50) }
 
   def escapee(started, pid: 4242)
-    Entry.new(pid: pid, ppid: 1, pgid: 9999, rss_kb: 0, zombie: false, started: started)
+    entry_class.new(pid: pid, ppid: 1, pgid: 9999, rss_kb: 0, zombie: false, started: started)
   end
 
   before do

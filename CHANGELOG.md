@@ -8,9 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
-- Uncovered examples in a run are attributed to the coverage entry that
-  owns their example group (#389), so the uncovered-examples report names
-  the file and line responsible instead of a bare list of spec ids.
+- The marker sweep no longer kills a marked process it cannot identify
+  (#389). A process that started before the run's root carries the marker
+  only through an exec chain the run did not spawn, so it is left alone,
+  and an escapee is signalled only when a fresh snapshot shows the same
+  pid still owned by the same start time, so a recycled pid is never
+  killed by mistake.
 
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
