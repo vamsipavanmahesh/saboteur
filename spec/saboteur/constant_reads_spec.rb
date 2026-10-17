@@ -248,6 +248,15 @@ RSpec.describe Saboteur::ConstantReads, "class << self scopes (#380)" do
     expect(reads_for(shadowed_then_owner, nested_host).runtime).to eq([4])
   end
 
+  # M > Host (owner) > Mid (writes RULES) > Deep: the read binds Mid's
+  # RULES, not the owner's - Mid's shadow was set INSIDE the owner subtree
+  # and must survive deeper nesting (#395 architect review).
+  it "keeps an owner-nested writer's shadow through deeper nesting" do
+    still_shadowed = "module M\n  RULES = [0]\n  class Host\n    RULES = [1]\n    module Mid\n      " \
+                     "RULES = [2]\n      module Deep\n        def m = RULES\n      end\n    end\n  end\nend\n"
+    expect(reads_for(still_shadowed, nested_host)).to be_nil
+  end
+
   # A sibling scope's write shadows only below itself: a read in another
   # scope nested under the owner still sees the owner's constant.
   it "clears a sibling scope's shadow for a read nested under the owner (#380)" do
@@ -267,6 +276,15 @@ RSpec.describe Saboteur::ConstantReads, "class << self scopes (#380)" do
   it "keeps a singleton-class write's shadow for a class nested under it" do
     src = "class Host\n  class << self\n    RULES = [9]\n    class Nested\n      def m = RULES\n    end\n  end\nend\n"
     expect(reads_for(src, host_rules)).to be_nil
+  end
+
+  # A keyword class SIBLING of class << self does not lexically see the
+  # singleton's write: its read still binds the attached class's RULES, so
+  # the singleton write's shadow must lift there (#395 dogfood).
+  it "lifts a singleton-class write's shadow for a keyword class sibling" do
+    src = "class Host\n  RULES = { a: 1 }\n  class << self\n    RULES = [9]\n  end\n  " \
+          "class Plain\n    def m = RULES\n  end\nend\n"
+    expect(reads_for(src, host_rules).runtime).to eq([7])
   end
 
   it "lets a singleton-class write shadow the attached class's constant for reads below it" do
