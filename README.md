@@ -14,6 +14,29 @@
 
 [Quick start](#60-second-quick-start) · [Getting started](docs/guides/getting-started.md) · [Best practices](docs/best-practices.md) · [FAQ](docs/faq.md) · [Contributing](CONTRIBUTING.md)
 
+<details>
+<summary>Contents</summary>
+
+- [Install](#install)
+- [60-second quick start](#60-second-quick-start)
+- [What you get](#what-you-get)
+- [Honest limits](#honest-limits)
+- [Run model, safety and evidence](#run-model-safety-and-evidence)
+- [Why it is built the way it is](#why-it-is-built-the-way-it-is)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Operator guide](#operator-guide)
+- [Extending](#extending)
+- [Dated validation runs](#dated-validation-runs)
+- [Dated comparisons and measurements](#dated-comparisons-and-measurements)
+- [Advanced workflow features](#advanced-workflow-features)
+- [Where it is going](#where-it-is-going)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
+
+</details>
+
 Your suite is green and coverage says 95%. That tells you the tests *ran* your
 code. It does not tell you they would *notice* if the code were wrong.
 
@@ -51,6 +74,9 @@ bundle install
 ```
 
 Outside a Bundler project, `gem install saboteur` installs the same executable.
+
+This README tracks `main`. Behavior marked "unreleased on main" is not in
+v0.7.0 yet; use a local checkout for it and expect it to change before release.
 
 ## 60-second quick start
 
@@ -326,12 +352,13 @@ or stub the APIs. `saboteur doctor` probes and reports what your platform
 actually allows.
 
 
+<a id="why-it-is-built-the-way-it-is"></a>
 ## 🧠 Why it is built the way it is
 
 **It only runs tests that can matter.** Each mutant runs only the tests whose
 line coverage touched the changed statement. Tests that killed earlier mutants
 of the same method go first, then the fastest, and the first failure stops the
-run. A change no test reaches is reported as "no coverage", not as a survivor. Branch coverage separates arms on the same line: an edit inside an arm no test took reports "no coverage (branch not taken)". Ruby does not expose `&&`/`||` right operands as branches, so those keep line-based selection. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies. Methods defined inside blocks (`Class.new do`, `Data.define do`, `included do`) are not mutated yet; the run lists them as skipped, "defined inside a block".
+run. A change no test reaches is reported as "no coverage", not as a survivor. Branch coverage separates arms on the same line: an edit inside an arm no test took reports "no coverage (branch not taken)". Ruby does not expose `&&`/`||` right operands as branches, so those keep line-based selection. `case/in` pattern edits use the enclosing case and clause execution lines; edits in an untested clause body still stay uncovered. Whole-body replacements use every test of the method, including methods that start with a heredoc. Endless defs (`def x = ...`) are matched to tests through per-test method call coverage, since line coverage never counts their bodies. On main, methods defined by the four core class factories (`X = Data.define(...)`, `Struct.new`, `Class.new`, `Module.new` with a block) and literal-name `define_method(:name) { ... }` calls are ordinary mutation subjects, not skipped; those cases are unreleased and not in v0.7.0. Defs inside non-factory blocks still get the "defined inside a block" skip reason.
 
 **It runs coarse mutants first, then fine mutants.** Each method first gets
 whole-body mutants: `nil` (`true`/`false` for predicates) unless the body is empty or
@@ -365,9 +392,11 @@ starts.
 
 **It is open.** The report is JSON in the Stryker mutation-testing-report
 schema, and you can add your own mutants through a small public interface.
-The agent JSON format and the exit codes are stable APIs with a deprecation
-process: [docs/stability](docs/stability.md).
+The main branch documents a stability policy for the agent JSON format and
+exit codes: [docs/stability](docs/stability.md). That policy is unreleased on
+main and is not part of v0.7.0.
 
+<a id="usage"></a>
 ## 🛠️ Usage
 
 ### Choose a run
@@ -377,7 +406,7 @@ process: [docs/stability](docs/stability.md).
 | Check the setup | `bundle exec saboteur doctor` | No mutation run, reports or caches. |
 | Try one method | `bundle exec saboteur run --subject 'Billing::Invoice#total'` | Best first run. |
 | Review a pull request | `bundle exec saboteur pr origin/main` | Preset: changed methods, one baseline pass, 10-minute budget. |
-| Set the diff scope yourself | `bundle exec saboteur run --since origin/main` | Mutates methods and supported constants changed since the ref. |
+| Set the diff scope yourself | `bundle exec saboteur run --since origin/main` | Mutates methods changed since the ref; on main, supported constants too (not in v0.7.0). |
 | Audit the whole project | `bundle exec saboteur audit` | Whole scope, all operators, both baseline checks and both reports. |
 | Choose files and specs | `bundle exec saboteur run lib/a.rb --test spec/a_spec.rb` | Sources and test selection are explicit. |
 | Iterate locally | `bundle exec saboteur run --incremental` | Reuses verdicts whose recorded inputs are unchanged; see the limits below. |
@@ -401,7 +430,8 @@ files are the sources) replaces only the files RSpec runs. Other
 `rspec_args` and `.rspec` options such as `--require` stay. When neither
 `rspec_args` nor `.rspec` names a file or directory to run, saboteur runs the
 default path (`--default-path` from `.rspec`, else `spec`), as the `rspec`
-command does. The coverage map
+command does. That default-path fallback is unreleased on main; v0.7.0 needs
+an explicit file or directory when RSpec's parse finds none. The coverage map
 is built from only those specs, each mutant runs only the ones that cover it,
 and the selection is part of the coverage and `--incremental` cache keys.
 
@@ -461,6 +491,9 @@ run warns and names up to five such files - narrow or remove the `c.exclude`
 entry, or pass the file as a positional source operand (configured excludes are
 then ignored). `--subject` cannot help here: it filters subjects inside the
 files left after excludes.
+
+**Unreleased on main:** constant-literal diffing and `element_removal` are
+not in v0.7.0.
 
 A changed entry of a constant hash or array literal is a behavior change no
 method owns, so `--since` also selects those assignments as subjects (#306).
@@ -539,6 +572,8 @@ unmatched and its mapped specs run as the inferred ones. Keys are exact
 paths, globs or Regexps; an empty array marks the file intentionally
 untested, so it needs no inferred spec. The file loads before the app
 boots, so keep it plain Ruby. `saboteur doctor` validates it.
+**Unreleased on main:** `--since` also runs every spec file the diff adds or
+changes, subject to the suite rules below. v0.7.0 runs only the inferred specs.
 
 With `--since`, every spec file under the root that the diff adds or changes
 (committed since the base, uncommitted or untracked) also runs, next to the
@@ -579,7 +614,7 @@ the whole suite. `--all` cannot be combined with `--test` or `--guess-tests`,
 and `--guess-tests` cannot be combined with `--test`. Keep whole-project runs
 on main: diff mode does not check every method affected by a dependency change.
 
-### External test commands
+### External test commands (unreleased on main)
 
 `--test-command CMD` (config `c.test_command`, #140) replaces the whole
 in-process test machinery: for each execution a fresh pristine copy of the
@@ -694,10 +729,11 @@ shell-escaped and printed in full however long it gets, so running it
 as-is replays the survivor with the same selection. Framework and
 generation settings from the config file (arid/hazard patterns,
 whole-file, require, rspec_args, rails) ride along through the command's
-`--config` or the default config path. An empty `--operators` or
+`--config` or the default config path. On main, an empty `--operators` or
 `--exclude-operators` list is left out unless you typed it: the config the
 command reads again supplies the same empty list, while a typed
 `--exclude-operators ''` may clear a configured exclusion and so stays.
+v0.7.0 keeps that empty list in the replay command.
 Only knobs that cannot change a by-digest replay (`--max-mutants-per-method`,
 `--fail-fast`, `--threshold`) are left out. The agent protocol instead omits a command
 longer than 1024 bytes, and the agent rebuilds it from the run's
@@ -725,7 +761,7 @@ when their covering tests, reuse status and changed lines are identical;
 otherwise each distinct set of evidence is printed above its own mutations.
 Hints are suggestions, not diagnoses: a survivor can also be an equivalent
 mutant. The HTML page shows the same list in the
-survivor's notes. Each survivor in the JSON report also carries a
+survivor's notes. **Unreleased on main:** each survivor in the JSON report also carries a
 `classification` field: `likely_equivalent` (the mutant compiles to the
 original's instructions), `arid` (every line an edit touches matches an
 arid pattern), or `missing_test` (a planned covering test passed with the
@@ -849,6 +885,7 @@ with the method unchanged. They stay errors outside the score. Timeout checks,
 other errors and reused cached kills are not included. See
 [rejected kills](docs/rejected-kills.md) for details.
 
+<a id="configuration"></a>
 ## ⚙️ Configuration
 
 `config/saboteur.rb` in the project root; CLI flags override it. Keep the shared
@@ -869,7 +906,7 @@ job. A PR-only config may set `c.since = "origin/main"`; omit `since` (or use
 | `c.max_mutants_per_method` | `100` | Cap valid mutants per covered method. |
 | `c.incremental` | `false` | Reuse verdicts whose recorded inputs are unchanged. |
 | `c.sandbox` | `true` | Read-only project tree for mutant children where supported. |
-| `c.ignore_file` | `config/saboteur_ignore.rb` | Accepted survivors and triage state. |
+| `c.ignore_file` | `config/saboteur_ignore.rb` | Accepted survivors; triage state is unreleased on main. |
 | `c.score_history` | off | Append one score-history JSONL record per finished report. |
 
 ### Reference example
@@ -1049,10 +1086,11 @@ Surgical re-evaluation refuses a method whose owner it cannot resolve or whose
 loaded definition is not the one in the file. The skip reason ends with a hint.
 List such subjects in `c.whole_file` (ids or globs such as `"Point#distance"` or
 `"Geometry::*"`) and the child evaluates the whole mutated file instead. This
-applies to methods saboteur already finds as subjects; it does not make new
-kinds of definitions selectable (methods inside `Data.define` or `Struct.new`
-blocks are still not found). The file's top-level code then runs again in every
-child, after the run's seed is set: load-time side effects repeat and constants
+applies to methods saboteur already finds as subjects. On main, that includes
+the core class factories and literal-name `define_method` blocks noted above;
+those discoveries are unreleased and not in v0.7.0. Defs inside
+non-factory blocks stay undiscovered. The file's top-level code then runs
+again in every child, after the run's seed is set: load-time side effects repeat and constants
 it assigns are rebuilt, with redefinition warnings silenced. If a later
 definition in the same file replaces the mutated method, the mutant could never
 run, so a survivor there is reported as unreachable instead. It is off by
@@ -1107,7 +1145,8 @@ end
 
 An entry without a reason is rejected.
 
-Each entry also carries a triage state (#155) chosen with `state:` -
+**Unreleased on main:** each entry also carries a triage state (#155) chosen
+with `state:` -
 `accepted_equivalent` (the default) or `wont_fix` suppress the survivor's
 exit failure (it still counts in the score), `todo` records the decision
 to fix and keeps the survivor counting as an unignored survivor:
@@ -1155,128 +1194,29 @@ Any other thread gets a generic caveat: a thread that does not run in a
 child cannot do background work a mutant's test may rely on, so results
 can differ when one is left behind.
 
-## Filter mutations
+## Operator guide
 
-The built-in source also swaps `select` / `reject` and `select!` / `reject!`.
-These catch a filter that keeps the items it should discard (or discards the
-items it should keep). For example, a command replacement should remove the
-old command, not keep only that command:
+The detailed operator references live in [docs/operators](docs/operators/). The
+newest fine-grained operators:
 
-```ruby
-commands.reject! { |name, _| name == replaced_name }
-# mutant: commands.select! { |name, _| name == replaced_name }
-```
+| Operator | Example | What a survivor means |
+| --- | --- | --- |
+| [filter_replacement](docs/operators/filter_replacement.md) | `select` -> `reject` | No test tells the kept set from the dropped set. |
+| [literal_boolean](docs/operators/literal_boolean.md) | `true` -> `false` | The flag's effect is not asserted on either side. |
+| [literal_string](docs/operators/literal_string.md) | `"pending"` -> `""` | The string's content is never asserted. |
+| [literal_number](docs/operators/literal_number.md) | `18` -> `19` | No test pins the exact boundary or value. |
+| [chain_removal](docs/operators/chain_removal.md) | `user.name.strip` -> `user.strip` | The middle link's effect is invisible, or the shorter chain is equivalent. |
+| [argument_removal](docs/operators/argument_removal.md) | `includes(:a, :b)` -> `includes(:b)` | The argument makes no observed difference. |
+| [pair_removal](docs/operators/pair_removal.md) | `{city: "required", zip: "optional"}` -> `{zip: "optional"}` | The pair's effect is invisible to the tests. |
 
-Only explicit-receiver calls with a block and no ordinary arguments are
-changed. A block passed as `&predicate` counts; safe navigation is preserved.
-`relation.select(:name)`, bare `select { ... }`, and `items.select` without a
-block are not changed. Arid statements and nested definitions remain skipped.
-Ruby dispatch is dynamic: a matching name does not prove the receiver is an
-Enumerable, and a custom receiver can make the replacement fail. No type or
-real-fault detection guarantee is made.
+**Unreleased on main:** `element_removal` removes one element from an array
+literal, including array literals in methods and changed constant arrays. It
+runs by default; splats, heredoc elements and arid statements are skipped.
 
-These are fine mutants, appended after the existing built-in operators. For unchanged subjects, old
-mutant digests and relative order stay unchanged, but runs can produce more
-mutants, change their score, and hit the per-method cap. The operator and source
-name in reports is `filter_replacement`.
+Use `bundle exec saboteur run --list-operators` for the full current inventory
+and examples from your installed version.
 
-See [the operator rationale](docs/filter-operators.md) for the Ruby fault used
-to choose this family and the limits of that evidence.
-
-## Literal mutations
-
-Builtin now swaps `true` / `false` literals and replaces nonempty static strings
-with `""`. These test boolean choices and the difference between meaningful
-text and empty input. Operator names are `literal_boolean` and `literal_string`;
-the source name is `literal_replacement`.
-
-Only method bodies are visited. Default arguments, arid statements, nested
-definitions, empty strings, heredocs, interpolation, word/symbol lists, symbols,
-regexes and command strings are unchanged. Quoted and static percent strings
-are supported. The new proposals follow the earlier built-in operators; the
-normal duplicate check and per-method cap still apply. Old digests and order
-remain stable for unchanged subjects, but more mutants can change a run's score.
-No speed, type-safety or real-fault detection improvement is claimed. See
-[the literal operator rationale](docs/literal-operators.md) for fault evidence
-and limits, including string encoding/frozen-value behavior.
-
-## Chain removal
-
-Builtin drops one link from the middle of a dotted method chain: `user.name.strip`
-becomes `user.strip`, and `a.b.c.d` gives `a.c.d` and `a.b.d`. The first receiver
-and the last call stay, so a test has to notice that a step in between went
-missing. The link goes whole, with its arguments and block. The operator and
-source name is `chain_removal`.
-
-Operators, index calls and bare-name receivers are not chains and are unchanged.
-The target of a write (`user.account.profile.name = 1`, `+=`, `||=`, `a.b[0] = 1`)
-is left whole: no link of its receiver chain is dropped, however long. Only
-the value on the right can be mutated. `freeze`, `dup`, `clone`, `itself`
-and `tap` links are never removed. Tests can observe frozenness, copies and a
-`tap` block's effects, but those are other contracts than a missing step in a
-query chain, and dropping such a link mostly yields noise, so this operator
-leaves them out. Arid statements and nested definitions are skipped.
-
-If you confirm the shorter chain is equivalent across the intended
-inputs (for example a duplicated column), simplify the code or ignore
-the mutant.
-
-Chain removal is on by default, like `argument_removal` and `pair_removal`.
-Its proposals follow the other fine proposals, with the same validation,
-deduplication and `max_mutants_per_method` cap.
-
-## Argument removal
-
-Builtin removes one ordinary positional argument from a parenthesized call.
-For `Model.includes(:a, :b, c: :d)`, the two proposals remove `:a` or `:b`,
-without deleting the statement or changing `c: :d`. This lets a preload check
-exercise missing associations instead of only a missing return value.
-The operator and source name is `argument_removal`.
-
-Only parenthesized calls are supported in this first version. Keyword hashes,
-splats, argument forwarding, bracket indexing/assignment syntax and arguments containing
-heredocs are unchanged. Explicit hash arguments count as positional arguments.
-Blocks and keyword pairs remain intact; separators come from Prism tokens,
-so commas inside strings or comments are not mistaken for separators.
-Arid statements, parameter defaults and nested definitions are skipped.
-
-These fine proposals follow existing builtin proposals, with the same validation,
-deduplication and `max_mutants_per_method` cap. Earlier digests and relative order
-stay unchanged for unchanged subjects. Extra proposals can change scores or be
-omitted by the cap. Removing an argument can still raise an arity error; no
-non-crashing guarantee is made. The regression uses a small preload-like receiver
-and checks the missing associations, not an ActiveRecord SQL benchmark. See
-[the validation notes](docs/argument-removal.md) for the pinned snapshot migration.
-
-## Hash and keyword pair removal
-
-Builtin removes one key/value association from a hash literal or keyword list.
-`Model.includes(:a, :b, c: :d)` becomes `Model.includes(:a, :b )`, so a nested
-preload guard can be exercised without deleting the whole statement. A sole
-hash pair becomes `{}`. Operator and source name: `pair_removal`.
-
-## Array element removal
-
-Builtin removes one element from an array literal: `[:a, :b]` becomes `[:a]`.
-This is the array counterpart of `pair_removal`, on by default under the name
-`element_removal`, and it is what mutates changed elements of constant array
-literals under `--since` (#306). Bracketed arrays and `%w[...]` lists are
-supported; splats stay intact, and elements holding heredocs or sitting in
-arid statements are skipped, like `pair_removal`.
-Being default-on, it adds mutants wherever array literals appear in mutated
-methods: totals grow with the number of elements, the way `pair_removal`
-grows them for hashes.
-
-Both parenthesized and command calls are supported. Splats stay intact; pairs
-containing heredocs, parameter defaults, arid statements and nested definitions
-are skipped. Token-based separator edits preserve comments and blocks. Nested
-hash values and callable bodies are visited. Removing a required keyword can
-still crash; the regression uses a preload-like receiver, not an ActiveRecord
-SQL benchmark. These fine proposals follow earlier builtin proposals and use
-the usual validation, deduplication, order and `max_mutants_per_method` cap.
-More proposals can change scores and cap coverage. See
-[the validation notes](docs/pair-removal.md) for snapshot changes.
-
+<a id="extending"></a>
 ## 🔌 Extending
 
 Public API, stable across minor versions:
@@ -1290,6 +1230,7 @@ Public API, stable across minor versions:
   :around_mutant)` in files listed under `hooks:`. An extensionless hooks
   path resolves its `.rb`, the way `require` does.
 
+<a id="dated-validation-runs"></a>
 ## 🌍 Dated validation runs
 
 Tested on the RSpec suites of plain gems
@@ -1299,6 +1240,7 @@ the baseline check and the coarse-gate removal) and lobsters on SQLite in the
 2026-10-10 comparison, both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
 design. Results: [docs/validation](docs/validation).
 
+<a id="dated-comparisons-and-measurements"></a>
 ## ⚖️ Dated comparisons and measurements
 
 The tables below are dated evidence snapshots, not live rankings or current
@@ -1485,6 +1427,7 @@ Inline suppressions bound completeness: classic scores still exclude suppressed 
 
 Source-only `--dry-run` lists the suppressed count and each audit row in selected methods, before diff restriction and the per-method cap. They are outside the planned total. Preview still does not boot the app or write reports.
 
+<a id="where-it-is-going"></a>
 ## 🗺️ Where it is going
 
 [ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
@@ -1494,6 +1437,7 @@ details are in [docs/design.md](docs/design.md), prior art in
 [docs/prior-art.md](docs/prior-art.md), and project status in
 [docs/status.md](docs/status.md).
 
+<a id="contributing"></a>
 ## 🤝 Contributing
 
 New here? Start with an [open issue](https://github.com/vamsipavanmahesh/saboteur/issues)

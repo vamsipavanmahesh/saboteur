@@ -20,6 +20,15 @@ All notable changes are documented here. The format follows
   run with a config error naming the entry, and an empty entry's file
   is dropped from mutation with a named diagnostic instead of running
   the whole suite (#369 review).
+- Factory-block subjects resolve to the right owner (#352). A class factory
+  assigned inside `class << self` binds its constant on the singleton
+  class, so re-evaluation now resolves a factory constant after a sclass
+  scope there instead of raising "cannot resolve" for every mutant of its
+  methods. And a constant or keyword class inside a factory block binds on
+  the enclosing lexical scope: `FactoryProbe::Nested::RULES` and
+  `M::HELPER` are now ordinary subjects under their lexical owner instead
+  of a phantom `FactoryProbe::Outer::Nested::RULES` skipped as defined
+  inside a block.
 
 ### Changed
 
