@@ -15,6 +15,13 @@ All notable changes are documented here. The format follows
   `gems.rb` or `*.gemspec` edit (#408). Manifests and gemspecs anywhere
   under the project root are hashed always.
 
+- A factory assigned inside `class << self` now keeps its own scope in the
+  owner path, so a constant defined there is named after the factory's
+  singleton: `Host::W.singleton_class::V#n`. An outer factory with no
+  `class << self` of its own still opens no scope, even when a `class <<
+  self` encloses it (#438).
+
+
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
   unrelated classes each keep their own subjects: the singleton-side one is
