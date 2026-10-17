@@ -303,7 +303,10 @@ module Saboteur
       # --test without hunting (#370). Bounded; computed only for
       # unmatched files, which are about to stop or warn.
       def nearby_specs(file)
-        Dir.glob("spec/**/#{File.basename(file, '.rb')}_spec.rb", base: @root)
+        # The basename is data, not a pattern: [, ], {, }, ?, * and \ are
+        # glob metacharacters and must be escaped to match literally.
+        basename = File.basename(file, ".rb").gsub(/[\[\]{}?*\\]/) { |char| "\\#{char}" }
+        Dir.glob("spec/**/#{basename}_spec.rb", base: @root)
            .select { |path| File.file?(File.join(@root, path)) }.sort.first(3)
       end
 
