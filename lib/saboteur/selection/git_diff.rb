@@ -3,6 +3,7 @@
 
 require "open3"
 require_relative "../text"
+require_relative "dependency_shield"
 require_relative "layout_only_lines"
 require_relative "untracked_changes"
 
@@ -53,9 +54,11 @@ module Saboteur
         diff = %w[diff -z --name-only --relative --no-renames]
         {
           # An untracked file is never in the diff, so the two lists are disjoint.
-          present: (names(root, *diff, "--diff-filter=d", base, "--") +
-                    names(root, "ls-files", "-z", "--others", "--exclude-standard")).sort,
-          deleted: names(root, *diff, "--diff-filter=D", base, "--").sort
+          present: DependencyShield.reject_trees(names(root, *diff, "--diff-filter=d", base, "--") +
+                                                 names(root, "ls-files", "-z", "--others",
+                                                       "--exclude-standard"), root).sort,
+          deleted: DependencyShield.reject_trees(names(root, *diff, "--diff-filter=D", base, "--"),
+                                                 root).sort
         }
       end
 

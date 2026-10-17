@@ -209,6 +209,18 @@ RSpec.describe Saboteur::Selection::GitDiff do
         described_class.line_maps("HEAD", root: @dir).behavior.fetch(File.join(File.realpath(@dir), "a.rb"), Set.new)
       end
 
+      # Open3 output takes the locale encoding; under LC_ALL=C a non-ASCII
+      # toplevel is US-ASCII-tagged with high bytes and a plain strip raises.
+      it "strips a locale-tagged non-ASCII toplevel without raising" do
+        commit_file("a.rb", "x\ny\n")
+        File.write(File.join(@dir, "a.rb"), "x\nz\n")
+        top = "#{File.realpath(@dir)}/pr\xC3\xA9x\n".force_encoding(Encoding::US_ASCII)
+        FileUtils.mkdir_p(top.b.strip)
+        allow(described_class).to receive(:git).and_call_original
+        allow(described_class).to receive(:git).with(@dir, "rev-parse", "--show-toplevel").and_return(top)
+        expect { described_class.line_maps("HEAD", root: @dir) }.not_to raise_error
+      end
+
       it "keeps every touched line in the changed map, for subject selection" do
         commit_file("a.rb", "def a\n  one\nend\n")
         File.write(File.join(@dir, "a.rb"), "def a\n    one\nend\n")
@@ -742,9 +754,153 @@ RSpec.describe Saboteur::Selection::GitDiff do
       expect(paths[:present]).to eq([name.dup.force_encoding(Encoding::UTF_8)])
     end
 
+    # shoulda-matchers in the wild: vendor/bundle untracked and NOT
+    # gitignored, and --since enumerated every vendored gem's own spec
+    # files (#504). Dependency trees are never changed source.
+    it "never enumerates dependency trees, tracked or untracked (#504)" do
+      write("vendor/bundle/ruby/3.3.0/gems/appraisal-2.5.0/spec/appraisal_spec.rb", "1\n")
+      write("node_modules/left-pad/index.rb", "1\n")
+      write("vendor/committed_gem/lib/x.rb", "1\n")
+      git("add", "vendor/committed_gem/lib/x.rb")
+      git("commit", "-q", "-m", "vendored")
+      write("vendor/committed_gem/lib/x.rb", "2\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq(["spec/kept_spec.rb"])
+    end
+
+    it "shields the configured bundler path from .bundle/config (#504)" do
+      write(".bundle/config", "BUNDLE_PATH: .bundle\n")
+      write(".bundle/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
+    end
+
+    # YAML scalars may be quoted; the quotes are not part of the path.
+    it "shields a quoted BUNDLE_PATH value (#567)" do
+      write(".bundle/config", "BUNDLE_PATH: 'deps'\n")
+      write("deps/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
+    end
+
+    # The same directory, spelled with . and .. segments, shields the
+    # same tree: the prefix is the normalized path, not the raw scalar.
+    it "shields a BUNDLE_PATH spelled with . and .. segments (#567)" do
+      write(".bundle/config", %(BUNDLE_PATH: "./deps/../deps"\n))
+      write("deps/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
+    end
+
+    # The shield prefix ends in a slash: a sibling directory that merely
+    # shares the name's first bytes is project source, not the bundle.
+    it "shields only the configured directory, not a same-prefix sibling (#567)" do
+      write(".bundle/config", "BUNDLE_PATH: deps\n")
+      write("deps/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("deps2/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "deps2/kept_spec.rb"])
+    end
+
+    # ./deps and deps are the same directory: the leading ./ is spelling,
+    # not part of the shield prefix.
+    it "shields a BUNDLE_PATH spelled with a leading ./ (#567)" do
+      write(".bundle/config", "BUNDLE_PATH: ./deps\n")
+      write("deps/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
+    end
+
+    # BUNDLE_PATH: . installs the bundle into the project root - unusual
+    # but valid. An empty normalized prefix matches every path, shielding
+    # the whole tree from --since (#580).
+    it "shields nothing when BUNDLE_PATH is the project root (#580)" do
+      write(".bundle/config", "BUNDLE_PATH: .\n")
+      write("lib/app.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "lib/app.rb", "spec/kept_spec.rb"])
+    end
+
+    it "shields nothing when BUNDLE_PATH is ./ (#580)" do
+      write(".bundle/config", "BUNDLE_PATH: ./\n")
+      write("lib/app.rb", "1\n")
+      expect(paths[:present]).to eq([".bundle/config", "lib/app.rb"])
+    end
+
     it "refuses a ref that is not a commit, as a usage error" do
       expect { described_class.changed_paths("no-such-ref", root: @dir) }
         .to raise_error(Saboteur::ConfigError, /no-such-ref: not a commit/)
     end
+  end
+end
+
+RSpec.describe Saboteur::Selection::GitDiff, ".deletion_only_files" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @dir = File.realpath(dir)
+      git("init", "-q")
+      write("pure.rb", "a\nb\nc\nd\n")
+      write("mixed.rb", "1\n2\n3\n4\n5\n6\n")
+      git("add", ".")
+      git("commit", "-q", "-m", "base")
+      @base = `git -C #{@dir} rev-parse HEAD`.strip
+      example.run
+    end
+  end
+
+  def git(*args)
+    _, err, status = Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args,
+                                    chdir: @dir)
+    raise err unless status.success?
+  end
+
+  def write(path, text)
+    File.write(File.join(@dir, path), text)
+  end
+
+  def commit_changes
+    write("pure.rb", "a\nd\n")
+    write("mixed.rb", "0\n1\n2\n3\n4\n6\n")
+    git("commit", "-qam", "change")
+  end
+
+  it "lists a committed deletion-only file and not one that also adds lines, in either hunk order" do
+    commit_changes
+    expect(described_class.deletion_only_files(@base, root: @dir)).to eq([File.join(@dir, "pure.rb")])
+  end
+
+  it "reads plain diff output whatever the repository colors or external diff settings say" do
+    git("config", "color.diff", "always")
+    git("config", "diff.external", "echo")
+    commit_changes
+    expect(described_class.deletion_only_files(@base, root: @dir)).to eq([File.join(@dir, "pure.rb")])
+  end
+
+  it "compares against the merge base with the ref, not the index" do
+    git("checkout", "-q", "-b", "topic")
+    commit_changes
+    expect(described_class.deletion_only_files("HEAD~1", root: @dir)).to eq([File.join(@dir, "pure.rb")])
+  end
+
+  it "resolves the toplevel when its path holds raw non-UTF-8 bytes" do
+    original = @dir
+    raw = File.join(File.dirname(@dir), "r\xE9pos".b + File.basename(@dir).b)
+    begin
+      File.rename(original, raw)
+    rescue Errno::EILSEQ, Errno::EINVAL
+      skip "this platform rejects filenames that are not valid UTF-8"
+    end
+    begin
+      @dir = raw
+      commit_changes
+      expect(described_class.deletion_only_files(@base, root: raw)).to eq([File.join(raw, "pure.rb").b])
+    ensure
+      File.rename(raw, original)
+    end
+  end
+
+  it "ends the revision list so a file named like the merge base is not read as an ambiguous argument" do
+    commit_changes
+    write(@base, "x\n")
+    expect(described_class.deletion_only_files(@base, root: @dir)).to eq([File.join(@dir, "pure.rb")])
   end
 end

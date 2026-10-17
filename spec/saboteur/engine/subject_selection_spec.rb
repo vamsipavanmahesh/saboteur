@@ -683,6 +683,14 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant literals in --since
     expect(described_class.new(config, diagnostics).select([file])).to be_empty
   end
 
+  it "returns an empty changed map and an empty behavior map when nothing changed since the ref" do
+    file = commit_base(base)
+    config = Saboteur::Config.new({ "since" => "HEAD" }, root: @root)
+    selection = described_class.new(config, diagnostics)
+    selection.select([file])
+    expect(selection.send(:changed_line_maps)).to eq([{}, {}])
+  end
+
   it "narrows constant subjects to --subject patterns by their Klass::CONST id" do
     file = commit_base(base)
     File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
