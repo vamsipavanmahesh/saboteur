@@ -185,6 +185,50 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       select([file], since: "HEAD")
     end
 
+    it "reports a deleted method as deleted instead of blaming its neighbour (#466)" do
+      file = commit_base(two_methods)
+      File.write(file, "class Cart\n  def count\n    2\n  end\nend\n")
+
+      expect(select([file], since: "HEAD")).to be_empty
+      expect(err.string).to eq("saboteur: 1 changed subject was deleted, nothing to mutate: Cart#total\n")
+      expect(err.string).not_to include("differ only in comments or formatting")
+    end
+
+    it "names five deleted methods without an ellipsis (#466)" do
+      text = (1..5).map { |n| "  def m#{n}\n    #{n}\n  end\n" }.join("\n")
+      file = commit_base("class Cart\n#{text}end\n")
+      File.write(file, "class Cart\nend\n")
+
+      expect(select([file], since: "HEAD")).to be_empty
+      expect(err.string).to eq("saboteur: 5 changed subjects were deleted, nothing to mutate: " \
+                               "Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5\n")
+    end
+
+    it "keeps the comments-or-formatting note for other files when one file loses a method (#466)" do
+      file = commit_base(two_methods)
+      other = write("other.rb", "class Other\n  def m\n    1 + 1\n  end\nend\n")
+      [%w[add .], %w[commit -q -m other]].each do |args|
+        Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+      end
+      File.write(file, "class Cart\n  def count\n    2\n  end\nend\n")
+      File.write(other, "class Other\n  def m\n    1+1 # one\n  end\nend\n")
+
+      expect(select([file, other], since: "HEAD")).to be_empty
+      expect(err.string).to include("1 changed subject was deleted, nothing to mutate: Cart#total")
+      expect(err.string).to include("1 changed subject(s) differ only in comments or formatting, so they are " \
+                                    "skipped: Other#m")
+    end
+
+    it "names every deleted method up to five (#466)" do
+      text = (1..6).map { |n| "  def m#{n}\n    #{n}\n  end\n" }.join("\n")
+      file = commit_base("class Cart\n#{text}end\n")
+      File.write(file, "class Cart\nend\n")
+
+      expect(select([file], since: "HEAD")).to be_empty
+      expect(err.string).to include("6 changed subjects were deleted, nothing to mutate: " \
+                                    "Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5, ...")
+    end
+
     it "names every skipped method up to five" do
       expect(commented_methods(5)).to be_empty
       expect(err.string).to end_with("skipped: Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5\n")

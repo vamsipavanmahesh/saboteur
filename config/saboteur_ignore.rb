@@ -3,6 +3,14 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "54845ce72e86f30a",
+             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
+             reason: "equivalent: Subject#to_s returns the id, so join renders the subjects the same without map(&:id)"
+
+  i.mutation "a3766004f0709c6f",
+             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
+             reason: "equivalent: each returns the array itself and join calls Subject#to_s, which returns the id"
+
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"

@@ -8,6 +8,10 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A `--since` diff that deletes a method no longer reports the deletion as
+  "differ only in comments or formatting" and no longer names the method the
+  deleted lines drifted onto. The run says what was deleted instead: `N
+  changed subject(s) were deleted, nothing to mutate: ...` (#466).
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
