@@ -3,6 +3,26 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "5a87a7155a4e0e9b",
+             subject: "Saboteur::CLI::HistoryCommand#history_path",
+             reason: "equivalent: the UsageError raised on that line is a ConfigError, so the method's own rescue " \
+                     "replaces it with the identical-purpose message on the next raise; its text never reaches the user"
+
+  i.mutation "ac58690d8b48a18c",
+             subject: "Saboteur::CLI::HistoryCommand#print_trend",
+             reason: "equivalent: the each result is discarded (the next statement is a guard), and map runs the " \
+                     "same block with the same output"
+
+  i.mutation "4847bf6cc927ad36",
+             subject: "Saboteur::Reporter::HistoryReader#read",
+             reason: "equivalent: gets(limit + 2) only changes how many bytes of an oversized line are read; any line " \
+                     "that long is longer than the limit either way and raises the same byte-limit error"
+
+  i.mutation "58c7c2642972ead7",
+             subject: "Saboteur::Reporter::HistoryReader#read",
+             reason: "equivalent: gets without a length reads the whole oversized line, which is still longer than " \
+                     "the limit and raises the same byte-limit error; the length only bounds memory"
+
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
