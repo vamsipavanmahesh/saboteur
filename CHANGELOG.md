@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Dependency trees are never treated as changed source on a `--since`
+  run (#504): a vendored bundle or `node_modules`, tracked or
+  untracked, git-ignored or not, is rejected at enumeration, so the
+  diff scope never lists, reads or warns on it. The `.bundle/config`
+  file itself is project configuration and stays visible.
 - The project-local bundler path (`.bundle/config`'s `BUNDLE_PATH`) now
   joins the dependency shield in its quoted and non-canonical forms
   (#567): matching quotes are stripped, an inline `#` comment is ignored
@@ -34,7 +39,6 @@ All notable changes are documented here. The format follows
   singleton: `Host::W.singleton_class::V#n`. An outer factory with no
   `class << self` of its own still opens no scope, even when a `class <<
   self` encloses it (#438).
-
 
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
