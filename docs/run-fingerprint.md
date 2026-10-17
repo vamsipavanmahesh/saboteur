@@ -28,17 +28,18 @@ configuration values or secrets are returned in change explanations.
 
 Inventory entries have `path`, `kind`, `state`, `sha256`, `required`. Paths are normalized
 project-relative paths, or `external:<absolute-path>` for explicit outside inputs.
-Kinds are `ruby`, `manifest`, `boot`, `hook`, `source_plugin`, `extra`. States are
-`present`, `missing`, `unreadable`. Missing dependency/option manifests are allowed
-and hashed as missing so their later creation changes the digest; missing explicit
-boot/hook/source/extra files are incomplete. Entries are deduplicated by path and
+Kinds are `ruby`, `manifest`, `data`, `boot`, `hook`, `source_plugin`, `extra`. States are
+`present`, `missing`, `unreadable`. Missing dependency/option manifests and missing
+data inputs are allowed and hashed as missing so their later creation changes the
+digest; missing explicit boot/hook/source/extra files are incomplete. Entries are deduplicated by path and
 sorted. Settings and injected runtime identity are hashed with sorted mapping keys.
 Lists preserve order. Format version 1 describes this fingerprint, not cache format
 2 or the Stryker/public report schema.
 
 The declared model includes all project `.rb` files, regardless of mutation include,
 exclude or diff scope; Gemfile, gems.rb, both lockfiles, .rspec and .rspec-local;
-explicit boot/hook/source-plugin/extra paths; effective config except cache/report destination paths; Ruby engine/version/
+declared data inputs (test fixtures, schema dumps, database and environment
+configuration, plus anything under `fingerprint_extra`); explicit boot/hook/source-plugin/extra paths; effective config except cache/report destination paths; Ruby engine/version/
 patchlevel/platform and saboteur version. It does not follow directory symlinks:
 a discovered project symlink marks the snapshot incomplete. Unreadable files or
 directories likewise make it incomplete. It excludes `.git`, `vendor`,
