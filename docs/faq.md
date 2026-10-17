@@ -19,7 +19,16 @@ defaults target plain gems, so a Rails app sets `c.include`, `c.require` and
 PostgreSQL and SQLite, including parallel workers (`--jobs N`), where each
 extra worker gets its own database copy. MySQL is not supported for `--jobs`
 above 1, and older Rails versions have not been tried yet - the tested matrix
-is in the README under [Dated validation runs](../README.md#dated-validation-runs).
+is in the README under [Benchmarks and validation](../README.md#benchmarks-and-validation).
+
+## The baseline fails with "Could not find table" on a sqlite in-memory database
+
+A sqlite `:memory:` database is per-process: saboteur's forked children
+reconnect to a fresh, EMPTY in-memory database, so a schema loaded at
+require time is gone. The refusal names the remedies: load the schema in a
+`before(:suite)` hook, or in an `after_fork` hook
+(`config/saboteur_hooks.rb` via `c.hooks`). Rails apps with file-backed
+sqlite, PostgreSQL or SQLite test databases are unaffected.
 
 ## Does saboteur work with SimpleCov?
 
