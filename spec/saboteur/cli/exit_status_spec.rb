@@ -123,6 +123,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
                                               unverified: []),
           score_breakdown: instance_double(Saboteur::Score, tested: tested),
           majority_errored?: false,
+          review?: false,
           unignored_survivors: [instance_double(Saboteur::MutantResult)]
         )
       end
@@ -155,7 +156,8 @@ RSpec.describe Saboteur::CLI::ExitStatus do
         Saboteur::Report,
         early_stop: early_stop,
         score_breakdown: instance_double(Saboteur::Score, tested: tested),
-        majority_errored?: majority_errored
+        majority_errored?: majority_errored,
+        review?: false
       )
     end
 
@@ -200,6 +202,41 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     it "fails the quality gate automatically only for a fail_fast stop" do
       expect(harness.quality_gate?(gate_report("fail_fast"))).to be(true)
       expect(harness.quality_gate?(gate_report("max_duration"))).to be(false)
+    end
+  end
+  describe "a scoped run whose subjects were all skipped (#574)" do
+    let(:config) { {} }
+
+    def review_report(skipped:, results: [], review: true, subjects: nil)
+      subjects ||= skipped.keys
+      Saboteur::Report.new(results:, subjects:, wall_time: 1.0, root: File.dirname(subjects.first.file),
+                           review:, seed: 1, skipped_subjects: skipped,
+                           operator_policy: Saboteur::Config.new({}).operator_policy)
+    end
+
+    it "exits 3 and names each skipped subject with its reason" do
+      report = review_report(skipped: { person_subject => "refinements" })
+      expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_TOOL)
+      expect(harness.err.string).to include("Person#adult?").and include("refinements").and include("not verified")
+    end
+
+    it "records incomplete as the exit cause, not incompleteUnderThreshold" do
+      report = review_report(skipped: { person_subject => "refinements" })
+      expect(harness.cause(report, Saboteur::CLI::EXIT_TOOL)).to eq("incomplete")
+    end
+
+    it "leaves a full run with skipped subjects green" do
+      report = review_report(skipped: { person_subject => "refinements" }, review: false)
+      expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_OK)
+      expect(harness.err.string).to be_empty
+    end
+
+    it "judges the run by its results when other subjects ran" do
+      refined = subjects_in("class Refined\n  def x\n    1\n  end\nend\n", name: "refined.rb").first
+      report = review_report(skipped: { refined => "refinements" },
+                             subjects: [person_subject, refined],
+                             results: [result_for(:killed)])
+      expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_OK)
     end
   end
 end
