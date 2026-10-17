@@ -410,6 +410,15 @@ RSpec.describe Saboteur::Config, "details" do
     expect(described_class.new({ "test_command" => "make test" })["test_command"]).to eq("make test")
   end
 
+  it "rejects test_command combined with an active flaky_check, naming the missing scheduler (#476)" do
+    %w[survivors decisive].each do |mode|
+      expect { described_class.new({ "test_command" => "make test", "flaky_check" => mode }) }
+        .to raise_error(Saboteur::ConfigError,
+                        "test_command cannot be combined with flaky_check: an external run has no " \
+                        "in-process scheduler to rerun the decisive tests through")
+    end
+  end
+
   it "rejects a non-string test_command (#305 Architect)" do
     expect { described_class.new({ "test_command" => %w[make test] }) }
       .to raise_error(Saboteur::ConfigError, /test_command must be a string/)
