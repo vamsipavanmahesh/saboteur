@@ -213,6 +213,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(used).to eq(["spec/a_spec.rb"])
       expect(err.string).to include("inferred specs: no spec found for lib/b.rb (expected spec/b_spec.rb)")
         .and include("inferred specs: no spec found for lib/c.rb (expected spec/c_spec.rb)")
+      expect(err.string).to include("lib/b.rb (expected spec/b_spec.rb); its mutants run only " \
+                                    "against the inferred specs and a line they miss is reported as NoCoverage")
     end
 
     # A threshold or mutant-count gate judges the score, and a partial
@@ -237,6 +239,13 @@ RSpec.describe Saboteur::Engine, "test selection" do
       allow(Saboteur::Engine::SubjectSelection).to receive(:files_matching).and_return(%w[lib/a.rb lib/b.rb])
       expect { run_engine("subjects" => ["A#a", "B#b"]) }
         .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    # The partial-mapping mercy is scoped to --since: a full run keeps the
+    # hard stop even when other changed files have specs (#370).
+    it "stops a full run on a partial mapping even when other files have specs" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine({}) }.to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
     end
 
     it "stops before boot when no changed file has a spec" do
