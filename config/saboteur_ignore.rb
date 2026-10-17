@@ -727,4 +727,5 @@ Saboteur.ignore do |i|
   i.mutation "52e4bb172b350bc9",
              subject: "Saboteur::Selection::CoverageMap#invert_coverage",
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
-                     "enumerator's return value is unused, so each and map agree"end
+                     "enumerator's return value is unused, so each and map agree"
+end
