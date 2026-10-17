@@ -713,4 +713,8 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "a239e75a818e5e27",
+             subject: "Saboteur::Engine::TestGuess#defined_constants",
+             reason: "equivalent: sole consumer is any? over ConstantReads.across; .uniq removes only byte-identical DefinedConstant tuples, and a duplicate tuple yields the same across result"
 end
