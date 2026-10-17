@@ -983,11 +983,6 @@ Saboteur.ignore do |i|
              reason: "equivalent: with empty nesting the loop never runs and the trailing parts.empty? returns nil " \
                      "identically; the early return is a fast path, not behavior (10-fixture probe, no divergence)"
 
-  i.mutation "2cbbbc0d9f00d01a",
-             subject: "Saboteur::ConstantSubjectFinder#owner_path",
-             reason: "equivalent: the block's parts/factory_path mutations are the whole behavior and the " \
-                     "enumerator's return value is unused, so each and map agree (10-fixture probe, no divergence)"
-
   i.mutation "736552442b711990",
              subject: "Saboteur::ConstantSubjectFinder#walk_singleton_class",
              reason: "equivalent: a singleton scope's path is never read - Scope#header returns the literal " \
