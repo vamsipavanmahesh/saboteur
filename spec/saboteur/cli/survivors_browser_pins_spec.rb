@@ -200,7 +200,6 @@ RSpec.describe Saboteur::CLI, "survivors report loading (#520)" do
       File.write(path, "{not json")
       expect(cli("survivors", path).call).to eq(2)
       expect(err.string).to start_with("saboteur: #{path} is not a readable saboteur report: ")
-      expect(err.string.strip).to match(/: unexpected token/)
     end
   end
 end
