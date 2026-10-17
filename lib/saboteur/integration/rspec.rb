@@ -16,7 +16,7 @@ module Saboteur
         load_output = SetupOutputCapture.new($stdout)
         @runner.setup($stderr, load_output)
         configuration.order = "rand:#{config.fetch('seed', 1)}"
-        raise Error, load_failure_message(load_output.failed_files) if world.wants_to_quit || world.rspec_is_quitting
+        raise Error, load_failure_message(load_output.failed_files) if quit_while_loading?(world)
 
         refuse_unintended_focus
       end
@@ -115,6 +115,14 @@ module Saboteur
       SHOWN_LOAD_FAILURES = 5
 
       private
+
+      # rspec-core 3.11 added rspec_is_quitting (SyntaxError and SystemExit
+      # at load quit through it, not through wants_to_quit). The gemspec
+      # does not pin rspec, so a target app can carry an older rspec-core;
+      # ask before reading the newer flag (#378).
+      def quit_while_loading?(world)
+        world.wants_to_quit || (world.respond_to?(:rspec_is_quitting) && world.rspec_is_quitting)
+      end
 
       # The quit reason RSpec keeps is only a flag; the failing files it
       # printed are what a user needs. Name them and the way out: a repo
