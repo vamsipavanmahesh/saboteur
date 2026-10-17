@@ -13,7 +13,7 @@ RSpec.describe Saboteur::Engine, "coverage state restore" do
     Dir.mktmpdir("saboteur-covrestore-") { |dir| @root = File.realpath(dir) and example.run }
   end
 
-  def engine_call(selection: instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil))
+  def engine_call(selection: instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil))
     boot = instance_double(Saboteur::Engine::Boot, load_target: double("integration", test_files: []), rails: nil)
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
@@ -59,7 +59,7 @@ RSpec.describe Saboteur::Engine, "coverage state restore" do
     allow(Coverage).to receive(:suspend) { state = :suspended }
     allow(Coverage).to receive(:resume) { state = :running }
     allow(Coverage).to receive(:result).and_return({})
-    selection = instance_double(Saboteur::Engine::SubjectSelection, changed_lines: nil)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, behavior_lines: nil)
     allow(selection).to receive(:select) do
       state = :running # the host resumes mid-run
       []
