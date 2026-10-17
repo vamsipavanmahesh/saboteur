@@ -12,6 +12,11 @@ RSpec.describe Saboteur::Execution::Seatbelt do
     expect(described_class.darwin?).to be(false)
   end
 
+  # The memoized probe verdict is process-wide: reset it after every
+  # example too, not only before the memo-mutating ones, or a leaked
+  # @probe = :ok fools later specs on this host (seed-dependent).
+  after { reset_probe_memo }
+
   describe ".probe" do
     it "answers unsupported off macOS without forking" do
       allow(described_class).to receive(:darwin?).and_return(false)
