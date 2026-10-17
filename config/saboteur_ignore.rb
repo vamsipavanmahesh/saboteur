@@ -747,7 +747,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#lexical_nesting",
              reason: "equivalent: index + 0 is index, which only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
 
-
   i.mutation "036e4fb956df510f",
              subject: "Saboteur::Engine::ResultCache#digest_tests",
              reason: "equivalent: the following SHA256 hexdigest has a fixed width, so the dropped separator " \
