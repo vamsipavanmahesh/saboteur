@@ -47,6 +47,11 @@ else, the run stops with exit 2 before anything boots and names the ways
 out: pass `--test spec/your_spec.rb`, or append `--all` to use the whole
 suite for this one method.
 
+A `--subject` pattern that matches no subject fails the run the same way
+(exit 2): a typo must not pass as a green zero-subject run. When some
+patterns match and others miss, the run keeps the matches and the summary
+names the missing pattern and the matched count.
+
 The run first executes the unchanged tests (two passes by default) - a kill
 only counts when the same tests pass on the code without the change - then builds a per-test
 coverage map (cached for later runs), then mutates. You get counts per

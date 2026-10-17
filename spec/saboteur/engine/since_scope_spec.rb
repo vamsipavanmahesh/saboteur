@@ -59,7 +59,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
-    distribution = instance_double(Saboteur::Engine::Distribution, run: [], unreached: [], truncated: [],
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, run: [], unreached: [],
+                                                                   truncated: [],
                                                                    unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
@@ -82,6 +83,20 @@ RSpec.describe Saboteur::Engine, "test selection" do
       @scoped_config = arguments[:config]
     end
     used
+  end
+
+  it "carries the distribution's memory report into the run report (#202)" do
+    stub_boot_phase
+    stub_test_phases
+    memory = { workers: [{ worker: 0, peakMb: 12.1 }], supervisorPeakMb: 30.5 }
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: memory, run: [], unreached: [],
+                                                                   truncated: [], unverified: [])
+    allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
+    guess(specs: %w[spec/a_spec.rb], unmatched: [], changed: 1)
+    @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2, "since" => "origin/main" }, root: @root),
+                                  err: err)
+    @report = @engine.call
+    expect(@report.memory).to eq(memory)
   end
 
   it "warns about the unscoped suite before the baseline passes start" do
@@ -276,6 +291,20 @@ RSpec.describe Saboteur::Engine, "test selection" do
                                     "so there is nothing to mutate")
       expect(err.string).to include("no spec is required for lib/errors.rb: they have no changed mutation subjects")
       expect(err.string).not_to include("the whole suite runs")
+    end
+
+    it "notes nothing to mutate once, keeping the sentence out of the report warnings (#468)" do
+      guess(specs: [], unmatched: [], changed: 1, subjectless: ["lib/errors.rb"])
+      report = run_engine("since" => "origin/main")
+      expect(err.string.scan("no changed file has a mutation subject on its changed lines").size).to eq(1)
+      expect(report.warnings.grep(/nothing to mutate/)).to be_empty
+    end
+
+    it "notes nothing to mutate once without --since too (#468)" do
+      guess(specs: [], unmatched: [], changed: 2, subjectless: ["lib/a.rb"])
+      report = run_engine({})
+      expect(err.string.scan("no source file has a mutation subject").size).to eq(1)
+      expect(report.warnings.grep(/nothing to mutate/)).to be_empty
     end
 
     it "notes skipped subjectless files while scoping to the inferred specs" do
@@ -474,6 +503,13 @@ RSpec.describe Saboteur::Engine, "test selection" do
     expect(used).to eq([])
     expect(err.string).to include("inferred specs: no changed source file to infer a spec for, so the whole suite runs")
     expect(err.string).to include("running the loaded suite unscoped")
+  end
+
+  it "keeps the whole-suite note a report warning when nothing changed (#468)" do
+    guess(specs: [], unmatched: [], changed: 0)
+    report = run_engine("since" => "origin/main")
+    expect(report.warnings)
+      .to include("inferred specs: no changed source file to infer a spec for, so the whole suite runs")
   end
 
   it "names the no-source-file case without --since" do
