@@ -8,6 +8,7 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- An error-dominated run no longer prints a bare score above the "tested almost nothing" warning: the terminal reports "score n/a (N of M mutants scored, X % of scored)" so the scored share cannot be misread as a run-wide score (#557).
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
   unrelated classes each keep their own subjects: the singleton-side one is
