@@ -38,6 +38,13 @@ All notable changes are documented here. The format follows
   now spans the whole enclosing statement, because an interpolation's own
   statements are eager and Ruby's per-line events on continuation lines
   are not reliable per example.
+- `--incremental` now sees dependency-declaration edits on projects
+  that commit no lockfile (the library convention): the verdict
+  fingerprint hashed only `Gemfile.lock` / `gems.locked`, so the digest
+  was a constant and every cached verdict was reused across a `Gemfile`,
+  `gems.rb` or `*.gemspec` edit (#408). Manifests and gemspecs anywhere
+  under the project root are hashed always.
+
 - A `--since` change inside a constant literal saboteur refuses to mutate
   (unvettable load-time code, or an unsupported literal form) no longer
   reads like an unexplained miss in the umbrella "no subjects covering the
