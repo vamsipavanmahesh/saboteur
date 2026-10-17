@@ -125,6 +125,20 @@ RSpec.describe Saboteur::Subject do
       expect(two.coverage_lines_for(edit)).to eq(two.coverage_lines)
     end
 
+    # Kills the node.body.find -> node.find chain-removal (#545 dogfood
+    # 479d085040fd2673): Prism::Node#find is a breadth-first search that
+    # starts at the node itself, so the mutant returns the whole
+    # StatementsNode for any edit inside it - here, statement line 3
+    # instead of line 4.
+    it "maps an edit in a flat method's second statement to that statement alone" do
+      flat = subjects_in("class A\n  def m\n    a = 1\n    b = 2\n    c = 3\n    d = 4\n  end\nend\n").first
+      source = flat.file_source
+      start = source.index("b = 2")
+      edit = Saboteur::MutationSource::Edit.new(file: flat.file, start_byte: start,
+                                                end_byte: start + 5, replacement: "x")
+      expect(flat.coverage_lines_for(edit)).to eq([4])
+    end
+
     it "maps an edit in an empty method to the whole method" do
       empty = subjects_in("class A\n  def m\n  end\nend\n").first
       at = empty.file_source.index("def m") + 3

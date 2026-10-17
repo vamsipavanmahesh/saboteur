@@ -787,10 +787,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#innermost_statement",
              reason: "equivalent: prism nodes delegate end_offset to their location"
 
-  i.mutation "479d085040fd2673",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: StatementsNode delegates find to its body array"
-
   i.mutation "e8d05de3635878b8",
              subject: "Saboteur::Subject#contains_edit?",
              reason: "equivalent: prism nodes delegate start_offset to their location"
