@@ -12,7 +12,7 @@ module Saboteur
     # changes, as { "/abs/path.rb" => Set[line numbers in the current file] }.
     module GitDiff
       NO_FILE = "/dev/null" # rubocop:disable Style/FileNull -- literal in git diff output
-      HUNK = /\A@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/
+      HUNK = /\A@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/
 
       module_function
 
@@ -52,14 +52,28 @@ module Saboteur
         top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
         diff = %w[-c core.quotePath=false diff --unified=0 --no-color --no-ext-diff]
         changes = parse(git(root, *diff, base, "--").b, top)
-        drop_layout_only_lines(changes, git(root, *diff, "--ignore-space-change", base, "--").b, base, top,
-                               include: include)
+        changes = drop_layout_only_lines(changes, git(root, *diff, "--ignore-space-change", base, "--").b, base,
+                                         top, include: include)
         UntrackedChanges.union(changes, top, include: include, diagnostics: diagnostics)
         changes
       end
 
       def parse(diff, top)
         changes = Hash.new { |hash, file| hash[file] = Set.new }
+        each_hunk(diff, top) { |file, (_, _, start, count)| changes[file].merge(touched_lines(start, count)) }
+        changes.default_proc = nil
+        changes
+      end
+
+      # The new-side lines a hunk touches. A pure deletion touches the lines
+      # on either side of it.
+      def touched_lines(start, count)
+        count.zero? ? [start, start + 1] : (start...(start + count)).to_a
+      end
+
+      # Each hunk header of a zero-context diff as the absolute path of the
+      # file and [old_start, old_count, new_start, new_count].
+      def each_hunk(diff, top)
         file = nil
         diff.each_line do |line|
           if line.start_with?("+++ ")
@@ -68,44 +82,24 @@ module Saboteur
           # HUNK is anchored, so a non-hunk line - including a raw-byte
           # content line - fails the match at its first byte.
           elsif file && (match = HUNK.match(line))
-            start = match[1].to_i
-            count = (match[2] || "1").to_i
-            # A pure deletion touches the lines on either side of it.
-            lines = count.zero? ? [start, start + 1] : (start...(start + count)).to_a
-            changes[file].merge(lines)
+            old_start, old_count, new_start, new_count = match.captures
+            yield file, [old_start.to_i, (old_count || "1").to_i, new_start.to_i, (new_count || "1").to_i]
           end
         end
-        changes.default_proc = nil
-        changes
       end
 
       # Only files the run could mutate are lexed; a file new at the base
       # has nothing to compare with and keeps every line.
       def drop_layout_only_lines(changes, spaced_diff, base, top, include:)
-        hunks = spaced_hunks(spaced_diff, top)
-        changes.each do |file, lines|
-          next unless include.nil? || include.include?(file)
+        hunks = Hash.new { |hash, file| hash[file] = [] }
+        each_hunk(spaced_diff, top) { |file, hunk| hunks[file] << hunk }
+        changes.to_h do |file, lines|
+          mutable = include.nil? || include.include?(file)
+          base_source = mutable && file_at(base, file.delete_prefix("#{top}/"), root: top)
+          next [file, lines] unless base_source
 
-          base_source = file_at(base, file.delete_prefix("#{top}/"), root: top)
-          next unless base_source
-
-          current_source = File.binread(file)
-          changes[file] = LayoutOnlyLines.new(hunks.fetch(file, []), base_source: base_source,
-                                                                     current_source: current_source).restrict(lines)
-        end
-      end
-
-      # Hunk headers of a zero-context diff, by absolute path of the
-      # changed file.
-      def spaced_hunks(diff, top)
-        file = nil
-        diff.each_line.with_object(Hash.new { |hash, key| hash[key] = [] }) do |line, hunks|
-          if line.start_with?("+++ ")
-            path = Text.utf8_identity(unquote(line.chomp.delete_prefix("+++ ").delete_suffix("\t")))
-            file = path == NO_FILE ? nil : File.join(top, path.delete_prefix("b/"))
-          elsif file
-            LayoutOnlyLines.hunks(line, hunks[file])
-          end
+          [file, LayoutOnlyLines.new(hunks[file], base_source: base_source, current_source: File.binread(file))
+                                .restrict(lines)]
         end
       end
 

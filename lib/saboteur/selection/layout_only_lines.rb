@@ -18,7 +18,6 @@ module Saboteur
     # a change. A `__LINE__` on a line that moved names another number, so
     # that line counts too.
     class LayoutOnlyLines
-      HUNK = /\A@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/
       LINE_KEYWORD = :KEYWORD___LINE__
 
       # hunks: [[old_start, old_count, new_start, new_count], ...] of the
@@ -32,27 +31,14 @@ module Saboteur
       # The -b diff's own lines, with its deletion markers, plus every line
       # of CHANGED whose tokens differ from its base line.
       def restrict(changed)
-        spaced = spaced_lines
-        changed.each_with_object(spaced) do |line, kept|
-          kept << line unless spaced.include?(line) || same_tokens?(line)
-        end
-      end
-
-      # Hunk headers of a zero-context diff, by the file they belong to.
-      def self.hunks(diff_line, hunks)
-        match = HUNK.match(diff_line)
-        return unless match
-
-        old_start, old_count, new_start, new_count = match.captures
-        hunks << [old_start.to_i, (old_count || "1").to_i, new_start.to_i, (new_count || "1").to_i]
+        spaced_lines | changed.reject { |line| same_tokens?(line) }
       end
 
       private
 
       def spaced_lines
         @hunks.each_with_object(Set.new) do |(_, _, start, count), lines|
-          # A pure deletion touches the lines on either side of it.
-          lines.merge(count.zero? ? [start, start + 1] : (start...(start + count)).to_a)
+          lines.merge(GitDiff.touched_lines(start, count))
         end
       end
 
@@ -65,13 +51,10 @@ module Saboteur
       end
 
       # A line outside every hunk sits at its base position shifted by the
-      # lines the hunks above it added or removed.
+      # lines the hunks above it added or removed. A line inside a hunk is
+      # one of the -b diff's own lines and is kept whatever this answers.
       def base_line_of(line)
-        shift = @hunks.sum do |_, old_count, start, count|
-          last = count.zero? ? start : start + count - 1
-          last < line ? count - old_count : 0
-        end
-        line - shift
+        line - @hunks.sum { |_, old_count, start, count| start + count <= line ? count - old_count : 0 }
       end
 
       # Every token on each line it spans, as type and text. A token that
@@ -82,13 +65,13 @@ module Saboteur
         Prism.lex(source).value.each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(token, _), lines|
           next if token.type == :EOF
 
-          (token.location.start_line..last_line(token)).each { |line| lines[line] << [token.type, token.value] }
+          token.location.start_line.upto(last_line(token)) { |line| lines[line] << [token.type, token.value] }
         end
       end
 
       def last_line(token)
         location = token.location
-        token.value.end_with?("\n") ? [location.end_line - 1, location.start_line].max : location.end_line
+        token.value.end_with?("\n") ? location.end_line - 1 : location.end_line
       end
     end
   end

@@ -192,6 +192,49 @@ RSpec.describe Saboteur::Selection::GitDiff do
         expect(changed_after(before, after)).to eq(Set[2, 3])
       end
 
+      it "keeps a re-indented line inside a multi-line string, whose content changed" do
+        expect(changed_after("x = \"a\n  b\"\n", "x = \"a\n    b\"\n")).to eq(Set[2])
+      end
+
+      it "drops a re-indented __LINE__ that stayed on its line" do
+        expect(changed_after("def at\n  __LINE__\nend\n", "def at\n    __LINE__\nend\n")).to eq(Set[])
+      end
+
+      it "drops a re-indented last line when lines follow it now" do
+        expect(changed_after("  a\n", "    a\nb\n")).to eq(Set[2])
+      end
+
+      it "keeps a line where space now separates tokens that touched" do
+        expect(changed_after("x = a+b\n", "x = a + b\n")).to eq(Set[1])
+      end
+
+      it "keeps every changed line of a file outside the include set, unread" do
+        commit_file("a.rb", "def a\n  one\nend\n")
+        File.write(File.join(@dir, "a.rb"), "def a\n    one\nend\n")
+        file = File.join(File.realpath(@dir), "a.rb")
+
+        expect(described_class.changed_lines("HEAD", root: @dir,
+                                                     include: Set["/elsewhere.rb"]).fetch(file)).to eq(Set[2])
+        expect(described_class.changed_lines("HEAD", root: @dir, include: Set[file]).fetch(file)).to eq(Set[])
+      end
+
+      it "keeps every line of a file committed after the base" do
+        commit_file("a.rb", "a = 1\n")
+        base = git("rev-parse", "HEAD").first.strip
+        commit_file("b.rb", "  b = 1\n  c = 2\n")
+        changed = described_class.changed_lines(base, root: @dir)
+
+        expect(changed.fetch(File.join(File.realpath(@dir), "b.rb"))).to eq(Set[1, 2])
+      end
+
+      it "drops re-indented lines in a file whose name holds a space" do
+        commit_file("a b.rb", "def a\n  one\nend\n")
+        File.write(File.join(@dir, "a b.rb"), "def a\n    one\nend\n")
+
+        expect(described_class.changed_lines("HEAD", root: @dir).fetch(File.join(File.realpath(@dir), "a b.rb")))
+          .to eq(Set[])
+      end
+
       it "leaves an untracked file fully changed" do
         commit_file("b.rb", "b = 1\n")
         File.write(File.join(@dir, "c.rb"), "  c = 1\n")
