@@ -253,7 +253,8 @@ module Saboteur
       return if gates.empty?
 
       normalized = gates.map { |gate| normalize_score_gate(gate) }
-      relative = included_files.map { |file| file.delete_prefix("#{root}/") }
+      prefix = File.join(File.realpath(root), "")
+      relative = included_files.map { |file| file.delete_prefix(prefix) }
       flags = File::FNM_PATHNAME | File::FNM_EXTGLOB
       normalized.each do |gate|
         next if relative.any? { |file| File.fnmatch?(gate["pattern"], file, flags) }
