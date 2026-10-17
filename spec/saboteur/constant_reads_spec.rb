@@ -191,3 +191,134 @@ RSpec.describe Saboteur::ConstantReads do
     end
   end
 end
+
+RSpec.describe Saboteur::ConstantReads, "class << self scopes (#380)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def find(text)
+    file = File.join(@root, "sample.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file)
+  end
+
+  def reads_for(text, constant, filename: "reads.rb")
+    file = File.join(@root, filename)
+    File.write(file, text)
+    Saboteur::ConstantReads.across([file], constant)[file]
+  end
+
+  let(:sclass_rules) { find("class Host\n  class << self\n    RULES = { a: 1 }\n  end\nend\n").subjects.first }
+  let(:host_rules) { find("class Host\n  RULES = { a: 1 }\nend\n").subjects.first }
+  let(:top_rules) { find("RULES = { a: 1 }\n").subjects.first }
+
+  # A top-level `class << self` has no enclosing scope to attach a
+  # singleton path to: its path is the top level's, so a body that writes
+  # the constant name sets no shadow and the read still resolves (#395).
+  it "matches a read in a top-level class << self whose body writes the constant name" do
+    reads = reads_for("class << self\n  RULES = [0]\n  def m = RULES\nend\n", top_rules)
+    expect(reads.runtime).to eq([3])
+  end
+
+  # `class << obj` opens obj's singleton, which has no static name, so the
+  # enclosing scope stays: the read does not bind the enclosing scope's
+  # singleton-class constant (#395).
+  it "does not match a read inside class << obj to the enclosing singleton-class constant" do
+    expect(reads_for("class Host\n  class << obj\n    def m = RULES\n  end\nend\n", sclass_rules)).to be_nil
+  end
+
+  it "matches a read inside class << self to the singleton-class constant" do
+    reads = reads_for("class Host\n  class << self\n    def m = RULES\n  end\nend\n", sclass_rules)
+    expect(reads.runtime).to eq([3])
+  end
+
+  it "does not match a class-body read to the singleton-class constant" do
+    expect(reads_for("class Host\n  def m = RULES\nend\n", sclass_rules)).to be_nil
+  end
+
+  # Constant lookup from the singleton class climbs its ancestors, which
+  # include the attached class: a read in `class << self` does observe the
+  # attached class's constant.
+  it "matches a read inside class << self to the attached class's constant" do
+    reads = reads_for("class Host\n  class << self\n    def m = RULES\n  end\nend\n", host_rules)
+    expect(reads.runtime).to eq([3])
+  end
+
+  # A writing outer scope shadows below it, but entering the constant's
+  # owner scope (or its singleton scope) ends the shadow: the owner's own
+  # definition is lexically closer there (#395).
+  let(:nested_host) { find("module M\n  class Host\n    RULES = { a: 1 }\n  end\nend\n").subjects.first }
+
+  it "clears an outer scope's shadow entering the owner's singleton scope" do
+    shadowed_then_owner = "module M\n  RULES = [0]\n  class Host\n    class << self\n      def m = RULES\n    " \
+                          "end\n  end\nend\n"
+    expect(reads_for(shadowed_then_owner, nested_host).runtime).to eq([5])
+  end
+
+  it "clears an outer scope's shadow entering a class owner nested under it" do
+    shadowed_then_owner = "module M\n  RULES = [0]\n  class Host\n    def m = RULES\n  end\nend\n"
+    expect(reads_for(shadowed_then_owner, nested_host).runtime).to eq([4])
+  end
+
+  # M > Host (owner) > Mid (writes RULES) > Deep: the read binds Mid's
+  # RULES, not the owner's - Mid's shadow was set INSIDE the owner subtree
+  # and must survive deeper nesting (#395 architect review).
+  it "keeps an owner-nested writer's shadow through deeper nesting" do
+    still_shadowed = "module M\n  RULES = [0]\n  class Host\n    RULES = [1]\n    module Mid\n      " \
+                     "RULES = [2]\n      module Deep\n        def m = RULES\n      end\n    end\n  end\nend\n"
+    expect(reads_for(still_shadowed, nested_host)).to be_nil
+  end
+
+  # A sibling scope's write shadows only below itself: a read in another
+  # scope nested under the owner still sees the owner's constant.
+  it "clears a sibling scope's shadow for a read nested under the owner (#380)" do
+    src = "class Host\n  module Mid\n    RULES = [1]\n  end\n  class Sub\n    def m = RULES\n  end\nend\n"
+    expect(reads_for(src, host_rules).runtime).to eq([6])
+  end
+
+  # Compact nesting (class Host::Mid) reaches a scope under the owner
+  # without walking the owner scope itself; the lift must still fire on the
+  # nested path, so an outer scope's shadow ends there (#395 dogfood).
+  it "clears an outer shadow entering a compact-nested scope under the owner" do
+    src = "module M\n  RULES = [0]\n  class Host::Mid\n    def m = RULES\n  end\nend\n"
+    expect(reads_for(src, nested_host).runtime).to eq([4])
+  end
+
+  it "keeps the shadow below a nested scope under the owner that writes the constant" do
+    still_shadowed = "module M\n  RULES = [0]\n  class Host\n    module Mid\n      RULES = [1]\n      " \
+                     "def m = RULES\n    end\n  end\nend\n"
+    expect(reads_for(still_shadowed, nested_host)).to be_nil
+  end
+
+  # The singleton scope's own write IS inside the owner subtree: a class
+  # nested under it keeps the shadow - the read binds the singleton's
+  # RULES, not the attached class's (#395 dogfood).
+  it "keeps a singleton-class write's shadow for a class nested under it" do
+    src = "class Host\n  class << self\n    RULES = [9]\n    class Nested\n      def m = RULES\n    end\n  end\nend\n"
+    expect(reads_for(src, host_rules)).to be_nil
+  end
+
+  # A keyword class SIBLING of class << self does not lexically see the
+  # singleton's write: its read still binds the attached class's RULES, so
+  # the singleton write's shadow must lift there (#395 dogfood).
+  it "lifts a singleton-class write's shadow for a keyword class sibling" do
+    src = "class Host\n  RULES = { a: 1 }\n  class << self\n    RULES = [9]\n  end\n  " \
+          "class Plain\n    def m = RULES\n  end\nend\n"
+    expect(reads_for(src, host_rules).runtime).to eq([7])
+  end
+
+  it "lets a singleton-class write shadow the attached class's constant for reads below it" do
+    reads = reads_for("class Host\n  class << self\n    RULES = [9]\n    def m = RULES\n  end\nend\n", host_rules)
+    expect(reads).to be_nil
+  end
+
+  it "matches a read in a keyword class nested in class << self to the singleton-class constant" do
+    reads = reads_for("class Host\n  class << self\n    class Nested\n      def m = RULES\n    end\n  end\nend\n",
+                      sclass_rules)
+    expect(reads.runtime).to eq([4])
+  end
+end
