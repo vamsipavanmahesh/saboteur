@@ -3,6 +3,12 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "4431382aefb4312a",
+             subject: "Saboteur::CLI::HistoryCommand#history_path",
+             reason: "equivalent: UsageError < ConfigError, so the or-raise is caught by the method's own " \
+                     "rescue ConfigError and re-raised with the rescue copy; probed live on the firing input " \
+                     "(config.path returns nil): original and literal-emptied mutant raise the identical " \
+                     "UsageError with the full rescue message"
   i.mutation "668e787880f87f22",
              subject: "Saboteur::MutationSource::MethodSwap#visit_used_children",
              reason: "equivalent: visit_used_children array of child results is discarded by its only caller (visit); each and map run the same used-wrapped recursion"
