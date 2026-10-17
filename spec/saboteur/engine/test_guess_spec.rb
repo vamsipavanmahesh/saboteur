@@ -772,6 +772,34 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(guess.unmatched_message).not_to include("found:")
     end
 
+    # Dir.glob orders path components, not whole strings: a/ comes before
+    # a-b/ although "a-b/" sorts first as a string, so the sort is
+    # observable (kills the chain_removal of .sort).
+    it "names same-basename specs in string-sorted order, not glob order" do
+      write("lib/x.rb", changed_source)
+      write("spec/a/x_spec.rb")
+      write("spec/a-b/x_spec.rb")
+      expect(guess.unmatched_message).to include("; found: spec/a-b/x_spec.rb, spec/a/x_spec.rb)")
+    end
+
+    # The found list is capped at three so a stop message stays readable
+    # (kills the chain_removal of .first(3)).
+    it "caps the same-basename found list at three" do
+      write("lib/x.rb", changed_source)
+      %w[a b c d].each { |dir_name| write("spec/#{dir_name}/x_spec.rb") }
+      expect(guess.unmatched_message)
+        .to include("; found: spec/a/x_spec.rb, spec/b/x_spec.rb, spec/c/x_spec.rb)")
+    end
+
+    # A basename is data, not a pattern: glob metacharacters in it must
+    # match literally, or the near miss is silently lost.
+    it "matches a basename with glob metacharacters literally" do
+      FileUtils.mkdir_p(File.join(dir, "spec/models"))
+      write("lib/x[1].rb", changed_source)
+      write("spec/models/x[1]_spec.rb")
+      expect(guess.unmatched_message).to include("found: spec/models/x[1]_spec.rb")
+    end
+
     # The same comparison on every platform: the suite lists the NFD
     # spelling while git reports the NFC one.
     it "finds a changed spec in a suite list that spells it in another Unicode form" do
