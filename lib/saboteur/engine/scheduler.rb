@@ -54,6 +54,7 @@ module Saboteur
 
         tests = @map.tests_for(subject)
         return unloadable(candidates, subject) if tests.empty?
+        return load_time_results(candidates, subject) if load_only?(subject)
 
         plan = Plan.new(subject:, tests:, killers: Hash.new(0), slowdown: 1.0, wrapper: wrapper)
         reused = all_reused(plan, candidates)
@@ -203,6 +204,20 @@ module Saboteur
         return skip_all(candidates, subject, "no coverage") unless
           @map.ran_at_load?(subject.file, line_numbers || subject.coverage_lines)
 
+        candidates.map do |mutation, text|
+          MutantResult.new(subject: subject, mutation: mutation, status: :ran_at_load, mutated_source: text,
+                           reason: Selection::CoverageMap::RAN_AT_LOAD)
+        end
+      end
+
+      # A def-time macro's only callers ran while the app loaded: the
+      # child re-evals the def, but closure consumers captured the
+      # pristine definition, so no test can observe a mutant (#409).
+      def load_only?(subject)
+        !subject.is_a?(ConstantSubject) && @map.called_only_at_load?(subject.file, subject.start_line)
+      end
+
+      def load_time_results(candidates, subject)
         candidates.map do |mutation, text|
           MutantResult.new(subject: subject, mutation: mutation, status: :ran_at_load, mutated_source: text,
                            reason: Selection::CoverageMap::RAN_AT_LOAD)

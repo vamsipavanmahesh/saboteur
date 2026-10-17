@@ -90,6 +90,26 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(with_hits.empty_for?([dotted])).to be(false)
   end
 
+  # A def-time macro's caller ran in the boot's spec load, so the boot
+  # method counters name the def line - and no test calls it again (#409).
+  it "knows a def line the boot called and no test calls again" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] })
+    expect(map.called_only_at_load?(file, 2)).to be(true)
+  end
+
+  it "does not call a def load-only when a test or hook calls it post-boot" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] },
+                              methods: { file => { 2 => %w[t1] } })
+    expect(map.called_only_at_load?(file, 2)).to be(false)
+    plain = described_class.new(lines: {}, tests: %w[t1], methods: { file => { 2 => %w[t1] } })
+    expect(plain.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  it "round-trips load method coverage through JSON" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2, 7] })
+    expect(described_class.from_json(map.to_json).load_methods).to eq(file => [2, 7])
+  end
+
   it "round-trips method coverage through JSON" do
     with_methods = described_class.new(lines: {}, tests: %w[t1 t2], methods: { file => { 2 => %w[t2 t1] } })
     expect(described_class.from_json(with_methods.to_json).methods).to eq(file => { 2 => %w[t2 t1] })

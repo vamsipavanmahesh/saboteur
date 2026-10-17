@@ -9,7 +9,7 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine, "custom map warnings" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   it "carries stale and duplicate map keys into the report" do

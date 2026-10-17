@@ -7,7 +7,7 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine, "baseline evidence capture" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   it "rejects reuse, diff and replay before target boot" do
