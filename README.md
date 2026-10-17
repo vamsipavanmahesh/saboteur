@@ -104,6 +104,11 @@ the macro itself `ran at load` instead of letting its mutants survive.
   mutant with its stable digest and edits - without booting the suite.
 - **A review workflow.** An ignore list with reasons and triage states,
   an opt-in survivor baseline, score thresholds and score history.
+  `saboteur survivors .saboteur/report.json` browses survivors in the
+  terminal straight from the JSON report - list, filter
+  (`--file`/`--operator`/`--triage`/`--ranked`), and `--show DIGEST`
+  for the diff, the exact `run --id` replay command and an ignore-file
+  entry template. It never boots your project or edits the ignore file.
 - **A local README badge.** `saboteur badge` writes Shields endpoint JSON
   from the score history and `saboteur trend` prints the score delta -
   no hosted service:

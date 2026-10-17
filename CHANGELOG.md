@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `saboteur survivors <report.json>` (#475): a read-only terminal browser
+  for the Stryker JSON report - list and filter survivors (with the
+  ranked-findings order available via `--ranked`), and `--show DIGEST`
+  prints the diff, the exact replay command and an ignore-file entry
+  template. It never boots the project or edits the ignore file.
 - `--flaky-check survivors|decisive` (#476): one reordered confirmation
   rerun per new survivor (and per fresh kill in `decisive` mode). A
   verdict the confirmation disagrees with becomes `unverified` - named
