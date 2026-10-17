@@ -42,6 +42,62 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
     expect([result.executed, result.complete?, result.kill_cause]).to eq([%w[t1], false, "assertion"])
   end
 
+  # A def-time macro (rolify's deprecate shape, #409): the block-body
+  # lines ARE covered - by the pristine closure the load-time caller
+  # captured - so line evidence cannot see that no post-boot call exists.
+  # The boot's method counters can: the def ran only while loading.
+  it "marks a macro's mutants ran at load when only the boot called its def, without forking" do
+    subject = subjects_in("module Utils\n  def deprecate(old_m, new_m)\n    " \
+                          "define_method(old_m) { |*a| send(new_m, *a) }\n  end\nend\n").first
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => %w[t1] } },
+                                               tests: %w[t1], durations: { "t1" => 0.1 },
+                                               load_methods: { subject.file => [2] })
+    edit = edit_around(subject, "send(new_m, *a)")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
+    scheduler = scheduler_for(map)
+    allow(scheduler).to receive(:load_problem).and_return([nil, nil])
+    expect(runner).not_to receive(:run)
+    results = scheduler.call(subject, [[mutation, subject.source]])
+    expect(results.map(&:status)).to eq([:ran_at_load])
+    expect(results.first.reason).to eq(Saboteur::Selection::CoverageMap::RAN_AT_LOAD)
+  end
+
+  # A constant is observable: re-evaluating the whole file replaces the
+  # object test-time readers see, so its mutants must run even when the
+  # assignment's line carries load-only evidence (#409 guard).
+  it "runs a constant's mutants even when the constant's line reads load-only" do
+    dir = Dir.mktmpdir("saboteur-spec-")
+    (@subject_dirs ||= []) << dir
+    path = File.join(File.realpath(dir), "constants.rb")
+    File.write(path, "FLAGS = { a: 1 }.freeze\n")
+    subject = Saboteur::ConstantSubjectFinder.new.call(path).subjects.first
+    subject.consumer_lines = { subject.file => [1] }
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 1 => %w[t1] } },
+                                               tests: %w[t1], durations: { "t1" => 0.1 },
+                                               load_methods: { subject.file => [subject.start_line] })
+    edit = edit_around(subject, "a: 1")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
+    scheduler = scheduler_for(map)
+    allow(scheduler).to receive(:load_problem).and_return([nil, nil])
+    allow(runner).to receive(:run).and_return(outcome(:survived), outcome(:survived))
+    results = scheduler.call(subject, [[mutation, subject.source]])
+    expect(results.map(&:status)).to eq([:survived])
+  end
+  it "runs mutants of a boot-called def that tests call again post-boot" do
+    subject = subjects_in("module Utils\n  def helper(a)\n    a + 1\n  end\nend\n").first
+    map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => %w[t1] } },
+                                               tests: %w[t1], durations: { "t1" => 0.1 },
+                                               methods: { subject.file => { 2 => %w[t1] } },
+                                               load_methods: { subject.file => [2] })
+    edit = edit_around(subject, "+")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [edit])
+    scheduler = scheduler_for(map)
+    allow(scheduler).to receive(:load_problem).and_return([nil, nil])
+    allow(runner).to receive(:run).and_return(outcome(:survived), outcome(:survived))
+    results = scheduler.call(subject, [[mutation, subject.source]])
+    expect(results.map(&:status)).to eq([:survived])
+  end
+
   it "marks mutants of load-only lines ran at load, without forking" do
     subject = subjects_in("class LoadOnlyTarget\n  def m(a)\n    b = a + 1\n    REGISTRY << b\n    b\n  end\nend\n")
               .first
@@ -211,5 +267,29 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
     result = scheduler.call(subject, [[mutation, subject.source]]).first
     expect(result.status).to eq(:skipped)
     expect(result.reason).to include("cannot preserve runtime type checks")
+  end
+
+  # The defined-order retry's mutant run needs the same sorbet sig preamble
+  # as every other fork of a wrapped method: without it the child evaluates
+  # the def alone and runtime type checks silently drop (#579 dogfood).
+  it "passes the sig to the defined-order retry's mutant run" do
+    subject = subject_named("class RetrySig\n  sig { void }\n  def m; end\nend\n", "RetrySig#m")
+    plan = described_class::Plan.new(subject: subject, wrapper: :sorbet, slowdown: 1.0)
+    mut = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                 edits: [edit_around(subject, "m")])
+    result = Saboteur::MutantResult.new(subject: subject, mutation: mut, status: :error,
+                                        mutated_source: subject.source, rejected_kill: true,
+                                        covered_by: ["./spec/retry_sig_spec.rb[1:2]"])
+    tests = ["./spec/retry_sig_spec.rb[1:1]", "./spec/retry_sig_spec.rb[1:2]"]
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: tests,
+                                               durations: tests.to_h { |id| [id, 0.1] })
+    scheduler = scheduler_for(map)
+    prefixes = []
+    allow(runner).to receive(:run) do |mutation: nil, eval_prefix: nil, **|
+      prefixes << eval_prefix if mutation
+      outcome(:survived)
+    end
+    scheduler.send(:retried_in_defined_order, plan, result)
+    expect(prefixes).to eq(["sig { void }"])
   end
 end

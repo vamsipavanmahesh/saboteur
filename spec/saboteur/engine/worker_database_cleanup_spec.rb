@@ -9,7 +9,7 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine, "worker database cleanup" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   around do |example|
@@ -83,7 +83,8 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
   end
 
   def stub_distribution(events, run_error)
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                                   unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     if run_error
       allow(distribution).to receive(:run) { events << :distribute and raise(run_error) }

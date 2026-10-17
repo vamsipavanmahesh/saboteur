@@ -95,7 +95,7 @@ RSpec.describe "operator selection and source-only preview" do
   it "records every exact policy field and matches registry examples" do
     registry = Saboteur::MutationSource::OperatorRegistry
     expect(registry.policy(%w[range arithmetic], ["range"]))
-      .to eq("version" => 2, "selected" => %w[range arithmetic], "excluded" => ["range"],
+      .to eq("version" => 3, "selected" => %w[range arithmetic], "excluded" => ["range"],
              "effective" => ["arithmetic"])
     expect(Saboteur::MutationSource::OperatorExamples::EXAMPLES.keys.sort).to eq(registry::DESCRIPTIONS.keys.sort)
     out = StringIO.new
