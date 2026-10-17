@@ -902,7 +902,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     expect(select([file_a, file_b], since: "HEAD")).to be_empty
     umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
-    expect(umbrella).to include("outside a method. 2 of these files have changes inside a constant literal that is not mutated")
+    expect(umbrella).to include("outside a method. 2 of these files have changes " \
+                                "inside a constant literal that is not mutated")
   end
 
   it "counts a file with two unsupported changed constants once in the umbrella note (#537)" do

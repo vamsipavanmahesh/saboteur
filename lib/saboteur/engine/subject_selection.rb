@@ -248,6 +248,13 @@ module Saboteur
         end
       end
 
+      # Changed files a constant literal warning already covers (#537):
+      # the umbrella counts them, but its parse/method guesses do not apply,
+      # so it says how many sit in a constant literal instead.
+      def constant_warned_files
+        @constant_warned_files ||= Set.new
+      end
+
       # A changed Ruby file in scope whose changed lines cover no subject
       # silently contributes nothing to the run (#232): warn, or a typo, an
       # unparseable file or a selection bug passes as a clean selection.
@@ -257,13 +264,6 @@ module Saboteur
       # A file whose only finding is an unsupported or unsafe constant still
       # counts here: the specific diagnostic says why, this says nothing ran
       # (#295 keeps its contract).
-      # Changed files a constant literal warning already covers (#537):
-      # the umbrella counts them, but its parse/method guesses do not apply,
-      # so it says how many sit in a constant literal instead.
-      def constant_warned_files
-        @constant_warned_files ||= Set.new
-      end
-
       def warn_changed_files_without_subjects
         canonical = ->(file) { Selection::CoverageMap.canonical(Text.utf8_identity(file)) }
         included = @files.map(&canonical)
