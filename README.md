@@ -118,7 +118,9 @@ for how to pick a number.
 - `--since` and `--incremental` are iteration aids. Run the whole project
   on main and before a release.
 - The hazard guard is syntactic, sandboxing varies by platform (Landlock
-  on Linux 6.2+; mutants run unsandboxed on macOS), and network access is
+  on Linux 6.2+; on macOS mutants run unsandboxed unless `c.sandbox = "seatbelt"`
+  opts into a probe-gated Seatbelt profile; see
+  [the macOS Seatbelt sandbox](docs/guides/macos-seatbelt-sandbox.md)), and network access is
   never restricted. Stub real APIs and use a container when that matters.
 
 ### Custom spec mapping

@@ -8,6 +8,18 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `c.sandbox = "seatbelt"`, an opt-in macOS sandbox for mutant children
+  (#436): each child applies a Seatbelt profile (writes denied except the
+  granted dirs, the system temp dir, and its own inherited logs) via
+  `sandbox_init`, after a forked probe proves a deny-default profile
+  really blocks a write. A macOS without Seatbelt degrades to the hazard
+  guard and canary with a one-time note; an errored probe or a profile
+  that does not enforce refuses the run (the Landlock probe's pinned
+  semantics, #178), and a child whose profile refuses to apply fails
+  closed instead of running the mutant.
+  On Linux the value behaves like `true`. Opt-in because Apple deprecates
+  `sandbox_init` without a published replacement; #436 tracks the
+  ecosystem's response.
 - `saboteur run --dry-run --format json` prints a versioned machine-readable
   mutant inventory without booting the suite (#469): schema version, run
   metadata, subjects, every planned mutant with its stable digest, operator,
@@ -49,6 +61,14 @@ All notable changes are documented here. The format follows
   the matched count.
 
 ### Fixed
+
+- `c.sandbox = "seatbelt"` grants now match real paths on macOS: the
+  kernel resolves `/var` to `/private/var` when it checks a write
+  against a Seatbelt subpath grant, so a granted dir under a symlinked
+  parent (like `Dir.mktmpdir` under `/var/folders`) silently matched
+  nothing and the child saw its own writable dir denied. Granted dirs
+  are now resolved with `File.realpath` before the profile is built,
+  the same view `fcntl(F_GETPATH)` reports back.
 
 - The artifact dir now ignores itself (#426): a run writes logs,
   coverage maps and reports under the cache dir, and the marker

@@ -12,6 +12,7 @@
 ## Guides
 
 - [Check a project before mutation testing](guides/doctor.md) - `saboteur doctor`.
+- [macOS Seatbelt sandbox](guides/macos-seatbelt-sandbox.md) - opt in with `c.sandbox = "seatbelt"`, probe-gated.
 - [Saboteur vs flaky tests](guides/flaky-tests.md) - baseline refusals, real output, fixes.
 - [How to read survivors](guides/reading-survivors.md) - from output to the killing test.
 - [Replay one mutant](guides/replay.md) - re-run a single mutant by its digest.
