@@ -7,7 +7,7 @@
 # #231/#232, so utf8_locale_spec pins them functionally instead of as
 # failures; destructive mutants are pinned by hazard_guard_spec; the
 # supervisor and runner specs own the containment unit tests. This group
-# owns the cache and log faults plus the end-to-end killed-child probe.
+# owns the cache and log faults plus the end-to-end killed-worker probe.
 # Each probe runs against a copy of the people fixture, so the injected
 # damage never touches the repository.
 RSpec.describe "fault injection: hostile cache and log state", :e2e do
@@ -166,6 +166,55 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     end
   end
 
+  # #251: a worker killed from outside (the OOM killer, a user with
+  # kill -9) is an environment failure, not a failing test: exit 3, the
+  # message names the signal, and nothing blames the suite's tests. The
+  # kill lands in the mutation phase - the deepest point at which the pool
+  # can lose a worker - and pgroup plus cleanup_run follow the
+  # baseline-window probe's discipline, so a failing probe never leaks the
+  # process tree into CI.
+  it "exits 3 and names the signal when a worker is killed in the mutation phase" do
+    env = { "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") }
+    command = [RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE, "run", "--all", "--jobs", "2"]
+    Open3.popen3(env, *command, chdir: dir, pgroup: true) do |stdin, stdout, stderr, wait_thr|
+      err = +""
+      err_lock = Mutex.new
+      # Drain both pipes on threads: a sequential read can deadlock on a
+      # full stderr buffer, and the handles stay around for cleanup.
+      readers = [
+        [Thread.new { stdout.read }, stdout],
+        [Thread.new { stderr.each_line { |line| err_lock.synchronize { err << line } } }, stderr]
+      ]
+      begin
+        stdin.close
+        killed = false
+        killer = Thread.new do
+          # The progress header marks the mutation phase; killing earlier
+          # would only re-cover the baseline-child path.
+          sleep 0.02 until err_lock.synchronize { err.include?(": progress") } || wait_thr.join(0)
+          until wait_thr.join(0.05)
+            `pgrep -P #{wait_thr.pid}`.lines.map(&:to_i).each do |child|
+              Process.kill("KILL", child)
+              killed = true
+            rescue Errno::ESRCH
+              nil
+            end
+          end
+        end
+        finished = wait_thr.join(180)
+        expect(finished).not_to be_nil, "the run did not finish: #{err_lock.synchronize { err.dup }}"
+        killer.join
+        readers.each { |reader,| reader.join(5) }
+        expect(killed).to be(true) # the probe really killed a worker
+        expect(wait_thr.value.exitstatus).to eq(3)
+        expect(err).to include("signal KILL")
+        expect(err).not_to include("killing test")
+      ensure
+        cleanup_run(wait_thr, readers)
+      end
+    end
+  end
+
   # A spec file added to the copied fixture. It holds the baseline open at a
   # known point - the baseline log exists, so startup is done - until the
   # probe releases it. The marker and release files live outside the cache
@@ -259,35 +308,5 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     report = JSON.parse(File.read(report_path, encoding: "UTF-8"))
     report.fetch("files").values.flat_map { |file| file.fetch("mutants") }
           .to_h { |mutant| [mutant.fetch("id"), mutant.fetch("status")] }
-  end
-  # #251: a child killed from outside (the OOM killer, a user with kill -9)
-  # is an environment failure, not a failing test: exit 3, the message
-  # names the signal, and nothing blames the suite's tests for it.
-  it "exits 3 and names the signal when a child is killed from outside" do
-    env = { "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") }
-    stdin, stdout, stderr, wait = Open3.popen3(
-      env, RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE, "run", "--all", chdir: dir
-    )
-    stdin.close
-    done = false
-    killer = Thread.new do
-      until done
-        `pgrep -P #{wait.pid}`.lines.map(&:to_i).each do |child|
-          Process.kill("KILL", child)
-        rescue Errno::ESRCH
-          nil
-        end
-        sleep 0.01
-      end
-    end
-    _out = stdout.read
-    err = stderr.read
-    status = wait.value
-    done = true
-    killer.join
-
-    expect(status.exitstatus).to eq(3)
-    expect(err).to include("SIGKILL")
-    expect(err).not_to include("killing test")
   end
 end
