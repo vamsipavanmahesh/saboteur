@@ -74,6 +74,17 @@ never change the score.
   JSON report, and a stable agent JSON API with a deprecation policy.
 - **A review workflow.** An ignore list with reasons and triage states,
   an opt-in survivor baseline, score thresholds and score history.
+- **A local README badge.** `saboteur badge` writes Shields endpoint JSON
+  from the score history and `saboteur trend` prints the score delta -
+  no hosted service:
+
+  ```md
+  ![mutation score](https://img.shields.io/endpoint?url=<raw-url-of-the-badge-json>)
+  ```
+
+  Incomplete runs are refused as badge evidence unless `--mark-partial`
+  labels them, and the trend never compares runs with different
+  selection, inventory or operator policy.
 - **Safety controls.** A hazard guard, canary values, and time, memory
   and process-count limits on every mutant; a Landlock sandbox on Linux
   6.2 and newer.
