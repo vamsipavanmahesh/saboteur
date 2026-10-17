@@ -144,6 +144,18 @@ RSpec.describe Saboteur::Selection::GitDiff do
         described_class.line_maps("HEAD", root: @dir).behavior.fetch(File.join(File.realpath(@dir), "a.rb"), Set.new)
       end
 
+      # Open3 output takes the locale encoding; under LC_ALL=C a non-ASCII
+      # toplevel is US-ASCII-tagged with high bytes and a plain strip raises.
+      it "strips a locale-tagged non-ASCII toplevel without raising" do
+        commit_file("a.rb", "x\ny\n")
+        File.write(File.join(@dir, "a.rb"), "x\nz\n")
+        top = "#{File.realpath(@dir)}/pr\xC3\xA9x\n".force_encoding(Encoding::US_ASCII)
+        FileUtils.mkdir_p(top.b.strip)
+        allow(described_class).to receive(:git).and_call_original
+        allow(described_class).to receive(:git).with(@dir, "rev-parse", "--show-toplevel").and_return(top)
+        expect { described_class.line_maps("HEAD", root: @dir) }.not_to raise_error
+      end
+
       it "keeps every touched line in the changed map, for subject selection" do
         commit_file("a.rb", "def a\n  one\nend\n")
         File.write(File.join(@dir, "a.rb"), "def a\n    one\nend\n")
