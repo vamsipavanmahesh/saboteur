@@ -40,6 +40,12 @@ All notable changes are documented here. The format follows
   in a constant literal that is not mutated, named by the constant
   warnings above it (#537).
 
+- ERB generator templates (`.rb` files with ERB interpolation, as Rails
+  generators carry under `lib/generators/**/templates/`) no longer print a
+  per-file "does not parse" warning on every discovery pass: they can
+  never parse as plain Ruby, so they are skipped with one summarized note
+  per run. A real syntax error in a plain Ruby file still warns per file
+  (#372).
 - A `c.sources` entry that looks like a source glob now fails with a
   pointer to `c.include` (#488): `c.sources` registers custom operator
   sources (`builtin` or `path.rb:ClassName`), not the files to mutate.
@@ -248,7 +254,6 @@ All notable changes are documented here. The format follows
   (`.rspec` `--format progress`) and spec output stay on stdout and cannot
   corrupt the report.
 
-
 - `--incremental` no longer reuses a verdict when a file the covering
   tests touched changed: the dependency files from the run's coverage map
   join the verdict fingerprint (#197). The same holds for a dependency
@@ -387,7 +392,6 @@ All notable changes are documented here. The format follows
 - The stale self-deprecating benchmark claims in the README ('rerun
   pending'): speed and memory numbers now live only with the harness and raw
   data that reproduce them, or are framed as dated history (#243).
-
 
 ## [0.7.0] - 2026-10-16
 
