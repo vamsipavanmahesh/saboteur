@@ -6,6 +6,19 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `c.sandbox = "seatbelt"`, an opt-in macOS sandbox for mutant children
+  (#436): each child applies a Seatbelt profile (writes denied except the
+  granted dirs, the system temp dir, and its own inherited logs) via
+  `sandbox_init`, after a forked probe proves a deny-default profile
+  really blocks a write. A missing, changed, or lying Seatbelt degrades
+  to the hazard guard and canary with a one-time note, and a child whose
+  profile refuses to apply fails closed instead of running the mutant.
+  On Linux the value behaves like `true`. Opt-in because Apple deprecates
+  `sandbox_init` without a published replacement; #436 tracks the
+  ecosystem's response.
+
 ### Fixed
 
 - The spec-name guess now tries the underscored require name of a dashed
