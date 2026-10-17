@@ -310,6 +310,18 @@ async function verify(api, number, sweep = {}) {
 }
 // Which open PRs an event can change. A comment, a dispatch and a CI run concern named PRs only;
 // a push to main can change every PR's merge base, so it sweeps them all.
+// A newer run waiting in this workflow's serialized queue re-reads live state
+// anyway, so this run's verdicts would be superseded before anyone acts on
+// them. Skipping the sweep lets a backed-up queue drain at seconds per stale
+// run instead of a full verify per run against the token's rate budget. Only
+// 'pending' is consulted: queue:max holds serialized runs in that state.
+async function superseded(api) {
+  const self = Number(process.env.GITHUB_RUN_ID);
+  const file = (process.env.GITHUB_WORKFLOW_REF || '').split('@')[0].split('/').pop();
+  demand(Number.isSafeInteger(self) && self > 0 && /\.ya?ml$/.test(file), 'invalid current run identity');
+  const queued = await api.pages(`actions/workflows/${file}/runs?status=pending`, 'workflow_runs');
+  return queued.some(run => run.id > self);
+}
 async function targets(api, name, event) {
   const eligible = p => p.base.ref === policy.baseBranch && !p.draft;
   if (name === 'issue_comment' || name === 'workflow_dispatch') {
@@ -337,6 +349,12 @@ async function main() {
   if (name === 'workflow_run' && event.workflow_run.event !== 'pull_request') return;
   if (name === 'issue_comment' && !event.issue.pull_request) return;
   if (name === 'issue_comment') await revokeEvent(api, event);
+  // Revocation latches above persist even on a stale run; the sweep below is
+  // superseded work when a newer run waits in the serialized queue.
+  if (await superseded(api)) {
+    console.log('A newer queued run supersedes this one; skipping the sweep.');
+    return;
+  }
   const numbers = await targets(api, name, event);
   let failed = false;
   const sweep = {};
@@ -349,5 +367,5 @@ async function main() {
   }
   if (failed) process.exitCode = 1;
 }
-module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, targets, API, RateLimitError};
+module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded, targets, API, RateLimitError};
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
