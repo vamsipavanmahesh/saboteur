@@ -632,6 +632,16 @@ Saboteur.ignore do |i|
   i.mutation "71f06a1870dbfcb4",
              subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
              reason: "equivalent: the loop's Unsupported-building side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
+  i.mutation "782448b779a4bb89",
+             subject: "Saboteur::Selection::GitDiff#drop_layout_only_lines",
+             reason: "equivalent: without the slash the path starts with /, and git show reads base:.//path like base:./path"
+
+  i.mutation "7929cdd27cf508cb",
+             subject: "Saboteur::Selection::LayoutOnlyLines#base_line_of",
+             reason: "equivalent: start <= line differs from start + count <= line only for a line inside a -b hunk, " \
+                     "which restrict keeps through spaced_lines whatever same_tokens? answers"
+
   i.mutation "bf95736e576b6691",
              subject: "Saboteur::SubjectFinder#walk",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
