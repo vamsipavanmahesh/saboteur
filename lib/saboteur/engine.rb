@@ -154,17 +154,6 @@ module Saboteur
     # stop on an unmatched file: --test, the way out, never reads the diff.
     def inform_skipped_specs(guess) = (@diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?)
 
-    def selection_message(guess)
-      if guess.changed.zero?
-        target = config["since"] ? "no changed source file" : "no source file"
-        "inferred specs: #{target} to infer a spec for, so the whole suite runs"
-      elsif guess.specs.empty?
-        guess.no_specs_message(since: config["since"])
-      else
-        scope_to_guesses(guess)
-      end
-    end
-
     # Stop before boot: name the spec-less files and the ways out. The
     # hinted spec paths are the conventional ones - they do not exist (that
     # is why the files are unmatched), so the message never prints them as
