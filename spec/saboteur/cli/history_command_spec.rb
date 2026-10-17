@@ -87,6 +87,15 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
     expect(cli_instance("trend").trend_parser.help).to eq(expected)
   end
 
+  it "badge --help and trend -h print their help instead of reading history" do
+    code, out, err = cli("badge", "--help")
+    expect([code, err]).to eq([0, ""])
+    expect(out).to include("saboteur badge")
+    code, out, err = cli("trend", "-h")
+    expect([code, err]).to eq([0, ""])
+    expect(out).to include("saboteur trend")
+  end
+
   it "badge --high/--low parse as floats and steer the color at exact boundaries" do
     append(result_for(:killed, kill_cause: "assertion"), *Array.new(19) { result_for(:survived) })
     # 1/20 killed = exactly 5.0%.
