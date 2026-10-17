@@ -828,6 +828,26 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant literals in --since
     expect(err.string).to include("1 changed subject(s) differ only in comments or formatting")
   end
 
+  # Monorepo layout: the project root sits below the git toplevel, so the
+  # diff paths carry the subdir prefix. The deletion-only exclusion must
+  # still fire - in canonical-absolute space (#484).
+  it "selects nothing from a deletion-only file when the project root sits below the git toplevel (#484)" do
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    file = commit_base("module Plugin\n  def rules\n    Helper.validate(1)\n    Helper.call(1, 2)\n  end\nend\n",
+                       "sub/plugin.rb")
+    File.write(file, "module Plugin\n  def rules\n    Helper.call(1, 2)\n  end\nend\n")
+    config = Saboteur::Config.new({ "since" => "HEAD" }, root: File.join(@root, "sub"))
+    expect(described_class.new(config, diagnostics).select([file])).to be_empty
+  end
+
+  it "returns an empty changed map and an empty behavior map when nothing changed since the ref" do
+    file = commit_base(base)
+    config = Saboteur::Config.new({ "since" => "HEAD" }, root: @root)
+    selection = described_class.new(config, diagnostics)
+    selection.select([file])
+    expect(selection.send(:changed_line_maps)).to eq([{}, {}])
+  end
+
   it "narrows constant subjects to --subject patterns by their Klass::CONST id" do
     file = commit_base(base)
     File.write(file, base.sub("city: \"required\"", "city: \"required\",\n    zip: \"optional\""))
