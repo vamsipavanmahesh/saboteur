@@ -74,11 +74,18 @@ module Saboteur
       def find(files)
         finder = SubjectFinder.new
         files.flat_map do |file|
-          InlineSuppression.new(file, File.read(file))
+          source = File.read(file)
+          InlineSuppression.new(file, source)
           parsed = finder.call(file)
-          @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax") unless parsed.errors.empty?
-          parsed.errors.first(1).each do |message|
-            @diagnostics.warn("#{file.delete_prefix("#{@root}/")} does not parse: #{message}")
+          unless parsed.errors.empty?
+            if source.include?("<%")
+              @diagnostics.record_erb_template_skip(file, root: @root)
+            else
+              @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax")
+              parsed.errors.first(1).each do |message|
+                @diagnostics.warn("#{file.delete_prefix("#{@root}/")} does not parse: #{message}")
+              end
+            end
           end
           parsed.subjects
         end
@@ -139,10 +146,13 @@ module Saboteur
 
           parsed = finder.call(file)
           parsed.unsupported.each do |found|
-            warn_unsupported_constant(found) if found.overlaps_lines?(lines)
+            next unless found.overlaps_lines?(lines)
+
+            warn_unsupported_constant(found)
+            constant_warned_files << canonical
           end
           accepted = parsed.subjects.select { |subject| subject.overlaps_lines?(lines) }
-          subjects.concat(admit_replayable_file(file, accepted))
+          subjects.concat(admit_replayable_file(file, accepted, canonical))
         end
         subjects
       end
@@ -156,7 +166,7 @@ module Saboteur
       # write to disk - needs the explicit whole_file opt-in, which says
       # the user accepts the replay (#319). Passing the vet is not a safety
       # proof; it only means no unrecognized code runs at load.
-      def admit_replayable_file(file, subjects)
+      def admit_replayable_file(file, subjects, canonical)
         opted_in, rest = subjects.partition { |subject| whole_file_opted?(subject) }
         return subjects if rest.empty?
 
@@ -165,6 +175,7 @@ module Saboteur
         reasons = (guard.load_time_hazards(root) + guard.unvetted_load_code(root)).uniq
         return subjects if reasons.empty?
 
+        constant_warned_files << canonical
         path = file.delete_prefix("#{@root}/")
         listed = reasons.first(2).join(", ")
         @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs code at " \
@@ -244,6 +255,13 @@ module Saboteur
         end
       end
 
+      # Changed files a constant literal warning already covers (#537):
+      # the umbrella counts them, but its parse/method guesses do not apply,
+      # so it says how many sit in a constant literal instead.
+      def constant_warned_files
+        @constant_warned_files ||= Set.new
+      end
+
       # A changed Ruby file in scope whose changed lines cover no subject
       # silently contributes nothing to the run (#232): warn, or a typo, an
       # unparseable file or a selection bug passes as a clean selection.
@@ -262,9 +280,21 @@ module Saboteur
 
         names = unmatched.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
         more = unmatched.size > 5 ? ", ..." : ""
+        note = constant_note(unmatched)
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
                           "the changed lines, so nothing is mutated from them: #{names}#{more}. " \
-                          "#{subjectless_hint(unmatched)}")
+                          "#{subjectless_hint(unmatched)}#{note}")
+      end
+
+      # One sentence naming how many umbrella files a constant warning
+      # already covers (#537): without it a constant edit the safety bar
+      # refuses to mutate reads like an unexplained miss in the umbrella.
+      def constant_note(unmatched)
+        constants = unmatched.count { |file| constant_warned_files.include?(file) }
+        return "" if constants.zero?
+
+        " #{constants} of these #{constants == 1 ? 'file has' : 'files have'} changes inside " \
+          "a constant literal that is not mutated (the constant warnings above name them)."
       end
 
       # Specs land here when one --test carries several paths; the

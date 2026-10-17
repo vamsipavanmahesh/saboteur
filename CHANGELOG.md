@@ -38,6 +38,31 @@ All notable changes are documented here. The format follows
   survived: the closure captured while the app loads keeps the pristine
   definition, so replacing the method later cannot judge them. They now
   report as `ran at load`, outside the score (#409).
+- A mutant on the continuation line of a multi-line interpolated
+  statement is no longer misclassified missing_test (#498): attribution
+  now spans the whole enclosing statement, because an interpolation's own
+  statements are eager and Ruby's per-line events on continuation lines
+  are not reliable per example.
+- `--incremental` now sees dependency-declaration edits on projects
+  that commit no lockfile (the library convention): the verdict
+  fingerprint hashed only `Gemfile.lock` / `gems.locked`, so the digest
+  was a constant and every cached verdict was reused across a `Gemfile`,
+  `gems.rb` or `*.gemspec` edit (#408). Manifests and gemspecs anywhere
+  under the project root are hashed always.
+
+- A `--since` change inside a constant literal saboteur refuses to mutate
+  (unvettable load-time code, or an unsupported literal form) no longer
+  reads like an unexplained miss in the umbrella "no subjects covering the
+  changed lines" warning: the warning now says how many of the files sit
+  in a constant literal that is not mutated, named by the constant
+  warnings above it (#537).
+
+- ERB generator templates (`.rb` files with ERB interpolation, as Rails
+  generators carry under `lib/generators/**/templates/`) no longer print a
+  per-file "does not parse" warning on every discovery pass: they can
+  never parse as plain Ruby, so they are skipped with one summarized note
+  per run. A real syntax error in a plain Ruby file still warns per file
+  (#372).
 - A `c.sources` entry that looks like a source glob now fails with a
   pointer to `c.include` (#488): `c.sources` registers custom operator
   sources (`builtin` or `path.rb:ClassName`), not the files to mutate.
@@ -147,6 +172,18 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
+- The `each`/`map` method swap is no longer emitted where the call stands
+  as a non-last statement (#399): its return value is discarded there, and
+  both names run the same block, so the swap is treated as equivalent.
+  The last statement of a body and calls nested inside an
+  expression stay swappable, as does any call on a lazy receiver:
+  lazy.map defers its block, so the swap is not equivalent there (#431).
+  Only a `.lazy` in the receiver chain is detected: a lazy enumerator held
+  in a variable, parameter or instance variable is not, and its swaps are
+  suppressed.
+  The discard analysis now recurses through branch tails: an each/map call
+  that is the last expression of a discarded if/elsif/else/unless/case/when
+  branch, begin/rescue body, or while/until body is suppressed too (#440).
 - A `--since` run where only some changed files have a guessed spec now
   runs the mapped subset with a loud warning per unmapped file instead of
   stopping with "so nothing ran"; the stop message and the warning name
@@ -245,7 +282,6 @@ All notable changes are documented here. The format follows
   redirecting RSpec's output stream, so a project's progress formatter
   (`.rspec` `--format progress`) and spec output stay on stdout and cannot
   corrupt the report.
-
 
 - `--incremental` no longer reuses a verdict when a file the covering
   tests touched changed: the dependency files from the run's coverage map
@@ -385,7 +421,6 @@ All notable changes are documented here. The format follows
 - The stale self-deprecating benchmark claims in the README ('rerun
   pending'): speed and memory numbers now live only with the harness and raw
   data that reproduce them, or are framed as dated history (#243).
-
 
 ## [0.7.0] - 2026-10-16
 
