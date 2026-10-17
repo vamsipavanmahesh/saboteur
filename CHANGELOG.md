@@ -20,9 +20,24 @@ All notable changes are documented here. The format follows
   `git diff -b` pairs it with a base line and Prism lexes both to the
   same tokens, so whitespace inside strings, heredocs and regexps, and a
   moved `__LINE__`, still count as changes.
+- `--since` runs every spec file the diff adds or changes next to the
+  inferred specs (#307). A request or controller spec whose name maps to no
+  changed file used to be left out, so a mutant only it killed was reported
+  as a survivor. A spec the diff adds beyond inference runs only when the
+  configured RSpec suite loads it (its pattern, exclude pattern and default
+  path) and it is a regular file; inferred specs run as before. A changed
+  `*_spec.rb` that does not run, or that the diff deletes, is named with
+  the reason, also before a stop on an unmatched file. `--test` and
+  `--all` are unchanged.
 
 ### Fixed
 
+- `rspec_args` that hold only options and their values (such as
+  `["--require", "spec_helper"]`) no longer leave the suite with no
+  files under `exe/saboteur`: RSpec adds its default path only when `$0`
+  is `rspec`, and the value was taken for a path. saboteur now adds the
+  default path whenever RSpec's own parse finds no file or directory to
+  run, and a `--default-path` from `.rspec` wins over `spec`.
 - `script/preflight` no longer loses why a git probe died: a probe
   whose child never ran git (the spawn failed, or a signal killed
   the forked child, as macOS does pre-exec under memory pressure)
@@ -59,6 +74,21 @@ All notable changes are documented here. The format follows
   symlink targets are judged against it (/var vs /private/var) (#305).
 
 ### Added
+
+- A fault-injection e2e probe now pins cache-dir removal during the
+  baseline window (#300): deleting `.saboteur` while the baseline holds
+  the suite open changes neither the exit code nor the run evidence -
+  later phases recreate the directory and the report holds the same
+  verdicts; only the in-flight baseline log is lost. Other windows are
+  not pinned to recover (a missing mutant log fails the run by design),
+  so stop the run before deleting the cache, as `saboteur help` says.
+
+- `saboteur doctor` now documents its version scope (#318): it certifies no
+  versions of Rails, databases or application tools saboteur never invokes.
+  A mismatched tool the suite loads still surfaces through the boot check's
+  LoadError or the baseline refusal with the tool's own output; a narrower
+  doctor check first needs the tool name, the expected and actual versions
+  and the failure output, recorded on the issue.
 - `--test-command CMD` / `c.test_command`: run an external command per
   mutant and take its exit status as the verdict - for apps that cannot
   load inside saboteur's Ruby. Serial, no coverage, unsandboxed. Mutants

@@ -308,7 +308,10 @@ before anything runs. They replace `include` and `exclude`. `--test`
 (repeatable; spec files or directories, with an optional `:LINE` or `[1:2]`
 selector; needs at least one source, unless `--since` is given - the changed
 files are the sources) replaces only the files RSpec runs. Other
-`rspec_args` and `.rspec` options such as `--require` stay. The coverage map
+`rspec_args` and `.rspec` options such as `--require` stay. When neither
+`rspec_args` nor `.rspec` names a file or directory to run, saboteur runs the
+default path (`--default-path` from `.rspec`, else `spec`), as the `rspec`
+command does. The coverage map
 is built from only those specs, each mutant runs only the ones that cover it,
 and the selection is part of the coverage and `--incremental` cache keys.
 
@@ -431,6 +434,29 @@ one-method run, and a subject file with no conventional spec stops the run
 like any other unmatched file. With `--since` only named subjects on changed
 lines count: an unchanged subject file, one whose changes sit in other
 methods, or one with a comment-only change is skipped, not stopped.
+
+With `--since`, every spec file under the root that the diff adds or changes
+(committed since the base, uncommitted or untracked) also runs, next to the
+inferred specs and listed once. A pull request often tests a change through a
+request or controller spec whose name maps to no changed file; without it a
+mutant only that spec kills would survive. A changed file runs only when the
+configured suite loads it, by RSpec's own rules (`.rspec`, `rspec_args`, the
+default path, `--pattern` and `--exclude-pattern`), and it is a regular file:
+RSpec applies its patterns only to the directories it scans, so a fixture spec
+the suite excludes must not run just because the diff touched it. Patterns
+are read from options only: a `pattern` or `exclude_pattern` set in Ruby
+(`RSpec.configure` in a spec helper) is not seen, so put exclusions in `.rspec`
+or `rspec_args`. The spec inferred from a changed file's name runs as before,
+whatever the patterns say. Unchanged
+specs are not added, and changed support files such as `spec_helper.rb` are not
+run as specs. A changed `*_spec.rb` that does not run is named with the reason:
+deleted in the diff, left out by the suite's patterns, or a symlink or other
+non-regular file; that note also comes before a stop on an unmatched file.
+Changed specs join only a run that mutates something. An
+unmatched file still stops the run; when the diff deleted its expected spec
+(a rename, say), the message says so and lists the changed specs to pass to
+`--test`. `--test` runs exactly the files you name, so a changed spec you do
+not name does not run, and `--all` runs the whole suite as before.
 
 A file that needs a spec and has none stops the run before it boots (exit 2)
 and names both ways out: `--test` with the specs to run, or `--all` for the
