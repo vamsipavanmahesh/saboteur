@@ -288,14 +288,30 @@ module Saboteur
       end
 
       # A method whose only changes are comments, blank lines or spacing has
-      # nothing new to test.
+      # nothing new to test. A method the diff deleted is neither: it is
+      # reported as deleted, and the neighbours its lines drifted onto are
+      # skipped quietly rather than blamed for a comment-only change (#466).
       def drop_unchanged_syntax(subjects, ref)
-        return subjects if subjects.empty?
+        # No diff at all: no merge-base lookup, no report.
+        return subjects if @changed_lines.empty?
 
         comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(ref, root: @root), root: @root)
+        deleted = comparison.deleted_subjects(@changed_lines.keys)
+        report_deleted(deleted)
+        deleted_files = deleted.to_set { |subject| canonical_path(subject.file) }
         same, kept = subjects.partition { |subject| comparison.unchanged?(subject) }
-        report_unchanged_syntax(same)
+        report_unchanged_syntax(same.reject { |subject| deleted_files.include?(canonical_path(subject.file)) })
         kept
+      end
+
+      # Names at most five, like the other selection notes.
+      def report_deleted(deleted)
+        return if deleted.empty?
+
+        names = deleted.first(5).map(&:id).join(", ")
+        more = deleted.size > 5 ? ", ..." : ""
+        verb = deleted.one? ? "subject was" : "subjects were"
+        @diagnostics.inform("#{deleted.size} changed #{verb} deleted, nothing to mutate: #{names}#{more}")
       end
 
       def report_unchanged_syntax(subjects)
@@ -305,6 +321,10 @@ module Saboteur
         more = subjects.size > 5 ? ", ..." : ""
         @diagnostics.inform("#{subjects.size} changed subject(s) differ only in comments or formatting, " \
                             "so they are skipped: #{names}#{more}")
+      end
+
+      def canonical_path(file)
+        Selection::CoverageMap.canonical(Text.utf8_identity(file))
       end
     end
   end
