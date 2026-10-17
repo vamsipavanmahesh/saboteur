@@ -120,7 +120,7 @@ module Saboteur
 
       # Nothing but logging: replacing it changes nothing a test can see.
       def nothing_to_remove?(statements)
-        statements.body.all? { |statement| arid?(statement) }
+        statements.body.all? { |statement| arid_statement?(statement) }
       end
 
       # A raise that the method's own rescue catches is absorbed by design. It
@@ -159,7 +159,7 @@ module Saboteur
       def visit_statements(node)
         statements = node.body
         statements.each do |statement|
-          next if arid?(statement)
+          next if arid_statement?(statement)
 
           removable_here = statements.drop(1).any? && removable?(statement)
           add("statement_removal", statement, "nil") if removable_here
@@ -257,6 +257,17 @@ module Saboteur
       def arid?(node)
         source = node.slice
         @arid.any? { |pattern| pattern.match?(source) }
+      end
+
+      # An arid call is noise only in itself. A block on that call is real
+      # work (a notifier wrapping a computation), so the statement still
+      # mutates and keeps its body out of nothing_to_remove?; the walk
+      # descends into the block through the normal visit below.
+      def arid_statement?(statement)
+        return false unless arid?(statement)
+
+        body = statement.is_a?(Prism::CallNode) ? statement.block&.body : nil
+        body.nil? || body.body.all? { |inner| arid_statement?(inner) }
       end
 
       # node_or_location: a Prism node or location (both have offsets and slice).
