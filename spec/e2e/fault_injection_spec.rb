@@ -114,16 +114,22 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
 
     env = { "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") }
     command = [RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE, "run", "--all"]
-    # pgroup: the run forks baseline and mutant children, and cleanup must
-    # reach the whole tree, not only the top process. The err buffer lets a
-    # failure message quote stderr without a blocking read of a live pipe.
+    # pgroup: the run gets its own process group, so cleanup kills can never
+    # reach the suite's own group. The run's children may form groups of
+    # their own; cleanup_run walks the tree and kills each group it finds.
+    # The err buffer lets a failure message quote stderr without a blocking
+    # read of a live pipe.
     Open3.popen3(env, *command, chdir: dir, pgroup: true) do |stdin, stdout, stderr, wait_thr|
       err = +""
       err_lock = Mutex.new
+      # Drain both pipes so the child never blocks on a full buffer; the
+      # handles stay around so cleanup can join and, when stuck, close them.
+      readers = [
+        [Thread.new { stdout.read }, stdout],
+        [Thread.new { stderr.each_line { |line| err_lock.synchronize { err << line } } }, stderr]
+      ]
       begin
         stdin.close
-        Thread.new { stdout.read }
-        Thread.new { stderr.each_line { |line| err_lock.synchronize { err << line } } }
 
         await_marker(marker, wait_thr, err, err_lock)
         cache = File.join(dir, ".saboteur")
@@ -134,7 +140,10 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
 
         finished = wait_thr.join(120)
         expect(finished).not_to be_nil, "the run did not finish: #{err_lock.synchronize { err.dup }}"
+        readers.each { |reader,| reader.join(5) }
         expect(wait_thr.value.exitstatus).to eq(control.status)
+        # No test is blamed for the missing directory.
+        expect(err).not_to include("killing test")
 
         # Required evidence is recreated: the report holds the same verdicts
         # as the control run.
@@ -150,7 +159,7 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
         expect(Dir.glob(File.join(cache, "coverage-*.json"))).not_to be_empty
         expect(File).to exist(File.join(cache, "preview.json"))
       ensure
-        cleanup_run(wait_thr)
+        cleanup_run(wait_thr, readers)
       end
     end
   end
@@ -194,16 +203,52 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     end
   end
 
-  # Bounded cleanup for a probe run: kill the run's whole process group (the
-  # run forks baseline and mutant children of its own), then wait for the
-  # exit to be reaped. ESRCH/EPERM mean the group is already gone; a still
-  # stuck wait gives up instead of hanging the suite.
-  def cleanup_run(wait_thr)
-    Process.kill("KILL", -wait_thr.pid) unless wait_thr.join(1)
-  rescue Errno::ESRCH, Errno::EPERM
-    nil
-  ensure
+  # Bounded cleanup for a probe run: kill the whole tree, reap the leader,
+  # then join each reader with a bound, closing its pipe when a stuck reader
+  # is the only thing holding it open. Nothing here may hang the suite.
+  def cleanup_run(wait_thr, readers)
+    kill_tree(wait_thr.pid)
     wait_thr.join(5)
+    readers.each do |reader, io|
+      next if reader.join(5)
+
+      begin
+        io.close unless io.closed?
+      rescue IOError, SystemCallError
+        nil
+      end
+      reader.join(5)
+    end
+  end
+
+  # Kills the leader's group and every descendant group found below it:
+  # supervisor and worker children move into groups of their own, so one
+  # group kill never reaches them, and a descendant that never formed one
+  # still shares the leader's group after the leader exits. The descendant
+  # scan runs before the kills, while the parent links are intact. ESRCH
+  # means that group is already gone; EPERM means we may not signal it.
+  def kill_tree(pid)
+    (descendant_pgroups(pid) + [pid]).uniq.each do |pgid|
+      Process.kill("KILL", -pgid)
+    rescue Errno::ESRCH, Errno::EPERM
+      nil
+    end
+  end
+
+  # Process group ids below the leader: ps lists pid, ppid and pgid per
+  # process, and the parent links are walked down from the leader.
+  def descendant_pgroups(pid)
+    rows = `ps -eo pid=,ppid=,pgid=`.lines.map { |line| line.split.map(&:to_i) }
+    by_parent = rows.group_by { |(_, ppid, _)| ppid }
+    queue = [pid]
+    pgids = []
+    until queue.empty?
+      (by_parent.delete(queue.shift) || []).each do |(child_pid, _, pgid)|
+        pgids << pgid
+        queue << child_pid
+      end
+    end
+    pgids
   end
 
   # { mutant id => status } for every mutant in a report, so a verdict
