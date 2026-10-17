@@ -76,7 +76,9 @@ never change the score.
   you changed. The GitHub Action runs on every pull request and caches
   the coverage map between runs.
 - **Honest verdicts.** Every kill is verified against the unchanged
-  method; a kill the suite cannot confirm stays out of the score.
+  method; a kill the suite cannot confirm stays out of the score. A spec
+  file whose examples depend on earlier ones is retried in defined order
+  before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
 - **A review workflow.** An ignore list with reasons and triage states,

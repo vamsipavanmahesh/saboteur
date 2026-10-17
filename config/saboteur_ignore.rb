@@ -784,6 +784,24 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
 
+  i.mutation "4cde174a623048a8",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: covered_by entries are non-nil test id strings, so all? is true exactly when any? is " \
+                     "unless the array is empty; and an empty covered_by makes DefinedOrderPrefix#for return nil (empty " \
+                     "prefix equals empty covering set), so no retry happens either way"
+  i.mutation "a8d5b6b2a673a435",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: an empty covered_by makes DefinedOrderPrefix#for return nil (the empty prefix equals the " \
+                     "empty covering set), so the guard conjunct never changes whether a retry happens"
+  i.mutation "8806b9ad93a5145f",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: Scheduler#reuse never sets rejected_kill: true, so no reused result can pass the first " \
+                     "conjunct and reach the retry"
+  i.mutation "52b79709725195b2",
+             subject: "Saboteur::Engine::Scheduler#rerun_in_prefix",
+             reason: "equivalent: budget_capped clamps the retry timeout to <= the full one, so < and != agree on every " \
+                     "reachable value"
+
   i.mutation "4d3d5ac0703067d2",
              subject: "Saboteur::SubjectFinder#lexical_nesting",
              reason: "equivalent: replacing (index + 1) with index only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
@@ -791,6 +809,7 @@ Saboteur.ignore do |i|
   i.mutation "8953e46e984e97b6",
              subject: "Saboteur::SubjectFinder#lexical_nesting",
              reason: "equivalent: index + 0 is index, which only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
 
   i.mutation "036e4fb956df510f",
              subject: "Saboteur::Engine::ResultCache#digest_tests",
