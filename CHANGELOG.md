@@ -43,6 +43,10 @@ All notable changes are documented here. The format follows
   `--baseline-passes`, or one unbudgeted run to warm the coverage
   cache) in the message (#427).
 
+- The first-pass ETA no longer reads like a second baseline check when
+  the baseline is done (#465): with a cold coverage cache the remaining
+  pass is the coverage map build, and the message now names the coverage
+  build and any remaining baseline passes separately.
 - Def-time macro mutants - a `deprecate`-style helper, a `before_action`
   block, any DSL whose only caller is a class body - no longer report as
   survived: the closure captured while the app loads keeps the pristine
