@@ -1270,16 +1270,21 @@ Public API, stable across minor versions:
   :around_mutant)` in files listed under `hooks:`. An extensionless hooks
   path resolves its `.rb`, the way `require` does.
 
-## 🌍 Where it has run
+## 🌍 Dated validation runs
 
 Tested on the RSpec suites of plain gems
 (dry-inflector, tty-color, hashie, addressable) and of two Rails 8.1 apps:
 human-essentials on Postgres (4,080 mutants, 6 workers; the 2026-10-10 run, before
-the baseline check and the coarse-gate removal) and lobsters on SQLite,
-both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
+the baseline check and the coarse-gate removal) and lobsters on SQLite in the
+2026-10-10 comparison, both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
 design. Results: [docs/validation](docs/validation).
 
-## ⚖️ How it compares
+## ⚖️ Dated comparisons and measurements
+
+The tables below are dated evidence snapshots, not live rankings or current
+performance guarantees. Current behavior and limits are described above.
+
+### saboteur vs mutineer (2026-10-10 snapshot)
 
 A small, non-exhaustive comparison with [mutineer](https://github.com/davidteren/mutineer)
 1.6.0 on four RSpec projects (two libraries, two Rails apps). Each configuration
@@ -1305,7 +1310,7 @@ per-process RSS, which counts shared pages more than once, and it was measured
 before the fork-memory work. Read it as history, not a ranking of physical
 memory.
 
-### Independent review, saboteur 0.4.0 vs mutineer 1.6.0
+### Independent review, saboteur 0.4.0 vs mutineer 1.6.0 (2026-10-12)
 
 A private consultant review ("saboteur 0.4.0 - Deep Review", 12 October 2026,
 not published) ran saboteur 0.4.0 at 38b1834 and mutineer 1.6.0 at a766c96 on
@@ -1334,7 +1339,7 @@ numbers.
 Not in the review and still pending: a rerun on current main, memory and
 per-mutant time on the benchmark apps, and any mutineer release after 1.6.0.
 
-### Memory after the fork-memory work (hashie @ 9c81e83)
+### Memory after the fork-memory work (2026-10-11, hashie @ 9c81e83)
 
 Paired A/B runs against the pre-PR commit (32c0f21), 5 pairs per job level with
 AB/BA alternation and cold caches, on a 2 vCPU / 2 GB shared sandbox. Peak
@@ -1471,9 +1476,16 @@ details are in [docs/design.md](docs/design.md), prior art in
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
+New here? Start with an [open issue](https://github.com/vamsipavanmahesh/saboteur/issues)
+or a small pull request, and read [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Before you ask for review, run the local preflight check on your exact head:
+Before you ask for review:
+
+- Sign every commit with `git commit -s`; the DCO check requires it.
+- Add specs for behavior changes and a CHANGELOG entry under "Unreleased".
+- Follow the clean-room rule: do not copy code, specs or fixtures from
+  restrictively licensed mutation tools.
+- Run the local preflight check on your exact head:
 
 ```sh
 ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast
