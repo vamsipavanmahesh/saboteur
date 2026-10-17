@@ -17,18 +17,19 @@ module Saboteur
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
     class CoverageMap
-      FORMAT = 9
+      FORMAT = 10
 
       RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
 
-      attr_reader :lines, :tests, :build_seconds, :durations, :methods, :load_lines, :branches
+      attr_reader :lines, :tests, :build_seconds, :loaded_files, :durations, :methods, :load_lines, :branches
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
       # methods: { "/abs/file.rb" => { 12 => ["id1", "id2"] } } keyed by the
       # def's first line; line coverage never counts an endless def's body,
       # so methods carry those subjects (issue #107).
       # durations: { "id1" => seconds }
-      def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {}, branches: {})
+      def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {}, branches: {},
+                     loaded_files: nil)
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
@@ -36,6 +37,7 @@ module Saboteur
         @methods = methods
         @load_lines = load_lines
         @branches = branches
+        @loaded_files = loaded_files || []
       end
 
       # Source files the given tests touched, sorted and deduped: the
@@ -91,7 +93,7 @@ module Saboteur
       # Attach the parent's boot counters without losing the child's method coverage.
       def with_load_lines(load_lines)
         self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
-                       methods: methods, load_lines: load_lines, branches: branches)
+                       methods: methods, load_lines: load_lines, branches: branches, loaded_files: loaded_files)
       end
 
       # A requested line ran at load but no test later hit it.
@@ -180,13 +182,17 @@ module Saboteur
         JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encode.call(lines),
                       methods: encode.call(methods), load_lines: load_lines,
                       branches: encode_branches(index),
-                      durations: tests.map { |id| durations[id]&.round(6) })
+                      durations: tests.map { |id| durations[id]&.round(6) }, loaded_files: loaded_files)
       end
 
       def self.from_json(json)
         data = JSON.parse(json)
         raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
 
+        from_data(data)
+      end
+
+      def self.from_data(data)
         tests = data["tests"]
         decode = lambda do |hits|
           hits.transform_values do |by_line|
@@ -197,7 +203,7 @@ module Saboteur
         load_lines = (data["load_lines"] || {}).transform_values { |list| list.map(&:to_i) }
         new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
             durations: durations, methods: decode.call(data["methods"] || {}), load_lines: load_lines,
-            branches: decode_branches(data.fetch("branches", {}), tests))
+            branches: decode_branches(data.fetch("branches", {}), tests), loaded_files: data["loaded_files"])
       end
 
       def self.decode_branches(branches, tests)

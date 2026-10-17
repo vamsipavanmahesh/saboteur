@@ -99,6 +99,11 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(described_class.new(lines: {}, tests: []).tests_for(subject_under_test)).to eq([])
   end
 
+  it "keeps the loaded source list through the JSON round-trip (#353)" do
+    map = described_class.new(lines: {}, tests: [], loaded_files: ["/app/support/helper.rb"])
+    expect(described_class.from_json(map.to_json).loaded_files).to eq(["/app/support/helper.rb"])
+  end
+
   it "round-trips through JSON with integer line keys" do
     timed = described_class.new(lines: map.lines, tests: map.tests, build_seconds: 1.5)
     restored = described_class.from_json(timed.to_json)

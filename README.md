@@ -552,11 +552,13 @@ confirms a kill. The report prints the seed; pass it to `--seed` to repeat a
 run.
 
 `--incremental` reuses an earlier verdict only while the method, the whole
-file it lives in, the mutant, its covering tests and their files, the lockfile
-and the config are all unchanged. So a constant or helper changed in the same
-file is seen. It cannot see a change in another file that the method uses (a
-method it calls, a constant defined elsewhere), so run without it now and then
-(and in CI on the main branch).
+file it lives in, the mutant, its covering tests and their files, and every
+project source the coverage run loaded - including helpers required lazily
+inside a test, outside the include list - the lockfile and the config are
+all unchanged. Watching covers Ruby sources only: after changing a
+non-Ruby input (YAML, locales, ERB, SQL fixtures), rerun with `--no-cache`,
+and run without `--incremental` now and then (and in CI on the main
+branch).
 
 Output: survivors first, then a short summary last, so the summary stays on
 screen. Survivors are grouped by file, then method, then line. Each line is

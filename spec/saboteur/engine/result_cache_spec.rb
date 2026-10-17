@@ -189,6 +189,35 @@ RSpec.describe Saboteur::Engine::ResultCache do
     store.save
     expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
   end
+  it "forgets it when a lazily required source outside the include list changes (#353)" do
+    with_dependency_files do |helper, caller_file|
+      coverage = Saboteur::Selection::CoverageMap.new(lines: { caller_file => { 1 => tests } }, tests: tests,
+                                                      loaded_files: [helper])
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      store.record(killed)
+      store.save
+
+      File.write(helper, "CAP = 500
+  ")
+
+      again = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      expect(again.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    end
+  end
+
+  it "still keeps it when the lazily required source is unchanged (#353)" do
+    with_dependency_files do |helper, caller_file|
+      coverage = Saboteur::Selection::CoverageMap.new(lines: { caller_file => { 1 => tests } }, tests: tests,
+                                                      loaded_files: [helper])
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      store.record(killed)
+      store.save
+
+      again = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      expect(again.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+    end
+  end
+
   it "forgets it when a helper with only method coverage changes, for an endless def (#344)" do
     with_dependency_files do |helper, caller_file|
       coverage = Saboteur::Selection::CoverageMap.new(

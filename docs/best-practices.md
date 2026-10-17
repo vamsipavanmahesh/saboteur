@@ -48,8 +48,10 @@ there is no `--no-since`. If you want a PR-only config, make it a separate
 file (`--config config/saboteur_pr.rb`).
 
 `--incremental` reuses earlier verdicts while the method, mutant, covering
-tests, lockfile and config are unchanged. It cannot see a change in a method
-the subject calls. Use it for local iteration, and run without it on main now
+tests, and every project source the coverage run loaded (including lazy
+requires outside the include list), lockfile and config are unchanged. It
+watches Ruby sources only: rerun with `--no-cache` after changing non-Ruby
+inputs (YAML, locales, ERB, SQL fixtures), and run without it on main now
 and then.
 
 ## The GitHub Action

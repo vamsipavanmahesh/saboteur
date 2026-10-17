@@ -31,10 +31,6 @@ All notable changes are documented here. The format follows
   built before the probe, and a failure return paired with errno 0
   (impossible from a real kernel answer) is probed once more. Genuinely
   unknown errors still fail closed.
-- `--incremental` also forgets a verdict when a dependency with only
-  method coverage (an endless def), a file that ran while the app loaded,
-  or a loaded source the coverage map never observed changes - the narrow
-  key now applies only when every dependency is actually observed (#344).
 - `rspec_args` that hold only options and their values (such as
   `["--require", "spec_helper"]`) no longer leave the suite with no
   files under `exe/saboteur`: RSpec adds its default path only when `$0`
@@ -74,7 +70,12 @@ All notable changes are documented here. The format follows
   tests touched changed: the dependency files from the run's coverage map
   join the verdict fingerprint, and when the dependency set is unknown
   every source file is watched instead - reuse turns conservative, never
-  stale (#197).
+  stale (#197). The same holds for a dependency with only method coverage
+  (an endless def), a file that ran while the app loaded, a loaded source
+  the coverage map never observed, and a helper required lazily inside a
+  test outside the include list, which the coverage build now records in
+  the map so its changes invalidate verdicts too (#344, #353; coverage
+  map format 10).
 - `--test-command` survivors no longer carry the `missing_test`
   classification: the run's only recorded evidence is the pseudo-test id,
   which is not real coverage (#305).

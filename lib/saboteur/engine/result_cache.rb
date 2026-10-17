@@ -108,7 +108,7 @@ module Saboteur
       # evidence): coverage cannot say whether they matter, so a change in
       # any of them must invalidate (#344).
       def unobserved_files
-        @fallback_files.select { |file| @coverage.empty_for?([file]) }
+        (@fallback_files | @coverage.loaded_files).select { |file| @coverage.empty_for?([file]) }
       end
 
       # RSpec ids name their file: "./spec/a_spec.rb[1:2]".

@@ -71,6 +71,39 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     expect(captured[:fallback_files]).to include(a_string_ending_with("/lib/saboteur/engine.rb"))
     root_prefix = "#{run.instance_variable_get(:@root)}/"
     expect(captured[:fallback_files]).to all(eq("lib/person.rb").or(start_with(root_prefix)))
+    expect(captured[:fallback_files]).to all(end_with(".rb"))
+  end
+
+  it "excludes loaded files from a directory that merely shares the root's prefix (#353)" do
+    run = engine
+    sibling = "#{run.instance_variable_get(:@root)}-sibling/lib/evil.rb"
+    $LOADED_FEATURES << sibling
+    begin
+      expect(run.send(:source_files, [])).not_to include(sibling)
+    ensure
+      $LOADED_FEATURES.delete(sibling)
+    end
+  end
+
+  it "watches loaded files reached through a symlinked root (#353)" do
+    run = engine
+    root = run.instance_variable_get(:@root)
+    probe = File.join(root, "lib", "symlink_probe_353.rb")
+    File.write(probe, "# probe
+")
+    Dir.mktmpdir do |dir|
+      link = File.join(dir, "link")
+      File.symlink(root, link)
+      through_link = File.join(link, "lib", "symlink_probe_353.rb")
+      $LOADED_FEATURES << through_link
+      begin
+        expect(run.send(:source_files, [])).to include(probe)
+      ensure
+        $LOADED_FEATURES.delete(through_link)
+      end
+    end
+  ensure
+    FileUtils.rm_f(probe)
   end
 
   it "builds the cache with the suite digest that pins the run's support files (#344)" do
