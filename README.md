@@ -70,13 +70,22 @@ Each survivor comes with its diff, the tests that ran, and a triage label
 The labels are heuristics for reading order, never a diagnosis, and they
 never change the score.
 
+Code that only runs while the app loads cannot be judged by replacing the
+method later, so it reports as `ran at load`, outside the score. The same
+holds for def-time macros - a `deprecate`-style helper, a `before_action`
+block, any DSL whose only caller is a class body: the closure captured at
+load keeps the pristine definition, so the boot's def-call counters mark
+the macro itself `ran at load` instead of letting its mutants survive.
+
 ## What you get
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
   you changed. The GitHub Action runs on every pull request and caches
   the coverage map between runs.
 - **Honest verdicts.** Every kill is verified against the unchanged
-  method; a kill the suite cannot confirm stays out of the score.
+  method; a kill the suite cannot confirm stays out of the score. A spec
+  file whose examples depend on earlier ones is retried in defined order
+  before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
 - **A review workflow.** An ignore list with reasons and triage states,
@@ -87,6 +96,15 @@ never change the score.
   6.2 and newer.
 - **Extension points.** Add your own mutation operators through the
   public interface.
+
+Per-path score gates are on the way: `c.score_gate "app/payments/**/*",
+min_score: 95` in `config/saboteur.rb` (repeatable) is already accepted and
+validated - `min_score` must be between 0 and 100 and the pattern must match
+at least one included file - but nothing enforces the gates yet; enforcement
+lands with #570. Until then `--threshold` (or `c.threshold`) stays the
+global gate. See
+[choosing and raising a threshold](docs/best-practices.md#choosing-and-raising-a-threshold)
+for how to pick a number.
 
 ## Honest limits
 
@@ -146,6 +164,9 @@ Saboteur.configure do |c|
   c.jobs = 4                           # optional; the default is 1
 end
 ```
+
+An engine gem whose specs live under `spec/dummy` needs an exclude for them; see
+[Rails engines and dummy apps](docs/guides/rails-engines-and-dummy-apps.md).
 
 ## SimpleCov
 
