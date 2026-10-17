@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Preflight no longer refuses a precompiled Ruby (mise, ruby-build) whose
+  binary tops the 50 MB evidence-document cap (#364): tool identity
+  digests stream with an executable-sized bound instead. The cap for JSON
+  evidence documents is unchanged.
+
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
   class, so re-evaluation now resolves a factory constant after a sclass
