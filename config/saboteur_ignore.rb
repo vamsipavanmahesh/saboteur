@@ -25,10 +25,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::ConfigFile::Settings#score_gate",
              reason: "equivalent: caller_locations(1, 1) holds one frame, so first and last are the same frame"
 
-  i.mutation "8387aa82e7a9b074",
-             subject: "Saboteur::Engine::TestGuess#expand_mapped",
-             reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
-                     "sees existing literals without glob metacharacters, and Dir.glob of such a path returns exactly it"
 
   i.mutation "bb377adb7ae9ce54",
              subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
