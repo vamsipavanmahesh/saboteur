@@ -721,4 +721,8 @@ Saboteur.ignore do |i|
   i.mutation "70a77934c3856a1e",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
+
+  i.mutation "11c5244b715b6cdd",
+             subject: "Saboteur::Engine#stop_or_warn_unmapped",
+             reason: "equivalent: each and map both announce every unmatched file's warning; the collected array is discarded - the method's return value is unused by its only caller, select_tests"
 end
