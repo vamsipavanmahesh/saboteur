@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The pr preset no longer hard-stops when a changed file's coverage
+  lives in a consolidated spec the diff itself touches: a spec added
+  or changed in the diff that reads a constant the uncovered file
+  defines covers that file and runs, instead of exit 2 (#538). The
+  stop remains for a mutable change no changed spec exercises.
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
