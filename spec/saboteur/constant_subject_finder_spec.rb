@@ -448,3 +448,59 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "unrooted qualified writes (#319
     expect(parsed.unsupported.map(&:id)).to eq(["Inner::RULES"])
   end
 end
+
+RSpec.describe Saboteur::ConstantSubjectFinder, "class << self owners (#380)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def find(text)
+    file = File.join(@root, "sample.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file)
+  end
+
+  # A constant assigned in `class << self` binds on the singleton class:
+  # the owner says so, and a same-named constant on the attached class is
+  # a different subject.
+  it "names a constant in class << self by its singleton-class owner" do
+    parsed = find("class Host\n  class << self\n    PLAIN = [1]\n  end\nend\n")
+    subject = parsed.subjects.first
+    expect(subject.id).to eq("Host.singleton_class::PLAIN")
+    expect(subject.skip_reason).to be_nil
+  end
+
+  it "keeps same-named constants in the class body and class << self apart" do
+    parsed = find("class Host\n  RULES = { a: 1 }\n  class << self\n    RULES = { b: 2 }\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(%w[Host::RULES Host.singleton_class::RULES])
+    expect(parsed.unsupported).to be_empty
+  end
+
+  it "names a keyword class nested in class << self by its singleton-class owner" do
+    parsed = find("class Host\n  class << self\n    class Nested\n      C = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host.singleton_class::Nested::C"])
+  end
+
+  # Unlike a keyword class, `class << self` depends on the runtime self:
+  # an `included do` block runs with the including class as self, which is
+  # unknowable at parse time, so the constant stays conservatively skipped.
+  it "marks a constant in class << self inside a block as skipped" do
+    parsed = find("class Host\n  1.times do\n    class << self\n      X = [1]\n    end\n  end\nend\n")
+    subject = parsed.subjects.first
+    expect(subject.id).to eq("Host.singleton_class::X")
+    expect(subject.skip_reason).to eq("defined inside a block")
+  end
+
+  # The singleton of a factory's class: the factory block is class_eval'd,
+  # so `class << self` there is the generated class's own singleton, and
+  # the constant is an ordinary subject like any factory-block def (#352).
+  it "names a constant in class << self inside a factory block by the factory's singleton" do
+    parsed = find("Point = Data.define(:x) do\n  class << self\n    META = [1]\n  end\nend\n")
+    subject = parsed.subjects.first
+    expect(subject.id).to eq("Point.singleton_class::META")
+    expect(subject.skip_reason).to be_nil
+  end
+end

@@ -221,6 +221,8 @@ eval("module Outer; class Person; #{mutated_def}; end; end",
   lexical scope (`Outer = Class.new do Inner = ... end` makes
   `FactoryProbe::Inner`, never `FactoryProbe::Outer::Inner`), so factory
   scopes join a def's owner but never a nested constant's path (#339).
+  A `class << self` scope joins a constant subject's owner as
+  `<attached>.singleton_class`, matching where Ruby binds the constant (#380).
 - Refinements (`using`) are lexical and are lost. Subjects in files that call
   `using` are skipped in v1 ("refinements").
 

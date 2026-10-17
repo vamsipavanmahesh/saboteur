@@ -191,3 +191,55 @@ RSpec.describe Saboteur::ConstantReads do
     end
   end
 end
+
+RSpec.describe Saboteur::ConstantReads, "class << self scopes (#380)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def find(text)
+    file = File.join(@root, "sample.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file)
+  end
+
+  def reads_for(text, constant, filename: "reads.rb")
+    file = File.join(@root, filename)
+    File.write(file, text)
+    Saboteur::ConstantReads.across([file], constant)[file]
+  end
+
+  let(:sclass_rules) { find("class Host\n  class << self\n    RULES = { a: 1 }\n  end\nend\n").subjects.first }
+  let(:host_rules) { find("class Host\n  RULES = { a: 1 }\nend\n").subjects.first }
+
+  it "matches a read inside class << self to the singleton-class constant" do
+    reads = reads_for("class Host\n  class << self\n    def m = RULES\n  end\nend\n", sclass_rules)
+    expect(reads.runtime).to eq([3])
+  end
+
+  it "does not match a class-body read to the singleton-class constant" do
+    expect(reads_for("class Host\n  def m = RULES\nend\n", sclass_rules)).to be_nil
+  end
+
+  # Constant lookup from the singleton class climbs its ancestors, which
+  # include the attached class: a read in `class << self` does observe the
+  # attached class's constant.
+  it "matches a read inside class << self to the attached class's constant" do
+    reads = reads_for("class Host\n  class << self\n    def m = RULES\n  end\nend\n", host_rules)
+    expect(reads.runtime).to eq([3])
+  end
+
+  it "lets a singleton-class write shadow the attached class's constant for reads below it" do
+    reads = reads_for("class Host\n  class << self\n    RULES = [9]\n    def m = RULES\n  end\nend\n", host_rules)
+    expect(reads).to be_nil
+  end
+
+  it "matches a read in a keyword class nested in class << self to the singleton-class constant" do
+    reads = reads_for("class Host\n  class << self\n    class Nested\n      def m = RULES\n    end\n  end\nend\n",
+                      sclass_rules)
+    expect(reads.runtime).to eq([4])
+  end
+end

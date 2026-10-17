@@ -101,15 +101,13 @@ module Saboteur
       # A keyword class or module re-enters the lexical scope: its constants
       # are ordinary subjects even inside a block, and factory scopes never
       # join their paths (#352).
-      when Prism::ModuleNode
-        scope = Scope.new(kind: :module, path: node.constant_path.slice)
+      when Prism::ModuleNode, Prism::ClassNode
+        kind = node.is_a?(Prism::ModuleNode) ? :module : :class
+        scope = Scope.new(kind: kind, path: node.constant_path.slice)
         walk(node.body, lexical_nesting(nesting) + [scope], out, **ctx, in_block: false)
-      when Prism::ClassNode
-        scope = Scope.new(kind: :class, path: node.constant_path.slice)
-        walk(node.body, lexical_nesting(nesting) + [scope], out, **ctx, in_block: false)
+      when Prism::SingletonClassNode
+        walk_singleton_class(node, nesting, out, **ctx)
       else
-        # A singleton class keeps the enclosing nesting: constant lookup
-        # reaches the attached class's constants from there.
         walk_children(node, nesting, out, **ctx)
       end
     end
@@ -125,6 +123,23 @@ module Saboteur
 
     def walk_children(node, nesting, out, **ctx)
       node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) }
+    end
+
+    # `class << self` opens the attached class's singleton scope: constants
+    # assigned there bind on the singleton class, so the scope joins the
+    # nesting and owner_path renders it "<attached>.singleton_class" (#380,
+    # mirroring SubjectFinder). Unlike a keyword class, `class << self`
+    # does not reset in_block: a block's runtime self is unknowable at
+    # parse time (an `included do` block runs with the including class as
+    # self), so its constants stay conservatively skipped inside a block.
+    # A non-self receiver, a nested singleton class or the top level has no
+    # statically nameable singleton: the enclosing nesting stays.
+    def walk_singleton_class(node, nesting, out, **ctx)
+      unless node.expression.is_a?(Prism::SelfNode) && nesting.any? && !nesting.last.sclass?
+        return walk_children(node, nesting, out, **ctx)
+      end
+
+      walk(node.body, nesting + [Scope.new(kind: :sclass, path: "self")], out, **ctx)
     end
 
     def constant_assignment(node, nesting, out, **ctx)
@@ -229,15 +244,36 @@ module Saboteur
     end
 
     # Lexical path of the enclosing class/module, or nil at the top level.
-    # Factory scopes open no lexical constant scope, so they are left out.
+    # A singleton-class scope renders as "<attached>.singleton_class":
+    # constants assigned in `class << self` bind on the singleton class,
+    # not on the attached class (#380). Factory scopes open no lexical
+    # constant scope, but a factory's block is class_eval'd, so a `class <<
+    # self` directly inside one attaches to the factory's class.
     def owner_path(nesting)
-      parts = lexical_nesting(nesting).map(&:path)
-      return nil if parts.empty?
+      return nil if nesting.empty?
 
-      parts.each_with_object([]) do |path, acc|
-        acc.clear if path.start_with?("::")
-        acc << path.delete_prefix("::")
-      end.join("::")
+      parts = []
+      factory_path = nil
+      nesting.each do |scope|
+        if scope.sclass?
+          # `self` is the innermost named scope: the factory's class inside a
+          # factory block (its block is class_eval'd), the attached class or
+          # module otherwise.
+          if factory_path
+            parts << "#{factory_path}.singleton_class"
+          elsif parts.any?
+            parts[-1] = "#{parts.last}.singleton_class"
+          end
+          factory_path = nil
+        elsif scope.factory?
+          factory_path = (parts + [scope.path.delete_prefix("::")]).join("::")
+        else
+          parts.clear if scope.path.start_with?("::")
+          parts << scope.path.delete_prefix("::")
+          factory_path = nil
+        end
+      end
+      parts.empty? ? nil : parts.join("::")
     end
   end
 end
