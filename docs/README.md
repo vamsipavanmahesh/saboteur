@@ -6,6 +6,7 @@
 - [Your first 10 minutes on a Rails app](guides/first-10-minutes-rails.md) - a narrated real run: install to a killed survivor.
 - [FAQ](faq.md) - requirements, databases, SimpleCov, exit codes, flaky suites.
 - [Project site](index.html) - pitch and benchmark numbers; the quickstart sits on its own page there.
+- [Comparison with other tools](compare.html) - saboteur, mutineer and the wider open-source mutation testing landscape.
 - [Best practices](best-practices.md) - thresholds, cadence and review habits.
 
 ## Guides
@@ -46,7 +47,7 @@
 - [condition_negation](operators/condition_negation.md)
 - [condition_true](operators/condition_true.md)
 - [element_removal](operators/element_removal.md)
-- [endpoint_replacement](operators/endpoint-replacement.md)
+- [endpoint_replacement](operators/endpoint_replacement.md)
 - [filter_replacement](operators/filter_replacement.md)
 - [interpolation_removal](operators/interpolation_removal.md)
 - [literal_boolean](operators/literal_boolean.md)
