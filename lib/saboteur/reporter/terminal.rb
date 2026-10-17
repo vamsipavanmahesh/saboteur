@@ -122,11 +122,19 @@ module Saboteur
 
       def details(report)
         breakdown = report.score_breakdown
-        @out.puts "score #{percent(breakdown.value)}" \
-                  "#{if @verbose
-                       "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
-                         'errors, resource limits and skips excluded'
-                     end}"
+        # The share covers scored mutants only, so an error-dominated run
+        # must not print it as a bare score: "score 100.0 %" above "the run
+        # tested almost nothing" reads as a contradiction (#557).
+        if report.majority_errored?
+          @out.puts "score n/a (#{breakdown.tested} of #{report.executed.size} mutants scored, " \
+                    "#{percent(breakdown.value)} of scored)"
+        else
+          @out.puts "score #{percent(breakdown.value)}" \
+                    "#{if @verbose
+                         "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
+                           'errors, resource limits and skips excluded'
+                       end}"
+        end
         report.skip_reasons.each { |reason, count| @out.puts "skipped: #{reason}: #{count}" }
         reused = report.results.count(&:reused?)
         @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
