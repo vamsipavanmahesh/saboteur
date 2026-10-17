@@ -24,13 +24,10 @@ jobs:
     timeout-minutes: 15
     strategy:
       fail-fast: false
-      # 4.0 stays advisory until real-app dogfood on 4.0 pins (docuseal,
-      # loomio) says the line is boring: it must not block merges while it
-      # proves itself, and the panel gate should not require it.
-      continue-on-error: ${{ matrix.ruby == '4.0' }}
       matrix:
-        # "4.0" pins the 4.0 line (today 4.0.7) so coverage does not end when
-        # "ruby" floats to 4.1; real apps (docuseal, loomio) pin 4.0.x.
+        # "4.0" pins the proving 4.0 line (today 4.0.7) so coverage does not
+        # end when "ruby" floats to 4.1; the panel gate treats these legs as
+        # advisory (policy.json advisoryJobs), so they never block a merge.
         ruby: ["3.3", "3.4", "4.0", "ruby"] # "ruby" = latest stable
         # The full suite runs as 3 round-robin file shards per Ruby leg so
         # each parallel job stays short instead of one long leg per version.
@@ -57,15 +54,11 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       fail-fast: false
-      # Advisory like the Linux 4.0 legs while the line proves itself.
-      continue-on-error: ${{ matrix.ruby == '4.0' }}
       # Three physical runner instances, so at most three legs at once.
       max-parallel: 3
       # (No spaces after the JSON colons: a colon+space would break the YAML
       # plain scalar. The matrix itself is normal JSON.)
-      # Pull requests keep one Ruby so their wall time stays near 5 minutes;
-      # pushes to main pin the 4.0 line on macOS too.
-      matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","4.0","ruby"],"shard":[1,2,3]}') }}
+      matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
