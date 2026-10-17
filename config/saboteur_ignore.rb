@@ -709,4 +709,8 @@ Saboteur.ignore do |i|
   i.mutation "51495f10ee14f096",
              subject: "Saboteur::SubjectFinder#walk",
              reason: "equivalent: each vs map on a side-effect-only fallback walk loop; the collected array is discarded"
+
+  i.mutation "b0aae921a2cfa19d",
+             subject: "Saboteur::CLI#use_explicit_sources",
+             reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 end

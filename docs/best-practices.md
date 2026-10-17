@@ -1,10 +1,9 @@
 # Best practices
 
 How to adopt saboteur without it becoming noise. Everything here describes
-what saboteur does at commit 91f4017 on `main`. Anything that depends on an
-open pull request is marked **[needs #26]** and is not available until that
-pull request merges and ships in a release. Check `saboteur --help` on your
-installed version before relying on it.
+behavior available in the released v0.7.0 gem; it intentionally leaves out
+changes that are still unreleased on `main`. Check `saboteur --help` on your
+installed version before relying on a flag.
 
 ## Start small
 
@@ -14,10 +13,10 @@ Run one method first, read every survivor, and only then widen:
 bundle exec saboteur run --subject 'YourClass#your_method'
 ```
 
-You get counts per status, a score, and a unified diff for every survivor.
-Reading real diffs for a handful of methods teaches you what the tool finds in
-your code. That is worth more than a whole-project number you do not yet
-trust.
+You get counts per status, a covered score, and the exact surviving changes
+to review. Reading real survivors for a handful of methods teaches you what
+the tool finds in your code. That is worth more than a whole-project number
+you do not yet trust.
 
 Before anything else, check that your suite is green and that SimpleCov is
 off for the run (see "SimpleCov" in the [README](../README.md)). Rails apps
@@ -28,7 +27,7 @@ need their boot file under `c.require` in `config/saboteur.rb`.
 | Where | Command | Why |
 | --- | --- | --- |
 | Pull requests | `saboteur run --since origin/<base>` | Mutates only the methods the branch changed. Fast, and every survivor is in code the author just wrote. |
-| main or nightly | `saboteur run` (no `--since`, no `--incremental`) | Diff mode does not recheck callers of a changed method, methods outside `include`, or deleted methods. A whole-project run is the only thing that covers those. |
+| main or nightly | `saboteur audit` | Runs the whole configured scope with all operators, both baseline checks and both reports. Diff mode does not recheck callers of a changed method, methods outside `include`, or deleted methods. |
 | Your laptop | `--subject`, or `--since`, with `--jobs N` | Keep the loop short. |
 
 Details and limits of diff mode are in
@@ -37,36 +36,37 @@ Details and limits of diff mode are in
 - `--since` needs the ref to exist locally and enough git history to find the
   merge base. In CI that means `fetch-depth: 0`. A bad ref fails the run; it
   does not quietly fall back to a full run.
-- Diff mode still builds the coverage map by running your whole suite once
-  when no valid cached map exists. That fixed cost does not shrink with the
-  diff, so do not expect a PR run to take seconds on a slow suite.
-- Keep new files tracked in git, or the diff cannot see them.
+- Diff mode still builds a coverage map from the inferred or named specs
+  when no valid cached map exists (`--all` uses the whole suite). That fixed
+  cost comes before mutation, so do not expect every PR run to take seconds
+  on a slow suite.
+- An untracked Ruby file inside the configured `include` set counts as fully
+  changed. A new file outside `include` is not seen until you add it there.
 
 Keep one shared `config/saboteur.rb` and pass `--since` only in the PR job. A
 `c.since` value stored in the config is not cleared by omitting the flag, and
 there is no `--no-since`. If you want a PR-only config, make it a separate
 file (`--config config/saboteur_pr.rb`).
 
-`--incremental` reuses earlier verdicts while the method, mutant, covering
-tests, lockfile and config are unchanged. It cannot see a change in a method
-the subject calls. Use it for local iteration, and run without it on main now
-and then.
+`--incremental` reuses an earlier verdict while the method, its whole file,
+the mutant, its covering tests and their files, the lockfile and the config
+are unchanged. It cannot see a change in another file that the subject uses.
+Use it for local iteration, and run without it on main now and then.
 
 ## The GitHub Action
 
 [`docs/github-action.md`](github-action.md) is the reference. The short
-version: add the workflow from that page, which runs
-`saboteur run --since origin/<base>` on `pull_request` events with a read-only
-token and full history.
+version: add the workflow from that page, which runs diff mode on
+`pull_request` events with a read-only token and fetches only enough history
+to prove the merge base.
 
 Practical points:
 
 - **Run it advisory first.** The default (`fail-on-survivors: "false"`) shows
-  survivors as a warning and in the job summary, and the check stays green.
-  Read the summaries for a few weeks before you gate anything.
-- **Pin it.** Use a release tag or full commit SHA once a release containing
-  the Action exists. `@main` follows development, and the docs call it a
-  preview until it has been tried on an outside project.
+  survivors as annotations, a warning and a job summary, and the check stays
+  green. Read the summaries for a few weeks before you gate anything.
+- **Pin it.** Use a release tag such as `v0.7.0` or a full commit SHA.
+  `@main` follows development.
 - **Your setup stays in your workflow.** The Action does not install Ruby or
   gems. Database, boot files and the SimpleCov guard are yours to configure.
 - **Setup errors always fail the step.** Exit 2 (bad config) and exit 3 (tool
@@ -77,33 +77,36 @@ Practical points:
   `incomplete` output is false.
 - **Do not trust the PR score as a project score.** It covers only the
   selected methods, capped at `max_mutants_per_method` per method.
-- **If a cached run looks wrong, set `cache: "false"`.** The coverage-map hash
-  cannot see environment variables, database fixtures or the Ruby version.
+- **If a cached run looks wrong, set `cache: "false"`.** saboteur's map
+  fingerprint covers declared fixtures and config, but the Action's restore
+  key does not include environment variables or the Ruby version.
 - Do not use `pull_request_target`, and do not run untrusted PR code with
   secrets. The Action refuses `pull_request_target`.
 
-There is no pull-request comment and no baseline file yet. The job summary and
-workflow warning are the report.
+There is no pull-request comment; annotations, the job summary and the
+workflow warning are the report, and the JSON report is uploaded as an
+artifact when the run produces one. A baseline gate exists, but it is a
+whole-project check: use it on main or a schedule, not as a replacement for
+the PR diff run. See the Action reference for the `baseline` and
+`baseline-epsilon` inputs.
 
 ## Choosing and raising a threshold
 
-**On `main` today** there is no score threshold flag. The gate is binary: with
-`fail-on-survivors: "true"` (or a plain `saboteur run`, which exits 1), any
-survivor not on the ignore list fails. That is strict but workable when the
-diff is small, which is why it suits PRs.
+Without a threshold, the gate is binary: any survivor not on the ignore list
+fails the run. That is strict but workable when the diff is small, which is
+why it suits PRs.
 
-**[needs #26]** `--threshold PERCENT` (or `c.threshold` in `config/saboteur.rb`)
-makes the run exit 1 when the score is below PERCENT, even with survivors. As
-written in that pull request:
+`--threshold PERCENT` (or `c.threshold` in `config/saboteur.rb`) makes the run
+exit 1 when the covered score is below PERCENT, even with survivors:
 
-- The score is `(killed + timeout) / (killed + survived + timeout)`. No
-  coverage, errors and resource limits are outside it.
-- It fails closed. A run that tested no mutant has no score and exits 1. A run
-  where any mutant errored or hit a resource limit exits 3.
+- The covered score is `(killed + timeout) / (killed + survived + timeout)`.
+  No coverage, errors and resource limits are outside it.
+- It fails closed. A run that tested no mutant has no score and exits 1. A
+  run where any mutant errored or hit a resource limit exits 3.
 - Survivors on the ignore list still count as survived in the score, so
   ignoring a survivor does not raise the number.
 
-If that lands as described, a sensible way to pick a number:
+A sensible way to pick a number:
 
 1. Run a whole-project audit on main and note the score.
 2. Set the threshold a few points under it, so the check catches regressions
@@ -111,7 +114,7 @@ If that lands as described, a sensible way to pick a number:
 3. Raise it when the score has stayed above it for a while. Move in small
    steps. A threshold you cannot meet is one the team learns to ignore.
 
-Two cautions that hold either way:
+Three cautions:
 
 - The score describes the mutants saboteur selected, not every possible
   mutation. Changing `max_mutants_per_method` or the config changes the
@@ -122,8 +125,10 @@ Two cautions that hold either way:
 - A PR run's score on two changed methods is a small sample. A single
   survivor can swing it a lot, so do not set a tight percentage on PR runs.
 
-Timeouts count as detected. A loop-heavy change can pass by timing out. A
-limit on timeouts is on the [roadmap](../ROADMAP.md) but does not exist.
+Timeouts count as detected, so a loop-heavy change can pass by timing out.
+Use `--max-timeouts N` (or a percentage such as `--max-timeouts 5%`) when that
+would hide a problem. `--max-errors N` does the same for errored mutants.
+Both gates fail the run above the limit and are meant for CI.
 
 ## Handling surviving mutants
 
@@ -188,6 +193,11 @@ survivor. What the tool does for you today:
   (default 1). Tests that use `rand` see the same values in each mutant's run
   and in the confirming run. The report prints the seed; pass `--seed N` to
   repeat a run.
+- **Baseline passes.** Every run with selected subjects checks the unchanged
+  suite first, twice by default. Both passes must be green, complete and in the same RSpec
+  order at the run seed. `saboteur doctor --suite` runs the same kind of setup
+  check without mutating. Setting `c.baseline_passes = 1` is faster, but gives
+  up the order-stability comparison.
 - **Unchanged-method check.** After a method's mutants run, saboteur re-runs
   the killing tests against the unmodified method. If they fail there too, the
   kill is not credited. It becomes an error and is counted as a rejected kill
@@ -198,12 +208,11 @@ survivor. What the tool does for you today:
 - **Resource limits.** Each mutant runs in a supervised child with deadline,
   memory and process limits. A mutant that loops forever becomes a timeout.
 
-What it does not do: there is no flaky-test guard that refuses to start on an
-unstable suite yet. It is listed as planned in the [roadmap](../ROADMAP.md).
-So, before a first run and after any change to your suite:
+Two passes detect observed instability, not every possible flaky test. So,
+before a first run and after any change to your suite:
 
-- Run your suite a few times and with the same seed. If it is not green every
-  time, fix that before measuring anything.
+- If the baseline or doctor suite check is not green every time, fix that
+  before measuring anything.
 - Remove time, randomness and ordering dependencies from the tests that cover
   the code you mutate. Freeze time, seed random data, and clean the database
   between examples.
@@ -219,9 +228,8 @@ Do not start with a whole-project run and a hard gate. On a large codebase
 the first number will be low, and a failing check on day one gets the tool
 switched off.
 
-There is no baseline file yet ("accept today's survivors, fail only on new
-ones" is on the [roadmap](../ROADMAP.md)). Until it exists, ratchet using what
-is there:
+A baseline now exists, but it is a reviewed whole-project gate, not a way to
+skip today's survivors silently. Ratchet in stages:
 
 1. **Diff mode only, advisory.** Add the Action on pull requests with the
    default advisory setting. Code a PR touches is code someone is already
@@ -231,9 +239,9 @@ is there:
    namespace, or `c.include` / `c.exclude` in `config/saboteur.rb`, to start with the
    code you care about most (billing, auth). Get those clean, then widen
    `include`.
-3. **Run a full audit on a schedule.** A nightly or weekly `saboteur run` on
-   main gives you a score trend without blocking anyone. Set the same config
-   each time so the numbers are comparable.
+3. **Run a full audit on a schedule.** A nightly or weekly `saboteur audit`
+   on main gives you a score trend without blocking anyone. Set the same
+   config each time so the numbers are comparable.
 4. **Triage once, record the decisions.** Put accepted survivors in
    `config/saboteur_ignore.rb` with reasons, so every later run starts from the
    decisions you already made.
@@ -241,11 +249,15 @@ is there:
    `fail-on-survivors: "true"`. saboteur's own CI does this. Because PR runs
    cover only changed methods, legacy code you did not touch does not block
    anyone.
-6. **Ratchet.** After the nightly score is stable, **[needs #26]** add a
+6. **Add a baseline on main when review needs it.** Run `baseline propose`,
+   give every survivor a review reason, run `baseline accept`, and commit the
+   baseline. A scheduled Action run can then use `baseline` and
+   `baseline-epsilon`. The check runs the whole project, so keep the cheaper
+   diff run on PRs.
+7. **Ratchet the score.** After the scheduled score is stable, add a
    `--threshold` a little under it and raise it as the number rises. Never
-   lower it without saying why in the change. Whether the Action accepts
-   `--threshold` through its `arguments` input has not been verified here;
-   check the Action docs after #26 ships.
+   lower it without saying why in the change. The Action accepts extra flags
+   through `arguments`; check its reference before adding a gate.
 
 ## Local workflow tips
 
@@ -257,20 +269,20 @@ is there:
 - The HTML report at `.saboteur/report.html` (one file, no scripts, no
   network) is easier to read than terminal diffs for a long list. The JSON
   report is `.saboteur/report.json`.
-- Exit codes: 0 no survivors, 1 survivors, 2 bad configuration, 3 the tool
-  failed. Check them in scripts.
+- Exit codes: 0 pass, 1 survivors or a failed score/error limit, 2 bad
+  configuration or input, 3 tool failure or incomplete run, 4 text-mode run
+  budget exhausted. Check them in scripts.
 - If results look stale or odd, run once with `--no-cache` to rebuild the
   coverage map.
-- **[needs #26]** An explicit run mode: name the files to mutate and the specs
-  to run, so a local loop does not depend on `include` or a git diff:
+- For an explicit local loop, name the files to mutate and the specs to run,
+  so the run does not depend on `include` or a git diff:
 
   ```sh
   bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb
   bundle exec saboteur run --threshold 90
   ```
 
-  As written in that pull request, positional arguments are Ruby files or
-  directories that must exist (a typo exits 2), and they replace `include`
-  and `exclude`. `--test` is repeatable, needs at least one source, and
-  replaces only the spec files RSpec runs. `--threshold` is described above.
-  Confirm both with `saboteur --help` once released.
+  Positional arguments are Ruby files or directories that must exist (a typo
+  exits 2), and they replace `include` and `exclude`. `--test` is repeatable,
+  needs at least one source unless `--since` supplies the changed files, and
+  replaces only the spec files RSpec runs.

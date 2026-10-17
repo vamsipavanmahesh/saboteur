@@ -15,9 +15,10 @@ module Saboteur
   # (`RULES ||= ...`), and a non-literal value (a method call with
   # arguments, another constant). Class factories (`Point = Data.define(...)`)
   # are scopes, not data: they are reported neither way, and a constant
-  # inside the factory's block belongs to the new class. Constants inside a
-  # block are found but marked skipped, like SubjectFinder's defs, so the
-  # report names them.
+  # inside the factory's block binds on the enclosing lexical scope, never
+  # on the class the factory builds (#352, mirroring SubjectFinder).
+  # Constants inside any other block are found but marked skipped, like
+  # SubjectFinder's defs, so the report names them.
   class ConstantSubjectFinder
     Parsed = Data.define(:subjects, :unsupported, :errors)
 
@@ -97,10 +98,15 @@ module Saboteur
       when Prism::ConstantPathWriteNode, Prism::ConstantPathOrWriteNode, Prism::ConstantPathAndWriteNode
         record_unsupported(out, node, nesting, "a namespaced target (#{node.target.slice})", **ctx)
         walk_children(node, nesting, out, **ctx)
+      # A keyword class or module re-enters the lexical scope: its constants
+      # are ordinary subjects even inside a block, and factory scopes never
+      # join their paths (#352).
       when Prism::ModuleNode
-        walk(node.body, nesting + [Scope.new(kind: :module, path: node.constant_path.slice)], out, **ctx)
+        scope = Scope.new(kind: :module, path: node.constant_path.slice)
+        walk(node.body, lexical_nesting(nesting) + [scope], out, **ctx, in_block: false)
       when Prism::ClassNode
-        walk(node.body, nesting + [Scope.new(kind: :class, path: node.constant_path.slice)], out, **ctx)
+        scope = Scope.new(kind: :class, path: node.constant_path.slice)
+        walk(node.body, lexical_nesting(nesting) + [scope], out, **ctx, in_block: false)
       else
         # A singleton class keeps the enclosing nesting: constant lookup
         # reaches the attached class's constants from there.
@@ -141,12 +147,21 @@ module Saboteur
       walk_children(node, nesting, out, **ctx)
     end
 
-    # `Point = Data.define(:x) do ... end`: the block's constants belong
-    # to Point; the receiver and arguments stay in the enclosing scope.
+    # `Point = Data.define(:x) do ... end`: the receiver and arguments stay
+    # in the enclosing scope. The block's body is walked directly, not as a
+    # block, and the factory opens no lexical constant scope: a constant
+    # inside the block binds on the enclosing lexical scope and is an
+    # ordinary subject (#352, mirroring SubjectFinder).
     def walk_factory(node, nesting, out, **ctx)
       call = node.value
       (call.compact_child_nodes - [call.block]).each { |child| walk(child, nesting, out, **ctx) }
-      walk(call.block, nesting + [Scope.new(kind: :class, path: node.name.to_s)], out, **ctx)
+      walk(call.block.body, lexical_nesting(nesting) + [Scope.new(kind: :factory, path: node.name.to_s)], out, **ctx)
+    end
+
+    # A factory scope names the class being built but opens no lexical
+    # constant scope, so it never joins a constant's path (#339).
+    def lexical_nesting(nesting)
+      nesting.reject(&:factory?)
     end
 
     def unsupported_reason(_node, literal, guarded: false, **)
@@ -214,8 +229,9 @@ module Saboteur
     end
 
     # Lexical path of the enclosing class/module, or nil at the top level.
+    # Factory scopes open no lexical constant scope, so they are left out.
     def owner_path(nesting)
-      parts = nesting.map(&:path)
+      parts = lexical_nesting(nesting).map(&:path)
       return nil if parts.empty?
 
       parts.each_with_object([]) do |path, acc|

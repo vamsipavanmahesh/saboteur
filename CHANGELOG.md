@@ -6,6 +6,30 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The marker sweep no longer kills a marked process it cannot identify
+  (#389). A process that started before the run's root carries the marker
+  only through an exec chain the run did not spawn, so it is left alone,
+  and an escapee is signalled only when a fresh snapshot shows the same
+  pid still owned by the same start time, so a recycled pid is never
+  killed by mistake.
+- The spec-name guess now tries the underscored require name of a dashed
+  path: `lib/acts-as-taggable-on/x.rb` finds
+  `spec/acts_as_taggable_on/x_spec.rb` (and the `spec/lib/` form) instead
+  of stopping on an unmatched file (#383). The literal dashed name still
+  wins when both exist.
+
+- Factory-block subjects resolve to the right owner (#352). A class factory
+  assigned inside `class << self` binds its constant on the singleton
+  class, so re-evaluation now resolves a factory constant after a sclass
+  scope there instead of raising "cannot resolve" for every mutant of its
+  methods. And a constant or keyword class inside a factory block binds on
+  the enclosing lexical scope: `FactoryProbe::Nested::RULES` and
+  `M::HELPER` are now ordinary subjects under their lexical owner instead
+  of a phantom `FactoryProbe::Outer::Nested::RULES` skipped as defined
+  inside a block.
+
 ### Changed
 
 - The rerun and replay commands in the Next steps footer and the agent
@@ -31,6 +55,26 @@ All notable changes are documented here. The format follows
   `--all` are unchanged.
 
 ### Fixed
+
+- A non-Rails suite that connects ActiveRecord to sqlite `:memory:` and
+  loads its schema at require time no longer gets a bare "Could not find
+  table" baseline failure (#387): every forked child reconnects to a fresh,
+  empty in-memory database, so the child now detects that shape and the
+  refusal names the cause and the remedies - move schema setup to
+  `before(:suite)`, or load it in an `after_fork` hook (README recipe
+  added). The Rails integration's per-child snapshot is unchanged.
+- `saboteur run --test a_spec.rb b_spec.rb` refused: spec files in the source scope now fail as a
+  usage error pointing at repeating `--test`, instead of a green run that mutates nothing; the
+  `--since` "no subjects covering" warning names the misuse when every file is a spec file (#371).
+- A mutant's test that daemonizes - forks an intermediate child that calls
+  `setsid` and exits at once - no longer leaves a sleeping grandchild the
+  supervisor never kills (#365). The tree poll can miss a descendant that
+  leaves the process group and loses its parent between two polls, so
+  every child now carries a unique marker in its environment (which
+  reaches exec'd descendants) and in its comm via `PR_SET_NAME` (which
+  reaches fork-only ones), and the end-of-run kill also sweeps the process
+  table for the marker. Linux only for now; a self-renaming daemon still
+  needs the CPU backstop.
 
 - The Landlock ABI probe no longer flakes fail-closed with "Success -
   landlock_create_ruleset probe" on runners where the first errno read

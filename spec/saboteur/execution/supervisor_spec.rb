@@ -174,7 +174,11 @@ RSpec.describe Saboteur::Execution::Supervisor do
     it "kills and reaps the child when on_tick raises during the grace window" do
       stub_const("#{described_class}::POST_EOF_GRACE", 10)
       pid_path = pid_file("child")
-      on_tick = -> { raise Errno::EPIPE, "broken pipe" if File.exist?(pid_path) }
+      # Same handshake guard as the on_tick example below (#277): the file's
+      # existence can precede its bytes, and raising in that window reads an
+      # empty file (pid 0) after the kill - kill(0, 0) checks our own process
+      # group, so the dead_within? wait then "sees" the child alive forever.
+      on_tick = -> { raise Errno::EPIPE, "broken pipe" if File.exist?(pid_path) && File.read(pid_path).to_i.positive? }
       expect do
         supervisor.run(timeout: 30, on_tick: on_tick) do |writer|
           writer.write("done")
@@ -183,7 +187,9 @@ RSpec.describe Saboteur::Execution::Supervisor do
           sleep 30
         end
       end.to raise_error(Errno::EPIPE)
-      expect(dead_within?(File.read(pid_path).to_i, 5)).to be(true)
+      pid = File.read(pid_path).to_i
+      expect(pid).to be_positive
+      expect(dead_within?(pid, 5)).to be(true)
     end
   end
 
@@ -381,6 +387,25 @@ RSpec.describe Saboteur::Execution::Supervisor do
       end
     end
     expect(dead_within?(read_pid("spinner"), 6)).to be(true)
+  end
+
+  it "kills a sleeping orphan it never saw, not just a spinning one (#365)" do
+    # Same escape as the CPU-bound orphan above - setsid, intermediate
+    # exits before the first poll - but a sleeper burns no CPU, so only the
+    # marker sweep can end it. Linux only: the sweep reads /proc/*/environ.
+    skip "needs /proc/*/environ" unless Saboteur::Execution::MarkerSweep.available?
+    result = supervisor.run(timeout: 5) do
+      fork do
+        Process.setsid
+        fork do
+          File.write(pid_file("sleeper"), Process.pid.to_s)
+          sleep 30
+        end
+        exit!(0)
+      end
+    end
+    expect(result.leftover_pids).to include(read_pid("sleeper"))
+    expect(dead_within?(read_pid("sleeper"), 3)).to be(true)
   end
 
   describe "when the supervising process goes away" do

@@ -248,9 +248,15 @@ module Saboteur
 
         names = unmatched.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
         more = unmatched.size > 5 ? ", ..." : ""
+        # Specs land here when one --test carries several paths; the
+        # parse/method guesses do not apply to them, so say what happened.
+        hint = if unmatched.all? { |file| file.end_with?("_spec.rb") }
+                 "These are spec files; specs are not mutated - pass them with --test."
+               else
+                 "The file may not parse, or every change may sit outside a method."
+               end
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
-                          "the changed lines, so nothing is mutated from them: #{names}#{more}. The " \
-                          "file may not parse, or every change may sit outside a method.")
+                          "the changed lines, so nothing is mutated from them: #{names}#{more}. #{hint}")
       end
 
       # A changed Ruby file that an include pattern covers but c.exclude

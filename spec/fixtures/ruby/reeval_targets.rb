@@ -156,4 +156,17 @@ module ReevalTargets
       end
     end
   end
+
+  # A class factory assigned inside `class << self`: the constant binds on
+  # the singleton class, so re-evaluation resolves the factory on
+  # Host.singleton_class (#352).
+  class Host
+    class << self
+      Widget = Data.define(:count) do
+        def doubled
+          count * 2
+        end
+      end
+    end
+  end
 end
