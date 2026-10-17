@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>saboteur compared: the open-source mutation testing landscape</title>
+<meta name="description" content="How saboteur compares with other free and open-source mutation testing tools: mutineer in Ruby, and Stryker, PIT, cargo-mutants, mutmut and Infection beyond it.">
+<meta property="og:title" content="saboteur compared: the open-source mutation testing landscape">
+<meta property="og:description" content="How saboteur compares with other free and open-source mutation testing tools: mutineer in Ruby, and Stryker, PIT, cargo-mutants, mutmut and Infection beyond it.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://vamsipavanmahesh.github.io/saboteur/compare.html">
+<meta property="og:image" content="https://vamsipavanmahesh.github.io/saboteur/assets/og-card.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+--bg:#08090b;--bg-2:#0c0e11;--surface:#111418;
+--text:#f2f4f6;--muted:#9aa4ae;--faint:#6b7680;
+--line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.15);
+--accent:#ff5c38;--accent-2:#ff8a5c;--link:#7aa5f8;
+--good:#3ecf8e;--warn:#f5c342;--bad:#f0746b;
+--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(255,92,56,.3)}
+a{color:var(--link);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,.btn:focus-visible{outline:2px solid var(--accent-2);outline-offset:3px;border-radius:4px}
+a.more::after{content:" \2192";transition:margin-left .15s ease}
+a.more:hover::after{margin-left:3px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,9,11,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:22px;height:60px;overflow-x:auto;white-space:nowrap}
+nav .brand{display:flex;align-items:center;font-weight:700;font-size:1.05rem;color:var(--text);margin-right:auto;letter-spacing:-.01em}
+nav .brand:hover{text-decoration:none}
+nav .brand span{color:var(--accent)}
+nav .brand-logo{height:28px;width:28px;margin-right:9px}
+nav a.navlink{color:var(--muted);font-size:.92rem;font-weight:500}
+nav a.navlink:hover{color:var(--text);text-decoration:none}
+nav a.gh{border:1px solid var(--line-2);border-radius:8px;padding:6px 14px;color:var(--text);font-size:.9rem;font-weight:600}
+nav a.gh:hover{border-color:var(--faint);text-decoration:none}
+.hero{position:relative;padding:88px 0 64px;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-45% 0 auto;height:700px;background:radial-gradient(closest-side,rgba(255,92,56,.13),transparent 70%),radial-gradient(closest-side at 72% 18%,rgba(122,165,248,.08),transparent 70%);pointer-events:none}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.045) 1px,transparent 1.5px);background-size:26px 26px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 25%,#000 60%,transparent);mask-image:linear-gradient(180deg,transparent,#000 25%,#000 60%,transparent)}
+.hero .wrap{position:relative;z-index:1}
+.hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center}
+@media(max-width:920px){.hero-grid{grid-template-columns:1fr;gap:40px}}
+.pill{display:inline-block;border:1px solid var(--line-2);border-radius:99px;padding:5px 14px;font-size:.82rem;color:var(--muted);font-weight:500;letter-spacing:.01em}
+.hero h1{font-size:clamp(2.6rem,5.6vw,4.1rem);line-height:1.02;margin:22px 0 20px;letter-spacing:-.035em;font-weight:800}
+.hero h1 em{font-style:normal;background:linear-gradient(92deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{font-size:1.14rem;color:var(--muted);max-width:34rem;margin:0 0 30px}
+.btns{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.btn{display:inline-block;padding:12px 24px;border-radius:10px;font-weight:600;font-size:.97rem;border:1px solid var(--line-2);color:var(--text);transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(180deg,var(--accent-2),var(--accent));border-color:transparent;color:#160806;box-shadow:0 8px 24px -8px rgba(255,92,56,.5)}
+.btn.primary:hover{box-shadow:0 12px 32px -8px rgba(255,92,56,.65)}
+.btn:not(.primary):hover{border-color:var(--faint)}
+.hero .meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:var(--faint);font-size:.85rem}
+.term{background:#0b0d10;border:1px solid var(--line-2);border-radius:14px;overflow:hidden;box-shadow:0 24px 64px -24px rgba(0,0,0,.8)}
+.term-bar{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.term-bar i{width:11px;height:11px;border-radius:50%;background:#2a2f36}
+.term-bar i:nth-child(1){background:#ff5f57}.term-bar i:nth-child(2){background:#febc2e}.term-bar i:nth-child(3){background:#28c840}
+.term-bar span{margin-left:8px;font:500 12px var(--mono);color:var(--faint)}
+.term pre{margin:0;border:0;border-radius:0;box-shadow:none;background:none}
+pre::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb{background:#262c33;border-radius:4px}
+pre::-webkit-scrollbar-track{background:transparent}
+pre{scrollbar-width:thin;scrollbar-color:#262c33 transparent;
+background:#0b0d10;border:1px solid var(--line);color:#dbe2e8;padding:18px 20px;border-radius:12px;overflow-x:auto;font:.88rem/1.6 var(--mono);margin:16px 0}
+code{font-family:var(--mono);font-size:.88em;background:rgba(255,255,255,.06);padding:1.5px 6px;border-radius:5px;overflow-wrap:anywhere}
+pre code{background:none;padding:0;font-size:inherit}
+.c{color:#7d8790}.rm{color:var(--bad)}.ad{color:var(--good)}
+.tg{color:var(--good)}.ty{color:var(--warn)}.tr{color:var(--bad)}.ta{color:var(--accent-2);font-weight:700}.td{color:var(--faint)}
+.cursor::after{content:"";display:inline-block;width:8px;height:15px;background:var(--accent);margin-left:5px;vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:64px}
+.stat{background:var(--bg-2);padding:20px 22px}
+.stat b{display:block;font-size:1.55rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:.87rem}
+section{padding:80px 0;border-top:1px solid transparent;border-image:linear-gradient(90deg,transparent,rgba(255,255,255,.14) 30%,rgba(255,255,255,.14) 70%,transparent) 1;scroll-margin-top:72px}
+h1{font-size:clamp(1.6rem,3vw,2.1rem);margin:0 0 10px;letter-spacing:-.025em;font-weight:800}
+.eyebrow{font:600 .78rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+h3{letter-spacing:-.01em;margin:34px 0 10px}
+.sub{color:var(--muted);margin:0 0 36px;max-width:640px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;transition:border-color .15s ease,transform .15s ease}
+.card:hover{border-color:var(--line-2);transform:translateY(-2px)}
+.card svg{display:block;width:20px;height:20px;color:var(--accent);margin-bottom:14px}
+.card h3{margin:0 0 8px;font-size:1.02rem}
+.card p{margin:0;color:var(--muted);font-size:.95rem}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;counter-reset:s}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;transition:border-color .15s ease}
+.step:hover{border-color:var(--line-2)}
+.step::before{counter-increment:s;content:"0" counter(s);display:block;font:700 .82rem var(--mono);color:var(--accent);margin-bottom:12px;letter-spacing:.1em}
+.step h3{margin:0 0 8px;font-size:1.05rem}
+.step p{margin:0;color:var(--muted);font-size:.95rem}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background .12s ease}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+th{color:var(--faint);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+td:first-child{font-family:var(--mono);font-size:.87rem}
+.score{font-weight:700;white-space:nowrap}
+.bar{display:inline-block;width:104px;height:6px;border-radius:3px;background:rgba(255,255,255,.07);margin-right:12px;vertical-align:2px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:var(--w);animation:fill 1.2s cubic-bezier(.2,.7,.3,1) both}
+@keyframes fill{from{width:0}}
+.pend{color:var(--faint);font-style:italic}
+.note{background:rgba(245,195,66,.06);border:1px solid rgba(245,195,66,.2);border-left:3px solid var(--warn);padding:14px 18px;border-radius:10px;margin:22px 0;font-size:.93rem;color:var(--muted)}
+footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--faint);font-size:.9rem}
+footer .wrap{display:grid;grid-template-columns:2fr 1fr 1fr;gap:32px}
+.fbrand p{margin:0 0 6px}
+.fcol h4{margin:0 0 10px;font-size:.76rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);font-weight:600}
+.fcol a{display:block;color:var(--muted);padding:3px 0}
+.fcol a:hover{color:var(--text);text-decoration:none}
+@media(max-width:640px){footer .wrap{grid-template-columns:1fr 1fr}}
+footer a{color:var(--muted)}
+footer p{margin:0}
+.rise{animation:rise .7s cubic-bezier(.2,.7,.3,1) both}
+.tl{display:block;animation:tlin .35s ease both;animation-delay:calc(.55s + var(--i)*.16s)}
+.proof{margin-top:26px;color:var(--faint);font:500 .82rem/1.7 var(--mono)}
+.proof b{color:var(--muted);font-weight:600}
+.d1{animation-delay:.06s}.d2{animation-delay:.14s}.d3{animation-delay:.22s}.d4{animation-delay:.32s}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+@keyframes tlin{from{opacity:0;transform:translateY(4px)}}
+h1,h2{text-wrap:balance}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#262b31;border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+*{scrollbar-width:thin;scrollbar-color:#262b31 transparent}
+@media(max-width:640px){.term pre{font-size:.78rem}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+
+main .wrap{padding-top:64px;padding-bottom:72px}
+td.feat{font-family:inherit;font-size:.93rem;color:var(--muted)}
+</style></head><body>
+<nav><div class="wrap">
+<a class="brand" href="index.html"><img class="brand-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="" width="28" height="28">sabo<span>teur</span></a>
+<a class="navlink" href="index.html">Home</a><a class="navlink" href="quickstart.html">Quickstart</a><a class="navlink" href="compare.html">Compare</a><a class="navlink" href="benchmark/">Benchmarks</a><a class="navlink" href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
+</div></nav>
+<main><div class="wrap">
+<p class="eyebrow">Compare</p>
+<h1>The open-source landscape</h1>
+<p class="sub">How saboteur fits among free and open-source mutation testing tools, taken from each project's own public documentation, checked 17 October 2026. Commercial tools are out of scope and are not covered. Numbers that come from a measurement are pinned to the measured versions and dated; nothing here is a claim about tools we did not measure.</p>
+
+<h3>Two open-source tools for Ruby</h3>
+<p>saboteur and <a href="https://github.com/davidteren/mutineer">mutineer</a> are both MIT-licensed Ruby mutation testers that mutate one change at a time, run the covering tests and report what survived. The facts below come from each project's README, gemspec and RubyGems page.</p>
+<div class="table-wrap"><table>
+<thead><tr><th></th><th>saboteur</th><th>mutineer</th></tr></thead>
+<tbody>
+<tr><td class="feat">Latest gem on RubyGems</td><td>0.7.0 (16 October 2026)</td><td>1.6.0 (8 October 2026)</td></tr>
+<tr><td class="feat">License</td><td>MIT</td><td>MIT</td></tr>
+<tr><td class="feat">Ruby required</td><td>3.3 or newer</td><td>3.4 or newer</td></tr>
+<tr><td class="feat">Test frameworks</td><td>RSpec only, by design</td><td>Minitest (default) and RSpec</td></tr>
+<tr><td class="feat">Runtime dependencies</td><td>prism and fiddle</td><td>None beyond Prism and stdlib</td></tr>
+<tr><td class="feat">Execution</td><td>In-process mutation in forked workers; Landlock sandbox on Linux 6.2+</td><td>Fork-isolated parallel workers; optional daemon backend for Rails</td></tr>
+<tr><td class="feat">Diff mode</td><td><code>--since REF</code>; <code>pr</code> preset: one baseline pass, 10-minute budget</td><td><code>--since REF</code></td></tr>
+<tr><td class="feat">Test selection</td><td>Per-example coverage map; infers the specs named after each mutated file</td><td>Coverage-guided: only test files covering the mutant's line</td></tr>
+<tr><td class="feat">Kill verification</td><td>The unchanged suite runs before mutating starts; a kill the suite cannot confirm stays out of the score</td><td><code>--baseline</code> compares a run against a prior JSON report</td></tr>
+<tr><td class="feat">Operators</td><td>All operators on by default; opt out per operator</td><td>Tier-1 set by default; Tier-2 via <code>--operators</code></td></tr>
+<tr><td class="feat">Reports</td><td>Terminal, self-contained HTML, Stryker-schema JSON, agent JSON</td><td>Human, JSON, self-contained HTML</td></tr>
+<tr><td class="feat">CI</td><td>GitHub Action, advisory by default</td><td>GitHub Action on the Marketplace</td></tr>
+<tr><td class="feat">Survivor review</td><td>Ignore list with reasons and triage states; opt-in survivor baseline</td><td><code>--baseline</code> regression gate</td></tr>
+</tbody></table></div>
+<div class="note">A measured comparison exists and stays pinned to its versions: saboteur 0.1.0 against mutineer 1.6.0, measured 10 October 2026, kept in the <a href="benchmark/archive.html">benchmark archive</a> with raw data. It describes those exact versions, not today's tools. A fresh re-measurement against current releases is pending.</div>
+
+<h3>Beyond Ruby: Stryker-style tools</h3>
+<p>The same idea exists in most ecosystems. These are the established open-source tools per language, from their own sites and repositories:</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Tool</th><th>Language</th><th>Test setup</th><th>License</th></tr></thead>
+<tbody>
+<tr><td><a href="https://github.com/davidteren/mutineer">mutineer</a></td><td>Ruby</td><td>Minitest (default) and RSpec</td><td>MIT</td></tr>
+<tr><td><a href="https://pitest.org/">PIT</a></td><td>Java and the JVM</td><td>Works with Ant, Maven, Gradle and others</td><td>Apache-2.0</td></tr>
+<tr><td><a href="https://stryker-mutator.io/">StrykerJS, Stryker.NET, Stryker4s</a></td><td>JavaScript and TypeScript, C#, Scala</td><td>Test-runner agnostic</td><td>Apache-2.0</td></tr>
+<tr><td><a href="https://github.com/sourcefrog/cargo-mutants">cargo-mutants</a></td><td>Rust</td><td>cargo test</td><td>MIT</td></tr>
+<tr><td><a href="https://github.com/boxed/mutmut">mutmut</a></td><td>Python</td><td>pytest</td><td style="white-space:nowrap">BSD-3-Clause</td></tr>
+<tr><td><a href="https://infection.github.io/">Infection</a></td><td>PHP</td><td>PHPUnit, Codeception, PHPSpec</td><td style="white-space:nowrap">BSD-3-Clause</td></tr>
+</tbody></table></div>
+<p>Details worth knowing, all from the projects' own pages:</p>
+<ul>
+<li><strong>Stryker</strong> is one design across three languages with more than 30 mutators and a shared report schema, <a href="https://github.com/stryker-mutator/mutation-testing-elements">mutation-testing-elements</a>. saboteur's JSON report conforms to that schema, so Stryker dashboards and report viewers can read it.</li>
+<li><strong>PIT</strong> made mutation testing practical on the JVM by being fast and integrating with existing build tooling, and its docs recommend the same workflow saboteur's <code>pr</code> preset targets: run frequently against only the changed code.</li>
+<li><strong>Infection</strong> reports more than 33 million installs, enforces a Mutation Score Indicator in CI with <code>--min-msi</code>, and its <code>--git-diff-lines</code> mutates only the lines a pull request touched.</li>
+<li><strong>mutmut</strong> remembers completed work so runs resume incrementally, and ships an interactive terminal browser for inspecting and re-testing mutants.</li>
+<li><strong>cargo-mutants</strong> is a cargo subcommand; it builds each mutant and runs the crate's tests to find code that tests reach but do not check.</li>
+</ul>
+
+<h3>Shared lineage</h3>
+<p>saboteur's design notes record the public work it builds on in <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/prior-art.md">docs/prior-art.md</a>:</p>
+<ul>
+<li>Mutation testing itself: DeMillo, Lipton and Sayward (1978), surveyed by Jia and Harman (2011).</li>
+<li>Diff-based mutation, arid-node suppression and surfacing survivors in review: Google's mutation testing papers (Petrovi&#263; et al., 2018 and 2021).</li>
+<li>Coarse method-body mutations: Pitest's descartes research, concept only.</li>
+<li>The JSON report format: Stryker's mutation-testing-elements schema (Apache-2.0), output format only.</li>
+</ul>
+<p>No source code, specs or fixtures from other mutation testing tools are used.</p>
+
+<h3>Where saboteur puts its effort</h3>
+<ul>
+<li><strong>RSpec-only, done properly.</strong> One framework lets the coverage map tie each method to the exact examples that cover it, so each mutant reruns only those. <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/minitest.md">Why no Minitest</a>.</li>
+<li><strong>Verified kills.</strong> Every kill is re-checked against the unchanged code; a kill the suite cannot confirm is rejected and stays out of the score. See <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/rejected-kills.md">rejected kills</a>.</li>
+<li><strong>Built for pull requests.</strong> The <code>pr</code> preset scopes the run to changed methods with a 10-minute budget, and the GitHub Action runs advisory by default on every pull request.</li>
+<li><strong>Safety controls.</strong> A hazard guard, canary values, and time, memory and process-count limits on every mutant; a Landlock sandbox on Linux 6.2 and newer.</li>
+<li><strong>Made for agents.</strong> A stable agent JSON output with a documented <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/stability.md">deprecation policy</a>.</li>
+</ul>
+
+<h3>Sources</h3>
+<p>Checked 17 October 2026:</p>
+<ul>
+<li>mutineer: <a href="https://github.com/davidteren/mutineer">github.com/davidteren/mutineer</a> and <a href="https://rubygems.org/gems/mutineer">rubygems.org/gems/mutineer</a></li>
+<li>PIT: <a href="https://pitest.org/">pitest.org</a> and <a href="https://github.com/hcoles/pitest">github.com/hcoles/pitest</a></li>
+<li>Stryker: <a href="https://stryker-mutator.io/">stryker-mutator.io</a> and <a href="https://github.com/stryker-mutator/stryker-js">github.com/stryker-mutator/stryker-js</a></li>
+<li>cargo-mutants: <a href="https://github.com/sourcefrog/cargo-mutants">github.com/sourcefrog/cargo-mutants</a></li>
+<li>mutmut: <a href="https://github.com/boxed/mutmut">github.com/boxed/mutmut</a></li>
+<li>Infection: <a href="https://infection.github.io/">infection.github.io</a> and <a href="https://github.com/infection/infection">github.com/infection/infection</a></li>
+</ul>
+</div></main>
+<footer><div class="wrap" style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--faint);font-size:.85rem;border-top:1px solid var(--line);padding-top:20px">
+<span>MIT licensed &middot; Copyright 2026 Vamsi Pavan Mahesh Gunturu</span>
+<span><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/README.md">All documentation</a></span>
+</div></footer>
+</body></html>
