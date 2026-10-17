@@ -36,11 +36,15 @@ concurrency:
 jobs:
   verify:
     # Comments on anything but an open pull request cannot change a live
-    # verdict: the verifier would fail closed on them (pulls/<n> 404s for a
-    # plain issue, and a closed PR is refused), so do not spend a run -
+    # verdict (the verifier early-returns on them), so do not spend a run -
     # or fill the queue - on them. Verdict and revocation comments live on
-    # open pull requests, so gate semantics are unchanged.
-    if: github.ref == 'refs/heads/main' && (github.event_name != 'issue_comment' || (github.event.issue.pull_request && github.event.issue.state == 'open'))
+    # open pull requests, so gate semantics are unchanged. Likewise a
+    # non-success CI/DCO completion carries no green proof: a cancelled run
+    # would make the verifier stamp a bogus 'workflow not green' failure on
+    # the pull request head, and a red run already shows on the pull
+    # request's own checks. No gate success is possible without a green
+    # head run either way, so only success completions wake the gate.
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'issue_comment' || (github.event.issue.pull_request && github.event.issue.state == 'open')) && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
     timeout-minutes: 10
     steps:
