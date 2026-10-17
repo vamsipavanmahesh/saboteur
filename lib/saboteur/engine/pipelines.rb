@@ -66,9 +66,22 @@ module Saboteur
         return [] if work.empty?
 
         runnable_subjects, runnable_lists = work.transpose
+        begin
+          warn_unless_mutants_visible(runner, runnable_subjects.first)
+        rescue BudgetPhaseTimeout => e
+          return budget_phase_stop(e, subjects)
+        end
         run_candidates(runnable_subjects, runnable_lists, scheduler, nil, ignore_list)
       ensure
         runner.close
+      end
+
+      # Warn loudly when the command cannot see mutants at all: an
+      # anchored or never-loaded file reads as 100 % survivors (#441).
+      def warn_unless_mutants_visible(runner, subject)
+        warning = runner.visibility_check(subject: subject, deadline: preflight_deadline,
+                                          budget_deadline: budget_deadline)
+        @diagnostics.warn(warning) if warning
       end
 
       def external_command? = !config["test_command"].to_s.empty?

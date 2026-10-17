@@ -259,4 +259,53 @@ RSpec.describe "Engine external test-command pipeline" do
       expect(File.read(File.join(root, "lib", "k.rb"))).to eq(before)
     end
   end
+
+  # The visibility check warns loudly when the command cannot see mutants
+  # (#441): the run continues, but the report names the unseen file.
+  it "warns when the command cannot see mutants, and still runs" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      report = Saboteur::Engine.new(config).call
+      expect(report.warnings.join).to include("mutation visibility check failed for lib/k.rb")
+      expect(report.results).not_to be_empty
+    end
+  end
+
+  it "stays quiet when the command sees the broken file" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "grep -q 'class K' lib/k.rb" }, root: root)
+      report = Saboteur::Engine.new(config).call
+      expect(report.warnings).to all(be_a(String))
+      expect(report.warnings.join).not_to include("mutation visibility check")
+    end
+  end
+
+  # The check stands for the whole scope, so it must name the FIRST
+  # runnable subject's file: with two files in scope the warning points
+  # at lib/j.rb, never lib/k.rb (#441 QA).
+  it "checks the first runnable subject's file" do
+    Dir.mktmpdir do |dir|
+      root = File.realpath(dir)
+      FileUtils.mkdir_p(File.join(root, "lib"))
+      File.write(File.join(root, "lib", "j.rb"), "class J\n  def m\n    1\n  end\nend\n")
+      File.write(File.join(root, "lib", "k.rb"), "class K\n  def n\n    2\n  end\nend\n")
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      report = Saboteur::Engine.new(config).call
+      expect(report.warnings.join).to include("mutation visibility check failed for lib/j.rb")
+    end
+  end
+
+  # The visibility check answers to the run budget like the neutral
+  # preflight (#441 QA): a slow command there is a budget stop, not a
+  # visibility warning.
+  it "stops on the run budget during the visibility check" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "grep -q 'class K' lib/k.rb || sleep 30",
+                                      "max_duration" => 5 }, root: root)
+      report = Saboteur::Engine.new(config).call
+      expect(report.early_stop&.reason).to eq("max_duration")
+      expect(report.results).to eq([])
+      expect(report.warnings.join).not_to include("mutation visibility check failed")
+    end
+  end
 end
