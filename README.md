@@ -9,6 +9,10 @@
 [![CI](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml/badge.svg)](https://github.com/vamsipavanmahesh/saboteur/actions/workflows/ci.yml)
 [![Gem Version](https://img.shields.io/gem/v/saboteur)](https://rubygems.org/gems/saboteur)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Ruby 3.3+](https://img.shields.io/badge/ruby-%3E%3D%203.3-cc342d?logo=ruby)](https://www.ruby-lang.org/)
+[![Gem Downloads](https://img.shields.io/gem/dt/saboteur)](https://rubygems.org/gems/saboteur)
+
+[Quick start](#60-second-quick-start) · [Best practices](docs/best-practices.md) · [Contributing](CONTRIBUTING.md)
 
 Your suite is green and coverage says 95%. That tells you the tests *ran* your
 code. It does not tell you they would *notice* if the code were wrong.
@@ -28,6 +32,143 @@ Never heard of mutation testing? It asks "if I broke this, would a test
 fail?" for many small breakages and lists the ones nobody noticed. Read the
 [design notes](docs/design.md) when you want the details. For adopting it on a team, see the
 [best practices guide](docs/best-practices.md).
+
+## Install
+
+Requirements: Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
+Minitest is not supported; see [Minitest](docs/minitest.md) for why and what
+it would take.
+
+```ruby
+# Gemfile
+group :test do
+  gem "saboteur"
+end
+```
+
+```sh
+bundle install
+```
+
+Outside a Bundler project, `gem install saboteur` installs the same executable.
+
+## 60-second quick start
+
+Start with one method, not the whole suite:
+
+```sh
+bundle exec saboteur doctor
+bundle exec saboteur run --subject 'YourClass#your_method'
+```
+
+The run checks the unchanged suite first, maps which tests cover the method,
+then runs only those tests against each mutant. You get counts per status, a
+covered score, timing, and the exact surviving changes to review. JSON and
+HTML reports land in `.saboteur/report.json` and `.saboteur/report.html`.
+
+Example output from saboteur's own `People::Person#adult?` fixture, trimmed:
+
+```text
+Survivors (2):
+
+lib/people.rb
+  People::Person#adult?
+    lib/people.rb:14 in People::Person#adult?
+      14: def adult?; @age >= 18; end
+      2 tests covered this line and still passed (the missing check may belong in one of them):
+        ./spec/person_spec.rb[1:1]
+        ./spec/person_spec.rb[1:2]
+      - literal_number 18 -> 19 6efe213a68e7ddc9
+        hint: try asserting something that depends on this number
+      - comparison >= -> > f5f5bc39bd01444f
+        hint: try an example at the boundary: equal values, or values one apart
+
+saboteur 0.7.0: 1 subjects, 10 mutants, wall 2.39 s, seed 1
+killed 8  survived 2  timeout 0  resource limit 0  error 0  skipped 0
+score 80.0 %
+```
+
+A run with survivors exits 1. Each survivor can be a missing test, an
+equivalent change, a flaky test, or a tool limit, so review the diff before
+adding a test or accepting it.
+
+Rails app? Follow the [Rails quickstart](#rails-apps): the defaults are for
+plain gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
+
+<details>
+<summary><strong>Try saboteur without touching your Gemfile</strong></summary>
+
+**Trying it without touching your Gemfile** (#310): put saboteur in a separate
+Gemfile that loads yours, and start its lockfile from a copy of yours.
+
+```ruby
+# Gemfile.saboteur
+eval_gemfile File.expand_path("Gemfile", __dir__)
+gem "saboteur", group: :test
+# or a local checkout: gem "saboteur", path: "/path/to/your/saboteur/checkout", group: :test
+```
+
+```sh
+cp Gemfile.lock Gemfile.saboteur.lock
+BUNDLE_GEMFILE=Gemfile.saboteur bundle lock      # adds saboteur to Gemfile.saboteur.lock
+BUNDLE_GEMFILE=Gemfile.saboteur bundle install
+BUNDLE_GEMFILE=Gemfile.saboteur bundle exec saboteur run --subject 'YourClass#your_method'
+```
+
+`Gemfile` and `Gemfile.lock` are not modified. The copy keeps every locked gem
+that still satisfies the combined Gemfile; Bundler moves one only when saboteur
+needs another version (it depends on `prism` and `fiddle`). Without the copy,
+Bundler resolves from scratch and may pick newer gems than your app runs.
+`bundle lock` also works where Bundler is frozen or in deployment mode, where
+`bundle install` refuses to change a lockfile. The `test` group must be
+installed: check `bundle config get without`.
+
+Keep the variable on every command: `bundle exec saboteur ...` and
+`bin/saboteur ...` become `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec
+saboteur ...` and `BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`, and a bare
+`saboteur ...` line in this README becomes `BUNDLE_GEMFILE=Gemfile.saboteur
+bundle exec saboteur ...`. In a Rails app, skip the quickstart's `bundle add`
+and run the generator as `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec rails
+generate saboteur:install` (ignore its hint to edit `Gemfile`), then run
+`BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`: the generated binstub sets
+`RAILS_ENV=test`, which `bundle exec saboteur` does not (add `RAILS_ENV=test` if
+you use that form). Rails' own `config/boot.rb` sets `BUNDLE_GEMFILE` only when
+it is unset, so the trial Gemfile stays in use. The generator appends
+`.saboteur/` to `.gitignore`: that is an edit to your application, so revert it
+after the trial if you do not keep saboteur.
+
+To keep the trial files out of `git status` without committing anything, list
+them by exact, root-anchored name in `.git/info/exclude`: `/Gemfile.saboteur`,
+`/Gemfile.saboteur.lock`, `/.saboteur/`, and `/config/saboteur.rb` and
+`/bin/saboteur` if you created them. A broad pattern could hide your own changes. To undo the trial,
+delete those files and those exclude lines.
+
+</details>
+
+## What you get
+
+- **Pull-request scope.** `--since origin/main` mutates the methods your
+  branch changed, while `saboteur pr` bundles the PR loop.
+- **Focused execution.** Coverage selects the tests that can matter, then
+  kill checks rerun them against the unchanged method.
+- **Safety controls.** A hazard guard, canary, resource limits, and (on Linux
+  6.2+) a Landlock sandbox help contain destructive mutants.
+- **Team workflow.** Terminal, JSON, HTML and agent reports, thresholds,
+  baselines, ignore reasons, score history, and a GitHub Action.
+- **Open extension points.** Add mutants through the public interface and
+  consume the Stryker-compatible JSON report.
+
+## Honest limits
+
+- saboteur is RSpec-only and needs `fork`; there is no Windows or Minitest
+  support today.
+- A survivor is review evidence, not automatic proof of a bug in your tests.
+- Diff and incremental modes are iteration aids; run the whole project without
+  them on main or before a release.
+- The hazard guard is syntactic, the sandbox varies by platform, and network
+  access is never restricted. Stub real APIs and use a container when needed.
+
+## Run model, safety and evidence
 
 Declared external inputs are checked against cache and report paths using their
 physical paths, including aliased parent directories. An overlap makes the run
@@ -171,75 +312,6 @@ saboteur in a container; a plain container keeps outbound network access, so
 when a mutant could reach real APIs, deny the network or stub the APIs.
 `saboteur doctor` reports the platform's sandbox status.
 
-
-## 🚀 Try it in a minute
-
-Add saboteur to the test group of your project's Gemfile (Ruby 3.3+, RSpec):
-
-```ruby
-gem "saboteur", group: :test
-```
-
-```sh
-bundle install
-bundle exec saboteur run --subject 'YourClass#your_method'
-```
-
-Outside a Bundler project, `gem install saboteur` installs the same executable.
-Rails app? Follow the [Rails quickstart](#rails-apps) below: the defaults are for
-plain gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
-
-**Trying it without touching your Gemfile** (#310): put saboteur in a separate
-Gemfile that loads yours, and start its lockfile from a copy of yours.
-
-```ruby
-# Gemfile.saboteur
-eval_gemfile File.expand_path("Gemfile", __dir__)
-gem "saboteur", group: :test
-# or a local checkout: gem "saboteur", path: "/path/to/your/saboteur/checkout", group: :test
-```
-
-```sh
-cp Gemfile.lock Gemfile.saboteur.lock
-BUNDLE_GEMFILE=Gemfile.saboteur bundle lock      # adds saboteur to Gemfile.saboteur.lock
-BUNDLE_GEMFILE=Gemfile.saboteur bundle install
-BUNDLE_GEMFILE=Gemfile.saboteur bundle exec saboteur run --subject 'YourClass#your_method'
-```
-
-`Gemfile` and `Gemfile.lock` are not modified. The copy keeps every locked gem
-that still satisfies the combined Gemfile; Bundler moves one only when saboteur
-needs another version (it depends on `prism` and `fiddle`). Without the copy,
-Bundler resolves from scratch and may pick newer gems than your app runs.
-`bundle lock` also works where Bundler is frozen or in deployment mode, where
-`bundle install` refuses to change a lockfile. The `test` group must be
-installed: check `bundle config get without`.
-
-Keep the variable on every command: `bundle exec saboteur ...` and
-`bin/saboteur ...` become `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec
-saboteur ...` and `BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`, and a bare
-`saboteur ...` line in this README becomes `BUNDLE_GEMFILE=Gemfile.saboteur
-bundle exec saboteur ...`. In a Rails app, skip the quickstart's `bundle add`
-and run the generator as `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec rails
-generate saboteur:install` (ignore its hint to edit `Gemfile`), then run
-`BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`: the generated binstub sets
-`RAILS_ENV=test`, which `bundle exec saboteur` does not (add `RAILS_ENV=test` if
-you use that form). Rails' own `config/boot.rb` sets `BUNDLE_GEMFILE` only when
-it is unset, so the trial Gemfile stays in use. The generator appends
-`.saboteur/` to `.gitignore`: that is an edit to your application, so revert it
-after the trial if you do not keep saboteur.
-
-To keep the trial files out of `git status` without committing anything, list
-them by exact, root-anchored name in `.git/info/exclude`: `/Gemfile.saboteur`,
-`/Gemfile.saboteur.lock`, `/.saboteur/`, and `/config/saboteur.rb` and
-`/bin/saboteur` if you created them. A broad pattern could hide your own changes. To undo the trial,
-delete those files and those exclude lines.
-
-Start with one method. You get counts per status, a score, timing, and a
-unified diff for every survivor, so you can read the exact change your tests
-missed. The JSON report lands in `.saboteur/report.json`.
-
-📋 Requirements: Ruby 3.3 or newer on Linux or macOS (it needs `fork`), and RSpec.
-Minitest is not supported; see [Minitest](docs/minitest.md) for why and what it would take.
 
 ## 🧠 Why it is built the way it is
 
