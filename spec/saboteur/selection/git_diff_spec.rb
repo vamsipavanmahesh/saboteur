@@ -677,6 +677,27 @@ RSpec.describe Saboteur::Selection::GitDiff do
       expect(paths[:present]).to eq([name.dup.force_encoding(Encoding::UTF_8)])
     end
 
+    # shoulda-matchers in the wild: vendor/bundle untracked and NOT
+    # gitignored, and --since enumerated every vendored gem's own spec
+    # files (#504). Dependency trees are never changed source.
+    it "never enumerates dependency trees, tracked or untracked (#504)" do
+      write("vendor/bundle/ruby/3.3.0/gems/appraisal-2.5.0/spec/appraisal_spec.rb", "1\n")
+      write("node_modules/left-pad/index.rb", "1\n")
+      write("vendor/committed_gem/lib/x.rb", "1\n")
+      git("add", "vendor/committed_gem/lib/x.rb")
+      git("commit", "-q", "-m", "vendored")
+      write("vendor/committed_gem/lib/x.rb", "2\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq(["spec/kept_spec.rb"])
+    end
+
+    it "shields the configured bundler path from .bundle/config (#504)" do
+      write(".bundle/config", "BUNDLE_PATH: .bundle\n")
+      write(".bundle/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
+    end
+
     it "refuses a ref that is not a commit, as a usage error" do
       expect { described_class.changed_paths("no-such-ref", root: @dir) }
         .to raise_error(Saboteur::ConfigError, /no-such-ref: not a commit/)
