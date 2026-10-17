@@ -486,6 +486,48 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guess.unmatched).to eq(["lib/jwt/claims/decode_verifier.rb"])
   end
 
+  # A constant-only file (RULES = 1) has no def subject, so its constant
+  # literal is the whole coverage link: drop it and the changed spec no
+  # longer covers the file.
+  it "treats a changed spec reading a constant literal as covering the file that assigns it (#538)" do
+    write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", "RSpec.describe \"rules\" do\n  it { RULES }\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/rules.rb", "RULES = [2]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", "RSpec.describe \"rules\" do\n  it { RULES }\n  it { RULES }\nend\n")
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/shop_spec.rb")
+  end
+  it "treats a changed spec reading the constant bare under its owner scope as covering (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "module JWT\n  module Claims\n    RSpec.describe DecodeVerifier do\n      " \
+          "it { DecodeVerifier.new.call }\n    end\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "module JWT\n  module Claims\n    RSpec.describe DecodeVerifier do\n      " \
+          "it { DecodeVerifier.new.call }\n      it { DecodeVerifier.new.call }\n    end\n  end\nend\n")
+    expect(guess.unmatched).to eq([])
+  end
+
+  it "still stops when the changed spec reads the constant bare outside its owner scope (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/other_spec.rb", "RSpec.describe \"other\" do\n  it { DecodeVerifier }\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/other_spec.rb", "RSpec.describe \"other\" do\n  it { DecodeVerifier }\n  it { DecodeVerifier }\nend\n")
+    expect(guess.unmatched).to eq(["lib/jwt/claims/decode_verifier.rb"])
+  end
+
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
   end
