@@ -116,6 +116,26 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     allow(engine).to receive(:candidate_lists).and_return([[]])
     expect(engine.call.results).to eq([])
   end
+  it "passes the boot load methods through mutate to the coverage store" do
+    target = subjects_in("class WiringMethodsTarget\n  def value\n    1\n  end\nend\n").first
+    integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
+    boot = instance_double(Saboteur::Engine::Boot, rails: nil)
+    allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
+    allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
+    boot_methods = { target.file => [2] }
+    allow(engine).to receive(:boot_target).with(boot)
+                                          .and_return([integration, [target.file], {}, boot_methods])
+    allow(engine).to receive(:select_subjects).with([target.file], test_files: []).and_return([[target], nil])
+    allow(engine).to receive(:check_baseline).with(integration, 3)
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
+    expect(Saboteur::Engine::CoverageStore).to receive(:new) do |load_methods:, **|
+      expect(load_methods).to eq(target.file => [2])
+      store
+    end
+    allow(engine).to receive(:candidate_lists).and_return([[]])
+    expect(engine.call.results).to eq([])
+  end
   it "uses method-call counters to exclude uncalled shared def/body lines" do
     file = File.realpath(__FILE__)
     methods = { [Object, :called, 1, 0, 1, 20] => 2, [Object, :uncalled, 2, 0, 2, 20] => 0,
