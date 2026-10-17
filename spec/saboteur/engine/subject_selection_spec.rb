@@ -869,6 +869,27 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant selection edges (#3
                                                   ". Only hash and array literal entries are mutated")
   end
 
+  it "splits constant-literal files out of the umbrella no-subjects warning (#537)" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nRegistry.register(RULES)\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 changed Ruby file(s)", "rules.rb",
+                                "1 of these file has changes inside a constant literal that is not mutated")
+    expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
+  end
+
+  it "leaves the umbrella hint alone when no constant warning fired" do
+    file = commit_base("note.rb", "# a note\n")
+    File.write(file, "# a note\n# more\n")
+
+    select([file], since: "HEAD")
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 changed Ruby file(s)", "note.rb", "outside a method")
+    expect(umbrella).not_to include("constant literal")
+  end
+
   it "keeps a constant read at runtime even when another file captures it at load" do
     file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
     runtime = File.join(@root, "user.rb")

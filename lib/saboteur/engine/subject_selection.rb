@@ -125,10 +125,13 @@ module Saboteur
 
           parsed = finder.call(file)
           parsed.unsupported.each do |found|
-            warn_unsupported_constant(found) if found.overlaps_lines?(lines)
+            next unless found.overlaps_lines?(lines)
+
+            warn_unsupported_constant(found)
+            constant_warned_files << canonical
           end
           accepted = parsed.subjects.select { |subject| subject.overlaps_lines?(lines) }
-          subjects.concat(admit_replayable_file(file, accepted))
+          subjects.concat(admit_replayable_file(file, accepted, canonical))
         end
         subjects
       end
@@ -142,7 +145,7 @@ module Saboteur
       # write to disk - needs the explicit whole_file opt-in, which says
       # the user accepts the replay (#319). Passing the vet is not a safety
       # proof; it only means no unrecognized code runs at load.
-      def admit_replayable_file(file, subjects)
+      def admit_replayable_file(file, subjects, canonical)
         opted_in, rest = subjects.partition { |subject| whole_file_opted?(subject) }
         return subjects if rest.empty?
 
@@ -151,6 +154,7 @@ module Saboteur
         reasons = (guard.load_time_hazards(root) + guard.unvetted_load_code(root)).uniq
         return subjects if reasons.empty?
 
+        constant_warned_files << canonical
         path = file.delete_prefix("#{@root}/")
         listed = reasons.first(2).join(", ")
         @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs code at " \
@@ -239,6 +243,13 @@ module Saboteur
       # A file whose only finding is an unsupported or unsafe constant still
       # counts here: the specific diagnostic says why, this says nothing ran
       # (#295 keeps its contract).
+      # Changed files a constant literal warning already covers (#537):
+      # the umbrella counts them, but its parse/method guesses do not apply,
+      # so it says how many sit in a constant literal instead.
+      def constant_warned_files
+        @constant_warned_files ||= Set.new
+      end
+
       def warn_changed_files_without_subjects
         canonical = ->(file) { Selection::CoverageMap.canonical(Text.utf8_identity(file)) }
         included = @files.map(&canonical)
@@ -255,8 +266,20 @@ module Saboteur
                else
                  "The file may not parse, or every change may sit outside a method."
                end
+        note = constant_note(unmatched)
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
-                          "the changed lines, so nothing is mutated from them: #{names}#{more}. #{hint}")
+                          "the changed lines, so nothing is mutated from them: #{names}#{more}. #{hint}#{note}")
+      end
+
+      # One sentence naming how many umbrella files a constant warning
+      # already covers (#537): without it a constant edit the safety bar
+      # refuses to mutate reads like an unexplained miss in the umbrella.
+      def constant_note(unmatched)
+        constants = unmatched.count { |file| constant_warned_files.include?(file) }
+        return "" if constants.zero?
+
+        " #{constants} of these #{constants == 1 ? 'file has' : 'files have'} changes inside " \
+          "a constant literal that is not mutated (the constant warnings above name them)."
       end
 
       # A changed Ruby file that an include pattern covers but c.exclude

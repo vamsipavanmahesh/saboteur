@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A `--since` change inside a constant literal saboteur refuses to mutate
+  (unvettable load-time code, or an unsupported literal form) no longer
+  reads like an unexplained miss in the umbrella "no subjects covering the
+  changed lines" warning: the warning now says how many of the files sit
+  in a constant literal that is not mutated, named by the constant
+  warnings above it (#537).
+
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
