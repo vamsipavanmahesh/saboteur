@@ -6,6 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A `--subject` pattern that matches no subject now fails the run (exit 2)
+  instead of passing silently with zero subjects (#379). When some patterns
+  match, the run keeps them and the summary names the missing pattern and
+  the matched count.
+
 ### Fixed
 
 - The "nothing to mutate" note on an empty selection now prints only

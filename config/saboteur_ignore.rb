@@ -723,6 +723,10 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
+  i.mutation "d9aeb909564db3e1",
+             subject: "Saboteur::Engine::SubjectSelection#by_pattern",
+             reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
+
   i.mutation "d689ef2e6305183f",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: nesting[index..] adds only the sclass scope itself to the any?(&:factory?) check, and a scope's kind is either :sclass or :factory, never both"
