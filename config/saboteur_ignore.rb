@@ -3,6 +3,13 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "668e787880f87f22",
+             subject: "Saboteur::MutationSource::MethodSwap#visit_used_children",
+             reason: "equivalent: visit_used_children array of child results is discarded by its only caller (visit); each and map run the same used-wrapped recursion"
+
+  i.mutation "6799cc120401b50d",
+             subject: "Saboteur::MutationSource::MethodSwap#visit_statements",
+             reason: "equivalent: each_with_index bounds index to 0..size-1, where index < size-1 and index != size-1 agree on every reachable value"
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
