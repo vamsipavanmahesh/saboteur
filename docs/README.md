@@ -6,19 +6,24 @@
 - [Your first 10 minutes on a Rails app](guides/first-10-minutes-rails.md) - a narrated real run: install to a killed survivor.
 - [FAQ](faq.md) - requirements, databases, SimpleCov, exit codes, flaky suites.
 - [Project site](index.html) - pitch and benchmark numbers; the quickstart sits on its own page there.
+- [Comparison with other tools](compare.html) - saboteur, mutineer and the wider open-source mutation testing landscape.
 - [Best practices](best-practices.md) - thresholds, cadence and review habits.
 
 ## Guides
 
 - [Check a project before mutation testing](guides/doctor.md) - `saboteur doctor`.
+- [Saboteur vs flaky tests](guides/flaky-tests.md) - baseline refusals, real output, fixes.
 - [How to read survivors](guides/reading-survivors.md) - from output to the killing test.
 - [Replay one mutant](guides/replay.md) - re-run a single mutant by its digest.
 - [The dry-run JSON inventory](dry-run-json.md) - the versioned machine-readable mutation plan.
+- [Monorepos, sub-gems and the custom map](guides/monorepo-and-custom-map.md) - include scope, spec paths, real refusals.
+- [Reading a survivor report and fixing survivors](guides/reading-and-fixing-survivors.md) - a real batch from report to clean exit.
 - [saboteur in CI on large Rails apps](guides/ci-large-rails.md) - diff mode on PRs, sharded scheduled audits, caching.
 
 ## Using saboteur
 
 - [Mutation testing on pull requests](pull-requests.md) - the diff-mode workflow.
+- [Saboteur in CI on a pull request](guides/ci-pull-request.md) - a narrated real PR check on a Rails app.
 - [GitHub Action](github-action.md) - advisory-by-default PR checks, baseline gate.
 - [Scores](scores.md) - what every number on the report counts.
 - [Stability policy](stability.md) - the agent JSON, exit codes and report contracts.
@@ -43,7 +48,7 @@
 - [condition_negation](operators/condition_negation.md)
 - [condition_true](operators/condition_true.md)
 - [element_removal](operators/element_removal.md)
-- [endpoint_replacement](operators/endpoint-replacement.md)
+- [endpoint_replacement](operators/endpoint_replacement.md)
 - [filter_replacement](operators/filter_replacement.md)
 - [interpolation_removal](operators/interpolation_removal.md)
 - [literal_boolean](operators/literal_boolean.md)

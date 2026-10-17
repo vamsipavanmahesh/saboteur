@@ -26,7 +26,7 @@ module Saboteur
       announce_operators
       selection = Engine::SubjectSelection.new(@config, @diagnostics)
       subjects = selection.select(@config.included_files)
-      scope = selection.changed_lines && Engine::DiffScope.new(selection.changed_lines)
+      scope = selection.behavior_lines && Engine::DiffScope.new(selection.behavior_lines)
       guard = MutationSource::HazardGuard.new(@config["hazard"]) unless @config["allow_hazardous"]
       candidates = Engine::Candidates.new(Engine::Candidates.build_sources(@config), @diagnostics, hazard_guard: guard)
       lists = subjects.map { |subject| planned(subject, candidates, scope) }
