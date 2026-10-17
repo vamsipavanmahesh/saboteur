@@ -124,7 +124,7 @@ module Saboteur
       # The parent's load lines merge into the freshly built map: the forked
       # build child cannot inherit the parent's Coverage counters.
       def with_parent_load_lines(map)
-        @load_lines.empty? && @load_methods.empty? ? map : map.with_load_lines(@load_lines, load_methods: @load_methods)
+        @load_lines.empty? && @load_methods.empty? ? map : map.with_load_lines(@load_lines, @load_methods)
       end
 
       # A whole-suite build that records nothing - no line hit and no method
