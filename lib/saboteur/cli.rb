@@ -155,8 +155,12 @@ module Saboteur
 
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
+    # The scope the warning names is the configured one: positional source
+    # operands narrow the run after the warning, so the include/exclude they
+    # imply stay out of its config (#309, #503 review).
     def warn_dirty_tree
-      WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
+      warning = @sources ? Config.load(path: options[:config], overrides: overrides.except(:include, :exclude)) : config
+      DirtyTreeWarning.for(warning, config_path: options[:config])&.then { |text| @err.puts(text) }
     end
 
     # Contradictory selection flags are a usage error before any file or
