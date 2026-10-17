@@ -14,6 +14,29 @@
 
 [Quick start](#60-second-quick-start) · [Getting started](docs/guides/getting-started.md) · [Best practices](docs/best-practices.md) · [FAQ](docs/faq.md) · [Contributing](CONTRIBUTING.md)
 
+<details>
+<summary>Contents</summary>
+
+- [Install](#install)
+- [60-second quick start](#60-second-quick-start)
+- [What you get](#what-you-get)
+- [Honest limits](#honest-limits)
+- [Run model, safety and evidence](#run-model-safety-and-evidence)
+- [Why it is built the way it is](#why-it-is-built-the-way-it-is)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Operator guide](#operator-guide)
+- [Extending](#extending)
+- [Dated validation runs](#dated-validation-runs)
+- [Dated comparisons and measurements](#dated-comparisons-and-measurements)
+- [Advanced workflow features](#advanced-workflow-features)
+- [Where it is going](#where-it-is-going)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
+
+</details>
+
 Your suite is green and coverage says 95%. That tells you the tests *ran* your
 code. It does not tell you they would *notice* if the code were wrong.
 
@@ -329,6 +352,7 @@ or stub the APIs. `saboteur doctor` probes and reports what your platform
 actually allows.
 
 
+<a id="why-it-is-built-the-way-it-is"></a>
 ## 🧠 Why it is built the way it is
 
 **It only runs tests that can matter.** Each mutant runs only the tests whose
@@ -372,6 +396,7 @@ The main branch documents a stability policy for the agent JSON format and
 exit codes: [docs/stability](docs/stability.md). That policy is unreleased on
 main and is not part of v0.7.0.
 
+<a id="usage"></a>
 ## 🛠️ Usage
 
 ### Choose a run
@@ -842,6 +867,7 @@ with the method unchanged. They stay errors outside the score. Timeout checks,
 other errors and reused cached kills are not included. See
 [rejected kills](docs/rejected-kills.md) for details.
 
+<a id="configuration"></a>
 ## ⚙️ Configuration
 
 `config/saboteur.rb` in the project root; CLI flags override it. Keep the shared
@@ -1172,6 +1198,7 @@ runs by default; splats, heredoc elements and arid statements are skipped.
 Use `bundle exec saboteur run --list-operators` for the full current inventory
 and examples from your installed version.
 
+<a id="extending"></a>
 ## 🔌 Extending
 
 Public API, stable across minor versions:
@@ -1185,6 +1212,7 @@ Public API, stable across minor versions:
   :around_mutant)` in files listed under `hooks:`. An extensionless hooks
   path resolves its `.rb`, the way `require` does.
 
+<a id="dated-validation-runs"></a>
 ## 🌍 Dated validation runs
 
 Tested on the RSpec suites of plain gems
@@ -1194,6 +1222,7 @@ the baseline check and the coarse-gate removal) and lobsters on SQLite in the
 2026-10-10 comparison, both on macOS. Not yet tried on MySQL or older Rails versions. RSpec only, by
 design. Results: [docs/validation](docs/validation).
 
+<a id="dated-comparisons-and-measurements"></a>
 ## ⚖️ Dated comparisons and measurements
 
 The tables below are dated evidence snapshots, not live rankings or current
@@ -1380,6 +1409,7 @@ Inline suppressions bound completeness: classic scores still exclude suppressed 
 
 Source-only `--dry-run` lists the suppressed count and each audit row in selected methods, before diff restriction and the per-method cap. They are outside the planned total. Preview still does not boot the app or write reports.
 
+<a id="where-it-is-going"></a>
 ## 🗺️ Where it is going
 
 [ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
@@ -1389,6 +1419,7 @@ details are in [docs/design.md](docs/design.md), prior art in
 [docs/prior-art.md](docs/prior-art.md), and project status in
 [docs/status.md](docs/status.md).
 
+<a id="contributing"></a>
 ## 🤝 Contributing
 
 New here? Start with an [open issue](https://github.com/vamsipavanmahesh/saboteur/issues)
