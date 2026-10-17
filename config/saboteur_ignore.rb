@@ -870,6 +870,17 @@ Saboteur.ignore do |i|
   i.mutation "70a77934c3856a1e",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
+  i.mutation "13bf3b4f2a6e9976",
+             subject: "Saboteur::MutationSource::RegexReplacement#scan_anchors_and_quantifiers",
+             reason: "equivalent: index strictly increases by 1 or 2 and a valid regex never ends in a lone backslash (RegexpError: too short escape sequence), so index <= bytes.size always; the extra <= iteration reads nil, takes the else branch and yields nothing"
+
+  i.mutation "c71c47a2f960bd0f",
+             subject: "Saboteur::MutationSource::RegexReplacement#scan_anchors_and_quantifiers",
+             reason: "equivalent: != differs from < only if index skips past bytes.size, which the 1-or-2 step plus the no-trailing-backslash invariant makes unreachable"
+
+  i.mutation "2618574857fdc8c1",
+             subject: "Saboteur::MutationSource::RegexReplacement#plain_quantifier?",
+             reason: "equivalent: a regex beginning with a quantifier is a RegexpError (target of repeat operator is not specified), and only parsed regexes reach the scanner, so index.zero? never fires"
 
   i.mutation "d5995bea5d0f1b12",
              subject: "Saboteur::Engine::GatedRun#stop_or_warn_unmapped",

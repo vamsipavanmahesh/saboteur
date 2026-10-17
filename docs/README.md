@@ -61,6 +61,7 @@
 - [or_assign](operators/or_assign.md)
 - [pair_removal](operators/pair_removal.md)
 - [range](operators/range.md)
+- [regex_replacement](operators/regex_replacement.md)
 - [safe_navigation](operators/safe_navigation.md)
 - [statement_removal](operators/statement_removal.md)
 

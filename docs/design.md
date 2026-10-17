@@ -92,8 +92,8 @@ longer hold).
 
 Only the v1 set lives here. Everything shipped since - endpoint_replacement,
 range, operator_assignment, condition_negation, method_swap, operand_replacement,
-interpolation_removal, chain_removal, element_removal - is documented under
-docs/operators/.
+interpolation_removal, chain_removal, element_removal, regex_replacement -
+is documented under docs/operators/.
 
 Coarse (run first per subject):
 - body -> `nil`
