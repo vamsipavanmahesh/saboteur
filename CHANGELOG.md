@@ -12,8 +12,7 @@ All notable changes are documented here. The format follows
   exit 2 instead of passing with 0 subjects (#447). The default include
   targets plain gems, so a first run on a Rails-shaped tree used to be a
   green gate that mutated nothing on every CI run; the refusal names the
-  stale pattern and points at the Rails quickstart and the install
-  generator.
+  stale pattern and points at the install generator.
 
 ### Fixed
 
