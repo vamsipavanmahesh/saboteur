@@ -773,4 +773,9 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
+  i.mutation "b1adadf512cb59eb",
+             subject: "Saboteur::Reporter::Terminal#status_line",
+             reason: "equivalent: rejected is a count (never negative) and the line is reached only when " \
+                     "rejected.positive?, so rejected > 1 and rejected != 1 agree on every reachable value"
+
 end
