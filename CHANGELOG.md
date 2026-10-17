@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Rejected kills no longer surface as generic errors: the terminal
+  lists them in a `Rejected kills` section and annotates the error count,
+  and report.json flags each rejected mutant with `rejectedKill: true`
+  instead of carrying only the `rejectedKills` count (#375).
+
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
   class, so re-evaluation now resolves a factory constant after a sclass

@@ -839,11 +839,13 @@ diagnostic and exit 3 are available.
 
 ### Rejected kills
 
-The terminal prints `kills rejected by unchanged-method check: N`; JSON adds
-`rejectedKills`. This counts fresh per-mutant kill claims whose tests also fail
-with the method unchanged. They stay errors outside the score. Timeout checks,
-other errors and reused cached kills are not included. See
-[rejected kills](docs/rejected-kills.md) for details.
+The terminal lists them in a `Rejected kills` section and annotates the error
+count (`error 3 (2 rejected kills)`); JSON flags each rejected mutant with
+`rejectedKill: true` and keeps the `rejectedKills` count. These are fresh
+per-mutant kill claims whose tests also fail with the method unchanged. They
+stay errors outside the score. Timeout checks, other errors and reused cached
+kills are not included. See [rejected kills](docs/rejected-kills.md) for
+details.
 
 <a id="configuration"></a>
 ## ⚙️ Configuration
