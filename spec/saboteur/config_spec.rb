@@ -180,6 +180,24 @@ RSpec.describe Saboteur::Config do
     expect(config.unmatched_patterns).to eq([])
   end
 
+  # The implicit-vs-explicit pair that pins the guard on its own (#567
+  # dogfood survivors): an implicit default exclude that matches nothing
+  # stays silent, while an explicit one is named.
+  it "warns on an explicit exclude that matches nothing but not on the implicit defaults" do
+    write("lib/a.rb", "")
+    implicit = described_class.new({}, root: @root)
+    expect(implicit.unmatched_patterns.grep(/^exclude:/)).to eq([])
+
+    explicit = described_class.new({ "exclude" => ["lib/gone.rb"] }, root: @root)
+    expect(explicit.unmatched_patterns).to eq(["exclude: lib/gone.rb"])
+
+    # An explicit include with an implicit exclude: the include is still
+    # checked - the guard must only silence the implicit exclude, never
+    # the include side.
+    mixed = described_class.new({ "include" => ["app/**/*.rb"] }, root: @root)
+    expect(mixed.unmatched_patterns).to eq(["include: app/**/*.rb"])
+  end
+
   it "rejects unknown keys, bad values and bad arid patterns" do
     expect { described_class.new({ "timeout" => 1 }) }.to raise_error(Saboteur::Error, /unknown config key/)
     expect { described_class.new({ "jobs" => "many" }) }.to raise_error(Saboteur::Error, /invalid config value/)
