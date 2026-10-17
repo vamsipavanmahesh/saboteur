@@ -59,6 +59,24 @@ RSpec.describe Saboteur::MutationSource::RegexReplacement do
     expect(replacements("input =~ /[+]/")).to eq([])
   end
 
+  # In extended mode a # comment runs to the end of the line, so a ( or |
+  # before a quantifier can sit inside a comment while the regex still
+  # parses: the guard members are reachable (#583 runner v2 disproved the
+  # "unreachable" equivalence claims).
+  it "suppresses a quantifier after ( inside an extended-mode comment" do
+    expect(replacements("input =~ /(?x)a # c(+d\nb/")).to eq([])
+  end
+
+  it "suppresses a quantifier after | inside an extended-mode comment" do
+    expect(replacements("input =~ /(?x)a # x|+y\nb/")).to eq([])
+  end
+
+  # Contrast: the same bytes without the comment still swap, so the
+  # suppression above is the guard firing, not the scanner giving up.
+  it "still swaps a real top-level quantifier in extended mode" do
+    expect(replacements("input =~ /(?x)ab+\n/")).to eq(["def check(input)\n    input =~ /(?x)ab*\n/\n  end"])
+  end
+
   it "leaves nested-repeat quantifiers alone even though Ruby merely warns (#135)" do
     expect(replacements("input =~ /a+*/")).to eq([])
   end
