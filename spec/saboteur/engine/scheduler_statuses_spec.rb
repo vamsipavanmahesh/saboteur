@@ -268,4 +268,28 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
     expect(result.status).to eq(:skipped)
     expect(result.reason).to include("cannot preserve runtime type checks")
   end
+
+  # The defined-order retry's mutant run needs the same sorbet sig preamble
+  # as every other fork of a wrapped method: without it the child evaluates
+  # the def alone and runtime type checks silently drop (#579 dogfood).
+  it "passes the sig to the defined-order retry's mutant run" do
+    subject = subject_named("class RetrySig\n  sig { void }\n  def m; end\nend\n", "RetrySig#m")
+    plan = described_class::Plan.new(subject: subject, wrapper: :sorbet, slowdown: 1.0)
+    mut = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                 edits: [edit_around(subject, "m")])
+    result = Saboteur::MutantResult.new(subject: subject, mutation: mut, status: :error,
+                                        mutated_source: subject.source, rejected_kill: true,
+                                        covered_by: ["./spec/retry_sig_spec.rb[1:2]"])
+    tests = ["./spec/retry_sig_spec.rb[1:1]", "./spec/retry_sig_spec.rb[1:2]"]
+    map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: tests,
+                                               durations: tests.to_h { |id| [id, 0.1] })
+    scheduler = scheduler_for(map)
+    prefixes = []
+    allow(runner).to receive(:run) do |mutation: nil, eval_prefix: nil, **|
+      prefixes << eval_prefix if mutation
+      outcome(:survived)
+    end
+    scheduler.send(:retried_in_defined_order, plan, result)
+    expect(prefixes).to eq(["sig { void }"])
+  end
 end

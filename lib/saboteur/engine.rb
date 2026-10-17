@@ -7,7 +7,9 @@ require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
+require_relative "engine/gated_run"
 require_relative "engine/load_coverage"
+require_relative "engine/out_of_scope_guard"
 require_relative "engine/run_budget"
 require_relative "engine/selection_announcement"
 require_relative "engine/thread_warnings"
@@ -20,7 +22,9 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     include EarlyStopRecording
+    include OutOfScopeGuard
     include RunBudget
+    include GatedRun
     include SelectionAnnouncement
 
     # Everything besides sources and tests that can change a verdict.
@@ -77,16 +81,6 @@ module Saboteur
     # map does not rot silently. doctor fails on stale keys.
     def test_guess = TestGuess.new(config, diagnostics: @diagnostics, custom_map: load_custom_map)
 
-    # Name the files needing no spec, stop on spec-less files, then say
-    # which specs the run scopes to (or why nothing mutates).
-    def announce_guess(guess)
-      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      inform_skipped_specs(guess)
-      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
-
-      announce_selection(guess)
-    end
-
     def load_custom_map
       @load_custom_map ||= @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
     end
@@ -119,7 +113,10 @@ module Saboteur
 
       guess = test_guess.call
       @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
-      announce_guess(guess)
+      report_unmapped(guess)
+      refuse_out_of_scope_changes(guess)
+
+      announce_selection(guess)
     end
 
     # A --subject run infers only from the files holding the named subjects:
@@ -149,17 +146,6 @@ module Saboteur
     # A spec file the diff touched that cannot run is named, also before a
     # stop on an unmatched file: --test, the way out, never reads the diff.
     def inform_skipped_specs(guess) = (@diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?)
-
-    def selection_message(guess)
-      if guess.changed.zero?
-        target = config["since"] ? "no changed source file" : "no source file"
-        "inferred specs: #{target} to infer a spec for, so the whole suite runs"
-      elsif guess.specs.empty?
-        guess.no_specs_message(since: config["since"])
-      else
-        scope_to_guesses(guess)
-      end
-    end
 
     # Stop before boot: name the spec-less files and the ways out. The
     # hinted spec paths are the conventional ones - they do not exist (that
@@ -462,6 +448,7 @@ require_relative "engine/candidates"
 require_relative "engine/candidate_selection"
 require_relative "engine/diff_scope"
 require_relative "engine/result_cache"
+require_relative "engine/defined_order_prefix"
 require_relative "engine/verdict_check"
 require_relative "engine/scheduler"
 require_relative "engine/canary"

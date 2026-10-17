@@ -10,6 +10,17 @@ module Saboteur
     module SelectionAnnouncement
       private
 
+      def selection_message(guess)
+        if guess.changed.zero?
+          target = config["since"] ? "no changed source file" : "no source file"
+          "inferred specs: #{target} to infer a spec for, so the whole suite runs"
+        elsif guess.specs.empty?
+          guess.no_specs_message(since: config["since"])
+        else
+          scope_to_guesses(guess)
+        end
+      end
+
       def announce_selection(guess)
         if guess.changed.zero? || guess.specs.any?
           @diagnostics.announce(selection_message(guess))

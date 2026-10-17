@@ -83,7 +83,9 @@ the macro itself `ran at load` instead of letting its mutants survive.
   you changed. The GitHub Action runs on every pull request and caches
   the coverage map between runs.
 - **Honest verdicts.** Every kill is verified against the unchanged
-  method; a kill the suite cannot confirm stays out of the score.
+  method; a kill the suite cannot confirm stays out of the score. A spec
+  file whose examples depend on earlier ones is retried in defined order
+  before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
 - **A review workflow.** An ignore list with reasons and triage states,
@@ -156,12 +158,15 @@ in `config/saboteur.rb`:
 
 ```ruby
 Saboteur.configure do |c|
-  c.include = ["app/**/*.rb"]
+  c.include = ["app/**/*.rb"]         # spec/test dirs vendored under lib/ are excluded by default
   c.require = ["./config/environment"] # boots the app
   c.rails = true                       # reconnects ActiveRecord after fork, per-worker databases
   c.jobs = 4                           # optional; the default is 1
 end
 ```
+
+An engine gem whose specs live under `spec/dummy` needs an exclude for them; see
+[Rails engines and dummy apps](docs/guides/rails-engines-and-dummy-apps.md).
 
 ## SimpleCov
 
