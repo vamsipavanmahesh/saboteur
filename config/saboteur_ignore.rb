@@ -3,6 +3,14 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "668e787880f87f22",
+             subject: "Saboteur::MutationSource::MethodSwap#visit_used_children",
+             reason: "equivalent: visit_used_children array of child results is discarded by its only caller (visit); each and map run the same used-wrapped recursion"
+
+  i.mutation "6799cc120401b50d",
+             subject: "Saboteur::MutationSource::MethodSwap#visit_statements",
+             reason: "equivalent: each_with_index bounds index to 0..size-1, where index < size-1 and index != size-1 agree on every reachable value"
+
   i.mutation "ede248b5be2b2efa",
              subject: "Saboteur::Subject#innermost_statement",
              reason: "equivalent: without node = statement the loop walks the StatementsNode's children, finds the " \
@@ -365,15 +373,9 @@ Saboteur.ignore do |i|
              subject: "Saboteur::IgnoreList.unknown_directive_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
 
-
-
-
   i.mutation "d5d83ae928db4190",
              subject: "Saboteur::Engine#candidate_lists",
              reason: "wiring verified end-to-end: without hazard_guard the danger-fixture e2e wipes its copy and fails; subprocess runs are invisible to in-process coverage"
-
-
-
 
   i.mutation "488d29fe1b3f490f",
              subject: "Saboteur::Engine::Distribution#run",
@@ -391,13 +393,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Canary#git?",
              reason: "equivalent: replacing the git binary probe with the directory check only differs when git is absent, and saboteur requires git for diffs and baselines"
 
-
-
-
-
-
-
-
   i.mutation "d68346ea9d02b690",
              subject: "Saboteur::Engine::Canary#walk_files",
              reason: "equivalent: the reject operands are pure predicates, so | returns the same boolean as ||"
@@ -413,9 +408,6 @@ Saboteur.ignore do |i|
   i.mutation "efe71ae606835faa",
              subject: "Saboteur::MutationSource::HazardGuard#hazard_spans",
              reason: "equivalent: descending into a hazardous call only records spans nested inside the outer one, and an edit covering the outer span covers them too, so kept/suppressed outcomes are unchanged"
-
-
-
 
   i.mutation "264eeaf9a5ccfb11",
              subject: "Saboteur::Engine::Scheduler#call",
@@ -907,7 +899,6 @@ Saboteur.ignore do |i|
   i.mutation "8953e46e984e97b6",
              subject: "Saboteur::SubjectFinder#lexical_nesting",
              reason: "equivalent: index + 0 is index, which only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
-
 
   i.mutation "036e4fb956df510f",
              subject: "Saboteur::Engine::ResultCache#digest_tests",

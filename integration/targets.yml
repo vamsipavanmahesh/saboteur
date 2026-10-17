@@ -32,10 +32,12 @@ tty-color:
   config: integration/configs/tty_color.rb
   schedule: pr
   expect:
-    # class_eval: killed + error is 153 after #237/#238's default-on
-    # operators added mutants (was 137). Their split can vary by run
-    # (Linux measured 81 killed, 72 errors), so only the sum is checked.
-    class_eval: { killed+error: 153, survived: 13, timeout: 0, skipped: 1 }
+    # class_eval: killed + error is 151 after #478 stopped emitting
+    # each<->map method_swap mutants in discarded-value positions (was
+    # 153 after #237/#238's default-on operators). The killed/error split
+    # can vary by run (Linux measured 81 killed, 72 errors), so only the
+    # sum is checked.
+    class_eval: { killed+error: 151, survived: 13, timeout: 0, skipped: 1 }
     # macOS literal expansion has not been measured, and no CI job runs
     # integration targets on macOS. Keep the historical (pre-guard) baseline
     # here until a macOS run supplies a replacement snapshot; Linux CI reads
@@ -45,9 +47,11 @@ tty-color:
   # terminal?) take different paths in tty-color's own tests on Linux CI.
   expect_on:
     linux:
-      # Measured after #237/#238's default-on operators added mutants
-      # (was killed 130, survived 20).
-      nesting: { killed: 144, survived: 22, skipped: 1 }
+      # Measured after #478 stopped emitting each<->map method_swap
+      # mutants in discarded-value positions (survived was 22; both
+      # suppressed mutants were survivors). Before that, #237/#238's
+      # default-on operators (was killed 130, survived 20).
+      nesting: { killed: 144, survived: 20, skipped: 1 }
   # class_eval: spec/unit/mode_spec.rb[1:3] kills most Mode mutants with a
   # test that also fails with the method unchanged ("uninitialized constant
   # TTY::Color::Mode::NoValue"), so over half the mutants error on every
