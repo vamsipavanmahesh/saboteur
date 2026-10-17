@@ -413,6 +413,12 @@ an explicit file or directory when RSpec's parse finds none. The coverage map
 is built from only those specs, each mutant runs only the ones that cover it,
 and the selection is part of the coverage and `--incremental` cache keys.
 
+**Unreleased on main:** each `--test` takes one spec path; repeat the flag
+for several specs. A spec file passed as a positional source exits 2 with a
+message telling you to repeat `--test`. Spec files in `--since` scope are
+never mutated; when every subjectless changed file is a spec, the warning
+says so and points back to `--test`.
+
 `--threshold PERCENT` (0 to 100, or `c.threshold` in `config/saboteur.rb`) is for CI.
 The run exits 1 when the score is below PERCENT and 0 when it is at or above,
 even with survivors. It fails closed: a run that tested no mutant has no score
@@ -516,7 +522,8 @@ way reports ran-at-load or no-coverage rather than a guessed survivor.
 
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
-too) runs for the baseline passes, the coverage pass and every mutant, as
+too, and a dashed path also tries its underscored require name:
+`lib/acts-as-taggable-on/x.rb` finds `spec/acts_as_taggable_on/x_spec.rb`) runs for the baseline passes, the coverage pass and every mutant, as
 `--test` would. With `--since` only the changed files count; without it every
 included file does. It is a naming guess, not coverage: a spec that reaches the
 mutated file only through another file does not run, so a mutant only that
@@ -1001,6 +1008,37 @@ Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
 `db/schema.rb` and `config/*.yml` (including `database.yml`) are part of the
 cache fingerprint automatically. Use `fingerprint_extra` for any other file your
 tests read.
+
+### sqlite :memory: outside Rails
+
+The Rails integration snapshots each in-memory database and restores it into
+every forked child. A plain gem suite gets no such snapshot: if it connects
+ActiveRecord to sqlite `:memory:` and loads its schema at require time (a
+common `spec/support/database.rb` shape), the schema lives only in the
+parent's connection. Every saboteur child is a fork, ActiveRecord's fork-safe
+pool reconnects there, and a fresh in-memory database is empty - the
+baseline fails with `Could not find table '...'` while plain rspec stays
+green. saboteur detects this shape in the child and the baseline refusal
+says so, with the two remedies:
+
+- Load the schema in a `before(:suite)` hook instead of at require time.
+  RSpec runs that hook in every child, the same way ransack's suite does it.
+- Or load it in an `after_fork` hook, which runs in each child after the
+  fork:
+
+  ```ruby
+  # config/saboteur.rb
+  Saboteur.configure do |c|
+    c.hooks = ["config/saboteur_hooks"]
+  end
+
+  # config/saboteur_hooks.rb
+  Saboteur.hook(:after_fork) do
+    load File.expand_path("../spec/internal/db/schema.rb", __dir__)
+  end
+  ```
+
+A file-backed sqlite database survives the fork and needs nothing.
 
 ### Load-time code, captured methods and Sorbet signatures
 

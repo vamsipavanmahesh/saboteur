@@ -4,7 +4,7 @@
 
 - [Getting started](guides/getting-started.md) - install to a clean first scope.
 - [FAQ](faq.md) - requirements, databases, SimpleCov, exit codes, flaky suites.
-- [Project site](index.html) - pitch, quickstart and benchmark numbers.
+- [Project site](index.html) - pitch and benchmark numbers; the quickstart sits on its own page there.
 - [Best practices](best-practices.md) - thresholds, cadence and review habits.
 
 ## Guides

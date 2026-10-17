@@ -4,6 +4,7 @@
 require "json"
 require "fileutils"
 require_relative "../text"
+require_relative "../frameworks/sqlite_memory_database"
 
 module Saboteur
   class Engine
@@ -52,7 +53,7 @@ module Saboteur
           announce_first_pass_cost(number, started)
           unless data["passed"] && data["failed"].empty?
             refuse(number,
-                   "the suite failed: #{Array(data['failed']).join(', ')}")
+                   with_hint("the suite failed: #{Array(data['failed']).join(', ')}", data))
           end
           executed = data["executed"]
           refuse(number, "executed tests do not match the loaded suite") unless
@@ -151,7 +152,7 @@ module Saboteur
       def parse_result(number, payload)
         data = JSON.parse(payload)
         refuse(number, "the child reported an invalid result") unless data.is_a?(Hash)
-        refuse(number, data["error"]) if data["error"]
+        refuse(number, with_hint(data["error"], data)) if data["error"]
         refuse(number, "the child reported invalid test results") unless valid_result?(data)
         data
       rescue JSON::ParserError
@@ -172,11 +173,20 @@ module Saboteur
         @hooks.run(:after_fork)
         Kernel.srand(@config["seed"])
         result = @integration.run_baseline(seed: @config["seed"])
-        writer.write(JSON.generate(passed: result.passed, failed: result.failed_ids, executed: result.executed_ids))
+        payload = { passed: result.passed, failed: result.failed_ids, executed: result.executed_ids }
+        payload[:hint] = Frameworks::SqliteMemoryDatabase.fork_loss_hint unless result.passed
+        writer.write(JSON.generate(payload))
       rescue Exception => e # rubocop:disable Lint/RescueException
-        writer.write(JSON.generate(error: "#{e.class}: #{e.message}"))
+        writer.write(JSON.generate(error: "#{e.class}: #{e.message}",
+                                   hint: Frameworks::SqliteMemoryDatabase.fork_loss_hint))
       ensure
         writer.close
+      end
+
+      # A child that recognises its own failure shape (an empty sqlite
+      # :memory: database after the fork, #387) says how to fix it.
+      def with_hint(reason, data)
+        data["hint"] ? "#{reason}. #{data['hint']}" : reason
       end
 
       def log_path(number)
