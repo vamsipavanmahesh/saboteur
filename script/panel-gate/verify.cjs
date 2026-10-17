@@ -325,6 +325,75 @@ async function superseded(api) {
   const queued = await api.pages(`actions/workflows/${file}/runs?status=pending`, 'workflow_runs');
   return queued.some(run => run.id > self && run.event === 'push');
 }
+// Cross-lane serialization (#434): fork PRs run their CI-completion sweep in
+// a head-sha concurrency lane while comment revocations run in the
+// PR-number lane, and the Actions API does not expose another run's
+// targets, so two runs of the same PR can overlap. Each run registers its
+// resolved targets as a status on the revocation anchor BEFORE reading the
+// registry, defers to any newer live lane sharing a PR, and resolves its
+// lane however it ends. Deferring loses nothing: the newer lane sweeps the
+// shared PRs. The registry complements superseded(), which still drains
+// stale runs behind a queued push sweep without touching the anchor.
+const laneContext = 'panel/lane';
+// A lane outlives its run only when the run died without resolving it; the
+// workflow times out at 10 minutes, so double that retires orphans.
+const LANE_TTL_MS = 20 * 60 * 1000;
+const LANE = /^run-([1-9][0-9]*):pr-([0-9,]+|all)$/;
+function laneDescription(numbers, name, runId) {
+  return `run-${runId}:pr-${name === 'push' ? 'all' : numbers.join(',')}`;
+}
+// Best-effort writes: a lane that cannot persist only re-opens the small
+// overlap window the registry closes, so quota errors propagate but an
+// ordinary write failure is logged, not fatal. Returns the lane key.
+async function postLane(api, numbers, name) {
+  if (!numbers.length) return null;
+  const runId = Number(process.env.GITHUB_RUN_ID);
+  demand(Number.isSafeInteger(runId) && runId > 0, 'invalid run id for lane');
+  const description = laneDescription(numbers, name, runId);
+  try {
+    await api.call(`statuses/${policy.revocationAnchor}`, 'POST', {state: 'pending', context: laneContext, description});
+    return description;
+  } catch (error) {
+    if (error instanceof RateLimitError) throw error;
+    console.error(`lane registration failed; continuing without it: ${error.message}`);
+    return null;
+  }
+}
+async function closeLane(api, description, ok) {
+  if (!description) return;
+  try {
+    await api.call(`statuses/${policy.revocationAnchor}`, 'POST',
+      {state: ok ? 'success' : 'error', context: laneContext, description});
+  } catch (error) {
+    if (error instanceof RateLimitError) throw error;
+    console.error(`lane resolution failed; the TTL retires it: ${error.message}`);
+  }
+}
+// Latest record per lane key wins; malformed lane records fail closed like
+// every other record read from the trusted anchor.
+async function overlappingNewerLane(api, numbers) {
+  const self = Number(process.env.GITHUB_RUN_ID);
+  demand(Number.isSafeInteger(self) && self > 0, 'invalid run id for lane check');
+  if (!numbers.length) return false;
+  const mine = new Set(numbers);
+  const latest = new Map();
+  for (const record of await api.pages(`commits/${policy.revocationAnchor}/statuses`)) {
+    if (record.context !== laneContext) continue;
+    latest.set(record.description, record);
+  }
+  for (const [description, record] of latest) {
+    if (record.state !== 'pending') continue;
+    const match = LANE.exec(description || '');
+    demand(match, `invalid lane record: ${description}`);
+    const age = Date.now() - Date.parse(record.created_at);
+    demand(Number.isFinite(age), 'invalid lane record epoch');
+    if (age > LANE_TTL_MS) continue;
+    if (Number(match[1]) <= self) continue;
+    if (match[2] === 'all' || match[2].split(',').some(n => mine.has(Number(n)))) return true;
+  }
+  return false;
+}
+
 async function targets(api, name, event) {
   const eligible = p => p.base.ref === policy.baseBranch && !p.draft;
   if (name === 'issue_comment' || name === 'workflow_dispatch') {
@@ -359,16 +428,28 @@ async function main() {
     return;
   }
   const numbers = await targets(api, name, event);
+  const lane = await postLane(api, numbers, name);
   let failed = false;
-  const sweep = {};
-  for (const number of numbers) {
-    try { await verify(api, number, sweep); }
-    catch (error) {
-      failed = true; console.error(`PR #${number}: ${error.message}`);
-      if (error instanceof RateLimitError) { console.error('Stopping the sweep: the token is out of quota.'); break; }
+  try {
+    if (await overlappingNewerLane(api, numbers)) {
+      console.log('A newer run covering these PRs supersedes this one; skipping the sweep.');
+      return;
     }
+    const sweep = {};
+    for (const number of numbers) {
+      try { await verify(api, number, sweep); }
+      catch (error) {
+        failed = true; console.error(`PR #${number}: ${error.message}`);
+        if (error instanceof RateLimitError) { console.error('Stopping the sweep: the token is out of quota.'); break; }
+      }
+    }
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    await closeLane(api, lane, !failed);
   }
   if (failed) process.exitCode = 1;
 }
-module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded, targets, API, RateLimitError};
+module.exports = {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded, targets, postLane, closeLane, overlappingNewerLane, laneContext, API, RateLimitError};
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
