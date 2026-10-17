@@ -42,7 +42,9 @@ map is cached and reused while your code and tests stay unchanged, so
 later runs start fast.
 
 On a branch, `bundle exec saboteur pr` mutates only the methods you
-changed, with one baseline pass and a ten-minute budget.
+changed relative to `main`, with one baseline pass and a ten-minute
+budget. Pass `--since` for a different base, for example
+`bundle exec saboteur pr --since master`.
 
 Setup, configuration and CI:
 [the quickstart](https://vamsipavanmahesh.github.io/saboteur/quickstart.html).
