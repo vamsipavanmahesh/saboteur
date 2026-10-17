@@ -3,15 +3,34 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request:
+  # PR CI is manual: nothing runs on pull_request events. A maintainer runs
+  # the matrix against the exact PR head with
+  #   gh workflow run ci.yml --ref <head-sha> -f pr_number=<n> -f head_repo=<owner/repo>
+  # (head_repo comes from the PR's head.repository.full_name; it is the fork
+  # guard for the self-hosted macOS runners).
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number this run covers
+        required: true
+        type: string
+      head_repo:
+        description: The PR head's owner/repo, for the macOS fork guard
+        required: false
+        type: string
+      base_sha:
+        description: The PR's exact base commit (dogfood diff mode needs it)
+        required: true
+        type: string
 
 permissions:
   contents: read
 
-# Newer pushes to a pull request cancel that PR's superseded runs, and a new
-# push to main cancels the previous main run. PRs stay grouped per pull request.
+# A newer dispatch for a pull request cancels that PR's superseded run, and a
+# new push to main cancels the previous main run. PRs stay grouped per pull
+# request (dispatches carry no pull_request payload, so the input names it).
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref_name }}
+  group: ci-${{ github.event.pull_request.number || inputs.pr_number || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -38,24 +57,24 @@ jobs:
       - run: script/rspec-shard ${{ matrix.shard }} 3
 
   # macOS legs run on the owner's self-hosted Mac (three runner instances
-  # labelled saboteur-mac). Self-hosted runners never execute fork code:
-  # fork pull requests skip these legs entirely (the Linux legs still cover
-  # them), and the repository additionally requires approval for all external
-  # contributors before any fork workflow runs. Pull requests run the smallest
-  # useful matrix - the latest stable Ruby only - while pushes to main still
-  # cover every supported Ruby.
+  # labelled saboteur-mac). Self-hosted runners never execute fork code: the
+  # legs run only for main pushes and for dispatches whose head_repo input
+  # names this repository - dispatching is itself the approval step, and a
+  # fork pull request gets no macOS legs (the Linux legs still cover it).
+  # Pull requests run the smallest useful matrix - the latest stable Ruby
+  # only - while pushes to main still cover every supported Ruby.
   test-macos:
     name: Ruby ${{ matrix.ruby }} / macos / shard ${{ matrix.shard }}
     runs-on: [self-hosted, saboteur-mac]
     timeout-minutes: 20
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.head_repo == github.repository)
     strategy:
       fail-fast: false
       # Three physical runner instances, so at most three legs at once.
       max-parallel: 3
       # (No spaces after the JSON colons: a colon+space would break the YAML
       # plain scalar. The matrix itself is normal JSON.)
-      matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
+      matrix: ${{ github.event_name == 'workflow_dispatch' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
@@ -136,7 +155,9 @@ jobs:
   # saboteur on its own changed methods. Survivors fail the check unless they
   # are on config/saboteur_ignore.rb with a reason.
   dogfood:
-    if: github.event_name == 'pull_request'
+    # Mutates the methods a pull request changed, so it runs on the manual
+    # dispatch (the pull_request trigger is gone) but not on main pushes.
+    if: github.event_name == 'workflow_dispatch'
     # 2x4 keeps the whole pull request job set inside the 32 vCPU trial
     # budget; --jobs 2 matches the 2 vCPUs.
     runs-on: nscloud-ubuntu-24.04-amd64-2x4
