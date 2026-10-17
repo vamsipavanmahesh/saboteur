@@ -154,6 +154,23 @@ RSpec.describe Saboteur::DirtyTreeWarning do
       expect(warning).to include("setup files: Gemfile.saboteur\n")
     end
 
+    it "counts a deleted source under a ./ pattern, resolved against the root, inside the scope" do
+      dirty_tree("lib/gone.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "second")
+      File.delete(File.join(root, "lib/gone.rb"))
+
+      warning = Dir.chdir(Dir.tmpdir) { text(include: ["./lib/**/*.rb"]) }
+      expect(warning).to include("inside the mutation scope: lib/gone.rb\n")
+    end
+
+    it "reads a relative BUNDLE_GEMFILE against the root" do
+      dirty_tree("Gemfile.saboteur", "Gemfile.saboteur.lock")
+
+      warning = Dir.chdir(Dir.tmpdir) { text(gemfile: "Gemfile.saboteur") }
+      expect(warning).to include("setup files: Gemfile.saboteur, Gemfile.saboteur.lock\n")
+    end
+
     it "says nothing on a clean tree" do
       dirty_tree
 

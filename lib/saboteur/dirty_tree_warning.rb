@@ -51,9 +51,11 @@ module Saboteur
       path
     end
 
+    # A file outside the root keeps its absolute path, which no
+    # root-relative git path can equal.
     def self.relative(files, root)
       prefix = File.join(root, "")
-      files.select { |file| file.start_with?(prefix) }.map { |file| file.delete_prefix(prefix) }
+      files.map { |file| file.delete_prefix(prefix) }
     end
 
     # Patterns as paths relative to the root, so ./lib/**/*.rb and an
