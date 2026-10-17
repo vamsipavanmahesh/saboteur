@@ -22,15 +22,25 @@ permissions:
   actions: read
   statuses: write
 
-# Serialize all decisions, including comment revocations and workflow reruns.
+# Group decisions per PR (per ref for pushes to main). A newer trigger for
+# the same PR cancels its stale evaluation; different PRs decide in parallel
+# instead of piling into one global serial queue that fills up and rejects
+# runs (see Discussion #414). workflow_run events from fork pull requests
+# carry no pull_requests entries (verify.cjs falls back to head_sha there
+# too), so they key on the head SHA: same head, same lane.
 concurrency:
-  group: panel-head-gate
-  cancel-in-progress: false
+  group: panel-head-gate-${{ github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha || inputs.pr_number || github.ref }}
+  cancel-in-progress: true
   queue: max
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/main'
+    # Comments on anything but an open pull request cannot change a live
+    # verdict: the verifier would fail closed on them (pulls/<n> 404s for a
+    # plain issue, and a closed PR is refused), so do not spend a run -
+    # or fill the queue - on them. Verdict and revocation comments live on
+    # open pull requests, so gate semantics are unchanged.
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'issue_comment' || (github.event.issue.pull_request && github.event.issue.state == 'open')) && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
     timeout-minutes: 10
     steps:

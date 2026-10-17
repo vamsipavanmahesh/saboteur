@@ -354,10 +354,16 @@ harness problem or a runaway mutant cannot raise the score silently.
   report holds the same ones.
 - Incremental mode (`--incremental`, opt-in): a stored verdict (killed,
   survived, timeout) is reused while the method source, the mutant, the set
-  of covering tests, their files' contents, the lockfile, the verdict-
-  relevant config and the saboteur version are unchanged. When every verdict
-  of a method is reusable, nothing forks. Hole:
-  changes in callees are invisible (as in PIT), hence opt-in.
+  of covering tests, their files' contents, every project source the
+  coverage run loaded - including helpers required lazily inside a test,
+  outside the include list - the lockfile, the verdict-relevant config and
+  the saboteur version are unchanged. When every verdict
+  of a method is reusable, nothing forks. Watching covers Ruby sources
+  only: a change to a non-Ruby input (YAML, locales, ERB, SQL fixtures)
+  is in no fingerprint, so rerun without `--incremental` after touching
+  one - `--no-cache` only rebuilds the coverage map and still reuses the
+  old verdict. Run without `--incremental` now and then anyway (and in CI
+  on the main branch).
 - Order: tests that killed earlier mutants of the same subject first, then
   fastest first (suite order breaks ties). With fail-fast, a mutant is killed
   by its cheapest killing test. The verdict check (section 8) re-runs the
