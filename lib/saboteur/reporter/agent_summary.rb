@@ -26,10 +26,11 @@ module Saboteur
               counts: counts(report), score: score(report),
               scoreDefinition: "(killed + timeout) / (killed + survived + timeout); null when nothing was tested",
               incomplete: incomplete, timeoutCountedAsDetected: report.counts[:timeout],
-              findings: findings(report, shown, snippet_limit),
+              findings: findings(report, shown, snippet_limit)
+            }.merge(report.shard ? { shard: report.shard.to_h } : {}).merge(
               warnings: report.warnings.first(WARNING_LIMIT).map { |warning| warning.to_s[0, WARNING_LENGTH] },
               next: next_steps(report, provenance)
-            }
+            )
           end
 
           private

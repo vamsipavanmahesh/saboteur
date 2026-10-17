@@ -72,7 +72,8 @@ never change the score.
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
   you changed. The GitHub Action runs on every pull request and caches
-  the coverage map between runs.
+  the coverage map between runs. `--shard K/N` splits one planned inventory
+  deterministically across CI jobs; each shard reports partial evidence.
 - **Honest verdicts.** Every kill is verified against the unchanged
   method; a kill the suite cannot confirm stays out of the score.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible

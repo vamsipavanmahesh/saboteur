@@ -19,6 +19,14 @@ RSpec.describe Saboteur::Report do
       .to eq([:unverified, "the --max-duration budget is spent", 0.5, ["t1"], %w[t1 t2], "assertion", true])
   end
 
+  it "carries shard metadata when the run selected one shard" do
+    shard = Saboteur::Engine::Shard.parse("1/2")
+    report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1,
+                                  root: File.dirname(person_subject.file), shard: shard)
+    expect(report.shard).to be(shard)
+    expect(report_of(result_for(:killed)).shard).to be_nil
+  end
+
   it "counts every status separately" do
     expect(report.counts).to eq(killed: 2, survived: 1, timeout: 1, resource_limit: 0, error: 1,
                                 skipped: 1, ran_at_load: 0, unreachable: 0, unverified: 0)

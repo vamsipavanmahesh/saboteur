@@ -60,6 +60,20 @@ RSpec.describe Saboteur::Reporter::Stryker do
   it "carries the operator policy under the saboteur key" do
     expected = JSON.parse(JSON.generate(Saboteur::Config.new({}).operator_policy))
     expect(json.dig("saboteur", "operatorPolicy")).to eq(expected)
+    expect(json.fetch("saboteur")).not_to have_key("shard")
+  end
+
+  it "records shard metadata under the saboteur extension without changing the schema version" do
+    shard = Saboteur::Engine::Shard.parse("2/4")
+    allow(shard).to receive(:to_h).and_return(index: 2, of: 4, selected: 3, planned: 10,
+                                              inventoryDigest: "a" * 64, partial: true)
+    allow(report).to receive(:shard).and_return(shard)
+    document = JSON.parse(JSON.generate(described_class.build(report)))
+    expect(document["schemaVersion"]).to eq("2")
+    expect(document.dig("saboteur", "shard")).to eq(
+      "index" => 2, "of" => 4, "selected" => 3, "planned" => 10,
+      "inventoryDigest" => "a" * 64, "partial" => true
+    )
   end
 
   it "maps ran-at-load and unreachable to Ignored, carrying the reason" do

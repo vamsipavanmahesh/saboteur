@@ -94,30 +94,34 @@ restore - editing a listed input file rebuilds it.
 
 ## Sharding a whole-project run
 
-There is no built-in shard flag. To spread a scheduled audit over several
-jobs, give each matrix leg its own scope and its own artifact name:
-
-The bundled Action runs only on `pull_request` events, so shard with plain
-run steps:
+Use `--shard K/N` to spread one planned inventory over several jobs. The
+bundled Action runs only on `pull_request` events, so shard with plain run
+steps:
 
 ```yaml
 strategy:
   matrix:
-    scope: ["app/models", "app/controllers", "app/services"]
+    shard: [1, 2, 3]
 steps:
   # ... checkout, Ruby, database setup, actions/cache for .saboteur ...
-  - run: bundle exec saboteur run ${{ matrix.scope }} --all --max-duration 45m
+  - run: bundle exec saboteur run --all --shard ${{ matrix.shard }}/3 --max-duration 45m
   - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
     with:
-      name: saboteur-report-${{ matrix.scope }}
+      name: saboteur-report-shard-${{ matrix.shard }}
       path: .saboteur/report.json
 ```
 
 `upload-artifact` rejects a second upload under one name, so the per-leg
-`name` is required, not cosmetic. Positional source operands fail closed: a
-typo or a non-Ruby file exits 2 before anything runs. Keep legs coarse (a few
-directories each); many small legs pay the baseline and coverage-map cost per
-leg. Every leg must run on the same commit: the coverage map and verdicts are
+`name` is required, not cosmetic. Run every shard on the same commit with the
+same source scope, config and seed; each report prints the planned count and
+an inventory digest that should match across the legs. Each shard report is
+partial by design, and saboteur does not merge the reports into one score.
+The [deterministic shards guide](sharding.md) covers the report fields and
+boundaries.
+
+Keep legs coarse enough to amortize their cost: every leg still runs the
+baseline and coverage work for its selected scope before mutants start.
+Every leg must run on the same commit: the coverage map and verdicts are
 per-tree.
 
 ## The scheduled audit
