@@ -7,6 +7,7 @@ require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
+require_relative "engine/gated_run"
 require_relative "engine/run_budget"
 require_relative "engine/thread_warnings"
 
@@ -19,6 +20,7 @@ module Saboteur
   class Engine
     include EarlyStopRecording
     include RunBudget
+    include GatedRun
 
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
@@ -129,11 +131,11 @@ module Saboteur
     end
 
     # A --since run with a partial mapping runs the mapped subset with a
-    # loud warning per unmapped file (#370); a full run and a zero guess
-    # keep the hard stop.
+    # loud warning per unmapped file (#370); a full run, a zero guess and
+    # a gated run keep the hard stop.
     def stop_or_warn_unmapped(guess)
       return if guess.unmatched.empty?
-      raise ConfigError, guess.unmatched_message if !config["since"] || guess.specs.empty?
+      raise ConfigError, guess.unmatched_message if !config["since"] || guess.specs.empty? || gated?
 
       guess.unmatched.each { |file| @diagnostics.announce(guess.unmatched_warning(file)) }
     end
