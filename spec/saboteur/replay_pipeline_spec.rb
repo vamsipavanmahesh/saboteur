@@ -85,6 +85,18 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     end
   end
 
+  it "watches a loaded file with a non-ASCII name tagged US-ASCII under LANG=C (#353)" do
+    run = engine
+    accented = File.join(run.instance_variable_get(:@root), "lib", "héllo_probe_353.rb")
+    feature = accented.dup.force_encoding(Encoding::US_ASCII)
+    $LOADED_FEATURES.push(feature)
+    begin
+      expect(run.send(:source_files, [])).to include(accented)
+    ensure
+      $LOADED_FEATURES.delete(feature)
+    end
+  end
+
   it "watches loaded files reached through a symlinked root (#353)" do
     run = engine
     root = run.instance_variable_get(:@root)

@@ -58,8 +58,10 @@ module Saboteur
       # include list that the recorder drops: --incremental must watch it, or a
       # change there keeps stale verdicts (#353).
       def loaded_project_files
-        loaded = $LOADED_FEATURES.grep(/\.rb\z/).map { |file| Selection::CoverageMap.canonical(file) }
-        loaded.select { |file| file.start_with?("#{@root}/") }
+        $LOADED_FEATURES.filter_map do |file|
+          path = Text.utf8_strict(Selection::CoverageMap.canonical(file))
+          path if path.end_with?(".rb") && path.start_with?("#{@root}/")
+        end
       end
 
       def cache_path(files)

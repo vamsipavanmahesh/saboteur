@@ -5,6 +5,8 @@ require "json"
 require "tmpdir"
 
 RSpec.describe Saboteur::Engine::ResultCache do
+  let(:empty) { Saboteur::Selection::CoverageMap.new(lines: {}, tests: []) }
+
   around do |example|
     Dir.mktmpdir do |dir|
       @root = File.realpath(dir)
@@ -146,22 +148,22 @@ RSpec.describe Saboteur::Engine::ResultCache do
   it "watches every source file when the dependency set is unknown, from root-relative paths (#197)" do
     with_dependency_files do |_helper, unrelated|
       files = ["lib/helper.rb", "lib/unrelated.rb"]
-      store = described_class.new(path: path, root: @root, inputs: "config-1", fallback_files: files)
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage: empty, fallback_files: files)
       store.record(killed)
       store.save
       File.write(unrelated, "OTHER = 2\n")
-      again = described_class.new(path: path, root: @root, inputs: "config-1", fallback_files: files)
+      again = described_class.new(path: path, root: @root, inputs: "config-1", coverage: empty, fallback_files: files)
       expect(again.lookup(person_subject, comparison_mutation, tests)).to be_nil
     end
   end
 
   it "sees the same fingerprint however the fallback files were ordered (#197)" do
     with_dependency_files do |helper, unrelated|
-      store = described_class.new(path: path, root: @root, inputs: "config-1",
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage: empty,
                                   fallback_files: [helper, unrelated])
       store.record(killed)
       store.save
-      reordered = described_class.new(path: path, root: @root, inputs: "config-1",
+      reordered = described_class.new(path: path, root: @root, inputs: "config-1", coverage: empty,
                                       fallback_files: [unrelated, helper])
       expect(reordered.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
     end

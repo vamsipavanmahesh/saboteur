@@ -320,8 +320,10 @@ module Saboteur
     # cannot speak: every project file the booted process loaded, plus
     # the run's own files (#344).
     def source_files(files)
-      loaded = $LOADED_FEATURES.grep(/\.rb\z/).map { |file| Saboteur::Selection::CoverageMap.canonical(file) }
-      loaded.select { |file| file.start_with?("#{@root}/") } | files
+      $LOADED_FEATURES.filter_map do |file|
+        path = Text.utf8_strict(Saboteur::Selection::CoverageMap.canonical(file))
+        path if path.end_with?(".rb") && path.start_with?("#{@root}/")
+      end | files
     end
 
     def result_cache(map = nil, files = [])

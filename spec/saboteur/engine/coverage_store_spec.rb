@@ -504,6 +504,51 @@ RSpec.describe Saboteur::Engine::CoverageStore, "suite return validation" do
 end
 
 RSpec.describe Saboteur::Engine::CoverageStore, "successful recording" do
+  it "records every Ruby source the child loaded, canonical and UTF-8 strict (#353)" do
+    Dir.mktmpdir do |root|
+      config = Saboteur::Config.new({}, root: root)
+      integration = instance_double(Saboteur::Integration::RSpec, run_all: true, test_files: [])
+      recorder = instance_double(Saboteur::Selection::Recorder, start: nil)
+      captured = nil
+      allow(recorder).to receive(:result) do |**kwargs|
+        captured = kwargs
+        Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"], loaded_files: kwargs[:loaded_files])
+      end
+      allow(Saboteur::Selection::Recorder).to receive(:new).and_return(recorder)
+      store = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                  supervisor: nil, diagnostics: nil)
+      writer = StringIO.new
+      allow($stdout).to receive(:reopen)
+      allow($stderr).to receive(:reopen)
+      allow(store).to receive(:exit!)
+
+      lib = File.join(root, "lib")
+      FileUtils.mkdir_p(lib)
+      lazy = File.join(lib, "lazy.rb")
+      accented = File.join(lib, "héllo.rb")
+      features = [
+        lazy,
+        "#{root}//lib/double.rb", # collapsed by canonicalization
+        File.join(lib, "native.so"), # not Ruby
+        "#{root}-sibling/lib/other.rb", # shares the root's prefix only
+        "/outside/else.rb",                              # outside the project
+        accented.dup.force_encoding(Encoding::US_ASCII)  # feature entries are filesystem-encoded
+      ]
+      $LOADED_FEATURES.push(*features)
+      begin
+        store.send(:record, writer, [])
+      ensure
+        features.each { |feature| $LOADED_FEATURES.delete(feature) }
+      end
+
+      expect(captured[:build_seconds]).to be_a(Float)
+      expect(captured[:loaded_files]).to contain_exactly(lazy, File.join(lib, "double.rb"), accented)
+      expect(captured[:loaded_files].last.encoding).to eq(Encoding::UTF_8)
+      expect(JSON.parse(writer.string)["loaded_files"]).to contain_exactly(lazy, File.join(lib, "double.rb"), accented)
+      expect(writer).to be_closed
+    end
+  end
+
   it "writes a map after a green suite and does not lose the adapter return" do
     Dir.mktmpdir do |root|
       config = Saboteur::Config.new({}, root: root)

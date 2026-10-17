@@ -35,7 +35,9 @@ module Saboteur
         @root = root
         @inputs = inputs
         @suite_digest = suite_digest
-        @coverage = coverage
+        # Engine always passes the built map; a missing one behaves as an
+        # empty one, which watches every fallback and child-loaded source (#197).
+        @coverage = coverage || Selection::CoverageMap.new(lines: {}, tests: [])
         @fallback_files = fallback_files.map { |file| File.expand_path(file, root) }.sort
         @entries = load
         @file_digests = {}
@@ -95,12 +97,9 @@ module Saboteur
       end
 
       # Files a change in which can flip the verdict (#197): every source
-      # file a covering test touched, from the run's coverage map. Without a
-      # usable map the dependency set is unknown, so every source file is
-      # watched - the conservative whole-project key.
+      # file a covering test touched, from the run's coverage map, plus the
+      # loaded sources the map never observed (#344, #353).
       def dependencies(tests)
-        return @fallback_files if @coverage.nil? || @coverage.empty?
-
         (@coverage.files_for(tests) | @coverage.boot_files | unobserved_files).sort
       end
 
@@ -108,7 +107,8 @@ module Saboteur
       # evidence): coverage cannot say whether they matter, so a change in
       # any of them must invalidate (#344).
       def unobserved_files
-        (@fallback_files | @coverage.loaded_files).select { |file| @coverage.empty_for?([file]) }
+        @unobserved_files ||=
+          (@fallback_files | @coverage.loaded_files).select { |file| @coverage.empty_for?([file]) }
       end
 
       # RSpec ids name their file: "./spec/a_spec.rb[1:2]".
