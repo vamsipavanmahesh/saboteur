@@ -74,6 +74,11 @@ never change the score.
   JSON report, and a stable agent JSON API with a deprecation policy.
 - **A review workflow.** An ignore list with reasons and triage states,
   an opt-in survivor baseline, score thresholds and score history.
+  `saboteur survivors .saboteur/report.json` browses survivors in the
+  terminal straight from the JSON report - list, filter
+  (`--file`/`--operator`/`--triage`/`--ranked`), and `--show DIGEST`
+  for the diff, the exact `run --id` replay command and an ignore-file
+  entry template. It never boots your project or edits the ignore file.
 - **Safety controls.** A hazard guard, canary values, and time, memory
   and process-count limits on every mutant; a Landlock sandbox on Linux
   6.2 and newer.

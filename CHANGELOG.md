@@ -6,6 +6,14 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `saboteur survivors <report.json>` (#475): a read-only terminal browser
+  for the Stryker JSON report - list and filter survivors (with the
+  ranked-findings order available via `--ranked`), and `--show DIGEST`
+  prints the diff, the exact replay command and an ignore-file entry
+  template. It never boots the project or edits the ignore file.
+
 ### Fixed
 
 - The marker sweep no longer kills a marked process it cannot identify
