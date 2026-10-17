@@ -12,6 +12,11 @@ All notable changes are documented here. The format follows
   min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
   validated at load (min_score 0-100, pattern must match an included file).
   Enforcement lands with slice 2 (#570).
+- Peak-memory measurement (#202, slice 1): each worker reports its kernel
+  peak RSS (VmHWM) when it retires, and the JSON report records it under
+  `saboteur.memory` as per-worker `peakMb` values plus the supervisor's own
+  peak. No total is printed: fork copy-on-write makes per-process RSS
+  non-additive. The section is omitted where procfs is unavailable.
 ### Changed
 
 - A `--subject` pattern that matches no subject now fails the run (exit 2)
@@ -21,6 +26,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A --since run whose changed lines sit inside a heredoc now says so
+  (#467). Code embedded in a string - a class_eval/module_eval argument or
+  a template constant - evaluates methods the static walk cannot see, so
+  the generic "may not parse, or every change may sit outside a method"
+  hint misdiagnosed it; the warning now names the files and the
+  code-in-a-string blind spot.
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a

@@ -460,7 +460,9 @@ CLI: `saboteur help` lists every command and flag.
 Output:
 - Terminal: counts per status, score, wall time, then a unified diff per survivor.
 - HTML report (`html_report`) and per-method findings (`reporter/html.rb`, `reporter/findings.rb`).
-- JSON: Stryker mutation-testing-report-schema (schemaVersion "2"). Status
+- JSON: Stryker mutation-testing-report-schema (schemaVersion "2"). The
+  `saboteur` object carries the run's peak-memory record (`memory`: per-worker
+  `peakMb` and `supervisorPeakMb`) where the platform measured it (#202). Status
   mapping: killed->Killed, survived->Survived, timeout->Timeout,
   error->RuntimeError, resource_limit->RuntimeError (statusReason "resource limit: ..."),
   skipped->Ignored (reason in `statusReason`), no coverage
