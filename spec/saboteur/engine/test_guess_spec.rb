@@ -488,7 +488,6 @@ RSpec.describe Saboteur::Engine::TestGuess do
 
   # The top-level literal is this file's coverage link to the changed
   # spec: drop it (the def's owner alone matches nothing) and the stop returns.
-  # longer covers the file.
   it "treats a changed spec reading a constant literal as covering the file that assigns it (#538)" do
     write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
     write("spec/shop_spec.rb", "RSpec.describe \"rules\" do\n  it { RULES }\nend\n")
