@@ -139,7 +139,11 @@ RSpec.describe Saboteur::Engine::TestGuess do
           "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/bad\\xFFx_spec.rb\"]\n}.freeze\n")
     # The mapped file exists (filesystems allow raw bytes), so it passes the
     # map's load-time existence check and reaches the glob guard itself.
-    write("spec/bad\xFFx_spec.rb".b)
+    begin
+      write("spec/bad\xFFx_spec.rb".b)
+    rescue Errno::EILSEQ, Errno::EINVAL
+      skip "this platform rejects filenames that are not valid UTF-8"
+    end
     git("add", ".")
     git("commit", "-q", "-m", "map")
     write("lib/c.rb", changed_source)

@@ -15,6 +15,16 @@ module Saboteur
       # whose fresh kills the spent budget left unchecked (#296).
       attr_reader :unreached, :truncated, :unverified
 
+      # The run's peak-memory record for the JSON report (#202): each
+      # worker's kernel peak RSS and the supervisor's own, nil when the
+      # platform measured neither so the report omits the section. No total:
+      # fork copy-on-write makes per-process RSS non-additive.
+      def memory_report
+        workers = (@pool&.worker_peaks || {}).sort.map { |number, mb| { worker: number, peakMb: mb } }
+        supervisor = Execution::PeakMemory.peak_mb
+        workers.empty? && supervisor.nil? ? nil : { workers: workers, supervisorPeakMb: supervisor }.compact
+      end
+
       # stop_after: nil, or a callable that gets one subject's results and
       # returns true to stop before the next subject (--fail-fast). It only
       # works on one process: parallel workers have already started the
