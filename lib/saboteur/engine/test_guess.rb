@@ -267,7 +267,17 @@ module Saboteur
         comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(@config["since"], root: @root), root: @root)
         finder = SubjectFinder.new
         constant_finder = ConstantSubjectFinder.new
+        # A file whose diff only deletes lines has no new code to mutate:
+        # the deletion is the change the suite itself covers. Its marked
+        # neighbor lines would otherwise demand a spec the file never had
+        # (#484). Subject selection reads the same list, so both layers
+        # agree: no subject, no mutant, no spec demand.
+        deletion_only = Selection::GitDiff.deletion_only_files(@config["since"], root: @root)
         lines_by_file.reject do |file, lines|
+          # (reject keeps the files WITH a changed subject; subjectless
+          # is what remains)
+          next false if deletion_only.include?(file)
+
           subjects_in(finder, constant_finder, file)
             .select { |subject| subject.overlaps_lines?(lines) }
             .any? { |subject| !comparison.unchanged?(subject) }
