@@ -83,18 +83,21 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
 
   it "pins the exact fork-limit stopped_reason string, hint and parens included (#459)" do
     allow(supervisor).to receive(:run).and_return(response(stopped: :processes))
+    message = ["the suite stopped: processes (deadline). ",
+               "If this suite forks heavily by design, raise the limit with c.max_processes (currently 64)"].join
     expect do
       guard.call
-    end.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape("the suite stopped: processes (deadline). " \
-      "If this suite forks heavily by design, raise the limit with c.max_processes (currently 64)")))
+    end.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape(message)))
   end
 
   it "pins the exact memory-limit stopped_reason string, hint and parens included (#459)" do
     allow(supervisor).to receive(:run).and_return(response(stopped: :memory))
+    message = ["the suite stopped: memory (deadline). ",
+               "If this suite legitimately needs more memory, ",
+               "raise the limit with c.max_memory_mb (currently 2048 MB)"].join
     expect do
       guard.call
-    end.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape("the suite stopped: memory (deadline). " \
-      "If this suite legitimately needs more memory, raise the limit with c.max_memory_mb (currently 2048 MB)")))
+    end.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape(message)))
   end
 
   it "estimates the remaining full passes once the first baseline pass is timed (#260)" do
