@@ -120,6 +120,37 @@ RSpec.describe Saboteur::Config do
       .to raise_error(Saboteur::ConfigError, %r{score_gate.*app/payments.*matches no included file})
   end
 
+  it "normalizes string floors to floats on load (#473)" do
+    write("app/payments/x.rb", "class X; end\n")
+    write("config/saboteur.rb",
+          'Saboteur.configure { |c| c.include = ["app/**/*.rb"]; c.score_gate "app/payments/**/*", min_score: "95" }')
+    gates = described_class.load(root: @root)["score_gates"]
+    expect(gates).to eq([{ "pattern" => "app/payments/**/*", "min_score" => 95.0 }])
+    expect(gates.first["min_score"]).to be_a(Float)
+  end
+
+  it "accepts score gate floors on the 0 and 100 boundary, rejecting just outside (#473)" do
+    write("app/x.rb", "class X; end\n")
+    [0, 100].each do |floor|
+      write("config/saboteur.rb",
+            "Saboteur.configure { |c| c.include = [\"app/**/*.rb\"]; c.score_gate \"app/**/*\", min_score: #{floor} }")
+      expect { described_class.load(root: @root) }.not_to raise_error
+    end
+    [100.5, -0.5].each do |floor|
+      write("config/saboteur.rb",
+            "Saboteur.configure { |c| c.score_gate \"app/**/*\", min_score: #{floor} }")
+      expect { described_class.load(root: @root) }
+        .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
+    end
+  end
+
+  it "rejects an empty score gate pattern (#473)" do
+    write("app/x.rb", "class X; end\n")
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.score_gate "", min_score: 50 }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, /pattern must not be empty/)
+  end
+
   it "keeps guess_tests as a no-op alias and warns only on an explicit opt-out" do
     expect(described_class.new({}, root: @root)["guess_tests"]).to be(false)
     expect(described_class.new({}, root: @root).deprecation_warnings).to eq([])
