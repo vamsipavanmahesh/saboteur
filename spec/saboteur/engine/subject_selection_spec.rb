@@ -66,6 +66,35 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     end
   end
 
+  it "says specs are not mutated when every subjectless changed file is a spec file (#371)" do
+    # The repro from #371: spec paths misread as source scope reach this
+    # warning, where "may not parse" misdiagnoses them.
+    FileUtils.mkdir_p(File.join(@root, "spec"))
+    spec_file = write("spec/thing_spec.rb", "RSpec.describe(X) { it { expect(1).to eq(1) } }\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(spec_file, "RSpec.describe(X) { it { expect(1).to eq(1) } } # more\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([spec_file])
+    expect(diagnostics.warnings).to include(a_string_matching(/specs are not mutated - pass them with --test/))
+  end
+
+  it "keeps the parse/method hint when a spec file mixes with other subjectless files (#371)" do
+    FileUtils.mkdir_p(File.join(@root, "spec"))
+    spec_file = write("spec/thing_spec.rb", "RSpec.describe(X) { it { expect(1).to eq(1) } }\n")
+    note = write("note.rb", "# just a comment\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(spec_file, "RSpec.describe(X) { it { expect(1).to eq(1) } } # more\n")
+    File.write(note, "# just a comment\n# more\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([spec_file, note])
+    expect(diagnostics.warnings).to include(a_string_matching(/may not parse/))
+    expect(diagnostics.warnings).not_to include(a_string_matching(/specs are not mutated/))
+  end
+
   it "keeps subjects matching --subject patterns, including namespace prefixes" do
     file = write("cart.rb", source)
     expect(select([file], subjects: ["Shop::Cart.empty"]).map(&:id)).to eq(["Shop::Cart.empty"])

@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {parse, panel, jobsPass, dco, verify, revokeEvent, revocations} = require('./verify.cjs');
+const {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded} = require('./verify.cjs');
 const policy = require('./policy.json');
 const HEAD = 'a'.repeat(40), BASE = 'b'.repeat(40);
 const marker = (changes = {}) => ({schema: 1, lens: 'principal', head: HEAD,
@@ -104,6 +104,37 @@ function fakeAPI(change = {}) {
     }
   };
 }
+
+test('superseded: only a strictly newer pending run of the same workflow skips the sweep', async () => {
+  const seen = [];
+  const pushes = {pages: async (path, field) => { seen.push([path, field]); return [{id: 40, event: 'push'}, {id: 42, event: 'push'}]; }};
+  process.env.GITHUB_RUN_ID = '41';
+  process.env.GITHUB_WORKFLOW_REF = 'owner/repo/.github/workflows/panel-gate.yml@refs/heads/main';
+  assert.equal(await superseded(pushes), true);
+  assert.deepEqual(seen[0], ['actions/workflows/panel-gate.yml/runs?status=pending', 'workflow_runs']);
+  process.env.GITHUB_RUN_ID = '42';
+  assert.equal(await superseded(pushes), false);
+  process.env.GITHUB_RUN_ID = '99';
+  assert.equal(await superseded(pushes), false);
+});
+
+test('superseded: a newer run scoped to another PR never skips this run', async () => {
+  // QA blocker on #404: comment, dispatch and CI-completion runs verify only
+  // their own PRs, so in a mixed-PR backlog they cannot supersede anything.
+  process.env.GITHUB_RUN_ID = '41';
+  process.env.GITHUB_WORKFLOW_REF = 'owner/repo/.github/workflows/panel-gate.yml@refs/heads/main';
+  const comments = {pages: async () => [{id: 42, event: 'issue_comment'}, {id: 43, event: 'workflow_run'}, {id: 44, event: 'workflow_dispatch'}]};
+  assert.equal(await superseded(comments), false);
+  const mixed = {pages: async () => [{id: 42, event: 'issue_comment'}, {id: 43, event: 'push'}]};
+  assert.equal(await superseded(mixed), true);
+});
+test('superseded demands a valid run identity before spending API calls', async () => {
+  process.env.GITHUB_RUN_ID = 'not-a-number';
+  process.env.GITHUB_WORKFLOW_REF = 'owner/repo/.github/workflows/panel-gate.yml@refs/heads/main';
+  let called = false;
+  await assert.rejects(() => superseded({pages: async () => { called = true; return []; }}));
+  assert.equal(called, false);
+});
 test('end-to-end API decision posts pending then success for current facts', async () => {
   const api = fakeAPI(); await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
