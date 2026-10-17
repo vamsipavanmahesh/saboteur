@@ -75,6 +75,61 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect([result.specs, result.unmatched, result.changed]).to eq([["spec/a_spec.rb"], ["lib/c.rb"], 2])
   end
 
+  # The custom map exists for layouts the naming convention cannot guess:
+  # its entry wins, and the file stops being unmatched (#369).
+  it "uses the custom map's specs for a file the convention cannot match (#369)" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/unit/c_spec.rb\"]\n}.freeze\n")
+    write("spec/unit/c_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    result = guess
+    expect(result.specs).to eq(["spec/unit/c_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  it "prefers the custom map over the conventional spec path" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/a.rb\" => [\"spec/unit/a_spec.rb\"]\n}.freeze\n")
+    write("spec/unit/a_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/a.rb", changed_source)
+
+    result = guess
+    expect(result.specs).to eq(["spec/unit/a_spec.rb"])
+  end
+
+  it "maps one file to several specs" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => " \
+          "[\"spec/unit/c_spec.rb\", \"spec/unit/c_extra_spec.rb\"]\n}.freeze\n")
+    write("spec/unit/c_spec.rb")
+    write("spec/unit/c_extra_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    result = guess
+    expect(result.specs).to eq(%w[spec/unit/c_extra_spec.rb spec/unit/c_spec.rb])
+  end
+
+  # An empty entry marks the file intentionally untested: it needs no
+  # guessed spec, so it is not unmatched and no spec runs for it.
+  it "treats an empty custom-map entry as intentionally untested" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => []\n}.freeze\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to eq([])
+  end
+
   # A changed spec is not a changed source file: it needs no spec of its
   # own. It still runs, as a spec changed in the diff (#307).
   it "ignores changed files that saboteur would not mutate" do

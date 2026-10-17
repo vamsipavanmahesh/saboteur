@@ -6,7 +6,9 @@ require "pathname"
 module Saboteur
   class Engine
     # The specs that sit next to the mutated source files by
-    # naming convention (lib/a/b.rb -> spec/a/b_spec.rb). A guess, not a
+    # naming convention (lib/a/b.rb -> spec/a/b_spec.rb), or the explicit
+    # mapping from config/saboteur_custom_map.rb for layouts the convention
+    # cannot guess (#369). A guess, not a
     # coverage fact: a spec that only reaches the file through another one
     # is not found. Packwerk packs (a directory with a package.yml) map to the
     # spec directory inside the same pack, and controllers also map to request
@@ -82,6 +84,7 @@ module Saboteur
         # path never mixes encodings whatever the locale tagged it with.
         @root = Text.utf8_identity(File.realpath(config.root))
         @config = config
+        @custom_map = CustomMap.load(config.path("custom_map"), root: config.root)
       end
 
       def call
@@ -159,8 +162,8 @@ module Saboteur
       # Changed specs join only a run that mutates something: with no file
       # in scope there is nothing for them to kill.
       def result(guesses, subjectless, changed)
-        unmatched = guesses.select { |_, spec| spec.nil? }.keys
-        inferred = guesses.values.compact
+        unmatched = guesses.select { |_, specs| specs.nil? }.keys
+        inferred = guesses.values.grep(Array).flatten
         diff = @config["since"] && guesses.any? ? specs_in_diff(inferred) : { run: [], skipped: {} }
         Result.new(specs: (inferred + diff[:run]).uniq.sort,
                    unmatched: unmatched,
@@ -281,8 +284,18 @@ module Saboteur
         finder.call(path).subjects + constant_finder.call(path).subjects
       end
 
+      # The custom map wins over the naming convention: it exists for the
+      # layouts the convention cannot guess (#369). Its entries come back as
+      # an array of spec paths, or :excluded for a file the map marks
+      # intentionally untested - such a file needs no guessed spec, so it is
+      # neither unmatched nor given one. Returns the guessed spec paths, nil
+      # when neither the map nor the convention names an existing spec.
       def guess_for(file)
-        candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
+        mapped = @custom_map.specs_for(file)
+        return mapped if mapped
+
+        conventional = candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
+        conventional && [conventional]
       end
 
       # Candidate specs for a source file, most specific first: the nearest

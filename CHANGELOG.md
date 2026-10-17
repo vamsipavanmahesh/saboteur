@@ -6,6 +6,16 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Test selection consults `config/saboteur_custom_map.rb` again (#369).
+  The map is the documented escape hatch for layouts the naming guess
+  cannot match, but guess-tests never called it, so a mapped file still
+  stopped the run as unmatched. A matching entry now wins over the naming
+  convention, its specs run as the inferred ones, and an empty entry marks
+  the file intentionally untested so it needs no inferred spec. The map is
+  now documented in the README.
+
 ### Changed
 
 - The rerun and replay commands in the Next steps footer and the agent

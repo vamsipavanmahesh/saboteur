@@ -521,6 +521,25 @@ like any other unmatched file. With `--since` only named subjects on changed
 lines count: an unchanged subject file, one whose changes sit in other
 methods, or one with a comment-only change is skipped, not stopped.
 
+When the naming guess does not fit the project's layout, teach the mapping
+once in `config/saboteur_custom_map.rb` instead of passing `--test` on every
+run:
+
+```ruby
+SABOTEUR_CUSTOM_MAP = {
+  "lib/aasm/core/state.rb" => ["spec/unit/state_spec.rb"],
+  "app/jobs/**/*.rb"       => ["spec/jobs/**/*_spec.rb"],
+  %r{\Aapp/jobs/(.*)\.rb\z} => ['spec/jobs/\1_spec.rb'],
+  "app/generated/**/*.rb"  => [], # intentionally untested
+}.freeze
+```
+
+A matching entry wins over the naming convention: the file stops being
+unmatched and its mapped specs run as the inferred ones. Keys are exact
+paths, globs or Regexps; an empty array marks the file intentionally
+untested, so it needs no inferred spec. The file loads before the app
+boots, so keep it plain Ruby. `saboteur doctor` validates it.
+
 With `--since`, every spec file under the root that the diff adds or changes
 (committed since the base, uncommitted or untracked) also runs, next to the
 inferred specs and listed once. A pull request often tests a change through a
