@@ -28,6 +28,10 @@
 ## Operators
 
 - [arithmetic](operators/arithmetic.md)
+- [body_false](operators/body_false.md)
+- [body_nil](operators/body_nil.md)
+- [body_raise](operators/body_raise.md)
+- [body_true](operators/body_true.md)
 - [boolean_logic](operators/boolean_logic.md)
 - [chain_removal](operators/chain_removal.md)
 - [comparison](operators/comparison.md)
