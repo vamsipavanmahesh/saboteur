@@ -27,6 +27,11 @@ module Saboteur
       FORMAT = 1
       STORED = %i[killed survived timeout].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
+      # Dependency declarations themselves, so the no-lockfile library
+      # shape (bundler's own convention: libraries gitignore the lockfile)
+      # still invalidates on a dependency edit (#408).
+      MANIFESTS = %w[Gemfile gems.rb].freeze
+
       SOURCE_EXCLUDES = %w[.git vendor node_modules].freeze
 
       # suite_digest: SuiteFiles#digest, so an edit to a spec helper or
@@ -98,6 +103,7 @@ module Saboteur
         # A hex digest has a fixed width, so it needs no separator after it.
         digest << Digest::SHA256.hexdigest(subject.file_source)
         digest_tests(digest, tests)
+        hash_dependency_inputs(digest)
         digest.hexdigest
       end
 
@@ -125,6 +131,21 @@ module Saboteur
       # RSpec ids name their file: "./spec/a_spec.rb[1:2]".
       def test_file(test)
         File.expand_path(test[/\A(.+?\.rb)(?:\[|:|\z)/, 1] || test, @root)
+      end
+
+      def hash_dependency_inputs(digest)
+        dependency_files.each { |path| digest << path.delete_prefix("#{@root}/") << "\0" << file_digest(path) << "\0" }
+      end
+
+      # Manifests and gemspecs anywhere below the root, since a monorepo
+      # sub-gem carries its own dependency declarations (#561); keyed
+      # root-relative so same-named sub-gem files cannot collide. Vendored
+      # installs and dependencies' own checkouts hold gemspecs the project
+      # does not declare, so the scan mirrors RunFingerprint's exclusions.
+      def dependency_files
+        @dependency_files ||= Dir[File.join(@root, "**", "{#{MANIFESTS.join(',')},*.gemspec}")].reject do |path|
+          path.delete_prefix("#{@root}/").split("/").any? { |part| RunFingerprint::EXCLUDED_DIRECTORIES.include?(part) }
+        end
       end
 
       def file_digest(path)

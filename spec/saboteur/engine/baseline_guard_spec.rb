@@ -67,6 +67,39 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect(err.string).to include("order stability between passes is not checked (baseline_passes: 1)")
   end
 
+  it "names c.max_processes when the process limit stops a healthy suite (#459)" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :processes))
+    expect do
+      guard.call
+    end.to raise_error(Saboteur::Error, /the suite stopped: processes.*c\.max_processes \(currently 64\)/)
+  end
+
+  it "names c.max_memory_mb when the memory limit stops a healthy suite (#459)" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :memory))
+    expect do
+      guard.call
+    end.to raise_error(Saboteur::Error, /the suite stopped: memory.*c\.max_memory_mb \(currently \d+ MB\)/)
+  end
+
+  it "pins the exact fork-limit stopped_reason string, hint and parens included (#459)" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :processes))
+    message = ["the suite stopped: processes (deadline). ",
+               "If this suite forks heavily by design, raise the limit with c.max_processes (currently 64)"].join
+    expect do
+      guard.call
+    end.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape(message)))
+  end
+
+  it "pins the exact memory-limit stopped_reason string, hint and parens included (#459)" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :memory))
+    message = ["the suite stopped: memory (deadline). ",
+               "If this suite legitimately needs more memory, ",
+               "raise the limit with c.max_memory_mb (currently 2048 MB)"].join
+    expect do
+      guard.call
+    end.to raise_error(Saboteur::Error, Regexp.new(Regexp.escape(message)))
+  end
+
   it "estimates the remaining full passes once the first baseline pass is timed (#260)" do
     err = StringIO.new
     allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
@@ -75,7 +108,26 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
                         full_passes: 3).call
     expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
-    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 2 full passes")
+    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 1 full pass " \
+                                  "and the coverage map build")
+  end
+
+  [true, false].each do |coverage_pending|
+    it "prices two remaining baseline passes with coverage_pending=#{coverage_pending} (#499)" do
+      triple = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 3 }, root: @root)
+      err = StringIO.new
+      allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+      allow(supervisor).to receive(:run).and_return(response)
+      described_class.new(config: triple, integration: integration, hooks: Saboteur::Hooks.new,
+                          supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                          full_passes: coverage_pending ? 4 : 3).call
+      work = "the remaining 2 full passes"
+      work += " and the coverage map build" if coverage_pending
+      seconds = coverage_pending ? 15 : 10
+      expect(err.string).to include("baseline check 1 took 5 s; about #{seconds} s left for #{work} at that rate")
+      expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
+      expect(err.string).not_to include("coverage map build") unless coverage_pending
+    end
   end
 
   it "announces three or more passes in the plural with the seed (#245)" do
@@ -85,6 +137,18 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     described_class.new(config: triple, integration: integration, hooks: Saboteur::Hooks.new,
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err)).call
     expect(err.string).to include("checking the unchanged suite 3 times (seed 42)")
+  end
+
+  it "names the coverage map build when it is the only pass left after baseline_passes 1 (#465)" do
+    single = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 1 }, root: @root)
+    err = StringIO.new
+    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: single, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        full_passes: 2).call
+    expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the coverage map build at that rate")
+    expect(err.string).not_to include("remaining 1 full pass")
   end
 
   it "announces the single remaining pass in the singular" do
@@ -331,7 +395,54 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
     expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1.*Fix/m)
     allow(supervisor).to receive(:run).and_return(response.with(leftover_pids: [123]))
-    expect { guard.call }.to raise_error(Saboteur::Error, /the suite left child processes behind/)
+    expect { guard.call }.to raise_error(Saboteur::Error, /left 1 child process behind/)
+  end
+
+  it "names the leftover processes and skips the log excerpt, which cannot show them (#486)" do
+    # The log of a passing suite holds only RSpec output: quoting its
+    # "Failures:" anchor argues against the verdict, and it can never name
+    # the leaked processes. The refusal carries the supervisor's pre-kill
+    # notes instead.
+    noted = response.with(leftover_pids: [123, 124], leftover_notes: ["123 (ruby worker.rb)", "124 (sleep 30)"])
+    allow(supervisor).to receive(:run).and_return(noted)
+    expect { guard.call }.to raise_error(Saboteur::Error) do |error|
+      notes = "123 (ruby worker.rb), 124 (sleep 30)"
+      expect(error.message).to include("the suite passed but left 2 child processes behind: #{notes}")
+      expect(error.message).not_to include("The log says:")
+    end
+  end
+
+  # excerpt: false only matters when the log has lines to quote: a
+  # passing suite's log must not leak its RSpec output into the
+  # pass-with-leaks refusal (#546).
+  it "keeps the log excerpt out of the leftover refusal even when the log has lines" do
+    FileUtils.mkdir_p(File.join(@root, ".saboteur"))
+    File.write(File.join(@root, ".saboteur", "baseline-1.log"), "1 example, 0 failures\n")
+    allow(supervisor).to receive(:run).and_return(response.with(leftover_pids: [123]))
+    expect { guard.call }.to raise_error(Saboteur::Error) do |error|
+      expect(error.message).to include("left 1 child process behind")
+      expect(error.message).not_to include("The log says:")
+    end
+  end
+
+  it "words a refusal exactly, log path and no-mutants hint included" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :timeout))
+    expect { guard.call }.to raise_error(
+      Saboteur::Error,
+      "baseline check 1 failed at seed 42: the suite stopped: timeout (deadline). " \
+      "See the full log at #{File.join(@root, '.saboteur', 'baseline-1.log')}. " \
+      "Fix the suite or its setup, then run saboteur again with the same seed. No mutants were started."
+    )
+  end
+
+  it "names the leftover pids, comma-joined, when the supervisor took no notes" do
+    allow(supervisor).to receive(:run).and_return(response.with(leftover_pids: [123, 124]))
+    expect { guard.call }.to raise_error(
+      Saboteur::Error,
+      "baseline check 1 failed at seed 42: the suite passed but left 2 child processes behind: 123, 124. " \
+      "See the full log at #{File.join(@root, '.saboteur', 'baseline-1.log')}. " \
+      "Fix the suite or its setup, then run saboteur again with the same seed. No mutants were started."
+    )
   end
 
   it "refuses supervision stops, missing payloads, malformed payloads and adapter errors" do
