@@ -20,6 +20,7 @@ change, and reports every change the suite lets through. Each survivor is a
 review lead: a missing test, an equivalent change, a flaky test, or a limit
 of the tool.
 
+<a id="try-it-in-a-minute"></a>
 ## 60-second quick start
 
 Requirements: Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
