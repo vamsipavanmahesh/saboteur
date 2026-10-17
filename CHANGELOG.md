@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Per-path score gates (#473): `score_gate "app/payments/**/*", min_score: 95`
+  in `saboteur.rb` holds a path subtree to its own mutation score, scored
+  with the run's own formula. A gate under its floor fails the run like the
+  count gates (`scoreGate` cause in the JSON report); a gate with nothing
+  executed under it passes vacuously and says so. Score gates cannot combine
+  with `--agent`, like `--threshold`.
+
 ### Fixed
 
 - A class factory assigned inside `class << self` no longer shares its
