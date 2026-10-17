@@ -32,6 +32,20 @@ RSpec.describe Saboteur::Engine::Shard do
     expect { described_class.parse("one/two") }.to raise_error(Saboteur::ConfigError, /shard/)
   end
 
+  it "keys the inventory with the real mutation digest, source bytes included" do
+    real_subject = subjects_in("class Person\n  def adult? = @age >= 18\nend\n", name: "person.rb").first
+    at = real_subject.file_source.index(">=")
+    edit = Saboteur::MutationSource::Edit.new(file: real_subject.file, start_byte: at, end_byte: at + 2,
+                                              replacement: ">")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: real_subject.id, operator: "comparison",
+                                                      edits: [edit], coarse: false)
+    shard = described_class.parse("1/2")
+    shard.select([real_subject], [[[mutation, "mutated person.rb"]]])
+    digest = mutation.digest(subject_start: real_subject.start_byte,
+                             original_source: real_subject.file_source)
+    expect(shard.all_keys).to eq(["#{real_subject.id} #{digest}"])
+  end
+
   it "partitions the same planned inventory without overlap" do
     subjects = [subject("A#one"), subject("B#two")]
     lists = [candidates("a1", "a2", "a3"), candidates("b1", "b2")]
