@@ -1,9 +1,8 @@
 # Best practices
 
 How to adopt saboteur without it becoming noise. Everything here describes
-behavior available in the released v0.7.0 gem; it intentionally leaves out
-changes that are still unreleased on `main`. Check `saboteur --help` on your
-installed version before relying on a flag.
+shipped v0.7.0 behavior through main commit 6f510afa. Check `saboteur --help`
+on your installed version before relying on a flag.
 
 ## Start small
 
