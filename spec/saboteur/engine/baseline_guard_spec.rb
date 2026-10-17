@@ -331,7 +331,21 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     allow(supervisor).to receive(:run).and_return(response.with(exit_status: status))
     expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1.*Fix/m)
     allow(supervisor).to receive(:run).and_return(response.with(leftover_pids: [123]))
-    expect { guard.call }.to raise_error(Saboteur::Error, /the suite left child processes behind/)
+    expect { guard.call }.to raise_error(Saboteur::Error, /left 1 child process behind/)
+  end
+
+  it "names the leftover processes and skips the log excerpt, which cannot show them (#486)" do
+    # The log of a passing suite holds only RSpec output: quoting its
+    # "Failures:" anchor argues against the verdict, and it can never name
+    # the leaked processes. The refusal carries the supervisor's pre-kill
+    # notes instead.
+    noted = response.with(leftover_pids: [123, 124], leftover_notes: ["123 (ruby worker.rb)", "124 (sleep 30)"])
+    allow(supervisor).to receive(:run).and_return(noted)
+    expect { guard.call }.to raise_error(Saboteur::Error) do |error|
+      notes = "123 (ruby worker.rb), 124 (sleep 30)"
+      expect(error.message).to include("the suite passed but left 2 child processes behind: #{notes}")
+      expect(error.message).not_to include("The log says:")
+    end
   end
 
   it "refuses supervision stops, missing payloads, malformed payloads and adapter errors" do
