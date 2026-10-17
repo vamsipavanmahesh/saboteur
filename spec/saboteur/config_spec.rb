@@ -443,6 +443,23 @@ RSpec.describe Saboteur::Config, "details" do
     end
   end
 
+  # The allowed-mode guard pins both the rejection and the exact words: the
+  # CLI rejects bad modes, and a direct or file-loaded Config must too (#476).
+  it "rejects an unknown flaky_check mode with the allowed-modes message (#476)" do
+    expect { described_class.new({ "flaky_check" => "sometimes" }) }
+      .to raise_error(Saboteur::ConfigError, "flaky_check must be one of: off, survivors, decisive")
+
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.flaky_check = "sometimes" }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, "flaky_check must be one of: off, survivors, decisive")
+  end
+
+  it "accepts every documented flaky_check mode (#476)" do
+    %w[off survivors decisive].each do |mode|
+      expect(described_class.new({ "flaky_check" => mode })["flaky_check"]).to eq(mode)
+    end
+  end
+
   it "rejects a non-string test_command (#305 Architect)" do
     expect { described_class.new({ "test_command" => %w[make test] }) }
       .to raise_error(Saboteur::ConfigError, /test_command must be a string/)
