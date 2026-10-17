@@ -55,6 +55,17 @@ module Saboteur
         BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLER_SETUP BUNDLER_VERSION BUNDLE_APP_CONFIG
       ].freeze
 
+      # with_unbundled_env deletes the whole BUNDLE_* prefix, which also
+      # drops settings the SHELL exported - CI commonly exports
+      # BUNDLE_PATH (plus resolution knobs) without writing .bundle/config,
+      # and the child's bundler then cannot find the app's gems (#449).
+      # Re-add these only when they came from the pre-bundler environment
+      # (Bundler.original_env), never from bundler's own activation, and
+      # never the anchor keys above.
+      BUNDLER_PASSTHROUGH_KEYS = %w[
+        BUNDLE_PATH BUNDLE_WITHOUT BUNDLE_WITH BUNDLE_FROZEN BUNDLE_DEPLOYMENT
+      ].freeze
+
       # Bounded capture: only the last bytes of combined output are kept,
       # for preflight and error messages.
       OUTPUT_LIMIT = 64 * 1024
@@ -286,6 +297,10 @@ module Saboteur
       def child_env
         env = defined?(Bundler) ? Bundler.with_unbundled_env { ENV.to_h } : ENV.to_h
         BUNDLER_ANCHOR_KEYS.each { |key| env.delete(key) }
+        if defined?(Bundler)
+          original = Bundler.original_env
+          BUNDLER_PASSTHROUGH_KEYS.each { |key| env[key] = original[key] if original.key?(key) }
+        end
         if (rubyopt = env["RUBYOPT"])
           rubyopt = rubyopt.gsub(%r{\s*-rbundler/setup}, "").strip
           rubyopt.empty? ? env.delete("RUBYOPT") : env["RUBYOPT"] = rubyopt

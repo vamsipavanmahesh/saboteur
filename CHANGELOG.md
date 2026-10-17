@@ -13,6 +13,13 @@ All notable changes are documented here. The format follows
   unrelated classes each keep their own subjects: the singleton-side one is
   now named `Host.singleton_class::Widget#doubled`, so reports, `--subject`
   filters, ignore entries and the unchanged-syntax comparison can name it.
+- `--test-command` keeps env-exported bundler settings the child needs:
+  `Bundler.with_unbundled_env` strips every `BUNDLE_*` key, so a
+  shell-exported `BUNDLE_PATH` (common in CI without a `.bundle/config`)
+  left the child's bundler unable to find the app's gems and the run
+  failed at baseline (#449). Values present in the pre-bundler
+  environment are re-added; bundler-activated values and anchor keys
+  stay dropped.
 - `--test-command` no longer inherits bundler anchors (`BUNDLE_GEMFILE`,
   `BUNDLE_BIN_PATH`, `BUNDLER_SETUP`, ...) from a `bundle exec` parent or
   an exported shell environment (#435). The anchored child resolved the
