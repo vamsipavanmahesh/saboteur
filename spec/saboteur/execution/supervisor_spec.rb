@@ -311,6 +311,7 @@ RSpec.describe Saboteur::Execution::Supervisor do
     leftover = read_pid("daemon")
     expect(result.stopped_by).to be_nil
     expect(result.leftover_pids).to include(leftover)
+    expect(result.leftover_notes.join(" ")).to include(leftover.to_s).and include("sleep")
     expect(dead_within?(leftover, 3)).to be(true)
   end
 
