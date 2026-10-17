@@ -49,6 +49,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A non-Rails suite that connects ActiveRecord to sqlite `:memory:` and
+  loads its schema at require time no longer gets a bare "Could not find
+  table" baseline failure (#387): every forked child reconnects to a fresh,
+  empty in-memory database, so the child now detects that shape and the
+  refusal names the cause and the remedies - move schema setup to
+  `before(:suite)`, or load it in an `after_fork` hook (README recipe
+  added). The Rails integration's per-child snapshot is unchanged.
 - `saboteur run --test a_spec.rb b_spec.rb` refused: spec files in the source scope now fail as a
   usage error pointing at repeating `--test`, instead of a green run that mutates nothing; the
   `--since` "no subjects covering" warning names the misuse when every file is a spec file (#371).

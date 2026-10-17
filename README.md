@@ -1009,6 +1009,37 @@ Rails fixtures (`spec/fixtures`, `test/fixtures`), `db/structure.sql`,
 cache fingerprint automatically. Use `fingerprint_extra` for any other file your
 tests read.
 
+### sqlite :memory: outside Rails
+
+The Rails integration snapshots each in-memory database and restores it into
+every forked child. A plain gem suite gets no such snapshot: if it connects
+ActiveRecord to sqlite `:memory:` and loads its schema at require time (a
+common `spec/support/database.rb` shape), the schema lives only in the
+parent's connection. Every saboteur child is a fork, ActiveRecord's fork-safe
+pool reconnects there, and a fresh in-memory database is empty - the
+baseline fails with `Could not find table '...'` while plain rspec stays
+green. saboteur detects this shape in the child and the baseline refusal
+says so, with the two remedies:
+
+- Load the schema in a `before(:suite)` hook instead of at require time.
+  RSpec runs that hook in every child, the same way ransack's suite does it.
+- Or load it in an `after_fork` hook, which runs in each child after the
+  fork:
+
+  ```ruby
+  # config/saboteur.rb
+  Saboteur.configure do |c|
+    c.hooks = ["config/saboteur_hooks"]
+  end
+
+  # config/saboteur_hooks.rb
+  Saboteur.hook(:after_fork) do
+    load File.expand_path("../spec/internal/db/schema.rb", __dir__)
+  end
+  ```
+
+A file-backed sqlite database survives the fork and needs nothing.
+
 ### Load-time code, captured methods and Sorbet signatures
 
 Code that runs while the target boots, before tests run, cannot be checked by
