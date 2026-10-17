@@ -19,16 +19,20 @@ module Saboteur
       raise Error, diagnostic(e)
     end
 
+    # Never accuse a class the error did not name: with no backtrace frame
+    # the contract violation is only the usual cause, not a settled fact.
     def diagnostic(error)
       offenders = named_offenders(error)
       naming = if offenders.empty?
-                 "The offender could not be named from the error text."
+                 "The usual cause is a loaded class whose #hash violates Ruby's contract - #hash " \
+                   "must return an Integer - but the error text names no offender."
                else
-                 "Offending method: #{offenders.first(5).join(', ')}."
+                 "#{offenders.first(5).join(', ')} returned a non-Integer, violating Ruby's " \
+                   "contract that #hash must return an Integer."
                end
-      "Coverage.result raised TypeError (#{error.message}): a class loaded by the application " \
-        "violates Ruby's #hash contract - #hash must return an Integer - and Coverage's method " \
-        "report relies on it. This is a bug in the application's code, not in saboteur. #{naming}"
+      "Coverage.result raised TypeError (#{error.message}): Coverage's method report hashes every " \
+        "method owner and trusts the result. #{naming} This is a bug in the application's code, " \
+        "not in saboteur."
     end
 
     # Backtrace entries read "path:line:in 'Owner.hash'"; nothing here calls
