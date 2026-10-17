@@ -136,6 +136,56 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
     expect(err).to include("--mark-partial")
   end
 
+  it "badge and trend refuse an empty history with the exact empty-history message" do
+    File.write(@history, "")
+    code, _out, err = cli("badge", "--history", @history)
+    expect(code).to eq(3)
+    expect(err).to eq("saboteur: score history is empty - record it first by running saboteur " \
+                      "with c.score_history set\n")
+    code, _out, err = cli("trend", "--history", @history)
+    expect(code).to eq(3)
+    expect(err).to eq("saboteur: score history is empty - record it first by running saboteur " \
+                      "with c.score_history set\n")
+  end
+
+  it "badge and trend refuse without --history or c.score_history, with the exact usage message" do
+    Dir.chdir(@dir) do
+      code, _out, err = cli("badge")
+      expect(code).to eq(2)
+      expect(err).to eq("saboteur: no score history: pass --history PATH or set c.score_history\n")
+      code, _out, err = cli("trend")
+      expect(code).to eq(2)
+      expect(err).to eq("saboteur: no score history: pass --history PATH or set c.score_history\n")
+    end
+  end
+
+  it "badge and trend take the history path from c.score_history when --history is not passed" do
+    FileUtils.mkdir_p(File.join(@dir, "config"))
+    File.write(File.join(@dir, "config", "saboteur.rb"),
+               "Saboteur.configure { |c| c.score_history = 'history.jsonl' }\n")
+    append(result_for(:survived))
+    append(result_for(:killed, kill_cause: "assertion"))
+    Dir.chdir(@dir) do
+      code, out, = cli("badge")
+      expect(code).to eq(0)
+      expect(JSON.parse(out).fetch("message")).to eq("100.0%")
+      code, out, = cli("trend")
+      expect(code).to eq(0)
+      expect(out).to include("+100.00 percentage points")
+    end
+  end
+
+  it "trend does not diff a complete record that has no tested mutants" do
+    append(result_for(:survived))
+    append
+    latest = history_records.last
+    code, out, = cli("trend", "--history", @history)
+    expect(code).to eq(0)
+    expect(out).to include("#{latest['date']} aaaaaaaa no tested mutants\n")
+    expect(out).to include("score history: no comparable earlier record (different selection/inventory, " \
+                           "operator policy or an incomplete run)\n")
+  end
+
   it "trend prints the pair and the exact delta line for a comparable pair" do
     append(result_for(:survived))
     append(result_for(:killed, kill_cause: "assertion"))
