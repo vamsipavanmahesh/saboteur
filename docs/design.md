@@ -1,7 +1,9 @@
 # saboteur design
 
 Status: describes saboteur 0.3.x. Sections marked OPEN wait for a maintainer
-decision; open work is tracked in GitHub Issues.
+decision; open work is tracked in GitHub Issues. Main is much newer: treat
+the README (flags, exit codes, --agent mapping), docs/operators/ and
+docs/scores.md as authoritative where they disagree with a section here.
 
 ## 1. Goal
 
@@ -81,6 +83,11 @@ mutated bytes changes the id; that is deliberate (the ignore reason may no
 longer hold).
 
 ## 5. Operators (v1)
+
+Only the v1 set lives here. Everything shipped since - endpoint_replacement,
+range, operator_assignment, condition_negation, method_swap, operand_replacement,
+interpolation_removal, chain_removal, element_removal - is documented under
+docs/operators/.
 
 Coarse (run first per subject):
 - body -> `nil`
@@ -412,6 +419,10 @@ One interface (`Saboteur::Integration::Base`): `setup`, `all_tests`,
   Recipes for Sidekiq, WebMock, VCR in `docs/recipes/`.
 
 ## 10. Config, CLI, output
+
+This section predates exit 4 (--max-duration budget), the --max-timeouts/
+--max-errors quality gates and the pr/audit presets; the README documents
+the current flags, exit codes and --agent mapping.
 
 `config/saboteur.rb`, overridden by CLI flags:
 

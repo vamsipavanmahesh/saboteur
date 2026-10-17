@@ -22,10 +22,17 @@ jobs:
     # 1 vCPU is enough: one rspec process is single-threaded.
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
     timeout-minutes: 15
+    # Job level, not strategy level (#402 put it under strategy:, which is
+    # invalid there): a red 4.0 leg cannot fail the run's conclusion while
+    # the line proves itself; the gate's advisoryJobs does the verdict side.
+    continue-on-error: ${{ matrix.ruby == '4.0' }}
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.3", "3.4", "ruby"] # "ruby" = latest stable
+        # "4.0" pins the proving 4.0 line (today 4.0.7) so coverage does not
+        # end when "ruby" floats to 4.1; the panel gate treats these legs as
+        # advisory (policy.json advisoryJobs), so they never block a merge.
+        ruby: ["3.3", "3.4", "4.0", "ruby"] # "ruby" = latest stable
         # The full suite runs as 3 round-robin file shards per Ruby leg so
         # each parallel job stays short instead of one long leg per version.
         shard: [1, 2, 3]
@@ -37,8 +44,9 @@ jobs:
           bundler-cache: true
       - run: script/rspec-shard ${{ matrix.shard }} 3
 
-  # macOS legs run on the owner's self-hosted Mac (three runner instances
-  # labelled saboteur-mac). Self-hosted runners never execute fork code:
+  # macOS legs run on the owner's self-hosted Mac (a pool of runner
+  # instances labelled saboteur-mac on one machine, sized to the hardware).
+  # Self-hosted runners never execute fork code:
   # fork pull requests skip these legs entirely (the Linux legs still cover
   # them), and the repository additionally requires approval for all external
   # contributors before any fork workflow runs. Pull requests run the smallest
@@ -51,8 +59,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       fail-fast: false
-      # Three physical runner instances, so at most three legs at once.
-      max-parallel: 3
       # (No spaces after the JSON colons: a colon+space would break the YAML
       # plain scalar. The matrix itself is normal JSON.)
       matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
@@ -71,7 +77,7 @@ jobs:
           # Remove it. The shared bundler cache, the toolcache and stray
           # processes stay untouched on purpose: the cache is a speed
           # trade-off for a separate decision, and a process pattern cannot
-          # tell this runner instance's children from the other two
+          # tell this runner instance's children from the sibling
           # instances' on the same machine.
           git clean -ffdx
 

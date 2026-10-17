@@ -39,9 +39,3 @@ produce crash kills. This family is not proof of real-fault detection, and we
 make no speed or score-improvement claim. Empty inputs can make a replacement
 behavior-equivalent; it still runs under the existing policy. The bang methods
 can also differ in their return value when no change is made.
-
-## Deferred candidates
-
-`first` / `last` remains a roadmap candidate. The bug-fix search found database
-ordering and tie-breaking changes, rather than strong direct-swap evidence.
-Adding that family needs its own fault rationale and negative specs.
