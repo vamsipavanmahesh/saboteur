@@ -26,6 +26,9 @@ All notable changes are documented here. The format follows
   construction. The last statement of a body and calls nested inside an
   expression stay swappable, as does any call on a lazy receiver:
   lazy.map defers its block, so the swap is not equivalent there (#431).
+  The discard analysis now recurses through branch tails: an each/map call
+  that is the last expression of a discarded if/elsif/else/unless/case/when
+  branch, begin/rescue body, or while/until body is suppressed too (#440).
 
 - The rerun and replay commands in the Next steps footer and the agent
   protocol leave out an empty `--operators` or `--exclude-operators` list

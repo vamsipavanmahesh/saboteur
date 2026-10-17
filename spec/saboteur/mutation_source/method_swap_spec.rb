@@ -117,4 +117,91 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
       expect(replacements("xs.min { |x| x }\n    xs.sum")).not_to be_empty
     end
   end
+
+  # A branch's value is the value of its last statement, so when the branch
+  # container's own value is discarded, each/map calls in that tail position
+  # are discard-equivalent too. Propagate the discarded-value context through
+  # branch bodies (#440), while any call whose value flows into a condition,
+  # receiver, block result, or control-flow argument stays swappable.
+  describe "branch-tail each/map swap suppression (#440)" do
+    it "does not swap each as the tail of a discarded if branch" do
+      expect(replacements("if ready?\n      xs.each { |x| log(x) }\n    end\n    xs.sum")).to be_empty
+    end
+
+    it "does not swap map as the tail of a discarded else branch" do
+      expect(replacements(
+               "if ready?\n      log(:a)\n    else\n      xs.map { |x| log(x) }\n    end\n    xs.sum"
+             )).to be_empty
+    end
+
+    it "does not swap each as the tail of a discarded elsif branch" do
+      expect(replacements(
+               "if ready?\n      log(:a)\n    elsif other?\n      xs.each { |x| log(x) }\n    end\n    xs.sum"
+             )).to be_empty
+    end
+
+    it "does not swap each as the tail of a discarded when branch" do
+      expect(replacements("case tag\n    when :a\n      xs.each { |x| log(x) }\n    end\n    xs.sum")).to be_empty
+    end
+
+    it "does not swap map as the tail of a discarded case else branch" do
+      expect(replacements(
+               "case tag\n    when :a\n      log(:a)\n    else\n      xs.map { |x| log(x) }\n    end\n    xs.sum"
+             )).to be_empty
+    end
+
+    it "does not swap each as the body of a discarded modifier if" do
+      expect(replacements("xs.each { |x| log(x) } if ready?\n    xs.sum")).to be_empty
+    end
+
+    it "does not swap each inside a discarded while body: the loop value never observes it" do
+      expect(replacements("while ready?\n      xs.each { |x| log(x) }\n    end")).to be_empty
+    end
+
+    it "does not swap each/map as branch tails of a discarded begin/rescue" do
+      body = [
+        "begin",
+        "  xs.each { |x| log(x) }",
+        "rescue StandardError",
+        "  ys.map { |y| y }",
+        "end",
+        "xs.sum"
+      ].join("\n    ")
+      expect(replacements(body)).to be_empty
+    end
+
+    it "does not swap each as the tail of nested discarded branches" do
+      expect(replacements(
+               "if ready?\n      if other?\n        xs.each { |x| log(x) }\n      end\n    end\n    xs.sum"
+             )).to be_empty
+    end
+
+    it "still swaps each in a discarded if's predicate: the value selects the branch" do
+      expect(replacements("if xs.each { |x| x }\n      log(:a)\n    end\n    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps each as a block result in a discarded statement" do
+      expect(replacements("run { xs.each { |x| x } }\n    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps each as a receiver in a discarded statement" do
+      expect(replacements("xs.each { |x| x }.sum\n    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps each as a return argument inside a discarded branch" do
+      expect(replacements("if ready?\n      return xs.each { |x| x }\n    end\n    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps each as a break argument inside a while body" do
+      expect(replacements("while ready?\n      break xs.each { |x| x }\n    end")).not_to be_empty
+    end
+
+    it "still swaps each as the branch tail when the if's value is used" do
+      expect(replacements("if ready?\n      xs.each { |x| log(x) }\n    end")).not_to be_empty
+    end
+
+    it "still swaps map in a discarded branch tail on a lazy receiver (#431)" do
+      expect(replacements("if ready?\n      xs.lazy.map { |x| x }.force\n    end\n    xs.sum")).not_to be_empty
+    end
+  end
 end
