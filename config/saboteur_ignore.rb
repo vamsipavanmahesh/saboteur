@@ -27,10 +27,27 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk_heredoc_eval",
              reason: "equivalent for the current consumers only: subjects take file, source and offsets from ctx[:file] and the failure path returns silently; the dropped filepath does change AST metadata (a def with __FILE__ reads differently), which no current lib consumer reads"
 
-  i.mutation "8387aa82e7a9b074",
-             subject: "Saboteur::Engine::TestGuess#expand_mapped",
-             reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
-                     "sees existing literals without glob metacharacters, and Dir.glob of such a path returns exactly it"
+  i.mutation "37df0d8bc4fe17cb",
+             subject: "Saboteur::Config#validate_score_gates!",
+             reason: "equivalent: the each result is discarded (the next statement is an assignment), and map runs the " \
+                     "same block with the same next and raise"
+
+  i.mutation "b815e12e983b69f8",
+             subject: "Saboteur::ConfigFile::Settings#score_gate",
+             reason: "equivalent: caller_locations(1, 2).first is the same frame as caller_locations(1, 1).first"
+
+  i.mutation "44f2824301440254",
+             subject: "Saboteur::ConfigFile::Settings#score_gate",
+             reason: "equivalent: dropping the first argument leaves caller_locations(1), whose first frame is the same " \
+                     "caller frame that .first reads"
+
+  i.mutation "ee83c7a2358752c9",
+             subject: "Saboteur::ConfigFile::Settings#score_gate",
+             reason: "equivalent: dropping the length leaves caller_locations(1), whose first frame is the same frame .first reads"
+
+  i.mutation "6ffd383fed3956f2",
+             subject: "Saboteur::ConfigFile::Settings#score_gate",
+             reason: "equivalent: caller_locations(1, 1) holds one frame, so first and last are the same frame"
 
   i.mutation "bb377adb7ae9ce54",
              subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
