@@ -149,6 +149,13 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- guess-tests now tries the flattened spec root and a `spec/unit/` prefix
+  after the mirrored guesses: `lib/pundit/policy_finder.rb` finds
+  `spec/policy_finder_spec.rb` and `lib/aasm/base.rb` finds
+  `spec/unit/base_spec.rb`, so `--subject` and `--since` stop hard-stopping
+  on pundit, aasm and shoulda-matchers style layouts (#394, #370, #393).
+
+
 - Methods defined in the four core class factories (`X = Data.define(...)`,
   `Struct.new`, `Class.new`, `Module.new` with a block) are mutation
   subjects instead of skipped subjects (#290): the finder names the

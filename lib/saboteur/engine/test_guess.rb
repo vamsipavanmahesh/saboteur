@@ -358,7 +358,20 @@ module Saboteur
         # spec/acts_as_taggable_on/x_spec.rb. The literal name still wins
         # when both exist (#383).
         names = names.flat_map { |name| [name, name.tr("-", "_")] }.uniq
+        names = layout_variants(names) if rooted
         names.map { |name| "#{spec_root}/#{name}_spec.rb" }
+      end
+
+      # Layouts that mirror less of the source path, after every mirrored
+      # guess (#394): a spec/unit/ prefix (shoulda-matchers mirrors below
+      # it, #393), the basename at the spec root (pundit), and both
+      # together (aasm, #370). Weaker guesses come last: the first
+      # candidate that exists wins. A file outside the source roots
+      # keeps its literal guess only: dropping directories from a path
+      # the roots never anchored would guess any same-named spec.
+      def layout_variants(names)
+        flat = names.map { |name| name.split("/").last }.uniq
+        (names + names.map { |name| "unit/#{name}" } + flat + flat.map { |name| "unit/#{name}" }).uniq
       end
 
       # Rails tests controllers as request specs: spec/requests/users_spec.rb
