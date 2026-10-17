@@ -4,11 +4,12 @@
 module Saboteur
   # Every Coverage.result read goes through here. With the methods report
   # on, the C call hashes each method owner and trusts the return type, so
-  # a loaded class whose singleton `hash` does not return an Integer
-  # (forem's ReactionCategory, #564) makes every read raise TypeError -
-  # a "please report it" crash for an app bug the run cannot outlive.
-  # Refuse instead, naming any singleton `hash` override among the loaded
-  # classes so the app author finds it at once.
+  # a loaded class whose `hash` does not return an Integer (forem's
+  # ReactionCategory, #564) makes every read raise TypeError - a "please
+  # report it" crash for what is a bug in the application's code. Refuse
+  # instead. The handler must not run app code (an ObjectSpace scan would
+  # call #hash/#name on hostile classes), so offender names come only from
+  # the error's own backtrace text.
   module CoverageReads
     module_function
 
@@ -19,29 +20,21 @@ module Saboteur
     end
 
     def diagnostic(error)
-      violators = hash_contract_violators
-      cause = if violators.empty?
-                "no singleton `hash` override found among the loaded classes - please report it"
-              else
-                "classes overriding the singleton `hash` contract: #{violators.first(5).join(', ')}"
-              end
-      "Coverage.result raised TypeError (#{error.message}): with method coverage on, Coverage hashes " \
-        "every method owner, so a class defining a singleton `hash` that does not return an Integer " \
-        "breaks the run; #{cause}. Restore the Integer contract or rename the method."
+      offenders = named_offenders(error)
+      naming = if offenders.empty?
+                 "The offender could not be named from the error text."
+               else
+                 "Offending method: #{offenders.first(5).join(', ')}."
+               end
+      "Coverage.result raised TypeError (#{error.message}): a class loaded by the application " \
+        "violates Ruby's #hash contract - #hash must return an Integer - and Coverage's method " \
+        "report relies on it. This is a bug in the application's code, not in saboteur. #{naming}"
     end
 
-    # Classes and modules whose #hash does not come from the default
-    # implementation. The default's owner differs by ruby, so anything not
-    # owned by Object or Kernel counts as an override.
-    def hash_contract_violators
-      ObjectSpace.each_object(Module).filter_map do |mod|
-        next unless mod.name
-
-        owner = mod.singleton_class.instance_method(:hash).owner
-        next if [Object, Kernel].include?(owner)
-
-        "#{mod.name}.hash"
-      end.uniq.sort
+    # Backtrace entries read "path:line:in 'Owner.hash'"; nothing here calls
+    # application methods.
+    def named_offenders(error)
+      Array(error.backtrace).filter_map { |line| line[/in '([\w:.#]*hash)'/, 1] }.uniq
     end
   end
 end
