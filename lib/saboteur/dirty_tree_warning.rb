@@ -25,7 +25,7 @@ module Saboteur
     # unknown tree.
     def self.for(config, config_path:, gemfile: ENV.fetch("BUNDLE_GEMFILE", nil))
       state = WorkingTree.new(config.root, ignored: config.output_paths).state
-      new(state, include: config["include"], exclude: config["exclude"],
+      new(state, include: config["include"], exclude: config["exclude"], root: config.root,
                  setup_files: setup_files(config.root, config_path: config_path, gemfile: gemfile)).to_s
     end
 
@@ -41,10 +41,22 @@ module Saboteur
       files.select { |file| file.start_with?(prefix) }.map { |file| file.delete_prefix(prefix) }
     end
 
-    def initialize(state, include:, exclude:, setup_files:)
+    # git status paths are relative to the root, so the patterns are too:
+    # Dir.glob accepts a leading ./ or an absolute path under the root and
+    # File.fnmatch? does not, and the warning must agree with
+    # Config#included_files about what is inside the scope (#503 review).
+    def self.relative_patterns(patterns, root)
+      prefix = File.join(root, "")
+      patterns.map do |pattern|
+        expanded = File.expand_path(pattern, root)
+        expanded.start_with?(prefix) ? expanded.delete_prefix(prefix) : pattern
+      end
+    end
+
+    def initialize(state, include:, exclude:, setup_files:, root:)
       @state = state
-      @include = include
-      @exclude = exclude
+      @include = self.class.relative_patterns(include, root)
+      @exclude = self.class.relative_patterns(exclude, root)
       @setup_files = setup_files
     end
 

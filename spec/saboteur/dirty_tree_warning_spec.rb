@@ -11,13 +11,16 @@ RSpec.describe Saboteur::DirtyTreeWarning do
                                      changes: changes)
   end
 
-  def warning(*changes, include: ["lib/**/*.rb"], exclude: [], setup_files: ["config/saboteur.rb"])
-    described_class.new(state(*changes), include: include, exclude: exclude, setup_files: setup_files).to_s
+  def warning(*changes, include: ["lib/**/*.rb"], exclude: [], setup_files: ["config/saboteur.rb"],
+              root: Dir.pwd)
+    described_class.new(state(*changes), include: include, exclude: exclude, setup_files: setup_files,
+                                         root: root).to_s
   end
 
   it "says nothing on a clean or unknown tree" do
     expect(warning).to be_nil
-    unknown = described_class.new(Saboteur::WorkingTree::UNKNOWN, include: [], exclude: [], setup_files: [])
+    unknown = described_class.new(Saboteur::WorkingTree::UNKNOWN, include: [], exclude: [], setup_files: [],
+                                                                  root: Dir.pwd)
     expect(unknown.to_s).to be_nil
   end
 
@@ -55,6 +58,21 @@ RSpec.describe Saboteur::DirtyTreeWarning do
 
     expect(text).to include("inside the mutation scope: lib/f0.rb, lib/f1.rb, lib/f2.rb, lib/f3.rb, lib/f4.rb " \
                             "and 2 more\n")
+  end
+
+  it "matches a leading ./ include and an absolute include under the root (#503 review)" do
+    dot = warning(change("lib/a.rb"), include: ["./lib/**/*.rb"])
+    absolute = warning(change("lib/a.rb"), include: [File.join(Dir.pwd, "lib/**/*.rb")])
+
+    [dot, absolute].each do |text|
+      expect(text).to include("1 inside the mutation scope (1 tracked, 0 untracked)")
+    end
+  end
+
+  it "does not match an absolute include outside the root" do
+    text = warning(change("lib/a.rb"), include: ["/elsewhere/lib/**/*.rb"])
+
+    expect(text).to include("none inside the mutation scope, 1 outside it")
   end
 
   it "leaves an excluded file and a non-Ruby file under include outside the scope" do
