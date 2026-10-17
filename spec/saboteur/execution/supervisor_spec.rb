@@ -389,6 +389,25 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect(dead_within?(read_pid("spinner"), 6)).to be(true)
   end
 
+  it "kills a sleeping orphan it never saw, not just a spinning one (#365)" do
+    # Same escape as the CPU-bound orphan above - setsid, intermediate
+    # exits before the first poll - but a sleeper burns no CPU, so only the
+    # marker sweep can end it. Linux only: the sweep reads /proc/*/environ.
+    skip "needs /proc/*/environ" unless Saboteur::Execution::MarkerSweep.available?
+    result = supervisor.run(timeout: 5) do
+      fork do
+        Process.setsid
+        fork do
+          File.write(pid_file("sleeper"), Process.pid.to_s)
+          sleep 30
+        end
+        exit!(0)
+      end
+    end
+    expect(result.leftover_pids).to include(read_pid("sleeper"))
+    expect(dead_within?(read_pid("sleeper"), 3)).to be(true)
+  end
+
   describe "when the supervising process goes away" do
     let(:script) do
       <<~RUBY
