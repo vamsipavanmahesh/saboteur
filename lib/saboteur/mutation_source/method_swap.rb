@@ -82,19 +82,16 @@ module Saboteur
       end
 
       def visit_else(node, subject, found)
-        mutate_node(node, subject, found)
         visit(node.statements, subject, found)
       end
 
       # An ensure body's value never contributes to the result, so it is
       # always a discarded-value position (#440).
       def visit_ensure(node, subject, found)
-        mutate_node(node, subject, found)
         discarded { visit(node.statements, subject, found) }
       end
 
       def visit_in(node, subject, found)
-        mutate_node(node, subject, found)
         used { visit(node.pattern, subject, found) }
         visit(node.statements, subject, found)
       end
@@ -110,27 +107,23 @@ module Saboteur
       # Branch bodies inherit the discard context; the predicate's value
       # selects the branch, so it is always used (#440).
       def visit_branch(node, subject, found, else_reader)
-        mutate_node(node, subject, found)
         used { visit(node.predicate, subject, found) }
         visit(node.statements, subject, found)
         visit(node.public_send(else_reader), subject, found)
       end
 
       def visit_case(node, subject, found)
-        mutate_node(node, subject, found)
         used { visit(node.predicate, subject, found) }
         node.conditions.each { |condition| visit(condition, subject, found) }
         visit(node.else_clause, subject, found)
       end
 
       def visit_when(node, subject, found)
-        mutate_node(node, subject, found)
         node.conditions.each { |condition| used { visit(condition, subject, found) } }
         visit(node.statements, subject, found)
       end
 
       def visit_begin(node, subject, found)
-        mutate_node(node, subject, found)
         visit(node.statements, subject, found)
         visit(node.rescue_clause, subject, found)
         visit(node.else_clause, subject, found)
@@ -138,7 +131,6 @@ module Saboteur
       end
 
       def visit_rescue(node, subject, found)
-        mutate_node(node, subject, found)
         node.exceptions.each { |exception| used { visit(exception, subject, found) } }
         visit(node.statements, subject, found)
         visit(node.subsequent, subject, found)
@@ -147,7 +139,6 @@ module Saboteur
       # A loop's value never observes its body, so the body is always a
       # discarded-value position (#440).
       def visit_loop(node, subject, found)
-        mutate_node(node, subject, found)
         used { visit(node.predicate, subject, found) }
         discarded { visit(node.statements, subject, found) }
       end

@@ -249,4 +249,66 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
       expect(replacements("if ready?\n      xs.lazy.map { |x| x }.force\n    end\n    xs.sum")).not_to be_empty
     end
   end
+
+  # Positions that carry a value stay swappable. Each case names the
+  # position (swap kept) and, where it differs, the discarded counterpart.
+  describe "swaps kept in used positions of every container node" do
+    def swapped_count(body)
+      replacements(body).size
+    end
+
+    it "keeps a swap in a when body, a when condition and a case else body" do
+      expect(swapped_count("case tag\n    when :a\n      xs.min\n    end")).to eq(1)
+      expect(swapped_count("case tag\n    when xs.min\n      log(:a)\n    end")).to eq(1)
+      expect(swapped_count("case tag\n    when :a\n      log(:a)\n    else\n      xs.min\n    end")).to eq(1)
+    end
+
+    it "keeps a swap in an in body, an in pattern and a case/in else body" do
+      expect(swapped_count("case tag\n    in Array\n      xs.min\n    end")).to eq(1)
+      expect(swapped_count("case tag\n    in ^(xs.min)\n      log(:a)\n    end")).to eq(1)
+      expect(swapped_count("case tag\n    in Array\n      log(:a)\n    else\n      xs.min\n    end")).to eq(1)
+    end
+
+    it "keeps an each swap in a case when condition even when the case is discarded" do
+      expect(swapped_count("case tag\n    when xs.each { |x| x }\n      log(:a)\n    end\n    xs.sum")).to eq(1)
+    end
+
+    it "keeps an each swap in a case/in pattern even when the case is discarded" do
+      expect(swapped_count("case tag\n    in ^(xs.each { |x| x })\n      log(:a)\n    end\n    xs.sum")).to eq(1)
+    end
+
+    it "keeps a swap in each part of begin: body, rescue body and begin else body" do
+      expect(swapped_count("begin\n      xs.min\n    rescue\n      log(:a)\n    end")).to eq(1)
+      expect(swapped_count("begin\n      log(:a)\n    rescue\n      xs.min\n    end")).to eq(1)
+      expect(swapped_count("begin\n      log(:a)\n    rescue\n      log(:b)\n    else\n      xs.min\n    end"))
+        .to eq(1)
+    end
+
+    it "keeps a swap in a rescue exception list and in a later rescue clause" do
+      expect(swapped_count("begin\n      log(:a)\n    rescue xs.min\n      log(:b)\n    end")).to eq(1)
+      expect(swapped_count("begin\n      log(:a)\n    rescue ArgumentError\n      log(:b)\n    " \
+                           "rescue TypeError\n      xs.min\n    end")).to eq(1)
+    end
+
+    it "keeps an each swap in a rescue exception list inside a discarded begin" do
+      body = "begin\n      log(:a)\n    rescue xs.each { |x| x }\n      log(:b)\n    end\n    xs.sum"
+      expect(swapped_count(body)).to eq(1)
+    end
+
+    it "keeps a swap in a while predicate: its value decides whether the loop runs" do
+      expect(swapped_count("while xs.any? { |x| x }\n      log(:a)\n    end")).to eq(1)
+      expect(swapped_count("while xs.each { |x| x }\n      log(:a)\n    end\n    xs.sum")).to eq(1)
+    end
+
+    it "keeps an each swap that follows a discarded statement: discard state does not leak" do
+      expect(replacements("xs.each { |x| log(x) }\n    ys.each { |y| y }"))
+        .to eq(["def pick(xs)\n    xs.each { |x| log(x) }\n    ys.map { |y| y }\n  end"])
+    end
+
+    it "keeps an each swap after a nested discarded statement closes" do
+      body = "if ready?\n      xs.each { |x| log(x) }\n      log(:a)\n    end\n    ys.each { |y| y }"
+      expect(replacements(body)).to eq(["def pick(xs)\n    if ready?\n      xs.each { |x| log(x) }\n      " \
+                                        "log(:a)\n    end\n    ys.map { |y| y }\n  end"])
+    end
+  end
 end
