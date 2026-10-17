@@ -74,7 +74,21 @@ module Saboteur
 
     # Stale entries and duplicate literals never fail a run; they warn so the
     # map does not rot silently. doctor fails on stale keys.
-    def load_custom_map = @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
+    def test_guess = TestGuess.new(config, diagnostics: @diagnostics, custom_map: load_custom_map)
+
+    # Name the files needing no spec, stop on spec-less files, then say
+    # which specs the run scopes to (or why nothing mutates).
+    def announce_guess(guess)
+      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
+      inform_skipped_specs(guess)
+      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
+
+      @diagnostics.announce(selection_message(guess))
+    end
+
+    def load_custom_map
+      @load_custom_map ||= @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
+    end
 
     def custom_map_warnings(map)
       path = config.path("custom_map")
@@ -103,7 +117,8 @@ module Saboteur
       subjects = config["subjects"]
       return select_subject_tests(subjects) if subjects.any?
 
-      guess = TestGuess.new(config, diagnostics: @diagnostics).call
+      guess = test_guess.call
+      @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
       @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
       inform_skipped_specs(guess)
       stop_or_warn_unmapped(guess)
@@ -118,7 +133,7 @@ module Saboteur
     # unchanged, comment-only or otherwise pruned subject needs no spec.
     def select_subject_tests(patterns)
       files = SubjectSelection.files_matching(@root, config.included_files, patterns, config)
-      guess = TestGuess.new(config, diagnostics: @diagnostics).call_for(files, patterns)
+      guess = test_guess.call_for(files, patterns)
       # No file in scope: the subjects are unknown (named later, in
       # selection) or --since left every named subject outside the diff, so
       # the run has nothing to mutate and needs no inferred spec.
@@ -126,6 +141,11 @@ module Saboteur
 
       inform_skipped_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
+
+      @diagnostics.inform(guess.excluded_message) if guess.excluded.any?
+      # Every file in scope intentionally untested: mutate nothing. An
+      # empty guess must never read as "run the whole suite" (#369).
+      return if guess.specs.empty?
 
       @diagnostics.announce(scope_to_guesses(guess))
     end
@@ -142,21 +162,14 @@ module Saboteur
 
     # A spec file the diff touched that cannot run is named, also before a
     # stop on an unmatched file: --test, the way out, never reads the diff.
-    def inform_skipped_specs(guess)
-      @diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?
-    end
+    def inform_skipped_specs(guess) = (@diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?)
 
     def selection_message(guess)
       if guess.changed.zero?
         target = config["since"] ? "no changed source file" : "no source file"
         "inferred specs: #{target} to infer a spec for, so the whole suite runs"
       elsif guess.specs.empty?
-        if config["since"]
-          "inferred specs: no changed file has a mutation subject on its changed lines, " \
-            "so there is nothing to mutate"
-        else
-          "inferred specs: no source file has a mutation subject, so there is nothing to mutate"
-        end
+        guess.no_specs_message(since: config["since"])
       else
         scope_to_guesses(guess)
       end
@@ -180,9 +193,7 @@ module Saboteur
     end
 
     # The run's immutable report, built once the last result is in.
-    def announce_operators
-      @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
-    end
+    def announce_operators = @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
 
     def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
@@ -208,7 +219,8 @@ module Saboteur
     # The subjects to mutate and, in diff mode, the scope of changed lines.
     def select_subjects(files, test_files: nil)
       config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
-      selection = SubjectSelection.new(config, @diagnostics, test_files: test_files)
+      selection = SubjectSelection.new(config, @diagnostics,
+                                       test_files: test_files, custom_map: load_custom_map)
       subjects = selection.select(files)
       scope = selection.behavior_lines && DiffScope.new(selection.behavior_lines)
       return replay_subject(subjects, scope) if @replay
@@ -225,7 +237,7 @@ module Saboteur
 
       map = store.fetch(files)
       inform_about_run(subjects, map)
-      cache = result_cache
+      cache = result_cache(map, files)
       scheduler = scheduler_for(map, integration, cache)
       lists = candidate_lists(subjects, scope, map)
       work = subjects.zip(lists).reject { |_, list| list.empty? }
@@ -328,14 +340,25 @@ module Saboteur
       @sandbox_policy.hook
     end
 
-    def result_cache
+    # The dependency universe a cached verdict watches when coverage
+    # cannot speak: every project file the booted process loaded, plus
+    # the run's own files (#344).
+    def source_files(files, prefixes: Selection::CoverageMap.root_prefixes(config.root))
+      $LOADED_FEATURES.filter_map do |file|
+        path = Text.utf8_strict(Saboteur::Selection::CoverageMap.canonical(file))
+        path if path.end_with?(".rb") && prefixes.any? { |prefix| path.start_with?(prefix) }
+      end | files
+    end
+
+    def result_cache(map = nil, files = [])
       return nil if @replay
       return nil unless config["incremental"]
 
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }
                                             .merge("operator_policy" => config.operator_policy))
       ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
-                      suite_digest: SuiteFiles.new(config).digest)
+                      suite_digest: SuiteFiles.new(config).digest,
+                      coverage: map, fallback_files: source_files(files))
     end
 
     # A cleanup failure must never mask the run's own outcome - not even
@@ -355,11 +378,7 @@ module Saboteur
     # Each subject's candidates, narrowed to changed lines in diff mode.
     # The hazard guard is off only when the user explicitly asks for the
     # dangerous mutants (issue #102); the canary then still watches the tree.
-    def hazard_guard
-      return nil if config["allow_hazardous"]
-
-      MutationSource::HazardGuard.new(config["hazard"])
-    end
+    def hazard_guard = (MutationSource::HazardGuard.new(config["hazard"]) unless config["allow_hazardous"])
 
     # Checks the tree after each subject's mutants; a vanished file means a
     # mutant deleted it, so abort with the most recent mutant's digest.
