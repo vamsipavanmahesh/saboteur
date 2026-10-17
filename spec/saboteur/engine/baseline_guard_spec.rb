@@ -75,8 +75,8 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
                         full_passes: 3).call
     expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
-    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 2 full passes " \
-                                  "at that rate")
+    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 1 full pass " \
+                                  "and the coverage map build")
   end
 
   it "announces three or more passes in the plural with the seed (#245)" do
@@ -88,18 +88,7 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect(err.string).to include("checking the unchanged suite 3 times (seed 42)")
   end
 
-  it "announces the single remaining pass in the singular" do
-    err = StringIO.new
-    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
-    allow(supervisor).to receive(:run).and_return(response)
-    described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
-                        full_passes: 2).call
-    expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the remaining 1 full pass " \
-                                  "at that rate")
-  end
-
-  it "names the coverage map build as the remaining pass once the baseline is done (#465)" do
+  it "names the coverage map build when it is the only pass left after baseline_passes 1 (#465)" do
     single = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 1 }, root: @root)
     err = StringIO.new
     allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
@@ -107,8 +96,18 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     described_class.new(config: single, integration: integration, hooks: Saboteur::Hooks.new,
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
                         full_passes: 2).call
-    expect(err.string).to include("baseline check 1 took 5 s; the baseline is done, " \
-                                  "the remaining full pass is the coverage map build (about 5 s at that rate)")
+    expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the coverage map build at that rate")
+    expect(err.string).not_to include("remaining 1 full pass")
+  end
+
+  it "announces the single remaining pass in the singular" do
+    err = StringIO.new
+    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        full_passes: 2).call
+    expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the remaining 1 full pass")
   end
 
   it "says nothing when the baseline passes are all the passes there are" do
