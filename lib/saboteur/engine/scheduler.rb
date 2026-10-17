@@ -225,7 +225,7 @@ module Saboteur
         outcome = @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: timeout,
                               mutation: mutation, eval_prefix: eval_prefix(plan))
         outcome = calibrate(plan, mutation, text, tests, timeout) if outcome.status == :timeout
-        flaky_check(plan, mutation, text, tests, timeout, outcome)
+        flaky_check(plan, mutation, text, tests, outcome)
       end
 
       # --flaky-check (#476): one reordered confirmation run per decisive
@@ -233,9 +233,11 @@ module Saboteur
       # never cached - not "rerun until it passes". A reused verdict is
       # already trusted evidence and never reaches here. A budget-cut
       # outcome is already unverified and earns no second fork.
-      def flaky_check(plan, mutation, text, tests, timeout, outcome)
+      def flaky_check(plan, mutation, text, tests, outcome)
         return outcome unless flaky_checkable?(outcome)
         return outcome if budget_spent?
+
+        timeout = timeout_for(tests, plan.slowdown)
 
         rerun = @runner.run(subject: plan.subject, text: text, test_ids: reordered(tests),
                             timeout: timeout, mutation: mutation, eval_prefix: eval_prefix(plan))
@@ -264,7 +266,8 @@ module Saboteur
       def flaky_message(outcome, rerun)
         decisive = (outcome.failed_ids | rerun.failed_ids).first(3)
         named = decisive.empty? ? "" : " (decisive tests: #{decisive.join(', ')})"
-        "flaky verdict: first #{outcome.status}, then #{rerun.status} on a reordered confirmation "           "run#{named} - the mutant is unverified, not #{outcome.status}"
+        "flaky verdict: first #{outcome.status}, then #{rerun.status} on a reordered confirmation " \
+          "run#{named} - the mutant is unverified, not #{outcome.status}"
       end
 
       # Each mutant is checked separately: changing a body can change which

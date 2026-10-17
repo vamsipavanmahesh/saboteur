@@ -58,9 +58,8 @@ RSpec.describe Saboteur::Engine::Scheduler, "flaky check (#476)" do
   end
 
   it "keeps a survivor the confirmation run agrees with" do
-    results = scheduler("survivors").tap {
-      allow(runner).to receive(:run).and_return(outcome(:survived))
-    }.call(subject_under_test, candidates.for(subject_under_test))
+    allow(runner).to receive(:run).and_return(outcome(:survived))
+    results = scheduler("survivors").call(subject_under_test, candidates.for(subject_under_test))
     expect(results.map(&:status).uniq).to eq([:survived])
   end
 

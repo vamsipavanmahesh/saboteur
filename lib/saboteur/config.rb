@@ -289,7 +289,8 @@ module Saboteur
       raise ConfigError, "test_command cannot be combined with tests" unless self["tests"].empty?
       raise ConfigError, "test_command cannot be combined with incremental" if self["incremental"]
       unless self["flaky_check"] == "off"
-        raise ConfigError, "test_command cannot be combined with flaky_check: an external run has no "                            "in-process scheduler to rerun the decisive tests through"
+        raise ConfigError, "test_command cannot be combined with flaky_check: an external run has no " \
+                           "in-process scheduler to rerun the decisive tests through"
       end
       return unless self["sandbox"] == "strict"
 
