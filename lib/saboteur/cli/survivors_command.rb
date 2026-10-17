@@ -30,7 +30,8 @@ module Saboteur
         end
         options = {}
         args = parser.parse!(@argv, into: options)
-        path = args.shift or raise UsageError, "survivors expects a report path: saboteur survivors .saboteur/report.json"
+        path = args.shift or raise UsageError,
+                                   "survivors expects a report path: saboteur survivors .saboteur/report.json"
         raise UsageError, "unexpected arguments: #{args.join(' ')}" if args.any?
 
         report = load_survivor_report(path)
@@ -47,8 +48,8 @@ module Saboteur
         raise UsageError, "report not found: #{path}" unless File.file?(path)
 
         JSON.parse(File.read(path))
-        rescue JSON::ParserError => e
-          raise UsageError, "#{path} is not a readable saboteur report: #{e.message}"
+      rescue JSON::ParserError => e
+        raise UsageError, "#{path} is not a readable saboteur report: #{e.message}"
       end
     end
 
@@ -57,25 +58,15 @@ module Saboteur
     class SurvivorsBrowser
       def initialize(report)
         @report = report
-        @findings = (report.dig("saboteur", "findings") || {})
+        @findings = report.dig("saboteur", "findings") || {}
       end
 
       def list(ranked: false, file: nil, operator: nil, triage: nil)
-        survivors = all_survivors
-        survivors = survivors.select { |s| s[:path].include?(file) } if file
-        survivors = survivors.select { |s| s[:operator] == operator } if operator
-        survivors = survivors.select { |s| s[:classification] == triage } if triage
+        survivors = filtered(file, operator, triage)
         survivors = ranked_order(survivors) if ranked
         return "no survivors#{filters_note(file, operator, triage)}" if survivors.empty?
 
-        header = "#{survivors.size} survivor#{'s' unless survivors.one?}#{filters_note(file, operator, triage)}"
-        truncated = @findings["survivorsTruncated"].to_i
-        header += " (the report's ranked findings name only the first #{@findings['limit'] || 10})" if truncated.positive?
-        lines = survivors.each_with_index.map do |s, i|
-          format("%3d. %s:%d  %-28s %s  %s", i + 1, s[:path], s[:line], s[:operator], s[:digest],
-                 s[:classification] || "-")
-        end
-        [header, *lines]
+        [header(survivors.size, file, operator, triage), *rows(survivors)]
       end
 
       def show(digest)
@@ -93,22 +84,51 @@ module Saboteur
           "  bundle exec saboteur run --id #{survivor[:digest]}",
           "",
           "Ignore-file entry (config/saboteur_ignore.rb):",
-          %(  i.mutation "#{survivor[:digest]}",),
-          %(      subject: #{subject ? subject.inspect : '"Klass#meth" # TODO: the report\'s capped findings omit this digest - fill in the subject'},),
-          %(      reason: "..."),
+          *ignore_entry(survivor, subject)
         ].join("\n")
       end
 
       private
 
+      def filtered(file, operator, triage)
+        survivors = all_survivors
+        survivors = survivors.select { |s| s[:path].include?(file) } if file
+        survivors = survivors.select { |s| s[:operator] == operator } if operator
+        triage ? survivors.select { |s| s[:classification] == triage } : survivors
+      end
+
+      def header(size, file, operator, triage)
+        text = "#{size} survivor#{'s' unless size == 1}#{filters_note(file, operator, triage)}"
+        truncated = @findings["survivorsTruncated"].to_i
+        return text unless truncated.positive?
+
+        "#{text} (the report's ranked findings name only the first #{@findings['limit'] || 10})"
+      end
+
+      def rows(survivors)
+        survivors.each_with_index.map do |s, i|
+          format("%3<i>d. %<path>s:%<line>d  %-28<operator>s %<digest>s  %<classification>s",
+                 i: i + 1, path: s[:path], line: s[:line], operator: s[:operator], digest: s[:digest],
+                 classification: s[:classification] || "-")
+        end
+      end
+
+      def ignore_entry(survivor, subject)
+        note = subject ? subject.inspect : '"Klass#meth" # TODO: capped findings omit this digest - fill it in'
+        [%(  i.mutation "#{survivor[:digest]}",), "      subject: #{note},", %(      reason: "...")]
+      end
+
       def all_survivors
-        @all ||= @report.fetch("files", {}).flat_map do |path, entry|
-          entry.fetch("mutants", []).select { |m| m["status"] == "Survived" }.map do |m|
-            { path: path, line: m.dig("location", "start", "line").to_i, operator: m["mutatorName"],
-              digest: m["id"], replacement: m["replacement"], classification: m["classification"],
-              covered: m["coveredBy"] || [], source: entry["source"] }
+        @all_survivors ||= begin
+          survivors = @report.fetch("files", {}).flat_map do |path, entry|
+            entry.fetch("mutants", []).select { |m| m["status"] == "Survived" }.map do |m|
+              { path: path, line: m.dig("location", "start", "line").to_i, operator: m["mutatorName"],
+                digest: m["id"], replacement: m["replacement"], classification: m["classification"],
+                covered: m["coveredBy"] || [], source: entry["source"] }
+            end
           end
-        end.sort_by { |s| [s[:path], s[:line], s[:digest]] }
+          survivors.sort_by { |s| [s[:path], s[:line], s[:digest]] }
+        end
       end
 
       def ranked_order(survivors)
@@ -117,7 +137,8 @@ module Saboteur
       end
 
       def findings_by_digest
-        @by_digest ||= (@findings.fetch("survivors", []) + @findings.fetch("accepted", [])).to_h { |f| [f["digest"], f] }
+        @findings_by_digest ||=
+          (@findings.fetch("survivors", []) + @findings.fetch("accepted", [])).to_h { |f| [f["digest"], f] }
       end
 
       def original_line(survivor)

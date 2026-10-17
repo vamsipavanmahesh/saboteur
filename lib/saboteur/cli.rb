@@ -65,7 +65,7 @@ module Saboteur
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help", "--help", "-h" then show_help(@argv.shift)
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
-      else PRESETS.key?(command) ? preset(command) : usage_error
+      else preset_or_usage_error(command)
       end
     rescue OptionParser::ParseError => e
       usage_error(e.message)
