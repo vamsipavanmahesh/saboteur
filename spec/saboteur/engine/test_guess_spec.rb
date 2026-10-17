@@ -562,6 +562,22 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guess.out_of_scope).to eq([])
   end
 
+  it "reports no hidden source when an included file also changed alongside an excluded one (#483)" do
+    write("lib/a.rb", changed_source)
+    write("engines/billing/lib/billing.rb", changed_source)
+    result = guess
+    expect(result.changed).to eq(1)
+    expect(result.out_of_scope).to eq([])
+  end
+
+  it "does not call an included file hidden when its change carries no lines (#483)" do
+    FileUtils.chmod(0o755, File.join(dir, "lib/a.rb"))
+    write("engines/billing/lib/billing.rb", changed_source)
+    result = guess
+    expect(result.changed).to eq(0)
+    expect(result.out_of_scope).to eq(["engines/billing/lib/billing.rb"])
+  end
+
   it "does not call a changed spec hidden source" do
     write("spec/stray_spec.rb", "# changed\n")
     result = guess
@@ -1022,5 +1038,40 @@ RSpec.describe Saboteur::Engine::TestGuess do
     result = guess
     expect(result.specs).to eq(["spec/unit/base_spec.rb"])
     expect(result.unmatched).to eq([])
+  end
+
+  describe "Result#out_of_scope_message (#483)" do
+    def message_for(count)
+      files = Array.new(count) { |index| "engines/e#{index}/lib/f.rb" }
+      described_class::Result.new(specs: [], unmatched: [], subjectless: [], changed: 0, hints: {},
+                                  changed_specs: [], skipped_specs: {}, out_of_scope: files,
+                                  excluded: []).out_of_scope_message
+    end
+
+    def message_text(named)
+      "no changed source file lies inside the include scope, so nothing ran. " \
+        "Changed source files outside it: #{named}. Extend include to cover them, " \
+        "or re-run the same command with one --test per existing spec path."
+    end
+
+    def first_names(count)
+      Array.new(count) { |index| "engines/e#{index}/lib/f.rb" }.join(", ")
+    end
+
+    it "names two files joined by a comma and a space" do
+      expect(message_for(2)).to eq(message_text(first_names(2)))
+    end
+
+    it "names exactly ten files in full with no remainder" do
+      expect(message_for(10)).to eq(message_text(first_names(10)))
+    end
+
+    it "names the first ten and counts one more at eleven" do
+      expect(message_for(11)).to eq(message_text("#{first_names(10)} and 1 more"))
+    end
+
+    it "counts the remainder past ten" do
+      expect(message_for(13)).to eq(message_text("#{first_names(10)} and 3 more"))
+    end
   end
 end

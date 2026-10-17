@@ -295,6 +295,12 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
     end
 
+    it "does not stop when an included file changed even if out-of-scope files are listed (#483)" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "origin/main") }.not_to raise_error
+      expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
+    end
+
     it "points at include and --test, never a reconstructed command carrying the ref" do
       guess(specs: [], unmatched: [], changed: 0, out_of_scope: ["engines/billing/lib/billing.rb"])
       expect { run_engine("since" => "weird ref;$(rm -rf)") }
