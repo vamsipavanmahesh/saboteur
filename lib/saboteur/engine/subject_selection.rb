@@ -262,15 +262,50 @@ module Saboteur
 
         names = unmatched.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
         more = unmatched.size > 5 ? ", ..." : ""
-        # Specs land here when one --test carries several paths; the
-        # parse/method guesses do not apply to them, so say what happened.
-        hint = if unmatched.all? { |file| file.end_with?("_spec.rb") }
-                 "These are spec files; specs are not mutated - pass them with --test."
-               else
-                 "The file may not parse, or every change may sit outside a method."
-               end
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
-                          "the changed lines, so nothing is mutated from them: #{names}#{more}. #{hint}")
+                          "the changed lines, so nothing is mutated from them: #{names}#{more}. " \
+                          "#{subjectless_hint(unmatched)}")
+      end
+
+      # Specs land here when one --test carries several paths; the
+      # parse/method guesses do not apply to them, so say what happened.
+      def subjectless_hint(unmatched)
+        return "These are spec files; specs are not mutated - pass them with --test." if
+          unmatched.all? { |file| file.end_with?("_spec.rb") }
+
+        embedded = unmatched.select { |file| changed_lines_inside_heredoc?(file) }
+        return "The file may not parse, or every change may sit outside a method." if embedded.empty?
+
+        names = embedded.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
+        more = embedded.size > 5 ? ", ..." : ""
+        "In #{names}#{more} the changed lines are code embedded in a string (a heredoc, often the " \
+          "argument to class_eval/module_eval or a template constant); methods defined by evaluating " \
+          "strings are not mutation subjects, so this run cannot see that behavior."
+      end
+
+      # A heredoc body is code the static subject walk cannot see: methods
+      # defined by class_eval'ing the string, or behavior living in a
+      # template constant, exist only when the string is evaluated (#467).
+      # Changed lines inside one deserve the specific warning, not the
+      # generic parse/method guess. A file that does not parse keeps the
+      # generic hint: its problem is named there already.
+      def changed_lines_inside_heredoc?(file)
+        result = Prism.parse(File.binread(file))
+        return false if result.failure?
+
+        spans = heredoc_spans(result.value)
+        @changed_lines[file].any? { |line| spans.any? { |span| span.cover?(line) } }
+      end
+
+      def heredoc_spans(node, spans = [])
+        if (node.is_a?(Prism::StringNode) || node.is_a?(Prism::InterpolatedStringNode)) &&
+           node.opening_loc&.slice&.start_with?("<<")
+          # The node location of an interpolated string stops at the opening
+          # marker; opening through closing covers the whole heredoc body.
+          spans << (node.opening_loc.start_line..node.closing_loc.end_line)
+        end
+        node.compact_child_nodes.each { |child| heredoc_spans(child, spans) }
+        spans
       end
 
       # A changed Ruby file that an include pattern covers but c.exclude
