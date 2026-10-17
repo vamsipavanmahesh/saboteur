@@ -19,6 +19,9 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `saboteur badge` escapes incomplete-run reasons with `.inspect` in its
+  refusal message, so a reason carrying newlines or control characters
+  cannot spoof extra output lines (#526).
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,

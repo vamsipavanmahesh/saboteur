@@ -132,7 +132,8 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
     record = history_records.last.merge("incomplete" => ["no coverage", "timeout"])
     File.write(@history, "#{JSON.generate(record)}\n")
     _code, _out, err = cli("badge", "--history", @history)
-    expect(err).to include("saboteur: the latest score history record is an incomplete run (no coverage, timeout) - ")
+    expect(err).to include("saboteur: the latest score history record is an incomplete run " +
+                           %(("no coverage", "timeout") - ))
     expect(err).to include("--mark-partial")
   end
 
@@ -175,6 +176,29 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
     end
   end
 
+  it "trend never diffs a zero-tested record that reuses the previous record's digests (#526)" do
+    # Regression pin: a hand-crafted but valid record with tested zero (nil
+    # coveredScore) and the previous record's selection/inventory/policy
+    # digests IS comparable - dropping the current coveredScore guard turns
+    # the delta subtraction into a NoMethodError crash.
+    append(result_for(:survived))
+    previous = history_records.last
+    zero_tested = previous.merge(
+      "counts" => previous["counts"].transform_values { 0 },
+      "breakdown" => previous["breakdown"].merge("score" => nil, "tested" => 0, "assertionKills" => 0,
+                                                 "crashKills" => 0, "unclassifiedKills" => 0, "timeouts" => 0,
+                                                 "survivors" => 0, "assertionShare" => nil, "crashShare" => nil),
+      "score" => 0.0, "coveredScore" => nil, "incomplete" => []
+    )
+    Saboteur::Reporter::HistoryRecord.validate(zero_tested)
+    File.write(@history, "#{JSON.generate(previous)}\n#{JSON.generate(zero_tested)}\n")
+    code, out, = cli("trend", "--history", @history)
+    expect(code).to eq(0)
+    expect(out).to include("#{zero_tested['date']} aaaaaaaa no tested mutants\n")
+    expect(out).to include("score history: no comparable earlier record (different selection/inventory, " \
+                           "operator policy or an incomplete run)\n")
+  end
+
   it "trend does not diff a complete record that has no tested mutants" do
     append(result_for(:survived))
     append
@@ -184,6 +208,17 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
     expect(out).to include("#{latest['date']} aaaaaaaa no tested mutants\n")
     expect(out).to include("score history: no comparable earlier record (different selection/inventory, " \
                            "operator policy or an incomplete run)\n")
+  end
+
+  it "badge escapes control characters in incomplete reasons (#526)" do
+    append(result_for(:killed, kill_cause: "assertion"),
+           result_for(:skipped, replacement: "<", reason: "no coverage"))
+    record = history_records.last.merge("incomplete" => ["no coverage\nspoofed: saboteur run clean"])
+    File.write(@history, "#{JSON.generate(record)}\n")
+    _code, _out, err = cli("badge", "--history", @history)
+    expect(err).to include(%("no coverage\\nspoofed: saboteur run clean"))
+    expect(err).not_to include("spoofed: saboteur run clean\n")
+    expect(err.lines.size).to eq(1)
   end
 
   it "trend prints the pair and the exact delta line for a comparable pair" do

@@ -67,6 +67,9 @@ RSpec.describe Saboteur::Reporter::HistoryReader do
         .to raise_error(Saboteur::Error, /\Ascore history cannot be read: No such file or directory/)
     end
 
+    # This fixture's line is exactly limit + 1 bytes on disk, so it pins the
+    # gets(limit + 1) read length: gets(limit) reads one byte short, misses
+    # the newline, and raises "truncated record" instead.
     it "refuses a record longer than the byte limit" do
       limit = Saboteur::Reporter::ScoreHistory::MAX_RECORD_BYTES
       File.write(@history, "#{'x' * limit}\n#{'y' * 10}\n")

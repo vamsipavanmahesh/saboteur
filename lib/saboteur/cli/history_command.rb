@@ -77,9 +77,7 @@ module Saboteur
 
       def history_path
         @history_path ||= config.path("score_history")
-        raise UsageError, "no score history: pass --history PATH or set c.score_history" unless @history_path
-
-        @history_path
+        @history_path or raise UsageError, "no score history: pass --history PATH or set c.score_history"
       rescue ConfigError
         raise UsageError, "no score history: pass --history PATH or set c.score_history"
       end
@@ -87,7 +85,8 @@ module Saboteur
       def badge_payload(record)
         partial = record["incomplete"].any?
         if partial && !@mark_partial
-          raise Error, "the latest score history record is an incomplete run (#{record['incomplete'].join(', ')}) - " \
+          raise Error, "the latest score history record is an incomplete run " \
+                       "(#{record['incomplete'].map(&:inspect).join(', ')}) - " \
                        "badge evidence needs a complete run, or pass --mark-partial to label it"
         end
         score = record["coveredScore"]
