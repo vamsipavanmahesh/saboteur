@@ -3,11 +3,6 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
-  i.mutation "4847bf6cc927ad36",
-             subject: "Saboteur::Reporter::HistoryReader#read",
-             reason: "equivalent: gets(limit + 2) only changes how many bytes of an oversized line are read; any line " \
-                     "that long is longer than the limit either way and raises the same byte-limit error"
-
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
