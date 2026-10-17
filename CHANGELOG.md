@@ -39,6 +39,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Rejected kills no longer surface as generic errors: the terminal
+  lists them in a `Rejected kills` section and annotates the error count,
+  and report.json flags each rejected mutant with `rejectedKill: true`
+  instead of carrying only the `rejectedKills` count (#375).
+
 - Dependency trees are never treated as changed source on a `--since`
   run (#504): a vendored bundle or `node_modules`, tracked or
   untracked, git-ignored or not, is rejected at enumeration, so the
@@ -132,13 +137,13 @@ All notable changes are documented here. The format follows
   own `c.exclude` replaces the shields wholesale, and the shields never
   trip the stale-pattern warning.
 
-
 - A --since run whose changed lines sit inside a heredoc now says so
   (#467). Code embedded in a string - a class_eval/module_eval argument or
   a template constant - evaluates methods the static walk cannot see, so
   the generic "may not parse, or every change may sit outside a method"
   hint misdiagnosed it; the warning now names the files and the
   code-in-a-string blind spot.
+
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a
