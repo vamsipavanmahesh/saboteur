@@ -734,4 +734,34 @@ Saboteur.ignore do |i|
   i.mutation "70a77934c3856a1e",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
+  i.mutation "036e4fb956df510f",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the following SHA256 hexdigest has a fixed width, so the dropped separator " \
+                     "cannot blur field boundaries - a dependency-set change still changes the digest"
+
+  i.mutation "9db3b9aa61e04166",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the trailing separator only separates entries, and entry count and content " \
+                     "still change the digest - the next entry starts with its own path bytes"
+
+  i.mutation "69e619be29339f30",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the block's digest-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "485c590681bcde38",
+             subject: "Saboteur::Selection::CoverageMap#files_for",
+             reason: "equivalent: invert_coverage is a pure function of the map's frozen lines, so recomputing " \
+                     "it on every call yields the identical hash the memo would have returned"
+
+  i.mutation "c426c783724e596f",
+             subject: "Saboteur::Selection::CoverageMap#invert_coverage",
+             reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "52e4bb172b350bc9",
+             subject: "Saboteur::Selection::CoverageMap#invert_coverage",
+             reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
 end

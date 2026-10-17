@@ -42,6 +42,118 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     expect(engine.send(:select_subjects, [], test_files: ["spec/custom/a_spec.rb"])).to eq([[subject], nil])
   end
 
+  it "hands mutate's coverage map and subject files to the result cache (#197)" do
+    run = engine
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    store = instance_double(Saboteur::Engine::CoverageStore, reusable?: true, fetch: map)
+    allow(run).to receive(:coverage_store).and_return(store)
+    allow(run).to receive(:check_baseline)
+    allow(run).to receive(:warn_unscoped)
+    allow(run).to receive(:inform_about_run)
+    allow(run).to receive(:abandon_for_budget?).and_return(false)
+    allow(run).to receive(:scheduler_for)
+    allow(run).to receive(:candidate_lists).and_return([[]])
+    expect(run).to receive(:result_cache).with(map, ["lib/person.rb"]).and_call_original
+    run.send(:mutate, [person_subject], ["lib/person.rb"], instance_double(Object), nil, [])
+  end
+
+  it "builds the cache with the coverage map and every loaded project file as fallback (#344)" do
+    run = engine
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    captured = nil
+    allow(Saboteur::Engine::ResultCache).to receive(:new) do |kwargs|
+      captured = kwargs
+      instance_double(Saboteur::Engine::ResultCache)
+    end
+    run.send(:result_cache, map, ["lib/person.rb"])
+    expect(captured[:coverage]).to eq(map)
+    expect(captured[:fallback_files]).to include("lib/person.rb")
+    expect(captured[:fallback_files]).to include(a_string_ending_with("/lib/saboteur/engine.rb"))
+    root_prefix = "#{run.instance_variable_get(:@root)}/"
+    expect(captured[:fallback_files]).to all(eq("lib/person.rb").or(start_with(root_prefix)))
+    expect(captured[:fallback_files]).to all(end_with(".rb"))
+  end
+
+  it "excludes loaded files from a directory that merely shares the root's prefix (#353)" do
+    run = engine
+    sibling = "#{run.instance_variable_get(:@root)}-sibling/lib/evil.rb"
+    $LOADED_FEATURES << sibling
+    begin
+      expect(run.send(:source_files, [])).not_to include(sibling)
+    ensure
+      $LOADED_FEATURES.delete(sibling)
+    end
+  end
+
+  it "watches a loaded file with a non-ASCII name tagged US-ASCII under LANG=C (#353)" do
+    run = engine
+    accented = File.join(run.instance_variable_get(:@root), "lib", "héllo_probe_353.rb")
+    feature = accented.dup.force_encoding(Encoding::US_ASCII)
+    $LOADED_FEATURES.push(feature)
+    begin
+      expect(run.send(:source_files, [])).to include(accented)
+    ensure
+      $LOADED_FEATURES.delete(feature)
+    end
+  end
+
+  it "watches loaded files reached through a symlinked root (#353)" do
+    run = engine
+    root = run.instance_variable_get(:@root)
+    probe = File.join(root, "lib", "symlink_probe_353.rb")
+    File.write(probe, "# probe
+")
+    Dir.mktmpdir do |dir|
+      link = File.join(dir, "link")
+      File.symlink(root, link)
+      through_link = File.join(link, "lib", "symlink_probe_353.rb")
+      $LOADED_FEATURES << through_link
+      begin
+        expect(run.send(:source_files, [])).to include(probe)
+      ensure
+        $LOADED_FEATURES.delete(through_link)
+      end
+    end
+  ensure
+    FileUtils.rm_f(probe)
+  end
+
+  # The root itself can arrive in a spelling its realpath does not share
+  # (macOS /var -> /private/var, a tmpdir symlink): a loaded feature whose
+  # file is gone keeps the spelled path, and a resolved-root-only check
+  # drops every loaded file from the watched set.
+  it "watches loaded files when the root itself is a symlinked spelling (#353)" do
+    Dir.mktmpdir do |target|
+      Dir.mktmpdir do |parent|
+        link = File.join(parent, "project")
+        File.symlink(target, link)
+        symlinked_config = Saboteur::Config.new({ "incremental" => true, "all" => true }, root: link)
+        run = described_class.new(symlinked_config, err: StringIO.new)
+        loaded = File.join(link, "lib", "lazy.rb")
+        $LOADED_FEATURES.push(loaded)
+        begin
+          expect(run.send(:source_files, [])).to include(loaded)
+        ensure
+          $LOADED_FEATURES.delete(loaded)
+        end
+      end
+    end
+  end
+
+  it "builds the cache with the suite digest that pins the run's support files (#344)" do
+    run = engine
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    suite_files = instance_double(Saboteur::Engine::SuiteFiles, digest: "suite-abc")
+    allow(Saboteur::Engine::SuiteFiles).to receive(:new).and_return(suite_files)
+    captured = nil
+    allow(Saboteur::Engine::ResultCache).to receive(:new) do |kwargs|
+      captured = kwargs
+      instance_double(Saboteur::Engine::ResultCache)
+    end
+    run.send(:result_cache, map, ["lib/person.rb"])
+    expect(captured[:suite_digest]).to eq("suite-abc")
+  end
+
   it "keeps ordinary selection and its incremental cache without a replay" do
     run = engine
     expect(run.send(:select_subjects, [])).to eq([[subject], nil])
