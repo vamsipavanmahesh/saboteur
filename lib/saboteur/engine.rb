@@ -76,16 +76,6 @@ module Saboteur
     # map does not rot silently. doctor fails on stale keys.
     def test_guess = TestGuess.new(config, diagnostics: @diagnostics, custom_map: load_custom_map)
 
-    # Name the files needing no spec, stop on spec-less files, then say
-    # which specs the run scopes to (or why nothing mutates).
-    def announce_guess(guess)
-      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      inform_skipped_specs(guess)
-      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
-
-      @diagnostics.announce(selection_message(guess))
-    end
-
     def load_custom_map
       @load_custom_map ||= @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
     end
