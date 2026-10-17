@@ -85,6 +85,10 @@ RSpec.describe Saboteur::Help do
     expect(overview).to include("  4  Time budget spent: --max-duration stopped the run")
   end
 
+  it "states that doctor certifies no external tool versions (#318)" do
+    expect(help.command("doctor")).to include("certifies no versions of Rails, databases or tools")
+  end
+
   it "lists every command" do
     described_class::COMMANDS.each do |command|
       expect(overview).to match(/^  #{command.name}\s+#{Regexp.escape(command.summary)}$/)
