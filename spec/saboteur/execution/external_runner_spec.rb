@@ -471,14 +471,28 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       saved_rubyopt ? ENV["RUBYOPT"] = saved_rubyopt : ENV.delete("RUBYOPT")
     end
 
+    # Proof through a real spawned child, read back through the runner's
+    # own bounded capture instead of a `env > file` bridge: on the macOS
+    # runners the bridged file never appeared (ENOENT at File.read), and
+    # the bridge could only fail silently - a spawn error is reported as
+    # an Outcome, not raised. The capture shows the child's bytes (or sh's
+    # own error) either way, so a failure names its cause.
+    def child_env_output(dir)
+      _outcome, runner, = run_in(dir, "env")
+      runner.send(:last_output)
+    end
+
     it "drops bundler anchors and bundler's RUBYOPT token, keeps the rest" do
       with_anchors do
+        # unbundled_env starts from the pre-bundler environment, not the
+        # current ENV: the anchors and a bundler-token RUBYOPT must be in
+        # ORIGINAL_ENV for the scrub to be exercised at all.
+        stub_const("Bundler::ORIGINAL_ENV",
+                   Bundler::ORIGINAL_ENV.merge(anchors).merge("RUBYOPT" => "-W0 -rbundler/setup"))
         Dir.mktmpdir do |dir|
-          out = File.join(dir, "child_env.txt")
-          run_in(dir, "env > #{out}")
-          child = File.read(out)
+          child = child_env_output(dir)
           anchors.each_key { |k| expect(child).not_to include("#{k}=") }
-          expect(child).to include("RUBYOPT=-W0") if child.include?("RUBYOPT")
+          expect(child).to include("RUBYOPT=-W0")
           expect(child).not_to include("bundler/setup")
           expect(child).to include("SABOTEUR_EXTERNAL_CHILD=1")
         end
@@ -488,9 +502,7 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
     it "still passes PATH and HOME through" do
       with_anchors do
         Dir.mktmpdir do |dir|
-          out = File.join(dir, "child_env.txt")
-          run_in(dir, "env > #{out}")
-          child = File.read(out)
+          child = child_env_output(dir)
           expect(child).to include("PATH=")
           expect(child).to include("HOME=")
         end
