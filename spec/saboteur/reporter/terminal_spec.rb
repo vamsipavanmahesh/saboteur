@@ -302,6 +302,45 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(six).not_to include("[1:6]\n")
   end
 
+  it "groups same-line survivors whose covering-test sets differ only by duplicates (#539)" do
+    a = result_for(:survived, replacement: ">", covered_by: ["./spec/a_spec.rb[1:1]", "./spec/a_spec.rb[1:1]"])
+    b = result_for(:survived, replacement: "<=", covered_by: ["./spec/a_spec.rb[1:1]"])
+    text = render(report_of(a, b))
+    expect(text.scan(/tests? covered this line and still passed/).size).to eq(1)
+  end
+
+  it "keeps same-line survivors apart when only their reuse differs (#539)" do
+    a = result_for(:survived, replacement: ">", covered_by: ["./spec/a_spec.rb[1:1]"], reused: true)
+    b = result_for(:survived, replacement: "<=", covered_by: ["./spec/a_spec.rb[1:1]"])
+    text = render(report_of(a, b))
+    expect(text.scan("covered this line and passed in an earlier run").size).to eq(1)
+    expect(text.scan("covered this line and still passed").size).to eq(1)
+  end
+
+  it "keeps same-line survivors apart when they touch different changed lines (#539)" do
+    subject = subjects_in("class K\n  def m(a)\n    a +\n      1\n  end\nend\n").first
+    plus = subject.file_source.index("+")
+    edit_a = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: plus, end_byte: plus + 1,
+                                                replacement: "-")
+    mutation_a = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "arithmetic",
+                                                        edits: [edit_a])
+    span = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: plus,
+                                              end_byte: subject.file_source.index("1") + 1, replacement: "0")
+    mutation_b = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test", edits: [span])
+    covered = ["./spec/k_spec.rb[1:1]"]
+    a = Saboteur::MutantResult.new(subject:, mutation: mutation_a, status: :survived, covered_by: covered,
+                                   mutated_source: subject.apply(mutation_a.edits))
+    b = Saboteur::MutantResult.new(subject:, mutation: mutation_b, status: :survived, covered_by: covered,
+                                   mutated_source: subject.apply(mutation_b.edits))
+    scope = Saboteur::Engine::DiffScope.new({ subject.file => Set.new([3, 4]) })
+    report = Saboteur::Report.new(results: [a, b], subjects: [subject], wall_time: 1.0,
+                                  root: File.dirname(subject.file), review: true, diff_scope: scope)
+    name = File.basename(subject.file)
+    text = render(report)
+    expect(text).to include("changed line: #{name}:3")
+    expect(text).to include("changed lines: #{name}:3, #{name}:4")
+  end
+
   it "says tests for two covering tests and test for one" do
     two = render(report_of(result_for(:survived, covered_by: ["./a_spec.rb[1:1]", "./a_spec.rb[1:2]"])))
     expect(two).to include("2 tests covered this line")
