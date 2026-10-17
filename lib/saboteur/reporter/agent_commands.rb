@@ -19,7 +19,8 @@ module Saboteur
         SETTING_FLAGS = { reeval: "--reeval", integration: "--integration", jobs: "--jobs",
                           timeout_factor: "--timeout-factor", json_report: "--json", html_report: "--html",
                           operators: "--operators", exclude_operators: "--exclude-operators",
-                          baseline_passes: "--baseline-passes", max_duration: "--max-duration" }.freeze
+                          baseline_passes: "--baseline-passes", max_duration: "--max-duration",
+                          shard: "--shard" }.freeze
 
         # CLI-only boolean switches recorded in settings, mapped by value, so
         # an explicit false (--no-max-duration-ok over a config true) survives
@@ -73,8 +74,9 @@ module Saboteur
           # An empty list nobody typed came from the config file or its
           # default, which the command reads again, so its flag is left out
           # (#317). A typed empty list stays: it may clear a config value.
-          def setting_words(provenance)
+          def setting_words(provenance, replay: false)
             SETTING_FLAGS.flat_map do |key, flag|
+              next [] if replay && key == :shard
               next [] unless provenance.settings.key?(key)
 
               value = provenance.settings[key]
@@ -93,7 +95,7 @@ module Saboteur
             provenance.subjects.each { |subject| words.push("--subject", subject) }
             words << "--all" if provenance.settings[:all] && provenance.tests.empty?
             words.push(*test_words(provenance.tests))
-            words.concat(setting_words(provenance))
+            words.concat(setting_words(provenance, replay: replay))
             words.concat(mode_words(provenance))
             words.push("--id", provenance.digest) if provenance.digest && !replay
             words

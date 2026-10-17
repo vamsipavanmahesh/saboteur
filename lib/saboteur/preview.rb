@@ -20,17 +20,29 @@ module Saboteur
       scope = selection.behavior_lines && Engine::DiffScope.new(selection.behavior_lines)
       guard = MutationSource::HazardGuard.new(@config["hazard"]) unless @config["allow_hazardous"]
       candidates = Engine::Candidates.new(Engine::Candidates.build_sources(@config), @diagnostics, hazard_guard: guard)
-      lists = subjects.map { |subject| planned(subject, candidates, scope) }
+      lists = shard_lists(subjects, subjects.map { |subject| planned(subject, candidates, scope) })
       inline_suppressions
       incomplete = @diagnostics.discovery_failures.size
-      @out.puts("Total: #{lists.sum(&:size)} mutants; #{@diagnostics.omissions.sum(&:count)} " \
-                "dropped by max_mutants_per_method#{incomplete_note(incomplete)}")
+      print_totals(lists, incomplete)
       incomplete.zero? ? estimate(subjects, lists) : @out.puts("no estimate: source discovery was incomplete")
       print_warnings
       nil
     end
 
     private
+
+    def shard_lists(subjects, lists)
+      return lists unless @config["shard"]
+
+      @shard = Engine::Shard.parse(@config["shard"])
+      @shard.select(subjects, lists)
+    end
+
+    def print_totals(lists, incomplete)
+      @out.puts(@shard.line) if @shard
+      @out.puts("Total: #{lists.sum(&:size)} mutants; #{@diagnostics.omissions.sum(&:count)} " \
+                "dropped by max_mutants_per_method#{incomplete_note(incomplete)}")
+    end
 
     def print_warnings
       @diagnostics.warnings.each { |warning| @out.puts("warning: #{warning}") }

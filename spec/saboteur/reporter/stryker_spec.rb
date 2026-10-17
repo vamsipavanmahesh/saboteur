@@ -62,6 +62,19 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("saboteur", "operatorPolicy")).to eq(expected)
   end
 
+  it "records shard metadata under the saboteur extension without changing the schema version" do
+    shard = Saboteur::Engine::Shard.parse("2/4")
+    allow(shard).to receive(:to_h).and_return(index: 2, of: 4, selected: 3, planned: 10,
+                                              inventoryDigest: "a" * 64, partial: true)
+    allow(report).to receive(:shard).and_return(shard)
+    document = JSON.parse(JSON.generate(described_class.build(report)))
+    expect(document["schemaVersion"]).to eq("2")
+    expect(document.dig("saboteur", "shard")).to eq(
+      "index" => 2, "of" => 4, "selected" => 3, "planned" => 10,
+      "inventoryDigest" => "a" * 64, "partial" => true
+    )
+  end
+
   it "maps ran-at-load and unreachable to Ignored, carrying the reason" do
     report = report_of(result_for(:ran_at_load, reason: "ran while the app loaded"),
                        result_for(:unreachable, reason: "a captured Method still calls the original"))

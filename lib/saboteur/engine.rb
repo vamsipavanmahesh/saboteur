@@ -11,6 +11,7 @@ require_relative "engine/run_budget"
 require_relative "engine/thread_warnings"
 
 require_relative "engine/pipelines"
+require_relative "engine/shard"
 
 module Saboteur
   # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
@@ -36,8 +37,9 @@ module Saboteur
       @root = File.realpath(config.root)
       @skipped_subjects = {}
       @replay = Replay.new(digest: digest) if digest
-      if capture_evidence && (digest || config["since"] || config["incremental"])
-        raise ConfigError, "baseline evidence requires fresh whole-scope execution: no since, replay or incremental"
+      if capture_evidence && (digest || config["since"] || config["incremental"] || config["shard"])
+        raise ConfigError,
+              "baseline evidence requires fresh whole-scope execution: no since, replay, shard or incremental"
       end
 
       @capture_evidence = capture_evidence
@@ -180,7 +182,8 @@ module Saboteur
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
-                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures)
+                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
+                 shard: @shard)
     end
 
     def complete_evidence(results, subjects)
@@ -379,7 +382,10 @@ module Saboteur
       candidates = Candidates.build(config, @diagnostics, hazard_guard: hazard_guard)
       selection = CandidateSelection.new(candidates: candidates, map: map,
                                          limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
-      subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
+      lists = subjects.map { |subject| selection.for(subject, scope: scope) }
+      @shard = Engine::Shard.parse(config["shard"]) if config["shard"]
+      lists = @shard.select(subjects, lists) if @shard
+      lists.tap do
         @skipped_subjects = selection.skipped_subjects
         @unscoped_digests = selection.unscoped_digests
         if @run_evidence

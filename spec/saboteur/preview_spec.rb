@@ -49,6 +49,21 @@ RSpec.describe Saboteur::Preview do
     expect(out.string).to match(/^Operators: \w+(, \w+)+/)
   end
 
+  it "prints the shard slice with the full inventory digest" do
+    preview(config).call
+    full = out.string[/Total: (\d+) mutants/, 1].to_i
+    out.truncate(0)
+
+    totals = (1..3).map do |index|
+      preview(config(shard: "#{index}/3")).call
+      expect(out.string).to include("Shard #{index}/3:", "inventory sha256:", "partial run")
+      selected = out.string[/Total: (\d+) mutants/, 1].to_i
+      out.truncate(0)
+      selected
+    end
+    expect(totals.sum).to eq(full)
+  end
+
   it "uses diff lines both to select methods and to restrict their candidates" do
     allow(Saboteur::Selection::GitDiff).to receive(:line_maps)
       .with("base", root: root, include: anything, diagnostics: anything)

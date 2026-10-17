@@ -41,8 +41,13 @@ module Saboteur
           framework: { name: "saboteur", version: VERSION },
           saboteur: { findings: Findings.build(report), scores: scores(report),
                       inlineSuppressions: inline_audit(report) }
-                     .merge(operatorPolicy: report.operator_policy).merge(exit_cause ? { exitCause: exit_cause } : {})
+                     .merge(operatorPolicy: report.operator_policy).merge(shard(report))
+                     .merge(exit_cause ? { exitCause: exit_cause } : {})
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
+      end
+
+      def self.shard(report)
+        report.shard ? { shard: report.shard.to_h } : {}
       end
 
       def self.inline_audit(report)

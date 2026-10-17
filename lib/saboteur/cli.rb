@@ -12,6 +12,7 @@ require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
 require_relative "cli/run_budget_options"
+require_relative "cli/shard_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
 
@@ -21,6 +22,7 @@ module Saboteur
     include ExitStatus
     include RunReporting
     include RunBudgetOptions
+    include ShardOptions
     include Presets
     include HelpOptions
 
@@ -38,8 +40,7 @@ module Saboteur
 
     attr_reader :options
 
-    # Found before parsing, so any error, even a bad option that comes first, still
-    # answers an agent with JSON. Class-level: the executable's fallback reads raw arguments.
+    # Found before parsing, so even a bad option can answer an agent with JSON.
     def self.agent_requested?(argv)
       argv.include?("--agent") || argv.include?("--format=agent") ||
         argv.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }
@@ -102,9 +103,7 @@ module Saboteur
       help_requested? ? show_help("run") : run
     end
 
-    def help_requested?
-      @argv.intersect?(%w[--help -h])
-    end
+    def help_requested? = @argv.intersect?(%w[--help -h])
 
     def show_help(command_name)
       help = Help.new(option_lines: option_lines)
@@ -186,6 +185,7 @@ module Saboteur
     # Usage errors found before the target boots.
     def validate_run_options
       reject_threshold_with_agent_format
+      validate_shard_options
       Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
     end
 
@@ -346,6 +346,7 @@ module Saboteur
       opts.on("--list-operators", "List operator names and descriptions") { set(:list_operators, true) }
       opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
       opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
+      opts.on("--shard K/N", "Run one of N deterministic candidate shards (for example 1/4)") { |v| set(:shard, v) }
       opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
       opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
     end
