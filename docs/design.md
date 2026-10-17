@@ -49,6 +49,13 @@ config + CLI
   explicit receiver, a lambda argument, or no block cannot be named, and a
   call in a block whose owner is unknown stays skipped ("defined inside a
   block").
+- Two class-level call shapes are singleton subjects the same way (#194):
+  `scope :name, -> { ... }` (the Rails scope shape: literal name, one
+  lambda) and `define_singleton_method(:name) { ... }` or
+  `define_singleton_method(:name, -> { ... })`. The lambda or block body is
+  the method body; the whole call re-evaluates on the owner, re-registering
+  the method. Symbol-only calls, computed names and extra arguments define
+  nothing saboteur can name.
 - Subject id: `Outer::Klass#meth` or `Outer::Klass.meth`, from the lexical
   nesting Prism reports (ModuleNode / ClassNode / SingletonClassNode chain).
 - Skipped in v1: DSL calls in a class body, constants, code

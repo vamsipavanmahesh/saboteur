@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `scope :name, -> { ... }` and `define_singleton_method` bodies are now
+  subjects (#194): the human-essentials dogfood showed a scope's lambda
+  going unmutated. The call is a singleton subject of the enclosing owner;
+  the lambda or block body mutates, and re-evaluating the whole call
+  re-registers the method.
+
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
   unrelated classes each keep their own subjects: the singleton-side one is
