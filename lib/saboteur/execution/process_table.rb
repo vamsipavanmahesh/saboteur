@@ -17,6 +17,18 @@ module Saboteur
     #   started     start time, so a recycled pid is never mistaken for one
     #               we saw earlier
     module ProcessTable
+      # A pid's command line for messages, /proc first and ps elsewhere;
+      # nil when the process is already gone. Capped for one-line display.
+      def self.command(pid)
+        command = if File.readable?("/proc/#{pid}/cmdline")
+                    File.binread("/proc/#{pid}/cmdline").tr("\0", " ").strip
+                  else
+                    `ps -o command= -p #{pid}`.strip
+                  end
+        command.empty? ? nil : command.slice(0, 120)
+      rescue SystemCallError
+        nil
+      end
       Entry = Data.define(:pid, :ppid, :pgid, :rss_kb, :zombie, :started)
 
       def self.backends

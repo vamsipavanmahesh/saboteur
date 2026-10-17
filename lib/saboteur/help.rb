@@ -25,7 +25,9 @@ module Saboteur
       2 => "Usage or configuration error: fix the command or config/saboteur.rb. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
       3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \
-           "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant.",
+           "a run tested almost nothing), or a --since run skipped every subject of the change (for example " \
+           "refinements or no coverage), so the change is unverified. With --threshold, also any errored or " \
+           "resource-limited mutant.",
       4 => "Time budget spent: --max-duration stopped the run before the next subject, so the score is " \
            "partial. --max-duration-ok leaves the exit to the plain verdict: 0, 1, or 3 when the budget " \
            "stopped the run before any mutant was tested."
@@ -145,6 +147,37 @@ module Saboteur
                    ["Review-priority order", "saboteur survivors .saboteur/report.json --ranked"],
                    ["Diff, replay command and ignore template for one mutant",
                     "saboteur survivors .saboteur/report.json --show 1a2b3c4d5e6f7a8b"]]
+      ),
+      Command.new(
+        name: "badge",
+        summary: "Print a shields.io endpoint badge over the opt-in score history",
+        description: "Reads the score history JSONL (c.score_history, or --history PATH) and prints one " \
+                     "shields.io endpoint badge JSON for the latest record: label, mutation score and " \
+                     "color (brightgreen at or above --high, default 80; yellow at or above --low, " \
+                     "default 60; red below). --output PATH writes the file instead of printing. An " \
+                     "incomplete latest record is refused unless --mark-partial labels the badge as " \
+                     "partial. No hosted service, no project boot, no tests run.",
+        takes_options: true,
+        exit_codes: { 0 => "Badge JSON written.",
+                      2 => "No history path or unexpected arguments.",
+                      3 => "Empty or unreadable history, an incomplete record without --mark-partial, " \
+                           "or no tested mutants." },
+        examples: [["Badge the recorded score", "saboteur badge"],
+                   ["Write the badge file CI uploads", "saboteur badge --output .saboteur/badge.json"]]
+      ),
+      Command.new(
+        name: "trend",
+        summary: "Print the score trend over the opt-in score history",
+        description: "Reads the score history JSONL (c.score_history, or --history PATH) and prints the " \
+                     "latest record next to the most recent comparable one (same configured selection, " \
+                     "operator policy and a complete run), with the covered-score change in percentage " \
+                     "points. With no comparable earlier record it says so instead of inventing a " \
+                     "delta. No hosted service, no project boot, no tests run.",
+        takes_options: true,
+        exit_codes: { 0 => "Trend printed.",
+                      2 => "No history path or unexpected arguments.",
+                      3 => "Empty or unreadable history." },
+        examples: [["Show the latest score and its change", "saboteur trend"]]
       ),
       Command.new(
         name: "version",

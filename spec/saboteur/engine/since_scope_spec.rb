@@ -13,7 +13,7 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine, "test selection" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   around do |example|
@@ -59,16 +59,18 @@ RSpec.describe Saboteur::Engine, "test selection" do
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
-    distribution = instance_double(Saboteur::Engine::Distribution, run: [], unreached: [], truncated: [],
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, run: [], unreached: [],
+                                                                   truncated: [],
                                                                    unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
   end
 
-  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {})
+  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {}, out_of_scope: [],
+            excluded: [])
     hints = unmatched.to_h { |file| [file, "spec/#{File.basename(file, '.rb')}_spec.rb"] }
     result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:,
-                                                     changed_specs:, skipped_specs:)
+                                                     changed_specs:, skipped_specs:, out_of_scope:, excluded:)
     allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
                                                                                    call: result, call_for: result))
   end
@@ -82,6 +84,20 @@ RSpec.describe Saboteur::Engine, "test selection" do
       @scoped_config = arguments[:config]
     end
     used
+  end
+
+  it "carries the distribution's memory report into the run report (#202)" do
+    stub_boot_phase
+    stub_test_phases
+    memory = { workers: [{ worker: 0, peakMb: 12.1 }], supervisorPeakMb: 30.5 }
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: memory, run: [], unreached: [],
+                                                                   truncated: [], unverified: [])
+    allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
+    guess(specs: %w[spec/a_spec.rb], unmatched: [], changed: 1)
+    @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2, "since" => "origin/main" }, root: @root),
+                                  err: err)
+    @report = @engine.call
+    expect(@report.memory).to eq(memory)
   end
 
   it "warns about the unscoped suite before the baseline passes start" do
@@ -186,8 +202,10 @@ RSpec.describe Saboteur::Engine, "test selection" do
       used = tests_the_run_used { @report = run_engine("since" => "origin/main") }
       expect(used).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
       expect(Saboteur::Engine::TestGuess).to have_received(:new)
-        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
+        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics),
+                                                custom_map: an_instance_of(Saboteur::CustomMap))
       expect(@scoped_root).to eq(@root)
+      expect(err.string).not_to include("intentionally untested")
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/b_spec.rb. " \
                                     "A spec the diff did not change that reaches")
       expect(err.string).not_to include("running the loaded suite unscoped")
@@ -205,13 +223,47 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(@engine.config.explicit?("tests")).to be(true)
     end
 
-    it "stops before boot when a changed file has no spec named after it" do
+    # One unmapped changed file must not zero the run: the mapped subset
+    # runs and each unmapped file gets a loud warning (#370).
+    it "runs the mapped subset with a loud warning per unmapped file" do
       guess(specs: ["spec/a_spec.rb"], unmatched: %w[lib/b.rb lib/c.rb], changed: 3)
-      message = "no spec found for lib/b.rb (expected spec/b_spec.rb), lib/c.rb (expected spec/c_spec.rb), " \
-                "so nothing ran. Re-run the same command with one --test per existing spec path, " \
-                "or append --all to use the whole suite without changing the source scope."
-      expect { run_engine("since" => "origin/main") }.to raise_error(Saboteur::ConfigError, message)
-      expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
+      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(used).to eq(["spec/a_spec.rb"])
+      expect(err.string).to include("inferred specs: no spec found for lib/b.rb (expected spec/b_spec.rb)")
+        .and include("inferred specs: no spec found for lib/c.rb (expected spec/c_spec.rb)")
+      expect(err.string).to include("lib/b.rb (expected spec/b_spec.rb); its mutants run only " \
+                                    "against the inferred specs and a line they miss is reported as NoCoverage")
+    end
+
+    # A threshold or mutant-count gate judges the score, and a partial
+    # mapping silently narrows what the score covers: keep the hard stop
+    # so a gated run cannot green-light an unverifiable change (#370).
+    it "stops on a partial mapping when a threshold is configured" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine("since" => "origin/main", "threshold" => 100) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    it "stops on a partial mapping when a mutant-count gate is configured" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine("since" => "origin/main", "max_errors" => 0) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    # The partial-mapping mercy is scoped to --since: a named --subject
+    # without a conventional spec still stops the run before boot (#370).
+    it "still stops a --subject run on an unmapped named subject" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      allow(Saboteur::Engine::SubjectSelection).to receive(:files_matching).and_return(%w[lib/a.rb lib/b.rb])
+      expect { run_engine("subjects" => ["A#a", "B#b"]) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    # The partial-mapping mercy is scoped to --since: a full run keeps the
+    # hard stop even when other changed files have specs (#370).
+    it "stops a full run on a partial mapping even when other files have specs" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine({}) }.to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
     end
 
     it "stops before boot when no changed file has a spec" do
@@ -220,6 +272,49 @@ RSpec.describe Saboteur::Engine, "test selection" do
         .to raise_error(Saboteur::ConfigError,
                         %r{no spec found for lib/b\.rb \(expected spec/b_spec\.rb\), so nothing ran})
       expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
+    end
+
+    # Every file in scope intentionally untested: name them and mutate
+    # nothing; an empty guess must never read as "run the whole suite"
+    # (#369 review).
+    # A mixed guess: the excluded files are named AND the matched specs
+    # still run - the exclusion note must not depend on an empty run
+    # (#369 review dogfood).
+    it "names excluded files alongside the specs that still run" do
+      guess(specs: ["a_spec.rb"], unmatched: [], changed: 2, excluded: ["lib/b.rb"])
+      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(used).to eq(["a_spec.rb"])
+      expect(err.string).to include("no spec is required for lib/b.rb: intentionally untested")
+      expect(err.string).to include("running only a_spec.rb")
+    end
+
+    # The map is read from disk once per run and shared with guessing and
+    # subject selection (#369 review dogfood).
+    it "loads the custom map once per run" do
+      guess(specs: ["a_spec.rb"], unmatched: [], changed: 1)
+      allow(Saboteur::CustomMap).to receive(:load).and_call_original
+      run_engine("since" => "origin/main")
+      expect(Saboteur::CustomMap).to have_received(:load).once
+    end
+
+    # Two excluded files read as a sentence, not a concatenation (#376 dogfood).
+    it "separates excluded files with a comma in the note" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 2, excluded: ["lib/a.rb", "lib/b.rb"])
+      run_engine("since" => "origin/main")
+      expect(err.string).to include("no spec is required for lib/a.rb, lib/b.rb:")
+    end
+
+    it "names map-excluded files and runs nothing instead of the whole suite" do
+      guess(specs: [], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
+      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(used).to eq([])
+      expect(err.string).to include("inferred specs: no spec is required for lib/b.rb: " \
+                                    "intentionally untested in config/saboteur_custom_map.rb, " \
+                                    "so there is nothing to mutate")
+      expect(err.string).not_to include("running only")
+      # The empty-specs path says it once, inside the nothing-to-mutate note:
+      # the excluded note before announce must stay quiet there (#376 dogfood).
+      expect(err.string.scan("no spec is required for lib/b.rb").size).to eq(1)
     end
 
     it "says there is nothing to mutate when no changed file has a mutation subject" do
@@ -233,12 +328,50 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(err.string).not_to include("the whole suite runs")
     end
 
+    it "notes nothing to mutate once, keeping the sentence out of the report warnings (#468)" do
+      guess(specs: [], unmatched: [], changed: 1, subjectless: ["lib/errors.rb"])
+      report = run_engine("since" => "origin/main")
+      expect(err.string.scan("no changed file has a mutation subject on its changed lines").size).to eq(1)
+      expect(report.warnings.grep(/nothing to mutate/)).to be_empty
+    end
+
+    it "notes nothing to mutate once without --since too (#468)" do
+      guess(specs: [], unmatched: [], changed: 2, subjectless: ["lib/a.rb"])
+      report = run_engine({})
+      expect(err.string.scan("no source file has a mutation subject").size).to eq(1)
+      expect(report.warnings.grep(/nothing to mutate/)).to be_empty
+    end
+
     it "notes skipped subjectless files while scoping to the inferred specs" do
       guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 2, subjectless: ["lib/errors.rb"])
       used = tests_the_run_used { run_engine("since" => "origin/main") }
       expect(used).to eq(["spec/a_spec.rb"])
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
       expect(err.string).to include("no spec is required for lib/errors.rb")
+    end
+
+    it "stops and names changed source files outside the include scope (#483)" do
+      guess(specs: [], unmatched: [], changed: 0, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "origin/main") }
+        .to raise_error(Saboteur::ConfigError,
+                        %r{no changed source file lies inside the include scope.*engines/billing/lib/billing\.rb}m)
+      expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
+    end
+
+    it "does not stop when an included file changed even if out-of-scope files are listed (#483)" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "origin/main") }.not_to raise_error
+      expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
+    end
+
+    it "points at include and --test, never a reconstructed command carrying the ref" do
+      guess(specs: [], unmatched: [], changed: 0, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "weird ref;$(rm -rf)") }
+        .to raise_error(Saboteur::ConfigError) do |error|
+        expect(error.message).not_to include("weird ref")
+        expect(error.message).to include("Extend include to cover them")
+        expect(error.message).to include("one --test per existing spec path")
+      end
     end
 
     it "runs the whole suite when nothing changed" do
@@ -296,6 +429,34 @@ RSpec.describe Saboteur::Engine, "test selection" do
   end
 
   describe "--subject runs" do
+    # The exclusion note fires in a --subject run only when the guess
+    # actually excluded files (#369 review dogfood).
+    it "names excluded files in a --subject run" do
+      write_subject_project
+      guess(specs: ["spec/people_spec.rb"], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
+      used = tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
+      expect(used).to eq(["spec/people_spec.rb"])
+      expect(err.string).to include("no spec is required for lib/b.rb: intentionally untested")
+    end
+
+    it "prints no exclusion note in a --subject run without excluded files" do
+      write_subject_project
+      guess(specs: ["spec/people_spec.rb"], unmatched: [], changed: 1)
+      tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
+      expect(err.string).not_to include("intentionally untested")
+    end
+
+    # Every in-scope file intentionally untested: the --subject run mutates
+    # nothing and never announces a guessed selection (#369 review dogfood).
+    it "runs nothing in a --subject run when every file is map-excluded" do
+      write_subject_project
+      guess(specs: [], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
+      used = tests_the_run_used { run_engine("subjects" => ["Person#adult?"]) }
+      expect(used).to eq([])
+      expect(err.string).to include("intentionally untested")
+      expect(err.string).not_to include("running only")
+    end
+
     def write_subject_project(with_spec: true)
       FileUtils.mkdir_p(File.join(@root, "lib"))
       File.write(File.join(@root, "lib", "people.rb"), "class Person\n  def adult?\n    true\n  end\nend\n")
@@ -313,7 +474,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(used).to eq(["spec/people_spec.rb"])
       expect(err.string).to include("inferred specs: running only spec/people_spec.rb")
       expect(Saboteur::Engine::TestGuess).to have_received(:new)
-        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
+        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics),
+                                                custom_map: an_instance_of(Saboteur::CustomMap))
     end
 
     it "names the spec files the diff deleted in a --subject run (#307)" do
@@ -400,6 +562,13 @@ RSpec.describe Saboteur::Engine, "test selection" do
     expect(used).to eq([])
     expect(err.string).to include("inferred specs: no changed source file to infer a spec for, so the whole suite runs")
     expect(err.string).to include("running the loaded suite unscoped")
+  end
+
+  it "keeps the whole-suite note a report warning when nothing changed (#468)" do
+    guess(specs: [], unmatched: [], changed: 0)
+    report = run_engine("since" => "origin/main")
+    expect(report.warnings)
+      .to include("inferred specs: no changed source file to infer a spec for, so the whole suite runs")
   end
 
   it "names the no-source-file case without --since" do

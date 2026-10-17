@@ -16,10 +16,12 @@ RSpec.describe Saboteur::Help do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
     expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur pr)",
                            "OPTIONS (saboteur audit)", "OPTIONS (saboteur doctor)",
-                           "OPTIONS (saboteur baseline)", "EXAMPLES",
+                           "OPTIONS (saboteur baseline)", "OPTIONS (saboteur badge)", "OPTIONS (saboteur trend)",
+                           "EXAMPLES",
                            "EXIT CODES (saboteur run)", "EXIT CODES (saboteur pr)", "EXIT CODES (saboteur audit)",
                            "EXIT CODES (saboteur doctor)",
                            "EXIT CODES (saboteur baseline)", "EXIT CODES (saboteur survivors)",
+                           "EXIT CODES (saboteur badge)", "EXIT CODES (saboteur trend)",
                            "CONFIG FILE (config/saboteur.rb)", "FILES"])
   end
 
@@ -136,6 +138,63 @@ RSpec.describe Saboteur::Help do
       expect(described_class::COMMANDS.map(&:name)).to include(name)
       parse_options(words.drop(2)) if name == "run"
     end
+  end
+
+  it "describes badge and trend with the exact rendered text (#474)" do
+    badge_help = "saboteur badge - Print a shields.io endpoint badge over the opt-in score history\n" \
+                 "\n" \
+                 "Reads the score history JSONL (c.score_history, or --history PATH) and prints one " \
+                 "shields.io endpoint badge JSON for the latest record: label, mutation score and color " \
+                 "(brightgreen at or above --high, default 80; yellow at or above --low, default 60; " \
+                 "red below). --output PATH writes the file instead of printing. An incomplete latest " \
+                 "record is refused unless --mark-partial labels the badge as partial. No hosted " \
+                 "service, no project boot, no tests run.\n" \
+                 "\n" \
+                 "USAGE\n  " \
+                 "saboteur badge [options]\n" \
+                 "\n" \
+                 "OPTIONS (saboteur badge)\n        " \
+                 "--history PATH               Score history JSONL (default: c.score_history)\n        " \
+                 "--output PATH                Badge JSON destination (default: stdout)\n        " \
+                 "--mark-partial               Badge an incomplete run, labeled as partial\n        " \
+                 "--high PERCENT               brightgreen at or above (default 80)\n        " \
+                 "--low PERCENT                yellow at or above (default 60)\n" \
+                 "\n" \
+                 "EXAMPLES\n  " \
+                 "# Badge the recorded score\n  " \
+                 "saboteur badge\n  " \
+                 "# Write the badge file CI uploads\n  " \
+                 "saboteur badge --output .saboteur/badge.json\n" \
+                 "\n" \
+                 "EXIT CODES\n  " \
+                 "0  Badge JSON written.\n  " \
+                 "2  No history path or unexpected arguments.\n  " \
+                 "3  Empty or unreadable history, an incomplete record without --mark-partial, or no " \
+                 "tested mutants.\n"
+    trend_help = "saboteur trend - Print the score trend over the opt-in score history\n" \
+                 "\n" \
+                 "Reads the score history JSONL (c.score_history, or --history PATH) and prints the " \
+                 "latest record next to the most recent comparable one (same configured selection, " \
+                 "operator policy and a complete run), with the covered-score change in percentage " \
+                 "points. With no comparable earlier record it says so instead of inventing a delta. No " \
+                 "hosted service, no project boot, no tests run.\n" \
+                 "\n" \
+                 "USAGE\n  " \
+                 "saboteur trend [options]\n" \
+                 "\n" \
+                 "OPTIONS (saboteur trend)\n        " \
+                 "--history PATH               Score history JSONL (default: c.score_history)\n" \
+                 "\n" \
+                 "EXAMPLES\n  " \
+                 "# Show the latest score and its change\n  " \
+                 "saboteur trend\n" \
+                 "\n" \
+                 "EXIT CODES\n  " \
+                 "0  Trend printed.\n  " \
+                 "2  No history path or unexpected arguments.\n  " \
+                 "3  Empty or unreadable history.\n"
+    expect(help.command("badge")).to eq(badge_help)
+    expect(help.command("trend")).to eq(trend_help)
   end
 
   it "describes one command in detail" do
