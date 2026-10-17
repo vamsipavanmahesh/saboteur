@@ -40,6 +40,12 @@ Do not start with the whole project. Pick one method you know well:
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 ```
 
+This infers the specs by name (`billing/invoice.rb` runs
+`billing/invoice_spec.rb` and its siblings). If your spec lives somewhere
+else, the run stops with exit 2 before anything boots and names the ways
+out: pass `--test spec/your_spec.rb`, or append `--all` to use the whole
+suite for this one method.
+
 The run first executes the unchanged tests twice - a kill only counts when the
 same tests pass on the code without the change - then builds a per-test
 coverage map (cached for later runs), then mutates. You get counts per
