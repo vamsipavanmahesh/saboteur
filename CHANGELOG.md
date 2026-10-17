@@ -15,6 +15,12 @@ All notable changes are documented here. The format follows
   `*_spec.rb` / `*_test.rb` / `test_*.rb` shapes under `lib/`. A config's
   own `c.exclude` replaces the shields wholesale, and the shields never
   trip the stale-pattern warning.
+- A factory assigned inside `class << self` now keeps its own scope in the
+  owner path, so a constant defined there is named after the factory's
+  singleton: `Host::W.singleton_class::V#n`. An outer factory with no
+  `class << self` of its own still opens no scope, even when a `class <<
+  self` encloses it (#438).
+
 
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
