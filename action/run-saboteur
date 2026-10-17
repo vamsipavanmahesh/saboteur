@@ -3,8 +3,10 @@
 # Runs saboteur in diff mode for the saboteur GitHub Action (see action.yml).
 #
 # Input comes from environment variables, never from shell text:
-#   SABOTEUR_EVENT_NAME         GitHub event name; the action only runs on "pull_request"
-#   SABOTEUR_BASE_SHA           exact base commit from the pull_request event
+#   SABOTEUR_EVENT_NAME         GitHub event name; the action runs on "pull_request", and on
+#                             "workflow_dispatch" for saboteur's own manual PR CI
+#   SABOTEUR_BASE_SHA           exact base commit: from the pull_request event, or from the
+#                             workflow's base_sha dispatch input
 #   SABOTEUR_EXPECTED_HEAD_SHA  checkout commit from the same GitHub event
 #   SABOTEUR_COMMAND            how to start saboteur, for example "bundle exec saboteur"
 #   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on whitespace (no shell quoting)
@@ -91,14 +93,14 @@ stop_with_error() {
   exit "${2:-2}"
 }
 
-if [ "$event_name" != "pull_request" ]; then
-  echo "::notice::saboteur: this action only runs on pull_request events (this one is '${event_name:-unknown}'). Nothing was mutated."
+if [ "$event_name" != "pull_request" ] && [ "$event_name" != "workflow_dispatch" ]; then
+  echo "::notice::saboteur: this action only runs on pull_request and workflow_dispatch events (this one is '${event_name:-unknown}'). Nothing was mutated."
   write_output ran false
   exit 0
 fi
 
 if [ -z "$base_sha" ]; then
-  stop_with_error "saboteur: the pull_request event did not provide its base SHA. This action requires github.event.pull_request.base.sha; no mutation run was started."
+  stop_with_error "saboteur: the event did not provide its base SHA. On pull_request this is github.event.pull_request.base.sha; on workflow_dispatch it is the workflow's base_sha input. No mutation run was started."
 fi
 
 case "$fail_on_survivors" in
@@ -112,10 +114,13 @@ case "$use_cache" in
 esac
 
 if ! [[ "$base_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
-  stop_with_error "saboteur: the pull_request event did not provide a valid 40-character base SHA. Use this action on pull_request and do not override its base commit."
+  stop_with_error "saboteur: the event did not provide a valid 40-character base SHA. Do not override the base commit."
 fi
 
-if ! [[ "$pull_ref" =~ ^refs/pull/[0-9]+/merge$ ]]; then
+# The merge-ref shape is a pull_request property; a workflow_dispatch run
+# checks out the exact head SHA instead, with full history, so there is no
+# merge ref to validate or deepen.
+if [ "$event_name" = "pull_request" ] && ! [[ "$pull_ref" =~ ^refs/pull/[0-9]+/merge$ ]]; then
   stop_with_error "saboteur: cannot deepen the pull request checkout safely. Keep actions/checkout on the default pull_request merge ref (refs/pull/<number>/merge), then rerun."
 fi
 
