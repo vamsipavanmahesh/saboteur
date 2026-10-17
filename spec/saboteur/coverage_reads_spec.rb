@@ -39,6 +39,18 @@ RSpec.describe Saboteur::CoverageReads do
       .to raise_error(Saboteur::Error, /#hash does not return an Integer.*application's code/m)
   end
 
+  it "pins the refusal message word for word, including the TypeError's own message" do
+    type_error = real_type_error
+    allow(Coverage).to receive(:result).and_raise(type_error)
+
+    expected = "Coverage.result raised TypeError (#{type_error.message}): Coverage's method report " \
+               "hashes every method owner and trusts the result, and a loaded class whose #hash does " \
+               "not return an Integer (Ruby's #hash contract) breaks it. This is a bug in the " \
+               "application's code, not in saboteur."
+    expect { described_class.result(stop: false, clear: false) }
+      .to raise_error(Saboteur::Error) { |error| expect(error.message).to eq(expected) }
+  end
+
   it "accuses no class the error did not name" do
     allow(Coverage).to receive(:result).and_raise(real_type_error)
 
