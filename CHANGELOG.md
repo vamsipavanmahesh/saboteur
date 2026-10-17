@@ -6,6 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Per-path score gate config (#473, slice 1): `score_gate "app/payments/**/*",
+  min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
+  validated at load (min_score 0-100, pattern must match an included file).
+  Enforcement lands with slice 2 (#570).
+
 ### Fixed
 
 - A class factory assigned inside `class << self` no longer shares its
