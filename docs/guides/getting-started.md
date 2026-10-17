@@ -16,7 +16,8 @@ bundle install
 ```
 
 Trying saboteur without touching your Gemfile, or on a Rails app, is covered
-by the README's "Try it in a minute" and "Rails apps" sections - the defaults
+by the README's [60-second quick start](../README.md#60-second-quick-start)
+and [Rails apps](../README.md#rails-apps) sections - the defaults
 (`lib/**/*.rb`, `rails: false`, `jobs: 1`) are for plain gems. Use SimpleCov?
 Turn it off for the run: saboteur needs Ruby's `Coverage` for itself, and most
 projects already guard SimpleCov with an environment variable.
