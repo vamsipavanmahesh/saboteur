@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The marker sweep no longer kills a marked process it cannot identify
+  (#389). A process that started before the run's root carries the marker
+  only through an exec chain the run did not spawn, so it is left alone,
+  and an escapee is signalled only when a fresh snapshot shows the same
+  pid still owned by the same start time, so a recycled pid is never
+  killed by mistake.
 - The spec-name guess now tries the underscored require name of a dashed
   path: `lib/acts-as-taggable-on/x.rb` finds
   `spec/acts_as_taggable_on/x_spec.rb` (and the `spec/lib/` form) instead
