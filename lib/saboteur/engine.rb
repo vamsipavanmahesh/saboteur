@@ -9,6 +9,7 @@ require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
 require_relative "engine/out_of_scope_guard"
 require_relative "engine/run_budget"
+require_relative "engine/selection_announcement"
 require_relative "engine/thread_warnings"
 
 require_relative "engine/pipelines"
@@ -21,6 +22,7 @@ module Saboteur
     include EarlyStopRecording
     include OutOfScopeGuard
     include RunBudget
+    include SelectionAnnouncement
 
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
@@ -85,7 +87,7 @@ module Saboteur
 
       refuse_out_of_scope_changes(guess)
 
-      @diagnostics.announce(selection_message(guess))
+      announce_selection(guess)
     end
 
     def load_custom_map
