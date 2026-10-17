@@ -215,6 +215,21 @@ RSpec.describe Saboteur::Engine, "test selection" do
         .and include("inferred specs: no spec found for lib/c.rb (expected spec/c_spec.rb)")
     end
 
+    # A threshold or mutant-count gate judges the score, and a partial
+    # mapping silently narrows what the score covers: keep the hard stop
+    # so a gated run cannot green-light an unverifiable change (#370).
+    it "stops on a partial mapping when a threshold is configured" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine("since" => "origin/main", "threshold" => 100) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    it "stops on a partial mapping when a mutant-count gate is configured" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine("since" => "origin/main", "max_errors" => 0) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
     # The partial-mapping mercy is scoped to --since: a named --subject
     # without a conventional spec still stops the run before boot (#370).
     it "still stops a --subject run on an unmapped named subject" do
