@@ -85,8 +85,10 @@ the macro itself `ran at load` instead of letting its mutants survive.
 ## What you get
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
-  you changed. The GitHub Action runs on every pull request and caches
-  the coverage map between runs.
+  you changed, and fails loudly (exit 3) when the changed code cannot be
+  verified - for example when every changed method is skipped because its
+  file uses refinements. The GitHub Action runs on every pull request and
+  caches the coverage map between runs.
 - **Honest verdicts.** Every kill is verified against the unchanged
   method; a kill the suite cannot confirm stays out of the score. A spec
   file whose examples depend on earlier ones is retried in defined order
