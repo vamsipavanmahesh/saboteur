@@ -48,7 +48,7 @@ RSpec.describe Saboteur::Engine, "distribution wiring" do
 
   def stub_selection_and_store
     selection = instance_double(Saboteur::Engine::SubjectSelection,
-                                select: [subject_under_test], changed_lines: nil)
+                                select: [subject_under_test], behavior_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)

@@ -48,7 +48,7 @@ RSpec.describe Saboteur::Engine, "worker database cleanup" do
       allow(boot).to receive(:load_target).and_return(integration)
     end
     allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-    selection = instance_double(Saboteur::Engine::SubjectSelection, select: subjects, changed_lines: nil)
+    selection = instance_double(Saboteur::Engine::SubjectSelection, select: subjects, behavior_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 

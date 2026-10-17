@@ -18,7 +18,7 @@ RSpec.describe Saboteur::Engine, "generation evidence" do
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject],
-                                                                      changed_lines: { subject.file => Set[1] })
+                                                                      behavior_lines: { subject.file => Set[1] })
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       scope = instance_double(Saboteur::Engine::DiffScope)
       allow(Saboteur::Engine::DiffScope).to receive(:new).and_return(scope)

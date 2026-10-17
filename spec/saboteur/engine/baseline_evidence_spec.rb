@@ -34,7 +34,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
       allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
@@ -107,7 +107,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         instance_double(Saboteur::Integration::RSpec, test_files: [])
       end
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
 
       report = described_class.new(Saboteur::Config.new({}, root: root), capture_evidence: true,
@@ -136,7 +136,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
         boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
         allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-        selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+        selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], behavior_lines: nil)
         allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
         guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: passes)
         allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
@@ -173,7 +173,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         instance_double(Saboteur::Integration::RSpec, test_files: [])
       end
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
 
       allow_any_instance_of(Saboteur::Baseline::RunEvidence).to receive(:finish).and_wrap_original do |original, **args|

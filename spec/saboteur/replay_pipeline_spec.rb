@@ -14,7 +14,7 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
   let(:mutation) { comparison_mutation }
   let(:digest) { mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source) }
   let(:candidate) { [mutation, subject.apply(mutation.edits)] }
-  let(:selection) { instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil) }
+  let(:selection) { instance_double(Saboteur::Engine::SubjectSelection, select: [subject], behavior_lines: nil) }
 
   def engine(id = nil)
     described_class.new(config, err: StringIO.new, digest: id)
@@ -54,7 +54,7 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
 
   it "keeps normal changed-line scope and passes it through digest resolution" do
     lines = { subject.file => Set[999] }
-    allow(selection).to receive(:changed_lines).and_return(lines)
+    allow(selection).to receive(:behavior_lines).and_return(lines)
     expect(engine.send(:select_subjects, []).last).to be_a(Saboteur::Engine::DiffScope)
     candidates = instance_double(Saboteur::Engine::Candidates, for: [candidate])
     allow(Saboteur::Engine::Candidates).to receive(:new).and_return(candidates)

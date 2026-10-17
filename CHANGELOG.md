@@ -37,6 +37,13 @@ All notable changes are documented here. The format follows
   that was not typed on the command line (#317): the config the command
   reads again supplies the same empty list. A typed empty list stays, since
   it may clear a configured value, and non-empty lists stay as before.
+- `--since` no longer treats a line whose only change is layout as
+  changed (#313). Wrapping existing statements in a block used to put
+  every re-indented statement in scope; now only the new block lines and
+  real edits get line-level mutants. A line is layout-only when
+  `git diff -b` pairs it with a base line and Prism lexes both to the
+  same tokens, so whitespace inside strings, heredocs and regexps, and a
+  moved `__LINE__`, still count as changes.
 - `--since` runs every spec file the diff adds or changes next to the
   inferred specs (#307). A request or controller spec whose name maps to no
   changed file used to be left out, so a mutant only it killed was reported

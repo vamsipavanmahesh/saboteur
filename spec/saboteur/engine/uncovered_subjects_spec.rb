@@ -29,7 +29,7 @@ RSpec.describe Saboteur::Engine, "uncovered subjects" do
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection,
-                                  select: [subject_under_test], changed_lines: nil)
+                                  select: [subject_under_test], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
       store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)

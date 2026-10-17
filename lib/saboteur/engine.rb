@@ -199,7 +199,7 @@ module Saboteur
       config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
       selection = SubjectSelection.new(config, @diagnostics, test_files: test_files)
       subjects = selection.select(files)
-      scope = selection.changed_lines && DiffScope.new(selection.changed_lines)
+      scope = selection.behavior_lines && DiffScope.new(selection.behavior_lines)
       return replay_subject(subjects, scope) if @replay
 
       [subjects, scope]
