@@ -165,13 +165,15 @@ module Saboteur
                           .uniq.sort
     end
 
-    # A dangling symlink matches Dir.glob but has no real path: it is not
-    # mutation source, so it is skipped rather than crashing the run with
-    # Errno::ENOENT (#503).
+    # A broken symlink matches Dir.glob but has no real path: dangling
+    # (ENOENT), a loop (ELOOP) or through a regular file (ENOTDIR). It is
+    # not mutation source, so it is skipped rather than crashing the run
+    # (#503). A regular file that cannot be resolved still raises.
     def real_source_path(file)
-      File.realpath(File.expand_path(Text.utf8_identity(file), root))
-    rescue Errno::ENOENT
-      nil
+      path = File.expand_path(Text.utf8_identity(file), root)
+      File.realpath(path)
+    rescue SystemCallError
+      raise unless File.symlink?(path)
     end
 
     # Patterns that match no file. A pattern goes stale when files move;

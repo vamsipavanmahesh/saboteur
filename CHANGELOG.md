@@ -51,7 +51,8 @@ All notable changes are documented here. The format follows
   untracked, naming up to five scope and setup paths. The groups add up
   to the count. A tree of untracked notes or trial setup files no longer
   reads like application edits about to be mutated.
-- A dangling `.rb` symlink under `include` is skipped instead of ending
+- A broken `.rb` symlink under `include` (dangling, a loop, or through a
+  regular file) is skipped instead of ending
   the run with `Errno::ENOENT`: it has no real path, so it is not
   mutation source (#503).
 - The rerun and replay commands in the Next steps footer and the agent
