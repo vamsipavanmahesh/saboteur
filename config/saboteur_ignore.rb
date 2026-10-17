@@ -703,4 +703,28 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "ce91efaab8362061",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: shadowed's only non-nil assignment is guarded by path != scopes.first and scopes " \
+                     "holds just the owner, so shadowed == scope is never true and swapping the dead disjunct changes nothing"
+
+  i.mutation "dc592bbbeadec650",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: shadowed's only non-nil assignment is guarded by path != scopes.first and scopes " \
+                     "holds just the owner, so shadowed == scope is already always false"
+
+  i.mutation "5f8ed39d3c1a6df3",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: overwriting shadowed is unobservable: a shadow crossing into the owner subtree is " \
+                     "lifted at the boundary first, and a nested writer's path only extends the current shadow's " \
+                     "lexical subtree, so the none? classification it feeds never changes"
+
+  i.mutation "c2cd20ea2074e488",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: scopes holds exactly one element (the owner), so first and last agree"
+
+  i.mutation "6c755a9350011f9b",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: scopes holds exactly one element (the owner), so any? and all? agree"
 end
