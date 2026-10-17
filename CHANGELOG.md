@@ -43,6 +43,19 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `saboteur run --test a_spec.rb b_spec.rb` refused: spec files in the source scope now fail as a
+  usage error pointing at repeating `--test`, instead of a green run that mutates nothing; the
+  `--since` "no subjects covering" warning names the misuse when every file is a spec file (#371).
+- A mutant's test that daemonizes - forks an intermediate child that calls
+  `setsid` and exits at once - no longer leaves a sleeping grandchild the
+  supervisor never kills (#365). The tree poll can miss a descendant that
+  leaves the process group and loses its parent between two polls, so
+  every child now carries a unique marker in its environment (which
+  reaches exec'd descendants) and in its comm via `PR_SET_NAME` (which
+  reaches fork-only ones), and the end-of-run kill also sweeps the process
+  table for the marker. Linux only for now; a self-renaming daemon still
+  needs the CPU backstop.
+
 - The Landlock ABI probe no longer flakes fail-closed with "Success -
   landlock_create_ruleset probe" on runners where the first errno read
   gets clobbered between the syscall and the read: the errno reader is

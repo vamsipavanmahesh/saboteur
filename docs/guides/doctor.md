@@ -8,8 +8,9 @@ bundle exec saboteur doctor --config config/saboteur.rb --suite
 ```
 
 By default doctor makes the environment checks only, so it finishes in seconds
-even on a large suite. `--suite` also runs the unchanged suite twice, and
-`--test PATH` (repeatable) runs only those specs twice; `--test` implies `--suite`.
+even on a large suite. `--suite` also runs the unchanged suite, two passes by
+default (`--baseline-passes N` changes the count), and `--test PATH`
+(repeatable) runs only those specs; `--test` implies `--suite`.
 
 Doctor checks Ruby 3.3+ and fork support, suspended line coverage, configured
 require/hook files, and the RSpec integration. It prints the Rails setting and
@@ -45,13 +46,13 @@ entries unmatched. This checks subject names, not mutation digests, and never
 changes the ignore file. A malformed ignore declaration fails with a config
 error before target boot, just as it does for a mutation run.
 
-With `--suite` or `--test`, after normal project boot it runs the filtered RSpec suite in two fresh
-supervised children from the same parent state. Each pass seeds Ruby random
-numbers and sets RSpec random ordering to the run seed. Both must pass, execute
-all loaded test IDs and finish in the same order. Empty suites, timeouts,
+With `--suite` or `--test`, after normal project boot it runs the filtered RSpec suite in fresh
+supervised children from the same parent state, two passes by default. Each pass seeds Ruby random
+numbers and sets RSpec random ordering to the run seed. Every pass must
+succeed, execute all loaded test IDs and finish in the same order. Empty suites, timeouts,
 resource stops and child exits fail. Use the same seed when fixing failures.
 
-The two runs sample stability. They do not prove the suite has no flakes,
+The passes sample stability. They do not prove the suite has no flakes,
 compare assertion values or vary seeds. Suite filters still come from rspec_args.
 
 Doctor does not change methods, write reports, modify ignore files or write
