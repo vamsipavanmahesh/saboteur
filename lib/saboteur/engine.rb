@@ -103,6 +103,7 @@ module Saboteur
 
       guess = TestGuess.new(config, diagnostics: @diagnostics).call
       @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
+      inform_skipped_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
       @diagnostics.announce(selection_message(guess))
@@ -121,9 +122,16 @@ module Saboteur
       # the run has nothing to mutate and needs no inferred spec.
       return if guess.changed.zero?
 
+      inform_skipped_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
       @diagnostics.announce(scope_to_guesses(guess))
+    end
+
+    # A spec file the diff touched that cannot run is named, also before a
+    # stop on an unmatched file: --test, the way out, never reads the diff.
+    def inform_skipped_specs(guess)
+      @diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?
     end
 
     def selection_message(guess)
