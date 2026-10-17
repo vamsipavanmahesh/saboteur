@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded} = require('./verify.cjs');
+const {parse, panel, jobsPass, dco, verify, revokeEvent, revocations, superseded, postLane, closeLane, overlappingNewerLane} = require('./verify.cjs');
 const policy = require('./policy.json');
 const HEAD = 'a'.repeat(40), BASE = 'b'.repeat(40);
 const marker = (changes = {}) => ({schema: 1, lens: 'principal', head: HEAD,
@@ -550,4 +550,57 @@ test('other latch write failures still fail loudly and now name the cause', asyn
   api.call = async (path, method, data) => { if (method === 'POST') throw new Error('GitHub API 500: statuses'); return call(path, method, data); };
   await assert.rejects(() => revokeEvent(api, deletion(marker({head: BASE}))), error => !(error instanceof RateLimitError) &&
     /^revocation latch write failed; retry event after API recovery: GitHub API 500: statuses \| GitHub API 500: statuses$/.test(error.message));
+});
+
+// The lane registry serializes runs the YAML concurrency lanes cannot: fork
+// CI sweeps (head-sha lane) against comment revocations (PR lane) (#434).
+test('lane overlap: only a newer live lane sharing a PR defers this run', async () => {
+  process.env.GITHUB_RUN_ID = '41';
+  const now = new Date().toISOString();
+  const lane = (id, prs, extra = {}) => ({context: 'panel/lane', state: 'pending',
+    description: `run-${id}:pr-${prs}`, created_at: now, ...extra});
+  const api = records => ({pages: async () => records});
+  assert.equal(await overlappingNewerLane(api([lane(99, '1')]), [1]), true);
+  assert.equal(await overlappingNewerLane(api([lane(99, '3,1')]), [1]), true);
+  assert.equal(await overlappingNewerLane(api([lane(99, 'all')]), [1]), true);
+  assert.equal(await overlappingNewerLane(api([lane(99, '2')]), [1]), false);
+  assert.equal(await overlappingNewerLane(api([lane(40, '1')]), [1]), false);
+  assert.equal(await overlappingNewerLane(api([lane(41, '1')]), [1]), false);
+  assert.equal(await overlappingNewerLane(api([lane(99, '1', {state: 'success'})]), [1]), false);
+  assert.equal(await overlappingNewerLane(api([lane(99, '1', {created_at: '2020-01-01T00:00:00Z'})]), [1]), false);
+  assert.equal(await overlappingNewerLane(api([{...lane(99, '1'), context: 'panel/revoked/pr-1'}]), [1]), false);
+  assert.equal(await overlappingNewerLane(api([lane(99, '1')]), []), false);
+});
+test('lane overlap: the newest record per lane key wins, malformed fails closed', async () => {
+  process.env.GITHUB_RUN_ID = '41';
+  const now = new Date().toISOString();
+  const lane = state => ({context: 'panel/lane', state, description: 'run-99:pr-1', created_at: now});
+  // The API lists statuses newest first: the resolved record leads.
+  const api = {pages: async () => [lane('success'), lane('pending')]};
+  assert.equal(await overlappingNewerLane(api, [1]), false);
+  const bad = {pages: async () => [{context: 'panel/lane', state: 'pending', description: 'garbage', created_at: now}]};
+  await assert.rejects(() => overlappingNewerLane(bad, [1]), /invalid lane record/);
+});
+test('postLane registers the resolved targets and closeLane resolves the same lane', async () => {
+  process.env.GITHUB_RUN_ID = '41';
+  const statuses = [];
+  const api = {call: async (path, method, data) => { statuses.push(data); return data; }};
+  const lane = await postLane(api, [1, 2], 'issue_comment');
+  assert.equal(lane, 'run-41:pr-1,2');
+  await closeLane(api, lane, true);
+  assert.deepEqual(statuses.map(s => [s.state, s.context, s.description]),
+    [['pending', 'panel/lane', 'run-41:pr-1,2'], ['success', 'panel/lane', 'run-41:pr-1,2']]);
+  assert.equal(await postLane(api, [1], 'push'), 'run-41:pr-all');
+  assert.equal(await postLane(api, [], 'issue_comment'), null);
+  await closeLane(api, null, true);
+  assert.equal(statuses.length, 3);
+});
+test('lane writes fail open with a log line, but never hide a quota error', async () => {
+  process.env.GITHUB_RUN_ID = '41';
+  const boom = {call: async () => { throw new Error('boom'); }};
+  assert.equal(await postLane(boom, [1], 'issue_comment'), null);
+  await closeLane(boom, 'run-41:pr-1', true);
+  const quota = {call: async () => { throw new RateLimitError('spent'); }};
+  await assert.rejects(() => postLane(quota, [1], 'issue_comment'));
+  await assert.rejects(() => closeLane(quota, 'run-41:pr-1', true));
 });
