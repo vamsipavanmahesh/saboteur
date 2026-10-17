@@ -18,6 +18,9 @@ module Saboteur
 
       def ran_at_load?(_file, _lines) = false
 
+      # No boot happens in this mode, so nothing can have run only at load.
+      def called_only_at_load?(_file, _line) = false
+
       def recorded_runtime(_tests) = nil
     end
   end

@@ -90,6 +90,26 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(with_hits.empty_for?([dotted])).to be(false)
   end
 
+  # A def-time macro's caller ran in the boot's spec load, so the boot
+  # method counters name the def line - and no test calls it again (#409).
+  it "knows a def line the boot called and no test calls again" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] })
+    expect(map.called_only_at_load?(file, 2)).to be(true)
+  end
+
+  it "does not call a def load-only when a test or hook calls it post-boot" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] },
+                              methods: { file => { 2 => %w[t1] } })
+    expect(map.called_only_at_load?(file, 2)).to be(false)
+    plain = described_class.new(lines: {}, tests: %w[t1], methods: { file => { 2 => %w[t1] } })
+    expect(plain.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  it "round-trips load method coverage through JSON" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2, 7] })
+    expect(described_class.from_json(map.to_json).load_methods).to eq(file => [2, 7])
+  end
+
   it "round-trips method coverage through JSON" do
     with_methods = described_class.new(lines: {}, tests: %w[t1 t2], methods: { file => { 2 => %w[t2 t1] } })
     expect(described_class.from_json(with_methods.to_json).methods).to eq(file => { 2 => %w[t2 t1] })
@@ -97,6 +117,21 @@ RSpec.describe Saboteur::Selection::CoverageMap do
 
   it "returns nothing for files it has never seen" do
     expect(described_class.new(lines: {}, tests: []).tests_for(subject_under_test)).to eq([])
+  end
+
+  it "rounds durations to six decimals through the JSON round-trip (#353)" do
+    map = described_class.new(lines: {}, tests: %w[t1], durations: { "t1" => 0.123456789 })
+    expect(described_class.from_json(map.to_json).durations).to eq("t1" => 0.123457)
+  end
+
+  it "keeps the loaded source list when load lines are merged in (#353)" do
+    map = described_class.new(lines: {}, tests: [], loaded_files: ["/app/support/helper.rb"])
+    expect(map.with_load_lines({ "boot.rb" => [1, 2] }).loaded_files).to eq(["/app/support/helper.rb"])
+  end
+
+  it "keeps the loaded source list through the JSON round-trip (#353)" do
+    map = described_class.new(lines: {}, tests: [], loaded_files: ["/app/support/helper.rb"])
+    expect(described_class.from_json(map.to_json).loaded_files).to eq(["/app/support/helper.rb"])
   end
 
   it "round-trips through JSON with integer line keys" do
@@ -304,6 +339,62 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(recorder.result.lines).to eq({})
     end
   end
+
+  # Survivor kills for #480's load tracking (#480 dogfood gate).
+  it "keeps method, branch and duration evidence when attaching load lines" do
+    map = described_class.new(lines: { file => { 2 => %w[t1] } }, tests: %w[t1],
+                              methods: { file => { 2 => %w[t1] } }, durations: { "t1" => 0.5 },
+                              branches: { file => { 4 => %w[t1] } })
+    merged = map.with_load_lines({ file => [3] }, { file => [2] })
+    expect(merged.methods).to eq(file => { 2 => %w[t1] })
+    expect(merged.branches).to eq(file => { 4 => %w[t1] })
+    expect(merged.durations).to eq("t1" => 0.5)
+    expect(merged.load_lines).to eq(file => [3])
+    expect(merged.load_methods).to eq(file => [2])
+  end
+
+  it "is not load-only when the boot never called the def, even with no test callers" do
+    plain = described_class.new(lines: {}, tests: %w[t1])
+    expect(plain.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  it "is not load-only when the boot called a different line of the file" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [9] })
+    expect(map.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  # The recorder stores canonical paths, so the lookup must canonicalize
+  # the queried spelling too (#480 dogfood).
+  it "canonicalizes the queried file before the load-methods lookup" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] })
+    dotted = File.join(File.dirname(file), ".", File.basename(file))
+    expect(map.called_only_at_load?(dotted, 2)).to be(true)
+  end
+
+  # A sibling def with test callers does not make this def called: the
+  # per-line fetch, not the file's entry, answers the question (#480
+  # dogfood).
+  it "stays load-only for a def no test calls when another def of the file has callers" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] },
+                              methods: { file => { 7 => %w[t1] } })
+    expect(map.called_only_at_load?(file, 2)).to be(true)
+  end
+
+  it "decodes an absent key as empty int lists" do
+    expect(described_class.int_lists({}, "load_methods")).to eq({})
+    expect(described_class.int_lists({ "load_methods" => { "a.rb" => %w[1 2] } }, "load_methods"))
+      .to eq("a.rb" => [1, 2])
+  end
+
+  it "names the source files the given tests touched, sorted and deduped (#197)" do
+    map = described_class.new(
+      lines: { "/a/helper.rb" => { 3 => %w[t1 t2], 9 => ["t1"] }, "/a/other.rb" => { 1 => ["t2"] } },
+      tests: %w[t1 t2]
+    )
+    expect(map.files_for(["t1"])).to eq(["/a/helper.rb"])
+    expect(map.files_for(%w[t1 t2])).to eq(["/a/helper.rb", "/a/other.rb"])
+    expect(map.files_for(["t3"])).to eq([])
+  end
 end
 
 RSpec.describe Saboteur::Selection::CoverageMap, "constant subjects (issue #306)" do
@@ -393,5 +484,44 @@ RSpec.describe Saboteur::Selection::CoverageMap, "constant reads in endless defs
     subject.consumer_lines = { app => [2] }
     map = described_class.new(lines: { app => { 2 => %w[t2] }, file => { 1 => %w[t1] } }, tests: %w[t1 t2])
     expect(map.tests_for_edit(subject, [1])).to eq(%w[t2])
+  end
+end
+
+RSpec.describe Saboteur::Selection::CoverageMap, "dependency files (#344)" do
+  it "names files a test touched only through method coverage, for endless defs" do
+    map = described_class.new(
+      lines: { "/a/caller.rb" => { 3 => ["t1"] } },
+      methods: { "/a/helper.rb" => { 5 => ["t1"] } },
+      tests: ["t1"]
+    )
+    expect(map.files_for(["t1"])).to eq(["/a/caller.rb", "/a/helper.rb"])
+  end
+
+  it "names the files that ran while the app loaded" do
+    map = described_class.new(
+      lines: { "/a/caller.rb" => { 3 => ["t1"] } },
+      load_lines: { "/a/boot.rb" => { 1 => 2 } },
+      tests: ["t1"]
+    )
+    expect(map.boot_files).to eq(["/a/boot.rb"])
+  end
+end
+
+RSpec.describe Saboteur::Selection::CoverageMap, ".root_prefixes (#353)" do
+  it "lists the resolved and the spelled root, each with a trailing slash" do
+    Dir.mktmpdir do |target|
+      Dir.mktmpdir do |parent|
+        link = File.join(parent, "project")
+        File.symlink(target, link)
+        expect(described_class.root_prefixes(link)).to eq(["#{File.realpath(link)}/", "#{link}/"])
+      end
+    end
+  end
+
+  it "lists one prefix when the root has no symlink component" do
+    Dir.mktmpdir do |dir|
+      root = File.realpath(dir)
+      expect(described_class.root_prefixes(root)).to eq(["#{root}/"])
+    end
   end
 end

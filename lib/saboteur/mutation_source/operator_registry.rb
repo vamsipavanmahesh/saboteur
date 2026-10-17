@@ -36,9 +36,10 @@ module Saboteur
         "chain_removal" => "Remove one call from a method chain",
         "method_swap" => "Swap a method with its semantic opposite",
         "operand_replacement" => "Replace a binary operation with one operand",
-        "interpolation_removal" => "Remove part of an interpolated string"
+        "interpolation_removal" => "Remove part of an interpolated string",
+        "regex_replacement" => "Drop a regex anchor or swap a regex quantifier"
       }.freeze
-      POLICY_VERSION = 2
+      POLICY_VERSION = 3
       TIERS = { "all" => DESCRIPTIONS.keys.freeze }.freeze
 
       def self.list(out, names: [], excluded: [])
