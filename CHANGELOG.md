@@ -17,13 +17,21 @@ All notable changes are documented here. The format follows
 - `--since` runs every spec file the diff adds or changes next to the
   inferred specs (#307). A request or controller spec whose name maps to no
   changed file used to be left out, so a mutant only it killed was reported
-  as a survivor. A changed file runs only when the configured RSpec suite
-  loads it (its pattern, exclude pattern and default path) and it is a
-  regular file; a changed `*_spec.rb` that does not run, or that the diff
-  deletes, is named with the reason. `--test` and `--all` are unchanged.
+  as a survivor. A spec the diff adds beyond inference runs only when the
+  configured RSpec suite loads it (its pattern, exclude pattern and default
+  path) and it is a regular file; inferred specs run as before. A changed
+  `*_spec.rb` that does not run, or that the diff deletes, is named with
+  the reason, also before a stop on an unmatched file. `--test` and
+  `--all` are unchanged.
 
 ### Fixed
 
+- `rspec_args` that hold only options and their values (such as
+  `["--require", "spec_helper"]`) no longer leave the suite with no
+  files under `exe/saboteur`: RSpec adds its default path only when `$0`
+  is `rspec`, and the value was taken for a path. saboteur now adds the
+  default path whenever RSpec's own parse finds no file or directory to
+  run, and a `--default-path` from `.rspec` wins over `spec`.
 - `script/preflight` no longer loses why a git probe died: a probe
   whose child never ran git (the spawn failed, or a signal killed
   the forked child, as macOS does pre-exec under memory pressure)

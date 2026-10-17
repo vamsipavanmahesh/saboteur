@@ -169,7 +169,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
       used = tests_the_run_used { run_engine("since" => "origin/main") }
       expect(used).to eq(%w[spec/a_spec.rb spec/requests/a_spec.rb])
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/requests/a_spec.rb " \
-                                    "(changed in the diff: spec/requests/a_spec.rb). A spec that reaches",
+                                    "(changed in the diff: spec/requests/a_spec.rb). A spec the diff did not change " \
+                                    "that reaches",
                                     "inferred specs: not running spec files changed in the diff: " \
                                     "spec/old_spec.rb (deleted in the diff)")
     end
@@ -187,7 +188,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(Saboteur::Engine::TestGuess).to have_received(:new)
         .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
       expect(@scoped_root).to eq(@root)
-      expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/b_spec.rb. A spec that reaches")
+      expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/b_spec.rb. " \
+                                    "A spec the diff did not change that reaches")
       expect(err.string).not_to include("running the loaded suite unscoped")
       expect(@report.warnings).to include(a_string_starting_with("inferred specs: running only"))
       expect(err.string).to include("is reported as NoCoverage")
@@ -323,6 +325,14 @@ RSpec.describe Saboteur::Engine, "test selection" do
                                     "spec/old_spec.rb (deleted in the diff)")
     end
 
+    it "names the skipped spec files before stopping on an unmatched file (#307)" do
+      guess(specs: [], unmatched: ["lib/c.rb"], changed: 1,
+            skipped_specs: { "spec/requests/status_spec.rb" => "deleted in the diff" })
+      expect { run_engine("since" => "origin/main") }.to raise_error(Saboteur::ConfigError, /no spec found/)
+      expect(err.string).to include("not running spec files changed in the diff: " \
+                                    "spec/requests/status_spec.rb (deleted in the diff)")
+    end
+
     it "stops before boot when the named subject's own file has no spec" do
       write_subject_project(with_spec: false)
       expect { run_engine("subjects" => ["Person#adult?"]) }
@@ -411,7 +421,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
   it "says a changed file with --since and a source file without in the inference warning" do
     guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1)
     run_engine("since" => "origin/main")
-    expect(err.string).to include("A spec that reaches a changed file only through another file does not run")
+    expect(err.string).to include("A spec the diff did not change that reaches a changed file only through " \
+                                  "another file does not run")
     guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1)
     run_engine({})
     expect(err.string).to include("A spec that reaches a source file only through another file does not run")

@@ -445,6 +445,31 @@ RSpec.describe Saboteur::Engine::TestGuess do
                                  "Specs the diff adds or changes: spec/requests/widgets_spec.rb.")
     end
 
+    # Rails tests a controller as a request spec, the second candidate: its
+    # deletion must be the one the stop names.
+    it "names a deleted candidate that is not the first one as the expected spec" do
+      write("app/controllers/users_controller.rb", "class UsersController\n  def a = 1\nend\n")
+      write("spec/requests/users_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "controller")
+      write("app/controllers/users_controller.rb", "class UsersController\n  def a = 2\nend\n")
+      git("mv", "spec/requests/users_spec.rb", "spec/requests/accounts_spec.rb")
+      message = guess.unmatched_message
+      expect(message).to include("app/controllers/users_controller.rb " \
+                                 "(expected spec/requests/users_spec.rb, deleted in the diff)",
+                                 "Specs the diff adds or changes: spec/requests/accounts_spec.rb.")
+    end
+
+    # macOS git reports a precomposed (NFC) name while the directory entry,
+    # and so the suite list, can be decomposed (NFD): one spec, two spellings.
+    it "matches a changed spec to the suite list whatever Unicode form names it" do
+      write("lib/a.rb", changed_source)
+      write("spec/cafe\u0301_spec.rb")
+      expect(guess.specs.map { |spec| spec.unicode_normalize(:nfc) })
+        .to eq(["spec/a_spec.rb", "spec/caf\u00e9_spec.rb"])
+      expect(guess.skipped_specs).to eq({})
+    end
+
     # A non-ASCII root joined with a git path that holds high bytes must not
     # mix encodings; the LANG=C CI job runs this under a US-ASCII locale.
     it "joins a non-ASCII root with a non-ASCII spec path" do

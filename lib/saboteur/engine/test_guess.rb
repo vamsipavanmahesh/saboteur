@@ -60,14 +60,16 @@ module Saboteur
         # The warning for a guess-scoped run: the guessed specs now stand as
         # explicit tests, with the cross-file coverage caveat that brings.
         def scope_message(since:)
-          what = since ? "a changed file" : "a source file"
+          who = since ? SINCE_CAVEAT_SUBJECT : CAVEAT_SUBJECT
           added = changed_specs.any? ? " (changed in the diff: #{changed_specs.join(', ')})" : ""
-          "inferred specs: running only #{specs.join(', ')}#{added}. A spec that reaches " \
-            "#{what} only through another file does not run, so a mutant only it would kill can " \
-            "survive, and a line no inferred spec executes is reported as NoCoverage"
+          "inferred specs: running only #{specs.join(', ')}#{added}. #{who} only through another file " \
+            "does not run, so a mutant only it would kill can survive, and a line no inferred spec " \
+            "executes is reported as NoCoverage"
         end
       end
 
+      CAVEAT_SUBJECT = "A spec that reaches a source file"
+      SINCE_CAVEAT_SUBJECT = "A spec the diff did not change that reaches a changed file"
       SOURCE_ROOTS = %w[lib app].freeze
       DELETED = "deleted in the diff"
       OUTSIDE_SUITE = "not loaded by the configured RSpec suite: its pattern, exclude pattern or default path " \
@@ -164,7 +166,7 @@ module Saboteur
                    unmatched: unmatched,
                    subjectless: subjectless,
                    changed: changed,
-                   hints: unmatched.to_h { |file| [file, candidates_for(file).first] },
+                   hints: unmatched.to_h { |file| [file, expected_spec(file, diff[:skipped])] },
                    changed_specs: diff[:run],
                    skipped_specs: diff[:skipped])
       end
@@ -181,12 +183,20 @@ module Saboteur
         paths = Selection::GitDiff.changed_paths(@config["since"], root: @root)
         skipped = paths[:deleted].select { |path| spec?(path) }.to_h { |path| [path, DELETED] }
         candidates = paths[:present] - inferred
-        run = candidates.select { |path| spec?(path) || suite_files&.include?(path) }.select do |path|
+        run = candidates.select { |path| spec?(path) || in_suite?(path) }.select do |path|
           reason = unrunnable_reason(path)
           skipped[path] = reason if reason
           reason.nil?
         end
         { run: run, skipped: skipped.sort.to_h }
+      end
+
+      # The spec the stop names for an unmatched file: a candidate the diff
+      # deleted (a renamed request spec is not always the first), else the
+      # most specific one.
+      def expected_spec(file, skipped)
+        candidates = candidates_for(file)
+        candidates.find { |path| skipped[path] == DELETED } || candidates.first
       end
 
       # lstat, not stat: a symlink can point anywhere, including a spec of
@@ -195,9 +205,21 @@ module Saboteur
         return NOT_REGULAR unless File.lstat(File.join(@root, path)).file?
         return @suite_error if suite_files.nil?
 
-        OUTSIDE_SUITE unless suite_files.include?(path)
+        OUTSIDE_SUITE unless in_suite?(path)
       rescue SystemCallError
         NOT_REGULAR
+      end
+
+      # macOS git reports a precomposed (NFC) name, while the directory
+      # entry RSpec lists can be decomposed (NFD): the same spec spelled two
+      # ways. Valid UTF-8 compares in NFC; other bytes compare as they are.
+      def in_suite?(path)
+        suite = suite_files
+        suite ? suite.include?(comparable(path)) : false
+      end
+
+      def comparable(path)
+        path.valid_encoding? ? path.unicode_normalize(:nfc) : path
       end
 
       # nil when RSpec cannot list the suite: under a non-UTF-8 locale its
@@ -206,7 +228,8 @@ module Saboteur
       def suite_files
         return @suite_files if defined?(@suite_files)
 
-        @suite_files = Integration.fetch(@config["integration"]).new(@config).configured_spec_files(@root).to_set
+        listed = Integration.fetch(@config["integration"]).new(@config).configured_spec_files(@root)
+        @suite_files = listed.to_set { |path| comparable(path) }
       rescue EncodingError => e
         @suite_error = "the configured RSpec suite's files could not be listed (#{e.class})"
         @suite_files = nil

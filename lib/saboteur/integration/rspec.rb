@@ -18,10 +18,16 @@ module Saboteur
         refuse_unintended_focus
       end
 
-      # RSpec only adds its default "spec" path when $0 is `rspec`.
+      # RSpec only adds its default path when $0 is `rspec`, so saboteur adds
+      # it when RSpec's own parse of the args, .rspec and SPEC_OPTS names no
+      # file or directory to run. Parsing, not a look at the tokens, keeps an
+      # option value such as `--require spec_helper` from passing as a path,
+      # and a --default-path from .rspec wins over "spec".
       def rspec_args
+        require "rspec/core"
         args = Array(config.fetch("rspec_args", []))
-        args.any? { |arg| !arg.start_with?("-") } ? args : args + ["spec"]
+        options = ::RSpec::Core::ConfigurationOptions.new(args).options
+        Array(options[:files_or_directories_to_run]).empty? ? args + [options[:default_path] || "spec"] : args
       end
 
       # RSpec's own parser reads rspec_args and .rspec, so option values such
