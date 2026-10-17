@@ -818,7 +818,8 @@ RSpec.describe Saboteur::Engine::Scheduler, "per-check budget admission (#296)" 
                                                                                        runtime: 0.1,
                                                                                        message: "boom"))
     allow(cache).to receive(:record)
-    final = scheduler_with(150.0).send(:checked, plan, [kill])
+    map = instance_double(Saboteur::Selection::CoverageMap, tests: [])
+    final = scheduler_with(150.0, map: map).send(:checked, plan, [kill])
     expect(final.first.status).to eq(:error)
     expect(diagnostics.warnings).to include("#{subject_under_test.id}: 1 verdict(s) failed with the method unchanged")
   end
