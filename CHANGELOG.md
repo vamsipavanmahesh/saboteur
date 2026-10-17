@@ -8,6 +8,10 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A changed file the diff only deletes from no longer hard-stops a
+  --since run for want of a spec (#484): a deletion-only file yields no
+  subject and no fine-grained mutant, so test inference treats it as
+  subjectless instead of demanding a spec, and the run goes ahead.
 - The pr preset no longer hard-stops when a changed file's coverage
   lives in a consolidated spec the diff itself touches: a spec added
   or changed in the diff that reads a constant the uncovered file
