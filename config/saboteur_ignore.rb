@@ -748,6 +748,13 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
+  i.mutation "71ae32342742aec3",
+             subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
+             reason: "equivalent: for a string node, node.start_line and node.opening_loc.start_line are the same line"
+
+  i.mutation "517bdd5e24a7af96",
+             subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
+             reason: "equivalent: each and map iterate the same children; the recursion uses spans, not the return value"
   i.mutation "d9aeb909564db3e1",
              subject: "Saboteur::Engine::SubjectSelection#by_pattern",
              reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"

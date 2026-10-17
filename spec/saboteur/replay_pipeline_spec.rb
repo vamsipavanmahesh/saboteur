@@ -25,6 +25,11 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
   end
 
+  it "skips the cache when incremental is off and nothing replays" do
+    run = described_class.new(Saboteur::Config.new({ "all" => true }), err: StringIO.new)
+    expect(run.send(:result_cache)).to be_nil
+  end
+
   it "resolves one real candidate and bypasses caps and cache" do
     candidates = instance_double(Saboteur::Engine::Candidates, for: [candidate])
     allow(Saboteur::Engine::Candidates).to receive(:new).and_return(candidates)
