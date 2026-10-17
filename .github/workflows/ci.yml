@@ -99,6 +99,9 @@ jobs:
         uses: ./
         with:
           command: bundle exec exe/saboteur
+          # One baseline pass in CI: the second pass only checks run-to-run
+          # order stability, and it doubles the dogfood's wall time.
+          arguments: --baseline-passes 1
           fail-on-survivors: "true"
       - name: Keep the report
         if: always()
