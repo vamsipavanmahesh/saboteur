@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `--incremental` no longer reuses a stored verdict after the project source
+  set changes: a file added after the coverage map was built (a conditional
+  require, a Zeitwerk autoload) can load into a mutant run unseen, and the
+  reused verdict read as a false green. The set is paths only; content edits
+  to other files stay the documented cross-file tradeoff (#396).
+
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
   class, so re-evaluation now resolves a factory constant after a sclass

@@ -99,6 +99,27 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expect(later.lookup(person_subject, comparison_mutation, tests)).to be_nil
   end
 
+  # A file created after the verdict was stored is in no watched input, but
+  # a conditional require or Zeitwerk autoload can load it into the mutant
+  # run: reuse must look at the current source set, not just the recorded
+  # one. Paths only - content edits to other files stay the #197 tradeoff.
+  it "forgets it when a source file is added or removed after the verdict was stored (#396)" do
+    stored
+    FileUtils.mkdir_p(File.join(@root, "lib"))
+    added = File.join(@root, "lib", "late.rb")
+    File.write(added, "# new\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    File.delete(added)
+    fresh = described_class.new(path: path, root: @root, inputs: "config-1")
+    expect(fresh.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+  end
+
+  it "keeps it when a non-Ruby file is added" do
+    stored
+    File.write(File.join(@root, "NOTES.md"), "notes\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+  end
+
   it "ignores a results file in another format" do
     stored
     data = JSON.parse(File.read(path))
