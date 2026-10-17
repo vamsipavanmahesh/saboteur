@@ -126,6 +126,24 @@ module Saboteur
                                   "phase timeout)"
       end
 
+      # A containment limit stopping a healthy suite means the limit, not
+      # the suite: name the knob and its current value, like the sqlite
+      # :memory: hint (#387), so the user is not sent debugging a green
+      # suite (#459).
+      def stopped_reason(result)
+        reason = "the suite stopped: #{result.stopped_by} (#{result.detail})"
+        case result.stopped_by
+        when :processes
+          "#{reason}. If this suite forks heavily by design, raise the limit with " \
+          "c.max_processes (currently #{@config['max_processes']})"
+        when :memory
+          "#{reason}. If this suite legitimately needs more memory, raise the limit with " \
+          "c.max_memory_mb (currently #{@config['max_memory_mb']} MB)"
+        else
+          reason
+        end
+      end
+
       def check(number)
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
@@ -135,14 +153,14 @@ module Saboteur
           record(writer, number)
         end
         refuse_budget_stop(number, admitted) if budget_stopped?(result, admitted)
-        refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
+        refuse(number, stopped_reason(result)) if result.stopped_by
         # Before the payload checks: a child killed by a signal (the OOM
         # killer, say) writes nothing, and the signal is the explanation. A
         # child the supervisor itself killed after it had reported is not a
         # failure: its payload is checked below.
         refuse(number, unsuccessful_exit(result.exit_status, result.memory_pressure)) if result.child_failed?
         refuse(number, "the child did not report a result") if result.payload.empty?
-        refuse(number, "the suite left child processes behind") if result.leftover_pids.any?
+        refuse(number, leftover_message(result), excerpt: false) if result.leftover_pids.any?
         parse_result(number, result.payload)
       end
 
@@ -201,10 +219,22 @@ module Saboteur
         File.join(@config.path("cache_dir"), "baseline-#{number}.log")
       end
 
-      def refuse(number, reason)
+      # Leftover children are a pass-with-leaks verdict, not a suite
+      # failure: the message names the leaked processes (the supervisor's
+      # pre-kill notes) and skips the log excerpt, which holds only RSpec
+      # output and can never show them (#486).
+      def leftover_message(result)
+        notes = result.leftover_notes
+        detail = notes.empty? ? result.leftover_pids.join(", ") : notes.join(", ")
+        count = result.leftover_pids.size
+        "the suite passed but left #{count} child #{count == 1 ? 'process' : 'processes'} behind: #{detail}"
+      end
+
+      def refuse(number, reason, excerpt: true)
         raise Error, "baseline check #{number} failed at seed #{@config['seed']}: #{reason}. " \
-                     "#{failure_excerpt(number)}See the full log at #{log_path(number)}. Fix the suite or its " \
-                     "setup, then run saboteur again with the same seed. No mutants were started."
+                     "#{failure_excerpt(number) if excerpt}See the full log at #{log_path(number)}. " \
+                     "Fix the suite or its setup, then run saboteur again with the same seed. " \
+                     "No mutants were started."
       end
 
       # The first lines of the failure, inline, so the cause is readable

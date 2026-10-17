@@ -59,8 +59,8 @@ module Saboteur
       # least half of the memory limit, the evidence that a SIGKILL may be
       # an out-of-memory kill.
       Result = Data.define(:payload, :exit_status, :stopped_by, :detail, :runtime, :leftover_pids,
-                           :supervisor_killed, :memory_pressure) do
-        def initialize(supervisor_killed: false, memory_pressure: false, **fields)
+                           :leftover_notes, :supervisor_killed, :memory_pressure) do
+        def initialize(leftover_notes: [], supervisor_killed: false, memory_pressure: false, **fields)
           super
         end
 
@@ -243,27 +243,27 @@ module Saboteur
           # (progress IO failed) or any other error must not skip the
           # kill/reap, or the child and its tree would run unsupervised
           # until this process exits.
-          exit_status, supervisor_killed, leftover_pids = release(pid, tree, exit_status, stop, grace_expired)
+          exit_status, supervisor_killed, leftover_pids, notes = release(pid, tree, exit_status, stop, grace_expired)
         end
         Result.new(payload: payload, exit_status: exit_status, stopped_by: stop, detail: detail,
-                   runtime: monotonic - started, leftover_pids: leftover_pids,
+                   runtime: monotonic - started, leftover_pids: leftover_pids, leftover_notes: notes,
                    supervisor_killed: supervisor_killed, memory_pressure: memory_pressure?)
       end
 
-      # Kills and reaps the child and everything it started. Returns
-      # [exit_status, supervisor_killed, leftover_pids].
+      # Kills and reaps the child and its tree; returns [exit_status, supervisor_killed, leftover_pids, notes].
       def release(pid, tree, exit_status, stop, grace_expired)
         exit_status ||= terminate(pid) if stop == :timeout
         supervisor_killed = false
         # The grace ran out with the child seemingly alive. What ends it is
         # only ours to claim if we see it alive: stop it first.
         exit_status, supervisor_killed = freeze_child(pid) if grace_expired
-        leftover_pids = tree.kill_all - [pid]
+        # Notes name the leftovers before the kill erases their command lines (#486).
+        leftover_pids, notes = tree.kill_all_except(pid)
         exit_status ||= reap(pid)
         self.class.live.delete(pid)
         reap_adopted(leftover_pids)
         reap_group(pid)
-        [exit_status, supervisor_killed, leftover_pids]
+        [exit_status, supervisor_killed, leftover_pids, notes]
       end
 
       # After EOF, waits for the child to exit by itself while still checking
