@@ -41,6 +41,27 @@ module Saboteur
         status.success? ? out.b : nil
       end
 
+      # Paths under ROOT, relative to it, that differ between the merge base
+      # of REF and the working tree: { present: [...], deleted: [...] }.
+      # present holds added, modified and untracked files; deleted holds
+      # files gone from the working tree. A rename counts as a deletion of
+      # the old path and an addition of the new one.
+      def changed_paths(ref, root:)
+        verify_ref!(ref, root: root)
+        base = merge_base(ref, root: root)
+        diff = %w[diff -z --name-only --relative --no-renames]
+        {
+          # An untracked file is never in the diff, so the two lists are disjoint.
+          present: (names(root, *diff, "--diff-filter=d", base, "--") +
+                    names(root, "ls-files", "-z", "--others", "--exclude-standard")).sort,
+          deleted: names(root, *diff, "--diff-filter=D", base, "--").sort
+        }
+      end
+
+      def names(root, *args)
+        git(root, *args).b.split("\0").map { |name| Text.utf8_identity(name) }
+      end
+
       def changed_lines(ref, root:, include: nil, diagnostics: nil)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)

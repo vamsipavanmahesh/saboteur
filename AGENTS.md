@@ -37,6 +37,7 @@ Names follow Uncle Bob's Clean Code conventions:
 
 ## Review
 
+- Keep a pull request small: at most about 300 changed lines (added plus removed) of code, specs and docs together. CHANGELOG lines and ignore-list entries do not count. A fix and its tests stay in one pull request; split bigger work by behavior, never by file type. Small pull requests keep dogfood and panel reviews fast, and a bad one is easy to undo.
 - A pull request opens with the first push. Open it as a draft while the work is in progress. No branch sits on origin without a pull request.
 - Adversarial panel reviewers analyze the open pull request in parallel. Each reviewer posts their review as a comment on it as soon as their analysis is done, independently of the others.
 - The author starts resolving each comment as soon as it is posted, without waiting for the rest of the panel. Fixes land as new commits, then the panel re-reviews.

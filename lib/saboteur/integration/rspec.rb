@@ -18,10 +18,16 @@ module Saboteur
         refuse_unintended_focus
       end
 
-      # RSpec only adds its default "spec" path when $0 is `rspec`.
+      # RSpec only adds its default path when $0 is `rspec`, so saboteur adds
+      # it when RSpec's own parse of the args, .rspec and SPEC_OPTS names no
+      # file or directory to run. Parsing, not a look at the tokens, keeps an
+      # option value such as `--require spec_helper` from passing as a path,
+      # and a --default-path from .rspec wins over "spec".
       def rspec_args
+        require "rspec/core"
         args = Array(config.fetch("rspec_args", []))
-        args.any? { |arg| !arg.start_with?("-") } ? args : args + ["spec"]
+        options = ::RSpec::Core::ConfigurationOptions.new(args).options
+        Array(options[:files_or_directories_to_run]).empty? ? args + [options[:default_path] || "spec"] : args
       end
 
       # RSpec's own parser reads rspec_args and .rspec, so option values such
@@ -31,6 +37,33 @@ module Saboteur
         ::RSpec::Core::ConfigurationOptions.new(rspec_args).tap do |options|
           explicit = Array(config.fetch("tests", []))
           options.options[:files_or_directories_to_run] = explicit if explicit.any?
+        end
+      end
+
+      # The spec files the configured suite runs, as UTF-8 paths relative to
+      # root (a file outside it stays absolute), by
+      # RSpec's own rules: .rspec, rspec_args, the default path, --pattern
+      # and --exclude-pattern. RSpec applies the patterns only to the
+      # directories it scans, never to a file named explicitly, so a file
+      # saboteur names as a test must come from this list (#307). Nothing is
+      # loaded and nothing global changes: only the file-selection options
+      # reach a fresh Configuration, so --require, -I and formatters are
+      # ignored. A pattern set in Ruby (RSpec.configure in a spec helper) is
+      # not seen. RSpec resolves patterns against the working directory, so
+      # this reads from the root.
+      def configured_spec_files(root)
+        require "rspec/core"
+        from_directory(root) do
+          options = ::RSpec::Core::ConfigurationOptions.new(rspec_args).options
+          configuration = ::RSpec::Core::Configuration.new
+          %i[default_path pattern exclude_pattern].each do |name|
+            configuration.public_send(:"#{name}=", options[name]) if options[name]
+          end
+          configuration.files_or_directories_to_run = options[:files_or_directories_to_run]
+          # RSpec expands from the working directory, which can spell the
+          # root differently from its realpath (/var and /private/var).
+          prefix = Text.utf8_identity(File.join(Dir.pwd, ""))
+          configuration.files_to_run.map { |file| Text.utf8_identity(file).delete_prefix(prefix) }
         end
       end
 
@@ -94,6 +127,12 @@ module Saboteur
         # `--example TEXT` becomes a :full_description rule when the options
         # reach the configuration, not in the filter manager.
         options.options[:full_description] ? keys + [:full_description] : keys
+      end
+
+      # A real run already starts in the root; only a caller elsewhere (a
+      # spec) changes directory, and only for the block.
+      def from_directory(root, &)
+        File.realpath(Dir.pwd) == File.realpath(root) ? yield : Dir.chdir(root, &)
       end
 
       def world

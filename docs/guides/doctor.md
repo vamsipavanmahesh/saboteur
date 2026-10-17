@@ -26,6 +26,18 @@ report, and doctor stays read-only.
 It does not certify a Rails/database version; successful boot and tests are the
 check. Unmatched include/exclude patterns are warnings, not failures.
 
+Doctor also does not check versions of application tools saboteur never
+invokes, such as RuboCop-style linters. A version mismatch there is an
+application dependency problem, not a saboteur failure: saboteur cannot know
+the version the application expects, and guessing from the lockfile would flag
+valid setups. When the suite loads the mismatched tool the failure still
+surfaces - a tool that breaks boot is named by the boot check's LoadError, and
+a tool that breaks examples fails the baseline with the tool's own output.
+Keep the version check in the application's own tooling, such as its CI or
+lint setup. A narrow doctor check would first need the tool name, the expected
+and actual versions and the failure output, recorded on the issue that asked
+for it.
+
 Ignore subjects are checked against every included source definition, not a diff
 or test subset. Unmatched names warn with the exact instance/singleton naming
 forms. A source parse failure makes that check incomplete rather than labelling
