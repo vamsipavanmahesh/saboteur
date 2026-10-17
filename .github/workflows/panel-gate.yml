@@ -22,10 +22,13 @@ permissions:
   actions: read
   statuses: write
 
-# Serialize all decisions, including comment revocations and workflow reruns.
+# Group decisions per PR (per ref for pushes to main). A newer trigger for
+# the same PR cancels its stale evaluation; different PRs decide in parallel
+# instead of piling into one global serial queue that fills up and rejects
+# runs (see Discussion #414).
 concurrency:
-  group: panel-head-gate
-  cancel-in-progress: false
+  group: panel-head-gate-${{ github.event.issue.number || github.event.workflow_run.pull_requests[0].number || inputs.pr_number || github.ref }}
+  cancel-in-progress: true
   queue: max
 
 jobs:
