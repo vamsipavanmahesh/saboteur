@@ -71,6 +71,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A missing `rspec-core` no longer crashes saboteur into the internal-error
+  report with a bare `LoadError`: the RSpec integration refuses with
+  "rspec is not in the bundle" and names the remedy, adding the gem to the
+  test group or pointing `c.integration` at the suite's framework (#482).
+  Only the framework's own `LoadError` converts; a `LoadError` raised by
+  the app's own files, or for a different feature such as `rspec/core_ext`,
+  keeps the crash route.
 - A `--since` run whose changed methods were all skipped - refinements,
   no coverage, or any other skip reason - used to exit 0 with `score n/a`,
   a green run that tested nothing. It now exits 3 and names each skipped
