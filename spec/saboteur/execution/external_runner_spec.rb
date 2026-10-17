@@ -545,9 +545,7 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       it "re-adds a BUNDLE_PATH the shell exported" do
         with_bundle_path(original: true) do
           Dir.mktmpdir do |dir|
-            out = File.join(dir, "child_env.txt")
-            run_in(dir, "env > #{out}")
-            expect(File.read(out)).to include("BUNDLE_PATH=/ci/gems")
+            expect(child_env_output(dir)).to include("BUNDLE_PATH=/ci/gems")
           end
         end
       end
@@ -555,9 +553,7 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       it "still drops a BUNDLE_PATH that bundler itself activated" do
         with_bundle_path(original: false) do
           Dir.mktmpdir do |dir|
-            out = File.join(dir, "child_env.txt")
-            run_in(dir, "env > #{out}")
-            expect(File.read(out)).not_to include("BUNDLE_PATH=")
+            expect(child_env_output(dir)).not_to include("BUNDLE_PATH=")
           end
         end
       end
