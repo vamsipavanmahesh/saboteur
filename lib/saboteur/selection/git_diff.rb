@@ -74,6 +74,22 @@ module Saboteur
         line_maps(ref, root: root, include: include, diagnostics: diagnostics).changed
       end
 
+      # Tracked files whose diff deletes lines without adding any, returned
+      # relative to the repo root. A pure deletion adds no new code to
+      # mutate - the change itself is what the suite covers - so the file
+      # yields no subject and no fine-grained mutant, and a spec-less such
+      # file must not stop the run (#484). The neighbor lines a pure
+      # deletion touches (touched_lines) are context, not change. Untracked
+      # files are all-additions and never listed.
+      def deletion_only_files(ref, root:) # rubocop:disable Metrics/ModuleLength -- one focused addition to an exactly-full module
+        top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
+        diff = git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff",
+                   merge_base(ref, root: root), "--").b
+        added = Hash.new { |hash, file| hash[file] = false }
+        each_hunk(diff, top) { |file, (_, _, _, count)| added[file] ||= count.positive? }
+        added.reject { |_, yes| yes }.keys.map { |file| file.delete_prefix("#{top}/") }
+      end
+
       def line_maps(ref, root:, include: nil, diagnostics: nil)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
