@@ -228,6 +228,15 @@ module Saboteur
         File.expand_path(path)
       end
 
+      # Every spelling the root can have in $LOADED_FEATURES: a symlink on
+      # the root path (macOS /var -> /private/var) gives the same directory
+      # both the resolved and the spelled form, and canonical() resolves a
+      # loaded feature only while its file exists. Match membership against
+      # both, each with a trailing slash so prefix siblings stay out.
+      def self.root_prefixes(root)
+        [File.realpath(root), File.expand_path(root)].uniq.map { |path| "#{path}/" }
+      end
+
       def self.load(path)
         from_json(Text.utf8_strict(File.read(path))) if File.file?(path)
       rescue JSON::ParserError, Error
