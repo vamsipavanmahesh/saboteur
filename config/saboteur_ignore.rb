@@ -3,6 +3,22 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "11b190d63c635f90",
+             subject: "Saboteur::Engine::TestGuess#covered_by_changed_specs",
+             reason: "equivalent: without the early return, an empty unmatched list selects nothing and an empty " \
+                     "changed_specs list gives ConstantReads.across([], constant) == {}, so the result is [] either way; " \
+                     "defined_constants only differs by raising on a missing file, and unmatched files exist"
+
+  i.mutation "c84c07e7e026ce01",
+             subject: "Saboteur::Engine::TestGuess#covered_by_changed_specs",
+             reason: "equivalent: dropping the changed_specs.empty? check leaves an empty spec list, and " \
+                     "ConstantReads.across([], constant) is {}, so no unmatched file is selected and the result is []"
+
+  i.mutation "de12f60cceeac84d",
+             subject: "Saboteur::Engine::TestGuess#covered_by_changed_specs",
+             reason: "equivalent: dropping the unmatched.empty? check leaves select running on an empty list, " \
+                     "which returns [] exactly like the early return"
+
   i.mutation "8387aa82e7a9b074",
              subject: "Saboteur::Engine::TestGuess#expand_mapped",
              reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
