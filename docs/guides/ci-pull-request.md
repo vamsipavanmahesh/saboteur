@@ -38,17 +38,18 @@ exits 3 rather than silently mutating the whole project.
 
 ## 2. Two one-time fixes on a Rails tree
 
-The first run on a stock Rails app reports nothing to mutate - twice, for
-two different reasons. Both fixes are one file each.
+The first run on a stock Rails app refuses - twice, for two different
+reasons. Both fixes are one file each.
 
 ```
 $ bundle exec saboteur pr origin/master
-saboteur: inferred specs: no changed source file to infer a spec for, so the whole suite runs
-saboteur 0.7.0: 0 subjects, 0 mutants, wall 2.60 s, seed 1 (repeat with --seed 1)
+saboteur: no changed source file lies inside the include scope, so nothing ran. Changed source files outside it: app/models/sidebars/authors_sidebar.rb. Extend include to cover them, or re-run the same command with one --test per existing spec path.
 ```
 
 The default mutation scope is `lib/**/*.rb`, so an app whose code lives in
-`app/` produces an empty diff scope. Tell saboteur about the Rails tree:
+`app/` produces an empty diff scope, and the run says so instead of
+silently running the whole suite against zero subjects. Tell saboteur
+about the Rails tree:
 
 ```ruby
 # config/saboteur.rb
