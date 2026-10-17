@@ -72,6 +72,9 @@ never change the score.
   method; a kill the suite cannot confirm stays out of the score.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
+- **A plan before the run.** `saboteur run --dry-run --format json` prints
+  the versioned [mutant inventory](docs/dry-run-json.md) - every planned
+  mutant with its stable digest and edits - without booting the suite.
 - **A review workflow.** An ignore list with reasons and triage states,
   an opt-in survivor baseline, score thresholds and score history.
 - **Safety controls.** A hazard guard, canary values, and time, memory

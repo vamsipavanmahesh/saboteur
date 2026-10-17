@@ -13,6 +13,7 @@
 - [Check a project before mutation testing](guides/doctor.md) - `saboteur doctor`.
 - [How to read survivors](guides/reading-survivors.md) - from output to the killing test.
 - [Replay one mutant](guides/replay.md) - re-run a single mutant by its digest.
+- [The dry-run JSON inventory](dry-run-json.md) - the versioned machine-readable mutation plan.
 - [saboteur in CI on large Rails apps](guides/ci-large-rails.md) - diff mode on PRs, sharded scheduled audits, caching.
 
 ## Using saboteur

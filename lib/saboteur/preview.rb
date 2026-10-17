@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "json"
 require_relative "engine"
 require_relative "text"
 require_relative "version"
@@ -172,7 +173,7 @@ module Saboteur
         subject: subject.id,
         operator: mutation.operator.to_s,
         file: relative_path(subject.file),
-        line: line_of(subject, mutation.edits.first.start_byte),
+        line: subject.line_of(mutation.edits.first.start_byte),
         edits: mutation.edits.map do |edit|
           { start_byte: edit.start_byte, end_byte: edit.end_byte,
             original: source_span(subject, edit), replacement: edit.replacement }
@@ -201,10 +202,6 @@ module Saboteur
 
     def relative_path(file)
       file.delete_prefix("#{@config.root}/")
-    end
-
-    def line_of(subject, byte)
-      subject.file_source.byteslice(0, byte).count("\n") + 1
     end
 
     def source_span(subject, edit)
