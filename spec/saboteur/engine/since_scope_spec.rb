@@ -85,6 +85,20 @@ RSpec.describe Saboteur::Engine, "test selection" do
     used
   end
 
+  it "carries the distribution's memory report into the run report (#202)" do
+    stub_boot_phase
+    stub_test_phases
+    memory = { workers: [{ worker: 0, peakMb: 12.1 }], supervisorPeakMb: 30.5 }
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: memory, run: [], unreached: [],
+                                                                   truncated: [], unverified: [])
+    allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
+    guess(specs: %w[spec/a_spec.rb], unmatched: [], changed: 1)
+    @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2, "since" => "origin/main" }, root: @root),
+                                  err: err)
+    @report = @engine.call
+    expect(@report.memory).to eq(memory)
+  end
+
   it "warns about the unscoped suite before the baseline passes start" do
     report = run_engine("since" => "origin/main", "all" => true)
     warning = "running the loaded suite unscoped: 3 examples in 3 spec files; " \
