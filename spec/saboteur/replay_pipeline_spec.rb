@@ -38,7 +38,7 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
   # discovery follows the configured suite, not a root/spec guess (#319).
   it "wires the given test files into subject selection" do
     expect(Saboteur::Engine::SubjectSelection).to receive(:new)
-      .with(anything, anything, test_files: ["spec/custom/a_spec.rb"]).and_return(selection)
+      .with(anything, anything, test_files: ["spec/custom/a_spec.rb"], custom_map: anything).and_return(selection)
     expect(engine.send(:select_subjects, [], test_files: ["spec/custom/a_spec.rb"])).to eq([[subject], nil])
   end
 
