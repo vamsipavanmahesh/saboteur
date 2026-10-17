@@ -74,6 +74,75 @@ RSpec.describe Saboteur::Selection::GitDiff do
     end
   end
 
+  describe ".deletion_only_files" do
+    around do |example|
+      Dir.mktmpdir do |dir|
+        @dir = dir
+        example.run
+      end
+    end
+
+    def git(*args)
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @dir)
+    end
+
+    def commit_file(name, text)
+      File.write(File.join(@dir, name), text)
+      git("add", ".")
+      git("commit", "-q", "-m", name)
+    end
+
+    before { git("init", "-q") }
+
+    # core.quotePath=false writes the raw name bytes into the diff: the
+    # parser must read them as bytes, not as UTF-8 (#549).
+    it "detects a deletion-only file whose name is not valid UTF-8" do
+      name = "del_\xFF.rb".b
+      begin
+        File.write(File.join(@dir, name), "x\ny\n")
+      rescue Errno::EILSEQ, Errno::EINVAL
+        skip "this platform rejects filenames that are not valid UTF-8"
+      end
+      git("add", ".")
+      git("commit", "-q", "-m", "add")
+      File.write(File.join(@dir, name), "x\n")
+      result = described_class.deletion_only_files("HEAD", root: @dir)
+      expect(result.map(&:b)).to eq([File.join(File.realpath(@dir), name)])
+    end
+
+    # Open3 output takes the locale encoding; under LC_ALL=C a non-ASCII
+    # toplevel is US-ASCII-tagged with high bytes, and a plain strip raises
+    # Encoding::CompatibilityError. The toplevel must be stripped as bytes.
+    it "strips a locale-tagged non-ASCII toplevel without raising" do
+      commit_file("a.rb", "x\ny\n")
+      File.write(File.join(@dir, "a.rb"), "x\n")
+      top = "#{File.realpath(@dir)}/pr\xC3\xA9x\n".force_encoding(Encoding::US_ASCII)
+      FileUtils.mkdir_p(top.b.strip)
+      allow(described_class).to receive(:git).and_call_original
+      allow(described_class).to receive(:git).with(@dir, "rev-parse", "--show-toplevel").and_return(top)
+      expect { described_class.deletion_only_files("HEAD", root: @dir) }.not_to raise_error
+    end
+
+    it "diffs against the merge base with the exact argv" do
+      commit_file("a.rb", "x\ny\n")
+      File.write(File.join(@dir, "a.rb"), "x\n")
+      allow(described_class).to receive(:git).and_call_original
+      base = described_class.merge_base("HEAD", root: @dir)
+      expect(described_class.deletion_only_files("HEAD", root: @dir))
+        .to eq([File.join(File.realpath(@dir), "a.rb")])
+      expect(described_class).to have_received(:git)
+        .with(@dir, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff", base, "--")
+    end
+
+    # added[file] ||= ... keeps a file with ANY adding hunk out of the
+    # list; plain = would let a trailing delete-only hunk flip it (#549).
+    it "does not list a file whose earlier hunk adds lines when a later hunk only deletes" do
+      commit_file("a.rb", "a\nb\nc\n")
+      File.write(File.join(@dir, "a.rb"), "x\na\nb\n")
+      expect(described_class.deletion_only_files("HEAD", root: @dir)).to eq([])
+    end
+  end
+
   it "raises a usage error for an unknown ref" do
     Dir.mktmpdir do |dir|
       Open3.capture3("git", "init", "-q", chdir: dir)

@@ -418,6 +418,16 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
                                "so they are skipped: Cart#total\n")
     end
 
+    # Both maps always come back as a pair, even when the diff changed
+    # nothing: callers destructure [changed, behavior] (#549).
+    it "returns both line maps when the diff changes nothing" do
+      file = commit_base(source)
+      selection = Saboteur::Engine::SubjectSelection.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root),
+                                                         diagnostics)
+      selection.select([file])
+      expect(selection.send(:changed_line_maps)).to eq([{}, {}])
+    end
+
     it "reports a re-indented sibling beside a real edit, and scopes mutants to the real edit" do
       file = commit_base(two_methods)
       File.write(file, two_methods.sub("1 + 1", "1 + 2").sub("    2\n", "      2\n"))
