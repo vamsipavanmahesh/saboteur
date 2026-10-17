@@ -96,13 +96,19 @@ module Saboteur
       end
 
       def hash_dependency_inputs(digest)
-        (LOCKFILES + MANIFESTS).each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
-        gemspecs.each { |path| digest << File.basename(path) << "\0" << file_digest(path) << "\0" }
+        LOCKFILES.each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
+        dependency_files.each { |path| digest << path.delete_prefix("#{@root}/") << "\0" << file_digest(path) << "\0" }
       end
 
-      # Root-level gemspecs; stable order, one directory scan per run.
-      def gemspecs
-        @gemspecs ||= Dir[File.join(@root, "*.gemspec")]
+      # Manifests and gemspecs anywhere below the root, since a monorepo
+      # sub-gem carries its own dependency declarations (#561); keyed
+      # root-relative so same-named sub-gem files cannot collide. Vendored
+      # installs and dependencies' own checkouts hold gemspecs the project
+      # does not declare, so the scan mirrors RunFingerprint's exclusions.
+      def dependency_files
+        @dependency_files ||= Dir[File.join(@root, "**", "{#{MANIFESTS.join(',')},*.gemspec}")].reject do |path|
+          path.delete_prefix("#{@root}/").split("/").any? { |part| RunFingerprint::EXCLUDED_DIRECTORIES.include?(part) }
+        end
       end
 
       def file_digest(path)
