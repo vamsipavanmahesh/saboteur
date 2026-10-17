@@ -3,6 +3,11 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "ede248b5be2b2efa",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: without node = statement the loop walks the StatementsNode's children, finds the " \
+                     "same statement again and recurses into it, ending on the same innermost statement"
+
   i.mutation "8387aa82e7a9b074",
              subject: "Saboteur::Engine::TestGuess#expand_mapped",
              reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \

@@ -324,4 +324,55 @@ RSpec.describe Saboteur::Subject do
     sigged = subjects_in("class A\n  sig { params(x: Integer).returns(Integer) }\n  def m(x) = x\nend\n").first
     expect(sigged.sig_source).to eq("sig { params(x: Integer).returns(Integer) }")
   end
+
+  describe "constructor state" do
+    let(:nested) do
+      subjects_in("module Outer\n  class A\n    def self.build; end\n\n    class << self\n      def make; end\n    " \
+                  "end\n\n    def m; end\n  end\nend\n")
+    end
+
+    def subject_id(id) = nested.find { |candidate| candidate.id == id }
+
+    it "tells an instance def from a def self.x and a def inside class << self" do
+      expect(subject_id("Outer::A#m").then { |s| [s.singleton, s.sclass] }).to eq([false, false])
+      expect(subject_id("Outer::A.build").then { |s| [s.singleton, s.sclass] }).to eq([true, false])
+      expect(subject_id("Outer::A.make").then { |s| [s.singleton, s.sclass] }).to eq([true, true])
+    end
+
+    it "separates owner and name with # for instance defs and . for singleton defs" do
+      expect(nested.map(&:id)).to contain_exactly("Outer::A#m", "Outer::A.build", "Outer::A.make")
+      expect(subject_id("Outer::A.make").to_s).to eq("Outer::A.make")
+    end
+
+    it "keeps the file text it was built from and the lexical nesting around the def" do
+      method = subject_id("Outer::A.make")
+      expect(method.file_source).to eq(File.read(method.file))
+      expect(method.nesting.map { |scope| [scope.kind, scope.path] })
+        .to eq([[:module, "Outer"], [:class, "A"], [:sclass, "self"]])
+    end
+  end
+
+  describe "frozen string literal flag" do
+    it "is true under the magic comment and false without it" do
+      frozen = subjects_in("# frozen_string_literal: true\nclass A\n  def m; end\nend\n").first
+      plain = subjects_in("class A\n  def m; end\nend\n").first
+      expect([frozen.frozen_literals, plain.frozen_literals]).to eq([true, false])
+    end
+  end
+
+  describe Saboteur::Scope do
+    it "reports factory? only for a class-factory scope" do
+      expect(described_class.new(kind: :factory, path: "A").factory?).to be(true)
+      %i[module class sclass].each do |kind|
+        expect(described_class.new(kind: kind, path: "A").factory?).to be(false), kind.to_s
+      end
+    end
+
+    it "reports sclass? only for a singleton-class scope" do
+      expect(described_class.new(kind: :sclass, path: "A").sclass?).to be(true)
+      %i[module class factory].each do |kind|
+        expect(described_class.new(kind: kind, path: "A").sclass?).to be(false), kind.to_s
+      end
+    end
+  end
 end
