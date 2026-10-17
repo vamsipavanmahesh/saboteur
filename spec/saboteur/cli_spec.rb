@@ -70,6 +70,7 @@ RSpec.describe Saboteur::CLI do
   it "writes the crash backtrace to .saboteur/internal-error.log and names the path" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
     Dir.mktmpdir do |root|
+      stub_source_fixture(root)
       Dir.chdir(root) do
         expect(cli("run").call).to eq(3)
         expect(err.string).to include("full backtrace: .saboteur/internal-error.log")
@@ -81,6 +82,7 @@ RSpec.describe Saboteur::CLI do
   it "writes the crash log under the configured cache_dir" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
     Dir.mktmpdir do |root|
+      stub_source_fixture(root)
       File.write(File.join(root, "custom.rb"), "Saboteur.configure { |c| c.cache_dir = '.custom-cache' }\n")
       Dir.chdir(root) do
         expect(cli("run", "--config", "custom.rb").call).to eq(3)
@@ -93,6 +95,7 @@ RSpec.describe Saboteur::CLI do
   it "falls back to the bare one-liner when cache_dir is unset" do
     allow(Saboteur::Engine).to receive(:new).and_raise(RuntimeError, "boom")
     Dir.mktmpdir do |root|
+      stub_source_fixture(root)
       File.write(File.join(root, "custom.rb"), "Saboteur.configure { |c| c.cache_dir = nil }\n")
       Dir.chdir(root) do
         expect(cli("run", "--config", "custom.rb").call).to eq(3)
@@ -749,6 +752,7 @@ RSpec.describe Saboteur::CLI do
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) { cli("run", "--agent", "--jobs", "2").call }
       end
       expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
@@ -765,6 +769,7 @@ RSpec.describe Saboteur::CLI do
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) { cli("run", "--agent", "--exclude-operators", "").call }
       end
       expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
@@ -780,6 +785,7 @@ RSpec.describe Saboteur::CLI do
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) do
           FileUtils.mkdir_p("config")
           File.write("config/saboteur.rb", "Saboteur.configure { |c| c.test_selection = :all }\n")
@@ -798,6 +804,7 @@ RSpec.describe Saboteur::CLI do
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) do
           FileUtils.mkdir_p("config")
           File.write("config/saboteur.rb", "# config\n")
@@ -826,6 +833,7 @@ RSpec.describe Saboteur::CLI do
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) do
           FileUtils.mkdir_p("spec")
           File.write("spec/a_spec.rb", "# spec\n")
@@ -846,6 +854,7 @@ RSpec.describe Saboteur::CLI do
       allow(Saboteur::WorkingTree).to receive(:new).and_call_original
       tests = Array.new(40) { |i| "spec/padded selection #{i}/a_spec.rb" }
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) do
           FileUtils.mkdir_p("config")
           File.write("config/saboteur.rb", "# config\n")
@@ -884,6 +893,7 @@ RSpec.describe Saboteur::CLI do
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) do
           FileUtils.mkdir_p("config")
           File.write("config/saboteur.rb", "Saboteur.configure { |c| c.tests = [\"spec/a_spec.rb\"] }\n")
@@ -904,6 +914,7 @@ RSpec.describe Saboteur::CLI do
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) do
           FileUtils.mkdir_p("config")
           File.write("config/saboteur.rb", "Saboteur.configure { |c| c.test_selection = :all }\n")
@@ -921,6 +932,7 @@ RSpec.describe Saboteur::CLI do
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
       Dir.mktmpdir do |dir|
+        stub_source_fixture(dir)
         Dir.chdir(dir) { cli("run", "--agent", "--all", "--jobs", "2").call }
       end
       expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
@@ -1148,6 +1160,7 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "names both reports on one Reports line with paths relative to the root" do
     Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
                                                                           call: report_of(result_for(:killed))))
       Dir.chdir(dir) { cli("run").call }
@@ -1171,6 +1184,7 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "writes no HTML report when html_report is null in the config" do
     Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
       FileUtils.mkdir_p(File.join(dir, "config"))
       File.write(File.join(dir, "config", "saboteur.rb"), "Saboteur.configure { |c| c.html_report = nil }\n")
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine,
@@ -1200,6 +1214,7 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "warns and still exits by the results when the default JSON report cannot be written (#296)" do
     Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
       cache = File.join(dir, ".saboteur")
       FileUtils.mkdir_p(cache)
       FileUtils.chmod(0o555, cache)
@@ -1284,6 +1299,7 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "warns and still exits by the results when the score history cannot be recorded (#296)" do
     Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
       FileUtils.mkdir_p(File.join(dir, "config"))
       File.write(File.join(dir, "config", "saboteur.rb"),
                  "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
@@ -1305,6 +1321,7 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "fails the run when the score history lock cannot be acquired (#296)" do
     Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
       FileUtils.mkdir_p(File.join(dir, "config"))
       File.write(File.join(dir, "config", "saboteur.rb"),
                  "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
@@ -1325,6 +1342,7 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "fails the run when the score history record fails validation (#296)" do
     Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
       FileUtils.mkdir_p(File.join(dir, "config"))
       File.write(File.join(dir, "config", "saboteur.rb"),
                  "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
@@ -1340,6 +1358,7 @@ RSpec.describe Saboteur::CLI, "details" do
 
   it "fails the run when the score history record exceeds the byte limit (#296)" do
     Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
       FileUtils.mkdir_p(File.join(dir, "config"))
       File.write(File.join(dir, "config", "saboteur.rb"),
                  "Saboteur.configure { |c| c.score_history = '.saboteur/history.jsonl' }\n")
@@ -1502,6 +1521,7 @@ RSpec.describe Saboteur::CLI, "explicit files" do
   # stand alone; agent follow-up commands rely on that.
   it "accepts --test without a source, scoped by the configured include" do
     Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
       Dir.chdir(dir) do
         FileUtils.mkdir_p("spec")
         File.write("spec/a_spec.rb", "# spec\n")
@@ -1588,5 +1608,100 @@ RSpec.describe Saboteur::CLI, "--allow-hazardous (issue #102)" do
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
     command.call
     expect(command.options).to eq(allow_hazardous: true)
+  end
+end
+
+RSpec.describe Saboteur::CLI, "empty source set (issue #447)" do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+
+  around do |example|
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) { example.run }
+    end
+  end
+
+  def cli(*argv)
+    described_class.new(argv, out:, err:)
+  end
+
+  before { allow(Saboteur::Engine).to receive(:new) }
+
+  it "refuses a no-operand run whose include selects no Ruby file, with exit 2 and no run" do
+    expect(cli("run").call).to eq(2)
+    expect(err.string).to include("include: lib/**/*.rb selects no Ruby file")
+    expect(err.string).to include("rails generate saboteur:install")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  it "refuses --all over an empty source set instead of passing with 0 subjects" do
+    expect(cli("run", "--all").call).to eq(2)
+    expect(err.string).to include("include: lib/**/*.rb selects no Ruby file")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  it "refuses a directory operand holding no Ruby file" do
+    FileUtils.mkdir_p("app/models")
+    expect(cli("run", "app/models").call).to eq(2)
+    expect(err.string).to include("include: app/models/**/*.rb selects no Ruby file")
+  end
+
+  it "refuses when the configured exclude removes every included file" do
+    FileUtils.mkdir_p(%w[lib config])
+    FileUtils.touch("lib/a.rb")
+    File.write("config/saboteur.rb", "Saboteur.configure { |c| c.exclude = [\"lib/**/*.rb\"] }\n")
+    expect(cli("run").call).to eq(2)
+    expect(err.string).to include("exclude: lib/**/*.rb removes every included file")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  # The exact wording is the guard against a green 0-subject gate: every
+  # piece (pattern list, comma joins, .rb filter, hint) is pinned (#494).
+  it "words the include-empty refusal exactly" do
+    FileUtils.mkdir_p(%w[lib config])
+    FileUtils.touch("lib/notes.txt")
+    File.write("config/saboteur.rb",
+               "Saboteur.configure { |c| c.include = [\"lib/**/*\", \"app/**/*\"] }\n")
+    expect(cli("run").call).to eq(2)
+    expect(err.string).to include(
+      "include: lib/**/*, app/**/* selects no Ruby file - the run would pass with 0 subjects. " \
+      "Point include at your code (Rails apps: bundle exec rails generate saboteur:install " \
+      "writes the config) or fix the patterns"
+    )
+  end
+
+  it "words the exclude-removes-all refusal exactly" do
+    FileUtils.mkdir_p(%w[lib config])
+    FileUtils.touch("lib/a.rb")
+    File.write("config/saboteur.rb",
+               "Saboteur.configure { |c| c.exclude = [\"lib/**/*.rb\", \"app/**/*.rb\"] }\n")
+    expect(cli("run").call).to eq(2)
+    expect(err.string).to include(
+      "exclude: lib/**/*.rb, app/**/*.rb removes every included file - the run would pass with " \
+      "0 subjects. Point include at your code (Rails apps: bundle exec rails generate " \
+      "saboteur:install writes the config) or fix the patterns"
+    )
+  end
+
+  # The CLI loads config with root: Dir.pwd, but SourceSet's contract is
+  # config.root: globbing from the working directory instead reads whatever
+  # tree the process happens to stand in (#494).
+  it "globs include patterns against the config root, not the working directory" do
+    other = Dir.mktmpdir
+    FileUtils.mkdir_p(File.join(other, "lib"))
+    FileUtils.touch(File.join(other, "lib", "a.rb"))
+    config = Saboteur::Config.new({ "include" => ["lib/**/*.rb"], "exclude" => ["lib/**/*.rb"] },
+                                  root: other)
+    host = Class.new { include Saboteur::CLI::SourceSet }.new
+    host.define_singleton_method(:config) { config }
+    expect { host.send(:refuse_empty_source_set) }
+      .to raise_error(Saboteur::CLI::UsageError, /removes every included file/)
+  end
+
+  it "still runs when the include selects at least one Ruby file" do
+    FileUtils.mkdir_p("lib")
+    FileUtils.touch("lib/a.rb")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    expect(cli("run").call).to eq(3)
   end
 end

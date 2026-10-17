@@ -11,6 +11,7 @@ require_relative "baseline/command"
 require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
@@ -20,6 +21,7 @@ module Saboteur
     include Baseline::Command
     include ExitStatus
     include RunReporting
+    include SourceSet
     include RunBudgetOptions
     include Presets
     include HelpOptions
@@ -102,9 +104,7 @@ module Saboteur
       help_requested? ? show_help("run") : run
     end
 
-    def help_requested?
-      @argv.intersect?(%w[--help -h])
-    end
+    def help_requested? = @argv.intersect?(%w[--help -h])
 
     def show_help(command_name)
       help = Help.new(option_lines: option_lines)
@@ -121,9 +121,7 @@ module Saboteur
       agent_failure(message || USAGE, EXIT_USAGE)
     end
 
-    def agent?
-      @format == "agent"
-    end
+    def agent? = @format == "agent"
 
     def agent_requested? = self.class.agent_requested?(@argv)
 
@@ -144,6 +142,7 @@ module Saboteur
 
       return preview if options[:list_operators] || options[:dry_run]
 
+      refuse_empty_source_set
       execute_run
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")

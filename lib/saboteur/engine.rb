@@ -54,6 +54,7 @@ module Saboteur
 
     def call
       preflight!
+      ensure_artifacts_self_ignored
       started = monotonic
       start_budget_clock(started)
       # Capture evidence inputs before inference narrows the test list: the
@@ -384,6 +385,21 @@ module Saboteur
       limits = Execution::Supervisor::Limits.new(max_memory_mb: config["max_memory_mb"] * memory_factor,
                                                  max_processes: config["max_processes"])
       Execution::Supervisor.new(limits: limits)
+    end
+
+    # Artifact dirs ignore themselves, the pattern git, vagrant and bundler
+    # use: a run writes logs, coverage maps and reports under cache_dir, and
+    # without the marker a `git add -A` commits them all (#426). An existing
+    # .gitignore is the user's and stays. Best effort: a cache dir that
+    # cannot be created or written belongs to the stages that need it, and
+    # they refuse with their established wording (#512 CI fault injection).
+    def ensure_artifacts_self_ignored
+      dir = config.path("cache_dir")
+      FileUtils.mkdir_p(dir)
+      marker = File.join(dir, ".gitignore")
+      File.write(marker, "*\n") unless File.exist?(marker)
+    rescue SystemCallError
+      nil
     end
 
     # The last run's child logs (only those of errors are kept).

@@ -50,6 +50,11 @@ All notable changes are documented here. The format follows
   non-additive. The section is omitted where procfs is unavailable.
 ### Changed
 
+- A run whose effective include set selects no Ruby file now refuses with
+  exit 2 instead of passing with 0 subjects (#447). The default include
+  targets plain gems, so a first run on a Rails-shaped tree used to be a
+  green gate that mutated nothing on every CI run; the refusal names the
+  stale pattern and points at the install generator.
 - A `--subject` pattern that matches no subject now fails the run (exit 2)
   instead of passing silently with zero subjects (#379). When some patterns
   match, the run keeps them and the summary names the missing pattern and
@@ -65,6 +70,10 @@ All notable changes are documented here. The format follows
   are now resolved with `File.realpath` before the profile is built,
   the same view `fcntl(F_GETPATH)` reports back.
 
+- The artifact dir now ignores itself (#426): a run writes logs,
+  coverage maps and reports under the cache dir, and the marker
+  `.gitignore` keeps a `git add -A` from committing them. An existing
+  `.gitignore` there is left alone.
 - Rejected kills no longer surface as generic errors: the terminal
   lists them in a `Rejected kills` section and annotates the error count,
   and report.json flags each rejected mutant with `rejectedKill: true`
