@@ -264,6 +264,14 @@ RSpec.describe Saboteur::ConstantReads, "class << self scopes (#380)" do
     expect(reads_for(src, host_rules).runtime).to eq([6])
   end
 
+  # Compact nesting (class Host::Mid) reaches a scope under the owner
+  # without walking the owner scope itself; the lift must still fire on the
+  # nested path, so an outer scope's shadow ends there (#395 dogfood).
+  it "clears an outer shadow entering a compact-nested scope under the owner" do
+    src = "module M\n  RULES = [0]\n  class Host::Mid\n    def m = RULES\n  end\nend\n"
+    expect(reads_for(src, nested_host).runtime).to eq([4])
+  end
+
   it "keeps the shadow below a nested scope under the owner that writes the constant" do
     still_shadowed = "module M\n  RULES = [0]\n  class Host\n    module Mid\n      RULES = [1]\n      " \
                      "def m = RULES\n    end\n  end\nend\n"
