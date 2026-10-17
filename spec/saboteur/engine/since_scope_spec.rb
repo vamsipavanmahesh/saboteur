@@ -224,6 +224,13 @@ RSpec.describe Saboteur::Engine, "test selection" do
         .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
     end
 
+    # The partial-mapping mercy is scoped to --since: a full run keeps the
+    # hard stop even when other changed files have specs (#370).
+    it "stops a full run on a partial mapping even when other files have specs" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine({}) }.to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
     it "stops before boot when no changed file has a spec" do
       guess(specs: [], unmatched: ["lib/b.rb"], changed: 1)
       expect { run_engine("since" => "origin/main") }
