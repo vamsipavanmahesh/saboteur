@@ -8,6 +8,10 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- Per-path score gate config (#473, slice 1): `score_gate "app/payments/**/*",
+  min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
+  validated at load (min_score 0-100, pattern must match an included file).
+  Enforcement lands with slice 2 (#570).
 - Peak-memory measurement (#202, slice 1): each worker reports its kernel
   peak RSS (VmHWM) when it retires, and the JSON report records it under
   `saboteur.memory` as per-worker `peakMb` values plus the supervisor's own

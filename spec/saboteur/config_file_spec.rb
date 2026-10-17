@@ -157,4 +157,15 @@ RSpec.describe Saboteur::ConfigFile do
     path = write_config("raise 'no settings' unless Saboteur.configure { |c| c.jobs = 1 }.is_a?(Saboteur::ConfigFile::Settings)\n")
     expect { Saboteur::Config.load(root: @root, path: path) }.not_to raise_error
   end
+
+  it "records the line of the c.score_gate call that set the gates (#473)" do
+    settings = described_class::Settings.new
+    first = __LINE__ + 1
+    settings.score_gate("app/**/*", min_score: 90)
+    expect(settings.lines["score_gates"]).to eq(first)
+    second = __LINE__ + 1
+    settings.score_gate("lib/**/*", min_score: 80)
+    expect(settings.lines["score_gates"]).to eq(second)
+    expect(settings.values["score_gates"].map { |gate| gate["pattern"] }).to eq(%w[app/**/* lib/**/*])
+  end
 end
