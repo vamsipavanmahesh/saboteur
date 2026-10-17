@@ -227,6 +227,10 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::SubjectSelection#report_unchanged_syntax",
              reason: "equivalent: Subject#to_s is its id, and the block's return value is only joined, so map and each read the same"
 
+  i.mutation "ef5c88b04ed4987a",
+             subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
+             reason: "equivalent: Subject#to_s is its id, so joining subjects reads the same as joining their ids"
+
   i.mutation "460c99badd064fe9",
              subject: "Saboteur::Frameworks::Rails#sqlite_absolute",
              reason: "equivalent: File.expand_path ignores the root for an absolute path, so dropping the early return changes nothing"
