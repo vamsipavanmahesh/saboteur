@@ -43,6 +43,10 @@ All notable changes are documented here. The format follows
   coverage maps and reports under the cache dir, and the marker
   `.gitignore` keeps a `git add -A` from committing them. An existing
   `.gitignore` there is left alone.
+- Rejected kills no longer surface as generic errors: the terminal
+  lists them in a `Rejected kills` section and annotates the error count,
+  and report.json flags each rejected mutant with `rejectedKill: true`
+  instead of carrying only the `rejectedKills` count (#375).
 
 - A changed file the diff only deletes from no longer hard-stops a
   --since run for want of a spec (#484): a deletion-only file yields no
@@ -152,6 +156,7 @@ All notable changes are documented here. The format follows
   the generic "may not parse, or every change may sit outside a method"
   hint misdiagnosed it; the warning now names the files and the
   code-in-a-string blind spot.
+
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a
