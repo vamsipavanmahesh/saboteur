@@ -6,7 +6,7 @@ require "stringio"
 RSpec.describe Saboteur::Engine, "replay wiring" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   let(:config) { Saboteur::Config.new({ "incremental" => true, "all" => true }) }
@@ -23,6 +23,11 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
   before do
     allow(Saboteur::Engine::Boot).to receive(:refuse_recursion!)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
+  end
+
+  it "skips the cache when incremental is off and nothing replays" do
+    run = described_class.new(Saboteur::Config.new({ "all" => true }), err: StringIO.new)
+    expect(run.send(:result_cache)).to be_nil
   end
 
   it "resolves one real candidate and bypasses caps and cache" do

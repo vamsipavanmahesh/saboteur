@@ -69,7 +69,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
   # entry: with the run started at 100 and the budget 60, a check at 161
   # trips. A lazy first-check clock would start at the check itself.
   it "anchors the budget clock at call entry, before boot and baselines" do
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
@@ -85,7 +85,8 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
     captured = nil
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [],
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                                   unverified: [],
                                                                    run: [])
     allow(Saboteur::Engine::Distribution).to receive(:new) do |**keywords|
       captured = keywords[:halt_check]
@@ -111,7 +112,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
   end
 
   it "hands the scheduler the budget deadline and the result cache (#245)" do
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
@@ -127,7 +128,8 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
     allow(Saboteur::Engine::Distribution).to receive(:new)
-      .and_return(instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [],
+      .and_return(instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                                  unverified: [],
                                                                   run: []))
     scheduler_kwargs = nil
     allow(Saboteur::Engine::Scheduler).to receive(:new) { |**keywords| scheduler_kwargs = keywords and :scheduler }
@@ -141,7 +143,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
   end
 
   it "installs no budget halt check without a configured budget (#245)" do
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
@@ -159,7 +161,9 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     distribution_kwargs = nil
     allow(Saboteur::Engine::Distribution).to receive(:new) do |**keywords|
       distribution_kwargs = keywords
-      instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [], run: [])
+      instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                      unverified: [],
+                                                      run: [])
     end
     engine = described_class.new(Saboteur::Config.new({}, root: @root), err: StringIO.new)
     engine.call
@@ -180,7 +184,7 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
   end
 
   it "reports a budget stop as max_duration even without fail_fast (#245)" do
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
@@ -195,8 +199,8 @@ RSpec.describe Saboteur::Engine, "--max-duration wiring (#245)" do
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [subject], truncated: [], unverified: [],
-                                                                   run: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [subject],
+                                                                   truncated: [], unverified: [], run: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
 
     err = StringIO.new
@@ -273,7 +277,8 @@ RSpec.describe Saboteur::Engine, "mid-subject budget truncation (#245)" do
 
   it "still records nothing when the selection ran to completion (control)" do
     engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                                   unverified: [])
     engine.send(:record_early_stop, distribution)
     expect(engine.instance_variable_get(:@early_stop)).to be_nil
   end
@@ -642,7 +647,8 @@ RSpec.describe Saboteur::Engine, "budget-left checks (#296)" do
   it "records an unverified-only stop as budget-partial even when every candidate ran" do
     engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
     subject = subject_named("class K\n  def m\n    1\n  end\nend\n", "K#m")
-    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [subject])
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                                   unverified: [subject])
     engine.send(:record_early_stop, distribution)
     stop = engine.instance_variable_get(:@early_stop)
     expect(stop.reason).to eq("max_duration")
@@ -818,7 +824,8 @@ RSpec.describe Saboteur::Engine::Scheduler, "per-check budget admission (#296)" 
                                                                                        runtime: 0.1,
                                                                                        message: "boom"))
     allow(cache).to receive(:record)
-    final = scheduler_with(150.0).send(:checked, plan, [kill])
+    map = instance_double(Saboteur::Selection::CoverageMap, tests: [])
+    final = scheduler_with(150.0, map: map).send(:checked, plan, [kill])
     expect(final.first.status).to eq(:error)
     expect(diagnostics.warnings).to include("#{subject_under_test.id}: 1 verdict(s) failed with the method unchanged")
   end
