@@ -203,6 +203,25 @@ RSpec.describe Saboteur::Engine::Candidates do
       expect { described_class.build_sources(bad) }.to raise_error(Saboteur::ConfigError, /path.rb:ClassName/)
     end
 
+    # The exact wording is the feature: a glob-looking entry gets the
+    # c.include hint, a plain typo gets the plain refusal (#515).
+    it "words the source-glob refusal exactly" do
+      glob = Saboteur::Config.new({ "sources" => ["app/**/*.rb"] })
+      expect { described_class.build_sources(glob) }.to raise_error(
+        Saboteur::ConfigError,
+        'mutation source "app/**/*.rb" looks like a source glob; did you mean c.include? ' \
+        "c.sources registers custom operator sources (builtin or path.rb:ClassName)"
+      )
+    end
+
+    it "words the missing-class refusal exactly" do
+      bad = Saboteur::Config.new({ "sources" => ["lib/my_source.rb"] })
+      expect { described_class.build_sources(bad) }.to raise_error(
+        Saboteur::ConfigError,
+        'mutation source "lib/my_source.rb" must be builtin or path.rb:ClassName'
+      )
+    end
+
     it "points a glob-looking entry at c.include (#488)" do
       glob = Saboteur::Config.new({ "sources" => ["app/**/*.rb"] })
       expect { described_class.build_sources(glob) }
