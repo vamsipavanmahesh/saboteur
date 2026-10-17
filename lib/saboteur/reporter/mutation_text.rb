@@ -20,6 +20,12 @@ module Saboteur
         join(result, &:replacement)
       end
 
+      # A mutant that only deletes: every edit's replacement is empty.
+      # Rendered as "removes X" rather than "X -> " with a blank side.
+      def removal?(result)
+        sorted_edits(result).all? { |edit| edit.replacement.empty? }
+      end
+
       def sorted_edits(result)
         result.mutation.edits.sort_by(&:start_byte)
       end
