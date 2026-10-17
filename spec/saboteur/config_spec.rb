@@ -103,6 +103,15 @@ RSpec.describe Saboteur::Config do
       .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
   end
 
+  # NaN fails every comparison, including between?: an unguarded range
+  # check leaks a bare ArgumentError instead of the config error.
+  it "rejects a NaN score gate floor with the 0-100 message (#565)" do
+    write("app/x.rb", "class X; end\n")
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.score_gate "app/**/*", min_score: Float::NAN }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
+  end
+
   it "validates score gates against the real path of a symlinked root (#473)" do
     write("app/payments/x.rb", "class X; end\n")
     write("config/saboteur.rb",
