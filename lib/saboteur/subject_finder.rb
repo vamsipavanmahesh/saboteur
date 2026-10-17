@@ -172,9 +172,14 @@ module Saboteur
 
     # Constant-introducing declarations (class/module keywords and factory
     # assignments) bind on the enclosing lexical scope: factory blocks open
-    # none, so their scopes never join a new constant's path (#339).
+    # none, so their scopes never join a new constant's path (#339) - unless
+    # an sclass follows the factory: `class << self` inside a factory block
+    # attaches to the factory's class at runtime (class_eval sets self), and
+    # the sclass needs the factory's path to name that attachment (#438).
     def lexical_nesting(nesting)
-      nesting.reject(&:factory?)
+      nesting.each_with_index.reject do |scope, index|
+        scope.factory? && nesting[(index + 1)..].none?(&:sclass?)
+      end.map(&:first)
     end
 
     def class_factory?(call)

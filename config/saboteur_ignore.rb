@@ -27,6 +27,16 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk_heredoc_eval",
              reason: "equivalent for the current consumers only: subjects take file, source and offsets from ctx[:file] and the failure path returns silently; the dropped filepath does change AST metadata (a def with __FILE__ reads differently), which no current lib consumer reads"
 
+  i.mutation "8387aa82e7a9b074",
+             subject: "Saboteur::Engine::TestGuess#expand_mapped",
+             reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
+                     "sees existing literals without glob metacharacters, and Dir.glob of such a path returns exactly it"
+
+  i.mutation "bb377adb7ae9ce54",
+             subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
+             reason: "equivalent: each returns the receiver and join(', ') stringifies via Subject#to_s (the id), " \
+                     "so the note reads identically to map(&:id)"
+
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
@@ -241,6 +251,10 @@ Saboteur.ignore do |i|
   i.mutation "b3fd9ed8d22fac26",
              subject: "Saboteur::Engine::SubjectSelection#report_unchanged_syntax",
              reason: "equivalent: Subject#to_s is its id, and the block's return value is only joined, so map and each read the same"
+
+  i.mutation "ef5c88b04ed4987a",
+             subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
+             reason: "equivalent: Subject#to_s is its id, so joining subjects reads the same as joining their ids"
 
   i.mutation "460c99badd064fe9",
              subject: "Saboteur::Frameworks::Rails#sqlite_absolute",
@@ -745,4 +759,43 @@ Saboteur.ignore do |i|
   i.mutation "70a77934c3856a1e",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
+
+  i.mutation "4d3d5ac0703067d2",
+             subject: "Saboteur::SubjectFinder#lexical_nesting",
+             reason: "equivalent: replacing (index + 1) with index only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
+  i.mutation "8953e46e984e97b6",
+             subject: "Saboteur::SubjectFinder#lexical_nesting",
+             reason: "equivalent: index + 0 is index, which only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
+  i.mutation "036e4fb956df510f",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the following SHA256 hexdigest has a fixed width, so the dropped separator " \
+                     "cannot blur field boundaries - a dependency-set change still changes the digest"
+
+  i.mutation "9db3b9aa61e04166",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the trailing separator only separates entries, and entry count and content " \
+                     "still change the digest - the next entry starts with its own path bytes"
+
+  i.mutation "69e619be29339f30",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the block's digest-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "485c590681bcde38",
+             subject: "Saboteur::Selection::CoverageMap#files_for",
+             reason: "equivalent: invert_coverage is a pure function of the map's frozen lines, so recomputing " \
+                     "it on every call yields the identical hash the memo would have returned"
+
+  i.mutation "c426c783724e596f",
+             subject: "Saboteur::Selection::CoverageMap#invert_coverage",
+             reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "52e4bb172b350bc9",
+             subject: "Saboteur::Selection::CoverageMap#invert_coverage",
+             reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
 end
