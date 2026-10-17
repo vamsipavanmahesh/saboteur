@@ -8,11 +8,6 @@ Saboteur.ignore do |i|
              reason: "equivalent: gets(limit + 2) only changes how many bytes of an oversized line are read; any line " \
                      "that long is longer than the limit either way and raises the same byte-limit error"
 
-  i.mutation "58c7c2642972ead7",
-             subject: "Saboteur::Reporter::HistoryReader#read",
-             reason: "equivalent: gets without a length reads the whole oversized line, which is still longer than " \
-                     "the limit and raises the same byte-limit error; the length only bounds memory"
-
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
@@ -724,19 +719,8 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
-  i.mutation "5a87a7155a4e0e9b",
-             subject: "Saboteur::CLI::HistoryCommand#history_path",
-             reason: "equivalent: UsageError is a ConfigError, so the unless-raise is caught by the method's own " \
-                     "rescue ConfigError and re-raised with the full message; the literal is never observable"
-
   i.mutation "ac58690d8b48a18c",
              subject: "Saboteur::CLI::HistoryCommand#print_trend",
              reason: "equivalent: each vs map on a side-effect-only output loop; the collected array is discarded"
 
-  i.mutation "1fce08bdeaac5a87",
-             subject: "Saboteur::CLI::HistoryCommand#print_trend",
-             reason: "equivalent: unreachable - the dropped clause only matters when a complete, comparable " \
-                     "current record has a nil coveredScore while the previous record is scored; every " \
-                     "nil-coveredScore record is either incomplete or has an empty selection digest, so " \
-                     "comparable? never pairs it with a scored record"
 end
