@@ -118,6 +118,28 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     FileUtils.rm_f(probe)
   end
 
+  # The root itself can arrive in a spelling its realpath does not share
+  # (macOS /var -> /private/var, a tmpdir symlink): a loaded feature whose
+  # file is gone keeps the spelled path, and a resolved-root-only check
+  # drops every loaded file from the watched set.
+  it "watches loaded files when the root itself is a symlinked spelling (#353)" do
+    Dir.mktmpdir do |target|
+      Dir.mktmpdir do |parent|
+        link = File.join(parent, "project")
+        File.symlink(target, link)
+        symlinked_config = Saboteur::Config.new({ "incremental" => true, "all" => true }, root: link)
+        run = described_class.new(symlinked_config, err: StringIO.new)
+        loaded = File.join(link, "lib", "lazy.rb")
+        $LOADED_FEATURES.push(loaded)
+        begin
+          expect(run.send(:source_files, [])).to include(loaded)
+        ensure
+          $LOADED_FEATURES.delete(loaded)
+        end
+      end
+    end
+  end
+
   it "builds the cache with the suite digest that pins the run's support files (#344)" do
     run = engine
     map = instance_double(Saboteur::Selection::CoverageMap)
