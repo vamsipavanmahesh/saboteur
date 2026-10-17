@@ -209,6 +209,7 @@ module Saboteur
       full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
       warn_unscoped(integration, full_passes)
       check_baseline(integration, full_passes)
+      refuse_unaffordable_coverage_build(store, files)
       return [] if abandon_for_budget?(subjects)
 
       map = store.fetch(files)
@@ -287,10 +288,13 @@ module Saboteur
                                 supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
                                 full_passes: full_passes, timeout_cap: method(:budget_capped_timeout),
                                 between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil)
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       guard.call
+      @baseline_elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
       # Stability is the order comparison between completed checks: the cold
       # coverage build is not a baseline pass, and a budget break shortens
       # the loop, so certify only what actually ran.
+      @completed_baseline_passes = guard.completed_passes
       @stable_suite = guard.completed_passes >= 2
     end
 
