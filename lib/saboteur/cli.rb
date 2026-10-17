@@ -193,7 +193,8 @@ module Saboteur
     def reject_threshold_with_agent_format
       return unless agent? && (config["threshold"] || gates.any?)
 
-      raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
+      raise UsageError,
+            "#{config['threshold'] ? '--threshold' : gates.agent_option_name} cannot be combined with --agent"
     end
 
     # One line naming the reports written, paths relative to the root when
