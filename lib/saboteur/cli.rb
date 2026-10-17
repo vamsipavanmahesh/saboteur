@@ -104,9 +104,7 @@ module Saboteur
       help_requested? ? show_help("run") : run
     end
 
-    def help_requested?
-      @argv.intersect?(%w[--help -h])
-    end
+    def help_requested? = @argv.intersect?(%w[--help -h])
 
     def show_help(command_name)
       help = Help.new(option_lines: option_lines)
@@ -123,9 +121,7 @@ module Saboteur
       agent_failure(message || USAGE, EXIT_USAGE)
     end
 
-    def agent?
-      @format == "agent"
-    end
+    def agent? = @format == "agent"
 
     def agent_requested? = self.class.agent_requested?(@argv)
 
