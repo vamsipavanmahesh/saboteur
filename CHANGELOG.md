@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A mutant on the continuation line of a multi-line interpolated
+  statement is no longer misclassified missing_test (#498): attribution
+  now spans the whole enclosing statement, because an interpolation's own
+  statements are eager and Ruby's per-line events on continuation lines
+  are not reliable per example.
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,

@@ -117,6 +117,22 @@ RSpec.describe Saboteur::Subject do
     it "maps an edit outside every statement to the whole method" do
       expect(branchy.coverage_lines_for(edit_at("(x)"))).to eq(branchy.coverage_lines)
     end
+
+    it "maps an edit inside a continuation-line interpolation to the whole statement (#498)" do
+      interpolated = subjects_in(<<~'RUBY').first
+        class A
+          def announce(number, remaining)
+            inform("check #{number}; about #{remaining} s left for " \
+                   "the remaining #{remaining == 1 ? 'pass' : 'passes'} at that rate")
+          end
+        end
+      RUBY
+      source = interpolated.file_source
+      at = source.index("remaining == 1")
+      edit = Saboteur::MutationSource::Edit.new(file: interpolated.file, start_byte: at,
+                                                end_byte: at + "remaining == 1".bytesize, replacement: "x")
+      expect(interpolated.coverage_lines_for(edit)).to eq([3, 4])
+    end
   end
 
   describe "#recovers?" do
