@@ -176,6 +176,156 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(diagnostics.warnings).not_to include(a_string_matching(/specs are not mutated/))
   end
 
+  it "names code embedded in a string when the subjectless changed lines sit inside a heredoc (#467)" do
+    file = write("verbs.rb", "module Verbs\n  def self.version = 1\nend\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    added = ["module Verbs", "  class_eval <<-RUBY, __FILE__, __LINE__ + 1", "    def get(url)",
+             "      conn.get(url)", "    end", "  RUBY", "end"]
+    File.write(file, "#{added.join("\n")}\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/code embedded in a string/))
+    expect(diagnostics.warnings.join).not_to match(/may not parse/)
+  end
+
+  # A %w element is a StringNode with no opening_loc at all: the heredoc
+  # scan must not chain into it (disproves the a917152e equivalence: the
+  # safe navigation is load-bearing, the bare chain raises NoMethodError).
+  it "scans a %w array without tripping on its nil opening locations (#540)" do
+    file = write("ops.rb", "OPS = %w[<< >> <=]\n")
+    selection = described_class.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root), diagnostics)
+    selection.instance_variable_set(:@changed_lines, { file => [1] })
+    expect { selection.send(:changed_lines_inside_heredoc?, file) }.not_to raise_error
+    expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(false)
+  end
+
+  # The span's end is inclusive and closing_loc.end_line counts the
+  # terminator's newline, so the line after the heredoc reads as covered
+  # (disproves the 7c748368 equivalence: .. to ... drops that line).
+  it "covers the line after the terminator as inside the heredoc span (#540)" do
+    file = write("hd.rb", "x = <<-END\n  body\nEND\ny = 2\n")
+    selection = described_class.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root), diagnostics)
+    selection.instance_variable_set(:@changed_lines, { file => [4] })
+    expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(true)
+  end
+
+  it "keeps the parse/method hint when the changed lines fall outside every heredoc (#467)" do
+    file = write("note.rb", "TEXT = <<~JS\n  drag()\nJS\n# just a comment\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "TEXT = <<~JS\n  drag()\nJS\n# just a comment\n# more\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/may not parse/))
+    expect(diagnostics.warnings.join).not_to match(/code embedded in a string/)
+  end
+
+  it "names a template constant's heredoc as code embedded in a string (#467)" do
+    file = write("drag.rb", "TEXT = <<~JS\n  drag()\nJS\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "TEXT = <<~JS\n  drag()\n  drop()\nJS\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/code embedded in a string/))
+  end
+
+  it "caps the embedded-code file names at five with an ellipsis (#467)" do
+    6.times { |i| write("a#{i}.rb", "X#{i} = <<~J\n  a\nJ\n") }
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    files = 6.times.map { |i| File.join(@root, "a#{i}.rb") }
+    files.each_with_index { |file, i| File.write(file, "X#{i} = <<~J\n  a\n  b\nJ\n") }
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select(files)
+    warning = diagnostics.warnings.find { |w| w.include?("code embedded in a string") }
+    expect(warning).to match(/mutated from them: a0\.rb, a1\.rb, a2\.rb, a3\.rb, a4\.rb, \.\.\./)
+    expect(warning).to match(/In a0\.rb, a1\.rb, a2\.rb, a3\.rb, a4\.rb, \.\.\. /)
+    expect(warning).to include("class_eval/module_eval", "not mutation subjects")
+    expect(warning).not_to include("a5.rb")
+  end
+
+  it "names every embedded-code file when the cap is not reached (#467)" do
+    4.times { |i| write("a#{i}.rb", "X#{i} = <<~J\n  a\nJ\n") }
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    files = 4.times.map { |i| File.join(@root, "a#{i}.rb") }
+    files.each_with_index { |file, i| File.write(file, "X#{i} = <<~J\n  a\n  b\nJ\n") }
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select(files)
+    warning = diagnostics.warnings.find { |w| w.include?("code embedded in a string") }
+    expect(warning).to include("a3.rb")
+    expect(warning).not_to include("...")
+  end
+
+  it "shows no ellipsis at exactly five embedded-code files (#467)" do
+    5.times { |i| write("a#{i}.rb", "X#{i} = <<~J\n  a\nJ\n") }
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    files = 5.times.map { |i| File.join(@root, "a#{i}.rb") }
+    files.each_with_index { |file, i| File.write(file, "X#{i} = <<~J\n  a\n  b\nJ\n") }
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select(files)
+    warning = diagnostics.warnings.find { |w| w.include?("code embedded in a string") }
+    expect(warning).to include("a4.rb")
+    expect(warning).not_to include("...")
+  end
+
+  it "keeps the parse/method hint when the changed line is a plain string literal (#467)" do
+    file = write("msg.rb", "MSG = \"hello\"\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "MSG = \"goodbye\"\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings.join).to match(/may not parse/)
+    expect(diagnostics.warnings.join).not_to match(/code embedded in a string/)
+  end
+
+  it "names code embedded in a string when a heredoc change mixes with a plain one (#467)" do
+    file = write("mixed.rb", "X = <<~J\n  a\nJ\n# note\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "X = <<~J\n  a\n  b\nJ\n# note changed\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/code embedded in a string/))
+  end
+
+  it "names code embedded in an interpolated heredoc, the class_eval metaprogramming shape (#467)" do
+    file = write("verbs.rb", "module Verbs\n  def self.version = 1\nend\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    added = ["module Verbs", "  %i[get post].each do |verb|", "    class_eval <<-RUBY, __FILE__, __LINE__ + 1",
+             "      def \#{verb}(url)", "        conn.public_send(verb, url)", "      end", "    RUBY", "  end", "end"]
+    File.write(file, "#{added.join("\n")}\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/code embedded in a string/))
+  end
+
+  it "keeps the parse/method hint for a subjectless changed file that does not parse (#467)" do
+    file = write("broken.rb", "X = <<~J\n  a\nJ\ndef nope(\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "X = <<~J\n  a\n  b\nJ\ndef nope(\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings.join).to match(/may not parse/)
+    expect(diagnostics.warnings.join).not_to match(/code embedded in a string/)
+  end
+
   it "keeps subjects matching --subject patterns, including namespace prefixes" do
     file = write("cart.rb", source)
     expect(select([file], subjects: ["Shop::Cart.empty"]).map(&:id)).to eq(["Shop::Cart.empty"])
