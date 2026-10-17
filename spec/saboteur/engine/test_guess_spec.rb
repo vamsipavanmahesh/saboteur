@@ -275,6 +275,36 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect([result.unmatched, result.subjectless]).to eq([[], ["lib/c.rb"]])
   end
 
+  # Issue #484: a deletion-only edit that keeps the enclosing method must not
+  # hard-stop the pr preset. The neighbor lines around the deletion mark the
+  # method as changed, but a file whose diff adds no new lines has no new code
+  # to mutate - the diff itself is the change the suite covers.
+  it "does not require a spec for a deletion-only edit that leaves the method's remaining lines mutable" do
+    write("lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.validate(1)
+          Helper.call(1, 2)
+        end
+
+        def helper_body
+          0
+        end
+      end
+    RUBY
+    git("add", ".")
+    git("commit", "-q", "-m", "plugin")
+    write("lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.call(1, 2)
+        end
+      end
+    RUBY
+    result = guess
+    expect([result.unmatched, result.subjectless]).to eq([[], ["lib/plugin.rb"]])
+  end
+
   it "does not require a spec when the changed method differs only in comments" do
     write("lib/c.rb", "class Widget\n  def thing\n    # a note\n    1\n  end\nend\n")
     git("add", ".")
