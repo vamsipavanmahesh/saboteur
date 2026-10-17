@@ -11,6 +11,7 @@ require_relative "baseline/command"
 require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/survivors_command"
 require_relative "cli/run_budget_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
@@ -20,6 +21,7 @@ module Saboteur
     include Baseline::Command
     include ExitStatus
     include RunReporting
+    include SurvivorsCommand
     include RunBudgetOptions
     include Presets
     include HelpOptions
@@ -58,11 +60,12 @@ module Saboteur
       case command
       when "run" then run_command
       when "baseline" then baseline
+      when "survivors" then survivors_command
       when "doctor" then help_requested? ? show_help("doctor") : doctor
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help", "--help", "-h" then show_help(@argv.shift)
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
-      else PRESETS.key?(command) ? preset(command) : usage_error
+      else preset_or_usage_error(command)
       end
     rescue OptionParser::ParseError => e
       usage_error(e.message)

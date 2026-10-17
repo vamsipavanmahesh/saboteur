@@ -16,6 +16,10 @@ module Saboteur
 
       private
 
+      def preset_or_usage_error(command)
+        PRESETS.key?(command) ? preset(command) : usage_error
+      end
+
       def preset(name)
         flags = PRESETS.fetch(name).dup
         if name == "pr"
