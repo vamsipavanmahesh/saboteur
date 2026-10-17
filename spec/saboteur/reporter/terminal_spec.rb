@@ -155,23 +155,31 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(render(report_of(ignored))).not_to include("Hints are suggestions")
   end
 
-  it "keeps each same-line mutant's own covering tests, reuse and order" do
+  it "prints same-set covering tests once per line and keeps distinct evidence apart (#502)" do
     a = result_for(:survived, replacement: ">", covered_by: ["./spec/a_spec.rb[1:1]", "./spec/a_spec.rb[1:2]"])
     b = result_for(:survived, replacement: "<=", covered_by: ["./spec/a_spec.rb[1:2]", "./spec/a_spec.rb[1:1]"])
     c = result_for(:survived, replacement: "==", covered_by: ["./spec/c_spec.rb[1:1]"], reused: true)
     same = result_for(:survived, replacement: "!=", covered_by: ["./spec/c_spec.rb[1:1]"], reused: true)
-    text = render(report_of(a, b, c, same))
-    expect(text.scan("tests covered this line and still passed").size).to eq(2)
+    d = result_for(:survived, replacement: "!=", covered_by: ["./spec/d_spec.rb[1:1]"])
+    text = render(report_of(a, b, c, same, d))
+    # a and b name the same two tests; only the run's measured order differed,
+    # so the block prints once for both instead of repeating per mutant.
+    expect(text.scan(/tests? covered this line and still passed/).size).to eq(2)
+    expect(text.scan("2 tests covered this line and still passed").size).to eq(1)
     expect(text.scan("covered this line and passed in an earlier run").size).to eq(1)
+    # Same-line mutants are ranked (docs/survivor-ranking.md), so their
+    # relative order is not fixed; both print under the one shared block.
     expect(text.index("-> > ")).to be < text.index("c_spec.rb[1:1]")
-    # Same-line mutants are ranked (docs/survivor-ranking.md), so their order is not fixed here; each
-    # one must still print its own covering tests, in its own order, just above its line.
-    evidence = lambda { |shown|
-      text[%r{still passed[^\n]*\n((?:\s+\./spec/[^\n]*\n)+)\s+- comparison >= -> #{Regexp.escape(shown)} }, 1]
-    }
-    expect(evidence.call(">").scan(/a_spec\.rb\[[\d:]+\]/)).to eq(["a_spec.rb[1:1]", "a_spec.rb[1:2]"])
-    expect(evidence.call("<=").scan(/a_spec\.rb\[[\d:]+\]/)).to eq(["a_spec.rb[1:2]", "a_spec.rb[1:1]"])
-    expect(text.scan("1 test covered this line and passed in an earlier run").size).to eq(1)
+    expect(text.index("-> <= ")).to be < text.index("c_spec.rb[1:1]")
+    # d names a different test set, so it keeps its own block.
+    expect(text.scan("1 test covered this line and still passed").size).to eq(1)
+  end
+
+  it "renders a removal-only mutant as 'removes X', not 'X -> ' with a blank side (#502)" do
+    removal = result_for(:survived, replacement: "", operator: "element_removal")
+    text = render(report_of(removal))
+    expect(text).to include("- element_removal removes >= ")
+    expect(text).not_to include("-> ")
   end
 
   it "says where the run stopped early and which subjects did not run" do
