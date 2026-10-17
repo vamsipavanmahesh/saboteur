@@ -23,8 +23,8 @@ module Saboteur
       # in specs; skipped_specs: spec files the diff touches that cannot run,
       # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
-                           :skipped_specs) do
-        def initialize(changed_specs: [], skipped_specs: {}, **fields)
+                           :skipped_specs, :near) do
+        def initialize(changed_specs: [], skipped_specs: {}, near: {}, **fields)
           super
         end
 
@@ -34,16 +34,23 @@ module Saboteur
         # When the diff deleted the expected spec or added others, it says
         # so: a renamed spec is the usual cause.
         def unmatched_message
-          pairs = unmatched.map do |file|
-            expected = hints.fetch(file)
-            gone = skipped_specs[expected] == DELETED ? ", deleted in the diff" : ""
-            "#{file} (expected #{expected}#{gone})"
-          end
+          pairs = unmatched.map { |file| pair_description(file) }
           changed = changed_specs.any? ? " Specs the diff adds or changes: #{changed_specs.join(', ')}." : ""
           "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
             "one --test per existing spec path, or append --all to use the whole suite without " \
             "changing the source scope."
         end
+
+        private
+
+        def pair_description(file)
+          expected = hints.fetch(file)
+          gone = skipped_specs[expected] == DELETED ? ", deleted in the diff" : ""
+          found = near.fetch(file, []).any? ? "; found: #{near.fetch(file).join(', ')}" : ""
+          "#{file} (expected #{expected}#{gone}#{found})"
+        end
+
+        public
 
         # The spec files the diff touched that do not run, with the reasons.
         def skipped_message
@@ -55,6 +62,14 @@ module Saboteur
         def subjectless_message(since:)
           detail = since ? "no changed mutation subjects" : "no mutation subjects"
           "inferred specs: no spec is required for #{subjectless.join(', ')}: they have #{detail}"
+        end
+
+        # The per-file warning when the run proceeds with the mapped
+        # subset (#370): the file's mutants run only against the inferred
+        # specs, so lines nothing else covers surface as NoCoverage.
+        def unmatched_warning(file)
+          "inferred specs: no spec found for #{pair_description(file)}; its mutants run only " \
+            "against the inferred specs and a line they miss is reported as NoCoverage"
         end
 
         # The warning for a guess-scoped run: the guessed specs now stand as
@@ -167,6 +182,7 @@ module Saboteur
                    subjectless: subjectless,
                    changed: changed,
                    hints: unmatched.to_h { |file| [file, expected_spec(file, diff[:skipped])] },
+                   near: unmatched.to_h { |file| [file, nearby_specs(file)] },
                    changed_specs: diff[:run],
                    skipped_specs: diff[:skipped])
       end
@@ -197,6 +213,15 @@ module Saboteur
       def expected_spec(file, skipped)
         candidates = candidates_for(file)
         candidates.find { |path| skipped[path] == DELETED } || candidates.first
+      end
+
+      # Existing spec files with the same basename anywhere under the spec
+      # root: the stop and the warning point at them so the user can
+      # --test without hunting (#370). Bounded; computed only for
+      # unmatched files, which are about to stop or warn.
+      def nearby_specs(file)
+        Dir.glob("spec/**/#{File.basename(file, '.rb')}_spec.rb", base: @root)
+           .select { |path| File.file?(File.join(@root, path)) }.sort.first(3)
       end
 
       # lstat, not stat: a symlink can point anywhere, including a spec of
