@@ -919,14 +919,10 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::RegexReplacement#plain_quantifier?",
              reason: "equivalent: a regex beginning with a quantifier is a RegexpError (target of repeat operator is not specified), and only parsed regexes reach the scanner, so index.zero? never fires"
 
-  i.mutation "52f89e8dff23465e",
-             subject: "Saboteur::CLI::ExitStatus#unverifiable_scope?",
-             reason: "equivalent: each and map both puts every skipped subject's line; the result is discarded - a literal true follows the loop"
-
   i.mutation "d5995bea5d0f1b12",
              subject: "Saboteur::Engine::GatedRun#stop_or_warn_unmapped",
              reason: "equivalent: each and map both announce every unmatched file's warning; the collected array is discarded - the method's return value is unused by its only caller, report_unmapped"
-  
+
   i.mutation "4cde174a623048a8",
              subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
              reason: "equivalent: covered_by entries are non-nil test id strings, so all? is true exactly when any? is " \
@@ -983,11 +979,6 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
-  i.mutation "8222aa3d485f1588",
-             subject: "Saboteur::Engine::GatedRun#stop_or_warn_unmapped",
-             reason: "equivalent: each and map both announce every unmatched file's warning; the collected " \
-                     "array is discarded - the method's return value is unused by its only caller, " \
-                     "report_unmapped, whose own return select_tests discards in turn"
   i.mutation "4e0d9e10a1d1193d",
              subject: "Saboteur::Preview#planned",
              reason: "equivalent: the record_skip calls this guard gates only write to @skipped, which is read " \
