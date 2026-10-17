@@ -216,7 +216,10 @@ module Saboteur
       # absolute or `..` traversal - is refused, never joined onto the copy
       # (#305 QA).
       def relative(subject)
-        expanded = File.expand_path(subject.file)
+        # realpath like the root: macOS tmp is /var symlinked to /private/var,
+        # so a spelled subject path must canonicalize before the containment
+        # check or every run is refused as outside the root (#442).
+        expanded = File.realpath(subject.file)
         prefix = "#{@root}/"
         raise Error, "the subject file is outside the project root: #{subject.file}" unless expanded.start_with?(prefix)
 
