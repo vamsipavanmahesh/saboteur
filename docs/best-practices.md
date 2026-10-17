@@ -1,8 +1,9 @@
 # Best practices
 
 How to adopt saboteur without it becoming noise. Everything here describes
-shipped v0.7.0 behavior through main commit 6f510afa. Check `saboteur --help`
-on your installed version before relying on a flag.
+behavior available in the released v0.7.0 gem; it intentionally leaves out
+changes that are still unreleased on `main`. Check `saboteur --help` on your
+installed version before relying on a flag.
 
 ## Start small
 
@@ -171,10 +172,8 @@ Saboteur.ignore do |i|
 end
 ```
 
-An entry without a reason is rejected. Add `state: "wont_fix"` when the
-decision is deliberate rather than an equivalence judgment; use `state: "todo"`
-to record a survivor the team still intends to fix. Make the reason specific
-enough that a reviewer can disagree with it. "Not worth testing" is not a reason; "equivalent:
+An entry without a reason is rejected. Make the reason specific enough that a
+reviewer can disagree with it. "Not worth testing" is not a reason; "equivalent:
 the loop bound is never reached because the list is capped at 10" is. Review
 the ignore file in code review like any other change, and revisit entries when
 the method changes. If a method changes a lot, check that its entries still apply.
