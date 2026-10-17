@@ -107,15 +107,26 @@ function fakeAPI(change = {}) {
 
 test('superseded: only a strictly newer pending run of the same workflow skips the sweep', async () => {
   const seen = [];
-  const api = {pages: async (path, field) => { seen.push([path, field]); return [{id: 40}, {id: 42}]; }};
+  const pushes = {pages: async (path, field) => { seen.push([path, field]); return [{id: 40, event: 'push'}, {id: 42, event: 'push'}]; }};
   process.env.GITHUB_RUN_ID = '41';
   process.env.GITHUB_WORKFLOW_REF = 'owner/repo/.github/workflows/panel-gate.yml@refs/heads/main';
-  assert.equal(await superseded(api), true);
+  assert.equal(await superseded(pushes), true);
   assert.deepEqual(seen[0], ['actions/workflows/panel-gate.yml/runs?status=pending', 'workflow_runs']);
   process.env.GITHUB_RUN_ID = '42';
-  assert.equal(await superseded(api), false);
+  assert.equal(await superseded(pushes), false);
   process.env.GITHUB_RUN_ID = '99';
-  assert.equal(await superseded(api), false);
+  assert.equal(await superseded(pushes), false);
+});
+
+test('superseded: a newer run scoped to another PR never skips this run', async () => {
+  // QA blocker on #404: comment, dispatch and CI-completion runs verify only
+  // their own PRs, so in a mixed-PR backlog they cannot supersede anything.
+  process.env.GITHUB_RUN_ID = '41';
+  process.env.GITHUB_WORKFLOW_REF = 'owner/repo/.github/workflows/panel-gate.yml@refs/heads/main';
+  const comments = {pages: async () => [{id: 42, event: 'issue_comment'}, {id: 43, event: 'workflow_run'}, {id: 44, event: 'workflow_dispatch'}]};
+  assert.equal(await superseded(comments), false);
+  const mixed = {pages: async () => [{id: 42, event: 'issue_comment'}, {id: 43, event: 'push'}]};
+  assert.equal(await superseded(mixed), true);
 });
 test('superseded demands a valid run identity before spending API calls', async () => {
   process.env.GITHUB_RUN_ID = 'not-a-number';

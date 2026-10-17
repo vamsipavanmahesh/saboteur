@@ -310,17 +310,20 @@ async function verify(api, number, sweep = {}) {
 }
 // Which open PRs an event can change. A comment, a dispatch and a CI run concern named PRs only;
 // a push to main can change every PR's merge base, so it sweeps them all.
-// A newer run waiting in this workflow's serialized queue re-reads live state
-// anyway, so this run's verdicts would be superseded before anyone acts on
-// them. Skipping the sweep lets a backed-up queue drain at seconds per stale
-// run instead of a full verify per run against the token's rate budget. Only
-// 'pending' is consulted: queue:max holds serialized runs in that state.
+// Only a newer pending PUSH run proves it covers this run's targets: a push
+// sweeps every open PR, while a comment, dispatch or CI-completion run is
+// scoped to its own PRs by targets() and the shared queue hides which ones.
+// Skipping on anything weaker loses verdicts for every intermediate PR in a
+// mixed-PR backlog. Skipping the sweep lets a backed-up queue of push runs
+// drain at seconds per stale run instead of a full sweep of every open PR
+// per run against the token's rate budget. Only 'pending' is consulted:
+// queue:max holds serialized runs in that state.
 async function superseded(api) {
   const self = Number(process.env.GITHUB_RUN_ID);
   const file = (process.env.GITHUB_WORKFLOW_REF || '').split('@')[0].split('/').pop();
   demand(Number.isSafeInteger(self) && self > 0 && /\.ya?ml$/.test(file), 'invalid current run identity');
   const queued = await api.pages(`actions/workflows/${file}/runs?status=pending`, 'workflow_runs');
-  return queued.some(run => run.id > self);
+  return queued.some(run => run.id > self && run.event === 'push');
 }
 async function targets(api, name, event) {
   const eligible = p => p.base.ref === policy.baseBranch && !p.draft;
