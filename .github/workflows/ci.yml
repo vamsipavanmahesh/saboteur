@@ -8,8 +8,8 @@ on:
 permissions:
   contents: read
 
-# Newer pushes to a pull request cancel that PR's superseded runs. Runs on main
-# are keyed by commit, so a push to main is never cancelled.
+# Newer pushes to a pull request cancel that PR's superseded runs, and a new
+# push to main cancels the previous main run. PRs stay grouped per pull request.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
