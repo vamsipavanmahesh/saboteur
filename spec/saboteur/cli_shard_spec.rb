@@ -21,4 +21,9 @@ RSpec.describe "saboteur run --shard" do
     expect(cli("run", "--id", "a" * 32, "--shard", "1/2").call).to eq(2)
     expect(err.string).to include("--id cannot be combined with --shard")
   end
+
+  it "documents the public flag and its argument" do
+    expect(cli("help", "run").call).to eq(0)
+    expect(out.string).to include("--shard K/N", "Run one of N deterministic candidate shards (for example 1/4)")
+  end
 end

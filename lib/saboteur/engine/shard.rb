@@ -16,8 +16,7 @@ module Saboteur
 
       def self.parse(value)
         match = FORMAT.match(value.to_s)
-        index = match && match[1].to_i
-        total = match && match[2].to_i
+        index, total = match.captures.map(&:to_i) if match
         return new(index, total) if match && index.positive? && total >= 2 && index <= total
 
         raise ConfigError, "shard must be k/n with 1 <= k <= n and n >= 2 (for example 1/4)"

@@ -45,7 +45,22 @@ RSpec.describe Saboteur::Engine::Shard do
     expect(selected).to match_array(shards.first.all_keys)
     expect(selected.uniq).to eq(selected)
     expect(shards.map(&:inventory_digest).uniq.one?).to be(true)
+    expect(shards.first.planned_count).to eq(5)
     expect(shards.sum(&:selected_count)).to eq(5)
+    expected_keys = subjects.zip(lists).flat_map do |selected_subject, list|
+      list.map { |mutation, _| "#{selected_subject.id} #{mutation.value}" }
+    end
+    expect(shards.first.inventory_digest)
+      .to eq(Digest::SHA256.hexdigest(expected_keys.sort.join(described_class::INVENTORY_JOINER)))
+  end
+
+  it "gives the same inventory digest for any input order" do
+    subjects = [subject("A#one")]
+    forward = described_class.parse("1/2")
+    forward.select(subjects, [candidates("a1", "a2")])
+    backward = described_class.parse("1/2")
+    backward.select(subjects, [candidates("a2", "a1")])
+    expect(backward.inventory_digest).to eq(forward.inventory_digest)
   end
 
   it "keeps candidates in subject order inside the selected shard" do
@@ -58,5 +73,15 @@ RSpec.describe Saboteur::Engine::Shard do
       .to eq(lists.first.map { |mutation, _| mutation.value }.select do |digest|
         keys.include?("A#one #{digest}")
       end)
+  end
+
+  it "prints the selected count, planned count and inventory digest" do
+    subjects = [subject("A#one")]
+    lists = [candidates("a1", "a2")]
+    shard = described_class.parse("1/2")
+    shard.select(subjects, lists)
+    expected = ["Shard 1/2: #{shard.selected_count} of 2 planned mutants; ",
+                "inventory sha256:#{shard.inventory_digest}; partial run"].join
+    expect(shard.line).to eq(expected)
   end
 end
