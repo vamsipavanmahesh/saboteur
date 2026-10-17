@@ -64,7 +64,7 @@ bundle exec saboteur run --subject 'YourClass#your_method'
 The run checks the unchanged suite first, maps which tests cover the method,
 then runs only those tests against each mutant. You get counts per status, a
 covered score, timing, and the exact surviving changes to review. JSON and
-HTML reports land in `.saboteur/report.json` and `.saboteur/report.html`.
+Reports land in `.saboteur/report.json` and `.saboteur/report.html`.
 
 Example output from saboteur's own `People::Person#adult?` fixture, trimmed:
 
@@ -639,7 +639,15 @@ method it calls, a constant defined elsewhere), so run without it now and then
 
 ### Output, reports and scores
 
-Output: survivors first, then a short summary last, so the summary stays on
+| Output | Default | Best for |
+| --- | --- | --- |
+| Terminal report | stdout; progress on stderr | Human triage and the full replay command. |
+| JSON report | `.saboteur/report.json` | CI, dashboards, findings and stable machine evidence. |
+| HTML report | `.saboteur/report.html` | Reviewing survivors in a self-contained browser page. |
+| Agent JSON | stdout with `--agent` | Automation: exactly one bounded JSON payload. |
+| Score history | off by default | Comparing covered score across matching selections. |
+
+The terminal puts survivors first, then a short summary last, so the summary stays on
 screen. Survivors are grouped by file, then method, then line. Each line is
 printed once as `path:line in Subject`, with the source line and the tests that
 covered it, then one compact line per mutation: `operator original -> replacement digest`,
@@ -751,7 +759,7 @@ section: a bounded, deterministically ordered list of survivors, coarse
 mutants first (a surviving coarse mutant hints that no test pins the method's
 behavior - it can also be a re-evaluation limit or an equivalent mutant),
 then file, line and digest. Each finding holds the file, line, digest,
-subject, operator, original and replacement a note on a pull-request diff
+subject, operator, original and replacement that a pull-request note
 needs, plus one entry per edit for mutants that edit more than one spot.
 Survivors accepted on the ignore list are listed separately with their
 reason, and `survivorsTruncated` and `acceptedTruncated` count what the bound
@@ -768,11 +776,15 @@ changed line and prints none.
 
 New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md) walks one from the diff to the test that kills it.
 
-Exit codes: 0 no survivors (or all on the ignore list), or the score
-meets `--threshold`; 1 survivors, or the score is below `--threshold` or
-missing; 2 bad configuration or a missing source or test; 3 the tool
-failed (with `--threshold`, also any errored or resource-limited
-mutant). Unexpected `StandardError` or `LoadError` failures print
+| Exit code | Meaning |
+| --- | --- |
+| 0 | Complete pass: no unignored survivors, or the covered score meets `--threshold`. |
+| 1 | Test signal: unignored survivors, the covered score is below `--threshold` or missing, or a configured error/timeout limit is exceeded. |
+| 2 | Invalid use: bad configuration, a missing source or test, or an unsupported combination. |
+| 3 | Tool failure or an incomplete run: internal error, error majority, or any errored/resource-limited mutant with `--threshold`. |
+| 4 | Text-mode `--max-duration` budget exhausted; `--max-duration-ok` and agent mode keep verdict-driven exits. |
+
+Unexpected `StandardError` or `LoadError` failures print
 `saboteur: internal error (...) - please report it` and exit 3, rather
 than dying with a bare stack trace and an accidental exit code. The full
 backtrace lands in `<cache_dir>/internal-error.log` (default
