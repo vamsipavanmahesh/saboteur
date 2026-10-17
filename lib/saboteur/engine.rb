@@ -225,10 +225,9 @@ module Saboteur
       cache = result_cache(map, files)
       scheduler = scheduler_for(map, integration, cache)
       lists = candidate_lists(subjects, scope, map)
-      work = subjects.zip(lists).reject { |_, list| list.empty? }
-      return [] if work.empty?
+      runnable_subjects, runnable_lists = subjects.zip(lists).reject { |_, list| list.empty? }.transpose
+      return [] if runnable_subjects.nil?
 
-      runnable_subjects, runnable_lists = work.transpose
       @rails&.prepare_workers(config["jobs"])
       # The execution phase forks next: the worker batch, or one child per
       # mutant when serial. Pack the heap now that the map and candidates
@@ -302,8 +301,7 @@ module Saboteur
       # Stability is the order comparison between completed checks: the cold
       # coverage build is not a baseline pass, and a budget break shortens
       # the loop, so certify only what actually ran.
-      @completed_baseline_passes = guard.completed_passes
-      @stable_suite = guard.completed_passes >= 2
+      @stable_suite = (@completed_baseline_passes = guard.completed_passes) >= 2
     end
 
     # A --id replay targets one known mutant; the whole-suite cost summary
