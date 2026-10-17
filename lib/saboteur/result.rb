@@ -161,7 +161,7 @@ module Saboteur
       @matrix = matrix
       @inline_suppressions = inline_suppressions.dup.freeze
       @operator_policy = operator_policy
-      @discovery_failures = discovery_failures
+      @discovery_failures = discovery_failures.dup.freeze
       # Per-worker and supervisor peak RSS in MB, when the platform measured
       # it (#202); nil elsewhere, so JSON reports omit the section.
       @memory = memory.dup.freeze
