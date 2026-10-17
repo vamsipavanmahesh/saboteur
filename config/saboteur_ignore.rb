@@ -738,22 +738,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#source",
              reason: "equivalent: ||= and = compute the same bytes from an immutable file_source; only the memo differs"
 
-  i.mutation "390506877733f2d8",
-             subject: "Saboteur::Subject#surrounding_text",
-             reason: "equivalent: rindex finds a newline for every real subject - they are always nested under a scope line, so the || -1 fallback never runs"
-
-  i.mutation "b829064fd6c0a6bd",
-             subject: "Saboteur::Subject#surrounding_text",
-             reason: "equivalent: the -1 only matters when the def starts the file, which no found subject can do"
-
-  i.mutation "bb56907e2a8aa2f1",
-             subject: "Saboteur::Subject#surrounding_text",
-             reason: "equivalent: the -1 only matters when the def starts the file, which no found subject can do"
-
-  i.mutation "620b4cc1b0e5162d",
-             subject: "Saboteur::Subject#surrounding_text",
-             reason: "equivalent: a subject's end_byte is always followed by its enclosing scope's end, so the bytesize fallback never runs"
-
   i.mutation "d6f4737bbb1c4026",
              subject: "Saboteur::Subject#rescuing?",
              reason: "equivalent: the parser only allows else with rescue, so else_clause non-nil implies rescue_clause non-nil and the extra check never decides"
