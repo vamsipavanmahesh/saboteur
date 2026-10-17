@@ -28,7 +28,8 @@ module Saboteur
       # sandbox_init error texts that say the facility is genuinely gone
       # (a future macOS without Seatbelt): degrade, noted once. Anything
       # else (a profile syntax tightening, EPERM, a lost child) fails
-      # closed - the run refuses rather than confining nothing.
+      # closed the same way: no hook, children run with the guard and
+      # canary, noted once - never silently unsandboxed.
       UNSUPPORTED_ERRORS = ["operation not supported", "function not implemented"].freeze
 
       module_function
