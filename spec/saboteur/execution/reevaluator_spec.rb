@@ -91,6 +91,28 @@ RSpec.describe Saboteur::Execution::Reevaluator do
         reeval("ReevalTargets::Person#greeting", strategy)
         expect(person.new(1).greeting).to be_frozen
       end
+
+      it "redefines a method on a Data.define class without touching the class (#290)" do
+        point_class = ReevalTargets::Point
+        reeval("ReevalTargets::Point#doubled", strategy, from: "x * 2", to: "x * 3")
+        expect(ReevalTargets::Point).to be(point_class)
+        expect(ReevalTargets::Point.members).to eq([:x])
+        expect(ReevalTargets::Point.new(2).doubled).to eq(6)
+      end
+
+      it "redefines a method on a Struct.new class without touching the class (#290)" do
+        pair_class = ReevalTargets::Pair
+        reeval("ReevalTargets::Pair#total", strategy, from: "a + b", to: "a * b")
+        expect(ReevalTargets::Pair).to be(pair_class)
+        expect(ReevalTargets::Pair.new(2, 3).total).to eq(6)
+      end
+
+      it "redefines a method on a Module.new module without touching it (#290)" do
+        tools = ReevalTargets::Tools
+        reeval("ReevalTargets::Tools.version", strategy, from: "1", to: "2")
+        expect(ReevalTargets::Tools).to be(tools)
+        expect(ReevalTargets::Tools.version).to eq(2)
+      end
     end
   end
 
@@ -103,6 +125,20 @@ RSpec.describe Saboteur::Execution::Reevaluator do
     it "keeps them with the nesting strategy" do
       reeval("ReevalTargets::Person#adult?", "nesting")
       expect(person.new(20).adult?).to be(true)
+    end
+
+    it "keeps them for factory classes through the class_eval wrapper (#290)" do
+      reeval("ReevalTargets::Outer::Meter#scaled", "nesting", from: "n * SCALE", to: "n * SCALE + 1")
+      expect(ReevalTargets::Outer::Meter.new(2).scaled).to eq(21)
+    end
+
+    it "resolves a factory nested in a factory block by its lexical owner (#339)" do
+      coin_class = ReevalTargets::Coin
+      reeval("ReevalTargets::Coin#doubled", "nesting", from: "cents * 2", to: "cents * 3")
+      expect(ReevalTargets::Coin).to be(coin_class)
+      expect(ReevalTargets::Coin.members).to eq([:cents])
+      expect(ReevalTargets::Coin.new(2).doubled).to eq(6)
+      expect(ReevalTargets::Bag).not_to be_const_defined(:Coin, false)
     end
   end
 

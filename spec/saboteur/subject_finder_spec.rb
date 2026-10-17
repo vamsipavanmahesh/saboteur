@@ -58,7 +58,10 @@ RSpec.describe Saboteur::SubjectFinder do
     RUBY
     found = subjects_in(source)
     expect(found.map(&:id)).to eq(["A#outer", "A#in_block", "A::Klass#anon"])
-    expect(found.map(&:skip_reason)).to eq([nil, "defined inside a block", "defined inside a block"])
+    # A Class.new factory block names its class, so its defs re-evaluate
+    # through Klass.class_eval and are ordinary subjects (#290); the
+    # `included do` block keeps its defs skipped.
+    expect(found.map(&:skip_reason)).to eq([nil, "defined inside a block", nil])
   end
 
   it "names a def in an anonymous block after the block, not after the file" do
@@ -66,7 +69,7 @@ RSpec.describe Saboteur::SubjectFinder do
              "Cart = Struct.new(:a) do\n  def total = a\nend\n"
     found = subjects_in(source)
     expect(found.map { |subject| [subject.id, subject.skip_reason] })
-      .to eq([["A#in_block", "defined inside a block"], ["Cart#total", "defined inside a block"]])
+      .to eq([["A#in_block", "defined inside a block"], ["Cart#total", nil]])
   end
 
   it "records byte offsets and lines of the whole def" do
@@ -145,8 +148,22 @@ RSpec.describe Saboteur::SubjectFinder do
     }.each do |call, owned|
       found = subjects_in("Thing = #{call} do\n  def m; end\nend\n")
       expect(found.map(&:id)).to eq([owned ? "Thing#m" : "(anonymous block)#m"]), call
-      expect(found.first.skip_reason).to eq("defined inside a block"), call
+      # Owned factory defs are subjects (#290); a def in any other block is
+      # still skipped.
+      expect(found.first.skip_reason).to eq(owned ? nil : "defined inside a block"), call
     end
+  end
+
+  it "still skips a def inside a non-factory block nested in a factory block" do
+    found = subjects_in("Thing = Class.new do\n  included do\n    def m; end\n  end\nend\n")
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["Thing#m", "defined inside a block"]])
+  end
+
+  it "still skips a factory def when the factory itself sits in a block" do
+    found = subjects_in("class A\n  included do\n    X = Data.define(:a) do\n      def m; end\n    end\n  end\nend\n")
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["A::X#m", "defined inside a block"]])
   end
 
   it "keeps an argument's block in the enclosing scope next to the factory's own block" do
@@ -181,6 +198,90 @@ RSpec.describe Saboteur::SubjectFinder do
   it "nests a factory-defined class under the enclosing scope" do
     found = subjects_in("module Outer\n  Point = Data.define(:x) do\n    def m; end\n  end\nend\n")
     expect(found.map(&:id)).to eq(["Outer::Point#m"])
+  end
+
+  it "binds a nested factory constant to the enclosing lexical scope, not the generated class (#339)" do
+    # Constant assignment in a block is lexical: Inner lives on FactoryProbe,
+    # never on the generated FactoryProbe::Outer.
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Class.new do
+          Inner = Data.define(:v) do
+            def value = v
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::Inner#value"])
+  end
+
+  it "binds a factory nested in a nested factory to the enclosing lexical scope (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        A = Class.new do
+          B = Class.new do
+            C = Data.define(:x) do
+              def v = x
+            end
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::C#v"])
+  end
+
+  it "binds a factory nested under a keyword class in a factory to that class (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Class.new do
+          class Real
+            B = Struct.new(:x) do
+              def v = x
+            end
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::Real::B#v"])
+  end
+
+  it "binds a keyword class declared in a factory block to the enclosing lexical scope (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Class.new do
+          class Nested
+            def x = 1
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::Nested#x"])
+  end
+
+  it "binds a keyword module declared in a factory block to the enclosing lexical scope (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Module.new do
+          module Nested
+            def x = 1
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::Nested#x"])
+  end
+
+  it "binds a Module.new factory nested in a factory block to the enclosing lexical scope (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Class.new do
+          M = Module.new do
+            def x = 1
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::M#x"])
   end
 
   it "keeps walking a constant assigned to a plain value" do

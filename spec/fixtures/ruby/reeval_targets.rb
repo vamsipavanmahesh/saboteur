@@ -109,4 +109,45 @@ module ReevalTargets
       [hidden, protected_copy]
     end
   end
+
+  # `X = Data.define(...) do` / `Struct.new` subjects (#290): re-evaluated
+  # through X.class_eval, never by reopening the generated class.
+  Point = Data.define(:x) do
+    def doubled
+      x * 2
+    end
+  end
+
+  Pair = Struct.new(:a, :b) do
+    def total
+      a + b
+    end
+  end
+
+  Tools = Module.new do
+    def self.version
+      1
+    end
+  end
+
+  module Outer
+    SCALE = 10
+
+    Meter = Data.define(:n) do
+      def scaled
+        n * SCALE
+      end
+    end
+  end
+
+  # A factory nested in a factory block: the constant assignment is lexical,
+  # so Coin lives on ReevalTargets, never on the generated Bag class (#339).
+  Bag = Class.new do
+    # rubocop:disable-next Lint/ConstantDefinitionInBlock -- the pattern under test
+    Coin = Data.define(:cents) do
+      def doubled
+        cents * 2
+      end
+    end
+  end
 end

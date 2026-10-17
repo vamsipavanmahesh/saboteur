@@ -23,7 +23,7 @@ jobs:
       matrix:
         # Namespace trial: macOS legs run on nscloud (Apple Silicon, 6 vCPU / 14 GB).
         # Revert to macos-latest to fall back to GitHub-hosted runners.
-        os: [ubuntu-latest, nscloud-macos-sequoia-arm64-6x14]
+        os: [nscloud-ubuntu-24.04-amd64-4x8, nscloud-macos-sequoia-arm64-6x14]
         ruby: ["3.3", "3.4", "ruby"] # "ruby" = latest stable
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -37,7 +37,7 @@ jobs:
   # external bytes arrive US-ASCII-tagged and any unforced boundary raises.
   locale:
     name: Ruby 3.4 / LANG=C
-    runs-on: ubuntu-latest
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
     env:
       LANG: C
       LC_ALL: C
@@ -50,7 +50,7 @@ jobs:
       - run: bundle exec rspec
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
@@ -86,7 +86,7 @@ jobs:
   # are on config/saboteur_ignore.rb with a reason.
   dogfood:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -99,6 +99,9 @@ jobs:
         uses: ./
         with:
           command: bundle exec exe/saboteur
+          # One baseline pass in CI: the second pass only checks run-to-run
+          # order stability, and it doubles the dogfood's wall time.
+          arguments: --baseline-passes 1
           fail-on-survivors: "true"
       - name: Keep the report
         if: always()
