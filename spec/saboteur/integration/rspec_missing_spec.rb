@@ -19,7 +19,9 @@ RSpec.describe Saboteur::Integration::RSpec, "with rspec-core missing (#482)" do
 
   it "refuses configured_spec_files the same way" do
     without_rspec_core do
-      expect { integration.configured_spec_files(Dir.pwd) }.to raise_error(Saboteur::Error, /rspec is not in the bundle/)
+      expect do
+        integration.configured_spec_files(Dir.pwd)
+      end.to raise_error(Saboteur::Error, /rspec is not in the bundle/)
     end
   end
 
@@ -27,13 +29,13 @@ RSpec.describe Saboteur::Integration::RSpec, "with rspec-core missing (#482)" do
     load_error = LoadError.new("cannot load such file -- the_app/boot")
     allow(load_error).to receive(:path).and_return("the_app/boot")
     allow(integration).to receive(:require).and_raise(load_error)
-    expect { integration.setup }.to raise_error(LoadError, /the_app\/boot/)
+    expect { integration.setup }.to raise_error(LoadError, %r{the_app/boot})
   end
 
   it "re-raises a LoadError for rspec/core_ext: the message matches, the feature does not" do
     load_error = LoadError.new("cannot load such file -- rspec/core_ext")
     allow(load_error).to receive(:path).and_return("rspec/core_ext")
     allow(integration).to receive(:require).and_raise(load_error)
-    expect { integration.setup }.to raise_error(LoadError, /rspec\/core_ext/)
+    expect { integration.setup }.to raise_error(LoadError, %r{rspec/core_ext})
   end
 end
