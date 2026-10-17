@@ -47,7 +47,7 @@
 - [condition_negation](operators/condition_negation.md)
 - [condition_true](operators/condition_true.md)
 - [element_removal](operators/element_removal.md)
-- [endpoint_replacement](operators/endpoint-replacement.md)
+- [endpoint_replacement](operators/endpoint_replacement.md)
 - [filter_replacement](operators/filter_replacement.md)
 - [interpolation_removal](operators/interpolation_removal.md)
 - [literal_boolean](operators/literal_boolean.md)
