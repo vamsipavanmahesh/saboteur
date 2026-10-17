@@ -144,6 +144,19 @@ RSpec.describe Saboteur::DirtyTreeWarning do
       described_class.for(config, config_path: config_path, gemfile: gemfile)
     end
 
+    it "hands the configured output paths to the tree scan as the ignored list" do
+      config = Saboteur::Config.new({ "cache_dir" => "tmp/custom_cache" }, root: root)
+      captured = nil
+      allow(Saboteur::WorkingTree).to receive(:new) do |scan_root, **kwargs|
+        captured = [scan_root, kwargs]
+        double("tree", state: Saboteur::WorkingTree::UNKNOWN)
+      end
+
+      described_class.for(config, config_path: nil, gemfile: nil)
+
+      expect(captured).to eq([config.root, { ignored: config.output_paths }])
+    end
+
     it "matches ./ and absolute include patterns the way the run does (#503)" do
       dirty_tree("lib/a.rb", "lib/nested/z.rb")
 
