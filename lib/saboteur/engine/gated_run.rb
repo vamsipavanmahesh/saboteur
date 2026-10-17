@@ -3,21 +3,22 @@
 
 module Saboteur
   class Engine
-    # Reporting and stop/warn policy for diff files no spec maps to (#370).
-    module UnmappedFiles
+    # A threshold or mutant-count gate judges the score, so a path that
+    # narrows what the score covers (a partially mapped --since run, #370)
+    # must keep its hard stop instead of green-lighting the change.
+    module GatedRun
       private
 
+      def gated?
+        config["threshold"] || Gates.new(config).any?
+      end
+
+      # Reports the guess's skipped and subjectless files, then stops or
+      # warns on unmapped files per the gate (#370).
       def report_unmapped(guess)
         @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
         inform_skipped_specs(guess)
         stop_or_warn_unmapped(guess)
-      end
-
-      # A threshold or mutant-count gate judges the score, so a path that
-      # narrows what the score covers (a partially mapped --since run) must
-      # keep its hard stop instead of green-lighting the change (#370).
-      def gated?
-        config["threshold"] || Gates.new(config).any?
       end
 
       # A --since run with a partial mapping runs the mapped subset with a

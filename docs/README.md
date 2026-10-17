@@ -16,6 +16,7 @@
 - [How to read survivors](guides/reading-survivors.md) - from output to the killing test.
 - [Replay one mutant](guides/replay.md) - re-run a single mutant by its digest.
 - [Monorepos, sub-gems and the custom map](guides/monorepo-and-custom-map.md) - include scope, spec paths, real refusals.
+- [Rails engines and dummy apps](guides/rails-engines-and-dummy-apps.md) - exclude `spec/dummy` and env-dependent integration specs.
 - [Reading a survivor report and fixing survivors](guides/reading-and-fixing-survivors.md) - a real batch from report to clean exit.
 - [saboteur in CI on large Rails apps](guides/ci-large-rails.md) - diff mode on PRs, sharded scheduled audits, caching.
 
@@ -47,7 +48,7 @@
 - [condition_negation](operators/condition_negation.md)
 - [condition_true](operators/condition_true.md)
 - [element_removal](operators/element_removal.md)
-- [endpoint_replacement](operators/endpoint-replacement.md)
+- [endpoint_replacement](operators/endpoint_replacement.md)
 - [filter_replacement](operators/filter_replacement.md)
 - [interpolation_removal](operators/interpolation_removal.md)
 - [literal_boolean](operators/literal_boolean.md)
