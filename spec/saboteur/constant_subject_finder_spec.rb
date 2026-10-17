@@ -41,6 +41,34 @@ RSpec.describe Saboteur::ConstantSubjectFinder do
     expect(parsed.subjects.first.owner).to eq("M::C")
   end
 
+  it "names a constant inside class << self with the singleton class as owner" do
+    parsed = find("class Host\n  class << self\n    RULES = { a: 1 }\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host.singleton_class::RULES"])
+    expect(parsed.subjects.first.skip_reason).to be_nil
+    expect(parsed.unsupported).to be_empty
+  end
+
+  it "keeps the enclosing owner for a singleton class over another receiver" do
+    parsed = find("class Host\n  class << Object\n    RULES = { a: 1 }\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host::RULES"])
+  end
+
+  it "names a top-level class << self constant with no owner" do
+    parsed = find("class << self\n  RULES = { a: 1 }\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["RULES"])
+  end
+
+  it "does not stack a second singleton segment for a nested class << self" do
+    parsed = find("class Host\n  class << self\n    class << self\n      RULES = { a: 1 }\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host.singleton_class::RULES"])
+  end
+
+  it "keeps same-name constants in the class body and class << self distinct" do
+    parsed = find("class Host\n  RULES = { a: 1 }\n  class << self\n    RULES = { b: 2 }\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host::RULES", "Host.singleton_class::RULES"])
+    expect(parsed.unsupported).to be_empty
+  end
+
   it "nests the owner path through enclosing modules" do
     parsed = find("module A\n  module B\n    RULES = [1]\n  end\nend\n")
     expect(parsed.subjects.first.id).to eq("A::B::RULES")
