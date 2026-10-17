@@ -683,3 +683,71 @@ RSpec.describe Saboteur::Selection::GitDiff do
     end
   end
 end
+
+RSpec.describe Saboteur::Selection::GitDiff, ".deletion_only_files" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @dir = File.realpath(dir)
+      git("init", "-q")
+      write("pure.rb", "a\nb\nc\nd\n")
+      write("mixed.rb", "1\n2\n3\n4\n5\n6\n")
+      git("add", ".")
+      git("commit", "-q", "-m", "base")
+      @base = `git -C #{@dir} rev-parse HEAD`.strip
+      example.run
+    end
+  end
+
+  def git(*args)
+    _, err, status = Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args,
+                                    chdir: @dir)
+    raise err unless status.success?
+  end
+
+  def write(path, text)
+    File.write(File.join(@dir, path), text)
+  end
+
+  def commit_changes
+    write("pure.rb", "a\nd\n")
+    write("mixed.rb", "0\n1\n2\n3\n4\n6\n")
+    git("commit", "-qam", "change")
+  end
+
+  it "lists a committed deletion-only file and not one that also adds lines, in either hunk order" do
+    commit_changes
+    expect(described_class.deletion_only_files(@base, root: @dir)).to eq([File.join(@dir, "pure.rb")])
+  end
+
+  it "reads plain diff output whatever the repository colors or external diff settings say" do
+    git("config", "color.diff", "always")
+    git("config", "diff.external", "echo")
+    commit_changes
+    expect(described_class.deletion_only_files(@base, root: @dir)).to eq([File.join(@dir, "pure.rb")])
+  end
+
+  it "compares against the merge base with the ref, not the index" do
+    git("checkout", "-q", "-b", "topic")
+    commit_changes
+    expect(described_class.deletion_only_files("HEAD~1", root: @dir)).to eq([File.join(@dir, "pure.rb")])
+  end
+
+  it "resolves the toplevel when its path holds raw non-UTF-8 bytes" do
+    original = @dir
+    raw = File.join(File.dirname(@dir), "r\xE9pos".b + File.basename(@dir).b)
+    File.rename(original, raw)
+    begin
+      @dir = raw
+      commit_changes
+      expect(described_class.deletion_only_files(@base, root: raw)).to eq([File.join(raw, "pure.rb").b])
+    ensure
+      File.rename(raw, original)
+    end
+  end
+
+  it "ends the revision list so a file named like the merge base is not read as an ambiguous argument" do
+    commit_changes
+    write(@base, "x\n")
+    expect(described_class.deletion_only_files(@base, root: @dir)).to eq([File.join(@dir, "pure.rb")])
+  end
+end
