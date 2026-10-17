@@ -33,6 +33,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- ERB generator templates (`.rb` files with ERB interpolation, as Rails
+  generators carry under `lib/generators/**/templates/`) no longer print a
+  per-file "does not parse" warning on every discovery pass: they can
+  never parse as plain Ruby, so they are skipped with one summarized note
+  per run. A real syntax error in a plain Ruby file still warns per file
+  (#372).
 - A `c.sources` entry that looks like a source glob now fails with a
   pointer to `c.include` (#488): `c.sources` registers custom operator
   sources (`builtin` or `path.rb:ClassName`), not the files to mutate.

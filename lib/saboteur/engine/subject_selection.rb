@@ -74,11 +74,18 @@ module Saboteur
       def find(files)
         finder = SubjectFinder.new
         files.flat_map do |file|
-          InlineSuppression.new(file, File.read(file))
+          source = File.read(file)
+          InlineSuppression.new(file, source)
           parsed = finder.call(file)
-          @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax") unless parsed.errors.empty?
-          parsed.errors.first(1).each do |message|
-            @diagnostics.warn("#{file.delete_prefix("#{@root}/")} does not parse: #{message}")
+          unless parsed.errors.empty?
+            if source.include?("<%")
+              @diagnostics.record_erb_template_skip(file, root: @root)
+            else
+              @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax")
+              parsed.errors.first(1).each do |message|
+                @diagnostics.warn("#{file.delete_prefix("#{@root}/")} does not parse: #{message}")
+              end
+            end
           end
           parsed.subjects
         end
