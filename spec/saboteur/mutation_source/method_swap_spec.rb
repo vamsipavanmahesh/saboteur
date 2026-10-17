@@ -225,6 +225,26 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
       expect(replacements("(xs.each { |x| x })\n    xs.sum")).not_to be_empty
     end
 
+    it "still swaps min in an else branch body" do
+      expect(replacements("if ready?\n      log(:a)\n    else\n      xs.min\n    end")).not_to be_empty
+    end
+
+    it "still swaps min in an unless else branch body" do
+      expect(replacements("unless ready?\n      log(:a)\n    else\n      xs.min\n    end")).not_to be_empty
+    end
+
+    it "still swaps min in an ensure body: only each and map are suppressed in discarded positions" do
+      expect(replacements("begin\n      log(:a)\n    ensure\n      xs.min\n    end")).not_to be_empty
+    end
+
+    it "still suppresses map in a non-last statement of a predicate's begin body" do
+      # used resets the discard depth for the predicate; the non-last
+      # statement inside it re-enters a discarded position exactly once.
+      expect(replacements(
+               "if (begin\n      xs.map { |x| log(x) }\n      true\n    end)\n      log(:a)\n    end\n    xs.sum"
+             )).to be_empty
+    end
+
     it "still swaps map in a discarded branch tail on a lazy receiver (#431)" do
       expect(replacements("if ready?\n      xs.lazy.map { |x| x }.force\n    end\n    xs.sum")).not_to be_empty
     end
