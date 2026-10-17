@@ -262,9 +262,7 @@ module Saboteur
 
     # The settings keys typed on the command line: a typed empty operator
     # list may clear a config value, so the generated commands keep it.
-    def typed_settings
-      options.keys & Reporter::Agent::Commands::SETTING_FLAGS.keys
-    end
+    def typed_settings = options.keys & Reporter::Agent::Commands::SETTING_FLAGS.keys
 
     # A whole-suite run records its scope as --all, so the generated rerun
     # and replay commands do not default back to inference (which can exit
@@ -330,9 +328,7 @@ module Saboteur
       raise UsageError, "test file not found: #{test}" unless File.exist?(path)
     end
 
-    def overrides
-      options.except(:config, :id, :suite, :list_operators, :dry_run)
-    end
+    def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
 
     def preview
       raise UsageError, "--dry-run and --list-operators print text, not --agent JSON; use --format json" if agent?
