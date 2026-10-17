@@ -116,6 +116,13 @@ RSpec.describe Saboteur::WorkingTree do
     expect(described_class.new(root).state).to eq(described_class::UNKNOWN)
   end
 
+  it "reads a status whose path is not valid UTF-8 without raising" do
+    ok = ["abc\n\n", "", instance_double(Process::Status, success?: true)]
+    bad_path = "lib/caf\xE9.rb".dup.force_encoding(Encoding::UTF_8)
+    allow(Open3).to receive(:capture3).and_return(ok, ["?? #{bad_path}\0?? lib/b.rb\0", "", ok.last])
+    expect(described_class.new(root).state.changes.map(&:path)).to eq([bad_path, "lib/b.rb"])
+  end
+
   it "is unknown when git cannot be started" do
     allow(Open3).to receive(:capture3).and_raise(Errno::ENOENT)
     expect(described_class.new(root).state).to eq(described_class::UNKNOWN)

@@ -69,9 +69,11 @@ module Saboteur
       changes
     end
 
+    # -z implies --porcelain=v1, and status takes no revisions, so the
+    # pathspecs need no "--" in front.
     def status_command
       excluded = @ignored.map { |path| ":(exclude)#{path}" }
-      ["git", "status", "--porcelain", "-z", "--untracked-files=all", "--", ".", *excluded]
+      ["git", "status", "-z", "--untracked-files=all", ".", *excluded]
     end
   end
 end

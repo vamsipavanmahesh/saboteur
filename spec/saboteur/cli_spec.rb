@@ -441,11 +441,22 @@ RSpec.describe Saboteur::CLI do
   end
 
   describe "dirty working tree" do
-    def run_on_tree(state)
+    def run_on_tree(state, *sources)
       tree = instance_double(Saboteur::WorkingTree, state: state)
       allow(Saboteur::WorkingTree).to receive(:new).and_return(tree)
       allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
-      cli("run").call
+      cli("run", *sources).call
+    end
+
+    it "takes the mutation scope from source operands, which replace include and exclude (#503)" do
+      changes = %w[lib/saboteur/version.rb lib/saboteur/cli.rb].map do |path|
+        Saboteur::WorkingTree::Change.new(path: path, tracked: true)
+      end
+      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 2, changes: changes),
+                  "lib/saboteur/version.rb")
+
+      expect(err.string).to include("1 inside the mutation scope (1 tracked, 0 untracked), 1 outside it",
+                                    "inside the mutation scope: lib/saboteur/version.rb\n")
     end
 
     it "refuses --agent and --id with --dry-run or --list-operators as usage errors" do

@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "fileutils"
+require "open3"
+require "tmpdir"
+
 RSpec.describe Saboteur::DirtyTreeWarning do
   def change(path, tracked: true)
     Saboteur::WorkingTree::Change.new(path: path, tracked: tracked)
@@ -11,13 +15,15 @@ RSpec.describe Saboteur::DirtyTreeWarning do
                                      changes: changes)
   end
 
-  def warning(*changes, include: ["lib/**/*.rb"], exclude: [], setup_files: ["config/saboteur.rb"])
-    described_class.new(state(*changes), include: include, exclude: exclude, setup_files: setup_files).to_s
+  def warning(*changes, included: [], include: ["lib/**/*.rb"], exclude: [], setup_files: ["config/saboteur.rb"])
+    described_class.new(state(*changes), included: included, include: include, exclude: exclude,
+                                         setup_files: setup_files).to_s
   end
 
   it "says nothing on a clean or unknown tree" do
     expect(warning).to be_nil
-    unknown = described_class.new(Saboteur::WorkingTree::UNKNOWN, include: [], exclude: [], setup_files: [])
+    unknown = described_class.new(Saboteur::WorkingTree::UNKNOWN, included: [], include: [], exclude: [],
+                                                                  setup_files: [])
     expect(unknown.to_s).to be_nil
   end
 
@@ -32,7 +38,7 @@ RSpec.describe Saboteur::DirtyTreeWarning do
                                "1 saboteur setup file(s) (0 tracked, 1 untracked).")
     expect(text).to include("\n  inside the mutation scope: lib/a.rb, lib/new.rb\n")
     expect(text).to include("\n  setup files: config/saboteur.rb\n")
-    expect(text).to end_with("Mutants run your code and could alter or delete files; " \
+    expect(text).to end_with("\n  Mutants run your code and could alter or delete files; " \
                              "run on a clean, committed tree or a CI checkout.")
   end
 
@@ -73,5 +79,85 @@ RSpec.describe Saboteur::DirtyTreeWarning do
 
     expect(text).to include("none inside the mutation scope, 0 outside it (0 tracked, 0 untracked), " \
                             "1 saboteur setup file(s) (1 tracked, 0 untracked)")
+  end
+
+  it "names no setup group when no setup file changed" do
+    expect(warning(change("lib/a.rb"))).not_to include("setup file")
+  end
+
+  it "counts a file the run includes even when the patterns alone miss it" do
+    expect(warning(change("Lib/a.rb"), included: ["Lib/a.rb"])).to include("inside the mutation scope: Lib/a.rb")
+  end
+
+  it "leaves a non-Ruby file that an include pattern matches outside the scope" do
+    expect(warning(change("lib/data.yml"), include: ["lib/**/*"])).to include("none inside the mutation scope")
+  end
+
+  describe ".for" do
+    let(:root) { File.realpath(Dir.mktmpdir("saboteur-dirty-")) }
+
+    after { FileUtils.remove_entry(root) }
+
+    def write(path)
+      FileUtils.mkdir_p(File.dirname(File.join(root, path)))
+      File.write(File.join(root, path), "x = 1\n")
+    end
+
+    def git(*args)
+      Open3.capture2e("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: root)
+    end
+
+    def dirty_tree(*paths)
+      write("README.md")
+      git("init", "-q")
+      git("add", ".")
+      git("commit", "-q", "-m", "first")
+      paths.each { |path| write(path) }
+    end
+
+    def text(include: ["lib/**/*.rb"], root_spelling: root, config_path: nil, gemfile: nil)
+      config = Saboteur::Config.new({ "include" => include }, root: root_spelling)
+      described_class.for(config, config_path: config_path, gemfile: gemfile)
+    end
+
+    it "matches ./ and absolute include patterns the way the run does (#503)" do
+      dirty_tree("lib/a.rb", "lib/nested/z.rb")
+
+      expect(text(include: ["./lib/**/*.rb"])).to include("inside the mutation scope: lib/a.rb, lib/nested/z.rb")
+      expect(text(include: ["#{root}/lib/**/*.rb"])).to include("2 inside the mutation scope")
+    end
+
+    it "names the setup files by their physical path when the root is reached through a symlink" do
+      dirty_tree("config/saboteur.rb", "Gemfile.saboteur", "Gemfile.saboteur.lock", "lib/a.rb")
+      link = "#{root}-link"
+      File.symlink(root, link)
+
+      warning = text(root_spelling: link, gemfile: File.join(link, "Gemfile.saboteur"))
+      expect(warning).to include("setup files: Gemfile.saboteur, Gemfile.saboteur.lock, config/saboteur.rb")
+      expect(warning).to include("inside the mutation scope: lib/a.rb\n")
+    ensure
+      FileUtils.rm_f(link)
+    end
+
+    it "treats the root Gemfile as an ordinary file and reads a relative config path against the root" do
+      dirty_tree("Gemfile", "Gemfile.lock", "ci/saboteur.rb")
+
+      warning = Dir.chdir(Dir.tmpdir) { text(config_path: "ci/saboteur.rb", gemfile: "Gemfile") }
+      expect(warning).to include("2 outside it (0 tracked, 2 untracked), 1 saboteur setup file(s)")
+      expect(warning).to include("setup files: ci/saboteur.rb\n")
+    end
+
+    it "leaves out a setup file outside the root" do
+      dirty_tree("Gemfile.saboteur")
+
+      warning = text(config_path: File.join(Dir.tmpdir, "elsewhere.rb"), gemfile: File.join(root, "Gemfile.saboteur"))
+      expect(warning).to include("setup files: Gemfile.saboteur\n")
+    end
+
+    it "says nothing on a clean tree" do
+      dirty_tree
+
+      expect(text).to be_nil
+    end
   end
 end

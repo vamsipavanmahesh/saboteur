@@ -9,11 +9,11 @@ module Saboteur
   #
   # Each change lands in exactly one group, so the groups add up to the
   # count: saboteur setup files first (the config file the run reads, a
-  # trial Gemfile and its lock), then the mutation scope (a Ruby path that
-  # an include pattern matches and no exclude pattern does), then the rest.
-  # Paths are matched against the patterns, not looked up on disk, so a
-  # deleted source still counts as inside the scope. The scope is the
-  # configured one: --since, --subject and source operands narrow a run
+  # trial Gemfile and its lock), then the mutation scope (a file the run's
+  # include and exclude select, the way Config#included_files does), then
+  # the rest. A path the patterns match also counts, so a deleted source is
+  # still inside the scope. The scope is the run's include and exclude:
+  # source operands replace them, and --since and --subject narrow a run
   # further, after this warning.
   class DirtyTreeWarning
     SHOWN_PATHS = 5
@@ -25,24 +25,48 @@ module Saboteur
     # unknown tree.
     def self.for(config, config_path:, gemfile: ENV.fetch("BUNDLE_GEMFILE", nil))
       state = WorkingTree.new(config.root, ignored: config.output_paths).state
-      new(state, include: config["include"], exclude: config["exclude"],
-                 setup_files: setup_files(config.root, config_path: config_path, gemfile: gemfile)).to_s
+      root = File.realpath(config.root)
+      new(state, included: relative(config.included_files, root),
+                 include: patterns(config["include"], root), exclude: patterns(config["exclude"], root),
+                 setup_files: setup_files(root, config_path: config_path, gemfile: gemfile)).to_s
     end
 
     # Files a trial of saboteur adds, relative to the root: the config file
     # the run reads and, when BUNDLE_GEMFILE names a Gemfile other than the
     # root's own, that Gemfile and its lock.
+    # root is physical (realpath), and so is each file before the compare,
+    # so a /var spelling of a /private/var root still matches (#503).
     def self.setup_files(root, config_path:, gemfile:)
-      files = [File.expand_path(config_path || Config::FILE, root)]
-      if gemfile && File.expand_path(gemfile, root) != File.join(root, "Gemfile")
-        files.push(File.expand_path(gemfile, root), "#{File.expand_path(gemfile, root)}.lock")
-      end
+      files = [physical(File.expand_path(config_path || Config::FILE, root))]
+      trial = gemfile && physical(File.expand_path(gemfile, root))
+      files.push(trial, "#{trial}.lock") if trial && trial != File.join(root, "Gemfile")
+      relative(files, root)
+    end
+
+    # The path with its directory resolved, so a file that does not exist
+    # yet still gets the physical spelling of where it would be.
+    def self.physical(path)
+      File.join(File.realpath(File.dirname(path)), File.basename(path))
+    rescue SystemCallError
+      path
+    end
+
+    def self.relative(files, root)
       prefix = File.join(root, "")
       files.select { |file| file.start_with?(prefix) }.map { |file| file.delete_prefix(prefix) }
     end
 
-    def initialize(state, include:, exclude:, setup_files:)
+    # Patterns as paths relative to the root, so ./lib/**/*.rb and an
+    # absolute pattern under the root match the paths git reports.
+    def self.patterns(patterns, root)
+      patterns.map { |pattern| File.expand_path(pattern, root).delete_prefix(File.join(root, "")) }
+    end
+
+    private_class_method :physical, :relative, :patterns
+
+    def initialize(state, included:, include:, exclude:, setup_files:)
       @state = state
+      @included = included.to_set
       @include = include
       @exclude = exclude
       @setup_files = setup_files
@@ -80,7 +104,7 @@ module Saboteur
     end
 
     def in_scope?(path)
-      path.end_with?(".rb") && matches?(@include, path) && !matches?(@exclude, path)
+      @included.include?(path) || (path.end_with?(".rb") && matches?(@include, path) && !matches?(@exclude, path))
     end
 
     def matches?(patterns, path)

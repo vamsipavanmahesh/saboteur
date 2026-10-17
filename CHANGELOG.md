@@ -33,7 +33,8 @@ All notable changes are documented here. The format follows
 ### Changed
 
 - The dirty-tree warning splits its count (#309, #316): changes inside
-  the mutation scope (configured include minus exclude, Ruby paths),
+  the mutation scope (the Ruby files the run's include and exclude
+  select, source operands included),
   outside it, and saboteur setup files (the config file the run reads, a
   `BUNDLE_GEMFILE` trial Gemfile and its lock), each as tracked and
   untracked, naming up to five scope and setup paths. The groups add up
