@@ -26,6 +26,10 @@ module Saboteur
       FORMAT = 1
       STORED = %i[killed survived timeout].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
+      # Dependency declarations themselves, so the no-lockfile library
+      # shape (bundler's own convention: libraries gitignore the lockfile)
+      # still invalidates on a dependency edit (#408).
+      MANIFESTS = %w[Gemfile gems.rb].freeze
 
       # suite_digest: SuiteFiles#digest, so an edit to a spec helper or
       # support file invalidates every verdict.
@@ -82,13 +86,23 @@ module Saboteur
         # A hex digest has a fixed width, so it needs no separator after it.
         digest << Digest::SHA256.hexdigest(subject.file_source)
         tests.sort.each { |test| digest << test << "\0" << file_digest(test_file(test)) << "\0" }
-        LOCKFILES.each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
+        hash_dependency_inputs(digest)
         digest.hexdigest
       end
 
       # RSpec ids name their file: "./spec/a_spec.rb[1:2]".
       def test_file(test)
         File.expand_path(test[/\A(.+?\.rb)(?:\[|:|\z)/, 1] || test, @root)
+      end
+
+      def hash_dependency_inputs(digest)
+        (LOCKFILES + MANIFESTS).each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
+        gemspecs.each { |path| digest << File.basename(path) << "\0" << file_digest(path) << "\0" }
+      end
+
+      # Root-level gemspecs; stable order, one directory scan per run.
+      def gemspecs
+        @gemspecs ||= Dir[File.join(@root, "*.gemspec")]
       end
 
       def file_digest(path)
