@@ -255,6 +255,10 @@ RSpec.describe Saboteur::Selection::GitDiff do
           .to eq(Set[1])
       end
 
+      it "drops a blank line that lost its spaces, and holds no token now" do
+        expect(changed_after("a = 1\n  \nb = 2\n", "a = 1\n\nb = 2\n")).to eq(Set[])
+      end
+
       it "drops a blank line that only gained spaces" do
         expect(changed_after("a = 1\n\nb = 2\n", "a = 1\n  \nb = 2\n")).to eq(Set[])
       end

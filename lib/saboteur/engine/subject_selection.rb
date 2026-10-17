@@ -104,9 +104,8 @@ module Saboteur
       def changed_line_maps
         maps = Selection::GitDiff.line_maps(@config["since"], root: @root, include: @files.to_set,
                                                               diagnostics: @diagnostics)
-        [maps.changed, maps.behavior].map do |map|
-          map.transform_keys { |file| Selection::CoverageMap.canonical(file) }
-        end
+        canonical = ->(map) { map.transform_keys { |file| Selection::CoverageMap.canonical(file) } }
+        [canonical.call(maps.changed), canonical.call(maps.behavior)]
       end
 
       # Changed entries of a constant hash or array literal are behavior

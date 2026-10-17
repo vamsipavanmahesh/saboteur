@@ -44,10 +44,10 @@ module Saboteur
 
       def same_tokens?(line)
         base_line = base_line_of(line)
-        tokens = @current_tokens.fetch(line, [])
+        tokens = @current_tokens[line]
         return false if base_line != line && tokens.any? { |type, _| type == LINE_KEYWORD }
 
-        tokens == @base_tokens.fetch(base_line, [])
+        tokens == @base_tokens[base_line]
       end
 
       # A line outside every hunk sits at its base position shifted by the
@@ -57,7 +57,9 @@ module Saboteur
         line - @hunks.sum { |_, old_count, start, count| start + count <= line ? count - old_count : 0 }
       end
 
-      # Every token on each line it spans, as type and text. A token that
+      # Every token on each line it spans, as type and text. Every line has
+      # one (a blank line its newline, text after __END__ that token), and a
+      # missing line reads as [] through the default. A token that
       # spans lines (a heredoc body, a multi-line string) belongs to each.
       # A token's location ends after its last byte, so one that ends in a
       # newline would reach into the next line without this.
