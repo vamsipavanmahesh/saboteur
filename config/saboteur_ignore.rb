@@ -734,6 +734,11 @@ Saboteur.ignore do |i|
   i.mutation "70a77934c3856a1e",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
+
+  i.mutation "52f89e8dff23465e",
+             subject: "Saboteur::CLI::ExitStatus#unverifiable_scope?",
+             reason: "equivalent: each and map both puts every skipped subject's line; the result is discarded - a literal true follows the loop"
+
   i.mutation "036e4fb956df510f",
              subject: "Saboteur::Engine::ResultCache#digest_tests",
              reason: "equivalent: the following SHA256 hexdigest has a fixed width, so the dropped separator " \

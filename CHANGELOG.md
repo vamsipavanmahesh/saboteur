@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A `--since` run whose changed methods were all skipped - refinements,
+  no coverage, or any other skip reason - used to exit 0 with `score n/a`,
+  a green run that tested nothing. It now exits 3 and names each skipped
+  subject with its reason, and a partially skipped diff announces each
+  skip up front instead of only in the end-of-run summary (#574).
+
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
   unrelated classes each keep their own subjects: the singleton-side one is
@@ -163,6 +169,12 @@ All notable changes are documented here. The format follows
   `spec/policy_finder_spec.rb` and `lib/aasm/base.rb` finds
   `spec/unit/base_spec.rb`, so `--subject` and `--since` stop hard-stopping
   on pundit, aasm and shoulda-matchers style layouts (#394, #370, #393).
+- A `--since` run where only some changed files have a guessed spec now
+  runs the mapped subset with a loud warning per unmapped file instead of
+  stopping with "so nothing ran"; the stop message and the warning name
+  same-basename specs found under `spec/**`, so the file can be passed to
+  `--test` without hunting. A run with no guesses at all still stops, as
+  do full runs and `--subject` runs (#370).
 
 
 - Methods defined in the four core class factories (`X = Data.define(...)`,

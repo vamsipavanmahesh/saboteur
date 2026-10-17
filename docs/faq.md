@@ -43,7 +43,7 @@ an environment variable; key it so saboteur runs skip it.
 | 0 | Clean: no unignored survivors (or `--threshold` met) |
 | 1 | Survivors to review, or the score is below `--threshold` |
 | 2 | Usage or configuration error, including a mutated file with no conventional spec |
-| 3 | Tool failure or an incomplete run, such as most mutants erroring |
+| 3 | Tool failure or an incomplete run, such as most mutants erroring, or a `--since` run that skipped every subject of the change (refinements, no coverage), so the change is unverified |
 | 4 | The `--max-duration` budget stopped the run (never with `--max-duration-ok`) |
 
 Agent mode (`--agent`) has no exit 4 and reports budget exhaustion as partial

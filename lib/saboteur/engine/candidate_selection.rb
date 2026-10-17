@@ -22,6 +22,10 @@ module Saboteur
         reason = subject.skip_reason || (skip_reason_for(subject) if @map.tests_for(subject).empty?)
         if reason
           @skipped_subjects[subject] = reason
+          # In a scoped run every subject is part of the change under
+          # review, so a skip is said up front, not only in the end-of-run
+          # summary (#574).
+          @diagnostics.announce("#{subject.id}: skipped (#{reason}); its change is not verified by this run") if scope
           return @selected[subject] = []
         end
 

@@ -207,13 +207,30 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(@engine.config.explicit?("tests")).to be(true)
     end
 
-    it "stops before boot when a changed file has no spec named after it" do
+    # One unmapped changed file must not zero the run: the mapped subset
+    # runs and each unmapped file gets a loud warning (#370).
+    it "runs the mapped subset with a loud warning per unmapped file" do
       guess(specs: ["spec/a_spec.rb"], unmatched: %w[lib/b.rb lib/c.rb], changed: 3)
-      message = "no spec found for lib/b.rb (expected spec/b_spec.rb), lib/c.rb (expected spec/c_spec.rb), " \
-                "so nothing ran. Re-run the same command with one --test per existing spec path, " \
-                "or append --all to use the whole suite without changing the source scope."
-      expect { run_engine("since" => "origin/main") }.to raise_error(Saboteur::ConfigError, message)
-      expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
+      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(used).to eq(["spec/a_spec.rb"])
+      expect(err.string).to include("inferred specs: no spec found for lib/b.rb (expected spec/b_spec.rb)")
+        .and include("inferred specs: no spec found for lib/c.rb (expected spec/c_spec.rb)")
+    end
+
+    # The partial-mapping mercy is scoped to --since: a named --subject
+    # without a conventional spec still stops the run before boot (#370).
+    it "still stops a --subject run on an unmapped named subject" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      allow(Saboteur::Engine::SubjectSelection).to receive(:files_matching).and_return(%w[lib/a.rb lib/b.rb])
+      expect { run_engine("subjects" => ["A#a", "B#b"]) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    # The partial-mapping mercy is scoped to --since: a full run keeps the
+    # hard stop even when other changed files have specs (#370).
+    it "stops a full run on a partial mapping even when other files have specs" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine({}) }.to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
     end
 
     it "stops before boot when no changed file has a spec" do
