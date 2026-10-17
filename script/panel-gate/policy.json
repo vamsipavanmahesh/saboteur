@@ -57,5 +57,12 @@
     "integration",
     ".saboteur.yml"
   ],
-  "revocationAnchor": "91f4017ef7398eb761ddc1efd26c1239c3dbfa6a"
+  "revocationAnchor": "91f4017ef7398eb761ddc1efd26c1239c3dbfa6a",
+  "advisoryJobs": {
+    ".github/workflows/ci.yml": [
+      "Ruby 4.0 / linux / shard 1",
+      "Ruby 4.0 / linux / shard 2",
+      "Ruby 4.0 / linux / shard 3"
+    ]
+  }
 }

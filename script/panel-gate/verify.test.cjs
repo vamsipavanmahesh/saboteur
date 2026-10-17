@@ -60,6 +60,13 @@ test('latest ID wins even with old SHA; blocker, malformed edit, deletion invali
 test('same lens three times cannot substitute for three lenses', () => {
   assert.throws(() => panel(comments().map(c => ({...c, body: body(marker())})), HEAD));
 });
+test('advisory jobs never change the verdict; any other extra job fails closed', () => {
+  const jobs = [{name: 'lint', head_sha: HEAD, status: 'completed', conclusion: 'success'},
+    {name: 'Ruby 4.0 / linux / shard 1', head_sha: HEAD, status: 'completed', conclusion: 'failure'}];
+  jobsPass(jobs, ['lint'], HEAD, ['Ruby 4.0 / linux / shard 1']);
+  assert.throws(() => jobsPass(jobs, ['lint'], HEAD));
+  assert.throws(() => jobsPass(jobs, ['lint'], HEAD, ['some other job']));
+});
 test('exact successful jobs only, no skip/neutral/duplicate/old-head/missing', () => {
   const jobs = [{name: 'test', head_sha: HEAD, status: 'completed', conclusion: 'success'}];
   jobsPass(jobs, ['test'], HEAD);
@@ -100,7 +107,11 @@ function fakeAPI(change = {}) {
         author: {name: 'Name', email: 'name@example.org'}, message: 'Signed-off-by: Name <name@example.org>'}}];
       if (path.startsWith('actions/runs?')) return change.wrongRun ? runs.map(r => ({...r, head_sha: BASE})) : runs;
       const id = Number(path.split('/')[2]);
-      return policy.workflows[runs[id - 1].path].map(name => ({name, head_sha: HEAD, status: 'completed', conclusion: change.skipped ? 'skipped' : 'success'}));
+      const list = policy.workflows[runs[id - 1].path].map(name => ({name, head_sha: HEAD, status: 'completed', conclusion: change.skipped ? 'skipped' : 'success'}));
+      if (change.advisory && runs[id - 1].path === '.github/workflows/ci.yml') {
+        list.push({name: 'Ruby 4.0 / linux / shard 1', head_sha: HEAD, status: 'completed', conclusion: 'failure'});
+      }
+      return list;
     }
   };
 }
@@ -137,6 +148,11 @@ test('superseded demands a valid run identity before spending API calls', async 
 });
 test('end-to-end API decision posts pending then success for current facts', async () => {
   const api = fakeAPI(); await verify(api, 1);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
+});
+test('a red advisory leg never blocks the verdict', async () => {
+  const api = fakeAPI({advisory: true});
+  await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
 });
 test('a head that trails a moved main still passes when its checks are green', async () => {
