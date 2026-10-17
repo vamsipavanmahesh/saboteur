@@ -1150,127 +1150,27 @@ Any other thread gets a generic caveat: a thread that does not run in a
 child cannot do background work a mutant's test may rely on, so results
 can differ when one is left behind.
 
-## Filter mutations
+## Operator guide
 
-The built-in source also swaps `select` / `reject` and `select!` / `reject!`.
-These catch a filter that keeps the items it should discard (or discards the
-items it should keep). For example, a command replacement should remove the
-old command, not keep only that command:
+The detailed operator references live in [docs/operators](docs/operators/). The
+newest fine-grained operators:
 
-```ruby
-commands.reject! { |name, _| name == replaced_name }
-# mutant: commands.select! { |name, _| name == replaced_name }
-```
+| Operator | Example | What a survivor means |
+| --- | --- | --- |
+| [filter_replacement](docs/operators/filter_replacement.md) | `select` -> `reject` | No test tells the kept set from the dropped set. |
+| [literal_boolean](docs/operators/literal_boolean.md) | `true` -> `false` | The flag's effect is not asserted on either side. |
+| [literal_string](docs/operators/literal_string.md) | `"pending"` -> `""` | The string's content is never asserted. |
+| [literal_number](docs/operators/literal_number.md) | `18` -> `19` | No test pins the exact boundary or value. |
+| [chain_removal](docs/operators/chain_removal.md) | `user.name.strip` -> `user.strip` | The middle link's effect is invisible, or the shorter chain is equivalent. |
+| [argument_removal](docs/operators/argument_removal.md) | `includes(:a, :b)` -> `includes(:b)` | The argument makes no observed difference. |
+| [pair_removal](docs/operators/pair_removal.md) | `{city: "required", zip: "optional"}` -> `{zip: "optional"}` | The pair's effect is invisible to the tests. |
 
-Only explicit-receiver calls with a block and no ordinary arguments are
-changed. A block passed as `&predicate` counts; safe navigation is preserved.
-`relation.select(:name)`, bare `select { ... }`, and `items.select` without a
-block are not changed. Arid statements and nested definitions remain skipped.
-Ruby dispatch is dynamic: a matching name does not prove the receiver is an
-Enumerable, and a custom receiver can make the replacement fail. No type or
-real-fault detection guarantee is made.
+**Unreleased on main:** `element_removal` removes one element from an array
+literal, including array literals in methods and changed constant arrays. It
+runs by default; splats, heredoc elements and arid statements are skipped.
 
-These are fine mutants, appended after the existing built-in operators. For unchanged subjects, old
-mutant digests and relative order stay unchanged, but runs can produce more
-mutants, change their score, and hit the per-method cap. The operator and source
-name in reports is `filter_replacement`.
-
-See [the operator rationale](docs/filter-operators.md) for the Ruby fault used
-to choose this family and the limits of that evidence.
-
-## Literal mutations
-
-Builtin now swaps `true` / `false` literals and replaces nonempty static strings
-with `""`. These test boolean choices and the difference between meaningful
-text and empty input. Operator names are `literal_boolean` and `literal_string`;
-the source name is `literal_replacement`.
-
-Only method bodies are visited. Default arguments, arid statements, nested
-definitions, empty strings, heredocs, interpolation, word/symbol lists, symbols,
-regexes and command strings are unchanged. Quoted and static percent strings
-are supported. The new proposals follow the earlier built-in operators; the
-normal duplicate check and per-method cap still apply. Old digests and order
-remain stable for unchanged subjects, but more mutants can change a run's score.
-No speed, type-safety or real-fault detection improvement is claimed. See
-[the literal operator rationale](docs/literal-operators.md) for fault evidence
-and limits, including string encoding/frozen-value behavior.
-
-## Chain removal
-
-Builtin drops one link from the middle of a dotted method chain: `user.name.strip`
-becomes `user.strip`, and `a.b.c.d` gives `a.c.d` and `a.b.d`. The first receiver
-and the last call stay, so a test has to notice that a step in between went
-missing. The link goes whole, with its arguments and block. The operator and
-source name is `chain_removal`.
-
-Operators, index calls and bare-name receivers are not chains and are unchanged.
-The target of a write (`user.account.profile.name = 1`, `+=`, `||=`, `a.b[0] = 1`)
-is left whole: no link of its receiver chain is dropped, however long. Only
-the value on the right can be mutated. `freeze`, `dup`, `clone`, `itself`
-and `tap` links are never removed. Tests can observe frozenness, copies and a
-`tap` block's effects, but those are other contracts than a missing step in a
-query chain, and dropping such a link mostly yields noise, so this operator
-leaves them out. Arid statements and nested definitions are skipped.
-
-If you confirm the shorter chain is equivalent across the intended
-inputs (for example a duplicated column), simplify the code or ignore
-the mutant.
-
-Chain removal is on by default, like `argument_removal` and `pair_removal`.
-Its proposals follow the other fine proposals, with the same validation,
-deduplication and `max_mutants_per_method` cap.
-
-## Argument removal
-
-Builtin removes one ordinary positional argument from a parenthesized call.
-For `Model.includes(:a, :b, c: :d)`, the two proposals remove `:a` or `:b`,
-without deleting the statement or changing `c: :d`. This lets a preload check
-exercise missing associations instead of only a missing return value.
-The operator and source name is `argument_removal`.
-
-Only parenthesized calls are supported in this first version. Keyword hashes,
-splats, argument forwarding, bracket indexing/assignment syntax and arguments containing
-heredocs are unchanged. Explicit hash arguments count as positional arguments.
-Blocks and keyword pairs remain intact; separators come from Prism tokens,
-so commas inside strings or comments are not mistaken for separators.
-Arid statements, parameter defaults and nested definitions are skipped.
-
-These fine proposals follow existing builtin proposals, with the same validation,
-deduplication and `max_mutants_per_method` cap. Earlier digests and relative order
-stay unchanged for unchanged subjects. Extra proposals can change scores or be
-omitted by the cap. Removing an argument can still raise an arity error; no
-non-crashing guarantee is made. The regression uses a small preload-like receiver
-and checks the missing associations, not an ActiveRecord SQL benchmark. See
-[the validation notes](docs/argument-removal.md) for the pinned snapshot migration.
-
-## Hash and keyword pair removal
-
-Builtin removes one key/value association from a hash literal or keyword list.
-`Model.includes(:a, :b, c: :d)` becomes `Model.includes(:a, :b )`, so a nested
-preload guard can be exercised without deleting the whole statement. A sole
-hash pair becomes `{}`. Operator and source name: `pair_removal`.
-
-## Array element removal (unreleased on main)
-
-Builtin removes one element from an array literal: `[:a, :b]` becomes `[:a]`.
-This is the array counterpart of `pair_removal`, on by default under the name
-`element_removal`, and it is what mutates changed elements of constant array
-literals under `--since` (#306). Bracketed arrays and `%w[...]` lists are
-supported; splats stay intact, and elements holding heredocs or sitting in
-arid statements are skipped, like `pair_removal`.
-Being default-on, it adds mutants wherever array literals appear in mutated
-methods: totals grow with the number of elements, the way `pair_removal`
-grows them for hashes.
-
-Both parenthesized and command calls are supported. Splats stay intact; pairs
-containing heredocs, parameter defaults, arid statements and nested definitions
-are skipped. Token-based separator edits preserve comments and blocks. Nested
-hash values and callable bodies are visited. Removing a required keyword can
-still crash; the regression uses a preload-like receiver, not an ActiveRecord
-SQL benchmark. These fine proposals follow earlier builtin proposals and use
-the usual validation, deduplication, order and `max_mutants_per_method` cap.
-More proposals can change scores and cap coverage. See
-[the validation notes](docs/pair-removal.md) for snapshot changes.
+Use `bundle exec saboteur run --list-operators` for the full current inventory
+and examples from your installed version.
 
 ## 🔌 Extending
 
