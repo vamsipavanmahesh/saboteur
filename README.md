@@ -357,22 +357,27 @@ process: [docs/stability](docs/stability.md).
 
 ## 🛠️ Usage
 
-```sh
-bundle exec saboteur run                          # whole project
-bundle exec saboteur doctor                       # environment checks only
-bundle exec saboteur doctor --suite --seed 42     # plus two unchanged suite checks
-bundle exec saboteur run --since origin/main      # methods changed on this branch
-bundle exec saboteur run --subject 'Billing::Invoice#total'
-bundle exec saboteur run --subject Billing        # a namespace
-bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
-bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
-bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
-bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
-bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
-bundle exec saboteur run --fail-fast              # stop after the first subject with a survivor
-bundle exec saboteur run --matrix                 # every covering test per mutant: blind and redundant tests
-bundle exec saboteur run --verbose --no-color     # add score split, timings and kill causes; no colour
-```
+### Choose a run
+
+| I want to... | Command | Notes |
+| --- | --- | --- |
+| Check the setup | `bundle exec saboteur doctor` | No mutation run, reports or caches. |
+| Try one method | `bundle exec saboteur run --subject 'Billing::Invoice#total'` | Best first run. |
+| Review a pull request | `bundle exec saboteur pr origin/main` | Preset: changed methods, one baseline pass, 10-minute budget. |
+| Set the diff scope yourself | `bundle exec saboteur run --since origin/main` | Mutates methods and supported constants changed since the ref. |
+| Audit the whole project | `bundle exec saboteur audit` | Whole scope, all operators, both baseline checks and both reports. |
+| Choose files and specs | `bundle exec saboteur run lib/a.rb --test spec/a_spec.rb` | Sources and test selection are explicit. |
+| Iterate locally | `bundle exec saboteur run --incremental` | Reuses verdicts whose recorded inputs are unchanged; see the limits below. |
+| Repeat a run | `bundle exec saboteur run --seed 1234` | Use the seed printed by the earlier run. |
+| Replay one mutant | `bundle exec saboteur run --id DIGEST --seed 1234` | Uses the full current digest. |
+| Gate CI on score | `bundle exec saboteur run --threshold 90` | Exits 1 below 90%; incomplete runs still fail closed. |
+| Inspect test quality | `bundle exec saboteur run --matrix` | Runs every covering test to find blind and redundant tests. |
+| Preview the work | `bundle exec saboteur run --dry-run` | Discovers subjects and mutants without booting the app. |
+| List operators | `bundle exec saboteur run --list-operators` | Shows the effective operator policy. |
+| Stop early | `bundle exec saboteur run --fail-fast` | Serial runs only; always exits 1 when it stops. |
+| Add detail | `bundle exec saboteur run --verbose --no-color` | Score split, timings, kill causes and no colour. |
+
+### Sources, specs and gates
 
 Positional operands name the sources to mutate: Ruby files, or directories
 (all their `.rb` files). Each must exist; a typo or a non-Ruby file exits 2
@@ -420,6 +425,8 @@ saboteur exits 2 and names the focused examples. Remove the focus, or pass `--al
 as `--tag slow`, and example selectors such as `--test spec/a_spec.rb:12`, are on purpose and are not refused. The
 check compares what RSpec runs with what it would run without the stray focus, so examples RSpec leaves out anyway
 (`:if` / `:unless`, `--tag`, exclusions, selectors in another file) never count as hidden.
+
+### Pull requests and inferred specs
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
@@ -629,6 +636,8 @@ and the config are all unchanged. So a constant or helper changed in the same
 file is seen. It cannot see a change in another file that the method uses (a
 method it calls, a constant defined elsewhere), so run without it now and then
 (and in CI on the main branch).
+
+### Output, reports and scores
 
 Output: survivors first, then a short summary last, so the summary stays on
 screen. Survivors are grouped by file, then method, then line. Each line is
