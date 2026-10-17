@@ -48,7 +48,9 @@ module Saboteur
         return if expanded == base || !expanded.start_with?("#{base}/")
 
         "#{expanded.delete_prefix("#{base}/")}/"
-      rescue SystemCallError
+      # ArgumentError too: a NUL byte in the value makes File.expand_path
+      # raise it, and a config that cannot be read means no shield.
+      rescue SystemCallError, ArgumentError
         nil
       end
 
@@ -57,9 +59,21 @@ module Saboteur
       # part of the path.
       def scalar(raw)
         quote = raw[0]
-        return raw[1..-2] if raw.length >= 2 && raw[-1] == quote && ["'", '"'].include?(quote)
+        value = if raw.length >= 2 && raw[-1] == quote && ["'", '"'].include?(quote)
+                  raw[1..-2]
+                else
+                  raw
+                end
+        strip_comment(value)
+      end
 
-        raw
+      # Bundler::YAMLSerializer#strip_comment, which parses .bundle/config
+      # for Bundler itself: a # after the first character starts a comment
+      # even inside quotes, while a leading # is data.
+      def strip_comment(value)
+        return value unless value.include?("#") && !value.start_with?("#")
+
+        value.split("#", 2).first.strip
       end
     end
   end
