@@ -46,6 +46,9 @@ jobs:
     runs-on: nscloud-macos-sequoia-arm64-4x8
     strategy:
       fail-fast: false
+      # Main pushes request 9 legs x 4 vCPU against a 12 vCPU trial cap, so
+      # run at most 3 at once (pull requests only ever have 3 legs here).
+      max-parallel: 3
       # (No spaces after the JSON colons: a colon+space would break the YAML
       # plain scalar. The matrix itself is normal JSON.)
       matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
