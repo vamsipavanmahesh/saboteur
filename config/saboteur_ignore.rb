@@ -9,11 +9,11 @@ Saboteur.ignore do |i|
 
   i.mutation "7f27bf4227807c2c",
              subject: "Saboteur::SubjectFinder#heredoc_eval?",
-             reason: "equivalent conditional on the Prism 1.9.0 AST contract: no admitted direct-argument StringNode has nil opening_loc (nil openers exist only on container parts), so &. and . agree - not extended to hand-built nodes"
+             reason: "equivalent conditional on the Prism 1.9.0 AST contract: an admitted node's Location slice is always a String, so &. and . agree - not extended to hand-built nodes"
 
   i.mutation "05859430e8066ebc",
              subject: "Saboteur::SubjectFinder#heredoc_eval?",
-             reason: "equivalent conditional on the Prism 1.9.0 AST contract: an admitted node's Location slice is always a String, so &. and . agree - not extended to hand-built nodes"
+             reason: "equivalent conditional on the Prism 1.9.0 AST contract: no admitted direct-argument StringNode has nil opening_loc (nil openers exist only on container parts), so &. and . agree - not extended to hand-built nodes"
 
   i.mutation "751004d184cd7c5b",
              subject: "Saboteur::SubjectFinder#heredoc_eval?",
