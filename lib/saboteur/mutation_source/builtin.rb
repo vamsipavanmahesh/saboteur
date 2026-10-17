@@ -81,7 +81,7 @@ module Saboteur
       end
 
       def mutations_for(subject)
-        body = subject.node.body
+        body = subject.body_node
         @subject = subject
         @found = []
         coarse(body)

@@ -24,7 +24,7 @@ module Saboteur
 
       def mutations_for(subject)
         found = []
-        visit(subject.node.body, subject, found)
+        visit(subject.body_node, subject, found)
         found
       end
 

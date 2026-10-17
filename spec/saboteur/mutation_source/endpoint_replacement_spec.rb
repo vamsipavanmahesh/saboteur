@@ -53,13 +53,13 @@ RSpec.describe Saboteur::MutationSource::EndpointReplacement do
   end
 
   it "accepts an empty method body without visiting a node" do
-    subject = double("subject", node: double("definition", body: nil))
+    subject = double("subject", body_node: nil)
     expect(source.mutations_for(subject)).to be_empty
   end
 
   it "stops at class and module scope nodes" do
     ["class Nested; def x; items.last; end; end", "module Nested; def x; items.first; end; end"].each do |body|
-      subject = double("subject", node: double("definition", body: Prism.parse(body).value.statements))
+      subject = double("subject", body_node: Prism.parse(body).value.statements)
       expect(source.mutations_for(subject)).to be_empty
     end
   end

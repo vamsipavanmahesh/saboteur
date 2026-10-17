@@ -80,6 +80,11 @@ All notable changes are documented here. The format follows
   generated class as the owner, and the mutant is re-evaluated through
   `X.class_eval`, leaving the generated class itself untouched. Defs in
   any other block stay skipped as "defined inside a block".
+- `define_method(:m) { ... }` calls with a literal name and a block are
+  mutation subjects (#194): the block body is mutated and the whole call is
+  re-evaluated on the enclosing owner. A computed name, an explicit
+  receiver, or a lambda argument stays unsupported, and a call in a block
+  whose owner is unknown keeps the "defined inside a block" skip reason.
 
 - A fault-injection e2e probe now pins cache-dir removal during the
   baseline window (#300): deleting `.saboteur` while the baseline holds

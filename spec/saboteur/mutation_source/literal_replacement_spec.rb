@@ -107,7 +107,7 @@ RSpec.describe Saboteur::MutationSource::LiteralReplacement do
 
   it "stops at class and module nodes" do
     ["class Nested; def inner; true; end; end", 'module Nested; def inner; "token"; end; end'].each do |body|
-      subject = double("subject", node: double("definition", body: Prism.parse(body).value.statements))
+      subject = double("subject", body_node: Prism.parse(body).value.statements)
       expect(source.mutations_for(subject)).to be_empty
     end
   end
