@@ -22,7 +22,11 @@ module Saboteur
       "integration" => "rspec",
       "require" => [],
       "include" => ["lib/**/*.rb"],
-      "exclude" => [],
+      # Spec and test files vendored under lib/ (capybara ships its driver
+      # suite at lib/capybara/spec/**) are never mutation subjects (#504).
+      # A config's own c.exclude replaces this list wholesale.
+      "exclude" => ["lib/**/spec/**/*", "lib/**/test/**/*", "lib/**/tests/**/*",
+                    "lib/**/*_spec.rb", "lib/**/*_test.rb", "lib/**/test_*.rb"],
       "arid" => MutationSource::Builtin::DEFAULT_ARID,
       "whole_file" => [],
       "hazard" => MutationSource::HazardGuard::DEFAULT_HAZARD,
@@ -169,6 +173,11 @@ module Saboteur
     # an exclude that silently stops excluding is a hazard, so say so.
     def unmatched_patterns
       %w[include exclude].flat_map do |key|
+        # The default exclude shields (#504) match nothing on a healthy
+        # project - that is their job - so only a configured exclude can go
+        # stale enough to warn about.
+        next [] if key == "exclude" && !explicit?("exclude")
+
         self[key].select { |pattern| Dir.glob(pattern, base: root).empty? }.map { |pattern| "#{key}: #{pattern}" }
       end
     end

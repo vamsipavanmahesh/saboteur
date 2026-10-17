@@ -8,6 +8,14 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Spec and test files vendored under `lib/` (capybara ships its driver
+  suite at `lib/capybara/spec/**`) are no longer swept into the default
+  mutation scope (#504): the default exclude now shields
+  `lib/**/spec/**`, `lib/**/test/**`, `lib/**/tests/**` and the
+  `*_spec.rb` / `*_test.rb` / `test_*.rb` shapes under `lib/`. A config's
+  own `c.exclude` replaces the shields wholesale, and the shields never
+  trip the stale-pattern warning.
+
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,

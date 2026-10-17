@@ -111,7 +111,7 @@ in `config/saboteur.rb`:
 
 ```ruby
 Saboteur.configure do |c|
-  c.include = ["app/**/*.rb"]
+  c.include = ["app/**/*.rb"]         # spec/test dirs vendored under lib/ are excluded by default
   c.require = ["./config/environment"] # boots the app
   c.rails = true                       # reconnects ActiveRecord after fork, per-worker databases
   c.jobs = 4                           # optional; the default is 1
