@@ -3,6 +3,7 @@
 
 require "json"
 require_relative "../text"
+require_relative "peak_memory"
 require_relative "process_tree"
 require_relative "supervisor"
 
@@ -26,12 +27,17 @@ module Saboteur
     class WorkerPool
       # done: items finished; status: the Process::Status once reaped;
       # last_words: what the worker reported before dying, if anything.
-      Worker = Struct.new(:number, :pid, :commands, :results, :current, :done, :status, :last_words)
+      Worker = Struct.new(:number, :pid, :commands, :results, :current, :done, :status, :last_words, :peak_rss_mb)
       START_FAILURES = 3
 
       # on_start: called in each worker with its number before its first
       # item (per-worker database connections, for example).
+      # worker_peaks: worker number => peak RSS in MB, filled as workers
+      # retire (#202). Empty for an inline (jobs 1) run.
+      attr_reader :worker_peaks
+
       def initialize(jobs:, on_start: nil, on_result: nil, drain_timeout: 30)
+        @worker_peaks = {}
         @jobs = jobs
         @on_start = on_start
         @on_result = on_result
@@ -154,6 +160,10 @@ module Saboteur
       # Stores a line from the worker: its item's result, or why it crashed.
       def take(worker, line, results)
         data = parse(line)
+        if data.key?("peak_rss_mb")
+          @worker_peaks[data.delete("worker") || worker.number] = worker.peak_rss_mb = data["peak_rss_mb"]
+          return
+        end
         return worker.last_words = data["fatal"] if data.key?("fatal")
         return unless worker.current
 
@@ -285,6 +295,7 @@ module Saboteur
           results.puts(JSON.generate(run_one(items[Integer(line)], &)))
           results.flush
         end
+        report_peak(results, number)
         exit!(0)
       rescue Exception => e # rubocop:disable Lint/RescueException
         last_words(results, "worker #{number} crashed: #{e.class}: #{e.message} (#{e.backtrace&.first})")
@@ -296,6 +307,16 @@ module Saboteur
         results.flush
       rescue StandardError
         nil
+      end
+
+      # Last word before exit!: the kernel's exact peak RSS of this worker,
+      # for the run's memory report (#202). Skipped where procfs is absent.
+      def report_peak(results, number)
+        peak = PeakMemory.peak_mb
+        return unless peak
+
+        results.puts(JSON.generate("worker" => number, "peak_rss_mb" => peak))
+        results.flush
       end
 
       def run_one(item, &work)
@@ -319,6 +340,7 @@ module Saboteur
         sleep 0.01 until reaped?(worker) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
         tree&.kill_all
         worker.status ||= Process.wait2(worker.pid).last unless reaped?(worker)
+        drain(worker, {})
         worker.results.close unless worker.results.closed?
       rescue Errno::ECHILD
         nil

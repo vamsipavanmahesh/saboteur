@@ -115,7 +115,8 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
   end
 
   def distribution_double(unreached: [], truncated: [], unverified: [])
-    instance_double(Saboteur::Engine::Distribution, unreached: unreached, truncated: truncated, unverified: unverified)
+    instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: unreached, truncated: truncated,
+                                                    unverified: unverified)
   end
 
   it "records the subjects a stop left unrun, and nothing when none were left" do
@@ -154,7 +155,8 @@ RSpec.describe Saboteur::Engine, "early stop wiring" do
     diagnostics = run.instance_variable_get(:@diagnostics)
     allow(diagnostics).to receive(:start_progress)
     allow(run).to receive_messages(canary_check: :canary, fail_fast_check: :stopper)
-    distribution = instance_double(Saboteur::Engine::Distribution, run: [:result], unreached: [person],
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, run: [:result],
+                                                                   unreached: [person],
                                                                    truncated: [], unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     expect(run.send(:run_candidates, [person], [[1, 2], [3]], :scheduler, nil, :ignores)).to eq([:result])
