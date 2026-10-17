@@ -24,6 +24,7 @@ module Saboteur
         @timeout_cap = timeout_cap
         @load_lines = load_lines
         @root = File.realpath(config.root)
+        @root_prefixes = Selection::CoverageMap.root_prefixes(config.root)
       end
 
       # True when fetch would reuse the cached map instead of running the
@@ -60,7 +61,7 @@ module Saboteur
       def loaded_project_files
         $LOADED_FEATURES.filter_map do |file|
           path = Text.utf8_strict(Selection::CoverageMap.canonical(file))
-          path if path.end_with?(".rb") && path.start_with?("#{@root}/")
+          path if path.end_with?(".rb") && @root_prefixes.any? { |prefix| path.start_with?(prefix) }
         end
       end
 
