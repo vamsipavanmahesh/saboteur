@@ -67,6 +67,20 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect(err.string).to include("order stability between passes is not checked (baseline_passes: 1)")
   end
 
+  it "names c.max_processes when the process limit stops a healthy suite (#459)" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :processes))
+    expect do
+      guard.call
+    end.to raise_error(Saboteur::Error, /the suite stopped: processes.*c\.max_processes \(currently 64\)/)
+  end
+
+  it "names c.max_memory_mb when the memory limit stops a healthy suite (#459)" do
+    allow(supervisor).to receive(:run).and_return(response(stopped: :memory))
+    expect do
+      guard.call
+    end.to raise_error(Saboteur::Error, /the suite stopped: memory.*c\.max_memory_mb \(currently \d+ MB\)/)
+  end
+
   it "estimates the remaining full passes once the first baseline pass is timed (#260)" do
     err = StringIO.new
     allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)

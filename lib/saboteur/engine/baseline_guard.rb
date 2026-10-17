@@ -118,6 +118,24 @@ module Saboteur
                                   "phase timeout)"
       end
 
+      # A containment limit stopping a healthy suite means the limit, not
+      # the suite: name the knob and its current value, like the sqlite
+      # :memory: hint (#387), so the user is not sent debugging a green
+      # suite (#459).
+      def stopped_reason(result)
+        reason = "the suite stopped: #{result.stopped_by} (#{result.detail})"
+        case result.stopped_by
+        when :processes
+          "#{reason}. If this suite forks heavily by design, raise the limit with " \
+          "c.max_processes (currently #{@config['max_processes']})"
+        when :memory
+          "#{reason}. If this suite legitimately needs more memory, raise the limit with " \
+          "c.max_memory_mb (currently #{@config['max_memory_mb']} MB)"
+        else
+          reason
+        end
+      end
+
       def check(number)
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
@@ -127,7 +145,7 @@ module Saboteur
           record(writer, number)
         end
         refuse_budget_stop(number, admitted) if budget_stopped?(result, admitted)
-        refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
+        refuse(number, stopped_reason(result)) if result.stopped_by
         # Before the payload checks: a child killed by a signal (the OOM
         # killer, say) writes nothing, and the signal is the explanation. A
         # child the supervisor itself killed after it had reported is not a
