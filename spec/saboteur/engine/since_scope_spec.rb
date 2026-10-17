@@ -233,6 +233,20 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(err.string).not_to include("the whole suite runs")
     end
 
+    it "notes nothing to mutate once, keeping the sentence out of the report warnings (#468)" do
+      guess(specs: [], unmatched: [], changed: 1, subjectless: ["lib/errors.rb"])
+      report = run_engine("since" => "origin/main")
+      expect(err.string.scan("no changed file has a mutation subject on its changed lines").size).to eq(1)
+      expect(report.warnings.grep(/nothing to mutate/)).to be_empty
+    end
+
+    it "notes nothing to mutate once without --since too (#468)" do
+      guess(specs: [], unmatched: [], changed: 2, subjectless: ["lib/a.rb"])
+      report = run_engine({})
+      expect(err.string.scan("no source file has a mutation subject").size).to eq(1)
+      expect(report.warnings.grep(/nothing to mutate/)).to be_empty
+    end
+
     it "notes skipped subjectless files while scoping to the inferred specs" do
       guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 2, subjectless: ["lib/errors.rb"])
       used = tests_the_run_used { run_engine("since" => "origin/main") }
@@ -400,6 +414,13 @@ RSpec.describe Saboteur::Engine, "test selection" do
     expect(used).to eq([])
     expect(err.string).to include("inferred specs: no changed source file to infer a spec for, so the whole suite runs")
     expect(err.string).to include("running the loaded suite unscoped")
+  end
+
+  it "keeps the whole-suite note a report warning when nothing changed (#468)" do
+    guess(specs: [], unmatched: [], changed: 0)
+    report = run_engine("since" => "origin/main")
+    expect(report.warnings)
+      .to include("inferred specs: no changed source file to infer a spec for, so the whole suite runs")
   end
 
   it "names the no-source-file case without --since" do

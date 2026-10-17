@@ -106,7 +106,7 @@ module Saboteur
       inform_skipped_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
-      @diagnostics.announce(selection_message(guess))
+      announce_selection(guess)
     end
 
     # A --subject run infers only from the files holding the named subjects:
@@ -132,6 +132,18 @@ module Saboteur
     # stop on an unmatched file: --test, the way out, never reads the diff.
     def inform_skipped_specs(guess)
       @diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?
+    end
+
+    # Nothing to mutate is the run's outcome, already stated by the
+    # "0 subjects, 0 mutants" summary: note it once (#468). As a report
+    # warning it would print again at the end of the run, and a zero-subject
+    # run ends right away, so the repeat reads like a second failure.
+    def announce_selection(guess)
+      if guess.changed.zero? || guess.specs.any?
+        @diagnostics.announce(selection_message(guess))
+      else
+        @diagnostics.inform(selection_message(guess))
+      end
     end
 
     def selection_message(guess)
