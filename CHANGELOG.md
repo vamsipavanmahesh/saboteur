@@ -13,6 +13,12 @@ All notable changes are documented here. The format follows
   unrelated classes each keep their own subjects: the singleton-side one is
   now named `Host.singleton_class::Widget#doubled`, so reports, `--subject`
   filters, ignore entries and the unchanged-syntax comparison can name it.
+- `--test-command` no longer inherits bundler anchors (`BUNDLE_GEMFILE`,
+  `BUNDLE_BIN_PATH`, `BUNDLER_SETUP`, ...) from a `bundle exec` parent or
+  an exported shell environment (#435). The anchored child resolved the
+  project gem from the real tree, never exercised the mutated copy, and
+  reported every mutant Survived; the child now gets the unbundled
+  environment and resolves its Gemfile from the mutated copy.
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
