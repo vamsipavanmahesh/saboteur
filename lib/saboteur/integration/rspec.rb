@@ -69,12 +69,14 @@ module Saboteur
 
       # A missing rspec-core is the target's setup error, not a saboteur
       # defect (#482): refuse with the remedy instead of crashing into the
-      # internal-error report. Only the framework's own LoadError converts;
-      # a LoadError the app's files raise keeps the crash route.
+      # internal-error report. Only the framework's own LoadError converts -
+      # matched on the failed feature, not the message, so a missing
+      # rspec/core_ext does not pose as rspec/core; a LoadError the app's
+      # files raise keeps the crash route.
       def require_framework
         require "rspec/core"
       rescue LoadError => e
-        raise unless e.message.include?("rspec/core")
+        raise unless e.path == "rspec/core"
 
         raise Error, "rspec is not in the bundle: the RSpec integration needs the rspec-core gem. "                      "Add it to the bundle's test group (or point c.integration at the suite's framework)"
       end
