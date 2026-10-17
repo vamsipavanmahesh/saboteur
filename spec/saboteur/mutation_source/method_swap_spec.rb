@@ -200,6 +200,31 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
       expect(replacements("if ready?\n      xs.each { |x| log(x) }\n    end")).not_to be_empty
     end
 
+    it "does not swap each in an ensure body: the value never contributes to the result" do
+      expect(replacements(
+               "begin\n      log(:a)\n    ensure\n      xs.each { |x| log(x) }\n    end\n    xs.sum"
+             )).to be_empty
+      expect(replacements("begin\n      log(:a)\n    ensure\n      xs.each { |x| log(x) }\n    end")).to be_empty
+    end
+
+    it "does not swap each as the tail of a discarded in branch (case/in)" do
+      expect(replacements("case tag\n    in [head, *]\n      xs.each { |x| log(x) }\n    end\n    xs.sum")).to be_empty
+    end
+
+    it "does not swap map as the tail of a discarded case/in else branch" do
+      expect(replacements(
+               "case tag\n    in [head, *]\n      log(:a)\n    else\n      xs.map { |x| log(x) }\n    end\n    xs.sum"
+             )).to be_empty
+    end
+
+    it "still swaps each in a discarded case/in predicate: the value is matched on" do
+      expect(replacements("case xs.each { |x| x }\n    in Array\n      log(:a)\n    end\n    xs.sum")).not_to be_empty
+    end
+
+    it "still swaps each inside a node type the discard analysis does not know (conservative)" do
+      expect(replacements("(xs.each { |x| x })\n    xs.sum")).not_to be_empty
+    end
+
     it "still swaps map in a discarded branch tail on a lazy receiver (#431)" do
       expect(replacements("if ready?\n      xs.lazy.map { |x| x }.force\n    end\n    xs.sum")).not_to be_empty
     end
