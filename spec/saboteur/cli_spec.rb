@@ -518,6 +518,40 @@ RSpec.describe Saboteur::CLI do
         expect(err.string).to include("inside the mutation scope: lib/edit.rb, lib/other.rb")
       end
 
+      describe "with a source operand in a project of its own (#503)" do
+        around { |example| Dir.mktmpdir { |dir| Dir.chdir(dir) { example.run } } }
+
+        before do
+          %w[lib/ok.rb lib/gen/g.rb app/a.rb].each do |path|
+            FileUtils.mkdir_p(File.dirname(path))
+            File.write(path, "x = 1\n")
+          end
+        end
+
+        it "keeps the --config file's include and exclude for the warning" do
+          FileUtils.mkdir_p("ci")
+          File.write("ci/saboteur.rb", "Saboteur.configure { |c| c.include = ['lib/**/*.rb', 'app/**/*.rb']; " \
+                                       "c.exclude = ['lib/gen/**/*.rb'] }\n")
+          run_on_tree(untracked("lib/gen/g.rb", "app/a.rb"), args: ["--config", "ci/saboteur.rb", "lib/ok.rb"])
+
+          expect(err.string).to include("1 inside the mutation scope (0 tracked, 1 untracked)",
+                                        "inside the mutation scope: app/a.rb\n")
+        end
+
+        it "keeps the other flags, such as --json, in the warning's config" do
+          run_on_tree(untracked("lib/ok.rb"), args: ["--json", "out/r.json", "lib/ok.rb"])
+
+          expect(Saboteur::WorkingTree).to have_received(:new).with(anything, ignored: include("out/r.json"))
+        end
+
+        it "still warns when a dangling Ruby symlink sits in the configured include" do
+          File.symlink("missing.rb", "lib/broken.rb")
+          run_on_tree(untracked("lib/ok.rb"), args: ["lib/ok.rb"])
+
+          expect(err.string).to include("inside the mutation scope: lib/ok.rb\n")
+        end
+      end
+
       it "counts the root's own Gemfile and a config file the run does not read as application edits" do
         ENV["BUNDLE_GEMFILE"] = File.join(Dir.pwd, "Gemfile")
         run_on_tree(untracked("Gemfile.lock", "config/saboteur.rb", "config/other.rb"))

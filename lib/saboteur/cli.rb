@@ -159,8 +159,7 @@ module Saboteur
     # operands narrow the run after the warning, so the include/exclude they
     # imply stay out of its config (#309, #503 review).
     def warn_dirty_tree
-      load_args = { root: Dir.pwd, path: options[:config], overrides: overrides.except(:include, :exclude) }
-      warning = @sources ? Config.load(**load_args) : config
+      warning = @sources ? Config.load(path: options[:config], overrides: overrides.except(:include, :exclude)) : config
       DirtyTreeWarning.for(warning, config_path: options[:config])&.then { |text| @err.puts(text) }
     end
 
