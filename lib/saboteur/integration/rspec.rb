@@ -14,7 +14,15 @@ module Saboteur
         ::RSpec::Core::Runner.disable_autorun!
         @runner = ::RSpec::Core::Runner.new(configuration_options)
         load_output = SetupOutputCapture.new($stdout)
-        @runner.setup($stderr, load_output)
+        begin
+          @runner.setup($stderr, load_output)
+        rescue SystemExit => e
+          # A spec file calling exit at load makes RSpec print "While
+          # loading <file> ..." (which names the file) and re-raise.
+          # Uncaught, the parent exits with the spec's status: exit(0)
+          # would end the run silently green (#411).
+          raise Error, "a spec file called exit while loading (status #{e.status})"
+        end
         configuration.order = "rand:#{config.fetch('seed', 1)}"
         raise Error, load_failure_message(load_output.failed_files) if quit_while_loading?(world)
 
