@@ -153,6 +153,21 @@ RSpec.describe Saboteur::Selection::DependencyShield do
   end
 
   describe ".reject_trees (#567 dogfood survivors)" do
+    it "rejects vendored trees when there is no bundler config at all" do
+      expect(described_class.reject_trees(
+               ["vendor/bundle/gems/a.rb", "node_modules/pkg/index.js", "lib/b.rb"], @root
+             )).to eq(["lib/b.rb"])
+    end
+
+    # The config file is project configuration, not vendored source: it
+    # stays visible even when BUNDLE_PATH points at .bundle itself, while
+    # everything under that path is shielded.
+    it "keeps .bundle/config visible while shielding the path it names" do
+      write_config("BUNDLE_PATH: .bundle\n")
+      expect(described_class.reject_trees([".bundle/config", ".bundle/cache/a.rb", "lib/b.rb"], @root))
+        .to eq([".bundle/config", "lib/b.rb"])
+    end
+
     # The root can arrive relative (a bare "." from a CLI default): the
     # bundler prefix is still absolute, so the comparison base must be
     # expanded, not taken as given.
