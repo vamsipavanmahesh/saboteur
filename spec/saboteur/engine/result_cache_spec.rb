@@ -144,8 +144,11 @@ RSpec.describe Saboteur::Engine::ResultCache do
     FileUtils.mkdir_p(File.join(@root, "sub"))
     File.write(File.join(@root, "sub", "sub.gemspec"), "Gem::Specification.new { |s| s.name = 'sub' }\n")
 
+    store = described_class.new(path: path, root: @root, inputs: "config-1")
+
     expected = Digest::SHA256.new
-    expected << Saboteur::VERSION << "\0" << "config-1" << "\0" << "" << "\0" << person_subject.source << "\0"
+    expected << Saboteur::VERSION << "\0" << "config-1" << "\0" << "" << "\0" << store.send(:source_set) << "\0"
+    expected << person_subject.source << "\0"
     expected << Digest::SHA256.hexdigest(person_subject.file_source)
     tests.sort.each do |test|
       expected << test << "\0" << Digest::SHA256.file(File.join(@root, "spec", "person_spec.rb")).hexdigest << "\0"
@@ -159,7 +162,6 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expected << "Gemfile" << "\0" << Digest::SHA256.file(gemfile).hexdigest << "\0"
     expected << "sub/sub.gemspec" << "\0" << Digest::SHA256.file(gemspec).hexdigest << "\0"
 
-    store = described_class.new(path: path, root: @root, inputs: "config-1")
     expect(store.send(:fingerprint, person_subject, tests)).to eq(expected.hexdigest)
   end
 
