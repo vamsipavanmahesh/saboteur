@@ -78,7 +78,8 @@ module Saboteur
       rescue LoadError => e
         raise unless e.path == "rspec/core"
 
-        raise Error, "rspec is not in the bundle: the RSpec integration needs the rspec-core gem. "                      "Add it to the bundle's test group (or point c.integration at the suite's framework)"
+        raise Error, "rspec is not in the bundle: the RSpec integration needs the rspec-core gem. " \
+                     "Add it to the bundle's test group (or point c.integration at the suite's framework)"
       end
 
       def all_tests
