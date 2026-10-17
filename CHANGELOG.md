@@ -14,8 +14,20 @@ All notable changes are documented here. The format follows
   ordinary defs (the faraday shape that used to produce 0 subjects). An
   interpolated heredoc still yields no subjects and keeps the
   code-in-strings warning (#467).
+### Changed
+
+- A `--subject` pattern that matches no subject now fails the run (exit 2)
+  instead of passing silently with zero subjects (#379). When some patterns
+  match, the run keeps them and the summary names the missing pattern and
+  the matched count.
 
 ### Fixed
+
+- The "nothing to mutate" note on an empty selection now prints only
+  once (#468). An empty-selection run already ends with the
+  "0 subjects, 0 mutants" summary, and announcing the note again as a
+  report warning at the end of the run read like a second failure; it
+  is now a one-time inform when nothing has a subject.
 
 - `--incremental` no longer reuses a stored verdict after the project source
   set changes: a file added after the coverage map was built (a conditional
@@ -73,6 +85,9 @@ All notable changes are documented here. The format follows
   `M::HELPER` are now ordinary subjects under their lexical owner instead
   of a phantom `FactoryProbe::Outer::Nested::RULES` skipped as defined
   inside a block.
+
+- A spec file that calls `exit` at load now refuses the run with a
+  clear diagnostic instead of terminating the loader mid-require (#411).
 
 ### Changed
 

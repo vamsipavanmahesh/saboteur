@@ -177,10 +177,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::Builtin#visit_statements",
              reason: "equivalent: the loop never sees an empty sequence, so != 1 and > 1 agree"
 
-  i.mutation "908676542a888c9d",
-             subject: "Saboteur::MutationSource::Builtin#mutate_call",
-             reason: "equivalent: only binary calls are named like a comparison or arithmetic operator in practice"
-
   i.mutation "4cc9db1f1c23f253",
              subject: "Saboteur::MutationSource::Builtin#mutate_call",
              reason: "equivalent: Prism always gives ! a receiver"
@@ -751,6 +747,10 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "d9aeb909564db3e1",
+             subject: "Saboteur::Engine::SubjectSelection#by_pattern",
+             reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
 
   i.mutation "d689ef2e6305183f",
              subject: "Saboteur::SubjectFinder#owner_path",
