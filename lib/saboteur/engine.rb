@@ -72,7 +72,21 @@ module Saboteur
 
     # Stale entries and duplicate literals never fail a run; they warn so the
     # map does not rot silently. doctor fails on stale keys.
-    def load_custom_map = @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
+    def test_guess = TestGuess.new(config, diagnostics: @diagnostics, custom_map: load_custom_map)
+
+    # Name the files needing no spec, stop on spec-less files, then say
+    # which specs the run scopes to (or why nothing mutates).
+    def announce_guess(guess)
+      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
+      inform_skipped_specs(guess)
+      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
+
+      @diagnostics.announce(selection_message(guess))
+    end
+
+    def load_custom_map
+      @load_custom_map ||= @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
+    end
 
     def custom_map_warnings(map)
       path = config.path("custom_map")
@@ -101,12 +115,9 @@ module Saboteur
       subjects = config["subjects"]
       return select_subject_tests(subjects) if subjects.any?
 
-      guess = TestGuess.new(config, diagnostics: @diagnostics).call
-      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      inform_skipped_specs(guess)
-      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
-
-      @diagnostics.announce(selection_message(guess))
+      guess = test_guess.call
+      @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
+      announce_guess(guess)
     end
 
     # A --subject run infers only from the files holding the named subjects:
@@ -116,7 +127,7 @@ module Saboteur
     # unchanged, comment-only or otherwise pruned subject needs no spec.
     def select_subject_tests(patterns)
       files = SubjectSelection.files_matching(@root, config.included_files, patterns, config)
-      guess = TestGuess.new(config, diagnostics: @diagnostics).call_for(files, patterns)
+      guess = test_guess.call_for(files, patterns)
       # No file in scope: the subjects are unknown (named later, in
       # selection) or --since left every named subject outside the diff, so
       # the run has nothing to mutate and needs no inferred spec.
@@ -124,6 +135,11 @@ module Saboteur
 
       inform_skipped_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
+
+      @diagnostics.inform(guess.excluded_message) if guess.excluded.any?
+      # Every file in scope intentionally untested: mutate nothing. An
+      # empty guess must never read as "run the whole suite" (#369).
+      return if guess.specs.empty?
 
       @diagnostics.announce(scope_to_guesses(guess))
     end
@@ -139,12 +155,7 @@ module Saboteur
         target = config["since"] ? "no changed source file" : "no source file"
         "inferred specs: #{target} to infer a spec for, so the whole suite runs"
       elsif guess.specs.empty?
-        if config["since"]
-          "inferred specs: no changed file has a mutation subject on its changed lines, " \
-            "so there is nothing to mutate"
-        else
-          "inferred specs: no source file has a mutation subject, so there is nothing to mutate"
-        end
+        guess.no_specs_message(since: config["since"])
       else
         scope_to_guesses(guess)
       end
@@ -196,7 +207,8 @@ module Saboteur
     # The subjects to mutate and, in diff mode, the scope of changed lines.
     def select_subjects(files, test_files: nil)
       config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
-      selection = SubjectSelection.new(config, @diagnostics, test_files: test_files)
+      selection = SubjectSelection.new(config, @diagnostics,
+                                       test_files: test_files, custom_map: load_custom_map)
       subjects = selection.select(files)
       scope = selection.changed_lines && DiffScope.new(selection.changed_lines)
       return replay_subject(subjects, scope) if @replay

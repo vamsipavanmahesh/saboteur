@@ -14,7 +14,12 @@ All notable changes are documented here. The format follows
   stopped the run as unmatched. A matching entry now wins over the naming
   convention, its specs run as the inferred ones, and an empty entry marks
   the file intentionally untested so it needs no inferred spec. The map is
-  now documented in the README.
+  now documented in the README. Mapped spec values that are globs are
+  expanded against the project root (the literal glob string never
+  reached RSpec), a winning entry whose specs match no file stops the
+  run with a config error naming the entry, and an empty entry's file
+  is dropped from mutation with a named diagnostic instead of running
+  the whole suite (#369 review).
 
 ### Changed
 

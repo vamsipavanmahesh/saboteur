@@ -65,10 +65,10 @@ RSpec.describe Saboteur::Engine, "test selection" do
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
   end
 
-  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {})
+  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {}, excluded: [])
     hints = unmatched.to_h { |file| [file, "spec/#{File.basename(file, '.rb')}_spec.rb"] }
     result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:,
-                                                     changed_specs:, skipped_specs:)
+                                                     changed_specs:, skipped_specs:, excluded:)
     allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
                                                                                    call: result, call_for: result))
   end
@@ -186,7 +186,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
       used = tests_the_run_used { @report = run_engine("since" => "origin/main") }
       expect(used).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
       expect(Saboteur::Engine::TestGuess).to have_received(:new)
-        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
+        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics),
+                                                custom_map: an_instance_of(Saboteur::CustomMap))
       expect(@scoped_root).to eq(@root)
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/b_spec.rb. " \
                                     "A spec the diff did not change that reaches")
@@ -220,6 +221,17 @@ RSpec.describe Saboteur::Engine, "test selection" do
         .to raise_error(Saboteur::ConfigError,
                         %r{no spec found for lib/b\.rb \(expected spec/b_spec\.rb\), so nothing ran})
       expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
+    end
+
+    # Every file in scope intentionally untested: name them and mutate
+    # nothing; an empty guess must never read as "run the whole suite"
+    # (#369 review).
+    it "names map-excluded files and runs nothing instead of the whole suite" do
+      guess(specs: [], unmatched: [], changed: 1, excluded: ["lib/b.rb"])
+      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(used).to eq([])
+      expect(err.string).to include("lib/b.rb", "intentionally untested")
+      expect(err.string).not_to include("running only")
     end
 
     it "says there is nothing to mutate when no changed file has a mutation subject" do
@@ -313,7 +325,8 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(used).to eq(["spec/people_spec.rb"])
       expect(err.string).to include("inferred specs: running only spec/people_spec.rb")
       expect(Saboteur::Engine::TestGuess).to have_received(:new)
-        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics))
+        .with(an_instance_of(Saboteur::Config), diagnostics: @engine.instance_variable_get(:@diagnostics),
+                                                custom_map: an_instance_of(Saboteur::CustomMap))
     end
 
     it "names the spec files the diff deleted in a --subject run (#307)" do

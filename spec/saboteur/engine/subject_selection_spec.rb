@@ -39,6 +39,29 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(select([write("cart.rb", source)]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
   end
 
+  # A file the custom map marks intentionally untested ("path" => []) is
+  # never mutated: with no test there is no signal, and a guessed selection
+  # would read its empty spec list as "run the whole suite" (#369 review).
+  it "skips subjects whose file the custom map marks intentionally untested" do
+    out = StringIO.new
+    diags = Saboteur::Engine::Diagnostics.new(out)
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n  \"cart.rb\" => []\n}.freeze\n")
+    file = write("cart.rb", source)
+    config = Saboteur::Config.new({}, root: @root)
+    expect(described_class.new(config, diags).select([file])).to eq([])
+    expect(out.string).to include("intentionally untested", "Shop::Cart#total")
+  end
+
+  it "keeps subjects whose file the custom map maps to specs" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    FileUtils.mkdir_p(File.join(@root, "spec"))
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"cart.rb\" => [\"spec/cart_spec.rb\"]\n}.freeze\n")
+    write("spec/cart_spec.rb", "# x\n")
+    expect(select([write("cart.rb", source)]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
+  end
+
   it "stays quiet when a pattern matches one of several subjects in a file" do
     select([write("cart.rb", source)], subjects: ["Shop::Cart#total"])
     expect(diagnostics.warnings).to be_empty

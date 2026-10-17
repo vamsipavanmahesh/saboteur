@@ -117,7 +117,8 @@ RSpec.describe Saboteur::Engine::TestGuess do
   end
 
   # An empty entry marks the file intentionally untested: it needs no
-  # guessed spec, so it is not unmatched and no spec runs for it.
+  # guessed spec, so it is not unmatched and no spec runs for it - and the
+  # run says why instead of reading the empty list as "run everything".
   it "treats an empty custom-map entry as intentionally untested" do
     write("config/saboteur_custom_map.rb",
           "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => []\n}.freeze\n")
@@ -128,6 +129,36 @@ RSpec.describe Saboteur::Engine::TestGuess do
     result = guess
     expect(result.unmatched).to eq([])
     expect(result.specs).to eq([])
+    expect(result.excluded).to eq(["lib/c.rb"])
+    expect(result.excluded_message).to include("lib/c.rb", "intentionally untested")
+  end
+
+  # Glob spec values are expanded against the root: the literal glob string
+  # must never reach RSpec (#369 review).
+  it "expands glob spec values from the custom map" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/unit/**/*_spec.rb\"]\n}.freeze\n")
+    write("spec/unit/c_spec.rb")
+    write("spec/unit/deep/c_extra_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    expect(guess.specs).to eq(["spec/unit/c_spec.rb", "spec/unit/deep/c_extra_spec.rb"])
+  end
+
+  # A regexp backreference can fill in a spec that does not exist: the
+  # mapping is broken, so the run stops naming the entry - it must not
+  # silently guess on and run the wrong specs (#369 review).
+  it "stops with a config error when a mapped regexp spec expands to a missing file" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  %r{\\Alib/extra/(.*)\\.rb\\z} => ['spec/extra/\\1_spec.rb']\n}.freeze\n")
+    write("lib/extra/widget.rb", base_source)
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/extra/widget.rb", changed_source)
+
+    expect { guess }.to raise_error(Saboteur::ConfigError, %r{spec/extra/widget_spec\.rb})
   end
 
   # A changed spec is not a changed source file: it needs no spec of its
