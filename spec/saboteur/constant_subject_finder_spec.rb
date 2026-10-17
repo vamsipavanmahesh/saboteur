@@ -503,4 +503,47 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "class << self owners (#380)" do
     expect(subject.id).to eq("Point.singleton_class::META")
     expect(subject.skip_reason).to be_nil
   end
+
+  # `class << other` opens other's singleton, which has no static name, so
+  # the constant keeps the enclosing (attached) naming: conservative, and
+  # never confused with the self case.
+  it "keeps the enclosing owner for a singleton class on a non-self receiver (#380)" do
+    parsed = find("class Host\n  other = Object.new\n  class << other\n    X = [1]\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host::X"])
+  end
+
+  # A singleton class directly inside another has no nameable owner either:
+  # the fallback leaves the single enclosing singleton scope in place.
+  it "keeps one singleton scope for class << self nested in class << self (#380)" do
+    parsed = find("class Host\n  class << self\n    class << self\n      X = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host.singleton_class::X"])
+  end
+
+  it "appends the singleton scope to the innermost owner, not the outermost (#380)" do
+    parsed = find("module M\n  class Host\n    class << self\n      RULES = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["M::Host.singleton_class::RULES"])
+  end
+
+  # The factory scope is consumed by the first `class << self`; a keyword
+  # class in between must not let a later one reuse it - the block is
+  # class_eval'd, so the keyword class is top-level with its own singleton.
+  it "attaches a later class << self to a keyword class, not the enclosing factory (#380)" do
+    parsed = find("X = Class.new do\n  class Inner\n    class << self\n      C = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Inner.singleton_class::C"])
+  end
+
+  # The factory path already carries the enclosing prefix: appending it to
+  # the parts instead of replacing them doubled the owner
+  # ("Host::Host::X.singleton_class::M", B builder finding).
+  it "does not double the enclosing scope for class << self inside a factory (#395)" do
+    parsed = find("class Host\n  X = Class.new do\n    class << self\n      M = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host::X.singleton_class::M"])
+  end
+
+  # No attached class at the top level: the singleton of the toplevel self
+  # has no static name, so the constant keeps its plain top-level name.
+  it "names a constant in a top-level class << self at the top level (#380)" do
+    parsed = find("class << self\n  X = [1]\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["X"])
+  end
 end

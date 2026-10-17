@@ -260,7 +260,9 @@ module Saboteur
           # factory block (its block is class_eval'd), the attached class or
           # module otherwise.
           if factory_path
-            parts << "#{factory_path}.singleton_class"
+            # factory_path carries the full prefix already: replace, never
+            # append, or the enclosing scope doubles (#395).
+            parts = ["#{factory_path}.singleton_class"]
           elsif parts.any?
             parts[-1] = "#{parts.last}.singleton_class"
           end

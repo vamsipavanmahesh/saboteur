@@ -248,10 +248,25 @@ RSpec.describe Saboteur::ConstantReads, "class << self scopes (#380)" do
     expect(reads_for(shadowed_then_owner, nested_host).runtime).to eq([4])
   end
 
+  # A sibling scope's write shadows only below itself: a read in another
+  # scope nested under the owner still sees the owner's constant.
+  it "clears a sibling scope's shadow for a read nested under the owner (#380)" do
+    src = "class Host\n  module Mid\n    RULES = [1]\n  end\n  class Sub\n    def m = RULES\n  end\nend\n"
+    expect(reads_for(src, host_rules).runtime).to eq([6])
+  end
+
   it "keeps the shadow below a nested scope under the owner that writes the constant" do
     still_shadowed = "module M\n  RULES = [0]\n  class Host\n    module Mid\n      RULES = [1]\n      " \
                      "def m = RULES\n    end\n  end\nend\n"
     expect(reads_for(still_shadowed, nested_host)).to be_nil
+  end
+
+  # The singleton scope's own write IS inside the owner subtree: a class
+  # nested under it keeps the shadow - the read binds the singleton's
+  # RULES, not the attached class's (#395 dogfood).
+  it "keeps a singleton-class write's shadow for a class nested under it" do
+    src = "class Host\n  class << self\n    RULES = [9]\n    class Nested\n      def m = RULES\n    end\n  end\nend\n"
+    expect(reads_for(src, host_rules)).to be_nil
   end
 
   it "lets a singleton-class write shadow the attached class's constant for reads below it" do
