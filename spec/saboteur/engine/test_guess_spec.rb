@@ -131,6 +131,26 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(result.unmatched).to eq([])
   end
 
+  # A mapped literal whose bytes are not valid UTF-8 reaches the glob
+  # guard itself: match? raises ArgumentError, not the no-match ConfigError
+  # a forced Dir.glob branch would produce (#480 audit).
+  it "raises ArgumentError, not ConfigError, for a mapped spec literal with invalid UTF-8 bytes" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/bad\\xFFx_spec.rb\"]\n}.freeze\n")
+    # The mapped file exists (filesystems allow raw bytes), so it passes the
+    # map's load-time existence check and reaches the glob guard itself.
+    begin
+      write("spec/bad\xFFx_spec.rb".b)
+    rescue Errno::EILSEQ, Errno::EINVAL
+      skip "this platform rejects filenames that are not valid UTF-8"
+    end
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    expect { guess }.to raise_error(ArgumentError, /invalid byte sequence/)
+  end
+
   it "prefers the custom map over the conventional spec path" do
     write("config/saboteur_custom_map.rb",
           "SABOTEUR_CUSTOM_MAP = {\n  \"lib/a.rb\" => [\"spec/unit/a_spec.rb\"]\n}.freeze\n")

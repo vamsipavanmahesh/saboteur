@@ -90,6 +90,15 @@ never change the score.
 - **Extension points.** Add your own mutation operators through the
   public interface.
 
+Per-path score gates are on the way: `c.score_gate "app/payments/**/*",
+min_score: 95` in `config/saboteur.rb` (repeatable) is already accepted and
+validated - `min_score` must be between 0 and 100 and the pattern must match
+at least one included file - but nothing enforces the gates yet; enforcement
+lands with #570. Until then `--threshold` (or `c.threshold`) stays the
+global gate. See
+[choosing and raising a threshold](docs/best-practices.md#choosing-and-raising-a-threshold)
+for how to pick a number.
+
 ## Honest limits
 
 - saboteur is RSpec-only and needs `fork`: no Windows, no Minitest.
@@ -142,7 +151,7 @@ in `config/saboteur.rb`:
 
 ```ruby
 Saboteur.configure do |c|
-  c.include = ["app/**/*.rb"]
+  c.include = ["app/**/*.rb"]         # spec/test dirs vendored under lib/ are excluded by default
   c.require = ["./config/environment"] # boots the app
   c.rails = true                       # reconnects ActiveRecord after fork, per-worker databases
   c.jobs = 4                           # optional; the default is 1
