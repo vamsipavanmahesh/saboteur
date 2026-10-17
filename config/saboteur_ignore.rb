@@ -976,4 +976,19 @@ Saboteur.ignore do |i|
                      "to the split parts, and no excluded directory name is empty, so the exclusion verdict is " \
                      "identical for every path (probed against the full result_cache specs, no divergence)"
 
+  i.mutation "11b190d63c635f90",
+             subject: "Saboteur::Engine::TestGuess#covered_by_changed_specs",
+             reason: "equivalent: without the early return, an empty unmatched list selects nothing and an empty " \
+                     "changed_specs list gives ConstantReads.across([], constant) == {}, so the result is [] either way; " \
+                     "defined_constants only differs by raising on a missing file, and unmatched files exist"
+
+  i.mutation "c84c07e7e026ce01",
+             subject: "Saboteur::Engine::TestGuess#covered_by_changed_specs",
+             reason: "equivalent: dropping the changed_specs.empty? check leaves an empty spec list, and " \
+                     "ConstantReads.across([], constant) is {}, so no unmatched file is selected and the result is []"
+
+  i.mutation "de12f60cceeac84d",
+             subject: "Saboteur::Engine::TestGuess#covered_by_changed_specs",
+             reason: "equivalent: dropping the unmatched.empty? check leaves select running on an empty list, " \
+                     "which returns [] exactly like the early return"
 end
