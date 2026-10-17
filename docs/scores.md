@@ -70,7 +70,8 @@ score well and still say little. A run is incomplete when any of these hold:
   without a threshold;
 - subjects or mutants had no covering test, ran only at load, were unreachable,
   were left out by `max_mutants_per_method`, or were skipped as unsupported
-  (a method defined inside a block, or in a file that uses refinements).
+  (a method defined inside a non-factory block, or in a file that uses
+  refinements).
   `--agent` lists these as incomplete reasons with counts.
 
 Read the score together with these counts. Whether two scores are comparable

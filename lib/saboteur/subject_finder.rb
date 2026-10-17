@@ -10,12 +10,13 @@ module Saboteur
   # Included: instance methods and `def self.x` inside a class or module,
   # defs inside `class << self`, and defs passed to a receiverless call such
   # as `private def x`. Skipped: top-level defs, defs nested in defs, and
-  # `def obj.x` for obj != self. Defs in blocks (`Class.new do`, `included do`)
+  # `def obj.x` for obj != self. Defs in blocks (`included do`, builders)
   # are found but marked skipped ("defined inside a block"), so the report
-  # names them instead of leaving them out. `X = Data.define`, `Struct.new`,
-  # `Class.new` or `Module.new` with a block names X as the owner; any other
-  # block, and a `A::X = ...` target, keeps the enclosing owner or the
-  # placeholder.
+  # names them instead of leaving them out - except the four core class
+  # factories: `X = Data.define`, `Struct.new`, `Class.new` or `Module.new`
+  # with a block names X as the owner, and its defs are ordinary subjects
+  # that re-evaluate through X.class_eval (#290). Any other block, and a
+  # `A::X = ...` target, keeps the enclosing owner or the placeholder.
   class SubjectFinder
     Parsed = Data.define(:subjects, :errors)
     ANONYMOUS_OWNER = "(anonymous block)"
@@ -77,9 +78,12 @@ module Saboteur
       return node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) } unless class_factory?(call)
 
       # The receiver and arguments stay in the enclosing scope; only the
-      # factory's own block belongs to the new class.
+      # factory's own block belongs to the new class. The block's body is
+      # walked directly, not as a block: the factory names its class, so the
+      # defs re-evaluate through X.class_eval and are ordinary subjects
+      # (#290), while a block nested deeper still marks its defs skipped.
       (call.compact_child_nodes - [call.block]).each { |child| walk(child, nesting, out, **ctx) }
-      walk(call.block, nesting + [Scope.new(kind: :class, path: node.name.to_s)], out, **ctx)
+      walk(call.block.body, nesting + [Scope.new(kind: :factory, path: node.name.to_s)], out, **ctx)
     end
 
     def class_factory?(call)

@@ -2,12 +2,17 @@
 # frozen_string_literal: true
 
 module Saboteur
-  # One lexical scope enclosing a def: `module X`, `class X` or `class << self`.
+  # One lexical scope enclosing a def: `module X`, `class X`, a class-factory
+  # block (`X = Data.define(:x) do`) or `class << self`.
   Scope = Data.define(:kind, :path) do
+    # A factory scope wraps the def in `X.class_eval do`: reopening it as
+    # `class X` would fight the generated class (a Module.new X is not even
+    # a class), while class_eval adds the method to the class already there.
     def header
       case kind
       when :module then "module #{path}"
       when :class then "class #{path}"
+      when :factory then "#{path}.class_eval do"
       when :sclass then "class << self"
       end
     end

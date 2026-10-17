@@ -52,6 +52,14 @@ All notable changes are documented here. The format follows
   symlink targets are judged against it (/var vs /private/var) (#305).
 
 ### Added
+
+- Methods defined in the four core class factories (`X = Data.define(...)`,
+  `Struct.new`, `Class.new`, `Module.new` with a block) are mutation
+  subjects instead of skipped subjects (#290): the finder names the
+  generated class as the owner, and the mutant is re-evaluated through
+  `X.class_eval`, leaving the generated class itself untouched. Defs in
+  any other block stay skipped as "defined inside a block".
+
 - `saboteur doctor` now documents its version scope (#318): it certifies no
   versions of Rails, databases or application tools saboteur never invokes.
   A mismatched tool the suite loads still surfaces through the boot check's

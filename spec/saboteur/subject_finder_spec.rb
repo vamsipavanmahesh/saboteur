@@ -58,7 +58,10 @@ RSpec.describe Saboteur::SubjectFinder do
     RUBY
     found = subjects_in(source)
     expect(found.map(&:id)).to eq(["A#outer", "A#in_block", "A::Klass#anon"])
-    expect(found.map(&:skip_reason)).to eq([nil, "defined inside a block", "defined inside a block"])
+    # A Class.new factory block names its class, so its defs re-evaluate
+    # through Klass.class_eval and are ordinary subjects (#290); the
+    # `included do` block keeps its defs skipped.
+    expect(found.map(&:skip_reason)).to eq([nil, "defined inside a block", nil])
   end
 
   it "names a def in an anonymous block after the block, not after the file" do
@@ -66,7 +69,7 @@ RSpec.describe Saboteur::SubjectFinder do
              "Cart = Struct.new(:a) do\n  def total = a\nend\n"
     found = subjects_in(source)
     expect(found.map { |subject| [subject.id, subject.skip_reason] })
-      .to eq([["A#in_block", "defined inside a block"], ["Cart#total", "defined inside a block"]])
+      .to eq([["A#in_block", "defined inside a block"], ["Cart#total", nil]])
   end
 
   it "records byte offsets and lines of the whole def" do
@@ -145,8 +148,22 @@ RSpec.describe Saboteur::SubjectFinder do
     }.each do |call, owned|
       found = subjects_in("Thing = #{call} do\n  def m; end\nend\n")
       expect(found.map(&:id)).to eq([owned ? "Thing#m" : "(anonymous block)#m"]), call
-      expect(found.first.skip_reason).to eq("defined inside a block"), call
+      # Owned factory defs are subjects (#290); a def in any other block is
+      # still skipped.
+      expect(found.first.skip_reason).to eq(owned ? nil : "defined inside a block"), call
     end
+  end
+
+  it "still skips a def inside a non-factory block nested in a factory block" do
+    found = subjects_in("Thing = Class.new do\n  included do\n    def m; end\n  end\nend\n")
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["Thing#m", "defined inside a block"]])
+  end
+
+  it "still skips a factory def when the factory itself sits in a block" do
+    found = subjects_in("class A\n  included do\n    X = Data.define(:a) do\n      def m; end\n    end\n  end\nend\n")
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["A::X#m", "defined inside a block"]])
   end
 
   it "keeps an argument's block in the enclosing scope next to the factory's own block" do

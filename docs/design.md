@@ -204,6 +204,12 @@ eval("module Outer; class Person; #{mutated_def}; end; end",
 - Resolve the owner constant (`Object.const_get(path)`) before evaluating the
   wrapper. Under Zeitwerk this triggers the autoload first; otherwise `class Foo`
   in the wrapper would define a fresh shadow class.
+- Class-factory blocks (`X = Data.define(:x) do ... end`, likewise
+  `Struct.new`, `Class.new`, `Module.new`) name X as the owner, and the
+  wrapper for that scope is `X.class_eval do`, never `class X`: a generated
+  class must not be reopened (`Module.new` does not even produce a class).
+  Their defs are ordinary subjects (#290); a block nested deeper still marks
+  its defs skipped as "defined inside a block".
 - Refinements (`using`) are lexical and are lost. Subjects in files that call
   `using` are skipped in v1 ("refinements").
 
