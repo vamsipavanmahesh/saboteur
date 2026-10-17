@@ -8,6 +8,14 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `saboteur badge` writes Shields endpoint JSON from the opt-in score
+  history and `saboteur trend` prints the covered-score delta against the
+  last comparable record (#474). A README badge needs no hosted service:
+  commit the written JSON and point a Shields endpoint badge at its raw
+  URL. An incomplete run is refused as badge evidence unless
+  `--mark-partial` labels the badge as partial, and the trend never
+  compares records with different selection, inventory, schema version
+  or operator policy.
 - `c.sandbox = "seatbelt"`, an opt-in macOS sandbox for mutant children
   (#436): each child applies a Seatbelt profile (writes denied except the
   granted dirs, the system temp dir, and its own inherited logs) via
@@ -48,6 +56,7 @@ All notable changes are documented here. The format follows
   `saboteur.memory` as per-worker `peakMb` values plus the supervisor's own
   peak. No total is printed: fork copy-on-write makes per-process RSS
   non-additive. The section is omitted where procfs is unavailable.
+
 ### Changed
 
 - A run whose effective include set selects no Ruby file now refuses with
@@ -68,6 +77,9 @@ All notable changes are documented here. The format follows
   subject with its reason, and a partially skipped diff announces each
   skip up front instead of only in the end-of-run summary (#574).
 
+- `saboteur badge` escapes incomplete-run reasons with `.inspect` in its
+  refusal message, so a reason carrying newlines or control characters
+  cannot spoof extra output lines (#474).
 - `c.sandbox = "seatbelt"` grants now match real paths on macOS: the
   kernel resolves `/var` to `/private/var` when it checks a write
   against a Seatbelt subpath grant, so a granted dir under a symlinked
