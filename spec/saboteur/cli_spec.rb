@@ -477,6 +477,47 @@ RSpec.describe Saboteur::CLI do
 
       expect(err.string).not_to include("uncommitted")
     end
+
+    describe "setup files (#309)" do
+      def untracked(*paths)
+        changes = paths.map { |path| Saboteur::WorkingTree::Change.new(path: path, tracked: false) }
+        Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: changes.size, changes: changes)
+      end
+
+      around do |example|
+        saved = ENV.fetch("BUNDLE_GEMFILE", nil)
+        example.run
+      ensure
+        saved ? ENV["BUNDLE_GEMFILE"] = saved : ENV.delete("BUNDLE_GEMFILE")
+      end
+
+      it "groups the config file and a trial Gemfile with its lock apart from application edits" do
+        ENV["BUNDLE_GEMFILE"] = File.join(Dir.pwd, "Gemfile.saboteur")
+        run_on_tree(untracked("config/saboteur.rb", "Gemfile.saboteur", "Gemfile.saboteur.lock", "lib/edit.rb"))
+
+        expect(err.string).to include("4 uncommitted change(s) in the working tree: " \
+                                      "1 inside the mutation scope (0 tracked, 1 untracked), " \
+                                      "0 outside it (0 tracked, 0 untracked), " \
+                                      "3 saboteur setup file(s) (0 tracked, 3 untracked).")
+        expect(err.string).to include("inside the mutation scope: lib/edit.rb",
+                                      "setup files: config/saboteur.rb, Gemfile.saboteur, Gemfile.saboteur.lock")
+      end
+
+      it "counts the root's own Gemfile and a config file the run does not read as application edits" do
+        ENV["BUNDLE_GEMFILE"] = File.join(Dir.pwd, "Gemfile")
+        run_on_tree(untracked("Gemfile.lock", "config/saboteur.rb", "config/other.rb"))
+        expect(err.string).to include("none inside the mutation scope, 2 outside it (0 tracked, 2 untracked), " \
+                                      "1 saboteur setup file(s)")
+        expect(err.string).to include("setup files: config/saboteur.rb\n")
+
+        err.truncate(0)
+        err.rewind
+        cli("run", "--config", "config/other.rb").call
+        expect(err.string).to include("none inside the mutation scope, 2 outside it (0 tracked, 2 untracked), " \
+                                      "1 saboteur setup file(s)")
+        expect(err.string).to include("setup files: config/other.rb")
+      end
+    end
   end
 
   describe "exit codes after a run" do

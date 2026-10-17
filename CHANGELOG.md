@@ -6,6 +6,16 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The dirty-tree warning splits its count (#309, #316): changes inside
+  the mutation scope (configured include minus exclude, Ruby paths),
+  outside it, and saboteur setup files (the config file the run reads, a
+  `BUNDLE_GEMFILE` trial Gemfile and its lock), each as tracked and
+  untracked, naming up to five scope and setup paths. The groups add up
+  to the count. A tree of untracked notes or trial setup files no longer
+  reads like application edits about to be mutated.
+
 ### Fixed
 
 - `script/preflight` no longer loses why a git probe died: a probe

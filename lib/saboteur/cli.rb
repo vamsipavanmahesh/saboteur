@@ -156,7 +156,10 @@ module Saboteur
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
     def warn_dirty_tree
-      WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
+      state = WorkingTree.new(config.root, ignored: config.output_paths).state
+      warning = DirtyTreeWarning.for(state, config, config_path: options[:config],
+                                                    gemfile: ENV.fetch("BUNDLE_GEMFILE", nil)).to_s
+      @err.puts(warning) if warning
     end
 
     # Contradictory selection flags are a usage error before any file or

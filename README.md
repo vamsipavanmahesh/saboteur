@@ -111,6 +111,26 @@ a fresh checkout or a reclone - a deleted `.git` or uncommitted work is gone
 unless you have another copy. The canary is the backstop for the destructive
 forms the syntactic guard cannot see.
 
+Before a run on a tree with uncommitted changes, saboteur warns, and splits
+the count so it says what is at stake (#309, #316). Each change lands in one
+group, so the groups add up to the count: saboteur setup files (the config
+file the run reads, plus the Gemfile `BUNDLE_GEMFILE` names and its lock when
+that is not the root's own `Gemfile`), the mutation scope (a Ruby path that a
+configured `include` pattern matches and no `exclude` pattern does), and
+everything else, each split into tracked and untracked. Up to five paths are
+named for the scope and for the setup files. A change is counted the way
+`git status` lists it: a rename once under its new path, a deletion under the
+deleted path (a deleted source still counts as in scope), and every file of an
+untracked directory on its own. saboteur's cache and reports never count. The
+scope is the configured one: `--since`, `--subject` and source operands narrow
+a run further after the warning.
+
+```
+saboteur: warning: 3972 uncommitted change(s) in the working tree: none inside the mutation scope, 3969 outside it (0 tracked, 3969 untracked), 3 saboteur setup file(s) (0 tracked, 3 untracked).
+  setup files: config/saboteur.rb, Gemfile.saboteur, Gemfile.saboteur.lock
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+```
+
 On Linux 6.2 and later (Landlock ABI 3) each mutant child also runs under
 a Landlock sandbox: the child cannot create, write, rename, unlink or
 truncate files in the project tree, except `tmp/` and the
