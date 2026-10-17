@@ -33,6 +33,39 @@ RSpec.describe Saboteur::Engine::ResultCache do
     cache.tap { |store| store.record(killed) }.save
   end
 
+  it "pins the source-set format: sorted, filtered, NUL-joined and memoized" do
+    File.write(File.join(@root, "b.rb"), "b\n")
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    File.write(File.join(@root, "sub", "a.rb"), "a\n")
+    File.write(File.join(@root, "sub.rb"), "s\n")
+    FileUtils.mkdir_p(File.join(@root, "vendor"))
+    File.write(File.join(@root, "vendor", "v.rb"), "v\n")
+
+    store = cache
+    set = store.send(:source_set)
+    expect(set).to eq("b.rb\0spec/person_spec.rb\0sub.rb\0sub/a.rb")
+
+    # The set is computed once per cache instance: a file added afterwards
+    # does not change it.
+    File.write(File.join(@root, "later.rb"), "l\n")
+    expect(store.send(:source_set)).to eq(set)
+  end
+
+  it "pins the fingerprint format so a dropped separator or component changes the digest" do
+    store = cache
+    raw = +""
+    raw << [Saboteur::VERSION, "config-1", "", store.send(:source_set), person_subject.source].join("\0") << "\0"
+    raw << Digest::SHA256.hexdigest(person_subject.file_source)
+    tests.sort.each do |test|
+      raw << test << "\0" << Digest::SHA256.file(File.join(@root, "spec/person_spec.rb")).hexdigest << "\0"
+    end
+    Saboteur::Engine::ResultCache::LOCKFILES.each do |name|
+      lockfile = File.join(@root, name)
+      raw << (File.file?(lockfile) ? Digest::SHA256.file(lockfile).hexdigest : "missing") << "\0"
+    end
+    expect(store.send(:fingerprint, person_subject, tests)).to eq(Digest::SHA256.hexdigest(raw))
+  end
+
   it "returns a stored verdict while nothing it depends on changed" do
     stored
     reused = cache.lookup(person_subject, comparison_mutation, tests)
@@ -205,6 +238,27 @@ RSpec.describe Saboteur::Engine::ResultCache do
     store.save
     later = described_class.new(path: path, root: @root, inputs: "config-1", suite_digest: "support-2")
     expect(later.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  # A file created after the verdict was stored is in no watched input, but
+  # a conditional require or Zeitwerk autoload can load it into the mutant
+  # run: reuse must look at the current source set, not just the recorded
+  # one. Paths only - content edits to other files stay the #197 tradeoff.
+  it "forgets it when a source file is added or removed after the verdict was stored (#396)" do
+    stored
+    FileUtils.mkdir_p(File.join(@root, "lib"))
+    added = File.join(@root, "lib", "late.rb")
+    File.write(added, "# new\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    File.delete(added)
+    fresh = described_class.new(path: path, root: @root, inputs: "config-1")
+    expect(fresh.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+  end
+
+  it "keeps it when a non-Ruby file is added" do
+    stored
+    File.write(File.join(@root, "NOTES.md"), "notes\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
   end
 
   it "ignores a results file in another format" do
