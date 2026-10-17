@@ -189,6 +189,51 @@ Outside a Bundler project, `gem install saboteur` installs the same executable.
 Rails app? Follow the [Rails quickstart](#rails-apps) below: the defaults are for
 plain gems (`lib/**/*.rb`, `rails: false`, `jobs: 1`) and are not Rails-aware.
 
+**Trying it without touching your Gemfile** (#310): put saboteur in a separate
+Gemfile that loads yours, and start its lockfile from a copy of yours.
+
+```ruby
+# Gemfile.saboteur
+eval_gemfile File.expand_path("Gemfile", __dir__)
+gem "saboteur", group: :test
+# or a local checkout: gem "saboteur", path: "/path/to/your/saboteur/checkout", group: :test
+```
+
+```sh
+cp Gemfile.lock Gemfile.saboteur.lock
+BUNDLE_GEMFILE=Gemfile.saboteur bundle lock      # adds saboteur to Gemfile.saboteur.lock
+BUNDLE_GEMFILE=Gemfile.saboteur bundle install
+BUNDLE_GEMFILE=Gemfile.saboteur bundle exec saboteur run --subject 'YourClass#your_method'
+```
+
+`Gemfile` and `Gemfile.lock` are not modified. The copy keeps every locked gem
+that still satisfies the combined Gemfile; Bundler moves one only when saboteur
+needs another version (it depends on `prism` and `fiddle`). Without the copy,
+Bundler resolves from scratch and may pick newer gems than your app runs.
+`bundle lock` also works where Bundler is frozen or in deployment mode, where
+`bundle install` refuses to change a lockfile. The `test` group must be
+installed: check `bundle config get without`.
+
+Keep the variable on every command: `bundle exec saboteur ...` and
+`bin/saboteur ...` become `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec
+saboteur ...` and `BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`, and a bare
+`saboteur ...` line in this README becomes `BUNDLE_GEMFILE=Gemfile.saboteur
+bundle exec saboteur ...`. In a Rails app, skip the quickstart's `bundle add`
+and run the generator as `BUNDLE_GEMFILE=Gemfile.saboteur bundle exec rails
+generate saboteur:install` (ignore its hint to edit `Gemfile`), then run
+`BUNDLE_GEMFILE=Gemfile.saboteur bin/saboteur ...`: the generated binstub sets
+`RAILS_ENV=test`, which `bundle exec saboteur` does not (add `RAILS_ENV=test` if
+you use that form). Rails' own `config/boot.rb` sets `BUNDLE_GEMFILE` only when
+it is unset, so the trial Gemfile stays in use. The generator appends
+`.saboteur/` to `.gitignore`: that is an edit to your application, so revert it
+after the trial if you do not keep saboteur.
+
+To keep the trial files out of `git status` without committing anything, list
+them by exact, root-anchored name in `.git/info/exclude`: `/Gemfile.saboteur`,
+`/Gemfile.saboteur.lock`, `/.saboteur/`, and `/config/saboteur.rb` and
+`/bin/saboteur` if you created them. A broad pattern could hide your own changes. To undo the trial,
+delete those files and those exclude lines.
+
 Start with one method. You get counts per status, a score, timing, and a
 unified diff for every survivor, so you can read the exact change your tests
 missed. The JSON report lands in `.saboteur/report.json`.
