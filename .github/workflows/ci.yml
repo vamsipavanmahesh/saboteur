@@ -21,7 +21,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # Namespace trial: macOS legs run on nscloud (Apple Silicon, 6 vCPU / 14 GB).
+        # Revert to macos-latest to fall back to GitHub-hosted runners.
+        os: [ubuntu-latest, nscloud-macos-sequoia-arm64-6x14]
         ruby: ["3.3", "3.4", "ruby"] # "ruby" = latest stable
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -65,7 +67,8 @@ jobs:
 
   integration-gems:
     name: ${{ matrix.target }} (${{ matrix.reeval }})
-    runs-on: ubuntu-latest
+    # Namespace trial: slowest Linux job, moved to an nscloud AMD64 runner.
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
     strategy:
       fail-fast: false
       matrix:
