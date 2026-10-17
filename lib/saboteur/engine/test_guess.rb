@@ -298,6 +298,11 @@ module Saboteur
         rooted = rest.size == 2 && SOURCE_ROOTS.include?(rest.first)
         names = rooted ? [rest.last, "lib/#{rest.last}", stem] : [stem]
         names = names.flat_map { |name| [name, *request_names(name)] }.uniq
+        # A dashed gem name keeps dashes under lib/ but its specs live under
+        # the underscored require name: lib/acts-as-taggable-on/x.rb tests in
+        # spec/acts_as_taggable_on/x_spec.rb. The literal name still wins
+        # when both exist (#383).
+        names = names.flat_map { |name| [name, name.tr("-", "_")] }.uniq
         names.map { |name| "#{spec_root}/#{name}_spec.rb" }
       end
 

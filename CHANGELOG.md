@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The spec-name guess now tries the underscored require name of a dashed
+  path: `lib/acts-as-taggable-on/x.rb` finds
+  `spec/acts_as_taggable_on/x_spec.rb` (and the `spec/lib/` form) instead
+  of stopping on an unmatched file (#383). The literal dashed name still
+  wins when both exist.
+
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
   class, so re-evaluation now resolves a factory constant after a sclass
