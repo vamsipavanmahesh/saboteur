@@ -86,62 +86,72 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     end
   end
 
-  # #300: removing the cache dir while a run is in flight must not break the
-  # run. Every phase that writes optional state recreates the directory
-  # (mkdir_p) or keeps writing to its already-open log, so the run finishes
-  # with its verdicts and report intact; only rebuildable state (the coverage
-  # cache, the in-flight baseline log) is lost. This probe removes the
-  # directory at a controlled point - after startup, while the baseline suite
-  # is held open by a sync spec - and pins that recovery. A control run pins
-  # the exit code and verdicts the probe run must match.
-  it "recovers when the cache dir is removed mid-run" do
+  # #300: removing the cache dir during the BASELINE window must not break
+  # the run. At that point every later phase (coverage map, mutant logs,
+  # reports) still recreates the directory with mkdir_p, and the baseline
+  # child keeps writing to its already-open log. Only this window is pinned:
+  # a removal while mutant logs are written fails the run by design
+  # (Runner#open_log and the vanished-log check), so stop the run before
+  # deleting the cache. The probe removes the directory at a controlled
+  # point - the baseline log exists, so startup is done and the suite is
+  # held open by a sync spec - and pins the recovery. A control run with the
+  # identical fixture (its sync spec released up front) pins the exit code
+  # and the verdicts the probe run must match.
+  it "recovers when the cache dir is removed during the baseline window" do
     marker = File.join(dir, "sync-marker")
     release = File.join(dir, "sync-release")
     write_sync_spec(dir, marker, release)
 
-    control = saboteur(copy_fixture("people"), "--all")
+    control_dir = copy_fixture("people")
+    write_sync_spec(control_dir, File.join(control_dir, "sync-marker"), File.join(control_dir, "sync-release"))
+    # Released up front, the control's sync spec passes straight through, so
+    # the control runs the identical suite without ever blocking.
+    File.write(File.join(control_dir, "sync-release"), "go")
+    control = saboteur(control_dir, "--all")
+    expect(control.status).to eq(1), control.err
+    control_verdicts = verdicts(File.join(control.dir, ".saboteur", "report.json"))
+    expect(control_verdicts).not_to be_empty
 
     env = { "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") }
     command = [RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE, "run", "--all"]
-    Open3.popen3(env, *command, chdir: dir) do |stdin, stdout, stderr, wait_thr|
-      stdin.close
-      # Drain both pipes so the child never blocks on a full buffer.
-      Thread.new { stdout.read }
-      err_reader = Thread.new { stderr.read }
+    # pgroup: the run forks baseline and mutant children, and cleanup must
+    # reach the whole tree, not only the top process. The err buffer lets a
+    # failure message quote stderr without a blocking read of a live pipe.
+    Open3.popen3(env, *command, chdir: dir, pgroup: true) do |stdin, stdout, stderr, wait_thr|
+      err = +""
+      err_lock = Mutex.new
+      begin
+        stdin.close
+        Thread.new { stdout.read }
+        Thread.new { stderr.each_line { |line| err_lock.synchronize { err << line } } }
 
-      await_marker(marker, wait_thr, err_reader)
-      cache = File.join(dir, ".saboteur")
-      expect(File.directory?(cache)).to be(true)
+        await_marker(marker, wait_thr, err, err_lock)
+        cache = File.join(dir, ".saboteur")
+        expect(File.directory?(cache)).to be(true)
 
-      FileUtils.rm_rf(cache)
-      File.write(release, "go")
+        FileUtils.rm_rf(cache)
+        File.write(release, "go")
 
-      unless wait_thr.join(120)
-        Process.kill("KILL", wait_thr.pid)
-        flunk "the run did not finish after the cache dir was removed: #{err_reader.value}"
+        finished = wait_thr.join(120)
+        expect(finished).not_to be_nil, "the run did not finish: #{err_lock.synchronize { err.dup }}"
+        expect(wait_thr.value.exitstatus).to eq(control.status)
+
+        # Required evidence is recreated: the report holds the same verdicts
+        # as the control run.
+        report = File.join(cache, "report.json")
+        expect(File).to exist(report)
+        expect(verdicts(report)).to eq(control_verdicts)
+
+        # The baseline log is the only state lost: it is written before the
+        # removal and only diagnoses a failed baseline. Every later phase
+        # recreates its own optional state - the coverage map and preview are
+        # built after the baseline, so they land in the recreated directory.
+        expect(File).not_to exist(File.join(cache, "baseline-1.log"))
+        expect(Dir.glob(File.join(cache, "coverage-*.json"))).not_to be_empty
+        expect(File).to exist(File.join(cache, "preview.json"))
+      ensure
+        cleanup_run(wait_thr)
       end
-      status = wait_thr.value.exitstatus
-      err = err_reader.value
-
-      # The exit code still belongs to the results: the same survivor-driven
-      # exit as the untouched control run, with no test blamed for the
-      # missing directory.
-      expect(status).to eq(control.status)
-      expect(err).not_to include("killing test")
-
-      # Required evidence is recreated: the report holds the same verdicts
-      # as the control run.
-      report = File.join(cache, "report.json")
-      expect(File).to exist(report)
-      expect(verdicts(report)).to eq(verdicts(File.join(control.dir, ".saboteur", "report.json")))
-
-      # The baseline log is the only state lost: it is written before the
-      # removal and only diagnoses a failed baseline. Every later phase
-      # recreates its own optional state - the coverage map and preview are
-      # built after the baseline, so they land in the recreated directory.
-      expect(File).not_to exist(File.join(cache, "baseline-1.log"))
-      expect(Dir.glob(File.join(cache, "coverage-*.json"))).not_to be_empty
-      expect(File).to exist(File.join(cache, "preview.json"))
     end
   end
 
@@ -171,14 +181,29 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     RUBY
   end
 
-  # Fails fast, with the run's stderr, when the run exits before the sync
-  # point or never reaches it. join(0.05) doubles as the poll interval.
-  def await_marker(marker, wait_thr, err_reader)
+  # Fails fast when the run exits before the sync point or never reaches
+  # it. join(0.05) doubles as the poll interval; the message quotes the
+  # stderr buffered so far, never a blocking read of the live pipe.
+  def await_marker(marker, wait_thr, err, err_lock)
     deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 120
     until File.exist?(marker)
-      flunk "the run exited before the sync point: #{err_reader.value}" if wait_thr.join(0.05)
-      raise "the run never reached the sync point" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+      flunk "the run exited before the sync point: #{err_lock.synchronize { err.dup }}" if wait_thr.join(0.05)
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+        raise "the run never reached the sync point: #{err_lock.synchronize { err.dup }}"
+      end
     end
+  end
+
+  # Bounded cleanup for a probe run: kill the run's whole process group (the
+  # run forks baseline and mutant children of its own), then wait for the
+  # exit to be reaped. ESRCH/EPERM mean the group is already gone; a still
+  # stuck wait gives up instead of hanging the suite.
+  def cleanup_run(wait_thr)
+    Process.kill("KILL", -wait_thr.pid) unless wait_thr.join(1)
+  rescue Errno::ESRCH, Errno::EPERM
+    nil
+  ensure
+    wait_thr.join(5)
   end
 
   # { mutant id => status } for every mutant in a report, so a verdict

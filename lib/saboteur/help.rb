@@ -165,7 +165,7 @@ module Saboteur
       ["config/saboteur_ignore.rb", "Accepted survivors: mutation digests with subject and a required reason."],
       [".saboteur/report.json", "Stryker mutation-testing-report-schema JSON (--json changes the path)."],
       [".saboteur/report.html", "Self-contained HTML report (--html changes the path)."],
-      [".saboteur/", "Cache: coverage map and incremental verdicts. Safe to delete, even mid-run (#300)."]
+      [".saboteur/", "Cache: coverage map and incremental verdicts. Safe to delete between runs; stop the run first."]
     ].freeze
 
     # option_lines: the option lines of each command's parser, keyed by command name.
