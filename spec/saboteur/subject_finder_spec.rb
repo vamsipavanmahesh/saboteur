@@ -200,6 +200,90 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(found.map(&:id)).to eq(["Outer::Point#m"])
   end
 
+  it "binds a nested factory constant to the enclosing lexical scope, not the generated class (#339)" do
+    # Constant assignment in a block is lexical: Inner lives on FactoryProbe,
+    # never on the generated FactoryProbe::Outer.
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Class.new do
+          Inner = Data.define(:v) do
+            def value = v
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::Inner#value"])
+  end
+
+  it "binds a factory nested in a nested factory to the enclosing lexical scope (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        A = Class.new do
+          B = Class.new do
+            C = Data.define(:x) do
+              def v = x
+            end
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::C#v"])
+  end
+
+  it "binds a factory nested under a keyword class in a factory to that class (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Class.new do
+          class Real
+            B = Struct.new(:x) do
+              def v = x
+            end
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::Real::B#v"])
+  end
+
+  it "binds a keyword class declared in a factory block to the enclosing lexical scope (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Class.new do
+          class Nested
+            def x = 1
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::Nested#x"])
+  end
+
+  it "binds a keyword module declared in a factory block to the enclosing lexical scope (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Module.new do
+          module Nested
+            def x = 1
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::Nested#x"])
+  end
+
+  it "binds a Module.new factory nested in a factory block to the enclosing lexical scope (#339)" do
+    found = subjects_in(<<~RUBY)
+      module FactoryProbe
+        Outer = Class.new do
+          M = Module.new do
+            def x = 1
+          end
+        end
+      end
+    RUBY
+    expect(found.map(&:id)).to eq(["FactoryProbe::M#x"])
+  end
+
   it "keeps walking a constant assigned to a plain value" do
     expect(ids("class A\n  LIMIT = 3\n  def m; end\nend\n")).to eq(["A#m"])
   end

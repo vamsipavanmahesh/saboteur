@@ -20,6 +20,13 @@ module Saboteur
     def sclass?
       kind == :sclass
     end
+
+    # A factory scope names a runtime owner (the generated class) but opens
+    # no lexical constant scope: `Outer = Class.new do Inner = ... end` binds
+    # Inner on the enclosing lexical scope, never on Outer (#339).
+    def factory?
+      kind == :factory
+    end
   end
 
   # A method defined with `def`: the unit saboteur mutates.

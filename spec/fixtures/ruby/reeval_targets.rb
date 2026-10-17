@@ -139,4 +139,15 @@ module ReevalTargets
       end
     end
   end
+
+  # A factory nested in a factory block: the constant assignment is lexical,
+  # so Coin lives on ReevalTargets, never on the generated Bag class (#339).
+  Bag = Class.new do
+    # rubocop:disable-next Lint/ConstantDefinitionInBlock -- the pattern under test
+    Coin = Data.define(:cents) do
+      def doubled
+        cents * 2
+      end
+    end
+  end
 end

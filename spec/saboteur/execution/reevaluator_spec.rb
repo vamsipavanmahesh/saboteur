@@ -131,6 +131,15 @@ RSpec.describe Saboteur::Execution::Reevaluator do
       reeval("ReevalTargets::Outer::Meter#scaled", "nesting", from: "n * SCALE", to: "n * SCALE + 1")
       expect(ReevalTargets::Outer::Meter.new(2).scaled).to eq(21)
     end
+
+    it "resolves a factory nested in a factory block by its lexical owner (#339)" do
+      coin_class = ReevalTargets::Coin
+      reeval("ReevalTargets::Coin#doubled", "nesting", from: "cents * 2", to: "cents * 3")
+      expect(ReevalTargets::Coin).to be(coin_class)
+      expect(ReevalTargets::Coin.members).to eq([:cents])
+      expect(ReevalTargets::Coin.new(2).doubled).to eq(6)
+      expect(ReevalTargets::Bag).not_to be_const_defined(:Coin, false)
+    end
   end
 
   it "uses the nesting strategy by default (maintainer decision M1)" do

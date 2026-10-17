@@ -632,11 +632,11 @@ Saboteur.ignore do |i|
   i.mutation "71f06a1870dbfcb4",
              subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
              reason: "equivalent: the loop's Unsupported-building side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
-  i.mutation "e767855037a86014",
+  i.mutation "bf95736e576b6691",
              subject: "Saboteur::SubjectFinder#walk",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
 
-  i.mutation "033609da14383dcb",
+  i.mutation "76c21aa993019fba",
              subject: "Saboteur::SubjectFinder#walk",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
 

@@ -209,7 +209,12 @@ eval("module Outer; class Person; #{mutated_def}; end; end",
   wrapper for that scope is `X.class_eval do`, never `class X`: a generated
   class must not be reopened (`Module.new` does not even produce a class).
   Their defs are ordinary subjects (#290); a block nested deeper still marks
-  its defs skipped as "defined inside a block".
+  its defs skipped as "defined inside a block". The `X.class_eval` wrapper
+  does not preserve the factory block's lexical constant scope: a constant
+  assigned or a class declared inside a factory block binds on the enclosing
+  lexical scope (`Outer = Class.new do Inner = ... end` makes
+  `FactoryProbe::Inner`, never `FactoryProbe::Outer::Inner`), so factory
+  scopes join a def's owner but never a nested constant's path (#339).
 - Refinements (`using`) are lexical and are lost. Subjects in files that call
   `using` are skipped in v1 ("refinements").
 

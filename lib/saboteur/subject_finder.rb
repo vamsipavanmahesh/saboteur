@@ -52,9 +52,11 @@ module Saboteur
       when Prism::ConstantWriteNode
         walk_constant_assignment(node, nesting, out, **ctx)
       when Prism::ModuleNode
-        walk(node.body, nesting + [Scope.new(kind: :module, path: node.constant_path.slice)], out, **ctx)
+        scope = Scope.new(kind: :module, path: node.constant_path.slice)
+        walk(node.body, lexical_nesting(nesting) + [scope], out, **ctx)
       when Prism::ClassNode
-        walk(node.body, nesting + [Scope.new(kind: :class, path: node.constant_path.slice)], out, **ctx)
+        scope = Scope.new(kind: :class, path: node.constant_path.slice)
+        walk(node.body, lexical_nesting(nesting) + [scope], out, **ctx)
       when Prism::SingletonClassNode
         walk_singleton_class(node, nesting, out, **ctx)
       when Prism::StatementsNode
@@ -83,7 +85,14 @@ module Saboteur
       # defs re-evaluate through X.class_eval and are ordinary subjects
       # (#290), while a block nested deeper still marks its defs skipped.
       (call.compact_child_nodes - [call.block]).each { |child| walk(child, nesting, out, **ctx) }
-      walk(call.block.body, nesting + [Scope.new(kind: :factory, path: node.name.to_s)], out, **ctx)
+      walk(call.block.body, lexical_nesting(nesting) + [Scope.new(kind: :factory, path: node.name.to_s)], out, **ctx)
+    end
+
+    # Constant-introducing declarations (class/module keywords and factory
+    # assignments) bind on the enclosing lexical scope: factory blocks open
+    # none, so their scopes never join a new constant's path (#339).
+    def lexical_nesting(nesting)
+      nesting.reject(&:factory?)
     end
 
     def class_factory?(call)
