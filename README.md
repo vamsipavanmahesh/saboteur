@@ -64,7 +64,7 @@ bundle exec saboteur run --subject 'YourClass#your_method'
 The run checks the unchanged suite first, maps which tests cover the method,
 then runs only those tests against each mutant. You get counts per status, a
 covered score, timing, and the exact surviving changes to review. JSON and
-HTML reports land in `.saboteur/report.json` and `.saboteur/report.html`.
+Reports land in `.saboteur/report.json` and `.saboteur/report.html`.
 
 Example output from saboteur's own `People::Person#adult?` fixture, trimmed:
 
@@ -152,7 +152,7 @@ delete those files and those exclude lines.
 - **Focused execution.** Coverage selects the tests that can matter, then
   kill checks rerun them against the unchanged method.
 - **Safety controls.** A hazard guard, canary, resource limits, and (on Linux
-  6.2+) a Landlock sandbox help contain destructive mutants.
+  6.2+) a Landlock sandbox helps contain destructive mutants.
 - **Team workflow.** Terminal, JSON, HTML and agent reports, thresholds,
   baselines, ignore reasons, score history, and a GitHub Action.
 - **Open extension points.** Add mutants through the public interface and
@@ -186,7 +186,16 @@ The public opt-in `baseline propose`, `baseline accept` and `baseline check`
 commands use this evidence to review and compare survivors. They never skip
 accepted mutants or change their scores. See [Opt-in survivor baseline](#opt-in-survivor-baseline).
 
-### The unchanged suite is checked first
+### Safety guardrails
+
+| Layer | What it does | What it does not do |
+| --- | --- | --- |
+| Baseline | Runs the unchanged suite before mutation. | Does not prove a suite is free of flaky tests. |
+| Hazard guard | Suppresses mutants in known destructive call forms. | Is syntactic; aliases, variables and dynamic selectors can escape it. |
+| Canary | Aborts the run when tracked files disappear after a mutant. | Detects damage after it starts; it restores nothing. |
+| Landlock | When available on Linux 6.2+, makes the project tree read-only to mutant children. | Is Linux-only and covers the filesystem only; network is never restricted. |
+
+#### The unchanged suite is checked first
 
 Every run with selected subjects runs the loaded unchanged suite twice (the specs chosen with `--test` if given,
 otherwise the inferred specs) in fresh
@@ -220,7 +229,7 @@ selected sources.
 Two passes detect observed instability, not every possible flaky test. See
 [baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
 
-### Hazardous calls are not mutated, and a canary watches the tree
+#### Hazardous calls are not mutated, and a canary watches the tree
 
 Mutants run in your checkout, so a mutant inside a destructive call could do
 real damage: a string mutation inside `FileUtils.rm_rf(File.join(Dir.pwd,
@@ -301,16 +310,20 @@ whose C library cannot be located (musl is tried by soname first).
 `c.sandbox = "strict"` turns that degraded note into a refusal;
 `c.sandbox = false` opts out.
 
-In short, per platform: on Linux 6.2+ mutant children can be
-filesystem-sandboxed as described above (the kernel capability, not a proof
-of isolation - `saboteur doctor` probes what your setup actually allows); on
-older Linux kernels and on macOS there is no sandbox (Landlock is
-Linux-only) and mutants run with the hazard guard and canary only. Network
-access is never restricted on any platform - a mutant can reach real APIs if
-a test is not stubbed. When a mutant could write outside the project, run
-saboteur in a container; a plain container keeps outbound network access, so
-when a mutant could reach real APIs, deny the network or stub the APIs.
-`saboteur doctor` reports the platform's sandbox status.
+#### Platform support
+
+| Platform | Mutant-child filesystem protection | Effective guard |
+| --- | --- | --- |
+| Linux 6.2+ (Landlock ABI 3) | Available; doctor confirms the probe. Read-only project tree, except explicit grants. | Landlock + hazard guard + canary. |
+| Linux 5.13-6.1 (Landlock ABI 1-2) | No sandbox: `truncate()` cannot be restricted. | Hazard guard + canary. |
+| Other supported Linux | No usable Landlock. | Hazard guard + canary. |
+| macOS | No sandbox; Landlock is Linux-only. | Hazard guard + canary. |
+
+Network access is never restricted on any platform: a mutant can reach real
+APIs if a test is not stubbed. When a mutant could write outside the project,
+run saboteur in a container; when it could reach real APIs, deny the network
+or stub the APIs. `saboteur doctor` probes and reports what your platform
+actually allows.
 
 
 ## 🧠 Why it is built the way it is
@@ -357,22 +370,27 @@ process: [docs/stability](docs/stability.md).
 
 ## 🛠️ Usage
 
-```sh
-bundle exec saboteur run                          # whole project
-bundle exec saboteur doctor                       # environment checks only
-bundle exec saboteur doctor --suite --seed 42     # plus two unchanged suite checks
-bundle exec saboteur run --since origin/main      # methods changed on this branch
-bundle exec saboteur run --subject 'Billing::Invoice#total'
-bundle exec saboteur run --subject Billing        # a namespace
-bundle exec saboteur run --incremental            # reuse verdicts whose inputs did not change
-bundle exec saboteur run --seed 1234              # repeat a run that used seed 1234
-bundle exec saboteur run lib/a.rb lib/b.rb --test spec/a_spec.rb --test spec/b_spec.rb
-bundle exec saboteur run --threshold 90           # exit 1 when the score is below 90 %
-bundle exec saboteur run --id DIGEST --seed 1234  # replay one full current mutant digest
-bundle exec saboteur run --fail-fast              # stop after the first subject with a survivor
-bundle exec saboteur run --matrix                 # every covering test per mutant: blind and redundant tests
-bundle exec saboteur run --verbose --no-color     # add score split, timings and kill causes; no colour
-```
+### Choose a run
+
+| I want to... | Command | Notes |
+| --- | --- | --- |
+| Check the setup | `bundle exec saboteur doctor` | No mutation run, reports or caches. |
+| Try one method | `bundle exec saboteur run --subject 'Billing::Invoice#total'` | Best first run. |
+| Review a pull request | `bundle exec saboteur pr origin/main` | Preset: changed methods, one baseline pass, 10-minute budget. |
+| Set the diff scope yourself | `bundle exec saboteur run --since origin/main` | Mutates methods and supported constants changed since the ref. |
+| Audit the whole project | `bundle exec saboteur audit` | Whole scope, all operators, both baseline checks and both reports. |
+| Choose files and specs | `bundle exec saboteur run lib/a.rb --test spec/a_spec.rb` | Sources and test selection are explicit. |
+| Iterate locally | `bundle exec saboteur run --incremental` | Reuses verdicts whose recorded inputs are unchanged; see the limits below. |
+| Repeat a run | `bundle exec saboteur run --seed 1234` | Use the seed printed by the earlier run. |
+| Replay one mutant | `bundle exec saboteur run --id DIGEST --seed 1234` | Uses the full current digest. |
+| Gate CI on score | `bundle exec saboteur run --threshold 90` | Exits 1 below 90%; incomplete runs still fail closed. |
+| Inspect test quality | `bundle exec saboteur run --matrix` | Runs every covering test to find blind and redundant tests. |
+| Preview the work | `bundle exec saboteur run --dry-run` | Discovers subjects and mutants without booting the app. |
+| List operators | `bundle exec saboteur run --list-operators` | Shows the effective operator policy. |
+| Stop early | `bundle exec saboteur run --fail-fast` | Serial runs only; always exits 1 when it stops. |
+| Add detail | `bundle exec saboteur run --verbose --no-color` | Score split, timings, kill causes and no colour. |
+
+### Sources, specs and gates
 
 Positional operands name the sources to mutate: Ruby files, or directories
 (all their `.rb` files). Each must exist; a typo or a non-Ruby file exits 2
@@ -420,6 +438,8 @@ saboteur exits 2 and names the focused examples. Remove the focus, or pass `--al
 as `--tag slow`, and example selectors such as `--test spec/a_spec.rb:12`, are on purpose and are not refused. The
 check compares what RSpec runs with what it would run without the stray focus, so examples RSpec leaves out anyway
 (`:if` / `:unless`, `--tag`, exclusions, selectors in another file) never count as hidden.
+
+### Pull requests and inferred specs
 
 For pull requests, start with `--since` against your target branch. This is a
 workflow recommendation, not a CLI default: plain `run` still checks the whole
@@ -630,7 +650,17 @@ file is seen. It cannot see a change in another file that the method uses (a
 method it calls, a constant defined elsewhere), so run without it now and then
 (and in CI on the main branch).
 
-Output: survivors first, then a short summary last, so the summary stays on
+### Output, reports and scores
+
+| Output | Default | Best for |
+| --- | --- | --- |
+| Terminal report | stdout; progress on stderr | Human triage and the full replay command. |
+| JSON report | `.saboteur/report.json` | CI, dashboards, findings and stable machine evidence. |
+| HTML report | `.saboteur/report.html` | Reviewing survivors in a self-contained browser page. |
+| Agent JSON | stdout with `--agent` | Automation: exactly one bounded JSON payload. |
+| Score history | off by default | Comparing covered score across matching selections. |
+
+The terminal puts survivors first, then a short summary last, so the summary stays on
 screen. Survivors are grouped by file, then method, then line. Each line is
 printed once as `path:line in Subject`, with the source line and the tests that
 covered it, then one compact line per mutation: `operator original -> replacement digest`,
@@ -742,7 +772,7 @@ section: a bounded, deterministically ordered list of survivors, coarse
 mutants first (a surviving coarse mutant hints that no test pins the method's
 behavior - it can also be a re-evaluation limit or an equivalent mutant),
 then file, line and digest. Each finding holds the file, line, digest,
-subject, operator, original and replacement a note on a pull-request diff
+subject, operator, original and replacement that a pull-request note
 needs, plus one entry per edit for mutants that edit more than one spot.
 Survivors accepted on the ignore list are listed separately with their
 reason, and `survivorsTruncated` and `acceptedTruncated` count what the bound
@@ -759,11 +789,15 @@ changed line and prints none.
 
 New to survivors? The [reading survivors guide](docs/guides/reading-survivors.md) walks one from the diff to the test that kills it.
 
-Exit codes: 0 no survivors (or all on the ignore list), or the score
-meets `--threshold`; 1 survivors, or the score is below `--threshold` or
-missing; 2 bad configuration or a missing source or test; 3 the tool
-failed (with `--threshold`, also any errored or resource-limited
-mutant). Unexpected `StandardError` or `LoadError` failures print
+| Exit code | Meaning |
+| --- | --- |
+| 0 | Complete pass: no unignored survivors, or the covered score meets `--threshold`. |
+| 1 | Test signal: unignored survivors, the covered score is below `--threshold` or missing, or a configured error/timeout limit is exceeded. |
+| 2 | Invalid use: bad configuration, a missing source or test, or an unsupported combination. |
+| 3 | Tool failure or an incomplete run: internal error, error majority, or any errored/resource-limited mutant with `--threshold`. |
+| 4 | Text-mode `--max-duration` budget exhausted; `--max-duration-ok` and agent mode keep verdict-driven exits. |
+
+Unexpected `StandardError` or `LoadError` failures print
 `saboteur: internal error (...) - please report it` and exit 3, rather
 than dying with a bare stack trace and an accidental exit code. The full
 backtrace lands in `<cache_dir>/internal-error.log` (default
@@ -801,6 +835,24 @@ other errors and reused cached kills are not included. See
 config usable for whole-project runs and pass `--since` in the pull-request
 job. A PR-only config may set `c.since = "origin/main"`; omit `since` (or use
 `c.since = nil`) in the config for audits on main. Use your actual target branch.
+
+### Common settings
+
+| Setting | Default | Use |
+| --- | --- | --- |
+| `c.include` | `["lib/**/*.rb"]` | Source files to mutate. |
+| `c.exclude` | `[]` | Remove sources from `include`. |
+| `c.require` | `[]` | Boot files loaded before tests. |
+| `c.jobs` | `1` | Mutation worker processes. |
+| `c.threshold` | none | Minimum covered score for CI. |
+| `c.max_duration` | none | Whole-run wall-clock budget in seconds. |
+| `c.max_mutants_per_method` | `100` | Cap valid mutants per covered method. |
+| `c.incremental` | `false` | Reuse verdicts whose recorded inputs are unchanged. |
+| `c.sandbox` | `true` | Read-only project tree for mutant children where supported. |
+| `c.ignore_file` | `config/saboteur_ignore.rb` | Accepted survivors and triage state. |
+| `c.score_history` | off | Append one score-history JSONL record per finished report. |
+
+### Reference example
 
 ```ruby
 Saboteur.configure do |c|
