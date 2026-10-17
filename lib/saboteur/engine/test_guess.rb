@@ -271,12 +271,15 @@ module Saboteur
         # the deletion is the change the suite itself covers. Its marked
         # neighbor lines would otherwise demand a spec the file never had
         # (#484). Subject selection reads the same list, so both layers
-        # agree: no subject, no mutant, no spec demand.
+        # agree: no subject, no mutant, no spec demand. The list is
+        # canonical-absolute; the line map's keys are root-relative, so
+        # compare in absolute space (a monorepo root below the git
+        # toplevel must not silently disable this).
         deletion_only = Selection::GitDiff.deletion_only_files(@config["since"], root: @root)
         lines_by_file.reject do |file, lines|
           # (reject keeps the files WITH a changed subject; subjectless
           # is what remains)
-          next false if deletion_only.include?(file)
+          next false if deletion_only.include?(File.join(@root, file))
 
           subjects_in(finder, constant_finder, file)
             .select { |subject| subject.overlaps_lines?(lines) }
