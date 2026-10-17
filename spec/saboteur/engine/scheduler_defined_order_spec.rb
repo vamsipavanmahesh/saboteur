@@ -81,4 +81,93 @@ RSpec.describe Saboteur::Engine::Scheduler, "order-dependent spec files (#557)" 
     results
     expect(runs.map(&:last).uniq).to eq([[first]])
   end
+
+  # The retried verdict is the mutant's run on the prefix: its evidence
+  # (which tests ran, which failed, why, how long) replaces the rejected
+  # kill's, so the report names the prefix as the covering tests.
+  it "carries the prefix run's evidence onto the retried verdict" do
+    prefix_run = [setup_example, asserting_example]
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, **|
+      if mutation && test_ids == prefix_run
+        Saboteur::Execution::Runner::Outcome.new(status: :killed, runtime: 0.4, failed_ids: [asserting_example],
+                                                 message: "expected 25, got 0", kill_cause: "test_failure",
+                                                 executed_ids: test_ids)
+      elsif test_ids == prefix_run
+        outcome(:survived)
+      elsif mutation
+        outcome(:killed, failed_ids: [asserting_example])
+      else
+        outcome(:killed, message: "Structure missing")
+      end
+    end
+    results.each do |result|
+      expect([result.status, result.covered_by, result.killed_by, result.executed, result.runtime,
+              result.reason, result.kill_cause])
+        .to eq([:killed, prefix_run, [asserting_example], prefix_run, 0.4, "expected 25, got 0", "test_failure"])
+    end
+    expect(runner).to have_received(:run).with(hash_including(test_ids: prefix_run, eval_prefix: nil)).at_least(:once)
+  end
+
+  # A retry that times out under --max-duration is no verdict at all, so it
+  # reports why: the unchanged run's own message when it has one, the retry's
+  # stock reason otherwise.
+  def budget_cut_prefix(message:)
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, **|
+      if test_ids == [setup_example, asserting_example] && !mutation
+        Saboteur::Execution::Runner::Outcome.new(status: :unverified, runtime: 0.0, message: message)
+      elsif test_ids == [setup_example, asserting_example]
+        outcome(:survived)
+      elsif mutation
+        outcome(:killed, failed_ids: [asserting_example])
+      else
+        outcome(:killed, message: "Structure missing")
+      end
+    end
+  end
+
+  it "keeps the unchanged prefix run's message when the budget cut the retry short" do
+    budget_cut_prefix(message: "the --max-duration budget stopped the check")
+    expect(results.map { |result| [result.status, result.reason] }.uniq)
+      .to eq([[:unverified, "the --max-duration budget stopped the check"]])
+  end
+
+  it "falls back to the retry's own reason when a budget-cut prefix run has no message" do
+    budget_cut_prefix(message: nil)
+    expect(results.map { |result| [result.status, result.reason] }.uniq)
+      .to eq([[:unverified, described_class::BUDGET_RETRY_REASON]])
+  end
+
+  # The prefix run is slower on the same tests as every other mutant run of
+  # the subject: the timeout scales with the measured slowdown, or a slow
+  # file's retry dies before its examples finish.
+  it "scales the retry's timeout by the subject's measured slowdown" do
+    retry_timeouts = []
+    first_mutant_done = false
+    unchanged_single_calls = 0
+    allow(runner).to receive(:run) do |test_ids:, timeout:, mutation: nil, **|
+      if test_ids == [setup_example, asserting_example]
+        retry_timeouts << timeout if mutation
+        outcome(:survived)
+      elsif mutation
+        if first_mutant_done
+          outcome(:killed, failed_ids: [asserting_example])
+        else
+          first_mutant_done = true
+          Saboteur::Execution::Runner::Outcome.new(status: :timeout, runtime: 5.0)
+        end
+      else
+        unchanged_single_calls += 1
+        # First call: the timeout calibration, 300x slower than the map's
+        # recording. Later calls: verdict checks that reject the kills.
+        if unchanged_single_calls == 1
+          Saboteur::Execution::Runner::Outcome.new(status: :survived, runtime: 30.0)
+        else
+          outcome(:killed, message: "Structure missing")
+        end
+      end
+    end
+    results
+    expect(retry_timeouts).not_to be_empty
+    expect(retry_timeouts.uniq).to eq([180.0])
+  end
 end
