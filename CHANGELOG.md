@@ -33,6 +33,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A `--since` change inside a constant literal saboteur refuses to mutate
+  (unvettable load-time code, or an unsupported literal form) no longer
+  reads like an unexplained miss in the umbrella "no subjects covering the
+  changed lines" warning: the warning now says how many of the files sit
+  in a constant literal that is not mutated, named by the constant
+  warnings above it (#537).
+
 - ERB generator templates (`.rb` files with ERB interpolation, as Rails
   generators carry under `lib/generators/**/templates/`) no longer print a
   per-file "does not parse" warning on every discovery pass: they can
@@ -247,7 +254,6 @@ All notable changes are documented here. The format follows
   (`.rspec` `--format progress`) and spec output stay on stdout and cannot
   corrupt the report.
 
-
 - `--incremental` no longer reuses a verdict when a file the covering
   tests touched changed: the dependency files from the run's coverage map
   join the verdict fingerprint (#197). The same holds for a dependency
@@ -386,7 +392,6 @@ All notable changes are documented here. The format follows
 - The stale self-deprecating benchmark claims in the README ('rerun
   pending'): speed and memory numbers now live only with the harness and raw
   data that reproduce them, or are framed as dated history (#243).
-
 
 ## [0.7.0] - 2026-10-16
 
