@@ -17,13 +17,13 @@ RSpec.describe Saboteur::DirtyTreeWarning do
 
   def warning(*changes, included: [], include: ["lib/**/*.rb"], exclude: [], setup_files: ["config/saboteur.rb"])
     described_class.new(state(*changes), included: included, include: include, exclude: exclude,
-                                         setup_files: setup_files).to_s
+                                         setup_files: setup_files, root: Dir.pwd).to_s
   end
 
   it "says nothing on a clean or unknown tree" do
     expect(warning).to be_nil
     unknown = described_class.new(Saboteur::WorkingTree::UNKNOWN, included: [], include: [], exclude: [],
-                                                                  setup_files: [])
+                                                                  setup_files: [], root: Dir.pwd)
     expect(unknown.to_s).to be_nil
   end
 
@@ -63,6 +63,21 @@ RSpec.describe Saboteur::DirtyTreeWarning do
                             "and 2 more\n")
   end
 
+  it "matches a leading ./ include and an absolute include under the root (#503 review)" do
+    dot = warning(change("lib/a.rb"), include: ["./lib/**/*.rb"])
+    absolute = warning(change("lib/a.rb"), include: [File.join(Dir.pwd, "lib/**/*.rb")])
+
+    [dot, absolute].each do |text|
+      expect(text).to include("1 inside the mutation scope (1 tracked, 0 untracked)")
+    end
+  end
+
+  it "does not match an absolute include outside the root" do
+    text = warning(change("lib/a.rb"), include: ["/elsewhere/lib/**/*.rb"])
+
+    expect(text).to include("none inside the mutation scope, 1 outside it")
+  end
+
   it "leaves an excluded file and a non-Ruby file under include outside the scope" do
     text = warning(change("lib/a.rb"), change("lib/gen/b.rb"), change("lib/data.yml"),
                    exclude: ["lib/gen/**/*.rb"])
@@ -72,6 +87,15 @@ RSpec.describe Saboteur::DirtyTreeWarning do
 
   it "counts a deleted file by its path, so a removed source is still in the scope" do
     expect(warning(change("lib/gone.rb"))).to include("1 inside the mutation scope")
+  end
+
+  it "derives the trial lockfile with bundler's rule: gems.rb locks to gems.locked (#503 review)" do
+    files = described_class.setup_files(Dir.pwd, config_path: nil, gemfile: "gems.rb")
+    expect(files).to eq(["config/saboteur.rb", "gems.rb", "gems.locked"])
+    other = described_class.setup_files(Dir.pwd, config_path: nil, gemfile: "Gemfile.saboteur")
+    expect(other).to eq(["config/saboteur.rb", "Gemfile.saboteur", "Gemfile.saboteur.lock"])
+    nested = described_class.setup_files(Dir.pwd, config_path: nil, gemfile: "ci/gems.rb")
+    expect(nested).to eq(["config/saboteur.rb", "ci/gems.rb", "ci/gems.locked"])
   end
 
   it "keeps a setup file that the include patterns cover in the setup group only" do

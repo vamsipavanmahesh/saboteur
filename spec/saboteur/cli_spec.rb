@@ -441,22 +441,11 @@ RSpec.describe Saboteur::CLI do
   end
 
   describe "dirty working tree" do
-    def run_on_tree(state, *sources)
+    def run_on_tree(state, args: [])
       tree = instance_double(Saboteur::WorkingTree, state: state)
       allow(Saboteur::WorkingTree).to receive(:new).and_return(tree)
       allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
-      cli("run", *sources).call
-    end
-
-    it "takes the mutation scope from source operands, which replace include and exclude (#503)" do
-      changes = %w[lib/saboteur/version.rb lib/saboteur/cli.rb].map do |path|
-        Saboteur::WorkingTree::Change.new(path: path, tracked: true)
-      end
-      run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 2, changes: changes),
-                  "lib/saboteur/version.rb")
-
-      expect(err.string).to include("1 inside the mutation scope (1 tracked, 0 untracked), 1 outside it",
-                                    "inside the mutation scope: lib/saboteur/version.rb\n")
+      cli("run", *args).call
     end
 
     it "refuses --agent and --id with --dry-run or --list-operators as usage errors" do
@@ -520,6 +509,13 @@ RSpec.describe Saboteur::CLI do
                                       "3 saboteur setup file(s) (0 tracked, 3 untracked).")
         expect(err.string).to include("inside the mutation scope: lib/edit.rb",
                                       "setup files: config/saboteur.rb, Gemfile.saboteur, Gemfile.saboteur.lock")
+      end
+
+      it "keeps the configured scope when a source operand narrows the run (#503 review)" do
+        run_on_tree(untracked("lib/edit.rb", "lib/other.rb"), args: ["lib/saboteur.rb"])
+
+        expect(err.string).to include("2 inside the mutation scope (0 tracked, 2 untracked)")
+        expect(err.string).to include("inside the mutation scope: lib/edit.rb, lib/other.rb")
       end
 
       it "counts the root's own Gemfile and a config file the run does not read as application edits" do
