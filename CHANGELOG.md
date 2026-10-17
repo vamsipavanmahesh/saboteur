@@ -221,6 +221,14 @@ All notable changes are documented here. The format follows
   `M::HELPER` are now ordinary subjects under their lexical owner instead
   of a phantom `FactoryProbe::Outer::Nested::RULES` skipped as defined
   inside a block.
+- Constants assigned inside `class << self` are now named with their real
+  owner, the singleton class (`Host.singleton_class::RULES`), instead of the
+  attached class (#380, #390). A same-named constant in the class body no
+  longer collides with it or triggers a false "assigned more than once"
+  refusal. Read matching follows: reads inside `class << self` still count
+  toward the attached class's constant through singleton ancestry, and a
+  singleton-class write shadows the attached class's constant for reads
+  below it.
 
 - A spec file that calls `exit` at load now refuses the run with a
   clear diagnostic instead of terminating the loader mid-require (#411).
