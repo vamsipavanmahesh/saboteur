@@ -667,4 +667,36 @@ Saboteur.ignore do |i|
   i.mutation "7777f925324c357d",
              subject: "Saboteur::SubjectFinder#walk_singleton_class",
              reason: "equivalent: the sclass scope's path is never read: owner_path rejects sclass scopes and its header is hardcoded"
+
+  i.mutation "a1ff930ecdd2a033",
+             subject: "Saboteur::SubjectFinder#define_method_subject?",
+             reason: "equivalent: the size == 1 guard above means first and last are the same argument"
+
+  i.mutation "1bb4f84260161fd2",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: the finder only builds a define_method subject when node.block is a BlockNode, so the safe navigation never nil-guards"
+
+  i.mutation "9a5e01816b209349",
+             subject: "Saboteur::SubjectFinder#walk_statements",
+             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
+
+  i.mutation "2037a2fdac063a81",
+             subject: "Saboteur::SubjectFinder#walk_children",
+             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
+
+  i.mutation "4aded400397da9fe",
+             subject: "Saboteur::SubjectFinder#walk_call",
+             reason: "equivalent: || false only normalizes nil to false; in_sclass is used in truthiness contexts only"
+
+  i.mutation "d9a37d21f9adda1c",
+             subject: "Saboteur::SubjectFinder#walk_call",
+             reason: "equivalent: define_method_subject? accepts exactly one argument, so first and last are the same"
+
+  i.mutation "51ecbca80e966840",
+             subject: "Saboteur::SubjectFinder#walk_call",
+             reason: "equivalent: sig_span: nil restates the keyword default in Subject#initialize"
+
+  i.mutation "51495f10ee14f096",
+             subject: "Saboteur::SubjectFinder#walk",
+             reason: "equivalent: each vs map on a side-effect-only fallback walk loop; the collected array is discarded"
 end

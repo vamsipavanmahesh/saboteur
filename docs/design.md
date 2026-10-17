@@ -41,9 +41,15 @@ config + CLI
   predates 1.0, so the gemspec depends on the prism gem `>= 1.2, < 2`.
 - Subject = one `DefNode`: instance methods and `def self.x`. Methods inside
   `class << self` count as singleton methods of the enclosing class.
+- `define_method(:m) { ... }` with a literal name and a block is a subject
+  too (#194): the block body is the method body, and re-evaluating the whole
+  call redefines the method on the enclosing owner. A computed name, an
+  explicit receiver, a lambda argument, or no block cannot be named, and a
+  call in a block whose owner is unknown stays skipped ("defined inside a
+  block").
 - Subject id: `Outer::Klass#meth` or `Outer::Klass.meth`, from the lexical
   nesting Prism reports (ModuleNode / ClassNode / SingletonClassNode chain).
-- Skipped in v1: `define_method`, DSL calls in a class body, constants, code
+- Skipped in v1: DSL calls in a class body, constants, code
   that runs when the class body loads, `def` nested in another `def`, methods
   defined inside blocks (e.g. `Class.new do ... end`, `included do ... end`),
   and `def` in a file with no enclosing class/module (top-level `Object` methods).

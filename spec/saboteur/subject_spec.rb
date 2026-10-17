@@ -11,6 +11,14 @@ RSpec.describe Saboteur::Subject do
     Saboteur::MutationSource::Edit.new(file:, start_byte:, end_byte:, replacement:)
   end
 
+  it "takes the body from the block for a define_method subject, from the def otherwise (#194)" do
+    dm = subjects_in("class A\n  define_method(:m) { |x| x * 2 }\nend\n").first
+    expect(dm.body_node).to be_a(Prism::StatementsNode)
+    expect(dm.body_node.location.slice).to eq("x * 2")
+    expect(subject_under_test.body_node).to be_a(Prism::StatementsNode)
+    expect(subject_under_test.body_node.location.slice).to eq("x >= 1")
+  end
+
   it "applies byte-range edits to the method text only" do
     at = source.index(">=")
     expect(subject_under_test.apply([edit(at, at + 2, ">")])).to eq("def m(x)\n    x > 1\n  end")

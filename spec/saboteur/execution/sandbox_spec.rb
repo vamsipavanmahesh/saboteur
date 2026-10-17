@@ -16,7 +16,12 @@ RSpec.describe Saboteur::Execution::Sandbox do
   # The probe only runs on Linux (linux? gate); stub the platform so these
   # examples exercise it on macOS and BSD too (stub the predicate abi_version consults).
   context "probing the kernel as on Linux" do
-    before { allow(described_class).to receive(:linux?).and_return(true) }
+    before do
+      allow(described_class).to receive(:linux?).and_return(true)
+      # abi_version pre-builds the errno reader; stub it so these examples
+      # stay platform-independent (the real build needs a glibc symbol).
+      allow(described_class::LibC).to receive(:errno_location_fn).and_return(double("errno_location"))
+    end
 
     it "probes the kernel ABI with the create-ruleset version flag" do
       syscall = double("syscall", call: 2)
@@ -29,11 +34,15 @@ RSpec.describe Saboteur::Execution::Sandbox do
     end
 
     it "reports ABI 0 when the kernel has no Landlock (ENOSYS)" do
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
+      syscall = double("syscall", call: -1)
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
       allow(described_class).to receive(:last_errno).and_return(Errno::ENOSYS::Errno)
       reset_abi_memo
       expect(described_class.abi_version).to eq(0)
       expect(described_class.available?).to be(false)
+      # A real errno answers the probe: the retry is only for the clobbered
+      # (failure, errno 0) pair, so the kernel is asked exactly once.
+      expect(syscall).to have_received(:call).once
       reset_abi_memo
     end
 
@@ -50,6 +59,57 @@ RSpec.describe Saboteur::Execution::Sandbox do
       allow(described_class).to receive(:last_errno).and_return(Errno::EPERM::Errno)
       reset_abi_memo
       expect { described_class.abi_version }.to raise_error(SystemCallError, /landlock_create_ruleset probe/)
+      reset_abi_memo
+    end
+
+    it "retries the probe once when a failure return pairs with errno 0 (a clobbered read)" do
+      # A failed syscall always sets errno, so (-1, 0) is never the kernel's
+      # real answer: something ran between the call and the read.
+      syscall = double("syscall", call: -1)
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
+      allow(described_class).to receive(:last_errno).and_return(0, Errno::EOPNOTSUPP::Errno)
+      reset_abi_memo
+      expect(described_class.abi_version).to eq(0)
+      expect(syscall).to have_received(:call).twice
+      reset_abi_memo
+    end
+
+    it "still fails closed when the retry also reads errno 0" do
+      syscall = double("syscall", call: -1)
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
+      allow(described_class).to receive(:last_errno).and_return(0)
+      reset_abi_memo
+      expect { described_class.abi_version }.to raise_error(SystemCallError, /landlock_create_ruleset probe/)
+      expect(syscall).to have_received(:call).twice
+      reset_abi_memo
+    end
+
+    it "does not retry a consistent answer" do
+      syscall = double("syscall", call: 2)
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
+      allow(described_class).to receive(:last_errno).and_return(0)
+      reset_abi_memo
+      expect(described_class.abi_version).to eq(2)
+      expect(syscall).to have_received(:call).once
+      reset_abi_memo
+    end
+
+    it "builds the errno reader before the probe so its lazy dlopen cannot clobber errno" do
+      order = []
+      allow(described_class::LibC).to receive(:errno_location_fn) do
+        order << :errno_reader
+        double("errno_location")
+      end
+      syscall = double("syscall")
+      allow(syscall).to receive(:call) do
+        order << :syscall
+        2
+      end
+      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
+      allow(described_class).to receive(:last_errno).and_return(0)
+      reset_abi_memo
+      described_class.abi_version
+      expect(order).to eq(%i[errno_reader syscall])
       reset_abi_memo
     end
   end
@@ -100,6 +160,18 @@ RSpec.describe Saboteur::Execution::Sandbox do
     expect(calls.last).to eq([446, 5, 0, 0, 0])
     expect(calls.select { |args| args.first == 445 }.size).to eq(3)
   ensure
+    reset_abi_memo
+  end
+
+  it "never probes the kernel off Linux" do
+    # The guard must answer ABI 0 without touching libc: off Linux the
+    # syscall number means something else entirely (on Darwin 444 is
+    # change_fdguard_np), so probing there can never be treated as ENOSYS.
+    allow(described_class).to receive(:linux?).and_return(false)
+    expect(described_class::LibC).not_to receive(:syscall_fn)
+    expect(described_class::LibC).not_to receive(:errno_location_fn)
+    reset_abi_memo
+    expect(described_class.abi_version).to eq(0)
     reset_abi_memo
   end
 
