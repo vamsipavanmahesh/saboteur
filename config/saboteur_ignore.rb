@@ -3,6 +3,15 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "8387aa82e7a9b074",
+             subject: "Saboteur::Engine::TestGuess#expand_mapped",
+             reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
+                     "sees existing literals without glob metacharacters, and Dir.glob of such a path returns exactly it"
+
+  i.mutation "bb377adb7ae9ce54",
+             subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
+             reason: "equivalent: each returns the receiver and join(', ') stringifies via Subject#to_s (the id), " \
+                     "so the note reads identically to map(&:id)"
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
@@ -217,6 +226,10 @@ Saboteur.ignore do |i|
   i.mutation "b3fd9ed8d22fac26",
              subject: "Saboteur::Engine::SubjectSelection#report_unchanged_syntax",
              reason: "equivalent: Subject#to_s is its id, and the block's return value is only joined, so map and each read the same"
+
+  i.mutation "ef5c88b04ed4987a",
+             subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
+             reason: "equivalent: Subject#to_s is its id, so joining subjects reads the same as joining their ids"
 
   i.mutation "460c99badd064fe9",
              subject: "Saboteur::Frameworks::Rails#sqlite_absolute",
@@ -713,4 +726,12 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "d689ef2e6305183f",
+             subject: "Saboteur::SubjectFinder#owner_path",
+             reason: "equivalent: nesting[index..] adds only the sclass scope itself to the any?(&:factory?) check, and a scope's kind is either :sclass or :factory, never both"
+
+  i.mutation "70a77934c3856a1e",
+             subject: "Saboteur::SubjectFinder#owner_path",
+             reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
 end

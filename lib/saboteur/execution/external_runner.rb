@@ -50,6 +50,11 @@ module Saboteur
       # saboteur cannot mutate the copy mid-run.
       CHILD_MARKER = "SABOTEUR_EXTERNAL_CHILD"
 
+      # Bundler env anchors a child command must never inherit (#435).
+      BUNDLER_ANCHOR_KEYS = %w[
+        BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLER_SETUP BUNDLER_VERSION BUNDLE_APP_CONFIG
+      ].freeze
+
       # Bounded capture: only the last bytes of combined output are kept,
       # for preflight and error messages.
       OUTPUT_LIMIT = 64 * 1024
@@ -200,7 +205,10 @@ module Saboteur
       # absolute or `..` traversal - is refused, never joined onto the copy
       # (#305 QA).
       def relative(subject)
-        expanded = File.expand_path(subject.file)
+        # realpath like the root: macOS tmp is /var symlinked to /private/var,
+        # so a spelled subject path must canonicalize before the containment
+        # check or every run is refused as outside the root (#442).
+        expanded = File.realpath(subject.file)
         prefix = "#{@root}/"
         raise Error, "the subject file is outside the project root: #{subject.file}" unless expanded.start_with?(prefix)
 
@@ -259,10 +267,30 @@ module Saboteur
       end
 
       def spawn_shell
-        Process.spawn({ CHILD_MARKER => "1" }, ["/bin/sh", "sh"], "-c", @command, chdir: @copy_root,
-                                                                                  pgroup: true,
-                                                                                  out: @capture_writer,
-                                                                                  err: @capture_writer)
+        Process.spawn(child_env, ["/bin/sh", "sh"], "-c", @command, chdir: @copy_root,
+                                                                    pgroup: true,
+                                                                    out: @capture_writer,
+                                                                    err: @capture_writer,
+                                                                    unsetenv_others: true)
+      end
+
+      # A `bundle exec saboteur` parent - or a shell with BUNDLE_GEMFILE
+      # exported - anchors the child command's bundler to the REAL tree:
+      # the child resolves the project gem from the unmutated checkout, the
+      # mutant is never exercised and every mutant survives (#435). The
+      # copy carries its own Gemfile, so the child's bundler must resolve
+      # from @copy_root instead: hand the child the unbundled environment
+      # and drop the anchor keys outright (they can also sit in Bundler's
+      # ORIGINAL_ENV and survive with_unbundled_env). RUBYOPT/RUBYLIB keep
+      # their non-bundler parts; everything else passes through unchanged.
+      def child_env
+        env = defined?(Bundler) ? Bundler.with_unbundled_env { ENV.to_h } : ENV.to_h
+        BUNDLER_ANCHOR_KEYS.each { |key| env.delete(key) }
+        if (rubyopt = env["RUBYOPT"])
+          rubyopt = rubyopt.gsub(%r{\s*-rbundler/setup}, "").strip
+          rubyopt.empty? ? env.delete("RUBYOPT") : env["RUBYOPT"] = rubyopt
+        end
+        env.merge(CHILD_MARKER => "1")
       end
 
       def await_exit(pid, timeout)
