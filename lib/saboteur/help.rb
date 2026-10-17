@@ -99,7 +99,8 @@ module Saboteur
         summary: "Check the environment, and with --suite run the baseline twice, without mutating anything",
         description: "Boots the target like a run and checks runtime, coverage and boot files. With --suite " \
                      "it also runs your suite twice in the same order with one seed and reports whether both " \
-                     "runs passed; --test PATH limits those runs to some specs. It never mutates anything.",
+                     "runs passed; --test PATH limits those runs to some specs. It never mutates anything. " \
+                     "It certifies no versions of Rails, databases or tools saboteur never invokes (#318).",
         takes_options: true,
         exit_codes: DOCTOR_EXIT_CODE_MEANINGS,
         examples: [["Check the setup before the first run", "saboteur doctor"],

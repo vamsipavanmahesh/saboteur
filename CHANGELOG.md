@@ -52,6 +52,12 @@ All notable changes are documented here. The format follows
   symlink targets are judged against it (/var vs /private/var) (#305).
 
 ### Added
+- `saboteur doctor` now documents its version scope (#318): it certifies no
+  versions of Rails, databases or application tools saboteur never invokes.
+  A mismatched tool the suite loads still surfaces through the boot check's
+  LoadError or the baseline refusal with the tool's own output; a narrower
+  doctor check first needs the tool name, the expected and actual versions
+  and the failure output, recorded on the issue.
 - `--test-command CMD` / `c.test_command`: run an external command per
   mutant and take its exit status as the verdict - for apps that cannot
   load inside saboteur's Ruby. Serial, no coverage, unsandboxed. Mutants
