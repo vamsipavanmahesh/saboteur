@@ -13,7 +13,7 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine, "test selection" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   around do |example|
@@ -59,16 +59,18 @@ RSpec.describe Saboteur::Engine, "test selection" do
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false)
     allow(store).to receive(:fetch).and_return(map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
-    distribution = instance_double(Saboteur::Engine::Distribution, run: [], unreached: [], truncated: [],
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, run: [], unreached: [],
+                                                                   truncated: [],
                                                                    unverified: [])
     allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
   end
 
-  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {}, excluded: [])
+  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {}, out_of_scope: [],
+            excluded: [])
     hints = unmatched.to_h { |file| [file, "spec/#{File.basename(file, '.rb')}_spec.rb"] }
     result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:,
-                                                     changed_specs:, skipped_specs:, excluded:)
+                                                     changed_specs:, skipped_specs:, out_of_scope:, excluded:)
     allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
                                                                                    call: result, call_for: result))
   end
@@ -82,6 +84,20 @@ RSpec.describe Saboteur::Engine, "test selection" do
       @scoped_config = arguments[:config]
     end
     used
+  end
+
+  it "carries the distribution's memory report into the run report (#202)" do
+    stub_boot_phase
+    stub_test_phases
+    memory = { workers: [{ worker: 0, peakMb: 12.1 }], supervisorPeakMb: 30.5 }
+    distribution = instance_double(Saboteur::Engine::Distribution, memory_report: memory, run: [], unreached: [],
+                                                                   truncated: [], unverified: [])
+    allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
+    guess(specs: %w[spec/a_spec.rb], unmatched: [], changed: 1)
+    @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2, "since" => "origin/main" }, root: @root),
+                                  err: err)
+    @report = @engine.call
+    expect(@report.memory).to eq(memory)
   end
 
   it "warns about the unscoped suite before the baseline passes start" do
@@ -207,13 +223,47 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(@engine.config.explicit?("tests")).to be(true)
     end
 
-    it "stops before boot when a changed file has no spec named after it" do
+    # One unmapped changed file must not zero the run: the mapped subset
+    # runs and each unmapped file gets a loud warning (#370).
+    it "runs the mapped subset with a loud warning per unmapped file" do
       guess(specs: ["spec/a_spec.rb"], unmatched: %w[lib/b.rb lib/c.rb], changed: 3)
-      message = "no spec found for lib/b.rb (expected spec/b_spec.rb), lib/c.rb (expected spec/c_spec.rb), " \
-                "so nothing ran. Re-run the same command with one --test per existing spec path, " \
-                "or append --all to use the whole suite without changing the source scope."
-      expect { run_engine("since" => "origin/main") }.to raise_error(Saboteur::ConfigError, message)
-      expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
+      used = tests_the_run_used { run_engine("since" => "origin/main") }
+      expect(used).to eq(["spec/a_spec.rb"])
+      expect(err.string).to include("inferred specs: no spec found for lib/b.rb (expected spec/b_spec.rb)")
+        .and include("inferred specs: no spec found for lib/c.rb (expected spec/c_spec.rb)")
+      expect(err.string).to include("lib/b.rb (expected spec/b_spec.rb); its mutants run only " \
+                                    "against the inferred specs and a line they miss is reported as NoCoverage")
+    end
+
+    # A threshold or mutant-count gate judges the score, and a partial
+    # mapping silently narrows what the score covers: keep the hard stop
+    # so a gated run cannot green-light an unverifiable change (#370).
+    it "stops on a partial mapping when a threshold is configured" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine("since" => "origin/main", "threshold" => 100) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    it "stops on a partial mapping when a mutant-count gate is configured" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine("since" => "origin/main", "max_errors" => 0) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    # The partial-mapping mercy is scoped to --since: a named --subject
+    # without a conventional spec still stops the run before boot (#370).
+    it "still stops a --subject run on an unmapped named subject" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      allow(Saboteur::Engine::SubjectSelection).to receive(:files_matching).and_return(%w[lib/a.rb lib/b.rb])
+      expect { run_engine("subjects" => ["A#a", "B#b"]) }
+        .to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
+    end
+
+    # The partial-mapping mercy is scoped to --since: a full run keeps the
+    # hard stop even when other changed files have specs (#370).
+    it "stops a full run on a partial mapping even when other files have specs" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2)
+      expect { run_engine({}) }.to raise_error(Saboteur::ConfigError, %r{no spec found for lib/b\.rb})
     end
 
     it "stops before boot when no changed file has a spec" do
@@ -298,6 +348,30 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(used).to eq(["spec/a_spec.rb"])
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
       expect(err.string).to include("no spec is required for lib/errors.rb")
+    end
+
+    it "stops and names changed source files outside the include scope (#483)" do
+      guess(specs: [], unmatched: [], changed: 0, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "origin/main") }
+        .to raise_error(Saboteur::ConfigError,
+                        %r{no changed source file lies inside the include scope.*engines/billing/lib/billing\.rb}m)
+      expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
+    end
+
+    it "does not stop when an included file changed even if out-of-scope files are listed (#483)" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: [], changed: 1, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "origin/main") }.not_to raise_error
+      expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
+    end
+
+    it "points at include and --test, never a reconstructed command carrying the ref" do
+      guess(specs: [], unmatched: [], changed: 0, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "weird ref;$(rm -rf)") }
+        .to raise_error(Saboteur::ConfigError) do |error|
+        expect(error.message).not_to include("weird ref")
+        expect(error.message).to include("Extend include to cover them")
+        expect(error.message).to include("one --test per existing spec path")
+      end
     end
 
     it "runs the whole suite when nothing changed" do

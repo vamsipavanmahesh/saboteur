@@ -22,7 +22,11 @@ module Saboteur
       "integration" => "rspec",
       "require" => [],
       "include" => ["lib/**/*.rb"],
-      "exclude" => [],
+      # Spec and test files vendored under lib/ (capybara ships its driver
+      # suite at lib/capybara/spec/**) are never mutation subjects (#504).
+      # A config's own c.exclude replaces this list wholesale.
+      "exclude" => ["lib/**/spec/**/*", "lib/**/test/**/*", "lib/**/tests/**/*",
+                    "lib/**/*_spec.rb", "lib/**/*_test.rb", "lib/**/test_*.rb"],
       "arid" => MutationSource::Builtin::DEFAULT_ARID,
       "whole_file" => [],
       # [{ "pattern" => "app/payments/**/*", "min_score" => 95.0 }], from
@@ -31,7 +35,9 @@ module Saboteur
       "score_gates" => [],
       "hazard" => MutationSource::HazardGuard::DEFAULT_HAZARD,
       "allow_hazardous" => false,
-      "sandbox" => true, # true, false, or "strict": strict refuses to run without full Landlock
+      # true, false, "strict" or "seatbelt": strict refuses to run without full Landlock;
+      # seatbelt opts into the macOS Seatbelt sandbox (on Linux it behaves like true).
+      "sandbox" => true,
       "sandbox_writable" => [],
       "timeout_factor" => 3.0,
       "timeout_min" => 5.0,
@@ -173,6 +179,11 @@ module Saboteur
     # an exclude that silently stops excluding is a hazard, so say so.
     def unmatched_patterns
       %w[include exclude].flat_map do |key|
+        # The default exclude shields (#504) match nothing on a healthy
+        # project - that is their job - so only a configured exclude can go
+        # stale enough to warn about.
+        next [] if key == "exclude" && !explicit?("exclude")
+
         self[key].select { |pattern| Dir.glob(pattern, base: root).empty? }.map { |pattern| "#{key}: #{pattern}" }
       end
     end
@@ -335,8 +346,8 @@ module Saboteur
 
     def validate!
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
-      unless [true, false, "strict"].include?(self["sandbox"])
-        raise ConfigError, 'sandbox must be true, false, or "strict"'
+      unless [true, false, "strict", "seatbelt"].include?(self["sandbox"])
+        raise ConfigError, 'sandbox must be true, false, "strict", or "seatbelt"'
       end
 
       validate_mutant_limit!

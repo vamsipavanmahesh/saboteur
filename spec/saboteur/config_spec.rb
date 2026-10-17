@@ -254,6 +254,48 @@ RSpec.describe Saboteur::Config do
     expect(config.unmatched_patterns).to eq(["include: app/**/*.rb", "exclude: lib/moved.rb"])
   end
 
+  it "excludes spec and test files vendored under lib/ from the default scope (#504)" do
+    write("lib/calc.rb", "")
+    write("lib/capybara/spec/session/node_spec.rb", "")
+    write("lib/capybara/spec/helper.rb", "")
+    write("lib/foo/test/bar_test.rb", "")
+    write("lib/foo/tests/baz.rb", "")
+    write("lib/foo/test_helper.rb", "")
+    config = described_class.new({}, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "calc.rb")])
+  end
+
+  it "treats a configured exclude as replacing the default vendored-spec shields (#504)" do
+    write("lib/a.rb", "")
+    write("lib/legacy/suite_spec.rb", "")
+    config = described_class.new({ "exclude" => ["lib/a.rb"] }, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "legacy", "suite_spec.rb")])
+  end
+
+  it "does not warn about the default shields matching nothing, only about configured excludes" do
+    write("lib/a.rb", "")
+    config = described_class.new({}, root: @root)
+    expect(config.unmatched_patterns).to eq([])
+  end
+
+  # The implicit-vs-explicit pair that pins the guard on its own (#567
+  # dogfood survivors): an implicit default exclude that matches nothing
+  # stays silent, while an explicit one is named.
+  it "warns on an explicit exclude that matches nothing but not on the implicit defaults" do
+    write("lib/a.rb", "")
+    implicit = described_class.new({}, root: @root)
+    expect(implicit.unmatched_patterns.grep(/^exclude:/)).to eq([])
+
+    explicit = described_class.new({ "exclude" => ["lib/gone.rb"] }, root: @root)
+    expect(explicit.unmatched_patterns).to eq(["exclude: lib/gone.rb"])
+
+    # An explicit include with an implicit exclude: the include is still
+    # checked - the guard must only silence the implicit exclude, never
+    # the include side.
+    mixed = described_class.new({ "include" => ["app/**/*.rb"] }, root: @root)
+    expect(mixed.unmatched_patterns).to eq(["include: app/**/*.rb"])
+  end
+
   it "rejects unknown keys, bad values and bad arid patterns" do
     expect { described_class.new({ "timeout" => 1 }) }.to raise_error(Saboteur::Error, /unknown config key/)
     expect { described_class.new({ "jobs" => "many" }) }.to raise_error(Saboteur::Error, /invalid config value/)

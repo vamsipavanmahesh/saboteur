@@ -32,7 +32,8 @@ module Saboteur
         "condition_negation" => "x ? a : b -> !(x) ? a : b",
         "method_swap" => "xs.min -> xs.max",
         "operand_replacement" => "a + b -> a",
-        "interpolation_removal" => "\"hi \#{name}\" -> \"hi \""
+        "interpolation_removal" => "\"hi \#{name}\" -> \"hi \"",
+        "regex_replacement" => "/\\A\\d+\\z/ -> /\\d+\\z/"
       }.freeze
     end
   end
