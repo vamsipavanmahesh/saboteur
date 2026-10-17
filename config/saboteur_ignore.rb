@@ -773,4 +773,15 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
+  i.mutation "d774d9400d9f0aa8",
+             subject: "Saboteur::Engine::ResultCache#hash_dependency_inputs",
+             reason: "equivalent: the block's digest-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "b61a13a92e68bd24",
+             subject: "Saboteur::Engine::ResultCache#dependency_files",
+             reason: "equivalent: dropping the slash from the stripped prefix only adds a leading empty element " \
+                     "to the split parts, and no excluded directory name is empty, so the exclusion verdict is " \
+                     "identical for every path (probed against the full result_cache specs, no divergence)"
+
 end
