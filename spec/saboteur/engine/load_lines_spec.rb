@@ -64,6 +64,13 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     expect(Saboteur::Engine::LoadCoverage.capture([file])).to eq([{}, {}])
   end
 
+  it "dedupes a def line shared by two called one-line methods" do
+    file = File.realpath(__FILE__)
+    methods = { [Object, :one, 3, 0, 3, 20] => 1, [Object, :two, 3, 22, 3, 40] => 1 }
+    allow(fake_coverage).to receive(:result).and_return(file => { lines: [], methods: methods })
+    expect(Saboteur::Engine::LoadCoverage.capture([file])).to eq([{}, { file => [3] }])
+  end
+
   it "boots before selecting files and returns the captured load lines and methods" do
     boot = double("boot")
     integration = double("integration")
