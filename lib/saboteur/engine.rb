@@ -7,6 +7,7 @@ require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
+require_relative "engine/unmapped_files"
 require_relative "engine/run_budget"
 require_relative "engine/thread_warnings"
 
@@ -18,6 +19,7 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     include EarlyStopRecording
+    include UnmappedFiles
     include RunBudget
 
     # Everything besides sources and tests that can change a verdict.
@@ -117,9 +119,7 @@ module Saboteur
 
       guess = test_guess.call
       @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
-      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      inform_skipped_specs(guess)
-      stop_or_warn_unmapped(guess)
+      report_unmapped(guess)
 
       @diagnostics.announce(selection_message(guess))
     end
@@ -146,16 +146,6 @@ module Saboteur
       return if guess.specs.empty?
 
       @diagnostics.announce(scope_to_guesses(guess))
-    end
-
-    # A --since run with a partial mapping runs the mapped subset with a
-    # loud warning per unmapped file (#370); a full run and a zero guess
-    # keep the hard stop.
-    def stop_or_warn_unmapped(guess)
-      return if guess.unmatched.empty?
-      raise ConfigError, guess.unmatched_message if !config["since"] || guess.specs.empty?
-
-      guess.unmatched.each { |file| @diagnostics.announce(guess.unmatched_warning(file)) }
     end
 
     # A spec file the diff touched that cannot run is named, also before a
