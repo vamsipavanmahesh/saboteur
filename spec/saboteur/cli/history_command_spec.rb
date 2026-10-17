@@ -199,6 +199,28 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
                            "operator policy or an incomplete run)\n")
   end
 
+  it "trend never diffs against a zero-tested previous record that shares the current digests (#526)" do
+    # Mirror of the zero-tested-current pin: here the OLDER record has a nil
+    # coveredScore with the newer record's digests, so comparable? pairs
+    # them - dropping the previous coveredScore guard turns the delta
+    # subtraction into a NoMethodError crash.
+    append(result_for(:survived))
+    current = history_records.last
+    zero_tested = current.merge(
+      "counts" => current["counts"].transform_values { 0 },
+      "breakdown" => current["breakdown"].merge("score" => nil, "tested" => 0, "assertionKills" => 0,
+                                                "crashKills" => 0, "unclassifiedKills" => 0, "timeouts" => 0,
+                                                "survivors" => 0, "assertionShare" => nil, "crashShare" => nil),
+      "score" => 0.0, "coveredScore" => nil, "incomplete" => []
+    )
+    Saboteur::Reporter::HistoryRecord.validate(zero_tested)
+    File.write(@history, "#{JSON.generate(zero_tested)}\n#{JSON.generate(current)}\n")
+    code, out, = cli("trend", "--history", @history)
+    expect(code).to eq(0)
+    expect(out).to include("score history: no comparable earlier record (different selection/inventory, " \
+                           "operator policy or an incomplete run)\n")
+  end
+
   it "trend does not diff a complete record that has no tested mutants" do
     append(result_for(:survived))
     append
