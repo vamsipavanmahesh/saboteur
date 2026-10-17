@@ -25,7 +25,7 @@ module Saboteur
 
       def start
         Coverage.resume if Coverage.state == :suspended
-        Coverage.result(stop: false, clear: true)
+        CoverageReads.result(stop: false, clear: true)
       end
 
       def test_started(id, test_file)
@@ -106,7 +106,7 @@ module Saboteur
       # Coverage is suspended while the delta is processed, so the recorder's
       # own work (and anything it calls) is never attributed to a test.
       def each_hit
-        snapshot = Coverage.result(stop: false, clear: true)
+        snapshot = CoverageReads.result(stop: false, clear: true)
         suspended = Coverage.running?
         Coverage.suspend if suspended
         snapshot.each do |path, data|
