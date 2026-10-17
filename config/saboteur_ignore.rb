@@ -944,6 +944,11 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
+  i.mutation "b1adadf512cb59eb",
+             subject: "Saboteur::Reporter::Terminal#status_line",
+             reason: "equivalent: rejected is a count (never negative) and the line is reached only when " \
+                     "rejected.positive?, so rejected > 1 and rejected != 1 agree on every reachable value"
+
   i.mutation "8bfe1be557e2b75f",
              subject: "Saboteur::Selection::DependencyShield#bundler_path",
              reason: "equivalent: an empty value expands to the project root (File.expand_path(\"\", base)), " \
