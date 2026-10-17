@@ -6,7 +6,9 @@ require "pathname"
 module Saboteur
   class Engine
     # The specs that sit next to the mutated source files by
-    # naming convention (lib/a/b.rb -> spec/a/b_spec.rb). A guess, not a
+    # naming convention (lib/a/b.rb -> spec/a/b_spec.rb), or the explicit
+    # mapping from config/saboteur_custom_map.rb for layouts the convention
+    # cannot guess (#369). A guess, not a
     # coverage fact: a spec that only reaches the file through another one
     # is not found. Packwerk packs (a directory with a package.yml) map to the
     # spec directory inside the same pack, and controllers also map to request
@@ -23,8 +25,8 @@ module Saboteur
       # in specs; skipped_specs: spec files the diff touches that cannot run,
       # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
-                           :skipped_specs) do
-        def initialize(changed_specs: [], skipped_specs: {}, **fields)
+                           :skipped_specs, :excluded) do
+        def initialize(changed_specs: [], skipped_specs: {}, excluded: [], **fields)
           super
         end
 
@@ -41,7 +43,7 @@ module Saboteur
           end
           changed = changed_specs.any? ? " Specs the diff adds or changes: #{changed_specs.join(', ')}." : ""
           "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
-            "--test followed by your existing spec paths, or append --all to use the whole suite without " \
+            "one --test per existing spec path, or append --all to use the whole suite without " \
             "changing the source scope."
         end
 
@@ -55,6 +57,25 @@ module Saboteur
         def subjectless_message(since:)
           detail = since ? "no changed mutation subjects" : "no mutation subjects"
           "inferred specs: no spec is required for #{subjectless.join(', ')}: they have #{detail}"
+        end
+
+        # Why an empty guess mutates nothing rather than widening the run
+        # to the whole suite (#369).
+        def no_specs_message(since:)
+          return "#{excluded_message}, so there is nothing to mutate" if excluded.any?
+
+          if since
+            "inferred specs: no changed file has a mutation subject on its changed lines, " \
+              "so there is nothing to mutate"
+          else
+            "inferred specs: no source file has a mutation subject, so there is nothing to mutate"
+          end
+        end
+
+        # Why the custom-map-excluded files needed no spec (#369).
+        def excluded_message
+          "inferred specs: no spec is required for #{excluded.join(', ')}: " \
+            "intentionally untested in config/saboteur_custom_map.rb"
         end
 
         # The warning for a guess-scoped run: the guessed specs now stand as
@@ -76,12 +97,13 @@ module Saboteur
                       "leaves it out"
       NOT_REGULAR = "not a regular file"
 
-      def initialize(config, diagnostics: nil)
+      def initialize(config, diagnostics: nil, custom_map: nil)
         @diagnostics = diagnostics
         # Retagged losslessly like Config#root, so a join with a UTF-8 git
         # path never mixes encodings whatever the locale tagged it with.
         @root = Text.utf8_identity(File.realpath(config.root))
         @config = config
+        @custom_map = custom_map || CustomMap.load(config.path("custom_map"), root: config.root)
       end
 
       def call
@@ -159,8 +181,9 @@ module Saboteur
       # Changed specs join only a run that mutates something: with no file
       # in scope there is nothing for them to kill.
       def result(guesses, subjectless, changed)
-        unmatched = guesses.select { |_, spec| spec.nil? }.keys
-        inferred = guesses.values.compact
+        unmatched = guesses.select { |_, specs| specs.nil? }.keys
+        excluded = guesses.select { |_, specs| specs == :excluded }.keys.sort
+        inferred = guesses.values.grep(Array).flatten
         diff = @config["since"] && guesses.any? ? specs_in_diff(inferred) : { run: [], skipped: {} }
         Result.new(specs: (inferred + diff[:run]).uniq.sort,
                    unmatched: unmatched,
@@ -168,7 +191,8 @@ module Saboteur
                    changed: changed,
                    hints: unmatched.to_h { |file| [file, expected_spec(file, diff[:skipped])] },
                    changed_specs: diff[:run],
-                   skipped_specs: diff[:skipped])
+                   skipped_specs: diff[:skipped],
+                   excluded: excluded)
       end
 
       # Spec files under the root that the diff since the base adds, changes
@@ -281,8 +305,39 @@ module Saboteur
         finder.call(path).subjects + constant_finder.call(path).subjects
       end
 
+      # The custom map wins over the naming convention: it exists for the
+      # layouts the convention cannot guess (#369). Its entries come back as
+      # an array of spec paths, or :excluded for a file the map marks
+      # intentionally untested - such a file needs no guessed spec, so it is
+      # neither unmatched nor given one. Returns the guessed spec paths, nil
+      # when neither the map nor the convention names an existing spec.
       def guess_for(file)
-        candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
+        mapped = @custom_map.specs_for(file)
+        return :excluded if mapped == :excluded
+        return expand_mapped(file, mapped) if mapped
+
+        conventional = candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
+        conventional && [conventional]
+      end
+
+      # A mapped spec can be a glob (expanded against the root) or a regexp
+      # backreference filled at match time, and neither is validated to
+      # exist when the map loads. Only specs that exist run; the literal
+      # glob string never reaches RSpec. When the winning entry's specs all
+      # vanish the mapping is broken: stop naming it rather than silently
+      # guessing on and running the wrong specs (#369).
+      def expand_mapped(file, specs)
+        expanded = specs.flat_map do |spec|
+          if spec.match?(/[*?\[{]/)
+            Dir.glob(File.join(@root, spec)).map { |path| path.delete_prefix("#{@root}/") }
+          else
+            [spec]
+          end
+        end
+        expanded = expanded.select { |path| File.file?(File.join(@root, path)) }
+        return expanded unless expanded.empty?
+
+        raise ConfigError, "custom map entry for #{file} names spec(s) #{specs.join(', ')}, which match no file"
       end
 
       # Candidate specs for a source file, most specific first: the nearest
@@ -298,7 +353,25 @@ module Saboteur
         rooted = rest.size == 2 && SOURCE_ROOTS.include?(rest.first)
         names = rooted ? [rest.last, "lib/#{rest.last}", stem] : [stem]
         names = names.flat_map { |name| [name, *request_names(name)] }.uniq
+        # A dashed gem name keeps dashes under lib/ but its specs live under
+        # the underscored require name: lib/acts-as-taggable-on/x.rb tests in
+        # spec/acts_as_taggable_on/x_spec.rb. The literal name still wins
+        # when both exist (#383).
+        names = names.flat_map { |name| [name, name.tr("-", "_")] }.uniq
+        names = layout_variants(names) if rooted
         names.map { |name| "#{spec_root}/#{name}_spec.rb" }
+      end
+
+      # Layouts that mirror less of the source path, after every mirrored
+      # guess (#394): a spec/unit/ prefix (shoulda-matchers mirrors below
+      # it, #393), the basename at the spec root (pundit), and both
+      # together (aasm, #370). Weaker guesses come last: the first
+      # candidate that exists wins. A file outside the source roots
+      # keeps its literal guess only: dropping directories from a path
+      # the roots never anchored would guess any same-named spec.
+      def layout_variants(names)
+        flat = names.map { |name| name.split("/").last }.uniq
+        (names + names.map { |name| "unit/#{name}" } + flat + flat.map { |name| "unit/#{name}" }).uniq
       end
 
       # Rails tests controllers as request specs: spec/requests/users_spec.rb

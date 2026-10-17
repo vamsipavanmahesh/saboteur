@@ -8,6 +8,48 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A factory assigned inside `class << self` now keeps its own scope in the
+  owner path, so a constant defined there is named after the factory's
+  singleton: `Host::W.singleton_class::V#n`. An outer factory with no
+  `class << self` of its own still opens no scope, even when a `class <<
+  self` encloses it (#438).
+
+- A class factory assigned inside `class << self` no longer shares its
+  method ids with a same-named factory in the class body (#406). The two
+  unrelated classes each keep their own subjects: the singleton-side one is
+  now named `Host.singleton_class::Widget#doubled`, so reports, `--subject`
+  filters, ignore entries and the unchanged-syntax comparison can name it.
+- `--test-command` no longer inherits bundler anchors (`BUNDLE_GEMFILE`,
+  `BUNDLE_BIN_PATH`, `BUNDLER_SETUP`, ...) from a `bundle exec` parent or
+  an exported shell environment (#435). The anchored child resolved the
+  project gem from the real tree, never exercised the mutated copy, and
+  reported every mutant Survived; the child now gets the unbundled
+  environment and resolves its Gemfile from the mutated copy.
+- Test selection consults `config/saboteur_custom_map.rb` again (#369).
+  The map is the documented escape hatch for layouts the naming guess
+  cannot match, but guess-tests never called it, so a mapped file still
+  stopped the run as unmatched. A matching entry now wins over the naming
+  convention, its specs run as the inferred ones, and an empty entry marks
+  the file intentionally untested so it needs no inferred spec. The map is
+  now documented in the README. Mapped spec values that are globs are
+  expanded against the project root (the literal glob string never
+  reached RSpec), a winning entry whose specs match no file stops the
+  run with a config error naming the entry, and an empty entry's file
+  is dropped from mutation with a named diagnostic instead of running
+  the whole suite (#369 review).
+
+- The marker sweep no longer kills a marked process it cannot identify
+  (#389). A process that started before the run's root carries the marker
+  only through an exec chain the run did not spawn, so it is left alone,
+  and an escapee is signalled only when a fresh snapshot shows the same
+  pid still owned by the same start time, so a recycled pid is never
+  killed by mistake.
+- The spec-name guess now tries the underscored require name of a dashed
+  path: `lib/acts-as-taggable-on/x.rb` finds
+  `spec/acts_as_taggable_on/x_spec.rb` (and the `spec/lib/` form) instead
+  of stopping on an unmatched file (#383). The literal dashed name still
+  wins when both exist.
+
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
   class, so re-evaluation now resolves a factory constant after a sclass
@@ -35,6 +77,13 @@ All notable changes are documented here. The format follows
   that was not typed on the command line (#317): the config the command
   reads again supplies the same empty list. A typed empty list stays, since
   it may clear a configured value, and non-empty lists stay as before.
+- `--since` no longer treats a line whose only change is layout as
+  changed (#313). Wrapping existing statements in a block used to put
+  every re-indented statement in scope; now only the new block lines and
+  real edits get line-level mutants. A line is layout-only when
+  `git diff -b` pairs it with a base line and Prism lexes both to the
+  same tokens, so whitespace inside strings, heredocs and regexps, and a
+  moved `__LINE__`, still count as changes.
 - `--since` runs every spec file the diff adds or changes next to the
   inferred specs (#307). A request or controller spec whose name maps to no
   changed file used to be left out, so a mutant only it killed was reported
@@ -47,6 +96,16 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A non-Rails suite that connects ActiveRecord to sqlite `:memory:` and
+  loads its schema at require time no longer gets a bare "Could not find
+  table" baseline failure (#387): every forked child reconnects to a fresh,
+  empty in-memory database, so the child now detects that shape and the
+  refusal names the cause and the remedies - move schema setup to
+  `before(:suite)`, or load it in an `after_fork` hook (README recipe
+  added). The Rails integration's per-child snapshot is unchanged.
+- `saboteur run --test a_spec.rb b_spec.rb` refused: spec files in the source scope now fail as a
+  usage error pointing at repeating `--test`, instead of a green run that mutates nothing; the
+  `--since` "no subjects covering" warning names the misuse when every file is a spec file (#371).
 - A mutant's test that daemonizes - forks an intermediate child that calls
   `setsid` and exits at once - no longer leaves a sleeping grandchild the
   supervisor never kills (#365). The tree poll can miss a descendant that
@@ -97,6 +156,15 @@ All notable changes are documented here. The format follows
   (`.rspec` `--format progress`) and spec output stay on stdout and cannot
   corrupt the report.
 
+
+- `--incremental` no longer reuses a verdict when a file the covering
+  tests touched changed: the dependency files from the run's coverage map
+  join the verdict fingerprint (#197). The same holds for a dependency
+  with only method coverage (an endless def), a file that ran while the
+  app loaded, a loaded source the coverage map never observed, and a
+  helper required lazily inside a test outside the include list, which
+  the coverage build now records in the map so its changes invalidate
+  verdicts too (#344, #353; coverage map format 10).
 - `--test-command` survivors no longer carry the `missing_test`
   classification: the run's only recorded evidence is the pseudo-test id,
   which is not real coverage (#305).
@@ -105,6 +173,13 @@ All notable changes are documented here. The format follows
   symlink targets are judged against it (/var vs /private/var) (#305).
 
 ### Added
+
+- guess-tests now tries the flattened spec root and a `spec/unit/` prefix
+  after the mirrored guesses: `lib/pundit/policy_finder.rb` finds
+  `spec/policy_finder_spec.rb` and `lib/aasm/base.rb` finds
+  `spec/unit/base_spec.rb`, so `--subject` and `--since` stop hard-stopping
+  on pundit, aasm and shoulda-matchers style layouts (#394, #370, #393).
+
 
 - Methods defined in the four core class factories (`X = Data.define(...)`,
   `Struct.new`, `Class.new`, `Module.new` with a block) are mutation

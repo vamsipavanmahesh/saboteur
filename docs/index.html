@@ -9,188 +9,250 @@
 <meta property="og:description" content="Find the tests that do not test anything. Fast, safe, with every kill re-checked.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://vamsipavanmahesh.github.io/saboteur/">
-<meta property="og:image" content="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png">
+<meta property="og:image" content="https://vamsipavanmahesh.github.io/saboteur/assets/og-card.png">
 <meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://img.shields.io">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#fff;--surface:#f6f7f9;--text:#1d2125;--muted:#5d6670;--line:#e3e6ea;--accent:#c2371f;--accent-2:#2f6fdb;
---good:#1f8a4c;--good-bg:#e3f4e9;--bad:#c4372f;--bad-bg:#fbe7e5;--tie:#6b7280;--tie-bg:#eef0f2;--code-bg:#14171a;--code-text:#e8eaed;--note-bg:#fff7e0;--note-line:#e8b931}
-@media(prefers-color-scheme:dark){:root{--bg:#101316;--surface:#181c20;--text:#e8eaed;--muted:#a0a8b1;--line:#2c3238;--accent:#ff6a4d;--accent-2:#6b9cf0;
---good:#4cc27d;--good-bg:#17331f;--bad:#f0746b;--bad-bg:#3a1c1a;--tie:#9aa2ab;--tie-bg:#24292e;--code-bg:#0a0c0e;--note-bg:#2e2812;--note-line:#c99d22}}
+:root{
+--bg:#08090b;--bg-2:#0c0e11;--surface:#111418;
+--text:#f2f4f6;--muted:#9aa4ae;--faint:#6b7680;
+--line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.15);
+--accent:#ff5c38;--accent-2:#ff8a5c;--link:#7aa5f8;
+--good:#3ecf8e;--warn:#f5c342;--bad:#f0746b;
+--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-a{color:var(--accent-2)}
-.wrap{max-width:960px;margin:0 auto;padding:0 20px}
-nav{border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2}
-nav .wrap{display:flex;align-items:center;gap:20px;height:56px;overflow-x:auto;white-space:nowrap}
-nav .brand{font-weight:700;color:var(--text);text-decoration:none;margin-right:auto}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(255,92,56,.3)}
+a{color:var(--link);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,.btn:focus-visible{outline:2px solid var(--accent-2);outline-offset:3px;border-radius:4px}
+a.more::after{content:" \2192";transition:margin-left .15s ease}
+a.more:hover::after{margin-left:3px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,9,11,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:22px;height:60px;overflow-x:auto;white-space:nowrap}
+nav .brand{display:flex;align-items:center;font-weight:700;font-size:1.05rem;color:var(--text);margin-right:auto;letter-spacing:-.01em}
+nav .brand:hover{text-decoration:none}
 nav .brand span{color:var(--accent)}
-nav a{color:var(--muted);text-decoration:none;font-size:.95rem}
-nav a:hover{color:var(--text)}
-.brand-logo{height:30px;width:30px;vertical-align:middle;margin-right:8px}
-.hero-logo{float:right;width:210px;height:210px;margin:0 0 16px 28px}
-@media(max-width:700px){.hero-logo{float:none;display:block;width:130px;height:130px;margin:0 0 12px}}
-.hero{padding:72px 0 48px}
-.hero h1{font-size:clamp(2.2rem,6vw,3.6rem);line-height:1.08;margin:0 0 20px;letter-spacing:-.02em}
-.hero h1 em{font-style:normal;color:var(--accent)}
-.hero p.lead{font-size:1.2rem;color:var(--muted);max-width:640px;margin:0 0 28px}
-.btns{display:flex;gap:12px;flex-wrap:wrap}
-.btn{display:inline-block;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600;border:1px solid var(--line);color:var(--text)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-pre{background:var(--code-bg);color:var(--code-text);padding:16px 18px;border-radius:10px;overflow-x:auto;font:.9rem/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;margin:14px 0}
-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:var(--surface);padding:1px 5px;border-radius:4px}
+nav .brand-logo{height:28px;width:28px;margin-right:9px}
+nav a.navlink{color:var(--muted);font-size:.92rem;font-weight:500}
+nav a.navlink:hover{color:var(--text);text-decoration:none}
+nav a.gh{border:1px solid var(--line-2);border-radius:8px;padding:6px 14px;color:var(--text);font-size:.9rem;font-weight:600}
+nav a.gh:hover{border-color:var(--faint);text-decoration:none}
+.hero{position:relative;padding:88px 0 64px;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-45% 0 auto;height:700px;background:radial-gradient(closest-side,rgba(255,92,56,.13),transparent 70%),radial-gradient(closest-side at 72% 18%,rgba(122,165,248,.08),transparent 70%);pointer-events:none}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.045) 1px,transparent 1.5px);background-size:26px 26px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 25%,#000 60%,transparent);mask-image:linear-gradient(180deg,transparent,#000 25%,#000 60%,transparent)}
+.hero .wrap{position:relative;z-index:1}
+.hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center}
+@media(max-width:920px){.hero-grid{grid-template-columns:1fr;gap:40px}}
+.pill{display:inline-block;border:1px solid var(--line-2);border-radius:99px;padding:5px 14px;font-size:.82rem;color:var(--muted);font-weight:500;letter-spacing:.01em}
+.hero h1{font-size:clamp(2.05rem,4.2vw,3.2rem);line-height:1.08;margin:22px 0 20px;letter-spacing:-.03em;font-weight:800}
+.hero h1 em{font-style:normal;background:linear-gradient(92deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{font-size:1.14rem;color:var(--muted);max-width:34rem;margin:0 0 30px}
+.btns{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.btn{display:inline-block;padding:12px 24px;border-radius:10px;font-weight:600;font-size:.97rem;border:1px solid var(--line-2);color:var(--text);transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(180deg,var(--accent-2),var(--accent));border-color:transparent;color:#160806;box-shadow:0 8px 24px -8px rgba(255,92,56,.5)}
+.btn.primary:hover{box-shadow:0 12px 32px -8px rgba(255,92,56,.65)}
+.btn:not(.primary):hover{border-color:var(--faint)}
+.hero .meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:var(--faint);font-size:.85rem}
+.term{background:#0b0d10;border:1px solid var(--line-2);border-radius:14px;overflow:hidden;box-shadow:0 24px 64px -24px rgba(0,0,0,.8)}
+.term-bar{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.term-bar i{width:11px;height:11px;border-radius:50%;background:#2a2f36}
+.term-bar i:nth-child(1){background:#ff5f57}.term-bar i:nth-child(2){background:#febc2e}.term-bar i:nth-child(3){background:#28c840}
+.term-bar span{margin-left:8px;font:500 12px var(--mono);color:var(--faint)}
+.term pre{margin:0;border:0;border-radius:0;box-shadow:none;background:none}
+pre::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb{background:#262c33;border-radius:4px}
+pre::-webkit-scrollbar-track{background:transparent}
+pre{scrollbar-width:thin;scrollbar-color:#262c33 transparent;
+background:#0b0d10;border:1px solid var(--line);color:#dbe2e8;padding:18px 20px;border-radius:12px;overflow-x:auto;font:.88rem/1.6 var(--mono);margin:16px 0}
+code{font-family:var(--mono);font-size:.88em;background:rgba(255,255,255,.06);padding:1.5px 6px;border-radius:5px;overflow-wrap:anywhere}
 pre code{background:none;padding:0;font-size:inherit}
-.c{color:#8b949e}.rm{color:#f0746b}.ad{color:#4cc27d}
-section{padding:48px 0;border-top:1px solid var(--line)}
-h2{font-size:1.7rem;margin:0 0 8px;letter-spacing:-.01em}
-.sub{color:var(--muted);margin:0 0 28px;max-width:680px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
-.card h3{margin:0 0 6px;font-size:1.05rem}
-.card p{margin:0;color:var(--muted);font-size:.97rem}
-.steps{counter-reset:s;display:grid;gap:16px}
-.step{display:grid;grid-template-columns:40px 1fr;gap:14px}
-.step::before{counter-increment:s;content:counter(s);width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
-.step h3{margin:0 0 4px;font-size:1.05rem}.step p{margin:0;color:var(--muted)}
-.table-wrap{overflow-x:auto}
-code{overflow-wrap:anywhere}
-table{border-collapse:collapse;width:100%;font-size:.95rem}
-th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
-th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
-.tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.85rem;font-weight:600;white-space:nowrap}
-.win{background:var(--good-bg);color:var(--good)}.lose{background:var(--bad-bg);color:var(--bad)}.tie{background:var(--tie-bg);color:var(--tie)}
-.note{background:var(--note-bg);border-left:4px solid var(--note-line);padding:12px 16px;border-radius:6px;margin:20px 0;font-size:.97rem}
-.slot{border:2px dashed var(--line);border-radius:12px;padding:20px;color:var(--muted)}
-.slot strong{color:var(--text)}
-footer{border-top:1px solid var(--line);padding:32px 0 56px;color:var(--muted);font-size:.93rem}
+.c{color:#7d8790}.rm{color:var(--bad)}.ad{color:var(--good)}
+.tg{color:var(--good)}.ty{color:var(--warn)}.tr{color:var(--bad)}.ta{color:var(--accent-2);font-weight:700}.td{color:var(--faint)}
+.cursor::after{content:"";display:inline-block;width:8px;height:15px;background:var(--accent);margin-left:5px;vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:64px}
+.stat{background:var(--bg-2);padding:20px 22px}
+.stat b{display:block;font-size:1.55rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:.87rem}
+section{padding:80px 0;border-top:1px solid transparent;border-image:linear-gradient(90deg,transparent,rgba(255,255,255,.14) 30%,rgba(255,255,255,.14) 70%,transparent) 1;scroll-margin-top:72px}
+h2{font-size:clamp(1.6rem,3vw,2.1rem);margin:0 0 10px;letter-spacing:-.025em;font-weight:800}
+.eyebrow{font:600 .78rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+h3{letter-spacing:-.01em;margin:34px 0 10px}
+.sub{color:var(--muted);margin:0 0 36px;max-width:640px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;transition:border-color .15s ease,transform .15s ease}
+.card:hover{border-color:var(--line-2);transform:translateY(-2px)}
+.card svg{display:block;width:20px;height:20px;color:var(--accent);margin-bottom:14px}
+.card h3{margin:0 0 8px;font-size:1.02rem}
+.card p{margin:0;color:var(--muted);font-size:.95rem}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;counter-reset:s}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;transition:border-color .15s ease}
+.step:hover{border-color:var(--line-2)}
+.step::before{counter-increment:s;content:"0" counter(s);display:block;font:700 .82rem var(--mono);color:var(--accent);margin-bottom:12px;letter-spacing:.1em}
+.step h3{margin:0 0 8px;font-size:1.05rem}
+.step p{margin:0;color:var(--muted);font-size:.95rem}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background .12s ease}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+th{color:var(--faint);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+td:first-child{font-family:var(--mono);font-size:.87rem}
+.score{font-weight:700;white-space:nowrap}
+.bar{display:inline-block;width:104px;height:6px;border-radius:3px;background:rgba(255,255,255,.07);margin-right:12px;vertical-align:2px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:var(--w);animation:fill 1.2s cubic-bezier(.2,.7,.3,1) both}
+@keyframes fill{from{width:0}}
+.pend{color:var(--faint);font-style:italic}
+.note{background:rgba(245,195,66,.06);border:1px solid rgba(245,195,66,.2);border-left:3px solid var(--warn);padding:14px 18px;border-radius:10px;margin:22px 0;font-size:.93rem;color:var(--muted)}
+footer{border-top:1px solid var(--line);padding:44px 0 64px;color:var(--faint);font-size:.9rem}
+footer .wrap{display:grid;grid-template-columns:2fr 1fr 1fr;gap:32px}
+.fbrand p{margin:0 0 6px}
+.fcol h4{margin:0 0 10px;font-size:.76rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);font-weight:600}
+.fcol a{display:block;color:var(--muted);padding:3px 0}
+.fcol a:hover{color:var(--text);text-decoration:none}
+@media(max-width:640px){footer .wrap{grid-template-columns:1fr 1fr}}
 footer a{color:var(--muted)}
+footer p{margin:0}
+.rise{animation:rise .7s cubic-bezier(.2,.7,.3,1) both}
+.tl{display:block;animation:tlin .35s ease both;animation-delay:calc(.55s + var(--i)*.16s)}
+.proof{margin-top:26px;color:var(--faint);font:500 .82rem/1.7 var(--mono)}
+.proof b{color:var(--muted);font-weight:600}
+.cta{text-align:center;padding:88px 0}
+.cta-logo{width:140px;height:140px;margin-bottom:20px}
+.cta .sub{margin:0 auto 24px}
+.cta-term{max-width:520px;margin:0 auto 26px;text-align:left}
+.cta-btns{justify-content:center}
+.d1{animation-delay:.06s}.d2{animation-delay:.14s}.d3{animation-delay:.22s}.d4{animation-delay:.32s}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+@keyframes tlin{from{opacity:0;transform:translateY(4px)}}
+h1,h2{text-wrap:balance}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#262b31;border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+*{scrollbar-width:thin;scrollbar-color:#262b31 transparent}
+@media(max-width:640px){.term pre{font-size:.78rem}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
 <nav><div class="wrap">
-<a class="brand" href="#top"><img class="brand-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="" width="30" height="30">sabo<span>teur</span></a>
-<a href="#how">How it works</a><a href="#why">Why saboteur</a><a href="#start">Quickstart</a><a href="#compare">Compare</a><a href="#bench">Benchmarks</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/README.md">Docs</a>
-<a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
+<a class="brand" href="#top"><img class="brand-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="" width="28" height="28">sabo<span>teur</span></a>
+<a class="navlink" href="#how">How it works</a><a class="navlink" href="#why">Why saboteur</a><a class="navlink" href="quickstart.html">Quickstart</a><a class="navlink" href="#bench">Benchmarks</a><a class="navlink" href="#compare">Compare</a><a class="navlink" href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/README.md">Docs</a>
+<a class="gh" href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
 </div></nav>
 
 <header class="hero" id="top"><div class="wrap">
-<img class="hero-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="saboteur logo: a ninja beetle with a ruby shell carrying a lit bomb" width="210" height="210">
-<h1>Your tests pass.<br><em>Do they test anything?</em></h1>
-<p class="lead">saboteur changes your Ruby code in small ways, one change at a time. If your tests still pass, saboteur shows you the exact change they missed. It runs only the tests that touch each change, so it is fast, and every kill is re-checked against the unchanged code.</p>
-<div class="btns"><a class="btn primary" href="#start">Get started</a><a class="btn" href="https://github.com/vamsipavanmahesh/saboteur">View on GitHub</a></div>
-<p style="margin:18px 0 0"><a href="https://rubygems.org/gems/saboteur"><img src="https://img.shields.io/gem/v/saboteur" alt="Latest saboteur version on RubyGems"></a></p>
-<pre><code>gem install saboteur
-bundle exec saboteur run --since origin/main</code></pre>
+<div class="hero-grid">
+<div>
+<span class="pill rise">For Ruby &middot; RSpec</span>
+<h1 class="rise d1">Line coverage tells you which code ran. It does not tell you if a test would notice when that code breaks. <em>Mutation testing does.</em></h1>
+<p class="lead rise d2">saboteur makes one small change to your code at a time and runs only the tests that touch it, so it is fast. If they still pass, you see the exact change they missed. Every kill is re-checked against the unchanged code.</p>
+<div class="btns rise d3"><a class="btn primary" href="quickstart.html">Get started</a><a class="btn" href="benchmark/">See the benchmarks</a></div>
+<div class="meta rise d4"><a href="https://rubygems.org/gems/saboteur"><img src="https://img.shields.io/gem/v/saboteur" alt="Latest saboteur version on RubyGems" decoding="async"></a><span>MIT licensed</span><span>Ruby 3.3+</span></div>
+</div>
+<div class="term rise d2">
+<div class="term-bar"><i></i><i></i><i></i><span>saboteur run &middot; real 0.7.0 output</span></div>
+<pre><code><span class="tl" style="--i:0"><span class="ta">$</span> bundle exec saboteur run --since main --test spec/person_spec.rb</span><span class="tl" style="--i:1">saboteur: checking the unchanged suite twice (seed 1)</span><span class="tl" style="--i:2">saboteur: 1 subjects, 5 tests in coverage map</span><span class="tl" style="--i:3"><span class="tg">....</span><span class="ty">SS</span><span class="tg">....</span></span><span class="tl" style="--i:4">&nbsp;</span><span class="tl" style="--i:5"><span class="ty">Survivors (2):</span></span><span class="tl" style="--i:6">lib/people.rb:14 in People::Person#adult?</span><span class="tl" style="--i:7">  <span class="tr">- literal_number 17 -&gt; 18</span></span><span class="tl" style="--i:8">  <span class="tr">- comparison &gt; -&gt; !=</span></span><span class="tl" style="--i:9">&nbsp;</span><span class="tl" style="--i:10">saboteur 0.7.0: 1 subjects, 10 mutants, wall 0.70 s, seed 1</span><span class="tl" style="--i:11">killed 8  survived 2  timeout 0  resource limit 0  error 0  skipped 0</span><span class="tl" style="--i:12"><span class="ta">score 80.0 %</span><span class="cursor"></span></span></code></pre>
+</div>
+</div>
+<div class="stats rise d4">
+<div class="stat"><b>28</b><span>built-in mutation operators</span></div>
+<div class="stat"><b>9</b><span>Rails apps measured below, one pending</span></div>
+<div class="stat"><b>0 / 20</b><span>fake kills in a random lobsters kill audit</span></div>
+<div class="stat"><b>80.0%</b><span>solidus StockItem mutation score</span></div>
+</div>
+<p class="proof rise d4"><b>Measured on real Rails apps:</b> paper_trail &middot; alchemy_cms &middot; fat_free_crm &middot; doorkeeper &middot; administrate &middot; solidus &middot; publify &middot; mastodon &middot; lobsters &middot; chatwoot (pending)</p>
 </div></header>
 
 <section id="how"><div class="wrap">
+<p class="eyebrow">How it works</p>
 <h2>How it works</h2>
-<p class="sub">Line coverage tells you which code ran. It does not tell you if a test would notice when that code breaks. Mutation testing does.</p>
+<p class="sub">One small change at a time, checked by your own tests.</p>
 <div class="steps">
-<div class="step"><div><h3>Change</h3><p>saboteur finds your methods and makes one small change per mutant: flip a <code>&lt;</code>, swap <code>&amp;&amp;</code> for <code>||</code>, swap <code>min</code> for <code>max</code>, drop a <code>#{...}</code> from a string, delete a line, empty the whole method.</p></div></div>
-<div class="step"><div><h3>Run only the tests that matter</h3><p>A per-test coverage map tells saboteur which tests ran the changed line. Only those run, likeliest killers first. The first failure stops the run.</p></div></div>
-<div class="step"><div><h3>Check the kill</h3><p>Every kill is run again on the unchanged code. If that test fails there too, it is not a kill. A kill that also fails on the original is not credited.</p></div></div>
-<div class="step"><div><h3>Read the survivors</h3><p>You get a score and a diff for each survivor. A survivor can mean a missing test. It can also be an equivalent change no test could notice, a flaky test, or a limit of the tool, so each one needs a human look.</p></div></div>
+<div class="step"><h3>Change</h3><p>saboteur finds your methods and makes one small change per mutant: flip a <code>&lt;</code>, swap <code>&amp;&amp;</code> for <code>||</code>, swap <code>min</code> for <code>max</code>, drop a <code>#{...}</code> from a string, delete a line, empty the whole method.</p></div>
+<div class="step"><h3>Run only the tests that matter</h3><p>A per-test coverage map tells saboteur which tests ran the changed line. Only those run, likeliest killers first. The first failure stops the run.</p></div>
+<div class="step"><h3>Check the kill</h3><p>Every kill is run again on the unchanged code. If that test fails there too, it is not a kill. A kill that also fails on the original is not credited.</p></div>
+<div class="step"><h3>Read the survivors</h3><p>You get a score and a diff for each survivor. A survivor can mean a missing test. It can also be an equivalent change no test could notice, a flaky test, or a limit of the tool, so each one needs a human look.</p></div>
 </div>
+<div class="term" style="margin-top:24px"><div class="term-bar"><i></i><i></i><i></i><span>a survivor, as reported</span></div>
 <pre><code><span class="c"># Billing::Invoice#total  - survived</span>
 <span class="rm">-   return 0 if quantity &gt;= 10</span>
 <span class="ad">+   return 0 if quantity &gt; 10</span>
-<span class="c"># No test uses quantity = 10. Add one.</span></code></pre>
+<span class="c"># No test uses quantity = 10. Add one.</span></code></pre></div>
 </div></section>
 
 <section id="why"><div class="wrap">
+<p class="eyebrow">Why saboteur</p>
 <h2>Why saboteur</h2>
 <p class="sub">Built for real Rails suites, not only small gems.</p>
 <div class="grid">
-<div class="card"><h3>Picks tests per mutant</h3><p>Only the tests that executed the changed statement run. A change no test reaches is reported as "no coverage", not as a survivor.</p></div>
-<div class="card"><h3>Kills are re-checked</h3><p>A kill must fail on the mutant and pass on the original. In one benchmark, 0 of 20 randomly sampled kills on lobsters were fake.</p></div>
-<div class="card"><h3>Coarse first</h3><p>Each method body is replaced first: with <code>nil</code> (<code>true</code> and <code>false</code> for predicate methods ending in <code>?</code>) unless the body is empty or only logs, and with <code>raise</code> unless a catch-all rescue would absorb it. A log-only body can still get <code>raise</code>; a body with a catch-all rescue can still get the <code>nil</code> or <code>true</code>/<code>false</code> replacements. Then the smaller eligible changes run for each covered method, within the per-method cap and any <code>--since</code> scope. A whole-body survivor does not hide a smaller one.</p></div>
-<div class="card"><h3>Diff mode</h3><p><code>--since origin/main</code> changes only the methods you edited on this branch. On one real change in saboteur's own history it took a file from 139 mutants to 7, and median wall time fell 22.9% (measured before the gate removal; one file, not a general speed claim).</p></div>
-<div class="card"><h3>Rails and parallel</h3><p>Run with <code>--jobs N</code> workers. Each worker gets its own database copy. Tested on a Rails 8.1 app on Postgres with 6 workers, with the same verdicts as 1 worker.</p></div>
-<div class="card"><h3>Safe to run</h3><p>Each mutant runs in a watched child process. Everything it starts is tracked and killed. There are limits on time, memory and process count.</p></div>
-<div class="card"><h3>Open report</h3><p>JSON in the Stryker mutation-testing-report format, so existing viewers can open it.</p></div>
-<div class="card"><h3>Repeatable</h3><p>Every test run starts from the same random seed. Pass <code>--seed</code> to repeat a run.</p></div>
-<div class="card"><h3>Extendable</h3><p>Add your own mutations by file and byte range, add hooks around each mutant, or write an adapter for another test framework.</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg><h3>Picks tests per mutant</h3><p>Only the tests that executed the changed statement run. A change no test reaches is reported as "no coverage", not as a survivor.</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l7.5 3v5.5c0 4.8-3.2 8-7.5 9.5-4.3-1.5-7.5-4.7-7.5-9.5V5.5l7.5-3z"/><path d="M8.8 12l2.2 2.2 4.2-4.4"/></svg><h3>Kills are re-checked</h3><p>A kill must fail on the mutant and pass on the original. In one benchmark, 0 of 20 randomly sampled kills on lobsters were fake.</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 4.8-9 4.8-9-4.8L12 3z"/><path d="M3 12.7l9 4.8 9-4.8"/></svg><h3>Coarse first</h3><p>Each method body is replaced first: with <code>nil</code> (<code>true</code> and <code>false</code> for predicate methods ending in <code>?</code>) unless the body is empty or only logs, and with <code>raise</code> unless a catch-all rescue would absorb it. A log-only body can still get <code>raise</code>; a body with a catch-all rescue can still get the <code>nil</code> or <code>true</code>/<code>false</code> replacements. Then the smaller eligible changes run for each covered method, within the per-method cap and any <code>--since</code> scope. A whole-body survivor does not hide a smaller one.</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 8.4v7.2M18 10.4c0 3.8-4.5 4.6-9 5.1"/></svg><h3>Diff mode</h3><p><code>--since origin/main</code> changes only the methods you edited on this branch. On one real change in saboteur's own history it took a file from 139 mutants to 7, and median wall time fell 22.9% (measured before the gate removal; one file, not a general speed claim).</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="8" ry="2.8"/><path d="M4 5.5v13c0 1.6 3.6 2.8 8 2.8s8-1.2 8-2.8v-13"/><path d="M4 12c0 1.6 3.6 2.8 8 2.8s8-1.2 8-2.8"/></svg><h3>Rails and parallel</h3><p>Run with <code>--jobs N</code> workers. Each worker gets its own database copy. Tested on a Rails 8.1 app on Postgres with 6 workers, with the same verdicts as 1 worker.</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/></svg><h3>Safe to run</h3><p>In the default in-process mode, each mutant runs in a watched child process: everything it starts is tracked and killed, with limits on time, memory and process count. With <code>--test-command</code>, your command's process group is killed at a deadline instead; the memory and process-count limits do not apply there.</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2.5h7l4 4v15H7v-19z"/><path d="M14 2.5v4h4"/><path d="M9.8 13.5h4.4M9.8 17h4.4"/></svg><h3>Open report</h3><p>JSON in the Stryker mutation-testing-report format, so existing viewers can open it.</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0113-5.1M19.5 12a7.5 7.5 0 01-13 5.1"/><path d="M17.5 3v4h-4M6.5 21v-4h4"/></svg><h3>Repeatable</h3><p>Every test run starts from the same random seed. Pass <code>--seed</code> to repeat a run.</p></div>
+<div class="card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7.5V3M15 7.5V3"/><path d="M6.5 7.5h11v4.5a5.5 5.5 0 01-11 0V7.5z"/><path d="M12 17.5V21"/></svg><h3>Extendable</h3><p>Add your own mutations by file and byte range, add hooks around each mutant, or write an adapter for another test framework.</p></div>
 </div>
 </div></section>
 
-<section id="start"><div class="wrap">
-<h2>Quickstart</h2>
-<p class="sub">Needs Ruby 3.3 or newer on Linux or macOS. RSpec only, by design.</p>
-<h3>1. Install</h3>
+<section id="bench"><div class="wrap"><p class="eyebrow">Benchmarks</p>
+<h2>Rails mutation-score rebaseline</h2><p class="sub">12 October 2026 &middot; Post-removal rebaseline: 9 of 10 selected Rails/RSpec targets complete. Chatwoot is pending.</p><div class="table-wrap"><table>
+<thead><tr><th>Project</th><th>Mutation score</th><th>Measured scope</th></tr></thead><tbody>
+<tr><td>paper_trail</td><td><span class="score"><span class="bar"><i style="--w:81.3%"></i></span>81.3%</span></td><td>record_trail / widget specs</td></tr>
+<tr><td>alchemy_cms</td><td><span class="score"><span class="bar"><i style="--w:95.9%"></i></span>95.9%</span></td><td>Attachment / attachment specs</td></tr>
+<tr><td>fat_free_crm</td><td><span class="score"><span class="bar"><i style="--w:66.7%"></i></span>66.7%</span></td><td>Account / accounts controller specs</td></tr>
+<tr><td>doorkeeper</td><td><span class="score"><span class="bar"><i style="--w:89.5%"></i></span>89.5%</span></td><td>Access-token and application mixins / model specs</td></tr>
+<tr><td>administrate</td><td><span class="score"><span class="bar"><i style="--w:92.1%"></i></span>92.1%</span></td><td>Field::Base / base field specs</td></tr>
+<tr><td>solidus</td><td><span class="score"><span class="bar"><i style="--w:80.0%"></i></span>80.0%</span></td><td>StockItem / stock-item specs</td></tr>
+<tr><td>publify</td><td><span class="score"><span class="bar"><i style="--w:73.9%"></i></span>73.9%</span></td><td>Four sidebars and Gravatar / six specs</td></tr>
+<tr><td>mastodon</td><td><span class="score"><span class="bar"><i style="--w:74.3%"></i></span>74.3%</span></td><td>Account / account specs</td></tr>
+<tr><td>lobsters</td><td><span class="score"><span class="bar"><i style="--w:61.2%"></i></span>61.2%</span></td><td>Story / story specs</td></tr>
+<tr><td>chatwoot</td><td><span class="pend">Pending</span></td><td>Conversation / conversation specs; not included in the nine completed results</td></tr>
+</tbody></table></div><p style="color:var(--muted);font-size:.93rem">Selected files and their configured RSpec suites, not whole-app scores. Post-removal engine <code>1154806</code>; single complete runs with seed <code>1</code> and <code>--jobs 2</code>, not a performance comparison. Chatwoot is pending.</p><div class="note">The score includes assertion kills, crash kills and timeouts. Errors, resource-limit stops and no-coverage work are excluded. A high score does not prove broad coverage or the absence of flaky tests.</div><p><a class="more" href="benchmark/">Full method, scope and caveats</a></p></div></section>
+<section id="compare"><div class="wrap"><p class="eyebrow">Compare</p>
+<h2>Measured head-to-head</h2>
+<p class="sub">Pinned historical runs against mutineer 1.6.0, kept in the <a href="benchmark/archive.html">archive</a>. Measured versions, not a claim about today's tools; the fresh comparison is still pending. For the wider picture, see the <a href="compare.html">open-source landscape comparison</a>.</p>
+<div class="grid">
+<div class="card"><h3>No fake kills</h3><p>On lobsters, the 8 mutants both tools built identically were all reported as kills by mutineer - all 8 were fake. saboteur reported the same 8 as missed, which was correct, and 0 of its 20 randomly sampled kills were fake. It also refused 3 of its own kills, because those tests failed even without the mutant.</p></div>
+<div class="card"><h3>5-11x faster per mutant</h3><p>Cold-cache wall time per mutant on the pinned libraries, and 1.2x on the Rails app; mutineer used less peak memory. On 6 workers, saboteur finished the Rails run in 125 s instead of 442 s with all 231 verdicts identical.</p></div>
+<div class="card"><h3>Runs the Postgres suite</h3><p>saboteur ran both pinned Rails apps. On human-essentials (2,415 tests, Postgres) it finished item.rb: 98 mutants, 85 killed, 11 survived, in 520 s. mutineer did not run it after 5 tries, about 1 h 50 min.</p></div>
+</div></div></section>
+<section id="start"><div class="wrap cta">
+<img class="cta-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="The saboteur logo" width="140" height="140">
+<p class="eyebrow">Get started</p>
+<h2>Run it on your suite</h2>
+<p class="sub">Ruby 3.3 or newer, Linux or macOS, RSpec.</p>
+<div class="term cta-term"><div class="term-bar"><i></i><i></i><i></i><span>two commands</span></div>
 <pre><code>gem install saboteur
-<span class="c"># or in your Gemfile</span>
-gem "saboteur", group: :test</code></pre>
-<h3>2. Turn off SimpleCov for the run</h3>
-<p>saboteur needs Ruby's <code>Coverage</code> for itself. Most projects already guard SimpleCov with an environment variable.</p>
-<h3>3. Run it</h3>
-<pre><code>bundle exec saboteur run                          <span class="c"># whole project</span>
-bundle exec saboteur run --since origin/main      <span class="c"># methods changed on this branch</span>
-bundle exec saboteur run --since origin/main --test spec/billing_spec.rb  <span class="c"># also scope the specs</span>
-bundle exec saboteur run --subject 'Billing::Invoice#total'
-bundle exec saboteur run --subject Billing        <span class="c"># a namespace</span>
-bundle exec saboteur run --incremental            <span class="c"># reuse verdicts that did not change</span>
-bundle exec saboteur run --jobs 6                 <span class="c"># parallel workers</span>
-bundle exec saboteur run --max-duration 10m       <span class="c"># stop before the next subject when the budget is spent</span>
-bundle exec saboteur pr                           <span class="c"># PR loop: since main, baseline x1, 10-minute budget</span>
-bundle exec saboteur audit                        <span class="c"># whole project, all operators, JSON and HTML reports</span></code></pre>
-<p>Every mutation run first runs the unchanged tests twice, even when the coverage cache is warm (replay of one mutant skips this): a kill only counts when the same tests pass on the unchanged code. <code>--baseline-passes 1</code> makes it one run, for the fast PR loop. Since 0.7.0 the run infers the specs named after each mutated file and runs only those, baseline passes included. A mutated file with no conventional spec stops with exit 2 before anything boots and names both ways out: pass <code>--test</code> with your spec paths, or <code>--all</code> to keep the whole configured suite (the 0.6.0 behavior).</p>
-<h3>4. Configure (optional)</h3>
-<pre><code><span class="c"># config/saboteur.rb</span>
-Saboteur.configure do |c|
-  c.include = ["lib/**/*.rb"]
-  c.exclude = ["lib/my_gem/version.rb"]
-  c.timeout_factor = 3        # deadline = 3 x the tests' recorded time
-  c.max_memory_mb = 2048      # memory growth cap per mutant
-  c.max_processes = 64
-  c.seed = 1
-end</code></pre>
+bundle exec saboteur run</code></pre></div>
+<div class="btns cta-btns"><a class="btn primary" href="quickstart.html">Open the quickstart</a></div>
 <h3>Rails apps</h3>
-<p>The defaults are for plain gems. A Rails app needs its boot file and <code>app/</code> paths:</p>
-<pre><code><span class="c"># config/saboteur.rb</span>
-Saboteur.configure do |c|
+<p class="sub">The generator writes this for you (<code>bundle exec rails generate saboteur:install</code>). By hand, it is:</p>
+<div class="term cta-term"><div class="term-bar"><i></i><i></i><i></i><span>config/saboteur.rb</span></div>
+<pre><code>Saboteur.configure do |c|
   c.include = ["app/**/*.rb"]
-  c.require = ["./config/environment"]
-  c.rails = true
-  c.jobs = 4                  # optional, default is 1
-end</code></pre>
-<p>Run with <code>RAILS_ENV=test</code>.</p>
-<h3>Check the environment</h3><p><code>saboteur doctor</code> reports Ruby, coverage, integration, Rails/SimpleCov and boot-file checks. Add <code>--suite</code> to also run the unchanged suite twice with the chosen seed (<code>--test PATH</code> limits those runs to some specs). It writes no mutation reports or coverage/verdict caches; boot files and tests still have their normal side effects. It warns when an ignore subject matches no discovered method; malformed ignore files fail before target boot.</p><h3>Opt-in survivor baseline</h3><p><code>saboteur baseline check</code> runs every selected mutant fresh and compares reviewed survivors. It does not skip accepted mutants, change verdicts or change scores. Use whole-project or <code>--subject</code> scope; diff, replay, incremental reuse and score thresholds are refused.</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere"><code>bundle exec saboteur baseline propose \
-  --baseline baseline.json \
-  --proposal proposal.json
-<span class="c"># Edit survivor reasons in proposal.json:</span>
-<span class="c"># document.accepted[*].reason only.</span>
-bundle exec saboteur baseline accept \
-  --baseline baseline.json \
-  --proposal proposal.json
-bundle exec saboteur baseline check \
-  --baseline baseline.json</code></pre><p>Keep the private execution evidence in the configured cache directory until acceptance. Acceptance verifies that evidence and the current input fingerprint before publishing the manifest. Caps, uncovered work, empty generation, errors, resource-limit stops, changed inputs or missing results make a check incomplete, even with no new survivors.</p><p>Check exits <code>0</code> only for a compatible, complete, clean result; <code>1</code> needs survivor review; <code>2</code> means incompatible or invalid configuration; <code>3</code> means incomplete execution or tool failure. Local evidence is not remote attestation and does not prove external state stability. The ignore file below remains a separate mechanism.</p><h3>5. Accept a survivor with a reason</h3>
-<pre><code><span class="c"># config/saboteur_ignore.rb</span>
-Saboteur.ignore do |i|
-  i.mutation "1a2b3c4d5e6f7a8b",
-             subject: "Billing::Invoice#total",
-             reason: "equivalent: amounts are always whole cents"
-end</code></pre>
-<p>An entry without a reason is rejected. Exit codes for <code>saboteur run</code>: <code>0</code> no unignored survivors (survivors on the ignore list do not fail the run), or with <code>--threshold</code> the score is at or above it even if mutants survived; <code>1</code> an unignored survivor, or with <code>--threshold</code> the score is below it or missing; <code>2</code> bad configuration or a missing source or test; <code>3</code> the tool failed, or more than half of the executed mutants errored (with <code>--threshold</code>, any errored or resource-limited mutant); <code>4</code> the <code>--max-duration</code> budget stopped the run before the next subject, so the score is partial (<code>--max-duration-ok</code> leaves the exit to the plain verdict). <code>saboteur run --agent</code> is strict: it prints one JSON verdict and exits <code>0</code> clean, <code>1</code> unignored survivors, <code>2</code> invalid invocation, <code>3</code> incomplete. The JSON report goes to <code>.saboteur/report.json</code>.</p>
+  c.require = ["./config/environment"] <span class="c"># boots the app</span>
+  c.rails = true                       <span class="c"># per-worker databases after fork</span>
+  c.jobs = 4                           <span class="c"># optional; default is 1</span>
+end</code></pre></div>
+<p><a class="more" href="quickstart.html">Full Rails setup in the quickstart</a></p>
 </div></section>
 
-<section id="bench"><div class="wrap"><h2>Rails mutation-score rebaseline</h2><p class="sub">12 October 2026 &middot; Post-removal rebaseline: 9 of 10 selected Rails/RSpec targets complete. Chatwoot is pending.</p><div class="table-wrap"><table>
-<thead><tr><th>Project</th><th>Mutation score</th><th>Measured scope</th></tr></thead><tbody>
-<tr><td>paper_trail</td><td>81.3%</td><td>record_trail / widget specs</td></tr>
-<tr><td>alchemy_cms</td><td>95.9%</td><td>Attachment / attachment specs</td></tr>
-<tr><td>fat_free_crm</td><td>66.7%</td><td>Account / accounts controller specs</td></tr>
-<tr><td>doorkeeper</td><td>89.5%</td><td>Access-token and application mixins / model specs</td></tr>
-<tr><td>administrate</td><td>92.1%</td><td>Field::Base / base field specs</td></tr>
-<tr><td>solidus</td><td>80.0%</td><td>StockItem / stock-item specs</td></tr>
-<tr><td>publify</td><td>73.9%</td><td>Four sidebars and Gravatar / six specs</td></tr>
-<tr><td>mastodon</td><td>74.3%</td><td>Account / account specs</td></tr>
-<tr><td>lobsters</td><td>61.2%</td><td>Story / story specs</td></tr>
-<tr><td>chatwoot</td><td>Pending</td><td>Conversation / conversation specs; not included in the nine completed results</td></tr>
-</tbody></table></div><p>Selected files and their configured RSpec suites, not whole-app scores. Post-removal engine <code>1154806</code>; single complete runs with seed <code>1</code> and <code>--jobs 2</code>, not a performance comparison. Chatwoot is pending.</p><div class="note">The score includes assertion kills, crash kills and timeouts. Errors, resource-limit stops and no-coverage work are excluded. A high score does not prove broad coverage or the absence of flaky tests.</div><p><a href="benchmark/">Full method, scope and caveats</a></p></div></section>
-<section id="compare"><div class="wrap"><h2>Historical comparison</h2><p>The older saboteur-versus-mutineer measurements and hashie fork-sharing experiment are <a href="benchmark/archive.html">archived</a>, not a headline ranking of current tools. The competitor operator count belongs to that measured-version archive; it is not a claim about today's versions. A new competitor comparison is still pending.</p></div></section>
 <footer><div class="wrap">
-<p><strong>saboteur</strong> &middot; MIT licensed &middot; Copyright 2026 Vamsi Pavan Mahesh Gunturu</p>
-<p><a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/design.md">Design</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/faq.md">FAQ</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/README.md">All docs</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CHANGELOG.md">Changelog</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CONTRIBUTING.md">Contribute</a> &middot; <a href="https://rubygems.org/gems/saboteur">RubyGems</a></p>
+<div class="fbrand"><p><strong style="color:var(--text)">saboteur</strong></p><p>MIT licensed &middot; Copyright 2026 Vamsi Pavan Mahesh Gunturu</p></div>
+<div class="fcol"><h4>Project</h4><a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a><a href="https://rubygems.org/gems/saboteur">RubyGems</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CHANGELOG.md">Changelog</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CONTRIBUTING.md">Contribute</a></div>
+<div class="fcol"><h4>Docs</h4><a href="quickstart.html">Quickstart</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/README.md">All docs</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/faq.md">FAQ</a><a href="benchmark/">Benchmarks</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/design.md">Design</a></div>
 </div></footer>
 </body>
 </html>

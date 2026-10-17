@@ -121,7 +121,7 @@ RSpec.describe Saboteur::Execution::Reevaluator do
 
       it "redefines a factory class assigned inside class << self, on the same class (#352)" do
         widget_class = ReevalTargets::Host.singleton_class::Widget
-        reeval("ReevalTargets::Host::Widget#doubled", strategy, from: "count * 2", to: "count * 3")
+        reeval("ReevalTargets::Host.singleton_class::Widget#doubled", strategy, from: "count * 2", to: "count * 3")
         expect(ReevalTargets::Host.singleton_class::Widget).to be(widget_class)
         expect(ReevalTargets::Host.singleton_class::Widget.new(2).doubled).to eq(6)
       end
