@@ -769,4 +769,10 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
+  i.mutation "8222aa3d485f1588",
+             subject: "Saboteur::Engine::UnmappedFiles#stop_or_warn_unmapped",
+             reason: "equivalent: each and map both announce every unmatched file's warning; the collected " \
+                     "array is discarded - the method's return value is unused by its only caller, " \
+                     "report_unmapped, whose own return select_tests discards in turn"
+
 end
