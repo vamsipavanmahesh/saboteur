@@ -7,6 +7,10 @@
 <meta name="description" content="saboteur breaks your Ruby code in small ways and shows you which changes your tests do not notice. It runs only the tests that cover each change.">
 <meta property="og:title" content="saboteur - mutation testing for Ruby">
 <meta property="og:description" content="Find the tests that do not test anything. Fast, safe, with every kill re-checked.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://vamsipavanmahesh.github.io/saboteur/">
+<meta property="og:image" content="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png">
+<meta name="twitter:card" content="summary">
 <style>
 :root{--bg:#fff;--surface:#f6f7f9;--text:#1d2125;--muted:#5d6670;--line:#e3e6ea;--accent:#c2371f;--accent-2:#2f6fdb;
 --good:#1f8a4c;--good-bg:#e3f4e9;--bad:#c4372f;--bad-bg:#fbe7e5;--tie:#6b7280;--tie-bg:#eef0f2;--code-bg:#14171a;--code-text:#e8eaed;--note-bg:#fff7e0;--note-line:#e8b931}
@@ -65,7 +69,7 @@ footer a{color:var(--muted)}
 <body>
 <nav><div class="wrap">
 <a class="brand" href="#top"><img class="brand-logo" src="https://raw.githubusercontent.com/vamsipavanmahesh/saboteur/main/assets/logo.png" alt="" width="30" height="30">sabo<span>teur</span></a>
-<a href="#how">How it works</a><a href="#why">Why saboteur</a><a href="#start">Quickstart</a><a href="#compare">Compare</a><a href="#bench">Benchmarks</a>
+<a href="#how">How it works</a><a href="#why">Why saboteur</a><a href="#start">Quickstart</a><a href="#compare">Compare</a><a href="#bench">Benchmarks</a><a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/README.md">Docs</a>
 <a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a>
 </div></nav>
 
@@ -74,6 +78,7 @@ footer a{color:var(--muted)}
 <h1>Your tests pass.<br><em>Do they test anything?</em></h1>
 <p class="lead">saboteur changes your Ruby code in small ways, one change at a time. If your tests still pass, saboteur shows you the exact change they missed. It runs only the tests that touch each change, so it is fast. A kill is rejected when the same tests also fail on the unchanged code. That check does not prove flaky tests are absent.</p>
 <div class="btns"><a class="btn primary" href="#start">Get started</a><a class="btn" href="https://github.com/vamsipavanmahesh/saboteur">View on GitHub</a></div>
+<p style="margin:18px 0 0"><a href="https://rubygems.org/gems/saboteur"><img src="https://img.shields.io/gem/v/saboteur" alt="Latest saboteur version on RubyGems"></a></p>
 <pre><code>gem install saboteur
 bundle exec saboteur run --since origin/main</code></pre>
 </div></header>
@@ -185,7 +190,7 @@ end</code></pre>
 <section id="compare"><div class="wrap"><h2>Historical comparison</h2><p>The older saboteur-versus-mutineer measurements and hashie fork-sharing experiment are <a href="benchmark/archive.html">archived</a>, not a headline ranking of current tools. The competitor operator count belongs to that measured-version archive; it is not a claim about today's versions. A new competitor comparison is still pending.</p></div></section>
 <footer><div class="wrap">
 <p><strong>saboteur</strong> &middot; MIT licensed &middot; Copyright 2026 Vamsi Pavan Mahesh Gunturu</p>
-<p><a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/design.md">Design</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CHANGELOG.md">Changelog</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CONTRIBUTING.md">Contribute</a> &middot; <a href="https://rubygems.org/gems/saboteur">RubyGems</a></p>
+<p><a href="https://github.com/vamsipavanmahesh/saboteur">GitHub</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/design.md">Design</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/faq.md">FAQ</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/README.md">All docs</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CHANGELOG.md">Changelog</a> &middot; <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/CONTRIBUTING.md">Contribute</a> &middot; <a href="https://rubygems.org/gems/saboteur">RubyGems</a></p>
 </div></footer>
 </body>
 </html>
