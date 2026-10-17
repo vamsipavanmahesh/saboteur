@@ -52,6 +52,15 @@ All notable changes are documented here. The format follows
   symlink targets are judged against it (/var vs /private/var) (#305).
 
 ### Added
+
+- A fault-injection e2e probe now pins cache-dir removal during the
+  baseline window (#300): deleting `.saboteur` while the baseline holds
+  the suite open changes neither the exit code nor the run evidence -
+  later phases recreate the directory and the report holds the same
+  verdicts; only the in-flight baseline log is lost. Other windows are
+  not pinned to recover (a missing mutant log fails the run by design),
+  so stop the run before deleting the cache, as `saboteur help` says.
+
 - `saboteur doctor` now documents its version scope (#318): it certifies no
   versions of Rails, databases or application tools saboteur never invokes.
   A mismatched tool the suite loads still surfaces through the boot check's
