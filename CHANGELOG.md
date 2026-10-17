@@ -78,6 +78,9 @@ All notable changes are documented here. The format follows
   of a phantom `FactoryProbe::Outer::Nested::RULES` skipped as defined
   inside a block.
 
+- A spec file that calls `exit` at load now refuses the run with a
+  clear diagnostic instead of terminating the loader mid-require (#411).
+
 ### Changed
 
 - The rerun and replay commands in the Next steps footer and the agent
