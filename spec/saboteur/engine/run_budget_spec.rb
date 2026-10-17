@@ -75,6 +75,16 @@ RSpec.describe Saboteur::Engine, "RunBudget and mutate flow pins (#443 dogfood)"
     end
   end
 
+  describe "#refuse_unaffordable_coverage_build remainder rounding" do
+    it "rounds a fractional remainder to one decimal place" do
+      engine = engine_with({ "max_duration" => 60 })
+      engine.instance_variable_set(:@run_started, 940.37)
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(1000.0)
+      expect { engine.send(:refuse_unaffordable_coverage_build, store_with(false), [], 47.3, 2) }
+        .to raise_error(Saboteur::BudgetPhaseTimeout, /only 0\.4s remain,/)
+    end
+  end
+
   describe "#check_baseline stability" do
     def guard_with(passes)
       instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: passes)
@@ -86,6 +96,14 @@ RSpec.describe Saboteur::Engine, "RunBudget and mutate flow pins (#443 dogfood)"
       engine.send(:check_baseline, instance_double(Saboteur::Integration::RSpec), 1)
       expect(engine.instance_variable_get(:@stable_suite)).to eq(false)
       expect(engine.instance_variable_get(:@completed_baseline_passes)).to eq(1)
+    end
+
+    it "is a stable suite with more than two completed passes (>= 2, not == 2)" do
+      allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard_with(3))
+      engine = engine_with({})
+      engine.send(:check_baseline, instance_double(Saboteur::Integration::RSpec), 3)
+      expect(engine.instance_variable_get(:@stable_suite)).to eq(true)
+      expect(engine.instance_variable_get(:@completed_baseline_passes)).to eq(3)
     end
 
     it "is a stable suite with two completed passes" do
