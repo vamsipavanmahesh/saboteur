@@ -37,6 +37,9 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `saboteur run --test a_spec.rb b_spec.rb` refused: spec files in the source scope now fail as a
+  usage error pointing at repeating `--test`, instead of a green run that mutates nothing; the
+  `--since` "no subjects covering" warning names the misuse when every file is a spec file (#371).
 - A mutant's test that daemonizes - forks an intermediate child that calls
   `setsid` and exits at once - no longer leaves a sleeping grandchild the
   supervisor never kills (#365). The tree poll can miss a descendant that
