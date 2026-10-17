@@ -3,6 +3,15 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs-only merges skip the matrix: the panel gate never waits on main
+    # push runs (it checks the pull request head's own run), so spawning a
+    # full macOS matrix for a docs page only starves the self-hosted pool.
+    paths-ignore:
+      - 'README*'
+      - 'CHANGELOG*'
+      - '*.md'
+      - 'docs/**'
+      - 'assets/**'
   # PR CI is manual: nothing runs on pull_request events. A maintainer runs
   # the matrix against the exact PR head with
   #   gh workflow run ci.yml --ref <head-sha> -f pr_number=<n> -f head_repo=<owner/repo>
