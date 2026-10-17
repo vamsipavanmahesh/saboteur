@@ -397,6 +397,26 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guess.changed).to eq(0)
   end
 
+  it "names a changed source file the include scope hides (#483)" do
+    write("engines/billing/lib/billing.rb", changed_source)
+    write("docs/notes.md", "# notes\n")
+    result = guess
+    expect(result.changed).to eq(0)
+    expect(result.out_of_scope).to eq(["engines/billing/lib/billing.rb"])
+  end
+
+  it "leaves out_of_scope empty when an included file changed" do
+    write("lib/a.rb", changed_source)
+    expect(guess.out_of_scope).to eq([])
+  end
+
+  it "does not call a changed spec hidden source" do
+    write("spec/stray_spec.rb", "# changed\n")
+    result = guess
+    expect(result.changed).to eq(0)
+    expect(result.out_of_scope).to eq([])
+  end
+
   it "maps each unmatched file to the conventional spec path for the retry hint" do
     write("lib/c.rb", changed_source)
     result = guess
