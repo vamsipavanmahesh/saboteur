@@ -297,7 +297,7 @@ async function verify(api, number, sweep = {}) {
       lastPR.base.ref === policy.baseBranch, 'PR changed during verification');
     demand(JSON.stringify(lastRevoked) === JSON.stringify(revoked), 'revocations changed during verification');
     panel(lastComments, head, lastRevoked);
-    await status('success', '3 exact-head lens approvals; 13 green jobs; DCO; unchanged gate policy');
+    await status('success', `3 exact-head lens approvals; ${policy.workflows['.github/workflows/ci.yml'].length} green jobs; DCO; unchanged gate policy`);
   } catch (error) {
     if (error instanceof RateLimitError) throw error;
     // A failed failure-write must not hide the reason the decision failed.
