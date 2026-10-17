@@ -49,6 +49,12 @@ config + CLI
   explicit receiver, a lambda argument, or no block cannot be named, and a
   call in a block whose owner is unknown stays skipped ("defined inside a
   block").
+- A `class_eval`/`module_eval <<-HEREDOC ... HEREDOC` call with a
+  non-interpolated heredoc contributes its defs as subjects of the enclosing
+  owner (#544): the heredoc body is re-parsed in place (everything outside
+  it blanked, newlines kept), so offsets and lines stay the real file's and
+  mutants apply through the ordinary byte path. An interpolated heredoc has
+  no 1:1 byte map and stays on the code-in-strings warning (#467).
 - Subject id: `Outer::Klass#meth` or `Outer::Klass.meth`, from the lexical
   nesting Prism reports (ModuleNode / ClassNode / SingletonClassNode chain).
 - Skipped in v1: DSL calls in a class body, constants, code
@@ -460,7 +466,9 @@ CLI: `saboteur help` lists every command and flag.
 Output:
 - Terminal: counts per status, score, wall time, then a unified diff per survivor.
 - HTML report (`html_report`) and per-method findings (`reporter/html.rb`, `reporter/findings.rb`).
-- JSON: Stryker mutation-testing-report-schema (schemaVersion "2"). Status
+- JSON: Stryker mutation-testing-report-schema (schemaVersion "2"). The
+  `saboteur` object carries the run's peak-memory record (`memory`: per-worker
+  `peakMb` and `supervisorPeakMb`) where the platform measured it (#202). Status
   mapping: killed->Killed, survived->Survived, timeout->Timeout,
   error->RuntimeError, resource_limit->RuntimeError (statusReason "resource limit: ..."),
   skipped->Ignored (reason in `statusReason`), no coverage
