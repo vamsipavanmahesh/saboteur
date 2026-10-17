@@ -8,6 +8,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A `--since` run whose changed methods were all skipped - refinements,
+  no coverage, or any other skip reason - used to exit 0 with `score n/a`,
+  a green run that tested nothing. It now exits 3 and names each skipped
+  subject with its reason, and a partially skipped diff announces each
+  skip up front instead of only in the end-of-run summary (#574).
+
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
   unrelated classes each keep their own subjects: the singleton-side one is
