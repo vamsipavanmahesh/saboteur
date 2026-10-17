@@ -19,7 +19,7 @@ defaults target plain gems, so a Rails app sets `c.include`, `c.require` and
 PostgreSQL and SQLite, including parallel workers (`--jobs N`), where each
 extra worker gets its own database copy. MySQL is not supported for `--jobs`
 above 1, and older Rails versions have not been tried yet - the tested matrix
-is in the README under "Where it has run".
+is in the README under [Dated validation runs](../README.md#dated-validation-runs).
 
 ## Does saboteur work with SimpleCov?
 
