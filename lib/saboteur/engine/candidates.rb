@@ -38,7 +38,14 @@ module Saboteur
           end
 
           file, const = entry.split(":", 2)
-          raise ConfigError, "mutation source #{entry.inspect} must be builtin or path.rb:ClassName" unless const
+          unless const
+            if entry.include?("*")
+              raise ConfigError, "mutation source #{entry.inspect} looks like a source glob; " \
+                                 "did you mean c.include? c.sources registers custom operator sources " \
+                                 "(builtin or path.rb:ClassName)"
+            end
+            raise ConfigError, "mutation source #{entry.inspect} must be builtin or path.rb:ClassName"
+          end
 
           require File.expand_path(file, root)
           Object.const_get(const).new
