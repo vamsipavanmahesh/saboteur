@@ -8,9 +8,8 @@ All notable changes are documented here. The format follows
 
 ### Added
 
-- Per-path score gates (#473): `score_gate "app/payments/**/*", min_score: 95`
-  in `saboteur.rb` holds a path subtree to its own mutation score, scored
-  with the run's own formula. A gate under its floor fails the run like the
+- Per-path score gates are enforced (#473, slice 2): each `score_gate`
+  subtree from slice 1 (#565) is scored with the run's own formula. A gate under its floor fails the run like the
   count gates (`scoreGate` cause in the JSON report); a gate with nothing
   executed under it passes vacuously and says so. Score gates cannot combine
   with `--agent`, like `--threshold`.
