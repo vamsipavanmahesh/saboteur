@@ -11,7 +11,7 @@ RSpec.describe Saboteur::Frameworks::SqliteMemoryDatabase do
   def hint_in(script)
     program = <<~RUBY
       $LOAD_PATH.unshift #{File.expand_path('../../../lib', __dir__).inspect}
-      require "saboteur"
+      require "saboteur/frameworks/sqlite_memory_database"
       #{script}
       hint = Saboteur::Frameworks::SqliteMemoryDatabase.fork_loss_hint
       puts(hint ? "HINT" : "NONE")
