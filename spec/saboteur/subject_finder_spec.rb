@@ -89,11 +89,30 @@ RSpec.describe Saboteur::SubjectFinder do
       "scope dynamic_name, -> { 1 }",  # the name must be a literal
       "scope :x, -> { 1 }, extra",     # unknown extra arguments
       "Model.scope :x, -> { 1 }",      # an explicit receiver is not a bare DSL call
-      "scope :x do 1 end"              # a block-bodied scope is not a Rails scope
+      "scope :x do 1 end",             # a block-bodied scope is not a Rails scope
+      "define_singleton_method(:x, \"body\")" # a computed body is not a block or lambda
     ].each do |call|
       expect(subjects_in("class Model\n  def check; end\n  #{call}\nend\n").map(&:id))
         .to eq(["Model#check"]), call
     end
+  end
+
+  it "rejects scope calls that carry more than a literal name and one lambda" do
+    [
+      "scope :x, -> { 1 }, -> { 2 }",  # the second argument must be the only lambda
+      "scope :x, -> { 1 } do 2 end"    # a block-bodied call is not a lambda-bodied scope
+    ].each do |call|
+      expect(subjects_in("class Model\n  #{call}\nend\n").map(&:id)).to eq([]), call
+    end
+  end
+
+  it "exposes a call-defined subject's body: the block for define_method, the lambda for scope and the lambda form" do
+    dm = subjects_in("class A\n  define_method(:dm) { 1 }\nend\n").first
+    scope = subjects_in("class Model\n  scope :x, -> { order(:name) }\nend\n").first
+    dsm = subjects_in("class A\n  define_singleton_method(:pull, -> { 2 })\nend\n").first
+    expect(dm.body_node.slice).to eq("1")
+    expect(scope.body_node.slice).to eq("order(:name)")
+    expect(dsm.body_node.slice).to eq("2")
   end
 
   it "names a def in an anonymous block after the block, not after the file" do
