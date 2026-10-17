@@ -76,6 +76,104 @@ RSpec.describe Saboteur::Config do
     end
   end
 
+  it "collects repeatable score gates as pattern/floor pairs (#473)" do
+    write("app/payments/charge.rb", "class Charge; end\n")
+    write("app/legacy/old.rb", "class Old; end\n")
+    write("config/saboteur.rb", <<~RUBY)
+      Saboteur.configure do |c|
+        c.include = ["app/**/*.rb"]
+        c.score_gate "app/payments/**/*", min_score: 95
+        c.score_gate "app/legacy/**/*", min_score: 60.5
+      end
+    RUBY
+    expect(described_class.load(root: @root)["score_gates"]).to eq(
+      [{ "pattern" => "app/payments/**/*", "min_score" => 95.0 },
+       { "pattern" => "app/legacy/**/*", "min_score" => 60.5 }]
+    )
+  end
+
+  it "rejects a score gate floor that is not a 0-100 number (#473)" do
+    write("app/x.rb", "class X; end\n")
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.score_gate "app/**/*", min_score: 101 }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
+
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.score_gate "app/**/*", min_score: "high" }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
+  end
+
+  # NaN fails every comparison, including between?: an unguarded range
+  # check leaks a bare ArgumentError instead of the config error.
+  it "rejects a NaN score gate floor with the 0-100 message (#565)" do
+    write("app/x.rb", "class X; end\n")
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.score_gate "app/**/*", min_score: Float::NAN }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
+  end
+
+  it "validates score gates against the real path of a symlinked root (#473)" do
+    write("app/payments/x.rb", "class X; end\n")
+    write("config/saboteur.rb",
+          'Saboteur.configure { |c| c.include = ["app/**/*.rb"]; c.score_gate "app/payments/**/*", min_score: 95 }')
+    link = File.join(Dir.mktmpdir, "linked")
+    File.symlink(@root, link)
+    expect { described_class.load(root: link) }.not_to raise_error
+  end
+
+  it "rejects a score gate whose pattern matches no included file (#473)" do
+    write("app/x.rb", "class X; end\n")
+    write("config/saboteur.rb",
+          'Saboteur.configure { |c| c.include = ["app/**/*.rb"]; c.score_gate "app/payments/**/*", min_score: 95 }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, %r{score_gate.*app/payments.*matches no included file})
+  end
+
+  it "normalizes string floors to floats on load (#473)" do
+    write("app/payments/x.rb", "class X; end\n")
+    write("config/saboteur.rb",
+          'Saboteur.configure { |c| c.include = ["app/**/*.rb"]; c.score_gate "app/payments/**/*", min_score: "95" }')
+    gates = described_class.load(root: @root)["score_gates"]
+    expect(gates).to eq([{ "pattern" => "app/payments/**/*", "min_score" => 95.0 }])
+    expect(gates.first["min_score"]).to be_a(Float)
+  end
+
+  it "accepts score gate floors on the 0 and 100 boundary, rejecting just outside (#473)" do
+    write("app/x.rb", "class X; end\n")
+    [0, 100].each do |floor|
+      write("config/saboteur.rb",
+            "Saboteur.configure { |c| c.include = [\"app/**/*.rb\"]; c.score_gate \"app/**/*\", min_score: #{floor} }")
+      expect { described_class.load(root: @root) }.not_to raise_error
+    end
+    [100.5, -0.5].each do |floor|
+      write("config/saboteur.rb",
+            "Saboteur.configure { |c| c.score_gate \"app/**/*\", min_score: #{floor} }")
+      expect { described_class.load(root: @root) }
+        .to raise_error(Saboteur::ConfigError, /min_score must be between 0 and 100/)
+    end
+  end
+
+  it "rejects an empty score gate pattern (#473)" do
+    write("app/x.rb", "class X; end\n")
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.score_gate "", min_score: 50 }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, /pattern must not be empty/)
+  end
+
+  it "names the offending floor in a score gate error, whether unparsable or out of range (#473)" do
+    write("app/x.rb", "class X; end\n")
+    { "101" => "got 101", '"high"' => 'got "high"', "nil" => "got nil", "-1" => "got -1" }.each do |floor, shown|
+      write("config/saboteur.rb", "Saboteur.configure { |c| c.score_gate \"app/**/*\", min_score: #{floor} }")
+      expect { described_class.load(root: @root) }
+        .to raise_error(Saboteur::ConfigError, "score_gate min_score must be between 0 and 100, #{shown}")
+    end
+  end
+
+  it "does not touch the file system when no score gate is set (#473)" do
+    config = described_class.new({}, root: File.join(@root, "missing"))
+    expect(config["score_gates"]).to eq([])
+  end
+
   it "keeps guess_tests as a no-op alias and warns only on an explicit opt-out" do
     expect(described_class.new({}, root: @root)["guess_tests"]).to be(false)
     expect(described_class.new({}, root: @root).deprecation_warnings).to eq([])
@@ -154,6 +252,48 @@ RSpec.describe Saboteur::Config do
     config = described_class.new({ "include" => ["lib/**/*.rb", "app/**/*.rb"],
                                    "exclude" => ["lib/a.rb", "lib/moved.rb"] }, root: @root)
     expect(config.unmatched_patterns).to eq(["include: app/**/*.rb", "exclude: lib/moved.rb"])
+  end
+
+  it "excludes spec and test files vendored under lib/ from the default scope (#504)" do
+    write("lib/calc.rb", "")
+    write("lib/capybara/spec/session/node_spec.rb", "")
+    write("lib/capybara/spec/helper.rb", "")
+    write("lib/foo/test/bar_test.rb", "")
+    write("lib/foo/tests/baz.rb", "")
+    write("lib/foo/test_helper.rb", "")
+    config = described_class.new({}, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "calc.rb")])
+  end
+
+  it "treats a configured exclude as replacing the default vendored-spec shields (#504)" do
+    write("lib/a.rb", "")
+    write("lib/legacy/suite_spec.rb", "")
+    config = described_class.new({ "exclude" => ["lib/a.rb"] }, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "legacy", "suite_spec.rb")])
+  end
+
+  it "does not warn about the default shields matching nothing, only about configured excludes" do
+    write("lib/a.rb", "")
+    config = described_class.new({}, root: @root)
+    expect(config.unmatched_patterns).to eq([])
+  end
+
+  # The implicit-vs-explicit pair that pins the guard on its own (#567
+  # dogfood survivors): an implicit default exclude that matches nothing
+  # stays silent, while an explicit one is named.
+  it "warns on an explicit exclude that matches nothing but not on the implicit defaults" do
+    write("lib/a.rb", "")
+    implicit = described_class.new({}, root: @root)
+    expect(implicit.unmatched_patterns.grep(/^exclude:/)).to eq([])
+
+    explicit = described_class.new({ "exclude" => ["lib/gone.rb"] }, root: @root)
+    expect(explicit.unmatched_patterns).to eq(["exclude: lib/gone.rb"])
+
+    # An explicit include with an implicit exclude: the include is still
+    # checked - the guard must only silence the implicit exclude, never
+    # the include side.
+    mixed = described_class.new({ "include" => ["app/**/*.rb"] }, root: @root)
+    expect(mixed.unmatched_patterns).to eq(["include: app/**/*.rb"])
   end
 
   it "rejects unknown keys, bad values and bad arid patterns" do
