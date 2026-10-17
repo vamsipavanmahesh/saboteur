@@ -327,4 +327,50 @@ RSpec.describe "saboteur badge and saboteur trend (#474)" do
     expect(code).to eq(0)
     expect(out).to include("+0.00 percentage points")
   end
+
+  it "badge separates multiple unexpected arguments with spaces in the refusal" do
+    code, _out, err = cli("badge", "--history", @history, "stray", "extra")
+    expect(code).to eq(2)
+    expect(err).to eq("saboteur: unexpected arguments: stray extra\n")
+  end
+
+  it "trend separates multiple unexpected arguments with spaces in the refusal" do
+    code, _out, err = cli("trend", "--history", @history, "stray", "extra")
+    expect(code).to eq(2)
+    expect(err).to eq("saboteur: unexpected arguments: stray extra\n")
+  end
+
+  it "badge refuses a record with no tested mutants instead of formatting a nil score" do
+    append(result_for(:survived))
+    previous = history_records.last
+    zero_tested = previous.merge(
+      "counts" => previous["counts"].transform_values { 0 },
+      "breakdown" => previous["breakdown"].merge("score" => nil, "tested" => 0, "assertionKills" => 0,
+                                                 "crashKills" => 0, "unclassifiedKills" => 0, "timeouts" => 0,
+                                                 "survivors" => 0, "assertionShare" => nil, "crashShare" => nil),
+      "score" => 0.0, "coveredScore" => nil, "incomplete" => []
+    )
+    Saboteur::Reporter::HistoryRecord.validate(zero_tested)
+    File.write(@history, "#{JSON.generate(zero_tested)}\n")
+    code, _out, err = cli("badge", "--history", @history)
+    expect(code).to eq(3)
+    expect(err).to include("the latest score history record has no tested mutants")
+  end
+
+  it "badge color compares the real percentage against a fractional --high" do
+    results = Array.new(4) { result_for(:killed, kill_cause: "assertion") } + [result_for(:survived)]
+    append(*results)
+    code, out, = cli("badge", "--history", @history, "--high", "80.8")
+    expect(code).to eq(0)
+    expect(JSON.parse(out).fetch("color")).to eq("yellow")
+  end
+
+  it "trend abbreviates the commit to its first 8 characters" do
+    append(result_for(:survived))
+    record = history_records.last.merge("commit" => "0123456789abcdef0123456789abcdef01234567")
+    File.write(@history, "#{JSON.generate(record)}\n")
+    code, out, = cli("trend", "--history", @history)
+    expect(code).to eq(0)
+    expect(out).to include("#{record['date']} 01234567 0.0%\n")
+  end
 end
