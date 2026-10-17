@@ -12,9 +12,11 @@ All notable changes are documented here. The format follows
   (#436): each child applies a Seatbelt profile (writes denied except the
   granted dirs, the system temp dir, and its own inherited logs) via
   `sandbox_init`, after a forked probe proves a deny-default profile
-  really blocks a write. A missing, changed, or lying Seatbelt degrades
-  to the hazard guard and canary with a one-time note, and a child whose
-  profile refuses to apply fails closed instead of running the mutant.
+  really blocks a write. A macOS without Seatbelt degrades to the hazard
+  guard and canary with a one-time note; an errored probe or a profile
+  that does not enforce refuses the run (the Landlock probe's pinned
+  semantics, #178), and a child whose profile refuses to apply fails
+  closed instead of running the mutant.
   On Linux the value behaves like `true`. Opt-in because Apple deprecates
   `sandbox_init` without a published replacement; #436 tracks the
   ecosystem's response.

@@ -246,8 +246,8 @@ RSpec.describe Saboteur::Engine, 'sandbox hook with c.sandbox = "seatbelt"' do
     end
   end
 
-  it "degrades with a one-time note when the probe's profile does not enforce" do
-    allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:unenforced)
+  it "degrades with a one-time note only when macOS lacks Seatbelt" do
+    allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:unavailable)
     engine = engine_for({ "sandbox" => "seatbelt" })
     expect(engine.send(:sandbox_hook)).to be_nil
     expect(engine.send(:sandbox_hook)).to be_nil
@@ -256,12 +256,15 @@ RSpec.describe Saboteur::Engine, 'sandbox hook with c.sandbox = "seatbelt"' do
     expect(warnings.first).to include("hazard guard and canary only")
   end
 
-  it "degrades when the facility is missing or the probe errors" do
-    %i[unavailable error].each do |verdict|
+  # Pinned against the Landlock sibling (#178): a probe that errors or
+  # reports success it cannot prove refuses the run - opting into a
+  # sandbox must never buy silent confinement theatre.
+  it "refuses when the probe errors or its profile does not enforce" do
+    %i[error unenforced].each do |verdict|
       allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(verdict)
       engine = engine_for({ "sandbox" => "seatbelt" })
-      expect(engine.send(:sandbox_hook)).to be_nil
-      expect(engine.instance_variable_get(:@diagnostics).warnings.size).to eq(1)
+      expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error, /refusing to run unsandboxed/)
+      expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error, /c\.sandbox = true/)
     end
   end
 

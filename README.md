@@ -316,7 +316,7 @@ whose C library cannot be located (musl is tried by soname first).
 | Linux 6.2+ (Landlock ABI 3) | Available; doctor confirms the probe. Read-only project tree, except explicit grants. | Landlock + hazard guard + canary. |
 | Linux 5.13-6.1 (Landlock ABI 1-2) | No sandbox: `truncate()` cannot be restricted. | Hazard guard + canary. |
 | Other supported Linux | No usable Landlock. | Hazard guard + canary. |
-| macOS | No sandbox by default; Landlock is Linux-only. `c.sandbox = "seatbelt"` opts into a Seatbelt profile in each mutant child: a forked probe must first prove a deny-default profile really blocks a write, and any other outcome degrades to the guard and canary with a one-time note. Opt-in because `sandbox_init` is Apple-deprecated with no published replacement (#436). | Seatbelt (when the probe enforces) + hazard guard + canary. |
+| macOS | No sandbox by default; Landlock is Linux-only. `c.sandbox = "seatbelt"` opts into a Seatbelt profile in each mutant child: a forked probe must first prove a deny-default profile really blocks a write. A macOS without Seatbelt degrades to the guard and canary with a one-time note; an errored or unenforcing probe refuses the run. Opt-in because `sandbox_init` is Apple-deprecated with no published replacement (#436). | Seatbelt (when the probe enforces) + hazard guard + canary. |
 
 Network access is never restricted on any platform: a mutant can reach real
 APIs if a test is not stubbed. When a mutant could write outside the project,

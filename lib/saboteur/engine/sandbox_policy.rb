@@ -66,24 +66,32 @@ module Saboteur
       end
 
       # c.sandbox = "seatbelt" (the macOS opt-in, #436): the probe decides.
-      # Confine when Seatbelt truly enforces; degrade to the guard and
-      # canary with a one-time note otherwise - never silently "sandboxed".
-      # Fail-closed lives one layer down: a child whose profile refuses to
-      # apply raises instead of running the mutant.
+      # Confine when Seatbelt truly enforces; a clean "no Seatbelt here"
+      # degrades to the guard and canary with a one-time note; anything
+      # else - an errored probe, or an API claiming success its profile
+      # cannot prove - refuses the run, exactly like the Landlock probe
+      # (#178): opting into a sandbox must never buy silent confinement
+      # theatre. Fail-closed lives one layer down too: a child whose
+      # profile refuses to apply raises instead of running the mutant.
       def seatbelt_hook
-        case Execution::Seatbelt.probe
+        case (verdict = Execution::Seatbelt.probe)
         when :ok
           writable = sandbox_writable_dirs
           ->(keep_fds) { Execution::Seatbelt.restrict!(writable: writable, keep_fds: keep_fds) }
         when :unavailable
           seatbelt_note("this macOS lacks Seatbelt")
           nil
-        when :unenforced
-          seatbelt_note("the Seatbelt probe's profile did not enforce - a macOS update may have changed it (#436)")
-          nil
         else
-          seatbelt_note("the Seatbelt probe failed - #436 tracks the deprecation")
-          nil
+          raise Error, "sandbox is \"seatbelt\" but the Seatbelt probe #{verdict_description(verdict)}; refusing to " \
+                       "run unsandboxed - set c.sandbox = true to run with the hazard guard and canary only, " \
+                       "or false to opt out"
+        end
+      end
+
+      def verdict_description(verdict)
+        case verdict
+        when :unenforced then "reported a profile that did not enforce - a macOS update may have changed it (#436)"
+        else "failed (#{verdict}) - #436 tracks the deprecation"
         end
       end
 
