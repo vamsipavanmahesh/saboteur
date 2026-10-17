@@ -11,7 +11,8 @@ All notable changes are documented here. The format follows
 - A loaded class defining a singleton `hash` that does not return an
   Integer (forem's `ReactionCategory`) no longer crashes the boot as an
   internal TypeError: every `Coverage.result` read now refuses with a
-  diagnostic naming the offending classes and the way out (#564).
+  diagnostic explaining the violated `#hash` contract and blaming the
+  application's code (#564).
 
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
