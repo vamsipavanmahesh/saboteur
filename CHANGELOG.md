@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Preflight no longer refuses a precompiled Ruby (mise, ruby-build) whose
+  binary tops the 50 MB evidence-document cap (#364): tool identity
+  digests stream with an executable-sized bound instead. The cap for JSON
+  evidence documents is unchanged.
+
 - A factory assigned inside `class << self` now keeps its own scope in the
   owner path, so a constant defined there is named after the factory's
   singleton: `Host::W.singleton_class::V#n`. An outer factory with no

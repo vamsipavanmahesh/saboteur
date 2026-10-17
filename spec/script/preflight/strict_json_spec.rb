@@ -41,4 +41,11 @@ RSpec.describe Preflight::StrictJson do
     File.mkfifo(fifo)
     expect { Timeout.timeout(5) { described_class.digest(fifo) } }.to raise_error(Preflight::MalformedDocument)
   end
+
+  it "bounds a digest at the byte cap it is given (#364)" do
+    path = File.join(directory, "d")
+    File.write(path, "abc")
+    expect(described_class.digest(path, max_bytes: 3)).to eq(Digest::SHA256.hexdigest("abc"))
+    expect { described_class.digest(path, max_bytes: 2) }.to raise_error(Preflight::MalformedDocument, /over 2 bytes/)
+  end
 end
