@@ -11,8 +11,8 @@ permissions:
 # Newer pushes to a pull request cancel that PR's superseded runs. Runs on main
 # are keyed by commit, so a push to main is never cancelled.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -21,6 +21,7 @@ jobs:
     name: Ruby ${{ matrix.ruby }} / linux / shard ${{ matrix.shard }}
     # 1 vCPU is enough: one rspec process is single-threaded.
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +47,7 @@ jobs:
   test-macos:
     name: Ruby ${{ matrix.ruby }} / macos / shard ${{ matrix.shard }}
     runs-on: [self-hosted, saboteur-mac]
+    timeout-minutes: 20
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       fail-fast: false
@@ -61,12 +63,24 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: script/rspec-shard ${{ matrix.shard }} 3
+      - name: Clean up after a non-ephemeral runner
+        if: always()
+        run: |
+          # The saboteur-mac runners are long-lived, so state this job wrote
+          # inside the checkout would survive into the next unrelated job.
+          # Remove it. The shared bundler cache, the toolcache and stray
+          # processes stay untouched on purpose: the cache is a speed
+          # trade-off for a separate decision, and a process pattern cannot
+          # tell this runner instance's children from the other two
+          # instances' on the same machine.
+          git clean -ffdx
 
   # Non-UTF-8 locale regression net: the whole suite under LANG=C, where
   # external bytes arrive US-ASCII-tagged and any unforced boundary raises.
   locale:
     name: Ruby 3.4 / LANG=C / shard ${{ matrix.shard }}
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
+    timeout-minutes: 15
     env:
       LANG: C
       LC_ALL: C
@@ -84,6 +98,7 @@ jobs:
 
   lint:
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
@@ -102,6 +117,7 @@ jobs:
     name: ${{ matrix.target }} (${{ matrix.reeval }})
     # Namespace trial: slowest Linux job, moved to an nscloud AMD64 runner.
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -124,6 +140,7 @@ jobs:
     # 2x4 keeps the whole pull request job set inside the 32 vCPU trial
     # budget; --jobs 2 matches the 2 vCPUs.
     runs-on: nscloud-ubuntu-24.04-amd64-2x4
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
