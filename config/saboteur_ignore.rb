@@ -3,6 +3,11 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "4431382a",
+             subject: "Saboteur::CLI::HistoryCommand#history_path",
+             reason: "equivalent: UsageError is a ConfigError, so the or-raise is caught by the method's own " \
+                     "rescue ConfigError and re-raised with the full message; the literal is never observable " \
+                     "(probed live: 47 examples, 0 failures with the literal emptied)"
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
