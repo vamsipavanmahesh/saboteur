@@ -232,6 +232,28 @@ RSpec.describe Saboteur::ConstantReads, "class << self scopes (#380)" do
     expect(reads.runtime).to eq([3])
   end
 
+  # A writing outer scope shadows below it, but entering the constant's
+  # owner scope (or its singleton scope) ends the shadow: the owner's own
+  # definition is lexically closer there (#395).
+  let(:nested_host) { find("module M\n  class Host\n    RULES = { a: 1 }\n  end\nend\n").subjects.first }
+
+  it "clears an outer scope's shadow entering the owner's singleton scope" do
+    shadowed_then_owner = "module M\n  RULES = [0]\n  class Host\n    class << self\n      def m = RULES\n    " \
+                          "end\n  end\nend\n"
+    expect(reads_for(shadowed_then_owner, nested_host).runtime).to eq([5])
+  end
+
+  it "clears an outer scope's shadow entering a class owner nested under it" do
+    shadowed_then_owner = "module M\n  RULES = [0]\n  class Host\n    def m = RULES\n  end\nend\n"
+    expect(reads_for(shadowed_then_owner, nested_host).runtime).to eq([4])
+  end
+
+  it "keeps the shadow below a nested scope under the owner that writes the constant" do
+    still_shadowed = "module M\n  RULES = [0]\n  class Host\n    module Mid\n      RULES = [1]\n      " \
+                     "def m = RULES\n    end\n  end\nend\n"
+    expect(reads_for(still_shadowed, nested_host)).to be_nil
+  end
+
   it "lets a singleton-class write shadow the attached class's constant for reads below it" do
     reads = reads_for("class Host\n  class << self\n    RULES = [9]\n    def m = RULES\n  end\nend\n", host_rules)
     expect(reads).to be_nil

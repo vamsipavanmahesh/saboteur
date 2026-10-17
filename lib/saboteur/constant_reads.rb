@@ -117,9 +117,14 @@ module Saboteur
     def walk_scope(node, nesting, constant, out, shadowed)
       inner = scope_nesting(node, nesting)
       path = inner.join("::")
-      # A scope writing its own RULES shadows the outer constant for every
-      # read below it - unless the scope is the constant's owner itself.
-      shadowed ||= path != constant.owner.to_s && writes_constant?(node.body, constant.name)
+      # Entering the constant's owner scope (its singleton scope included)
+      # ends any outer shadow: the owner's own definition is lexically
+      # closer there (#395). Any other scope writing its own RULES shadows
+      # the outer constant for every read below it.
+      owner = constant.owner.to_s
+      scopes = [owner, "#{owner}.singleton_class"]
+      shadowed = false if !owner.empty? && scopes.any? { |scope| path == scope || path.start_with?("#{scope}::") }
+      shadowed ||= path != owner && writes_constant?(node.body, constant.name)
       walk(node.body, inner, constant, out, in_def: nil, in_block: false, shadowed: shadowed)
     end
 
