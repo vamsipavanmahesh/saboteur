@@ -99,6 +99,16 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(described_class.new(lines: {}, tests: []).tests_for(subject_under_test)).to eq([])
   end
 
+  it "rounds durations to six decimals through the JSON round-trip (#353)" do
+    map = described_class.new(lines: {}, tests: %w[t1], durations: { "t1" => 0.123456789 })
+    expect(described_class.from_json(map.to_json).durations).to eq("t1" => 0.123457)
+  end
+
+  it "keeps the loaded source list when load lines are merged in (#353)" do
+    map = described_class.new(lines: {}, tests: [], loaded_files: ["/app/support/helper.rb"])
+    expect(map.with_load_lines({ "boot.rb" => [1, 2] }).loaded_files).to eq(["/app/support/helper.rb"])
+  end
+
   it "keeps the loaded source list through the JSON round-trip (#353)" do
     map = described_class.new(lines: {}, tests: [], loaded_files: ["/app/support/helper.rb"])
     expect(described_class.from_json(map.to_json).loaded_files).to eq(["/app/support/helper.rb"])

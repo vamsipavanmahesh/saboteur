@@ -542,6 +542,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "successful recording" do
       end
 
       expect(captured[:build_seconds]).to be_a(Float)
+      expect(captured[:build_seconds]).to be_between(0, 60)
       expect(captured[:loaded_files]).to contain_exactly(lazy, File.join(lib, "double.rb"), accented)
       expect(captured[:loaded_files].last.encoding).to eq(Encoding::UTF_8)
       expect(JSON.parse(writer.string)["loaded_files"]).to contain_exactly(lazy, File.join(lib, "double.rb"), accented)

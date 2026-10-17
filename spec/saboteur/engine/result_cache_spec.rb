@@ -191,6 +191,21 @@ RSpec.describe Saboteur::Engine::ResultCache do
     store.save
     expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
   end
+  it "computes the unobserved set once across repeated lookups (#353)" do
+    with_dependency_files do |helper, caller_file|
+      coverage = Saboteur::Selection::CoverageMap.new(lines: { caller_file => { 1 => tests } }, tests: tests,
+                                                      loaded_files: [helper])
+      allow(coverage).to receive(:empty_for?).and_call_original
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      store.record(killed)
+      store.save
+
+      2.times { store.lookup(person_subject, comparison_mutation, tests) }
+
+      expect(coverage).to have_received(:empty_for?).once
+    end
+  end
+
   it "forgets it when a lazily required source outside the include list changes (#353)" do
     with_dependency_files do |helper, caller_file|
       coverage = Saboteur::Selection::CoverageMap.new(lines: { caller_file => { 1 => tests } }, tests: tests,
