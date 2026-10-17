@@ -131,6 +131,26 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(result.unmatched).to eq([])
   end
 
+  # A mapped literal whose bytes are not valid UTF-8 reaches the glob
+  # guard itself: match? raises ArgumentError, not the no-match ConfigError
+  # a forced Dir.glob branch would produce (#480 audit).
+  it "raises ArgumentError, not ConfigError, for a mapped spec literal with invalid UTF-8 bytes" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/bad\\xFFx_spec.rb\"]\n}.freeze\n")
+    # The mapped file exists (filesystems allow raw bytes), so it passes the
+    # map's load-time existence check and reaches the glob guard itself.
+    begin
+      write("spec/bad\xFFx_spec.rb".b)
+    rescue Errno::EILSEQ, Errno::EINVAL
+      skip "this platform rejects filenames that are not valid UTF-8"
+    end
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    expect { guess }.to raise_error(ArgumentError, /invalid byte sequence/)
+  end
+
   it "prefers the custom map over the conventional spec path" do
     write("config/saboteur_custom_map.rb",
           "SABOTEUR_CUSTOM_MAP = {\n  \"lib/a.rb\" => [\"spec/unit/a_spec.rb\"]\n}.freeze\n")
@@ -427,6 +447,63 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect([result.unmatched, result.subjectless]).to eq([[], ["lib/c.rb"]])
   end
 
+  # Issue #484: a deletion-only edit that keeps the enclosing method must not
+  # hard-stop the pr preset. The neighbor lines around the deletion mark the
+  # method as changed, but a file whose diff adds no new lines has no new code
+  # to mutate - the diff itself is the change the suite covers.
+  it "does not require a spec for a deletion-only edit that leaves the method's remaining lines mutable" do
+    write("lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.validate(1)
+          Helper.call(1, 2)
+        end
+
+        def helper_body
+          0
+        end
+      end
+    RUBY
+    git("add", ".")
+    git("commit", "-q", "-m", "plugin")
+    write("lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.call(1, 2)
+        end
+      end
+    RUBY
+    result = guess
+    expect([result.unmatched, result.subjectless]).to eq([[], ["lib/plugin.rb"]])
+  end
+
+  # Monorepo layout: the project root sits below the git toplevel, so git
+  # diff paths carry the subdir prefix while the guess's line map is
+  # project-root-relative. The exclusion must still fire (#484).
+  it "treats a deletion-only file as subjectless when the project root sits below the git toplevel" do
+    write("sub/lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.validate(1)
+          Helper.call(1, 2)
+        end
+      end
+    RUBY
+    git("add", ".")
+    git("commit", "-q", "-m", "plugin")
+    write("sub/lib/plugin.rb", <<~RUBY)
+      module Plugin
+        def rules
+          Helper.call(1, 2)
+        end
+      end
+    RUBY
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] },
+                                  root: File.join(dir, "sub"))
+    result = described_class.new(config).call
+    expect([result.unmatched, result.subjectless]).to eq([[], ["lib/plugin.rb"]])
+  end
+
   it "does not require a spec when the changed method differs only in comments" do
     write("lib/c.rb", "class Widget\n  def thing\n    # a note\n    1\n  end\nend\n")
     git("add", ".")
@@ -545,8 +622,134 @@ RSpec.describe Saboteur::Engine::TestGuess do
       .with("HEAD", root: dir, include: config.included_files.to_set, diagnostics: diagnostics)
   end
 
+  # ruby-jwt consolidates claim specs: lib/jwt/claims/decode_verifier.rb is
+  # covered by spec/jwt/claims_spec.rb, which the per-file guess never finds.
+  # When the diff itself changes that consolidated spec and the spec reads a
+  # constant the uncovered file defines, the file is covered and the pr
+  # preset must not hard-stop (#538).
+  it "treats a consolidated spec changed in the diff as covering the file it exercises (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT::Claims::DecodeVerifier.new.call\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    " \
+          "2.times { JWT::Claims::DecodeVerifier.new.call }\n  end\nend\n")
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/jwt/claims_spec.rb")
+  end
+
+  it "still stops for a mutable change no changed spec exercises (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT.decode\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "RSpec.describe JWT::Claims do\n  it \"verifies\" do\n    JWT.decode\n    JWT.decode\n  end\nend\n")
+    expect(guess.unmatched).to eq(["lib/jwt/claims/decode_verifier.rb"])
+  end
+
+  # The top-level literal is this file's coverage link to the changed
+  # spec: drop it (the def's owner alone matches nothing) and the stop returns.
+  it "treats a changed spec reading a constant literal as covering the file that assigns it (#538)" do
+    write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", "RSpec.describe \"rules\" do\n  it { RULES }\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/rules.rb", "RULES = [2]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", "RSpec.describe \"rules\" do\n  it { RULES }\n  it { RULES }\nend\n")
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/shop_spec.rb")
+  end
+  it "covers a top-level constant read inside a nested spec scope (#538)" do
+    write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    spec = "module Shop\n  RSpec.describe \"rules\" do\n    it { RULES }\n%s  end\nend\n"
+    write("spec/shop_spec.rb", format(spec, ""))
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/rules.rb", "RULES = [2]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", format(spec, "    it { RULES }\n"))
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/shop_spec.rb")
+  end
+
+  it "treats a changed spec reading the constant bare under its owner scope as covering (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/jwt/claims_spec.rb",
+          "module JWT\n  module Claims\n    RSpec.describe DecodeVerifier do\n      " \
+          "it { DecodeVerifier.new.call }\n    end\n  end\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/jwt/claims_spec.rb",
+          "module JWT\n  module Claims\n    RSpec.describe DecodeVerifier do\n      " \
+          "it { DecodeVerifier.new.call }\n      it { DecodeVerifier.new.call }\n    end\n  end\nend\n")
+    expect(guess.unmatched).to eq([])
+  end
+
+  it "still stops when the changed spec reads the constant bare outside its owner scope (#538)" do
+    verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
+               "def call\n        %d\n      end\n    end\n  end\nend\n"
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 1))
+    write("spec/other_spec.rb", "RSpec.describe \"other\" do\n  it { DecodeVerifier }\nend\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/jwt/claims/decode_verifier.rb", format(verifier, 2))
+    write("spec/other_spec.rb", "RSpec.describe \"other\" do\n  it { DecodeVerifier }\n  it { DecodeVerifier }\nend\n")
+    expect(guess.unmatched).to eq(["lib/jwt/claims/decode_verifier.rb"])
+  end
+
   it "reports nothing changed" do
     expect(guess.changed).to eq(0)
+  end
+
+  it "names a changed source file the include scope hides (#483)" do
+    write("engines/billing/lib/billing.rb", changed_source)
+    write("docs/notes.md", "# notes\n")
+    result = guess
+    expect(result.changed).to eq(0)
+    expect(result.out_of_scope).to eq(["engines/billing/lib/billing.rb"])
+  end
+
+  it "leaves out_of_scope empty when an included file changed" do
+    write("lib/a.rb", changed_source)
+    expect(guess.out_of_scope).to eq([])
+  end
+
+  it "reports no hidden source when an included file also changed alongside an excluded one (#483)" do
+    write("lib/a.rb", changed_source)
+    write("engines/billing/lib/billing.rb", changed_source)
+    result = guess
+    expect(result.changed).to eq(1)
+    expect(result.out_of_scope).to eq([])
+  end
+
+  it "does not call an included file hidden when its change carries no lines (#483)" do
+    FileUtils.chmod(0o755, File.join(dir, "lib/a.rb"))
+    write("engines/billing/lib/billing.rb", changed_source)
+    result = guess
+    expect(result.changed).to eq(0)
+    expect(result.out_of_scope).to eq(["engines/billing/lib/billing.rb"])
+  end
+
+  it "does not call a changed spec hidden source" do
+    write("spec/stray_spec.rb", "# changed\n")
+    result = guess
+    expect(result.changed).to eq(0)
+    expect(result.out_of_scope).to eq([])
   end
 
   it "maps each unmatched file to the conventional spec path for the retry hint" do
@@ -674,6 +877,46 @@ RSpec.describe Saboteur::Engine::TestGuess do
       File.symlink("missing_target.rb", File.join(dir, "spec/lib/a_spec.rb"))
       expect(guess.skipped_specs).to eq("spec/lib/a_spec.rb" => "not a regular file")
       expect(guess.unmatched_message).to include("lib/a.rb (expected spec/a_spec.rb)")
+    end
+
+    # A same-basename spec anywhere under spec/** is a near miss worth
+    # naming in the stop, so the user can --test it without hunting (#370).
+    it "names same-basename specs found under spec/** when the run stops" do
+      FileUtils.mkdir_p(File.join(dir, "spec/models"))
+      write("lib/x.rb", changed_source)
+      write("spec/models/x_spec.rb")
+      expect(guess.unmatched_message).to include("lib/x.rb (expected spec/x_spec.rb; found: spec/models/x_spec.rb)")
+    end
+
+    # The near misses come sorted and bounded at three: more same-basename
+    # specs than that are cut after the third in path order (#585 dogfood).
+    it "names at most the first three same-basename specs, sorted" do
+      write("lib/x.rb", changed_source)
+      write("spec/a.b/x_spec.rb")
+      write("spec/a/x_spec.rb")
+      write("spec/models/x_spec.rb")
+      write("spec/requests/x_spec.rb")
+      expect(guess.unmatched_message).to include(
+        "lib/x.rb (expected spec/x_spec.rb; found: spec/a.b/x_spec.rb, spec/a/x_spec.rb, spec/models/x_spec.rb)"
+      )
+      expect(guess.unmatched_message).not_to include("spec/models/x_spec.rb, spec/requests/x_spec.rb)")
+    end
+
+    # A changed spec that exists but cannot run (a dangling symlink) was
+    # not deleted: the stop must not say it was.
+    it "does not call an unrunnable expected spec deleted in the diff" do
+      File.delete(File.join(dir, "spec/a_spec.rb"))
+      File.symlink("missing_target.rb", File.join(dir, "spec/a_spec.rb"))
+      write("lib/a.rb", changed_source)
+      expect(guess.skipped_specs).to eq("spec/a_spec.rb" => "not a regular file")
+      expect(guess.unmatched_message).to include("lib/a.rb (expected spec/a_spec.rb)")
+      expect(guess.unmatched_message).not_to include("deleted in the diff")
+    end
+
+    it "adds no found clause when no same-basename spec exists" do
+      write("lib/y.rb", changed_source)
+      expect(guess.unmatched_message).to include("lib/y.rb (expected spec/y_spec.rb)")
+      expect(guess.unmatched_message).not_to include("found:")
     end
 
     # The same comparison on every platform: the suite lists the NFD
@@ -1002,5 +1245,40 @@ RSpec.describe Saboteur::Engine::TestGuess do
     result = guess
     expect(result.specs).to eq(["spec/unit/base_spec.rb"])
     expect(result.unmatched).to eq([])
+  end
+
+  describe "Result#out_of_scope_message (#483)" do
+    def message_for(count)
+      files = Array.new(count) { |index| "engines/e#{index}/lib/f.rb" }
+      described_class::Result.new(specs: [], unmatched: [], subjectless: [], changed: 0, hints: {},
+                                  changed_specs: [], skipped_specs: {}, out_of_scope: files,
+                                  excluded: []).out_of_scope_message
+    end
+
+    def message_text(named)
+      "no changed source file lies inside the include scope, so nothing ran. " \
+        "Changed source files outside it: #{named}. Extend include to cover them, " \
+        "or re-run the same command with one --test per existing spec path."
+    end
+
+    def first_names(count)
+      Array.new(count) { |index| "engines/e#{index}/lib/f.rb" }.join(", ")
+    end
+
+    it "names two files joined by a comma and a space" do
+      expect(message_for(2)).to eq(message_text(first_names(2)))
+    end
+
+    it "names exactly ten files in full with no remainder" do
+      expect(message_for(10)).to eq(message_text(first_names(10)))
+    end
+
+    it "names the first ten and counts one more at eleven" do
+      expect(message_for(11)).to eq(message_text("#{first_names(10)} and 1 more"))
+    end
+
+    it "counts the remainder past ten" do
+      expect(message_for(13)).to eq(message_text("#{first_names(10)} and 3 more"))
+    end
   end
 end

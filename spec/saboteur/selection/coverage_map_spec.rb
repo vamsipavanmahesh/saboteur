@@ -90,6 +90,26 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(with_hits.empty_for?([dotted])).to be(false)
   end
 
+  # A def-time macro's caller ran in the boot's spec load, so the boot
+  # method counters name the def line - and no test calls it again (#409).
+  it "knows a def line the boot called and no test calls again" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] })
+    expect(map.called_only_at_load?(file, 2)).to be(true)
+  end
+
+  it "does not call a def load-only when a test or hook calls it post-boot" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] },
+                              methods: { file => { 2 => %w[t1] } })
+    expect(map.called_only_at_load?(file, 2)).to be(false)
+    plain = described_class.new(lines: {}, tests: %w[t1], methods: { file => { 2 => %w[t1] } })
+    expect(plain.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  it "round-trips load method coverage through JSON" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2, 7] })
+    expect(described_class.from_json(map.to_json).load_methods).to eq(file => [2, 7])
+  end
+
   it "round-trips method coverage through JSON" do
     with_methods = described_class.new(lines: {}, tests: %w[t1 t2], methods: { file => { 2 => %w[t2 t1] } })
     expect(described_class.from_json(with_methods.to_json).methods).to eq(file => { 2 => %w[t2 t1] })
@@ -318,6 +338,52 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       recorder.test_finished("t1")
       expect(recorder.result.lines).to eq({})
     end
+  end
+
+  # Survivor kills for #480's load tracking (#480 dogfood gate).
+  it "keeps method, branch and duration evidence when attaching load lines" do
+    map = described_class.new(lines: { file => { 2 => %w[t1] } }, tests: %w[t1],
+                              methods: { file => { 2 => %w[t1] } }, durations: { "t1" => 0.5 },
+                              branches: { file => { 4 => %w[t1] } })
+    merged = map.with_load_lines({ file => [3] }, { file => [2] })
+    expect(merged.methods).to eq(file => { 2 => %w[t1] })
+    expect(merged.branches).to eq(file => { 4 => %w[t1] })
+    expect(merged.durations).to eq("t1" => 0.5)
+    expect(merged.load_lines).to eq(file => [3])
+    expect(merged.load_methods).to eq(file => [2])
+  end
+
+  it "is not load-only when the boot never called the def, even with no test callers" do
+    plain = described_class.new(lines: {}, tests: %w[t1])
+    expect(plain.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  it "is not load-only when the boot called a different line of the file" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [9] })
+    expect(map.called_only_at_load?(file, 2)).to be(false)
+  end
+
+  # The recorder stores canonical paths, so the lookup must canonicalize
+  # the queried spelling too (#480 dogfood).
+  it "canonicalizes the queried file before the load-methods lookup" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] })
+    dotted = File.join(File.dirname(file), ".", File.basename(file))
+    expect(map.called_only_at_load?(dotted, 2)).to be(true)
+  end
+
+  # A sibling def with test callers does not make this def called: the
+  # per-line fetch, not the file's entry, answers the question (#480
+  # dogfood).
+  it "stays load-only for a def no test calls when another def of the file has callers" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] },
+                              methods: { file => { 7 => %w[t1] } })
+    expect(map.called_only_at_load?(file, 2)).to be(true)
+  end
+
+  it "decodes an absent key as empty int lists" do
+    expect(described_class.int_lists({}, "load_methods")).to eq({})
+    expect(described_class.int_lists({ "load_methods" => { "a.rb" => %w[1 2] } }, "load_methods"))
+      .to eq("a.rb" => [1, 2])
   end
 
   it "names the source files the given tests touched, sorted and deduped (#197)" do

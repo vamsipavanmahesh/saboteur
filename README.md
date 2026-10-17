@@ -70,13 +70,22 @@ Each survivor comes with its diff, the tests that ran, and a triage label
 The labels are heuristics for reading order, never a diagnosis, and they
 never change the score.
 
+Code that only runs while the app loads cannot be judged by replacing the
+method later, so it reports as `ran at load`, outside the score. The same
+holds for def-time macros - a `deprecate`-style helper, a `before_action`
+block, any DSL whose only caller is a class body: the closure captured at
+load keeps the pristine definition, so the boot's def-call counters mark
+the macro itself `ran at load` instead of letting its mutants survive.
+
 ## What you get
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
   you changed. The GitHub Action runs on every pull request and caches
   the coverage map between runs.
 - **Honest verdicts.** Every kill is verified against the unchanged
-  method; a kill the suite cannot confirm stays out of the score.
+  method; a kill the suite cannot confirm stays out of the score. A spec
+  file whose examples depend on earlier ones is retried in defined order
+  before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
 - **A plan before the run.** `saboteur run --dry-run --format json` prints
@@ -90,6 +99,15 @@ never change the score.
   6.2 and newer.
 - **Extension points.** Add your own mutation operators through the
   public interface.
+
+Per-path score gates are on the way: `c.score_gate "app/payments/**/*",
+min_score: 95` in `config/saboteur.rb` (repeatable) is already accepted and
+validated - `min_score` must be between 0 and 100 and the pattern must match
+at least one included file - but nothing enforces the gates yet; enforcement
+lands with #570. Until then `--threshold` (or `c.threshold`) stays the
+global gate. See
+[choosing and raising a threshold](docs/best-practices.md#choosing-and-raising-a-threshold)
+for how to pick a number.
 
 ## Honest limits
 
@@ -124,6 +142,16 @@ paths, globs or Regexps; an empty array marks the file intentionally
 untested, so it needs no inferred spec. The file loads before the app
 boots, so keep it plain Ruby. `saboteur doctor` validates it.
 
+### Rejected kills
+
+The terminal lists them in a `Rejected kills` section and annotates the error
+count (`error 3 (2 rejected kills)`); JSON flags each rejected mutant with
+`rejectedKill: true` and keeps the `rejectedKills` count. These are fresh
+per-mutant kill claims whose tests also fail with the method unchanged. They
+stay errors outside the score. Timeout checks, other errors and reused cached
+kills are not included. See [rejected kills](docs/rejected-kills.md) for
+details.
+
 ### Rails apps
 
 Quickstart for a Rails + RSpec app. The defaults target a plain gem, so a
@@ -143,12 +171,15 @@ in `config/saboteur.rb`:
 
 ```ruby
 Saboteur.configure do |c|
-  c.include = ["app/**/*.rb"]
+  c.include = ["app/**/*.rb"]         # spec/test dirs vendored under lib/ are excluded by default
   c.require = ["./config/environment"] # boots the app
   c.rails = true                       # reconnects ActiveRecord after fork, per-worker databases
   c.jobs = 4                           # optional; the default is 1
 end
 ```
+
+An engine gem whose specs live under `spec/dummy` needs an exclude for them; see
+[Rails engines and dummy apps](docs/guides/rails-engines-and-dummy-apps.md).
 
 ## SimpleCov
 
