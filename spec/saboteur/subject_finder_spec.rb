@@ -488,6 +488,30 @@ RSpec.describe Saboteur::SubjectFinder, "class_eval heredocs (#544)" do
     expect(ids("class A\n  class_eval :not_a_string\nend\n")).to eq([])
   end
 
+  it "leaves a block form with a heredoc argument alone (#568)" do
+    expect(ids("class A\n  class_eval(<<-CODE) { }\n    def x; end\n  CODE\nend\n")).to eq([])
+  end
+
+  it "leaves extra arguments after a heredoc alone (#568)" do
+    expect(ids("class A\n  class_eval <<-CODE, \"other.rb\"\n    def y; end\n  CODE\nend\n")).to eq([])
+  end
+
+  it "finds defs when the heredoc terminator sits at column 0 (#568)" do
+    expect(ids("class A\n  class_eval <<-CODE\n    def z; end\nCODE\nend\n")).to eq(["A#z"])
+  end
+
+  it "finds defs with a non-ASCII heredoc terminator at column 0 (#568)" do
+    expect(ids("class A\n  class_eval \u003c\u003c-\u00c9\u00c9\n    def z; end\n\u00c9\u00c9\nend\n")).to eq(["A#z"])
+  end
+
+  it "registers nothing when a dangling operator swallows the column-0 terminator's first byte (#568)" do
+    expect(ids("class A\n  class_eval <<-CODE\n    def z = 1 +\nCODE\nend\n")).to eq([])
+  end
+
+  it "finds defs with a quoted punctuation heredoc terminator at column 0 (#568)" do
+    expect(ids("class A\n  class_eval <<-'!'\n    def z; end\n!\nend\n")).to eq(["A#z"])
+  end
+
   it "registers nothing from a heredoc body that does not parse" do
     expect(ids("class A\n  class_eval <<-CODE\n    def broken(\n  CODE\nend\n")).to eq([])
   end
