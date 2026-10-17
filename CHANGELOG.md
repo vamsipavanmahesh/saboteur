@@ -12,8 +12,8 @@ All notable changes are documented here. The format follows
   that commit no lockfile (the library convention): the verdict
   fingerprint hashed only `Gemfile.lock` / `gems.locked`, so the digest
   was a constant and every cached verdict was reused across a `Gemfile`,
-  `gems.rb` or `*.gemspec` edit (#408). Manifests and root gemspecs are
-  hashed always.
+  `gems.rb` or `*.gemspec` edit (#408). Manifests and gemspecs anywhere
+  under the project root are hashed always.
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
