@@ -27,7 +27,7 @@ module Saboteur
     def self.for(config, config_path:, gemfile: ENV.fetch("BUNDLE_GEMFILE", nil))
       state = WorkingTree.new(config.root, ignored: config.output_paths).state
       root = File.realpath(config.root)
-      new(state, included: relative(included_files(config), root), include: config["include"],
+      new(state, included: relative(config.included_files, root), include: config["include"],
                  exclude: config["exclude"], root: root,
                  setup_files: setup_files(root, config_path: config_path, gemfile: gemfile)).to_s
     end
@@ -61,15 +61,6 @@ module Saboteur
       patterns.map { |pattern| File.expand_path(pattern, root).delete_prefix(File.join(root, "")) }
     end
 
-    # The files the run would select. A dangling *.rb symlink makes the
-    # realpath in Config#included_files raise; the warning must not end
-    # the run, so it falls back to the patterns alone (#503).
-    def self.included_files(config)
-      config.included_files
-    rescue SystemCallError
-      []
-    end
-
     # The path with its directory resolved, so a file that does not exist
     # yet still gets the physical spelling of where it would be.
     def self.physical(path)
@@ -85,7 +76,7 @@ module Saboteur
       files.map { |file| file.delete_prefix(prefix) }
     end
 
-    private_class_method :included_files, :physical, :relative
+    private_class_method :physical, :relative
 
     def initialize(state, included:, include:, exclude:, setup_files:, root:)
       @state = state

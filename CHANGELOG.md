@@ -51,6 +51,9 @@ All notable changes are documented here. The format follows
   untracked, naming up to five scope and setup paths. The groups add up
   to the count. A tree of untracked notes or trial setup files no longer
   reads like application edits about to be mutated.
+- A dangling `.rb` symlink under `include` is skipped instead of ending
+  the run with `Errno::ENOENT`: it has no real path, so it is not
+  mutation source (#503).
 - The rerun and replay commands in the Next steps footer and the agent
   protocol leave out an empty `--operators` or `--exclude-operators` list
   that was not typed on the command line (#317): the config the command

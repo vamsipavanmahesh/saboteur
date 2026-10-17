@@ -136,6 +136,13 @@ RSpec.describe Saboteur::Config do
     expect(config.included_files).to eq([File.join(@root, "lib", "real.rb")])
   end
 
+  it "skips a dangling .rb symlink, which has no real path (#503)" do
+    write("lib/real.rb", "")
+    File.symlink("missing.rb", File.join(@root, "lib", "broken.rb"))
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "real.rb")])
+  end
+
   it "keeps the exact bytes of a non-UTF-8 file name losslessly (#231)" do
     bytes = "caf\xE9.rb".b
     FileUtils.mkdir_p(File.join(@root, "lib"))
