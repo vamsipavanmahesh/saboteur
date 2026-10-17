@@ -169,10 +169,13 @@ All notable changes are documented here. The format follows
 
 - The `each`/`map` method swap is no longer emitted where the call stands
   as a non-last statement (#399): its return value is discarded there, and
-  both names run the same block, so the swap was equivalent by
-  construction. The last statement of a body and calls nested inside an
+  both names run the same block, so the swap is treated as equivalent.
+  The last statement of a body and calls nested inside an
   expression stay swappable, as does any call on a lazy receiver:
   lazy.map defers its block, so the swap is not equivalent there (#431).
+  Only a `.lazy` in the receiver chain is detected: a lazy enumerator held
+  in a variable, parameter or instance variable is not, and its swaps are
+  suppressed.
   The discard analysis now recurses through branch tails: an each/map call
   that is the last expression of a discarded if/elsif/else/unless/case/when
   branch, begin/rescue body, or while/until body is suppressed too (#440).

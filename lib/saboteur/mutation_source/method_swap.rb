@@ -48,7 +48,7 @@ module Saboteur
       private
 
       # Overrides OperatorVisit#visit to track positions whose value is
-      # provably discarded: a non-last statement, and - recursing from a
+      # syntactically discarded: a non-last statement, and - recursing from a
       # discarded statement - the tail expression of each branch of an
       # if/elsif/else/unless/case/when, a begin/rescue body, or a
       # while/until body (a loop's value never observes its body), or an
@@ -60,6 +60,8 @@ module Saboteur
       # (return/break/next) is used and stays swappable, as is the whole
       # body of a def or block. A lazy receiver breaks the equivalence:
       # lazy.map defers the block, so discarding it runs nothing (#431).
+      # Only a `.lazy` in the receiver chain is detected; a Lazy held in a
+      # variable, parameter or ivar is not, and its swaps are suppressed.
       def visit(node, subject, found)
         return if node.nil? || OperatorVisit::SCOPE_NODES.any? { |scope| node.is_a?(scope) }
 

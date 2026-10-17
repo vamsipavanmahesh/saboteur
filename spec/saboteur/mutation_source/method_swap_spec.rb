@@ -72,7 +72,7 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
     expect(described_class.new(arid: %w[min zzz]).mutations_for(subject_for("xs.min { |x| x }"))).to be_empty
   end
   # #399: each and map run the block the same way and differ only in the
-  # return value. When the call's value is provably discarded - a non-last
+  # return value. When the call's value is syntactically discarded - a non-last
   # statement - the swap is an equivalent mutant, so it is not emitted.
   describe "statement-position each/map swap suppression (#399)" do
     it "does not swap each in a non-last statement (return discarded)" do
@@ -298,6 +298,17 @@ RSpec.describe Saboteur::MutationSource::MethodSwap do
     it "keeps a swap in a while predicate: its value decides whether the loop runs" do
       expect(swapped_count("while xs.any? { |x| x }\n      log(:a)\n    end")).to eq(1)
       expect(swapped_count("while xs.each { |x| x }\n      log(:a)\n    end\n    xs.sum")).to eq(1)
+    end
+
+    # Known limit (#431): only a `.lazy` in the receiver chain is detected.
+    # A Lazy held in a local, parameter or ivar is not, so its each/map
+    # swap is suppressed in a discarded position. This pins that behavior.
+    it "suppresses each on a lazy enumerator held in a local (known undetected case)" do
+      expect(replacements("e = xs.lazy\n    e.each { |x| log(x) }\n    :ok")).to be_empty
+    end
+
+    it "suppresses each on a lazy enumerator held in a parameter (known undetected case)" do
+      expect(replacements("e.each { |x| log(x) }\n    :ok")).to be_empty
     end
 
     it "keeps an each swap that follows a discarded statement: discard state does not leak" do
