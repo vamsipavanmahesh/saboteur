@@ -698,6 +698,41 @@ RSpec.describe Saboteur::Selection::GitDiff do
       expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
     end
 
+    # YAML scalars may be quoted; the quotes are not part of the path.
+    it "shields a quoted BUNDLE_PATH value (#567)" do
+      write(".bundle/config", "BUNDLE_PATH: 'deps'\n")
+      write("deps/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
+    end
+
+    # The same directory, spelled with . and .. segments, shields the
+    # same tree: the prefix is the normalized path, not the raw scalar.
+    it "shields a BUNDLE_PATH spelled with . and .. segments (#567)" do
+      write(".bundle/config", %(BUNDLE_PATH: "./deps/../deps"\n))
+      write("deps/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
+    end
+
+    # The shield prefix ends in a slash: a sibling directory that merely
+    # shares the name's first bytes is project source, not the bundle.
+    it "shields only the configured directory, not a same-prefix sibling (#567)" do
+      write(".bundle/config", "BUNDLE_PATH: deps\n")
+      write("deps/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("deps2/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "deps2/kept_spec.rb"])
+    end
+
+    # ./deps and deps are the same directory: the leading ./ is spelling,
+    # not part of the shield prefix.
+    it "shields a BUNDLE_PATH spelled with a leading ./ (#567)" do
+      write(".bundle/config", "BUNDLE_PATH: ./deps\n")
+      write("deps/ruby/3.3.0/gems/diff-lcs-1.6.2/spec/diff_spec.rb", "1\n")
+      write("spec/kept_spec.rb", "2\n")
+      expect(paths[:present]).to eq([".bundle/config", "spec/kept_spec.rb"])
+    end
+
     # BUNDLE_PATH: . installs the bundle into the project root - unusual
     # but valid. An empty normalized prefix matches every path, shielding
     # the whole tree from --since (#580).
