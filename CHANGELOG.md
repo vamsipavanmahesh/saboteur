@@ -6,6 +6,24 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Methods defined by a non-interpolated `class_eval`/`module_eval` heredoc
+  are mutation subjects (#544): the heredoc body is re-parsed against the
+  real file's bytes, so mutants inside it are generated and judged like
+  ordinary defs (the faraday shape that used to produce 0 subjects). An
+  interpolated heredoc still yields no subjects and keeps the
+  code-in-strings warning (#467).
+
+- Per-path score gate config (#473, slice 1): `score_gate "app/payments/**/*",
+  min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
+  validated at load (min_score 0-100, pattern must match an included file).
+  Enforcement lands with slice 2 (#570).
+- Peak-memory measurement (#202, slice 1): each worker reports its kernel
+  peak RSS (VmHWM) when it retires, and the JSON report records it under
+  `saboteur.memory` as per-worker `peakMb` values plus the supervisor's own
+  peak. No total is printed: fork copy-on-write makes per-process RSS
+  non-additive. The section is omitted where procfs is unavailable.
 ### Changed
 
 - A `--subject` pattern that matches no subject now fails the run (exit 2)
@@ -21,6 +39,33 @@ All notable changes are documented here. The format follows
   memory, is pointed at `c.max_processes` / `c.max_memory_mb` instead
   of reading as a suite failure.
 
+- Engine setup load failures are reported clearly instead of as a bare
+  quit (#378): when RSpec dies while loading spec files, the error names
+  the files that failed to load, parsed from RSpec's own load-failure
+  output, and suggests the remedy - exclude the broken subtrees with
+  `--exclude-pattern` (for a Rails engine's embedded spec/dummy) or name
+  the suite with `--test`.
+
+- A spec file whose later examples rely on state left by earlier ones no
+  longer turns its mutants into errors (#557). When a covering example
+  fails even with the method unchanged, saboteur retries once with the
+  file's examples in defined order, from the start through the last
+  covering example. The kill stands only if that run passes unchanged.
+
+- Spec and test files vendored under `lib/` (capybara ships its driver
+  suite at `lib/capybara/spec/**`) are no longer swept into the default
+  mutation scope (#504): the default exclude now shields
+  `lib/**/spec/**`, `lib/**/test/**`, `lib/**/tests/**` and the
+  `*_spec.rb` / `*_test.rb` / `test_*.rb` shapes under `lib/`. A config's
+  own `c.exclude` replaces the shields wholesale, and the shields never
+  trip the stale-pattern warning.
+
+- A --since run whose changed lines sit inside a heredoc now says so
+  (#467). Code embedded in a string - a class_eval/module_eval argument or
+  a template constant - evaluates methods the static walk cannot see, so
+  the generic "may not parse, or every change may sit outside a method"
+  hint misdiagnosed it; the warning now names the files and the
+  code-in-a-string blind spot.
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a
@@ -88,6 +133,21 @@ All notable changes are documented here. The format follows
   clear diagnostic instead of terminating the loader mid-require (#411).
 
 ### Changed
+
+- A `--since` run where only some changed files have a guessed spec now
+  runs the mapped subset with a loud warning per unmapped file instead of
+  stopping with "so nothing ran"; the stop message and the warning name
+  same-basename specs found under `spec/**`, so the file can be passed to
+  `--test` without hunting. A run with no guesses at all still stops, as
+  do full runs, `--subject` runs, and any run with a `--threshold` or a
+  `--max-*` gate, since the gate would judge a score the unmapped file
+  never joined (#370).
+
+- A `--since` run now stops when every changed source file sits outside the
+  include scope (#483), naming the hidden files and the ways out (extend
+  `include`, or `--test` the specs). The old fallback ran the whole suite
+  against zero subjects - the slow full run the `pr` preset exists to
+  avoid - and its message read as if the diff had touched no source.
 
 - The rerun and replay commands in the Next steps footer and the agent
   protocol leave out an empty `--operators` or `--exclude-operators` list
@@ -196,7 +256,6 @@ All notable changes are documented here. The format follows
   `spec/policy_finder_spec.rb` and `lib/aasm/base.rb` finds
   `spec/unit/base_spec.rb`, so `--subject` and `--since` stop hard-stopping
   on pundit, aasm and shoulda-matchers style layouts (#394, #370, #393).
-
 
 - Methods defined in the four core class factories (`X = Data.define(...)`,
   `Struct.new`, `Class.new`, `Module.new` with a block) are mutation
