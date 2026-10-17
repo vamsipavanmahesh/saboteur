@@ -152,7 +152,7 @@ delete those files and those exclude lines.
 - **Focused execution.** Coverage selects the tests that can matter, then
   kill checks rerun them against the unchanged method.
 - **Safety controls.** A hazard guard, canary, resource limits, and (on Linux
-  6.2+) a Landlock sandbox help contain destructive mutants.
+  6.2+) a Landlock sandbox helps contain destructive mutants.
 - **Team workflow.** Terminal, JSON, HTML and agent reports, thresholds,
   baselines, ignore reasons, score history, and a GitHub Action.
 - **Open extension points.** Add mutants through the public interface and
@@ -186,7 +186,16 @@ The public opt-in `baseline propose`, `baseline accept` and `baseline check`
 commands use this evidence to review and compare survivors. They never skip
 accepted mutants or change their scores. See [Opt-in survivor baseline](#opt-in-survivor-baseline).
 
-### The unchanged suite is checked first
+### Safety guardrails
+
+| Layer | What it does | What it does not do |
+| --- | --- | --- |
+| Baseline | Runs the unchanged suite before mutation. | Does not prove a suite is free of flaky tests. |
+| Hazard guard | Suppresses mutants in known destructive call forms. | Is syntactic; aliases, variables and dynamic selectors can escape it. |
+| Canary | Aborts the run when tracked files disappear after a mutant. | Detects damage after it starts; it restores nothing. |
+| Landlock | When available on Linux 6.2+, makes the project tree read-only to mutant children. | Is Linux-only and covers the filesystem only; network is never restricted. |
+
+#### The unchanged suite is checked first
 
 Every run with selected subjects runs the loaded unchanged suite twice (the specs chosen with `--test` if given,
 otherwise the inferred specs) in fresh
@@ -220,7 +229,7 @@ selected sources.
 Two passes detect observed instability, not every possible flaky test. See
 [baseline stability](docs/baseline-stability.md) for limits and hook behaviour.
 
-### Hazardous calls are not mutated, and a canary watches the tree
+#### Hazardous calls are not mutated, and a canary watches the tree
 
 Mutants run in your checkout, so a mutant inside a destructive call could do
 real damage: a string mutation inside `FileUtils.rm_rf(File.join(Dir.pwd,
@@ -301,16 +310,20 @@ whose C library cannot be located (musl is tried by soname first).
 `c.sandbox = "strict"` turns that degraded note into a refusal;
 `c.sandbox = false` opts out.
 
-In short, per platform: on Linux 6.2+ mutant children can be
-filesystem-sandboxed as described above (the kernel capability, not a proof
-of isolation - `saboteur doctor` probes what your setup actually allows); on
-older Linux kernels and on macOS there is no sandbox (Landlock is
-Linux-only) and mutants run with the hazard guard and canary only. Network
-access is never restricted on any platform - a mutant can reach real APIs if
-a test is not stubbed. When a mutant could write outside the project, run
-saboteur in a container; a plain container keeps outbound network access, so
-when a mutant could reach real APIs, deny the network or stub the APIs.
-`saboteur doctor` reports the platform's sandbox status.
+#### Platform support
+
+| Platform | Mutant-child filesystem protection | Effective guard |
+| --- | --- | --- |
+| Linux 6.2+ (Landlock ABI 3) | Available; doctor confirms the probe. Read-only project tree, except explicit grants. | Landlock + hazard guard + canary. |
+| Linux 5.13-6.1 (Landlock ABI 1-2) | No sandbox: `truncate()` cannot be restricted. | Hazard guard + canary. |
+| Other supported Linux | No usable Landlock. | Hazard guard + canary. |
+| macOS | No sandbox; Landlock is Linux-only. | Hazard guard + canary. |
+
+Network access is never restricted on any platform: a mutant can reach real
+APIs if a test is not stubbed. When a mutant could write outside the project,
+run saboteur in a container; when it could reach real APIs, deny the network
+or stub the APIs. `saboteur doctor` probes and reports what your platform
+actually allows.
 
 
 ## 🧠 Why it is built the way it is
