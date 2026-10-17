@@ -65,10 +65,10 @@ RSpec.describe Saboteur::Engine, "test selection" do
     allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
   end
 
-  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {})
+  def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {}, out_of_scope: [])
     hints = unmatched.to_h { |file| [file, "spec/#{File.basename(file, '.rb')}_spec.rb"] }
     result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:,
-                                                     changed_specs:, skipped_specs:)
+                                                     changed_specs:, skipped_specs:, out_of_scope:)
     allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
                                                                                    call: result, call_for: result))
   end
@@ -239,6 +239,24 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(used).to eq(["spec/a_spec.rb"])
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb")
       expect(err.string).to include("no spec is required for lib/errors.rb")
+    end
+
+    it "stops and names changed source files outside the include scope (#483)" do
+      guess(specs: [], unmatched: [], changed: 0, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "origin/main") }
+        .to raise_error(Saboteur::ConfigError,
+                        %r{no changed source file lies inside the include scope.*engines/billing/lib/billing\.rb}m)
+      expect(Saboteur::Engine::CoverageStore).not_to have_received(:new)
+    end
+
+    it "points at include and --test, never a reconstructed command carrying the ref" do
+      guess(specs: [], unmatched: [], changed: 0, out_of_scope: ["engines/billing/lib/billing.rb"])
+      expect { run_engine("since" => "weird ref;$(rm -rf)") }
+        .to raise_error(Saboteur::ConfigError) do |error|
+        expect(error.message).not_to include("weird ref")
+        expect(error.message).to include("Extend include to cover them")
+        expect(error.message).to include("one --test per existing spec path")
+      end
     end
 
     it "runs the whole suite when nothing changed" do
