@@ -632,4 +632,39 @@ Saboteur.ignore do |i|
   i.mutation "71f06a1870dbfcb4",
              subject: "Saboteur::ConstantSubjectFinder#demote_ambiguous",
              reason: "equivalent: the loop's Unsupported-building side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
+  i.mutation "bf95736e576b6691",
+             subject: "Saboteur::SubjectFinder#walk",
+             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
+
+  i.mutation "76c21aa993019fba",
+             subject: "Saboteur::SubjectFinder#walk",
+             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
+
+  i.mutation "5df3e88b8674c139",
+             subject: "Saboteur::SubjectFinder#walk_constant_assignment",
+             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
+
+  i.mutation "6dcd94d3ceb84834",
+             subject: "Saboteur::SubjectFinder#walk_constant_assignment",
+             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
+
+  i.mutation "6d0178897b4f0480",
+             subject: "Saboteur::SubjectFinder#mark_refinements",
+             reason: "equivalent: each vs map on a side-effect-only loop that sets skip_reason; the array is discarded"
+
+  i.mutation "c347d2a83fc6ab38",
+             subject: "Saboteur::SubjectFinder#add_subject",
+             reason: "equivalent: || false only normalizes nil to false; in_sclass is used in truthiness contexts only"
+
+  i.mutation "41623d58ed9d06c8",
+             subject: "Saboteur::SubjectFinder#sig_span",
+             reason: "equivalent: Prism::Node#start_offset delegates to location.start_offset, so the chain cut is identical"
+
+  i.mutation "e906e03768b70f99",
+             subject: "Saboteur::SubjectFinder#sig_span",
+             reason: "equivalent: Prism::Node#end_offset delegates to location.end_offset, so the chain cut is identical"
+
+  i.mutation "7777f925324c357d",
+             subject: "Saboteur::SubjectFinder#walk_singleton_class",
+             reason: "equivalent: the sclass scope's path is never read: owner_path rejects sclass scopes and its header is hardcoded"
 end
