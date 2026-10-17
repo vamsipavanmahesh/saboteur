@@ -33,6 +33,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Def-time macro mutants - a `deprecate`-style helper, a `before_action`
+  block, any DSL whose only caller is a class body - no longer report as
+  survived: the closure captured while the app loads keeps the pristine
+  definition, so replacing the method later cannot judge them. They now
+  report as `ran at load`, outside the score (#409).
 - A mutant on the continuation line of a multi-line interpolated
   statement is no longer misclassified missing_test (#498): attribution
   now spans the whole enclosing statement, because an interpolation's own
