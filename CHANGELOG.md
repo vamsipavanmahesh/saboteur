@@ -51,6 +51,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Rejected kills no longer surface as generic errors: the terminal
+  lists them in a `Rejected kills` section and annotates the error count,
+  and report.json flags each rejected mutant with `rejectedKill: true`
+  instead of carrying only the `rejectedKills` count (#375).
+
 - A changed file the diff only deletes from no longer hard-stops a
   --since run for want of a spec (#484): a deletion-only file yields no
   subject and no fine-grained mutant, so test inference treats it as
@@ -159,6 +164,7 @@ All notable changes are documented here. The format follows
   the generic "may not parse, or every change may sit outside a method"
   hint misdiagnosed it; the warning now names the files and the
   code-in-a-string blind spot.
+
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a
@@ -221,6 +227,14 @@ All notable changes are documented here. The format follows
   `M::HELPER` are now ordinary subjects under their lexical owner instead
   of a phantom `FactoryProbe::Outer::Nested::RULES` skipped as defined
   inside a block.
+- Constants assigned inside `class << self` are now named with their real
+  owner, the singleton class (`Host.singleton_class::RULES`), instead of the
+  attached class (#380, #390). A same-named constant in the class body no
+  longer collides with it or triggers a false "assigned more than once"
+  refusal. Read matching follows: reads inside `class << self` still count
+  toward the attached class's constant through singleton ancestry, and a
+  singleton-class write shadows the attached class's constant for reads
+  below it.
 
 - A spec file that calls `exit` at load now refuses the run with a
   clear diagnostic instead of terminating the loader mid-require (#411).

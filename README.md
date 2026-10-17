@@ -141,6 +141,16 @@ paths, globs or Regexps; an empty array marks the file intentionally
 untested, so it needs no inferred spec. The file loads before the app
 boots, so keep it plain Ruby. `saboteur doctor` validates it.
 
+### Rejected kills
+
+The terminal lists them in a `Rejected kills` section and annotates the error
+count (`error 3 (2 rejected kills)`); JSON flags each rejected mutant with
+`rejectedKill: true` and keeps the `rejectedKills` count. These are fresh
+per-mutant kill claims whose tests also fail with the method unchanged. They
+stay errors outside the score. Timeout checks, other errors and reused cached
+kills are not included. See [rejected kills](docs/rejected-kills.md) for
+details.
+
 ### Rails apps
 
 Quickstart for a Rails + RSpec app. The defaults target a plain gem, so a

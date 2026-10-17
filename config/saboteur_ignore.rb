@@ -761,6 +761,39 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
+  i.mutation "ce91efaab8362061",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: shadowed's only non-nil assignment is guarded by path != scopes.first and scopes " \
+                     "holds just the owner, so shadowed == scope is never true and swapping the dead disjunct changes nothing"
+
+  i.mutation "dc592bbbeadec650",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: shadowed's only non-nil assignment is guarded by path != scopes.first and scopes " \
+                     "holds just the owner, so shadowed == scope is already always false"
+
+  i.mutation "5f8ed39d3c1a6df3",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: overwriting shadowed is unobservable: a shadow crossing into the owner subtree is " \
+                     "lifted at the boundary first, and a nested writer's path only extends the current shadow's " \
+                     "lexical subtree, so the none? classification it feeds never changes"
+
+  i.mutation "c2cd20ea2074e488",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: scopes holds exactly one element (the owner), so first and last agree"
+
+  i.mutation "6c755a9350011f9b",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: scopes holds exactly one element (the owner), so any? and all? agree"
+
+  i.mutation "698e9c03fc5cfa99",
+             subject: "Saboteur::ConstantReads#walk_scope",
+             reason: "equivalent: the none? check only runs when path is inside the owner subtree, and a live shadow " \
+                     "there was set inside the subtree: shadows propagate only down their setter's lexical tree " \
+                     "and outside shadows lift at the owner boundary. A string-prefix shadow that is not under " \
+                     "the owner (M2 vs M) sits in a sibling or ancestor subtree - siblings never share shadow " \
+                     "state, ancestors are shorter than the owner so start_with? fails identically - so the " \
+                     "bare-prefix check agrees on every reachable shadowed"
+
   i.mutation "a239e75a818e5e27",
              subject: "Saboteur::Engine::TestGuess#defined_constants",
              reason: "equivalent: sole consumer is any? over ConstantReads.across; .uniq removes only byte-identical DefinedConstant tuples, and a duplicate tuple yields the same across result"
@@ -862,6 +895,7 @@ Saboteur.ignore do |i|
   i.mutation "517bdd5e24a7af96",
              subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
              reason: "equivalent: each and map iterate the same children; the recursion uses spans, not the return value"
+
   i.mutation "d9aeb909564db3e1",
              subject: "Saboteur::Engine::SubjectSelection#by_pattern",
              reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
@@ -943,6 +977,41 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Selection::CoverageMap#invert_coverage",
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "b555c2d28d9c78cf",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent: with empty nesting the loop never runs and the trailing parts.empty? returns nil " \
+                     "identically; the early return is a fast path, not behavior (10-fixture probe, no divergence)"
+
+  i.mutation "736552442b711990",
+             subject: "Saboteur::ConstantSubjectFinder#walk_singleton_class",
+             reason: "equivalent: a singleton scope's path is never read - Scope#header returns the literal " \
+                     "'class << self', owner_path branches on the sclass? kind, and the reevaluator resolves via " \
+                     "singleton_class - so the string surfaces in no output (10-fixture probe, no divergence)"
+
+  i.mutation "b02e8e86ab88faa3",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent (unreachable): keyword classes and nested factories reject factories from the " \
+                     "nesting, so a factory scope is always last or followed only by one singleton scope; after " \
+                     "the singleton branch consumes factory_path no later iteration can read the stale value " \
+                     "(10-fixture probe over factory/sclass/keyword shapes, no divergence)"
+
+  i.mutation "f03123ea505a2c88",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent (unreachable): factory_path is non-nil only immediately after a factory scope, " \
+                     "and a plain class/module scope never follows a factory in the nesting (lexical_nesting " \
+                     "rejects factories), so the plain branch always sees nil (10-fixture probe, no divergence)"
+
+  i.mutation "f86ef657e4210d26",
+             subject: "Saboteur::ConstantSubjectFinder#owner_path",
+             reason: "equivalent: a factory scope is built only from a ConstantWriteNode name, which never carries " \
+                     "a leading ::, so delete_prefix(\"::\") on its path removes nothing (probed: ::X = Class.new is " \
+                     "not a factory scope and the mutant survives every spec)"
+
+  i.mutation "b1adadf512cb59eb",
+             subject: "Saboteur::Reporter::Terminal#status_line",
+             reason: "equivalent: rejected is a count (never negative) and the line is reached only when " \
+                     "rejected.positive?, so rejected > 1 and rejected != 1 agree on every reachable value"
 
   i.mutation "8bfe1be557e2b75f",
              subject: "Saboteur::Selection::DependencyShield#bundler_path",
@@ -1032,4 +1101,5 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::TestGuess#covered_by_changed_specs",
              reason: "equivalent: dropping the unmatched.empty? check leaves select running on an empty list, " \
                      "which returns [] exactly like the early return"
+
 end
