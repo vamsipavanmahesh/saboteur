@@ -3,11 +3,12 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
-  i.mutation "4431382a",
+  i.mutation "4431382aefb4312a",
              subject: "Saboteur::CLI::HistoryCommand#history_path",
-             reason: "equivalent: UsageError is a ConfigError, so the or-raise is caught by the method's own " \
-                     "rescue ConfigError and re-raised with the full message; the literal is never observable " \
-                     "(probed live: 47 examples, 0 failures with the literal emptied)"
+             reason: "equivalent: UsageError < ConfigError, so the or-raise is caught by the method's own " \
+                     "rescue ConfigError and re-raised with the rescue copy; probed live on the firing input " \
+                     "(config.path returns nil): original and literal-emptied mutant raise the identical " \
+                     "UsageError with the full rescue message"
   i.mutation "668e787880f87f22",
              subject: "Saboteur::MutationSource::MethodSwap#visit_used_children",
              reason: "equivalent: visit_used_children array of child results is discarded by its only caller (visit); each and map run the same used-wrapped recursion"
@@ -766,9 +767,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
-  i.mutation "ac58690d8b48a18c",
-             subject: "Saboteur::CLI::HistoryCommand#print_trend",
-             reason: "equivalent: each vs map on a side-effect-only output loop; the collected array is discarded"
   i.mutation "ce91efaab8362061",
              subject: "Saboteur::ConstantReads#walk_scope",
              reason: "equivalent: shadowed's only non-nil assignment is guarded by path != scopes.first and scopes " \

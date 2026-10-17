@@ -61,7 +61,7 @@ All notable changes are documented here. The format follows
 
 - `saboteur badge` escapes incomplete-run reasons with `.inspect` in its
   refusal message, so a reason carrying newlines or control characters
-  cannot spoof extra output lines (#526).
+  cannot spoof extra output lines (#474).
 
 - The artifact dir now ignores itself (#426): a run writes logs,
   coverage maps and reports under the cache dir, and the marker
