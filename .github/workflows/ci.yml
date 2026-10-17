@@ -22,6 +22,10 @@ jobs:
     # 1 vCPU is enough: one rspec process is single-threaded.
     runs-on: nscloud-ubuntu-24.04-amd64-1x2
     timeout-minutes: 15
+    # Job level, not strategy level (#402 put it under strategy:, which is
+    # invalid there): a red 4.0 leg cannot fail the run's conclusion while
+    # the line proves itself; the gate's advisoryJobs does the verdict side.
+    continue-on-error: ${{ matrix.ruby == '4.0' }}
     strategy:
       fail-fast: false
       matrix:
