@@ -363,6 +363,23 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(map.called_only_at_load?(file, 2)).to be(false)
   end
 
+  # The recorder stores canonical paths, so the lookup must canonicalize
+  # the queried spelling too (#480 dogfood).
+  it "canonicalizes the queried file before the load-methods lookup" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] })
+    dotted = File.join(File.dirname(file), ".", File.basename(file))
+    expect(map.called_only_at_load?(dotted, 2)).to be(true)
+  end
+
+  # A sibling def with test callers does not make this def called: the
+  # per-line fetch, not the file's entry, answers the question (#480
+  # dogfood).
+  it "stays load-only for a def no test calls when another def of the file has callers" do
+    map = described_class.new(lines: {}, tests: %w[t1], load_methods: { file => [2] },
+                              methods: { file => { 7 => %w[t1] } })
+    expect(map.called_only_at_load?(file, 2)).to be(true)
+  end
+
   it "decodes an absent key as empty int lists" do
     expect(described_class.int_lists({}, "load_methods")).to eq({})
     expect(described_class.int_lists({ "load_methods" => { "a.rb" => %w[1 2] } }, "load_methods"))
