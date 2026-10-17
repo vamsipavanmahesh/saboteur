@@ -114,6 +114,25 @@ RSpec.describe Saboteur::Gates do
     end
   end
 
+  describe "#any? and #agent_option_name" do
+    it "is true with --max-* limits alone and names them for the --agent rejection" do
+      g = gates("max_timeouts" => 1)
+      expect(g.any?).to be(true)
+      expect(g.agent_option_name).to eq("--max-* gates")
+    end
+
+    it "is true with score gates alone and names them for the --agent rejection" do
+      g = described_class.new({ "max_timeouts" => nil, "max_errors" => nil,
+                                "score_gates" => [{ "pattern" => "app/**/*", "min_score" => 95 }] })
+      expect(g.any?).to be(true)
+      expect(g.agent_option_name).to eq("score gates")
+    end
+
+    it "is false with no gates at all" do
+      expect(gates.any?).to be(false)
+    end
+  end
+
   describe "#violations" do
     it "passes when no gate is set, whatever the counts" do
       expect(gates.violations(report(:timeout, :error, :killed))).to be_empty
