@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The first-pass ETA no longer reads like a second baseline check when
+  the baseline is done (#465): with a cold coverage cache the remaining
+  pass is the coverage map build, and the message now names the coverage
+  build and any remaining baseline passes separately.
+
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
