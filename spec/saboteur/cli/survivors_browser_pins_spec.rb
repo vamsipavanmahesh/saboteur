@@ -115,6 +115,19 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
     )
   end
 
+  it "treats a survivor entry with a null coveredBy as zero coverage, ranked included" do
+    # The Stryker writer emits null coveredBy for uncovered mutants.
+    entry = { "id" => "9" * 16, "mutatorName" => "body_nil", "replacement" => "nil",
+              "location" => { "start" => { "line" => 2, "column" => 3 },
+                              "end" => { "line" => 2, "column" => 9 } },
+              "status" => "Survived", "coveredBy" => nil }
+    report = { "files" => { "lib/solo.rb" => { "language" => "ruby", "source" => "a\nb\nc\n",
+                                               "mutants" => [entry] } } }
+    expect(described_class.new(report).list(ranked: true)).to eq(
+      ["1 survivor", "  1. lib/solo.rb:2  body_nil                     #{'9' * 16}  -"]
+    )
+  end
+
   it "treats a report without a files section as having no survivors" do
     expect(described_class.new({}).list).to eq("no survivors")
   end
@@ -199,7 +212,9 @@ RSpec.describe Saboteur::CLI, "survivors report loading (#520)" do
       path = File.join(dir, "bad.json")
       File.write(path, "{not json")
       expect(cli("survivors", path).call).to eq(2)
-      expect(err.string).to start_with("saboteur: #{path} is not a readable saboteur report: ")
+      prefix = "saboteur: #{path} is not a readable saboteur report: "
+      expect(err.string).to start_with(prefix)
+      expect(err.string.delete_prefix(prefix).strip).not_to be_empty
     end
   end
 end
