@@ -70,6 +70,13 @@ Each survivor comes with its diff, the tests that ran, and a triage label
 The labels are heuristics for reading order, never a diagnosis, and they
 never change the score.
 
+Code that only runs while the app loads cannot be judged by replacing the
+method later, so it reports as `ran at load`, outside the score. The same
+holds for def-time macros - a `deprecate`-style helper, a `before_action`
+block, any DSL whose only caller is a class body: the closure captured at
+load keeps the pristine definition, so the boot's def-call counters mark
+the macro itself `ran at load` instead of letting its mutants survive.
+
 ## What you get
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
