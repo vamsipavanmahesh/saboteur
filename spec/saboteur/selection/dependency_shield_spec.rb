@@ -38,6 +38,27 @@ RSpec.describe Saboteur::Selection::DependencyShield do
       expect(described_class.bundler_path(@root)).to be_nil
     end
 
+    # A sibling directory whose name merely extends the project's
+    # basename is outside the tree: the containment check must be on
+    # "root/", not "root" (kills the interpolation_removal survivor).
+    it "is nil for a sibling that only shares a name prefix with the root" do
+      write_config("BUNDLE_PATH: ../#{File.basename(@root)}2\n")
+      expect(described_class.bundler_path(@root)).to be_nil
+    end
+
+    # Only ' and " are quote characters: any other matching first/last
+    # character is part of the path, not wrapping (kills the scalar
+    # quote-class survivor).
+    it "keeps backtick-wrapped scalars as literal path characters" do
+      write_config("BUNDLE_PATH: `vendor`\n")
+      expect(described_class.bundler_path(@root)).to eq("`vendor`/")
+    end
+
+    it "keeps a scalar whose first and last characters match but are not quotes" do
+      write_config("BUNDLE_PATH: aa\n")
+      expect(described_class.bundler_path(@root)).to eq("aa/")
+    end
+
     it "strips a quoted scalar before prefixing" do
       write_config("BUNDLE_PATH: \"deps\"\n")
       expect(described_class.bundler_path(@root)).to eq("deps/")
