@@ -16,6 +16,25 @@ module Saboteur
 
       SWAPS = { min: "max", max: "min", any?: "all?", all?: "any?", map: "each", each: "map" }.freeze
 
+      # Node types that mix used and discarded child positions get a named
+      # handler; anything not listed here is conservative: every child's
+      # value is treated as used (#440).
+      CONTAINER_HANDLERS = {
+        Prism::StatementsNode => :visit_statements,
+        Prism::IfNode => :visit_if,
+        Prism::UnlessNode => :visit_unless,
+        Prism::ElseNode => :visit_else,
+        Prism::EnsureNode => :visit_ensure,
+        Prism::CaseNode => :visit_case,
+        Prism::CaseMatchNode => :visit_case,
+        Prism::WhenNode => :visit_when,
+        Prism::InNode => :visit_in,
+        Prism::BeginNode => :visit_begin,
+        Prism::RescueNode => :visit_rescue,
+        Prism::WhileNode => :visit_loop,
+        Prism::UntilNode => :visit_loop
+      }.freeze
+
       # Base inherits Object's empty initializer; there is no parent state to set.
       def initialize(arid: []) # rubocop:disable Lint/MissingSuper
         @arid = arid.map { |pattern| Regexp.new(pattern) }
@@ -32,7 +51,8 @@ module Saboteur
       # provably discarded: a non-last statement, and - recursing from a
       # discarded statement - the tail expression of each branch of an
       # if/elsif/else/unless/case/when, a begin/rescue body, or a
-      # while/until body (a loop's value never observes its body). each
+      # while/until body (a loop's value never observes its body), or an
+      # ensure body (its value never contributes to the result). each
       # and map differ only in their return value (both run the block the
       # same way), so swapping them in a discarded-value position yields
       # an equivalent mutant (#399, #440). A call whose value flows into
@@ -41,31 +61,10 @@ module Saboteur
       # body of a def or block. A lazy receiver breaks the equivalence:
       # lazy.map defers the block, so discarding it runs nothing (#431).
       def visit(node, subject, found)
-        case node
-        when nil, *OperatorVisit::SCOPE_NODES
-          nil
-        when Prism::StatementsNode
-          visit_statements(node, subject, found)
-        when Prism::IfNode
-          visit_branch(node, subject, found, :subsequent)
-        when Prism::UnlessNode
-          visit_branch(node, subject, found, :else_clause)
-        when Prism::ElseNode
-          mutate_node(node, subject, found)
-          visit(node.statements, subject, found)
-        when Prism::CaseNode
-          visit_case(node, subject, found)
-        when Prism::WhenNode
-          visit_when(node, subject, found)
-        when Prism::BeginNode
-          visit_begin(node, subject, found)
-        when Prism::RescueNode
-          visit_rescue(node, subject, found)
-        when Prism::WhileNode, Prism::UntilNode
-          visit_loop(node, subject, found)
-        else
-          visit_used_children(node, subject, found)
-        end
+        return if node.nil? || OperatorVisit::SCOPE_NODES.any? { |scope| node.is_a?(scope) }
+
+        handler = CONTAINER_HANDLERS[node.class]
+        handler ? send(handler, node, subject, found) : visit_used_children(node, subject, found)
       end
 
       # Non-last statements are discarded-value positions; the last
@@ -80,6 +79,32 @@ module Saboteur
             visit(statement, subject, found)
           end
         end
+      end
+
+      def visit_else(node, subject, found)
+        mutate_node(node, subject, found)
+        visit(node.statements, subject, found)
+      end
+
+      # An ensure body's value never contributes to the result, so it is
+      # always a discarded-value position (#440).
+      def visit_ensure(node, subject, found)
+        mutate_node(node, subject, found)
+        discarded { visit(node.statements, subject, found) }
+      end
+
+      def visit_in(node, subject, found)
+        mutate_node(node, subject, found)
+        used { visit(node.pattern, subject, found) }
+        visit(node.statements, subject, found)
+      end
+
+      def visit_if(node, subject, found)
+        visit_branch(node, subject, found, :subsequent)
+      end
+
+      def visit_unless(node, subject, found)
+        visit_branch(node, subject, found, :else_clause)
       end
 
       # Branch bodies inherit the discard context; the predicate's value
