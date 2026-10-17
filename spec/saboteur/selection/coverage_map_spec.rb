@@ -99,6 +99,21 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(described_class.new(lines: {}, tests: []).tests_for(subject_under_test)).to eq([])
   end
 
+  it "rounds durations to six decimals through the JSON round-trip (#353)" do
+    map = described_class.new(lines: {}, tests: %w[t1], durations: { "t1" => 0.123456789 })
+    expect(described_class.from_json(map.to_json).durations).to eq("t1" => 0.123457)
+  end
+
+  it "keeps the loaded source list when load lines are merged in (#353)" do
+    map = described_class.new(lines: {}, tests: [], loaded_files: ["/app/support/helper.rb"])
+    expect(map.with_load_lines({ "boot.rb" => [1, 2] }).loaded_files).to eq(["/app/support/helper.rb"])
+  end
+
+  it "keeps the loaded source list through the JSON round-trip (#353)" do
+    map = described_class.new(lines: {}, tests: [], loaded_files: ["/app/support/helper.rb"])
+    expect(described_class.from_json(map.to_json).loaded_files).to eq(["/app/support/helper.rb"])
+  end
+
   it "round-trips through JSON with integer line keys" do
     timed = described_class.new(lines: map.lines, tests: map.tests, build_seconds: 1.5)
     restored = described_class.from_json(timed.to_json)
@@ -304,6 +319,16 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(recorder.result.lines).to eq({})
     end
   end
+
+  it "names the source files the given tests touched, sorted and deduped (#197)" do
+    map = described_class.new(
+      lines: { "/a/helper.rb" => { 3 => %w[t1 t2], 9 => ["t1"] }, "/a/other.rb" => { 1 => ["t2"] } },
+      tests: %w[t1 t2]
+    )
+    expect(map.files_for(["t1"])).to eq(["/a/helper.rb"])
+    expect(map.files_for(%w[t1 t2])).to eq(["/a/helper.rb", "/a/other.rb"])
+    expect(map.files_for(["t3"])).to eq([])
+  end
 end
 
 RSpec.describe Saboteur::Selection::CoverageMap, "constant subjects (issue #306)" do
@@ -393,5 +418,44 @@ RSpec.describe Saboteur::Selection::CoverageMap, "constant reads in endless defs
     subject.consumer_lines = { app => [2] }
     map = described_class.new(lines: { app => { 2 => %w[t2] }, file => { 1 => %w[t1] } }, tests: %w[t1 t2])
     expect(map.tests_for_edit(subject, [1])).to eq(%w[t2])
+  end
+end
+
+RSpec.describe Saboteur::Selection::CoverageMap, "dependency files (#344)" do
+  it "names files a test touched only through method coverage, for endless defs" do
+    map = described_class.new(
+      lines: { "/a/caller.rb" => { 3 => ["t1"] } },
+      methods: { "/a/helper.rb" => { 5 => ["t1"] } },
+      tests: ["t1"]
+    )
+    expect(map.files_for(["t1"])).to eq(["/a/caller.rb", "/a/helper.rb"])
+  end
+
+  it "names the files that ran while the app loaded" do
+    map = described_class.new(
+      lines: { "/a/caller.rb" => { 3 => ["t1"] } },
+      load_lines: { "/a/boot.rb" => { 1 => 2 } },
+      tests: ["t1"]
+    )
+    expect(map.boot_files).to eq(["/a/boot.rb"])
+  end
+end
+
+RSpec.describe Saboteur::Selection::CoverageMap, ".root_prefixes (#353)" do
+  it "lists the resolved and the spelled root, each with a trailing slash" do
+    Dir.mktmpdir do |target|
+      Dir.mktmpdir do |parent|
+        link = File.join(parent, "project")
+        File.symlink(target, link)
+        expect(described_class.root_prefixes(link)).to eq(["#{File.realpath(link)}/", "#{link}/"])
+      end
+    end
+  end
+
+  it "lists one prefix when the root has no symlink component" do
+    Dir.mktmpdir do |dir|
+      root = File.realpath(dir)
+      expect(described_class.root_prefixes(root)).to eq(["#{root}/"])
+    end
   end
 end
