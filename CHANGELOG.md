@@ -15,6 +15,12 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A baseline stopped by a containment limit (process count or memory)
+  now names the knob and its current value in the refusal (#459): a
+  suite that forks heavily by design, or legitimately needs more
+  memory, is pointed at `c.max_processes` / `c.max_memory_mb` instead
+  of reading as a suite failure.
+
 - The "nothing to mutate" note on an empty selection now prints only
   once (#468). An empty-selection run already ends with the
   "0 subjects, 0 mutants" summary, and announcing the note again as a
