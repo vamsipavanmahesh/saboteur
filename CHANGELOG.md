@@ -33,6 +33,16 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A `--max-duration` budget that cannot cover the cold coverage map build
+  now stops the run before the build starts, instead of spending the
+  whole budget mid-build and keeping nothing - the trap where every
+  `--incremental` resume redid the baselines and died at the same point.
+  Once the baseline passes are timed, a build costing about one more
+  full pass than the budget holds is refused up front, with the
+  shortfall and the remedies (a higher budget, fewer
+  `--baseline-passes`, or one unbudgeted run to warm the coverage
+  cache) in the message (#427).
+
 - The first-pass ETA no longer reads like a second baseline check when
   the baseline is done (#465): with a cold coverage cache the remaining
   pass is the coverage map build, and the message now names the coverage

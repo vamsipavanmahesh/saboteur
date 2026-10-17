@@ -930,6 +930,38 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
+  i.mutation "af0bf54f269aa87b",
+             subject: "Saboteur::Engine::RunBudget#refuse_unaffordable_coverage_build",
+             reason: "equivalent: dropping the per_pass <= 0 arm changes no outcome - with per_pass <= 0 " \
+                     "and remaining > 0 the next guard (remaining >= per_pass) admits identically, and " \
+                     "remaining <= 0 is the other arm's case; probed byte-identical admit/refuse on a " \
+                     "24-case matrix (2 configs x 2 baseline elapsed x 2 pass counts x 3 run starts)"
+
+  i.mutation "b368e4a7a0b64d06",
+             subject: "Saboteur::Engine::RunBudget#refuse_unaffordable_coverage_build",
+             reason: "equivalent: per_pass <= 0 fires only at exactly 0.0 (an untimed baseline), where " \
+                     "per_pass < 0 is never true, and with remaining > 0 the remaining >= per_pass guard " \
+                     "admits identically either way"
+
+  i.mutation "3ce3a72baba4cfff",
+             subject: "Saboteur::Engine::RunBudget#refuse_unaffordable_coverage_build",
+             reason: "equivalent only via the call path: Engine#mutate always passes " \
+                     "guard.completed_passes from check_baseline, an Integer, where to_i is identity; " \
+                     "a direct call with nil diverges (nil.to_i.zero? admits, nil.zero? raises " \
+                     "NoMethodError), and no caller produces it"
+
+  i.mutation "dee396e30de4b83f",
+             subject: "Saboteur::Engine::RunBudget#refuse_unaffordable_coverage_build",
+             reason: "equivalent: per_pass is baseline_elapsed / completed_passes and never negative, " \
+                     "so <= 0 and == 0 differ only below 0, and at exactly 0.0 both fire; the 24-case " \
+                     "admit/refuse probe matrix is byte-identical"
+
+  i.mutation "feb1f2b67bea9964",
+             subject: "Saboteur::Engine::RunBudget#refuse_unaffordable_coverage_build",
+             reason: "equivalent: per_pass is never negative, so per_pass <= -1 never fires, and at " \
+                     "per_pass == 0.0 the remaining >= per_pass guard admits identically; the 24-case " \
+                     "admit/refuse probe matrix is byte-identical"
+
   i.mutation "d774d9400d9f0aa8",
              subject: "Saboteur::Engine::ResultCache#hash_dependency_inputs",
              reason: "equivalent: the block's digest-append side effects are the whole behavior and the " \

@@ -143,27 +143,6 @@ module Saboteur
       @diagnostics.announce(scope_to_guesses(guess))
     end
 
-    # A spec file the diff touched that cannot run is named, also before a
-    # stop on an unmatched file: --test, the way out, never reads the diff.
-    def inform_skipped_specs(guess) = (@diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?)
-
-    # Stop before boot: name the spec-less files and the ways out. The
-    # hinted spec paths are the conventional ones - they do not exist (that
-    # is why the files are unmatched), so the message never prints them as
-    # a runnable --test command, and it never reconstructs the source
-    # scope: the user appends --test or --all to their own command. The
-    # example is still shell-safe: the ref is user input, so it is quoted
-    # and pinned to the flag with = (a ref like "-x" must not become a
-    # switch).
-    def scope_to_guesses(guess)
-      # The guesses now stand as explicit tests, like --test. guess_tests is
-      # dropped rather than set to false: an explicit false is the deprecated
-      # opt-out and would warn.
-      @config = config.with({ "tests" => guess.specs }, except: ["guess_tests"])
-      @guessed_tests = guess.specs
-      guess.scope_message(since: config["since"])
-    end
-
     # The run's immutable report, built once the last result is in.
     def announce_operators = @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
 
@@ -206,6 +185,7 @@ module Saboteur
       full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
       warn_unscoped(integration, full_passes)
       check_baseline(integration, full_passes)
+      refuse_unaffordable_coverage_build(store, files)
       return [] if abandon_for_budget?(subjects)
 
       map = store.fetch(files)
@@ -213,10 +193,9 @@ module Saboteur
       cache = result_cache(map, files)
       scheduler = scheduler_for(map, integration, cache)
       lists = candidate_lists(subjects, scope, map)
-      work = subjects.zip(lists).reject { |_, list| list.empty? }
-      return [] if work.empty?
+      runnable_subjects, runnable_lists = subjects.zip(lists).reject { |_, list| list.empty? }.transpose
+      return [] if runnable_subjects.nil?
 
-      runnable_subjects, runnable_lists = work.transpose
       @rails&.prepare_workers(config["jobs"])
       # The execution phase forks next: the worker batch, or one child per
       # mutant when serial. Pack the heap now that the map and candidates
@@ -287,11 +266,13 @@ module Saboteur
                                 supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
                                 full_passes: full_passes, timeout_cap: method(:budget_capped_timeout),
                                 between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil)
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       guard.call
+      @baseline_elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
       # Stability is the order comparison between completed checks: the cold
       # coverage build is not a baseline pass, and a budget break shortens
       # the loop, so certify only what actually ran.
-      @stable_suite = guard.completed_passes >= 2
+      @stable_suite = (@completed_baseline_passes = guard.completed_passes) >= 2
     end
 
     # A --id replay targets one known mutant; the whole-suite cost summary
