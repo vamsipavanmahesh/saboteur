@@ -99,7 +99,7 @@ Action manifest/launcher, integration manifest/configs, mutation config and igno
 CI's pull_request workflow is allowed to execute untrusted code with read-only
 permissions. The trusted verifier never executes that code. A completed CI run
 must match the exact head, PR number, repository and workflow path, with exactly
-12 expected successful jobs; DCO must have exactly one successful signoff job.
+21 expected successful jobs; DCO must have exactly one successful signoff job.
 Newest run ID and its latest attempt win. Immediately before success, the verifier
 reselects the newest required runs, refreshes their latest attempts and checks
 all jobs again. Run IDs, attempts, job IDs and green conclusions must match
