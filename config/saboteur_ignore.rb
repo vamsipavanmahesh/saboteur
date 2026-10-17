@@ -826,6 +826,15 @@ Saboteur.ignore do |i|
   i.mutation "70a77934c3856a1e",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
+
+  i.mutation "4d3d5ac0703067d2",
+             subject: "Saboteur::SubjectFinder#lexical_nesting",
+             reason: "equivalent: replacing (index + 1) with index only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
+  i.mutation "8953e46e984e97b6",
+             subject: "Saboteur::SubjectFinder#lexical_nesting",
+             reason: "equivalent: index + 0 is index, which only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
   i.mutation "036e4fb956df510f",
              subject: "Saboteur::Engine::ResultCache#digest_tests",
              reason: "equivalent: the following SHA256 hexdigest has a fixed width, so the dropped separator " \
