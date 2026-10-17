@@ -721,4 +721,22 @@ Saboteur.ignore do |i|
   i.mutation "70a77934c3856a1e",
              subject: "Saboteur::SubjectFinder#owner_path",
              reason: "equivalent: replacing (index + 1) with index only adds the sclass scope itself to the slice; an sclass scope never answers factory?, so any? is unchanged"
+
+  i.mutation "4cde174a623048a8",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: covered_by entries are non-nil test id strings, so all? is true exactly when any? is " \
+                     "unless the array is empty; and an empty covered_by makes DefinedOrderPrefix#for return nil (empty " \
+                     "prefix equals empty covering set), so no retry happens either way"
+  i.mutation "a8d5b6b2a673a435",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: an empty covered_by makes DefinedOrderPrefix#for return nil (the empty prefix equals the " \
+                     "empty covering set), so the guard conjunct never changes whether a retry happens"
+  i.mutation "8806b9ad93a5145f",
+             subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
+             reason: "equivalent: Scheduler#reuse never sets rejected_kill: true, so no reused result can pass the first " \
+                     "conjunct and reach the retry"
+  i.mutation "52b79709725195b2",
+             subject: "Saboteur::Engine::Scheduler#rerun_in_prefix",
+             reason: "equivalent: budget_capped clamps the retry timeout to <= the full one, so < and != agree on every " \
+                     "reachable value"
 end
