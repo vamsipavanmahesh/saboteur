@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Methods defined by a non-interpolated `class_eval`/`module_eval` heredoc
+  are mutation subjects (#544): the heredoc body is re-parsed against the
+  real file's bytes, so mutants inside it are generated and judged like
+  ordinary defs (the faraday shape that used to produce 0 subjects). An
+  interpolated heredoc still yields no subjects and keeps the
+  code-in-strings warning (#467).
+
 ### Fixed
 
 - A class factory assigned inside `class << self` no longer shares its
