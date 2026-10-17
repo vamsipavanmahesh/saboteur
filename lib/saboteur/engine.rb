@@ -9,6 +9,7 @@ require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
 require_relative "engine/gated_run"
 require_relative "engine/run_budget"
+require_relative "engine/selection_announcement"
 require_relative "engine/thread_warnings"
 
 require_relative "engine/pipelines"
@@ -21,6 +22,7 @@ module Saboteur
     include EarlyStopRecording
     include RunBudget
     include GatedRun
+    include SelectionAnnouncement
 
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
@@ -101,8 +103,7 @@ module Saboteur
     # from the named subjects' files, so one unrelated spec-less file can
     # never block a one-method run.
     def select_tests
-      return unless config["tests"].empty?
-      return if @replay || config["all"] || config["test_selection"] == "all"
+      return if !config["tests"].empty? || @replay || config["all"] || config["test_selection"] == "all"
 
       subjects = config["subjects"]
       return select_subject_tests(subjects) if subjects.any?
@@ -111,7 +112,7 @@ module Saboteur
       @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
       report_unmapped(guess)
 
-      @diagnostics.announce(selection_message(guess))
+      announce_selection(guess)
     end
 
     # A --subject run infers only from the files holding the named subjects:
@@ -181,7 +182,8 @@ module Saboteur
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
-                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures)
+                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
+                 memory: @memory_report)
     end
 
     def complete_evidence(results, subjects)
@@ -241,7 +243,10 @@ module Saboteur
                                       cache: cache, on_start: method(:start_worker),
                                       after_subject: after_subject_hook, stop_after: stop_checks(ignore_list),
                                       halt_check: config["max_duration"] ? method(:budget_exceeded?) : nil)
-      distribution.run(subjects, lists).tap { record_early_stop(distribution) }
+      distribution.run(subjects, lists).tap do
+        record_early_stop(distribution)
+        @memory_report = distribution.memory_report
+      end
     ensure
       @diagnostics.finish_progress
     end
@@ -319,13 +324,9 @@ module Saboteur
     end
 
     # The dependency universe a cached verdict watches when coverage
-    # cannot speak: every project file the booted process loaded, plus
-    # the run's own files (#344).
+    # cannot speak lives in Selection::CoverageMap (#344).
     def source_files(files, prefixes: Selection::CoverageMap.root_prefixes(config.root))
-      $LOADED_FEATURES.filter_map do |file|
-        path = Text.utf8_strict(Saboteur::Selection::CoverageMap.canonical(file))
-        path if path.end_with?(".rb") && prefixes.any? { |prefix| path.start_with?(prefix) }
-      end | files
+      Selection::CoverageMap.loaded_project_files(files, prefixes: prefixes)
     end
 
     def result_cache(map = nil, files = [])
