@@ -84,6 +84,19 @@ RSpec.describe Saboteur::Reporter::HistoryReader do
         .to raise_error(Saboteur::Error, /\Ascore history contains an invalid record/)
     end
 
+    # A mocked IO is the only observable difference for the read length: any
+    # oversized line raises the same byte-limit error however many bytes gets
+    # pulls, but dropping the length argument unbounds the read.
+    it "bounds each record read to the byte limit plus one byte (#526)" do
+      limit = Saboteur::Reporter::ScoreHistory::MAX_RECORD_BYTES
+      file = instance_double(File)
+      allow(File).to receive(:open).and_yield(file)
+      allow(file).to receive(:stat).and_return(instance_double(File::Stat, file?: true))
+      allow(file).to receive(:flock)
+      allow(file).to receive(:gets).with(limit + 1).and_return(nil)
+      expect(described_class.read(@history)).to eq([])
+    end
+
     it "refuses a final record with no newline" do
       append(result_for(:killed, kill_cause: "assertion"))
       File.write(@history, File.read(@history).chomp)
