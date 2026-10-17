@@ -83,6 +83,114 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expect(cache.lookup(person_subject, comparison_mutation, tests + ["./spec/person_spec.rb[1:2]"])).to be_nil
   end
 
+  # Libraries conventionally commit no lockfile; the cache must still see
+  # a dependency-declaration edit (#408).
+  it "forgets it when the Gemfile changes and no lockfile is committed" do
+    File.delete(File.join(@root, "Gemfile.lock"))
+    File.write(File.join(@root, "Gemfile"), "gem \"rspec\", \"~> 3.12\"\n")
+    stored
+    File.write(File.join(@root, "Gemfile"), "gem \"rspec\", \"~> 3.13\"\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  # Gemspecs are dependency declarations too, and appear in no cache input
+  # otherwise (#408).
+  it "forgets it when a gemspec's dependency declaration changes" do
+    File.write(File.join(@root, "app.gemspec"), "Gem::Specification.new { |s| s.add_dependency 'a', '1.0' }\n")
+    stored
+    File.write(File.join(@root, "app.gemspec"), "Gem::Specification.new { |s| s.add_dependency 'a', '2.0' }\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  it "forgets it when a gemspec appears where there was none" do
+    stored
+    File.write(File.join(@root, "app.gemspec"), "Gem::Specification.new { |s| s.name = 'app' }\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  # Monorepo sub-gems carry their own dependency declarations below the
+  # project root; a root-only scan cannot see them (#561).
+  it "forgets it when a sub-gem's gemspec dependency declaration changes" do
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    File.write(File.join(@root, "sub", "sub.gemspec"), "Gem::Specification.new { |s| s.add_dependency 'a', '1.0' }\n")
+    stored
+    File.write(File.join(@root, "sub", "sub.gemspec"), "Gem::Specification.new { |s| s.add_dependency 'a', '2.0' }\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  it "forgets it when a sub-gem's Gemfile changes" do
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    File.write(File.join(@root, "sub", "Gemfile"), "gem \"a\", \"1.0\"\n")
+    stored
+    File.write(File.join(@root, "sub", "Gemfile"), "gem \"a\", \"2.0\"\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+
+  # Vendored installs hold hundreds of gemspecs; hashing them would poison
+  # every fingerprint with dependency artifacts the project does not declare.
+  it "ignores vendored gemspecs and manifests" do
+    FileUtils.mkdir_p(File.join(@root, "vendor", "bundle", "gems", "a"))
+    vendored = File.join(@root, "vendor", "bundle", "gems", "a", "a.gemspec")
+    File.write(vendored, "Gem::Specification.new { |s| s.name = 'a' }\n")
+    stored
+    File.write(vendored, "Gem::Specification.new { |s| s.name = 'b' }\n")
+    expect(cache.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+  end
+
+  # The dependency-input stream keys manifests root-relative (#561); the
+  # exact digest pins both the relative form and the stream layout (#536).
+  it "keys dependency manifests root-relative in the fingerprint" do
+    File.write(File.join(@root, "Gemfile"), "gem \"a\", \"1.0\"\n")
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    File.write(File.join(@root, "sub", "sub.gemspec"), "Gem::Specification.new { |s| s.name = 'sub' }\n")
+
+    store = described_class.new(path: path, root: @root, inputs: "config-1")
+
+    expected = Digest::SHA256.new
+    expected << Saboteur::VERSION << "\0" << "config-1" << "\0" << "" << "\0" << store.send(:source_set) << "\0"
+    expected << person_subject.source << "\0"
+    expected << Digest::SHA256.hexdigest(person_subject.file_source)
+    tests.sort.each do |test|
+      expected << test << "\0" << Digest::SHA256.file(File.join(@root, "spec", "person_spec.rb")).hexdigest << "\0"
+    end
+    Saboteur::Engine::ResultCache::LOCKFILES.each do |name|
+      file = File.join(@root, name)
+      expected << (File.file?(file) ? Digest::SHA256.file(file).hexdigest : "missing") << "\0"
+    end
+    gemfile = File.join(@root, "Gemfile")
+    gemspec = File.join(@root, "sub", "sub.gemspec")
+    expected << "Gemfile" << "\0" << Digest::SHA256.file(gemfile).hexdigest << "\0"
+    expected << "sub/sub.gemspec" << "\0" << Digest::SHA256.file(gemspec).hexdigest << "\0"
+
+    expect(store.send(:fingerprint, person_subject, tests)).to eq(expected.hexdigest)
+  end
+
+  # Manifests change rarely; rescanning the whole tree on every fingerprint
+  # would tax every verdict. The scan runs once and memoizes (#536).
+  it "scans the dependency manifests once and memoizes the list" do
+    store = described_class.new(path: path, root: @root, inputs: "config-1")
+    scanned = 0
+    allow(Dir).to receive(:[]) do |*_args|
+      scanned += 1
+      scanned == 1 ? [File.join(@root, "Gemfile")] : [File.join(@root, "other", "Gemfile")]
+    end
+    expect(store.send(:dependency_files)).to eq([File.join(@root, "Gemfile")])
+    expect(store.send(:dependency_files)).to eq([File.join(@root, "Gemfile")])
+  end
+
+  # Exclusion is judged on root-relative parts: a project rooted under a
+  # directory named like an excluded one keeps its own manifests (#536).
+  it "keeps manifests when the root itself sits under an excluded-named directory" do
+    Dir.mktmpdir do |base|
+      root = File.join(File.realpath(base), "vendor", "proj")
+      FileUtils.mkdir_p(root)
+      manifest = File.join(root, "Gemfile")
+      File.write(manifest, "gem \"a\"\n")
+      store = described_class.new(path: File.join(root, "results.json"), root: root, inputs: "config-1")
+      expect(store.send(:dependency_files)).to eq([manifest])
+    end
+  end
+
   it "forgets it when the lockfile or the run's inputs change" do
     stored
     File.write(File.join(@root, "Gemfile.lock"), "lock 2\n")

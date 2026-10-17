@@ -42,6 +42,7 @@ module Saboteur
           saboteur: { findings: Findings.build(report), scores: scores(report),
                       inlineSuppressions: inline_audit(report) }
                      .merge(operatorPolicy: report.operator_policy).merge(exit_cause ? { exitCause: exit_cause } : {})
+                     .merge(report.memory ? { memory: report.memory } : {})
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
       end
 
