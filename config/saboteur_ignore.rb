@@ -3,10 +3,6 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
-  i.mutation "8387aa82e7a9b074",
-             subject: "Saboteur::Engine::TestGuess#expand_mapped",
-             reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
-                     "sees existing literals without glob metacharacters, and Dir.glob of such a path returns exactly it"
 
   i.mutation "bb377adb7ae9ce54",
              subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
@@ -751,8 +747,8 @@ Saboteur.ignore do |i|
 
   i.mutation "485c590681bcde38",
              subject: "Saboteur::Selection::CoverageMap#files_for",
-             reason: "equivalent: invert_coverage is a pure function of the map's frozen lines, so recomputing " \
-                     "it on every call yields the identical hash the memo would have returned"
+             reason: "equivalent: nothing mutates the coverage map after construction, so recomputing " \
+                     "invert_coverage on every call yields the identical hash the memo would have returned"
 
   i.mutation "c426c783724e596f",
              subject: "Saboteur::Selection::CoverageMap#invert_coverage",
