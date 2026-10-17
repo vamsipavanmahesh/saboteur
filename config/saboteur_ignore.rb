@@ -3,11 +3,6 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
-  i.mutation "4fe125f4acde4da3",
-             subject: "Saboteur::Selection::GitDiff#deletion_only_files",
-             reason: "equivalent: git() output is already byte-tagged (Open3.capture3) and Text.utf8_identity " \
-                     "force-tags UTF-8 downstream, so dropping .b changes no observable string; hand-applied " \
-                     "against the byte-named deletion fixture: suite green"
   i.mutation "8387aa82e7a9b074",
              subject: "Saboteur::Engine::TestGuess#expand_mapped",
              reason: "equivalent: literal spec values are existence-validated when the map loads, so expand_mapped only " \
