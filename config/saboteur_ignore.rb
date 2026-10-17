@@ -713,4 +713,52 @@ Saboteur.ignore do |i|
   i.mutation "b0aae921a2cfa19d",
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
+
+  i.mutation "ab2717e302f1bbf4",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: prism nodes delegate start_offset to their location, so node.start_offset is node.location.start_offset"
+
+  i.mutation "92b037ffed4fece1",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: prism nodes delegate end_offset to their location, so node.end_offset is node.location.end_offset"
+
+  i.mutation "585dc5cf9f2b2453",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: prism nodes delegate start_line to their location, so node.start_line is node.location.start_line"
+
+  i.mutation "94d0fb5458708c8f",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: prism nodes delegate end_line to their location, so node.end_line is node.location.end_line"
+
+  i.mutation "eb627023b070245d",
+             subject: "Saboteur::Subject#initialize",
+             reason: "equivalent: an unread ivar is nil, so dropping @skip_reason = nil leaves the same default"
+
+  i.mutation "fc9db74a0df1ef3e",
+             subject: "Saboteur::Subject#source",
+             reason: "equivalent: ||= and = compute the same bytes from an immutable file_source; only the memo differs"
+
+  i.mutation "390506877733f2d8",
+             subject: "Saboteur::Subject#surrounding_text",
+             reason: "equivalent: rindex finds a newline for every real subject - they are always nested under a scope line, so the || -1 fallback never runs"
+
+  i.mutation "b829064fd6c0a6bd",
+             subject: "Saboteur::Subject#surrounding_text",
+             reason: "equivalent: the -1 only matters when the def starts the file, which no found subject can do"
+
+  i.mutation "bb56907e2a8aa2f1",
+             subject: "Saboteur::Subject#surrounding_text",
+             reason: "equivalent: the -1 only matters when the def starts the file, which no found subject can do"
+
+  i.mutation "620b4cc1b0e5162d",
+             subject: "Saboteur::Subject#surrounding_text",
+             reason: "equivalent: a subject's end_byte is always followed by its enclosing scope's end, so the bytesize fallback never runs"
+
+  i.mutation "d6f4737bbb1c4026",
+             subject: "Saboteur::Subject#rescuing?",
+             reason: "equivalent: the parser only allows else with rescue, so else_clause non-nil implies rescue_clause non-nil and the extra check never decides"
+
+  i.mutation "e7a053a591c446e5",
+             subject: "Saboteur::Subject#surrounding_text",
+             reason: "equivalent: force_encoding mutates in place, so each returns the same two already-forced strings map would collect"
 end

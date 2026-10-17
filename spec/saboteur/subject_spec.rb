@@ -41,10 +41,39 @@ RSpec.describe Saboteur::Subject do
       .to raise_error(ArgumentError, /overlapping/)
   end
 
+  it "accepts edits that span the whole method exactly, and rejects a byte outside either end" do
+    s = subject_under_test
+    expect(s.apply([edit(s.start_byte, s.end_byte, "def m = 2\n  end")])).to eq("def m = 2\n  end")
+    expect { s.apply([edit(s.start_byte - 1, s.start_byte + 1, "x")]) }.to raise_error(ArgumentError, /outside/)
+    expect { s.apply([edit(s.end_byte - 1, s.end_byte + 1, "x")]) }.to raise_error(ArgumentError, /outside/)
+  end
+
+  it "names the edit range, the subject, and the subject span when an edit falls outside" do
+    s = subject_under_test
+    expect { s.apply([edit(0, 5, "x")]) }
+      .to raise_error(ArgumentError, "edit 0...5 is outside A#m (#{s.start_byte}...#{s.end_byte})")
+  end
+
+  it "names the subject when edits overlap, and allows edits that only touch" do
+    s = subject_under_test
+    left = edit(s.start_byte, s.start_byte + 3, "x")
+    touching = edit(s.start_byte + 3, s.start_byte + 6, "y")
+    expect { s.apply([left, touching]) }.not_to raise_error
+    expect { s.apply([left, edit(s.start_byte + 2, s.start_byte + 6, "y")]) }
+      .to raise_error(ArgumentError, "overlapping edits in mutation of A#m")
+  end
+
+  it "applies edits given out of byte order" do
+    s = subject_under_test
+    first = edit(s.start_byte, s.start_byte + 3, "x")
+    later = edit(s.start_byte + 3, s.start_byte + 6, "y")
+    expect(s.apply([later, first])).to eq(s.apply([first, later]))
+  end
+
   it "rejects edits for another file" do
     at = source.index(">=")
     expect { subject_under_test.apply([edit(at, at + 2, ">", file: "/elsewhere.rb")]) }
-      .to raise_error(ArgumentError, /applied to subject/)
+      .to raise_error(ArgumentError, "edit for /elsewhere.rb applied to subject in #{subject_under_test.file}")
   end
 
   it "maps body lines (not the def line) for multi-line methods" do
@@ -59,6 +88,11 @@ RSpec.describe Saboteur::Subject do
     it "answers a changed-lines set by scanning it" do
       expect(subject_under_test.overlaps_lines?(Set[3])).to be(true)
       expect(subject_under_test.overlaps_lines?(Set[1, 5])).to be(false)
+    end
+
+    it "is true when any changed line lands inside, not only when all do" do
+      expect(subject_under_test.overlaps_lines?(Set[3, 100])).to be(true)
+      expect(subject_under_test.overlaps_lines?(Set[100, 200])).to be(false)
     end
 
     it "answers a range by interval overlap, not by enumerating it" do
@@ -110,6 +144,14 @@ RSpec.describe Saboteur::Subject do
       expect(branchy.coverage_lines_for(edit_at("x - 1"))).to eq([7])
     end
 
+    it "uses the edit's last line, not its first, for a multi-line edit" do
+      source = branchy.file_source
+      start = source.index("x +")
+      edit = Saboteur::MutationSource::Edit.new(file: branchy.file, start_byte: start,
+                                                end_byte: source.index("2", start) + 1, replacement: "x")
+      expect(branchy.coverage_lines_for(edit)).to eq([4, 5])
+    end
+
     it "maps an edit in a condition to the statement that holds it" do
       expect(branchy.coverage_lines_for(edit_at(">"))).to eq([3])
     end
@@ -134,6 +176,10 @@ RSpec.describe Saboteur::Subject do
       expect(recovers?("    work\n    1")).to be(false)
     end
 
+    it "is true when an explicit begin without rescue wraps a rescuing begin" do
+      expect(recovers?("    begin\n      begin\n        work\n      rescue\n        1\n      end\n    end")).to be(true)
+    end
+
     it "is false for an ensure-only body and for a rescue inside a nested def" do
       expect(recovers?("    work\n  ensure\n    done")).to be(false)
       expect(recovers?("    def inner\n      x\n    rescue\n      1\n    end\n    work")).to be(false)
@@ -152,5 +198,24 @@ RSpec.describe Saboteur::Subject do
 
   it "returns the text around the def on its first and last lines" do
     expect(subject_under_test.surrounding_text).to eq(["  ", ""])
+  end
+
+  it "keeps text before the def on its first line and after it on its last line" do
+    inline = subjects_in("class A\n  x = 1; def m = 1; y = 2\nend\n").first
+    expect(inline.surrounding_text).to eq(["  x = 1; ", "; y = 2"])
+  end
+
+  it "returns surrounding text in UTF-8" do
+    expect(subject_under_test.surrounding_text.map(&:encoding)).to eq([Encoding::UTF_8, Encoding::UTF_8])
+  end
+
+  it "strings itself as its subject id" do
+    expect(subject_under_test.to_s).to eq("A#m")
+  end
+
+  it "has no sig source without a sig, and the sig text with one" do
+    expect(subject_under_test.sig_source).to be_nil
+    sigged = subjects_in("class A\n  sig { params(x: Integer).returns(Integer) }\n  def m(x) = x\nend\n").first
+    expect(sigged.sig_source).to eq("sig { params(x: Integer).returns(Integer) }")
   end
 end
