@@ -82,7 +82,7 @@ bundle exec saboteur run --since origin/main</code></pre>
 <h2>How it works</h2>
 <p class="sub">Line coverage tells you which code ran. It does not tell you if a test would notice when that code breaks. Mutation testing does.</p>
 <div class="steps">
-<div class="step"><div><h3>Change</h3><p>saboteur finds your methods and makes one small change per mutant: flip a <code>&lt;</code>, swap <code>&amp;&amp;</code> for <code>||</code>, delete a line, empty the whole method.</p></div></div>
+<div class="step"><div><h3>Change</h3><p>saboteur finds your methods and makes one small change per mutant: flip a <code>&lt;</code>, swap <code>&amp;&amp;</code> for <code>||</code>, swap <code>min</code> for <code>max</code>, drop a <code>#{...}</code> from a string, delete a line, empty the whole method.</p></div></div>
 <div class="step"><div><h3>Run only the tests that matter</h3><p>A per-test coverage map tells saboteur which tests ran the changed line. Only those run, likeliest killers first. The first failure stops the run.</p></div></div>
 <div class="step"><div><h3>Check the kill</h3><p>Every kill is run again on the unchanged code. If that test fails there too, it is not a kill. A kill that also fails on the original is not credited.</p></div></div>
 <div class="step"><div><h3>Read the survivors</h3><p>You get a score and a diff for each survivor. A survivor can mean a missing test. It can also be an equivalent change no test could notice, a flaky test, or a limit of the tool, so each one needs a human look.</p></div></div>
@@ -125,8 +125,11 @@ bundle exec saboteur run --since origin/main --test spec/billing_spec.rb  <span 
 bundle exec saboteur run --subject 'Billing::Invoice#total'
 bundle exec saboteur run --subject Billing        <span class="c"># a namespace</span>
 bundle exec saboteur run --incremental            <span class="c"># reuse verdicts that did not change</span>
-bundle exec saboteur run --jobs 6                 <span class="c"># parallel workers</span></code></pre>
-<p>Every run with selected subjects first runs the unchanged suite twice, even when the coverage cache is warm. <code>--since</code> alone narrows which methods are mutated, not which specs are loaded, so those two baseline passes still run the loaded suite. Pass specs with <code>--test</code> and no source operands to scope them too. With <code>--since</code> and selected subjects but no <code>--test</code>, the run warns before it starts.</p>
+bundle exec saboteur run --jobs 6                 <span class="c"># parallel workers</span>
+bundle exec saboteur run --max-duration 10m       <span class="c"># stop before the next subject when the budget is spent</span>
+bundle exec saboteur pr                           <span class="c"># PR loop: changed lines since main, one baseline check, 10-minute budget</span>
+bundle exec saboteur audit                        <span class="c"># whole project, all operators, JSON and HTML reports</span></code></pre>
+<p>Every mutation run first runs the unchanged tests twice, even when the coverage cache is warm (replay of one mutant skips this): a kill only counts when the same tests pass on the unchanged code. <code>--baseline-passes 1</code> makes it one run, for the fast PR loop. Since 0.7.0 the run infers the specs named after each mutated file and runs only those, baseline passes included. A mutated file with no conventional spec stops with exit 2 before anything boots and names both ways out: pass <code>--test</code> with your spec paths, or <code>--all</code> to keep the whole configured suite (the 0.6.0 behavior).</p>
 <h3>4. Configure (optional)</h3>
 <pre><code><span class="c"># config/saboteur.rb</span>
 Saboteur.configure do |c|
@@ -163,7 +166,7 @@ Saboteur.ignore do |i|
              subject: "Billing::Invoice#total",
              reason: "equivalent: amounts are always whole cents"
 end</code></pre>
-<p>An entry without a reason is rejected. Exit codes for <code>saboteur run</code>: <code>0</code> no unignored survivors (survivors on the ignore list do not fail the run), or with <code>--threshold</code> the score is at or above it even if mutants survived; <code>1</code> an unignored survivor, or with <code>--threshold</code> the score is below it or missing; <code>2</code> bad configuration or a missing source or test; <code>3</code> the tool failed, or more than half of the executed mutants errored (with <code>--threshold</code>, any errored or resource-limited mutant). <code>saboteur run --agent</code> is strict: it prints one JSON verdict and exits <code>0</code> clean, <code>1</code> unignored survivors, <code>2</code> invalid invocation, <code>3</code> incomplete. The JSON report goes to <code>.saboteur/report.json</code>.</p>
+<p>An entry without a reason is rejected. Exit codes for <code>saboteur run</code>: <code>0</code> no unignored survivors (survivors on the ignore list do not fail the run), or with <code>--threshold</code> the score is at or above it even if mutants survived; <code>1</code> an unignored survivor, or with <code>--threshold</code> the score is below it or missing; <code>2</code> bad configuration or a missing source or test; <code>3</code> the tool failed, or more than half of the executed mutants errored (with <code>--threshold</code>, any errored or resource-limited mutant); <code>4</code> the <code>--max-duration</code> budget stopped the run before the next subject, so the score is partial (<code>--max-duration-ok</code> leaves the exit to the plain verdict). <code>saboteur run --agent</code> is strict: it prints one JSON verdict and exits <code>0</code> clean, <code>1</code> unignored survivors, <code>2</code> invalid invocation, <code>3</code> incomplete. The JSON report goes to <code>.saboteur/report.json</code>.</p>
 </div></section>
 
 <section id="bench"><div class="wrap"><h2>Rails mutation-score rebaseline</h2><p class="sub">12 October 2026 &middot; Post-removal rebaseline: 9 of 10 selected Rails/RSpec targets complete. Chatwoot is pending.</p><div class="table-wrap"><table>
