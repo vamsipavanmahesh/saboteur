@@ -42,6 +42,20 @@ All notable changes are documented here. The format follows
   or changed in the diff that reads a constant the uncovered file
   defines covers that file and runs, instead of exit 2 (#538). The
   stop remains for a mutable change no changed spec exercises.
+- Dependency trees are never treated as changed source on a `--since`
+  run (#504): a vendored bundle or `node_modules`, tracked or
+  untracked, git-ignored or not, is rejected at enumeration, so the
+  diff scope never lists, reads or warns on it. The `.bundle/config`
+  file itself is project configuration and stays visible.
+- The project-local bundler path (`.bundle/config`'s `BUNDLE_PATH`) now
+  joins the dependency shield in its quoted and non-canonical forms
+  (#567): matching quotes are stripped, an inline `#` comment is ignored
+  the way Bundler::YAMLSerializer ignores it, a relative path is
+  normalized against the project root, and an absolute path (the system
+  bundle) stays outside the shield. A config that is not a regular file
+  or cannot be parsed - including a NUL byte in the value - means no
+  shield rather than a crash or a hang.
+
 - A `--max-duration` budget that cannot cover the cold coverage map build
   now stops the run before the build starts, instead of spending the
   whole budget mid-build and keeping nothing - the trap where every
