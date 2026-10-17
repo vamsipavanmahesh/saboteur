@@ -15,12 +15,12 @@
   },
   "workflows": {
     ".github/workflows/ci.yml": [
-      "Ruby 3.3 / ubuntu-latest",
-      "Ruby 3.3 / macos-latest",
-      "Ruby 3.4 / ubuntu-latest",
-      "Ruby 3.4 / macos-latest",
-      "Ruby ruby / ubuntu-latest",
-      "Ruby ruby / macos-latest",
+      "Ruby 3.3 / nscloud-ubuntu-24.04-amd64-4x8",
+      "Ruby 3.3 / nscloud-macos-sequoia-arm64-6x14",
+      "Ruby 3.4 / nscloud-ubuntu-24.04-amd64-4x8",
+      "Ruby 3.4 / nscloud-macos-sequoia-arm64-6x14",
+      "Ruby ruby / nscloud-ubuntu-24.04-amd64-4x8",
+      "Ruby ruby / nscloud-macos-sequoia-arm64-6x14",
       "Ruby 3.4 / LANG=C",
       "lint",
       "dry-inflector (class_eval)",
