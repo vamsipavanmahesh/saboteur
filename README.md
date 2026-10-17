@@ -1476,9 +1476,16 @@ details are in [docs/design.md](docs/design.md), prior art in
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
+New here? Start with an [open issue](https://github.com/vamsipavanmahesh/saboteur/issues)
+or a small pull request, and read [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Before you ask for review, run the local preflight check on your exact head:
+Before you ask for review:
+
+- Sign every commit with `git commit -s`; the DCO check requires it.
+- Add specs for behavior changes and a CHANGELOG entry under "Unreleased".
+- Follow the clean-room rule: do not copy code, specs or fixtures from
+  restrictively licensed mutation tools.
+- Run the local preflight check on your exact head:
 
 ```sh
 ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast
