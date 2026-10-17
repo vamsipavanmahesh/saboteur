@@ -1310,36 +1310,7 @@ sampler cadence and excluded from wall analysis. Absolute times are specific to
 this 2-core sandbox. Environment, method and the contention log are on the
 [benchmark page](https://vamsipavanmahesh.github.io/saboteur/benchmark/).
 
-## 🗺️ Where it is going
-
-[ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
-team workflow (GitHub Action, baseline, HTML report), then 1.0. saboteur stays
-RSpec-only. Design
-details are in [docs/design.md](docs/design.md), prior art in
-[docs/prior-art.md](docs/prior-art.md), and project status in
-[docs/status.md](docs/status.md).
-
-## 🤝 Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
-
-Before you ask for review, run the local preflight check on your exact head:
-
-```sh
-ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast
-bundle exec rspec <the specs your change touches>
-bundle exec exe/saboteur run --since origin/main   # the changed-method dogfood
-```
-
-Fast mode runs scope, sign-off, SPDX, full RuboCop and the harness specs, and writes a report under `tmp/preflight/`; the full suite runs in CI on every push. Use `--mode full` to run the full suite locally when CI is not available. A pass is not an approval; fast mode is partial. See [docs/preflight.md](docs/preflight.md).
-
-## Acknowledgements
-
-Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build saboteur.
-
-## License
-
-MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
+## Advanced workflow features
 
 Internal baseline capture blocks a subject with empty generation, including a subject for which the builtin source yields no candidates. Context comparison is an extra consistency check; file fingerprint verification normally also catches source drift. Neither check proves external state stability.
 
@@ -1436,3 +1407,34 @@ Inspired by mutineer's inline suppression comments (github.com/davidteren/mutine
 Inline suppressions bound completeness: classic scores still exclude suppressed candidates, but baseline evidence is incomplete when any inline candidate is suppressed. Agent output reports `inline_suppressed` with its count and points to the full audit. Reasons are audited, not proof that suppressed work was checked.
 
 Source-only `--dry-run` lists the suppressed count and each audit row in selected methods, before diff restriction and the per-method cap. They are outside the planned total. Preview still does not boot the app or write reports.
+
+## 🗺️ Where it is going
+
+[ROADMAP.md](ROADMAP.md) lays out the plan: CI-fast runs, trusted results, a
+team workflow (GitHub Action, baseline, HTML report), then 1.0. saboteur stays
+RSpec-only. Design
+details are in [docs/design.md](docs/design.md), prior art in
+[docs/prior-art.md](docs/prior-art.md), and project status in
+[docs/status.md](docs/status.md).
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a DCO `Signed-off-by` line.
+
+Before you ask for review, run the local preflight check on your exact head:
+
+```sh
+ruby script/preflight --base <full main sha> --head <full head sha> --base-ref main --mode fast
+bundle exec rspec <the specs your change touches>
+bundle exec exe/saboteur run --since origin/main   # the changed-method dogfood
+```
+
+Fast mode runs scope, sign-off, SPDX, full RuboCop and the harness specs, and writes a report under `tmp/preflight/`; the full suite runs in CI on every push. Use `--mode full` to run the full suite locally when CI is not available. A pass is not an approval; fast mode is partial. See [docs/preflight.md](docs/preflight.md).
+
+## Acknowledgements
+
+Thanks to [Glomo](https://glomo.one) for providing the AI tokens used to build saboteur.
+
+## License
+
+MIT. Copyright (c) 2026 Vamsi Pavan Mahesh Gunturu. See [LICENSE](LICENSE).
