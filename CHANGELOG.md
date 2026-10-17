@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- Methods defined by a non-interpolated `class_eval`/`module_eval` heredoc
+  are mutation subjects (#544): the heredoc body is re-parsed against the
+  real file's bytes, so mutants inside it are generated and judged like
+  ordinary defs (the faraday shape that used to produce 0 subjects). An
+  interpolated heredoc still yields no subjects and keeps the
+  code-in-strings warning (#467).
+
 - Per-path score gate config (#473, slice 1): `score_gate "app/payments/**/*",
   min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
   validated at load (min_score 0-100, pattern must match an included file).

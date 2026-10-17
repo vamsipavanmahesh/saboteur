@@ -3,6 +3,30 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "9339724fc1dce5eb",
+             subject: "Saboteur::SubjectFinder#heredoc_eval?",
+             reason: "equivalent on admitted inputs: the immediately preceding arguments&.size == 1 guard establishes a one-element Array, so first and last agree - not a general first/last equivalence"
+
+  i.mutation "7f27bf4227807c2c",
+             subject: "Saboteur::SubjectFinder#heredoc_eval?",
+             reason: "equivalent conditional on the Prism 1.9.0 AST contract: an admitted node's Location slice is always a String, so &. and . agree - not extended to hand-built nodes"
+
+  i.mutation "05859430e8066ebc",
+             subject: "Saboteur::SubjectFinder#heredoc_eval?",
+             reason: "equivalent conditional on the Prism 1.9.0 AST contract: no admitted direct-argument StringNode has nil opening_loc (nil openers exist only on container parts), so &. and . agree - not extended to hand-built nodes"
+
+  i.mutation "751004d184cd7c5b",
+             subject: "Saboteur::SubjectFinder#heredoc_eval?",
+             reason: "equivalent conditional on the Prism 1.9.0 AST contract: slice starts at the node's first byte, so slice and opening_loc&.slice give the same start_with?(<<) verdict - this is not the killed &.slice removal"
+
+  i.mutation "4121be32fbbef2b5",
+             subject: "Saboteur::SubjectFinder#walk_heredoc_eval",
+             reason: "equivalent on the production call path: walk_heredoc_eval is entered only after heredoc_eval? admitted exactly one argument, so first and last agree - direct calls outside that precondition are not covered"
+
+  i.mutation "e92265a23f2fc9af",
+             subject: "Saboteur::SubjectFinder#walk_heredoc_eval",
+             reason: "equivalent for the current consumers only: subjects take file, source and offsets from ctx[:file] and the failure path returns silently; the dropped filepath does change AST metadata (a def with __FILE__ reads differently), which no current lib consumer reads"
+
   i.mutation "37df0d8bc4fe17cb",
              subject: "Saboteur::Config#validate_score_gates!",
              reason: "equivalent: the each result is discarded (the next statement is an assignment), and map runs the " \
@@ -25,11 +49,11 @@ Saboteur.ignore do |i|
              subject: "Saboteur::ConfigFile::Settings#score_gate",
              reason: "equivalent: caller_locations(1, 1) holds one frame, so first and last are the same frame"
 
-
   i.mutation "bb377adb7ae9ce54",
              subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
              reason: "equivalent: each returns the receiver and join(', ') stringifies via Subject#to_s (the id), " \
                      "so the note reads identically to map(&:id)"
+
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
              reason: "equivalent: ARGV entries are strings, so first.nil? and last.nil? agree: both are true only for an empty argv"
