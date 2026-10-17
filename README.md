@@ -522,7 +522,8 @@ way reports ran-at-load or no-coverage rather than a guessed survivor.
 
 Without `--test`, the run infers the specs: the spec named after each mutated
 file (`lib/a/b.rb` runs `spec/a/b_spec.rb`; `app/` files and `spec/lib/` work
-too) runs for the baseline passes, the coverage pass and every mutant, as
+too, and a dashed path also tries its underscored require name:
+`lib/acts-as-taggable-on/x.rb` finds `spec/acts_as_taggable_on/x_spec.rb`) runs for the baseline passes, the coverage pass and every mutant, as
 `--test` would. With `--since` only the changed files count; without it every
 included file does. It is a naming guess, not coverage: a spec that reaches the
 mutated file only through another file does not run, so a mutant only that

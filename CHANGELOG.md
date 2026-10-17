@@ -14,6 +14,11 @@ All notable changes are documented here. The format follows
   project gem from the real tree, never exercised the mutated copy, and
   reported every mutant Survived; the child now gets the unbundled
   environment and resolves its Gemfile from the mutated copy.
+- The spec-name guess now tries the underscored require name of a dashed
+  path: `lib/acts-as-taggable-on/x.rb` finds
+  `spec/acts_as_taggable_on/x_spec.rb` (and the `spec/lib/` form) instead
+  of stopping on an unmatched file (#383). The literal dashed name still
+  wins when both exist.
 
 - Factory-block subjects resolve to the right owner (#352). A class factory
   assigned inside `class << self` binds its constant on the singleton
