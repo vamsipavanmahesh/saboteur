@@ -163,6 +163,18 @@ RSpec.describe Saboteur::Execution::Sandbox do
     reset_abi_memo
   end
 
+  it "never probes the kernel off Linux" do
+    # The guard must answer ABI 0 without touching libc: off Linux the
+    # syscall number means something else entirely (on Darwin 444 is
+    # change_fdguard_np), so probing there can never be treated as ENOSYS.
+    allow(described_class).to receive(:linux?).and_return(false)
+    expect(described_class::LibC).not_to receive(:syscall_fn)
+    expect(described_class::LibC).not_to receive(:errno_location_fn)
+    reset_abi_memo
+    expect(described_class.abi_version).to eq(0)
+    reset_abi_memo
+  end
+
   it "knows whether this kernel supports Landlock" do
     expect(described_class.available?).to eq(described_class.abi_version >= 1)
   end
