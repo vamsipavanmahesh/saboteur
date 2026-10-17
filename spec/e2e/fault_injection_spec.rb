@@ -3,11 +3,13 @@
 
 # Fault-injection tests of the tool itself (#251): saboteur must fail as a
 # tool - exit 3, a message naming the hostile condition, no test blamed -
-# when its own environment breaks. Locale, killed-child and destructive-
-# mutant faults are pinned elsewhere (utf8_locale_spec, the supervisor and
-# runner specs, hazard_guard_spec); this group owns the cache and log
-# faults. Each probe runs against a copy of the people fixture, so the
-# injected damage never touches the repository.
+# when its own environment breaks. Locale and non-ASCII paths work since
+# #231/#232, so utf8_locale_spec pins them functionally instead of as
+# failures; destructive mutants are pinned by hazard_guard_spec; the
+# supervisor and runner specs own the containment unit tests. This group
+# owns the cache and log faults plus the end-to-end killed-child probe.
+# Each probe runs against a copy of the people fixture, so the injected
+# damage never touches the repository.
 RSpec.describe "fault injection: hostile cache and log state", :e2e do
   let(:dir) { copy_fixture("people") }
 
@@ -257,5 +259,35 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     report = JSON.parse(File.read(report_path, encoding: "UTF-8"))
     report.fetch("files").values.flat_map { |file| file.fetch("mutants") }
           .to_h { |mutant| [mutant.fetch("id"), mutant.fetch("status")] }
+  end
+  # #251: a child killed from outside (the OOM killer, a user with kill -9)
+  # is an environment failure, not a failing test: exit 3, the message
+  # names the signal, and nothing blames the suite's tests for it.
+  it "exits 3 and names the signal when a child is killed from outside" do
+    env = { "BUNDLE_GEMFILE" => File.join(E2EHelpers::ROOT, "Gemfile") }
+    stdin, stdout, stderr, wait = Open3.popen3(
+      env, RbConfig.ruby, "-I", File.join(E2EHelpers::ROOT, "lib"), E2EHelpers::EXE, "run", "--all", chdir: dir
+    )
+    stdin.close
+    done = false
+    killer = Thread.new do
+      until done
+        `pgrep -P #{wait.pid}`.lines.map(&:to_i).each do |child|
+          Process.kill("KILL", child)
+        rescue Errno::ESRCH
+          nil
+        end
+        sleep 0.01
+      end
+    end
+    _out = stdout.read
+    err = stderr.read
+    status = wait.value
+    done = true
+    killer.join
+
+    expect(status.exitstatus).to eq(3)
+    expect(err).to include("SIGKILL")
+    expect(err).not_to include("killing test")
   end
 end
