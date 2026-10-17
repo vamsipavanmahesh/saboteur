@@ -31,6 +31,10 @@ All notable changes are documented here. The format follows
   built before the probe, and a failure return paired with errno 0
   (impossible from a real kernel answer) is probed once more. Genuinely
   unknown errors still fail closed.
+- `--incremental` also forgets a verdict when a dependency with only
+  method coverage (an endless def), a file that ran while the app loaded,
+  or a loaded source the coverage map never observed changes - the narrow
+  key now applies only when every dependency is actually observed (#344).
 - `rspec_args` that hold only options and their values (such as
   `["--require", "spec_helper"]`) no longer leave the suite with no
   files under `exe/saboteur`: RSpec adds its default path only when `$0`

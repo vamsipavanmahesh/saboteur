@@ -316,6 +316,14 @@ module Saboteur
       @sandbox_policy.hook
     end
 
+    # The dependency universe a cached verdict watches when coverage
+    # cannot speak: every project file the booted process loaded, plus
+    # the run's own files (#344).
+    def source_files(files)
+      loaded = $LOADED_FEATURES.grep(/\.rb\z/).select { |file| file.start_with?("#{@root}/") }
+      loaded | files
+    end
+
     def result_cache(map = nil, files = [])
       return nil if @replay
       return nil unless config["incremental"]
@@ -324,7 +332,7 @@ module Saboteur
                                             .merge("operator_policy" => config.operator_policy))
       ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
                       suite_digest: SuiteFiles.new(config).digest,
-                      coverage: map, fallback_files: files)
+                      coverage: map, fallback_files: source_files(files))
     end
 
     # A cleanup failure must never mask the run's own outcome - not even

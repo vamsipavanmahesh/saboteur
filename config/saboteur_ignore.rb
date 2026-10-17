@@ -716,11 +716,16 @@ Saboteur.ignore do |i|
 
   i.mutation "485c590681bcde38",
              subject: "Saboteur::Selection::CoverageMap#files_for",
-             reason: "equivalent: invert_lines is a pure function of the map's frozen lines, so recomputing " \
+             reason: "equivalent: invert_coverage is a pure function of the map's frozen lines, so recomputing " \
                      "it on every call yields the identical hash the memo would have returned"
 
-  i.mutation "ed21b823a41e67af",
-             subject: "Saboteur::Selection::CoverageMap#invert_lines",
+  i.mutation "c426c783724e596f",
+             subject: "Saboteur::Selection::CoverageMap#invert_coverage",
+             reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
+                     "enumerator's return value is unused, so each and map agree"
+
+  i.mutation "52e4bb172b350bc9",
+             subject: "Saboteur::Selection::CoverageMap#invert_coverage",
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 end

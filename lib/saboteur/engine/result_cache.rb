@@ -101,7 +101,14 @@ module Saboteur
       def dependencies(tests)
         return @fallback_files if @coverage.nil? || @coverage.empty?
 
-        @coverage.files_for(tests)
+        (@coverage.files_for(tests) | @coverage.boot_files | unobserved_files).sort
+      end
+
+      # Loaded sources the map never observed (no line, method, or load
+      # evidence): coverage cannot say whether they matter, so a change in
+      # any of them must invalidate (#344).
+      def unobserved_files
+        @fallback_files.select { |file| @coverage.empty_for?([file]) }
       end
 
       # RSpec ids name their file: "./spec/a_spec.rb[1:2]".

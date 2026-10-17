@@ -158,11 +158,11 @@ RSpec.describe Saboteur::Engine::ResultCache do
   it "sees the same fingerprint however the fallback files were ordered (#197)" do
     with_dependency_files do |helper, unrelated|
       store = described_class.new(path: path, root: @root, inputs: "config-1",
-                                                                fallback_files: [helper, unrelated])
+                                  fallback_files: [helper, unrelated])
       store.record(killed)
       store.save
       reordered = described_class.new(path: path, root: @root, inputs: "config-1",
-                                                                     fallback_files: [unrelated, helper])
+                                      fallback_files: [unrelated, helper])
       expect(reordered.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
     end
   end
@@ -188,5 +188,70 @@ RSpec.describe Saboteur::Engine::ResultCache do
     store.record(result_for(:skipped, reason: "no coverage"))
     store.save
     expect(cache.lookup(person_subject, comparison_mutation, tests)).to be_nil
+  end
+  it "forgets it when a helper with only method coverage changes, for an endless def (#344)" do
+    with_dependency_files do |helper, caller_file|
+      coverage = Saboteur::Selection::CoverageMap.new(
+        lines: { caller_file => { 1 => tests } },
+        methods: { helper => { 1 => tests } },
+        tests: tests
+      )
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      store.record(killed)
+      store.save
+      File.write(helper, "CAP = 500
+")
+      again = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      expect(again.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    end
+  end
+
+  it "forgets it when a file loaded before the suite changes, with a nonempty map (#344)" do
+    with_dependency_files do |boot, caller_file|
+      coverage = Saboteur::Selection::CoverageMap.new(
+        lines: { caller_file => { 1 => tests } },
+        load_lines: { boot => { 1 => 1 } },
+        tests: tests
+      )
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      store.record(killed)
+      store.save
+      File.write(boot, "CAP = 500
+")
+      again = described_class.new(path: path, root: @root, inputs: "config-1", coverage:)
+      expect(again.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    end
+  end
+
+  it "forgets it when a loaded source the map never observed changes, with a nonempty map (#344)" do
+    with_dependency_files do |observed, outside|
+      coverage = Saboteur::Selection::CoverageMap.new(lines: { observed => { 1 => tests } }, tests: tests)
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage:,
+                                  fallback_files: [outside])
+      store.record(killed)
+      store.save
+      File.write(outside, "OTHER = 2
+")
+      again = described_class.new(path: path, root: @root, inputs: "config-1", coverage:,
+                                  fallback_files: [outside])
+      expect(again.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    end
+  end
+  it "keeps it when a file only other tests touched changes - observed, so not conservatively watched (#344)" do
+    with_dependency_files do |helper, others|
+      coverage = Saboteur::Selection::CoverageMap.new(
+        lines: { helper => { 1 => tests }, others => { 1 => ["./spec/other_spec.rb[1:1]"] } },
+        tests: tests
+      )
+      store = described_class.new(path: path, root: @root, inputs: "config-1", coverage:,
+                                  fallback_files: [others])
+      store.record(killed)
+      store.save
+      File.write(others, "OTHER = 2
+")
+      again = described_class.new(path: path, root: @root, inputs: "config-1", coverage:,
+                                  fallback_files: [others])
+      expect(again.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+    end
   end
 end

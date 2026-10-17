@@ -42,15 +42,23 @@ module Saboteur
       # dependency set a cached verdict must watch (#197). The inversion is
       # built once per map and memoized.
       def files_for(test_ids)
-        by_test = @files_by_test ||= invert_lines
+        by_test = @files_by_test ||= invert_coverage
         test_ids.flat_map { |id| by_test.fetch(id, []) }.uniq.sort
       end
 
-      # { test id => [source files it touched] }, built once per map.
-      def invert_lines
-        lines.each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(file, line_tests), acc|
-          line_tests.each_value { |ids| ids.each { |id| acc[id] << file } }
+      # { test id => [source files it touched] }, built once per map. Line
+      # and method coverage both count: an endless def's file has only
+      # method evidence (#107), and a change there must still invalidate (#344).
+      def invert_coverage
+        [lines, methods].each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |hits, acc|
+          hits.each { |file, line_tests| line_tests.each_value { |ids| ids.each { |id| acc[id] << file } } }
         end
+      end
+
+      # Files that ran while the app loaded: their state precedes every
+      # test, so every cached verdict depends on them (#344).
+      def boot_files
+        load_lines.keys.sort
       end
 
       def tests_for(subject)

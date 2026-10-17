@@ -57,12 +57,34 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     run.send(:mutate, [person_subject], ["lib/person.rb"], instance_double(Object), nil, [])
   end
 
-  it "builds the cache with the coverage map and the fallback file list (#197)" do
+  it "builds the cache with the coverage map and every loaded project file as fallback (#344)" do
     run = engine
     map = instance_double(Saboteur::Selection::CoverageMap)
-    expect(Saboteur::Engine::ResultCache).to receive(:new)
-      .with(hash_including(coverage: map, fallback_files: ["lib/person.rb"])).and_call_original
+    captured = nil
+    allow(Saboteur::Engine::ResultCache).to receive(:new) do |kwargs|
+      captured = kwargs
+      instance_double(Saboteur::Engine::ResultCache)
+    end
     run.send(:result_cache, map, ["lib/person.rb"])
+    expect(captured[:coverage]).to eq(map)
+    expect(captured[:fallback_files]).to include("lib/person.rb")
+    expect(captured[:fallback_files]).to include(a_string_ending_with("/lib/saboteur/engine.rb"))
+    root_prefix = "#{run.instance_variable_get(:@root)}/"
+    expect(captured[:fallback_files]).to all(eq("lib/person.rb").or(start_with(root_prefix)))
+  end
+
+  it "builds the cache with the suite digest that pins the run's support files (#344)" do
+    run = engine
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    suite_files = instance_double(Saboteur::Engine::SuiteFiles, digest: "suite-abc")
+    allow(Saboteur::Engine::SuiteFiles).to receive(:new).and_return(suite_files)
+    captured = nil
+    allow(Saboteur::Engine::ResultCache).to receive(:new) do |kwargs|
+      captured = kwargs
+      instance_double(Saboteur::Engine::ResultCache)
+    end
+    run.send(:result_cache, map, ["lib/person.rb"])
+    expect(captured[:suite_digest]).to eq("suite-abc")
   end
 
   it "keeps ordinary selection and its incremental cache without a replay" do

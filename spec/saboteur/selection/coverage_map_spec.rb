@@ -405,3 +405,23 @@ RSpec.describe Saboteur::Selection::CoverageMap, "constant reads in endless defs
     expect(map.tests_for_edit(subject, [1])).to eq(%w[t2])
   end
 end
+
+RSpec.describe Saboteur::Selection::CoverageMap, "dependency files (#344)" do
+  it "names files a test touched only through method coverage, for endless defs" do
+    map = described_class.new(
+      lines: { "/a/caller.rb" => { 3 => ["t1"] } },
+      methods: { "/a/helper.rb" => { 5 => ["t1"] } },
+      tests: ["t1"]
+    )
+    expect(map.files_for(["t1"])).to eq(["/a/caller.rb", "/a/helper.rb"])
+  end
+
+  it "names the files that ran while the app loaded" do
+    map = described_class.new(
+      lines: { "/a/caller.rb" => { 3 => ["t1"] } },
+      load_lines: { "/a/boot.rb" => { 1 => 2 } },
+      tests: ["t1"]
+    )
+    expect(map.boot_files).to eq(["/a/boot.rb"])
+  end
+end
