@@ -75,7 +75,8 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
                         full_passes: 3).call
     expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
-    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 2 full passes")
+    expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 2 full passes " \
+                                  "at that rate")
   end
 
   it "announces three or more passes in the plural with the seed (#245)" do
@@ -94,7 +95,20 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
                         full_passes: 2).call
-    expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the remaining 1 full pass")
+    expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the remaining 1 full pass " \
+                                  "at that rate")
+  end
+
+  it "names the coverage map build as the remaining pass once the baseline is done (#465)" do
+    single = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 1 }, root: @root)
+    err = StringIO.new
+    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: single, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        full_passes: 2).call
+    expect(err.string).to include("baseline check 1 took 5 s; the baseline is done, " \
+                                  "the remaining full pass is the coverage map build (about 5 s at that rate)")
   end
 
   it "says nothing when the baseline passes are all the passes there are" do

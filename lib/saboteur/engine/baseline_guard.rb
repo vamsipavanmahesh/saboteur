@@ -86,7 +86,10 @@ module Saboteur
       end
 
       # Once the first pass is timed, the total cost stops being a guess:
-      # the remaining full passes cost roughly the same each.
+      # the remaining full passes cost roughly the same each. When the
+      # baseline checks are all done, the one remaining pass is the coverage
+      # map build: say so, or "the remaining 1 full pass" reads like a
+      # second baseline check the line above said would not come (#465).
       def announce_first_pass_cost(number, started)
         return unless number == 1
 
@@ -94,8 +97,14 @@ module Saboteur
         return if remaining.zero?
 
         elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round
-        @diagnostics.inform("baseline check #{number} took #{elapsed} s; about #{elapsed * remaining} s left for " \
-                            "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'} at that rate")
+        if number == @config["baseline_passes"]
+          @diagnostics.inform("baseline check #{number} took #{elapsed} s; the baseline is done, " \
+                              "the remaining full pass is the coverage map build " \
+                              "(about #{elapsed} s at that rate)")
+        else
+          @diagnostics.inform("baseline check #{number} took #{elapsed} s; about #{elapsed * remaining} s left for " \
+                              "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'} at that rate")
+        end
       end
 
       # An admitted pass still gets only the time left in the run budget:
