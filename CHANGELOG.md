@@ -8,6 +8,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- The "nothing to mutate" note on an empty selection now prints only
+  once (#468). An empty-selection run already ends with the
+  "0 subjects, 0 mutants" summary, and announcing the note again as a
+  report warning at the end of the run read like a second failure; it
+  is now a one-time inform.
 - A class factory assigned inside `class << self` no longer shares its
   method ids with a same-named factory in the class body (#406). The two
   unrelated classes each keep their own subjects: the singleton-side one is
