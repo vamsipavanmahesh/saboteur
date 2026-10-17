@@ -66,9 +66,8 @@ saboteur: no spec found for app/models/sidebars/authors_sidebar.rb (expected spe
 publify keeps the spec at `spec/models/authors_sidebar_spec.rb`, not the
 conventional mirror path, and the run refuses to guess. For a one-off,
 `--test spec/models/authors_sidebar_spec.rb` on the command line works. The
-durable fixes are a custom map (`config/saboteur_custom_map.rb` -
-`saboteur help` documents the format) for unconventional layouts, or simply
-letting the coverage map take over:
+durable fixes are `--all` (the whole configured suite against the
+diff's subjects) or simply letting the coverage map take over:
 after the first mapped run, specs are chosen by recorded coverage, not by
 name. Commit `config/saboteur.rb` (and the map if you write one) so CI and
 local runs agree.
