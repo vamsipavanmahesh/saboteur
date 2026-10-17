@@ -486,8 +486,8 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guess.unmatched).to eq(["lib/jwt/claims/decode_verifier.rb"])
   end
 
-  # A constant-only file (RULES = 1) has no def subject, so its constant
-  # literal is the whole coverage link: drop it and the changed spec no
+  # The top-level literal is this file's coverage link to the changed
+  # spec: drop it (the def's owner alone matches nothing) and the stop returns.
   # longer covers the file.
   it "treats a changed spec reading a constant literal as covering the file that assigns it (#538)" do
     write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
@@ -500,6 +500,19 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(result.unmatched).to eq([])
     expect(result.specs).to include("spec/shop_spec.rb")
   end
+  it "covers a top-level constant read inside a nested spec scope (#538)" do
+    write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    spec = "module Shop\n  RSpec.describe \"rules\" do\n    it { RULES }\n%s  end\nend\n"
+    write("spec/shop_spec.rb", format(spec, ""))
+    git("add", ".")
+    git("commit", "-q", "-m", "base")
+    write("lib/rules.rb", "RULES = [2]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
+    write("spec/shop_spec.rb", format(spec, "    it { RULES }\n"))
+    result = guess
+    expect(result.unmatched).to eq([])
+    expect(result.specs).to include("spec/shop_spec.rb")
+  end
+
   it "treats a changed spec reading the constant bare under its owner scope as covering (#538)" do
     verifier = "module JWT\n  module Claims\n    class DecodeVerifier\n      " \
                "def call\n        %d\n      end\n    end\n  end\nend\n"
