@@ -37,6 +37,11 @@ All notable changes are documented here. The format follows
   pointer to `c.include` (#488): `c.sources` registers custom operator
   sources (`builtin` or `path.rb:ClassName`), not the files to mutate.
 
+- A baseline that passed but leaked child processes no longer reads as a
+  suite failure quoting an empty "Failures:" section (#486): the refusal
+  says the suite passed, names each leaked process (pid and command,
+  captured before the supervisor's kill) and skips the log excerpt, which
+  only holds RSpec output.
 - Engine setup load failures are reported clearly instead of as a bare
   quit (#378): when RSpec dies while loading spec files, the error names
   the files that failed to load, parsed from RSpec's own load-failure
