@@ -25,8 +25,6 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
-### Fixed
-
 - A mutant's test that daemonizes - forks an intermediate child that calls
   `setsid` and exits at once - no longer leaves a sleeping grandchild the
   supervisor never kills (#365). The tree poll can miss a descendant that
