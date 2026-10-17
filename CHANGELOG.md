@@ -27,6 +27,19 @@ All notable changes are documented here. The format follows
   project gem from the real tree, never exercised the mutated copy, and
   reported every mutant Survived; the child now gets the unbundled
   environment and resolves its Gemfile from the mutated copy.
+- Test selection consults `config/saboteur_custom_map.rb` again (#369).
+  The map is the documented escape hatch for layouts the naming guess
+  cannot match, but guess-tests never called it, so a mapped file still
+  stopped the run as unmatched. A matching entry now wins over the naming
+  convention, its specs run as the inferred ones, and an empty entry marks
+  the file intentionally untested so it needs no inferred spec. The map is
+  now documented in the README. Mapped spec values that are globs are
+  expanded against the project root (the literal glob string never
+  reached RSpec), a winning entry whose specs match no file stops the
+  run with a config error naming the entry, and an empty entry's file
+  is dropped from mutation with a named diagnostic instead of running
+  the whole suite (#369 review).
+
 - The marker sweep no longer kills a marked process it cannot identify
   (#389). A process that started before the run's root carries the marker
   only through an exec chain the run did not spawn, so it is left alone,
