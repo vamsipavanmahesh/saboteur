@@ -3,6 +3,7 @@
 
 require "open3"
 require_relative "../text"
+require_relative "layout_only_lines"
 require_relative "untracked_changes"
 
 module Saboteur
@@ -49,8 +50,10 @@ module Saboteur
         # would rename a raw-byte path). Parse the diff body as bytes and
         # tag each extracted path UTF-8 at the boundary.
         top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
-        changes = parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
-                            "--no-ext-diff", base, "--").b, top)
+        diff = %w[-c core.quotePath=false diff --unified=0 --no-color --no-ext-diff]
+        changes = parse(git(root, *diff, base, "--").b, top)
+        drop_layout_only_lines(changes, git(root, *diff, "--ignore-space-change", base, "--").b, base, top,
+                               include: include)
         UntrackedChanges.union(changes, top, include: include, diagnostics: diagnostics)
         changes
       end
@@ -74,6 +77,36 @@ module Saboteur
         end
         changes.default_proc = nil
         changes
+      end
+
+      # Only files the run could mutate are lexed; a file new at the base
+      # has nothing to compare with and keeps every line.
+      def drop_layout_only_lines(changes, spaced_diff, base, top, include:)
+        hunks = spaced_hunks(spaced_diff, top)
+        changes.each do |file, lines|
+          next unless include.nil? || include.include?(file)
+
+          base_source = file_at(base, file.delete_prefix("#{top}/"), root: top)
+          next unless base_source
+
+          current_source = File.binread(file)
+          changes[file] = LayoutOnlyLines.new(hunks.fetch(file, []), base_source: base_source,
+                                                                     current_source: current_source).restrict(lines)
+        end
+      end
+
+      # Hunk headers of a zero-context diff, by absolute path of the
+      # changed file.
+      def spaced_hunks(diff, top)
+        file = nil
+        diff.each_line.with_object(Hash.new { |hash, key| hash[key] = [] }) do |line, hunks|
+          if line.start_with?("+++ ")
+            path = Text.utf8_identity(unquote(line.chomp.delete_prefix("+++ ").delete_suffix("\t")))
+            file = path == NO_FILE ? nil : File.join(top, path.delete_prefix("b/"))
+          elsif file
+            LayoutOnlyLines.hunks(line, hunks[file])
+          end
+        end
       end
 
       ESCAPES = { "n" => "\n", "t" => "\t", '"' => '"', "\\" => "\\", "a" => "\a", "b" => "\b",

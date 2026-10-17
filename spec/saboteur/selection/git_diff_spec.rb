@@ -137,6 +137,70 @@ RSpec.describe Saboteur::Selection::GitDiff do
       end
     end
 
+    describe ".changed_lines with layout-only edits (#313)" do
+      def changed_after(before, after)
+        commit_file("a.rb", before)
+        File.write(File.join(@dir, "a.rb"), after)
+        described_class.changed_lines("HEAD", root: @dir).fetch(File.join(File.realpath(@dir), "a.rb"), Set.new)
+      end
+
+      it "keeps only the new lines when existing statements are wrapped in a block" do
+        before = <<~RUBY
+          def save
+            log("saving")
+            write
+          end
+        RUBY
+        after = <<~RUBY
+          def save
+            lock.synchronize do
+              log("saving")
+              write
+            end
+          end
+        RUBY
+
+        expect(changed_after(before, after)).to eq(Set[2, 5])
+      end
+
+      it "keeps a re-indented line whose expression also changed" do
+        before = "def save\n  write(1)\n  log\nend\n"
+        after = "def save\n  lock.synchronize do\n    write(2)\n    log\n  end\nend\n"
+
+        expect(changed_after(before, after)).to eq(Set[2, 3, 5])
+      end
+
+      it "drops a line where only the spacing between tokens changed" do
+        expect(changed_after("x = a + b\ny = 1\n", "x = a   +  b\ny = 2\n")).to eq(Set[2])
+      end
+
+      it "keeps a line where whitespace inside a string changed" do
+        expect(changed_after("log(\"a b\")\n", "log(\"a  b\")\n")).to eq(Set[1])
+      end
+
+      it "keeps a line whose __LINE__ now names another line" do
+        before = "def at\n  __LINE__\nend\n"
+        after = "def at\n  begin\n    __LINE__\n  end\nend\n"
+
+        expect(changed_after(before, after)).to eq(Set[2, 3, 4])
+      end
+
+      it "keeps the old coordinates of a pure deletion beside a re-indented line" do
+        before = "def a\n  one\n  two\n  three\nend\n"
+        after = "def a\n    one\n  three\nend\n"
+
+        expect(changed_after(before, after)).to eq(Set[2, 3])
+      end
+
+      it "leaves an untracked file fully changed" do
+        commit_file("b.rb", "b = 1\n")
+        File.write(File.join(@dir, "c.rb"), "  c = 1\n")
+        changed = described_class.changed_lines("HEAD", root: @dir)
+
+        expect(changed.fetch(File.join(File.realpath(@dir), "c.rb"))).to eq(1..1)
+      end
+    end
+
     describe ".changed_lines with untracked files (#295)" do
       it "treats every line of an untracked file as changed" do
         commit_file("a.rb", "1\n")

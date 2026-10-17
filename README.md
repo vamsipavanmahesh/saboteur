@@ -359,7 +359,14 @@ because a diff cannot see it (#295). The union reads race-free
 line count, so a swapped-in symlink or FIFO is skipped quietly and a huge
 untracked fixture outside `include` is never even opened. Comment-only
 or formatting-only changes within discovered methods are skipped without this
-warning; the run reports those skipped methods. A changed Ruby file that an
+warning; the run reports those skipped methods. Inside a method that did change, a line
+whose only change is layout is not a changed line either (#313): wrapping
+existing statements in a block re-indents them, and only the new block lines
+and real edits get line-level mutants. A line counts as layout-only when git's
+whitespace-insensitive diff (`git diff -b`) pairs it with a base line and Prism
+reads both as the same tokens, so whitespace inside a string, heredoc or regexp,
+and a `__LINE__` that moved, still count as changes. The method's whole-body
+mutants still run. A changed Ruby file that an
 include pattern covers but `c.exclude` removes mutates nothing either, and the
 run warns and names up to five such files - narrow or remove the `c.exclude`
 entry, or pass the file as a positional source operand (configured excludes are
