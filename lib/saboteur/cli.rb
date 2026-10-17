@@ -161,8 +161,12 @@ module Saboteur
 
     # Mutants run your code, and a mutant of code that writes or deletes files
     # can change the tree. Say so up front when uncommitted work is at stake.
+    # The scope the warning names is the configured one: positional source
+    # operands narrow the run after the warning, so the include/exclude they
+    # imply stay out of its config (#309, #503 review).
     def warn_dirty_tree
-      WorkingTree.new(config.root, ignored: config.output_paths).state.warning&.then { |text| @err.puts(text) }
+      warning = @sources ? Config.load(path: options[:config], overrides: overrides.except(:include, :exclude)) : config
+      DirtyTreeWarning.for(warning, config_path: options[:config])&.then { |text| @err.puts(text) }
     end
 
     # Contradictory selection flags are a usage error before any file or
@@ -260,9 +264,7 @@ module Saboteur
 
     # The settings keys typed on the command line: a typed empty operator
     # list may clear a config value, so the generated commands keep it.
-    def typed_settings
-      options.keys & Reporter::Agent::Commands::SETTING_FLAGS.keys
-    end
+    def typed_settings = options.keys & Reporter::Agent::Commands::SETTING_FLAGS.keys
 
     # A whole-suite run records its scope as --all, so the generated rerun
     # and replay commands do not default back to inference (which can exit
@@ -328,9 +330,7 @@ module Saboteur
       raise UsageError, "test file not found: #{test}" unless File.exist?(path)
     end
 
-    def overrides
-      options.except(:config, :id, :suite, :list_operators, :dry_run)
-    end
+    def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
 
     def preview
       raise UsageError, "--dry-run and --list-operators print text, not --agent JSON; use --format json" if agent?

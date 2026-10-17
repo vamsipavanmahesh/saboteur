@@ -234,6 +234,30 @@ RSpec.describe Saboteur::Config do
     expect(config.included_files).to eq([File.join(@root, "lib", "real.rb")])
   end
 
+  # A dangling symlink matches Dir.glob but has no real path: it is not
+  # mutation source, so it is skipped instead of crashing the run (#503).
+  it "skips a dangling symlink in the include set instead of raising Errno::ENOENT" do
+    write("lib/ok.rb", "")
+    File.symlink("gone.rb", File.join(@root, "lib", "broken.rb"))
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "ok.rb")])
+  end
+
+  it "skips a self-referencing symlink and one that runs through a regular file" do
+    write("lib/ok.rb", "")
+    File.symlink("loop.rb", File.join(@root, "lib", "loop.rb"))
+    File.symlink("ok.rb/nope.rb", File.join(@root, "lib", "notdir.rb"))
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "ok.rb")])
+  end
+
+  it "still raises when a regular file cannot be resolved" do
+    write("lib/ok.rb", "")
+    allow(File).to receive(:realpath).and_raise(Errno::EACCES)
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect { config.included_files }.to raise_error(Errno::EACCES)
+  end
+
   it "keeps the exact bytes of a non-UTF-8 file name losslessly (#231)" do
     bytes = "caf\xE9.rb".b
     FileUtils.mkdir_p(File.join(@root, "lib"))
