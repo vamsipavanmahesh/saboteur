@@ -47,14 +47,16 @@ module Saboteur
         end
       end
 
-      # Mutants on one line share the printed evidence only when it is the
-      # same for all of them: covering tests (in order), reuse and changed
-      # lines can each differ per mutant, so each run of neighbours with the
-      # same tuple is one group and shares evidence above its own mutations.
-      # Evidence that repeats after another group is printed again, which
-      # keeps the ranked order.
+      # Mutants on one line share the printed evidence when it names the
+      # same tests: the covering-test list is compared as a set (#502), so
+      # one line's mutants no longer reprint an identical block only because
+      # the run measured the killer order per mutant. Reuse and changed
+      # lines still group exactly. Each run of neighbours with the same key
+      # is one group and shares evidence above its own mutations; evidence
+      # that repeats after another group is printed again, which keeps the
+      # ranked order. The block prints in the first mutant's run order.
       def evidence_groups(report, on_line)
-        on_line.chunk { |result| [result.covered_by, result.reused?, report.changed_lines_for(result)] }
+        on_line.chunk { |result| [result.covered_by.uniq.sort, result.reused?, report.changed_lines_for(result)] }
                .map(&:last)
       end
 
@@ -70,9 +72,13 @@ module Saboteur
       end
 
       def mutation(result)
+        change = if MutationText.removal?(result)
+                   "removes #{MutationText.original(result)}"
+                 else
+                   "#{MutationText.original(result)} -> #{@palette.paint(:green, MutationText.replacement(result))}"
+                 end
         text = "      #{@palette.paint(:red, '-')} #{result.mutation.operator} " \
-               "#{MutationText.original(result)} -> #{@palette.paint(:green, MutationText.replacement(result))} " \
-               "#{result.digest}"
+               "#{change} #{result.digest}"
         text += " (ignored: #{result.ignored})" if result.ignored
         @out.puts text
         hint(result)

@@ -17,11 +17,12 @@ module Saboteur
       # narrow a changed method's fine-grained mutants.
       attr_reader :behavior_lines
 
-      def initialize(config, diagnostics, test_files: nil)
+      def initialize(config, diagnostics, test_files: nil, custom_map: nil)
         @config = config
         @diagnostics = diagnostics
         @root = File.realpath(config.root)
         @test_files = test_files
+        @custom_map = custom_map || CustomMap.load(config.path("custom_map"), root: config.root)
       end
 
       def select(files)
@@ -34,6 +35,7 @@ module Saboteur
         @discovered = subjects
         subjects = by_pattern(subjects, @config["subjects"]) if @config["subjects"].any?
         subjects = by_change(subjects, @config["since"]) if @config["since"]
+        subjects = drop_intentionally_untested(subjects)
         attach_consumers(subjects)
       end
 
@@ -83,11 +85,23 @@ module Saboteur
       end
 
       def by_pattern(subjects, patterns)
-        patterns.each do |pattern|
-          next if subjects.any? { |subject| self.class.match?(subject.id, pattern) }
-
+        missed = patterns.reject do |pattern|
+          subjects.any? { |subject| self.class.match?(subject.id, pattern) }
+        end
+        missed.each do |pattern|
           @diagnostics.warn("--subject #{pattern} matches no subject (patterns are names like " \
                             "Klass, Klass#meth or Klass.meth, not globs)")
+        end
+        # A total miss is a typo: refuse instead of a green zero-subject
+        # summary (#379). A partial miss runs, but the matched count is
+        # on the record.
+        if missed.size == patterns.size
+          raise ConfigError, "--subject #{patterns.join(', ')} matches no subject (patterns are names like " \
+                             "Klass, Klass#meth or Klass.meth, not globs)"
+        end
+
+        if missed.any?
+          @diagnostics.warn("#{patterns.size - missed.size} of #{patterns.size} --subject patterns matched")
         end
         subjects.select { |subject| patterns.any? { |pattern| self.class.match?(subject.id, pattern) } }
       end
@@ -320,6 +334,24 @@ module Saboteur
         territory = @config["include"].flat_map { |pattern| Dir.glob(pattern, base: @config.root) }
         excluded = @config["exclude"].flat_map { |pattern| Dir.glob(pattern, base: @config.root) }
         (territory & excluded).select { |file| file.end_with?(".rb") }.map(&canonical)
+      end
+
+      # A file the custom map marks intentionally untested ("path" => []) is
+      # never mutated: with no test there is no signal, and a guessed
+      # selection would read its empty spec list as "run the whole suite"
+      # (#369). The skip is named, never silent.
+      def drop_intentionally_untested(subjects)
+        kept, dropped = subjects.partition do |subject|
+          relative = subject.file.delete_prefix("#{@root}/")
+          @custom_map.specs_for(relative) != :excluded
+        end
+        return subjects if dropped.empty?
+
+        names = dropped.first(5).map(&:id).join(", ")
+        more = dropped.size > 5 ? ", ..." : ""
+        @diagnostics.inform("#{dropped.size} subject(s) skipped: intentionally untested in " \
+                            "config/saboteur_custom_map.rb: #{names}#{more}")
+        kept
       end
 
       # A method whose only changes are comments, blank lines or spacing has
