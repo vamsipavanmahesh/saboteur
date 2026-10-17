@@ -1,6 +1,6 @@
 # Exact-head panel gate
 
-This gate enforces three named lens attestations, 13 successful CI/DCO jobs,
+This gate enforces three named lens attestations, 22 successful CI/DCO jobs,
 author-matching DCO trailers, an up-to-date main ancestor, and unchanged gate
 policy. It does not prove review quality or independent execution of tests.
 All three lenses currently publish through GitHub user ID 1875074
@@ -99,7 +99,7 @@ Action manifest/launcher, integration manifest/configs, mutation config and igno
 CI's pull_request workflow is allowed to execute untrusted code with read-only
 permissions. The trusted verifier never executes that code. A completed CI run
 must match the exact head, PR number, repository and workflow path, with exactly
-12 expected successful jobs; DCO must have exactly one successful signoff job.
+21 expected successful jobs; DCO must have exactly one successful signoff job.
 Newest run ID and its latest attempt win. Immediately before success, the verifier
 reselects the newest required runs, refreshes their latest attempts and checks
 all jobs again. Run IDs, attempts, job IDs and green conclusions must match
@@ -143,7 +143,7 @@ markers, CI, DCO and policy checks still apply to the exact head SHA.
   recover a deleted event that never reached either durable write. Queue overflow
   remains a delivery-loss boundary, not a solved durable queue problem.
 - An administrator can change rules/settings. Other write-capable workflows or
-  credentials could spoof the same commit-status context. Requiring all 13
+  credentials could spoof the same commit-status context. Requiring all 22
   native GitHub Actions checks helps, but Actions source binding does not
   distinguish one workflow from another. Use a dedicated GitHub App, installed
   with least privilege and selected as the required check source, for a stronger
@@ -165,7 +165,7 @@ markers, CI, DCO and policy checks still apply to the exact head SHA.
    `Panel head gate` **from main**, with that PR number. Manual dispatch verifies
    only that PR; the input is validated for operator clarity.
 3. Confirm `panel/head-gate` is successful on that PR head and references the
-   trusted main workflow run. Inspect the log and all 13 native checks.
+   trusted main workflow run. Inspect the log and all 22 native checks.
 4. Apply the main ruleset below. Test it with stale SHA, CHANGES_REQUIRED,
    missing lens, non-green job and protected-policy-change cases before relying
    on it. Tests in this patch are local/fake-API validation, not a live Actions
@@ -204,15 +204,26 @@ Settings > Rulesets > New ruleset > New branch ruleset:
 8. Save, reopen, visually inspect Active targeting main, empty bypass list and
    all required checks. Verify the PR merge box actually blocks a failing gate.
 
-Expected native job contexts (confirmed from live Actions jobs API):
+Expected native job contexts (the enforced list lives in `workflows` in
+`script/panel-gate/policy.json` and is reproduced here; confirm against the
+live Actions jobs API):
 
 ```
-Ruby 3.3 / ubuntu-latest
-Ruby 3.3 / macos-latest
-Ruby 3.4 / ubuntu-latest
-Ruby 3.4 / macos-latest
-Ruby ruby / ubuntu-latest
-Ruby ruby / macos-latest
+Ruby 3.3 / linux / shard 1
+Ruby 3.3 / linux / shard 2
+Ruby 3.3 / linux / shard 3
+Ruby 3.4 / linux / shard 1
+Ruby 3.4 / linux / shard 2
+Ruby 3.4 / linux / shard 3
+Ruby ruby / linux / shard 1
+Ruby ruby / linux / shard 2
+Ruby ruby / linux / shard 3
+Ruby ruby / macos / shard 1
+Ruby ruby / macos / shard 2
+Ruby ruby / macos / shard 3
+Ruby 3.4 / LANG=C / shard 1
+Ruby 3.4 / LANG=C / shard 2
+Ruby 3.4 / LANG=C / shard 3
 lint
 dry-inflector (class_eval)
 dry-inflector (nesting)
