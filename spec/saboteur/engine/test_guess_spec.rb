@@ -51,6 +51,47 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(diagnostics).to have_received(:warn).with(/untracked/)
   end
 
+  # A dashed gem name keeps dashes under lib/ but its specs live under the
+  # underscored require name: gem acts-as-taggable-on tests
+  # lib/acts-as-taggable-on/tagger.rb in spec/acts_as_taggable_on/ (#383).
+  it "finds the underscored spec for a dashed gem directory" do
+    write("lib/acts-as-taggable-on/tagger.rb", changed_source)
+    write("spec/acts_as_taggable_on/tagger_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/acts_as_taggable_on/tagger_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  it "finds the underscored spec for a dashed file name" do
+    write("lib/acts-as-taggable-on/taggable-proxy.rb", changed_source)
+    write("spec/acts_as_taggable_on/taggable_proxy_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/acts_as_taggable_on/taggable_proxy_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  it "finds the underscored spec under spec/lib for a dashed gem directory" do
+    write("lib/acts-as-taggable-on/tagger.rb", changed_source)
+    write("spec/lib/acts_as_taggable_on/tagger_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/lib/acts_as_taggable_on/tagger_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # Both committed, so the changed-spec pickup cannot mask which one the
+  # guess itself names.
+  it "prefers the literal dashed spec when both exist" do
+    write("lib/acts-as-taggable-on/tagger.rb", base_source)
+    write("spec/acts-as-taggable-on/tagger_spec.rb")
+    write("spec/acts_as_taggable_on/tagger_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "both specs")
+    write("lib/acts-as-taggable-on/tagger.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/acts-as-taggable-on/tagger_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
   it "finds the spec named after each changed source file" do
     %w[lib/a.rb lib/deep/b.rb app/models/d.rb lib/e.rb].each { |file| write(file, changed_source) }
     result = guess
