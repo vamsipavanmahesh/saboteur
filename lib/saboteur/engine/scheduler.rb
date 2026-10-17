@@ -12,6 +12,7 @@ module Saboteur
     # (VerdictCheck). Each mutant runs only the tests that executed its edit,
     # likeliest killers first, with a timeout from their recorded durations.
     class Scheduler
+      BUDGET_RETRY_REASON = "the --max-duration budget stopped the defined-order retry"
       WHOLE_FILE_HINT = "; add it to c.whole_file to re-evaluate the whole file"
 
       # A subject to run, with what its mutants need. killers counts the
@@ -90,7 +91,7 @@ module Saboteur
         subject = plan.subject
         check = VerdictCheck.new(run_unchanged: unchanged_runner(subject, plan),
                                  baseline_timeout: @config["baseline_timeout"])
-        final = check.call(results)
+        final = check.call(results).map { |result| retried_in_defined_order(plan, result) }
         # Unverified verdicts are never cached: a budget-cut check proves
         # nothing, and a stored copy would read as confirmed next run.
         final.reject { |result| result.reused? || result.status == :unverified }.each { |r| @cache&.record(r) }
@@ -99,6 +100,46 @@ module Saboteur
           @diagnostics.warn("#{subject.id}: #{overturned} verdict(s) failed with the method unchanged")
         end
         final
+      end
+
+      # A kill rejected because its covering examples fail with the method
+      # unchanged may only lack the setup examples the subset run skipped
+      # (an order-dependent file, #557). Retry once with the file's examples
+      # in defined order, through the last covering example. It stands only
+      # if that whole run passes unchanged; the mutant's verdict is then the
+      # mutant's run on the same examples. Otherwise the error stays.
+      #
+      # Cost bound: at most two extra forks per rejected kill, the unchanged
+      # prefix run and one mutant run. Both spend --max-duration like every
+      # other fork: neither starts once the budget is spent, and neither gets
+      # more than the time left. A retry the budget stops is unverified, not
+      # an error or a kill. Keep this bound if the retry ever grows.
+      def retried_in_defined_order(plan, result)
+        return result unless result.rejected_kill? && !result.reused? && result.covered_by.any?
+
+        tests = DefinedOrderPrefix.new(@map.tests).for(result.covered_by)
+        return result unless tests
+
+        unchanged = unchanged_runner(plan.subject, plan).call(tests, @config["baseline_timeout"])
+        return result.as_unverified(unchanged.message || BUDGET_RETRY_REASON) if unchanged.status == :unverified
+        return result unless unchanged.status == :survived
+
+        rerun_in_prefix(plan, result, tests)
+      end
+
+      def rerun_in_prefix(plan, result, tests)
+        return result.as_unverified(BUDGET_RETRY_REASON) if budget_spent?
+
+        full = timeout_for(tests, plan.slowdown)
+        capped = budget_capped(full)
+        outcome = @runner.run(subject: plan.subject, text: result.mutated_source, test_ids: tests,
+                              timeout: capped, mutation: result.mutation, eval_prefix: eval_prefix(plan))
+        return result.as_unverified(BUDGET_RETRY_REASON) if outcome.status == :timeout && capped < full
+
+        MutantResult.new(subject: plan.subject, mutation: result.mutation, status: outcome.status,
+                         mutated_source: result.mutated_source, reason: outcome.message, runtime: outcome.runtime,
+                         killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause,
+                         executed: outcome.executed_ids)
       end
 
       # Admission is per sequence, not just at checked() entry: a check

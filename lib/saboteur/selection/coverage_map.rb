@@ -237,6 +237,16 @@ module Saboteur
         [File.realpath(root), File.expand_path(root)].uniq.map { |path| "#{path}/" }
       end
 
+      # The dependency universe a cached verdict watches when coverage
+      # cannot speak: every project file the booted process loaded, plus
+      # the run's own files (#344).
+      def self.loaded_project_files(files, prefixes:)
+        $LOADED_FEATURES.filter_map do |file|
+          path = Text.utf8_strict(canonical(file))
+          path if path.end_with?(".rb") && prefixes.any? { |prefix| path.start_with?(prefix) }
+        end | files
+      end
+
       def self.load(path)
         from_json(Text.utf8_strict(File.read(path))) if File.file?(path)
       rescue JSON::ParserError, Error
