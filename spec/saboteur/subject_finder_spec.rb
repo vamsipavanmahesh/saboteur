@@ -419,3 +419,76 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(subjects_in(source).map(&:id)).to eq(["Host::Widget.doubled"])
   end
 end
+
+RSpec.describe Saboteur::SubjectFinder, "class_eval heredocs (#544)" do
+  def ids(source)
+    subjects_in(source).map(&:id)
+  end
+
+  it "finds defs in a non-interpolated class_eval heredoc under the enclosing owner" do
+    source = <<~RUBY
+      class Token
+        class_eval <<-CODE
+          def expired?
+            @expires_at < Time.now
+          end
+        CODE
+      end
+    RUBY
+    subject = subject_named(source, "Token#expired?")
+    expect(subject.source).to start_with("def expired?")
+    expect(subject.source).to include("@expires_at < Time.now")
+    expect([subject.start_line, subject.end_line]).to eq([3, 5])
+  end
+
+  it "names the full lexical nesting for a module_eval heredoc and applies mutants to the real file bytes" do
+    source = <<~RUBY
+      module Outer
+        class Inner
+          module_eval <<-CODE
+            def self.build
+              new
+            end
+          CODE
+        end
+      end
+    RUBY
+    subject = subject_named(source, "Outer::Inner.build")
+    expect(subject.singleton).to be(true)
+    texts = mutated_texts(subject)
+    expect(texts).not_to be_empty
+    texts.map(&:last).each { |text| expect(Prism.parse(text).success?).to be(true) }
+    expect(texts.map(&:last)).to all(start_with("def self.build"))
+    expect(texts.map(&:last)).not_to include(subject.source)
+  end
+
+  it "leaves an interpolated heredoc to the code-in-strings warning (#467)" do
+    source = <<~'RUBY'
+      class Token
+        class_eval <<-CODE
+          def #{name}
+            1
+          end
+        CODE
+      end
+    RUBY
+    expect(ids(source)).to eq([])
+  end
+
+  it "leaves a quoted string argument and an explicit receiver out of this slice" do
+    expect(ids("class A\n  class_eval \"def x; end\"\nend\n")).to eq([])
+    expect(ids("class A\n  B.class_eval <<-CODE\n    def y; end\n  CODE\nend\n")).to eq([])
+  end
+
+  it "leaves instance_eval, a block form, extra arguments, a bare call and a non-string argument alone" do
+    expect(ids("class A\n  instance_eval <<-CODE\n    def m; end\n  CODE\nend\n")).to eq([])
+    expect(ids("class A\n  class_eval(\"def n; end\") { }\nend\n")).to eq([])
+    expect(ids("class A\n  class_eval \"def o; end\", \"other.rb\"\nend\n")).to eq([])
+    expect(ids("class A\n  class_eval\nend\n")).to eq([])
+    expect(ids("class A\n  class_eval :not_a_string\nend\n")).to eq([])
+  end
+
+  it "registers nothing from a heredoc body that does not parse" do
+    expect(ids("class A\n  class_eval <<-CODE\n    def broken(\n  CODE\nend\n")).to eq([])
+  end
+end
