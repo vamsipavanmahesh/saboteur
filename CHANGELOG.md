@@ -6,6 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A `--subject` pattern that matches no subject now fails the run (exit 2)
+  instead of passing silently with zero subjects (#379). When some patterns
+  match, the run keeps them and the summary names the missing pattern and
+  the matched count.
+
 ### Fixed
 
 - A `--max-duration` budget that cannot cover the cold coverage map build
@@ -17,6 +24,11 @@ All notable changes are documented here. The format follows
   shortfall and the remedies (a higher budget, fewer
   `--baseline-passes`, or one unbudgeted run to warm the coverage
   cache) in the message (#427).
+- The "nothing to mutate" note on an empty selection now prints only
+  once (#468). An empty-selection run already ends with the
+  "0 subjects, 0 mutants" summary, and announcing the note again as a
+  report warning at the end of the run read like a second failure; it
+  is now a one-time inform when nothing has a subject.
 
 - `--incremental` no longer reuses a stored verdict after the project source
   set changes: a file added after the coverage map was built (a conditional
