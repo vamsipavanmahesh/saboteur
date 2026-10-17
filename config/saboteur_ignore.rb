@@ -739,6 +739,15 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::GatedRun#stop_or_warn_unmapped",
              reason: "equivalent: each and map both announce every unmatched file's warning; the collected array is discarded - the method's return value is unused by its only caller, report_unmapped"
 
+  i.mutation "4d3d5ac0703067d2",
+             subject: "Saboteur::SubjectFinder#lexical_nesting",
+             reason: "equivalent: replacing (index + 1) with index only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
+  i.mutation "8953e46e984e97b6",
+             subject: "Saboteur::SubjectFinder#lexical_nesting",
+             reason: "equivalent: index + 0 is index, which only adds the factory scope itself to the slice; a factory scope never answers sclass?, so none? is unchanged"
+
+
   i.mutation "036e4fb956df510f",
              subject: "Saboteur::Engine::ResultCache#digest_tests",
              reason: "equivalent: the following SHA256 hexdigest has a fixed width, so the dropped separator " \

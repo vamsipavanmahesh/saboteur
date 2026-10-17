@@ -418,4 +418,55 @@ RSpec.describe Saboteur::SubjectFinder do
     RUBY
     expect(subjects_in(source).map(&:id)).to eq(["Host::Widget.doubled"])
   end
+
+  # A `class << self` inside a factory block attaches to the factory's
+  # class at runtime (class_eval sets self), so a factory assigned there
+  # binds on Host::W.singleton_class, not on Host.singleton_class (#438):
+  # the stripped factory scope must stay visible to the sclass attachment.
+  it "attaches an sclass inside a factory block to the factory class's singleton (#438)" do
+    source = <<~RUBY
+      class Host
+        W = Data.define(:c) do
+          class << self
+            V = Data.define(:d) { def n = d }
+          end
+        end
+      end
+    RUBY
+    expect(subjects_in(source).map(&:id)).to eq(["Host::W.singleton_class::V#n"])
+  end
+
+  # An outer factory scope dropped from the path must be judged only on
+  # scopes AFTER it: a class << self that ENCLOSES the factory is not
+  # inside it, so it cannot keep the factory in the path. A slice start
+  # at 1 or at index - 1 pulls that earlier sclass into the check (#555
+  # dogfood).
+  it "drops an outer factory with no sclass of its own, even inside class << self (#555)" do
+    source = <<~RUBY
+      class Host
+        class << self
+          A = Data.define(:x) do
+            B = Data.define(:y) do
+              def n = y
+            end
+          end
+        end
+      end
+    RUBY
+    expect(subjects_in(source).map(&:id)).to eq(["Host.singleton_class::B#n"])
+  end
+
+  # #339 preserved: a factory scope with no sclass inside still opens no
+  # lexical constant scope, so a def in a plain factory block names the
+  # factory class only.
+  it "keeps stripping a factory scope that encloses no sclass (#339)" do
+    source = <<~RUBY
+      class Host
+        W = Data.define(:c) do
+          def n = c
+        end
+      end
+    RUBY
+    expect(subjects_in(source).map(&:id)).to eq(["Host::W#n"])
+  end
 end
