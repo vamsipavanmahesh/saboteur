@@ -7,6 +7,7 @@ require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
+require_relative "engine/out_of_scope_guard"
 require_relative "engine/run_budget"
 require_relative "engine/thread_warnings"
 
@@ -18,6 +19,7 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     include EarlyStopRecording
+    include OutOfScopeGuard
     include RunBudget
 
     # Everything besides sources and tests that can change a verdict.
@@ -120,15 +122,6 @@ module Saboteur
       guess = test_guess.call
       @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
       announce_guess(guess)
-    end
-
-    # Every changed source file sits outside the include scope (#483): the
-    # whole-suite fallback would run the slowest possible suite against
-    # zero subjects, so stop and name what the scope hid.
-    def refuse_out_of_scope_changes(guess)
-      return unless guess.changed.zero? && guess.out_of_scope.any?
-
-      raise ConfigError, guess.out_of_scope_message
     end
 
     # A --subject run infers only from the files holding the named subjects:
