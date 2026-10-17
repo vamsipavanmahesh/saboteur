@@ -254,6 +254,23 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(diagnostics.warnings.size).to eq(1)
   end
 
+  it "skips ERB generator templates with one summarized note instead of a per-file warning" do
+    template = write("migration.rb",
+                     "class AasmCreate<%= table_name.camelize %> < ApplicationMigration\nend\n")
+    expect(select([template])).to be_empty
+    expect(diagnostics.warnings.grep(/does not parse/)).to be_empty
+    expect(diagnostics.warnings.size).to eq(1)
+    expect(diagnostics.warnings.first).to include("ERB")
+  end
+
+  it "emits the ERB template note once across repeated discovery passes" do
+    template = write("x_template.rb", "class A<%= b %>\nend\n")
+    selection = described_class.new(Saboteur::Config.new({}, root: @root), diagnostics)
+    selection.select([template])
+    selection.select([template])
+    expect(diagnostics.warnings.size).to eq(1)
+  end
+
   it "warns about files that do not parse and skips them" do
     expect(select([write("broken.rb", "class X\n  def (\nend\n")])).to be_empty
     expect(diagnostics.warnings.first).to start_with("broken.rb does not parse")
