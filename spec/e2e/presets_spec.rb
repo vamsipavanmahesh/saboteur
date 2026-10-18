@@ -19,7 +19,7 @@ RSpec.describe "saboteur pr / saboteur audit presets (end to end)", :e2e do
     File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
 
     run = saboteur(dir, "pr", "HEAD", "--all", command: nil)
-    expect(run.err).to include("preset 'pr': --baseline-passes 1 --max-duration 10m --max-duration-ok --since HEAD")
+    expect(run.err).to include("preset 'pr': --baseline-passes 1 --max-duration 10m --since HEAD")
     expect(run.err).to include("checking the unchanged suite once (seed 1)")
     expect(run.out).to include("1 subjects")
   end

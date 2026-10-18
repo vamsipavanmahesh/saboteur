@@ -219,7 +219,7 @@ module Saboteur
                                       after_subject: after_subject_hook, stop_after: stop_checks(ignore_list),
                                       halt_check: config["max_duration"] ? method(:budget_exceeded?) : nil)
       distribution.run(subjects, lists).tap do
-        record_early_stop(distribution)
+        record_early_stop(distribution, planned_mutants: lists.sum(&:size))
         @memory_report = distribution.memory_report
       end
     ensure

@@ -44,8 +44,10 @@ Agent mode has no exit 4: budget exhaustion is reported as partial evidence
 (the `max_duration` entries in `incomplete[]`), never as its own exit code -
 the exit follows the verdict, so a budget-stopped run with unignored
 survivors exits 1 and any other budget-stopped run exits 3.
-`--max-duration-ok` does not certify an unscored run. Presets that opt out
-of budget exits say so in `saboteur help`.
+`--max-duration-ok` does not certify an unscored run. The `pr` preset fails on a budget stop (exit 4).
+Pass `--max-duration-ok` explicitly to use the ordinary verdict instead.
+The terminal still prints the number of mutants not run, or says the
+count is unknown if planning did not finish.
 
 An empty `--since` range is rejected before boot with exit 2 in both modes
 (#643). This differs from a non-empty range that selects no subjects.

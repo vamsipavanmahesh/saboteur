@@ -244,6 +244,7 @@ module Saboteur
         label = stop.reason == "fail_fast" ? "--fail-fast" : "--max-duration spent"
         @out.puts @palette.paint(:yellow, "stopped early (#{label}): #{early_stop_summary(stop)}; the score below " \
                                           "covers only completed work")
+        budget_shortfall(stop, report.results.size)
         list(stop.unreached) { |id| "  not run: #{id}" }
         list(stop.truncated) { |entry| "  stopped mid-way: #{entry[:subject]} (#{entry[:omitted]} mutants omitted)" }
         list(stop.unverified) { |id| "  unverified: #{id}" }
@@ -252,6 +253,17 @@ module Saboteur
       def list(entries)
         entries.first(MAX_ERRORS).each { |entry| @out.puts yield(entry) }
         @out.puts "  ... #{entries.size - MAX_ERRORS} more" if entries.size > MAX_ERRORS
+      end
+
+      def budget_shortfall(stop, completed)
+        return unless stop.reason == "max_duration"
+
+        line = if stop.planned_mutants
+                 "partial: #{stop.planned_mutants - completed} of #{stop.planned_mutants} mutants not run"
+               else
+                 "partial: mutant count unknown; the budget was spent before planning finished"
+               end
+        @out.puts @palette.paint(:yellow, line)
       end
 
       def early_stop_summary(stop)

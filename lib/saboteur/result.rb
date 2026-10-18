@@ -125,7 +125,11 @@ module Saboteur
   # subjects that started but stopped mid-way as {subject:, omitted:}
   # entries; unverified lists the subjects whose kills the budget left
   # unchecked. The verdict covers only completed, verified work.
-  EarlyStop = Data.define(:reason, :unreached, :truncated, :unverified)
+  EarlyStop = Data.define(:reason, :unreached, :truncated, :unverified, :planned_mutants) do
+    def initialize(reason:, unreached:, truncated:, unverified:, planned_mutants: nil)
+      super
+    end
+  end
 
   # Everything one run produced.
   class Report

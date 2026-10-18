@@ -200,8 +200,8 @@ RSpec.describe Saboteur::CLI do
     command = cli("pr")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
     command.call
-    expect(command.options).to include(since: "main", baseline_passes: 1, max_duration: 600.0,
-                                       max_duration_ok: true)
+    expect(command.options).to include(since: "main", baseline_passes: 1, max_duration: 600.0)
+    expect(command.options).not_to have_key(:max_duration_ok)
     expect(err.string).to include("preset 'pr':")
   end
 
@@ -210,7 +210,7 @@ RSpec.describe Saboteur::CLI do
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
     command.call
     expect(err.string).to include("saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m " \
-                                  "--max-duration-ok --since main (explicit flags override)")
+                                  "--since main (explicit flags override)")
   end
 
   it "takes the pr ref from the first operand even with trailing flags (#296)" do
@@ -315,13 +315,6 @@ RSpec.describe Saboteur::CLI do
       expect(command.options[:max_duration_ok]).to be(false)
       expect(command.send(:agent_settings)[:max_duration_ok]).to be(false)
     end
-  end
-
-  it "lets --no-max-duration-ok override the pr preset's budget pass (#245)" do
-    command = cli("pr", "--no-max-duration-ok")
-    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
-    command.call
-    expect(command.options).to include(max_duration: 600.0, max_duration_ok: false)
   end
 
   describe "doctor suite options" do
