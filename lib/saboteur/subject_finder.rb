@@ -286,15 +286,7 @@ module Saboteur
     end
 
     def mark_refinements(subjects, program)
-      return unless uses_refinements?(program)
-
-      subjects.each { |subject| subject.skip_reason = "refinements" }
-    end
-
-    def uses_refinements?(node)
-      return true if node.is_a?(Prism::CallNode) && node.name == :using && node.receiver.nil?
-
-      node.compact_child_nodes.any? { |child| uses_refinements?(child) }
+      RefinementActivations.mark(subjects, program)
     end
   end
 end

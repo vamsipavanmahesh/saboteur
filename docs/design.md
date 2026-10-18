@@ -244,8 +244,10 @@ eval("module Outer; class Person; #{mutated_def}; end; end",
   scopes join a def's owner but never a nested constant's path (#339).
   A `class << self` scope joins a constant subject's owner as
   `<attached>.singleton_class`, matching where Ruby binds the constant (#380).
-- Refinements (`using`) are lexical and are lost. Subjects in files that call
-  `using` are skipped in v1 ("refinements").
+- Refinements (`using`) are lexical and are lost. A bare `using` skips the
+  subjects after it in its own scope (the rest of the file at the top
+  level); a `using` in a method or block body still skips the whole file
+  ("refinements", #634).
 
 Both are implemented (`reeval: nesting | class_eval`). Default: `nesting`
 (maintainer decision M1, 2026-10-09). Measured skip rate from the lost
