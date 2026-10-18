@@ -19,7 +19,8 @@ module Saboteur
         return [{}, {}] unless Coverage.state == :suspended
 
         wanted = files.to_set { |file| Selection::CoverageMap.canonical(file) }
-        Coverage.result(stop: false, clear: false).each_with_object([{}, {}]) do |(path, data), (lines_h, methods_h)|
+        CoverageReads.result(stop: false, clear: false)
+                     .each_with_object([{}, {}]) do |(path, data), (lines_h, methods_h)|
           file = Selection::CoverageMap.canonical(path)
           next unless wanted.include?(file)
 

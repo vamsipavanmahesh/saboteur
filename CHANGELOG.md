@@ -91,6 +91,19 @@ All notable changes are documented here. The format follows
   going unmutated. The call is a singleton subject of the enclosing owner;
   the lambda or block body mutates, and re-evaluating the whole call
   re-registers the method.
+- An arid statement (a logging or instrumentation call) whose block carries
+  real work is now mutated inside the block (#464). The walk used to skip
+  the whole statement, so a method like one wrapped in
+  `Notifications.instrument ... do |payload| ... end` produced only the
+  coarse `body_raise` and no statement_removal, boolean_logic or other
+  fine mutants on the changed lines. The block body is walked like any
+  other, and such a statement also keeps the method out of the
+  nothing-to-remove coarse check.
+- A loaded class defining a singleton `hash` that does not return an
+  Integer (forem's `ReactionCategory`) no longer crashes the boot as an
+  internal TypeError: every `Coverage.result` read now refuses with a
+  diagnostic explaining the violated `#hash` contract and blaming the
+  application's code (#564).
 - A `--since` diff that deletes a method no longer reports the deletion as
   "differ only in comments or formatting" and no longer names the method the
   deleted lines drifted onto. The run says what was deleted instead: `N
