@@ -53,3 +53,8 @@ license keeps a fork viable.
 
 Keep them small, describe the behaviour change, and add a CHANGELOG entry
 under "Unreleased".
+
+CI does not run automatically on pull requests. A maintainer dispatches it
+by hand with `workflow_dispatch` against the exact head commit of the pull
+request, so code from forks never runs on this repository's runners without
+a maintainer's review. Ask for a dispatch when your change is ready for one.
