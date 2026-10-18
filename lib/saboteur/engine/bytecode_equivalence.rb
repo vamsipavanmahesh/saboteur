@@ -42,9 +42,25 @@ module Saboteur
 
       def fingerprint(text, frozen)
         options = { frozen_string_literal: frozen }
-        strip_positions(RubyVM::InstructionSequence.compile(text, nil, nil, 1, options).to_a)
+        iseq = warnings_silenced do
+          RubyVM::InstructionSequence.compile(text, "saboteur/bytecode-equivalence", nil, 1, options)
+        end
+        strip_positions(iseq.to_a)
       rescue SyntaxError, StandardError
         nil
+      end
+
+      # Mutants compile one by one, and generated bodies (body_nil,
+      # statement_removal) trip Ruby's own void-context warnings, so a host
+      # suite running with -w gets one line per mutant flooding stderr
+      # (#592, #656). The check is internal: silence the compiler. A mutant
+      # that does not parse still fails the compile and runs.
+      def warnings_silenced
+        saved = $VERBOSE
+        $VERBOSE = nil
+        yield
+      ensure
+        $VERBOSE = saved
       end
 
       # Structural equality that never coerces: an Integer is not a Float,
