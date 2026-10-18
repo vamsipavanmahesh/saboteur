@@ -17,6 +17,34 @@ RSpec.describe Saboteur::Doctor do
     allow(Coverage).to receive(:supported?).with(:methods).and_return(true)
   end
 
+  it "names bundler and appraisal problems on the Environment line (#598, #609)" do
+    doctor = described_class.new(config, out: out)
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "Appraisals"), "appraise \"a\" do\nend\n")
+      allow(config).to receive(:root).and_return(dir)
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with("BUNDLE_GEMFILE").and_return(nil)
+      doctor.send(:check_environment)
+    end
+    expect(out.string).to include("Environment: Appraisal gemfiles found (Appraisals) but BUNDLE_GEMFILE is not set:")
+  end
+
+  it "joins several hints with a separator" do
+    doctor = described_class.new(config, out: out)
+    allow(Saboteur::EnvironmentHints).to receive(:all).and_return(["hint one", "hint two"])
+    doctor.send(:check_environment)
+    expect(out.string).to include("Environment: hint one; hint two")
+  end
+
+  it "reports a clean Environment line when nothing is detected" do
+    doctor = described_class.new(config, out: out)
+    Dir.mktmpdir do |dir|
+      allow(config).to receive(:root).and_return(dir)
+      doctor.send(:check_environment)
+    end
+    expect(out.string).to include("Environment: no bundler/appraisal problems detected")
+  end
+
   it "boots once, checks coverage before and after boot, and reports two baseline runs" do
     hide_const("SimpleCov")
     integration = instance_double(Saboteur::Integration::Base)
@@ -32,7 +60,8 @@ RSpec.describe Saboteur::Doctor do
     expect(doctor.call).to be(true)
     expect(out.string).to include("Ruby:", "Coverage: suspended", "Integration: rspec (loaded)", "Rails: disabled",
                                   "Baseline: 2 tests passed twice in the same order with seed 1", "does not prove",
-                                  "SimpleCov: not loaded", "Custom map: none (optional)")
+                                  "SimpleCov: not loaded", "Custom map: none (optional)",
+                                  "Environment: no bundler/appraisal problems detected")
   end
 
   it "prints the coverage line once while verifying it before and after boot" do

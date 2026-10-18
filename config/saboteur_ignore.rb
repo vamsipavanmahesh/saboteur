@@ -3,6 +3,15 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  # environment_hints.rb:34 - an empty BUNDLE_GEMFILE expands to the project root, which
+  # never starts with <root>/gemfiles/, so dropping the `!setting.empty?` conjunct leaves
+  # `under` false in exactly the same cases (verified by hand against the full
+  # environment_hints spec file).
+  i.mutation "b31f94f7f17ab049",
+             subject: "Saboteur::EnvironmentHints#appraisal",
+             reason: "equivalent: the empty-string conjunct is redundant because " \
+                     "File.expand_path('', root) can never sit under <root>/gemfiles/"
+
   i.mutation "c4a41e4cf733a770",
              subject: "Saboteur::ConfigFile::Settings#integration=",
              reason: "equivalent: caller_locations(1, 2) widens only the frame count; fetch(0) reads the " \

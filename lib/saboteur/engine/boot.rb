@@ -71,6 +71,10 @@ module Saboteur
         Integration::RSpec.new(@config).require_framework if @config["integration"] == "rspec"
         @config["require"].each { |file| require File.expand_path(file, @root) }
         integration = Integration.fetch(@config["integration"]).new(@config)
+        # Running outside the bundle or beside an Appraisal gemfile set
+        # loads the wrong gems; say so before the spec load fails in
+        # confusing ways (#598, #609). Advisory only.
+        EnvironmentHints.all(@root).each { |hint| warn "saboteur: warning: #{hint}" }
         integration.setup
         rails&.after_boot
         @hooks.run(:after_boot)
