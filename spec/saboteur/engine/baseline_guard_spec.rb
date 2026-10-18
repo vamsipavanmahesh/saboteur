@@ -102,7 +102,12 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
 
   it "estimates the remaining full passes once the first baseline pass is timed (#260)" do
     err = StringIO.new
-    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+    times = [100.0, 105.0]
+    allow(Process).to receive(:clock_gettime) do |clock_id|
+      raise "clock_gettime lost its clock id" unless clock_id == Process::CLOCK_MONOTONIC
+
+      times.shift || 105.0
+    end
     allow(supervisor).to receive(:run).and_return(response)
     described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
                         supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
@@ -170,6 +175,26 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
 
   it "prices the mutants' share to one decimal (#637)" do
     expect(guard_with_budget(15.37).join).to include("mutants would get ~0.4s")
+  end
+
+  it "stays quiet when the run never started the clock, budget set or not (#637)" do
+    expect(guard_with_budget(16.0, run_started: nil)).to be_empty
+  end
+
+  it "warns a hair under the one-more-pass boundary (#637)" do
+    expect(guard_with_budget(19.99).join).to include("projected baseline+coverage ~15s barely fits --max-duration 20s")
+  end
+
+  it "says barely fits when only a hair is left for mutants (#637)" do
+    expect(guard_with_budget(15.01).join).to include("projected baseline+coverage ~15s barely fits " \
+                                                     "--max-duration 15s; mutants would get ~0s")
+  end
+
+  it "prints the full warning verbatim, share and remedies included (#637)" do
+    expected = "projected baseline+coverage ~15s barely fits --max-duration 16s; " \
+               "mutants would get ~1s. Raise --max-duration, pass fewer --baseline-passes, " \
+               "or narrow the scope"
+    expect(guard_with_budget(16.0).join).to include(expected)
   end
 
   it "names every remedy in the warning, verbatim (#637)" do
