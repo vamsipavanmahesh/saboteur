@@ -15,6 +15,12 @@
   },
   "workflows": {
     ".github/workflows/ci.yml": [
+      "Ruby 3.3 / linux / shard 1",
+      "Ruby 3.3 / linux / shard 2",
+      "Ruby 3.3 / linux / shard 3",
+      "Ruby 3.4 / linux / shard 1",
+      "Ruby 3.4 / linux / shard 2",
+      "Ruby 3.4 / linux / shard 3",
       "Ruby ruby / linux / shard 1",
       "Ruby ruby / linux / shard 2",
       "Ruby ruby / linux / shard 3",
