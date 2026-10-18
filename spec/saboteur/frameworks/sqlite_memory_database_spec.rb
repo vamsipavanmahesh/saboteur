@@ -101,6 +101,45 @@ RSpec.describe Saboteur::Frameworks::SqliteMemoryDatabase do
     expect(described_class.unseeded_memory_database?(file_pool)).to be(false)
   end
 
+  it "is not the seed-loss shape for a non-sqlite adapter, even with empty tables (#594)" do
+    connection = double("pg connection")
+    allow(connection).to receive(:select_values)
+      .with("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .and_return(%w[roles])
+    allow(connection).to receive(:quote_table_name).with("roles").and_return('"roles"')
+    allow(connection).to receive(:select_value).with('SELECT 1 FROM "roles" LIMIT 1').and_return(nil)
+    pool = double("pg pool", db_config: double("db config", adapter: "postgresql", database: ":memory:"))
+    allow(pool).to receive(:with_connection).and_yield(connection)
+
+    expect(described_class.unseeded_memory_database?(pool)).to be(false)
+  end
+
+  it "is not the seed-loss shape when no user tables exist: that is the empty-database shape (#594)" do
+    connection = double("sqlite connection")
+    allow(connection).to receive(:select_values)
+      .with("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .and_return(%w[schema_migrations])
+    pool = double("sqlite pool", db_config: double("db config", adapter: "sqlite3", database: ":memory:"))
+    allow(pool).to receive(:with_connection).and_yield(connection)
+
+    expect(described_class.unseeded_memory_database?(pool)).to be(false)
+  end
+
+  it "is not the seed-loss shape when only some user tables hold rows (#594)" do
+    connection = double("sqlite connection")
+    allow(connection).to receive(:select_values)
+      .with("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .and_return(%w[roles users])
+    allow(connection).to receive(:quote_table_name).with("roles").and_return('"roles"')
+    allow(connection).to receive(:quote_table_name).with("users").and_return('"users"')
+    allow(connection).to receive(:select_value).with('SELECT 1 FROM "roles" LIMIT 1').and_return(1)
+    allow(connection).to receive(:select_value).with('SELECT 1 FROM "users" LIMIT 1').and_return(nil)
+    pool = double("sqlite pool", db_config: double("db config", adapter: "sqlite3", database: ":memory:"))
+    allow(pool).to receive(:with_connection).and_yield(connection)
+
+    expect(described_class.unseeded_memory_database?(pool)).to be(false)
+  end
+
   it "suggests the seed remedy when at least one current pool lost its rows (#594)" do
     handler = double("connection handler", connection_pool_list: %i[healthy unseeded])
     stub_const("ActiveRecord::Base", double("ActiveRecord base", connection_handler: handler))
