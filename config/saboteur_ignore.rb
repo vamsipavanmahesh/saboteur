@@ -1256,4 +1256,9 @@ Saboteur.ignore do |i|
              reason: "equivalent on reachable inputs: errors.empty? returns before pluralization at zero; " \
                      "errors.size is therefore an Integer >= 1, where > 1 and != 1 agree. " \
                      "Hand-applied mutant passes exact full-warning assertions for one and two errors"
+
+  i.mutation "9025a0a9913047a1",
+             subject: "Saboteur::Integration::RSpec::SetupOutputCapture#puts",
+             reason: "equivalent: Array#join flattens nested arrays recursively and honors to_ary identically " \
+                     "to Array#flatten; identical output for every reachable puts argument"
 end
