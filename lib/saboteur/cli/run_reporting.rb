@@ -30,7 +30,7 @@ module Saboteur
       end
 
       def agent_run(arguments)
-        tree = WorkingTree.new(config.root, ignored: config.output_paths).state
+        tree = WorkingTree.new(config.root, ignored: config.ignored_tree_paths).state
         engine = Engine.new(config, **arguments)
         report = stdout_on_stderr { engine.call }
         payload = Reporter::Agent.call(report, agent_provenance(report, tree, engine))
@@ -65,7 +65,7 @@ module Saboteur
       # Computed lazily: only a run with survivors asks for it.
       def survivor_replay_command(report, engine)
         lambda do |digest|
-          tree = WorkingTree.new(config.root, ignored: config.output_paths).state
+          tree = WorkingTree.new(config.root, ignored: config.ignored_tree_paths).state
           Reporter::Agent::Commands.replay(agent_provenance(report, tree, engine), digest, capped: false)
         end
       end
@@ -124,7 +124,7 @@ module Saboteur
         path = config.path("score_history")
         return unless path
 
-        tree = WorkingTree.new(config.root, ignored: config.output_paths).state
+        tree = WorkingTree.new(config.root, ignored: config.ignored_tree_paths).state
         scope = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir")
         # Recording is an auxiliary artifact: when the file cannot be
         # written - read-only tree inside a sandboxed child (#296) - warn

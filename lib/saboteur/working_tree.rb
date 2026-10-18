@@ -70,9 +70,14 @@ module Saboteur
     end
 
     # -z implies --porcelain=v1, and status takes no revisions, so the
-    # pathspecs need no "--" in front.
+    # pathspecs need no "--" in front. Files are excluded literally: a
+    # plain :(exclude) pathspec is a glob, and a bracketed tool file name
+    # like "g/[ab].gemfile" would otherwise hide real untracked files
+    # (#638). Directory entries keep the plain dir form.
     def status_command
-      excluded = @ignored.map { |path| ":(exclude)#{path}" }
+      excluded = @ignored.map do |path|
+        path.end_with?("/") ? ":(exclude)#{path}" : ":(exclude,literal)#{path}"
+      end
       ["git", "status", "-z", "--untracked-files=all", ".", *excluded]
     end
   end

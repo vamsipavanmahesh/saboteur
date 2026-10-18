@@ -67,19 +67,20 @@ module Saboteur
 
       numbered = key.is_a?(Regexp) && spec.match?(/\\\d/)
       named = key.is_a?(Regexp) && spec.match?(/%[-0-9]*[<{][^>}]+[>}]|\\k</)
+      # Existence is deliberately not checked here: a stale or mistyped
+      # entry warns at guess time and the naming convention takes over,
+      # instead of the whole run dying at boot on one bad line (#640).
+      # The root check comes first: no template, backreference or named,
+      # may skip it (#712).
+      expanded = File.expand_path(spec, root)
+      unless expanded.start_with?("#{root}/")
+        raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}, which is outside the project root"
+      end
       if numbered && named
         raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}; " \
                            'regex map specs support \1 backreferences only'
       end
       return if numbered # backreference filled in at match time
-
-      # Existence is deliberately not checked here: a stale or mistyped
-      # entry warns at guess time and the naming convention takes over,
-      # instead of the whole run dying at boot on one bad line (#640).
-      expanded = File.expand_path(spec, root)
-      unless expanded.start_with?("#{root}/")
-        raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}, which is outside the project root"
-      end
       return unless named
 
       raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}; " \
@@ -160,14 +161,14 @@ module Saboteur
       return :excluded if matches.all? { |entry, _| entry.specs.empty? }
 
       matches.reject { |entry, _| entry.specs.empty? }
-             .flat_map { |entry, match| resolve(entry, match) }
+             .flat_map { |entry, match| resolve(entry, match, file) }
     end
 
     def specificity(key)
       key.count("^*?[]{}\\")
     end
 
-    def resolve(entry, match)
+    def resolve(entry, match, file = nil)
       return :excluded if entry.specs.empty?
 
       specs = entry.specs
@@ -176,6 +177,13 @@ module Saboteur
         # that is never a real spec path, so drop it here rather than letting
         # a junk entry reach the run.
         specs = specs.map { |spec| spec.gsub(/\\(\d+)/) { match[::Regexp.last_match(1).to_i].to_s } }.reject(&:empty?)
+        # A capture can carry "../" segments the template check never saw:
+        # refuse a filled spec that escapes the root (#712).
+        escaped = specs.reject { |spec| File.expand_path(spec, @root).start_with?("#{@root}/") }
+        if escaped.any?
+          raise ConfigError,
+                "#{entry.key.inspect} maps #{file} to #{escaped.first.inspect}, which is outside the project root"
+        end
       end
       specs
     end

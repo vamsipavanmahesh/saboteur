@@ -221,6 +221,26 @@ module Saboteur
                                                          .map { |file| file.delete_prefix(prefix) }
     end
 
+    # Tool-owned paths, relative to the root, that never count as
+    # working-tree changes (#638): the run's output, plus an in-repo
+    # BUNDLE_GEMFILE sidecar and its lock - the documented trial setup
+    # should not read as a dirty tree. Path-exact, never a glob, so a
+    # real untracked Gemfile.lock still counts.
+    def ignored_tree_paths(gemfile: ENV.fetch("BUNDLE_GEMFILE", nil))
+      prefix = File.join(File.realpath(root), "")
+      sidecar = gemfile && File.expand_path(gemfile, prefix)
+      begin
+        sidecar &&= File.join(File.realpath(File.dirname(sidecar)), File.basename(sidecar))
+      rescue SystemCallError
+        # The sidecar's directory does not exist; keep the expanded spelling.
+      end
+      paths = output_paths
+      if sidecar&.start_with?(prefix) && sidecar != File.join(prefix, "Gemfile")
+        paths.concat([sidecar, DirtyTreeWarning.lockfile_for(sidecar)].map { |file| file.delete_prefix(prefix) })
+      end
+      paths
+    end
+
     private
 
     # An explicit guess_tests = false (config file or --no-guess-tests) used

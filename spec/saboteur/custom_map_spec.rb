@@ -181,6 +181,13 @@ RSpec.describe Saboteur::CustomMap do
       .to raise_error(Saboteur::ConfigError, /key 42 must be a String path, glob, or Regexp/)
   end
 
+  # #706: verbatim pin - the path and the key must appear in the message.
+  it "rejects a non-String non-Regexp key with the full message verbatim" do
+    path = write_map("SABOTEUR_CUSTOM_MAP = { 42 => [\"spec/a_spec.rb\"] }.freeze\n")
+    expect { described_class.load(path, root: @root) }
+      .to raise_error(Saboteur::ConfigError, %(#{path}: key 42 must be a String path, glob, or Regexp))
+  end
+
   it "rejects a bare String value" do
     expect { load("SABOTEUR_CUSTOM_MAP = { \"app/a.rb\" => \"spec/a_spec.rb\" }.freeze\n") }
       .to raise_error(Saboteur::ConfigError, /wrap spec paths in an array/)
@@ -197,6 +204,56 @@ RSpec.describe Saboteur::CustomMap do
   it "loads a spec path that matches no file" do
     map = load("SABOTEUR_CUSTOM_MAP = { \"app/a.rb\" => [\"spec/missing_spec.rb\"] }.freeze\n")
     expect(map.specs_for("app/a.rb")).to eq(["spec/missing_spec.rb"])
+  end
+
+  # #712 review: root-escape guards. A backreference template skips the
+  # early root check, so it must be checked like any other spec path -
+  # and a capture that fills in "../" segments must not escape either.
+  it "rejects a Regexp entry whose plain spec path is outside the project root" do
+    path = write_map("SABOTEUR_CUSTOM_MAP = { %r{lib/(.*)} => [\"../../etc/passwd\"] }.freeze\n")
+    expect { described_class.load(path, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /outside the project root/)
+  end
+
+  it "rejects a String-keyed spec containing a backref marker outside the project root" do
+    path = write_map("SABOTEUR_CUSTOM_MAP = { \"app/a.rb\" => ['../../x\\1'] }.freeze\n")
+    expect { described_class.load(path, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /outside the project root/)
+  end
+
+  it "rejects a backreference template that escapes the project root" do
+    path = write_map("SABOTEUR_CUSTOM_MAP = { %r{lib/(.*)} => ['../../x\\1_spec.rb'] }.freeze\n")
+    expect { described_class.load(path, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /outside the project root/)
+  end
+
+  it "refuses a capture-filled spec that escapes the project root" do
+    map = load("SABOTEUR_CUSTOM_MAP = { %r{\\Alib/(.*)\\.rb\\z} => ['spec/\\1_spec.rb'] }.freeze\n")
+    expect { map.specs_for("lib/../../evil.rb") }
+      .to raise_error(Saboteur::ConfigError, /outside the project root/)
+  end
+
+  # #712: verbatim pins - the interpolated values must appear in the
+  # message, not just the static tail.
+  it "rejects a bare String value with the full message verbatim" do
+    path = write_map("SABOTEUR_CUSTOM_MAP = { \"app/a.rb\" => \"spec/a_spec.rb\" }.freeze\n")
+    expect { described_class.load(path, root: @root) }
+      .to raise_error(Saboteur::ConfigError,
+                      %(#{path}: "app/a.rb" maps to "spec/a_spec.rb"; wrap spec paths in an array))
+  end
+
+  it "rejects a non-String spec entry with the full message verbatim" do
+    path = write_map("SABOTEUR_CUSTOM_MAP = { \"app/a.rb\" => [42] }.freeze\n")
+    expect { described_class.load(path, root: @root) }
+      .to raise_error(Saboteur::ConfigError,
+                      %(#{path}: "app/a.rb" maps to 42; spec paths must be Strings))
+  end
+
+  it "rejects a spec path outside the project root with the full message verbatim" do
+    path = write_map("SABOTEUR_CUSTOM_MAP = { \"app/a.rb\" => [\"../outside_spec.rb\"] }.freeze\n")
+    expect { described_class.load(path, root: @root) }
+      .to raise_error(Saboteur::ConfigError,
+                      %(#{path}: "app/a.rb" maps to "../outside_spec.rb", which is outside the project root))
   end
 
   it "reports a syntax error with the file" do
