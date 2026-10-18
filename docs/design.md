@@ -255,6 +255,36 @@ lexical scope (neutral check fails): 3.8 % of mutants on dry-inflector and
 80.1 % on tty-color with `class_eval`, 0 % with `nesting`
 (docs/validation/phase-2-gems.md). Recommendation: `nesting`.
 
+Load-time vetting for constant replay (#319, #537, #664). A constant mutant
+re-evaluates its whole file, so whatever the file runs at load runs again on
+every mutant, outside the method hazard guard. Before replaying a changed
+file, saboteur vets its load-time statements against a safelist:
+`require`/`require_relative` with a plain string and no block, pure defs, class/module
+nesting with a constant superclass, `class << self`, bare
+`public`/`private`/`protected` (no argument, literal symbols, or
+`private def x`), `private_constant`/`public_constant` with literal names,
+`Struct.new`/`Data.define` with literal arguments and no block, and constant
+or local assignments of plain literals (a `.freeze` is looked through; a
+lambda literal is data). A file running anything else at load is not
+replayed: its constant subjects are skipped with a warning naming the
+unrecognized lines, unless the constant is listed in `c.whole_file`.
+
+What the safelist cannot account for:
+
+- Computed factory arguments. `Struct.new(*FIELD_NAMES)` or
+  `Struct.new(names)` builds the member list at load, so the vet cannot see
+  it; only literal arguments are vetted.
+- Factory blocks. `Data.define(:x) do ... end` runs the block at load;
+  vetted factories take no block.
+- Non-literal visibility names. `private name` through a variable or method
+  call, or `private_constant CONST`; only literal symbols (and
+  `private def x`) are vetted.
+
+These forms are not unsafe, only unvetted: saboteur cannot tell what
+re-running them does. List the constant in `c.whole_file` to replay the file
+anyway, or move the literal into its own file. Mutating the classes the
+factories generate is #290.
+
 ### 6.2 Visibility
 
 Re-defining a method with `def` makes it public (measured: a private method
