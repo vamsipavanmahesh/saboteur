@@ -827,6 +827,19 @@ RSpec.describe Saboteur::SubjectFinder, "dogfood survivor kills (#338)" do
     expect(subjects_in("# typed: true\nclass A\n  def m; end\nend\n").first.frozen_literals).to be(false)
   end
 
+  # The define_method_subject? guards: name, bare receiver, argument
+  # presence and literal-name shape each decide alone.
+  it "rejects define_method lookalikes and keeps the real shape" do
+    finder = described_class.new
+    node = ->(source) { Prism.parse(source).value.statements.body.first }
+    expect(finder.send(:define_method_subject?, node.call("foo(:x) { 1 }"))).to be(false)
+    expect(finder.send(:define_method_subject?, node.call("obj.define_method(:x) { 1 }"))).to be(false)
+    expect(finder.send(:define_method_subject?, node.call("define_method { 1 }"))).to be(false)
+    expect(finder.send(:define_method_subject?, node.call("define_method(1) { 2 }"))).to be(false)
+    expect(finder.send(:define_method_subject?, node.call("define_method(:x) { 1 }"))).to be(true)
+    expect(finder.send(:define_method_subject?, node.call('define_method("x") { 1 }'))).to be(true)
+  end
+
   # Only one side of the && holds: right key, false value; right value,
   # wrong key.
   it "ignores a frozen_string_literal comment whose value is not true, and a true comment with another key" do

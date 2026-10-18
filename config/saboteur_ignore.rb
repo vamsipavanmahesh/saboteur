@@ -457,7 +457,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#call",
              reason: "equivalent: removing the all-reused shortcut still reuses each cached verdict; checked does not run neutral checks for reused verdicts"
 
-
   i.mutation "aff3fcccde575b60",
              subject: "Saboteur::Engine::Scheduler#reuse",
              reason: "equivalent: no covering tests means no stored cache verdict; execute then returns the same uncoverable result"
@@ -730,22 +729,9 @@ Saboteur.ignore do |i|
              reason: "equivalent: start <= line differs from start + count <= line only for a line inside a -b hunk, " \
                      "which restrict keeps through spaced_lines whatever same_tokens? answers"
 
-  i.mutation "bf95736e576b6691",
-             subject: "Saboteur::SubjectFinder#walk",
-             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
-
-  i.mutation "76c21aa993019fba",
-             subject: "Saboteur::SubjectFinder#walk",
-             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
-
   i.mutation "5df3e88b8674c139",
              subject: "Saboteur::SubjectFinder#walk_constant_assignment",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
-
-  i.mutation "6dcd94d3ceb84834",
-             subject: "Saboteur::SubjectFinder#walk_constant_assignment",
-             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
-
 
   i.mutation "c347d2a83fc6ab38",
              subject: "Saboteur::SubjectFinder#add_subject",
