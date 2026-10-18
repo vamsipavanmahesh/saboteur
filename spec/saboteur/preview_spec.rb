@@ -144,6 +144,13 @@ RSpec.describe Saboteur::Preview do
     File.write(File.join(root, ".saboteur", "preview.json"), JSON.generate(path: cache, fingerprint: identity))
   end
 
+  it "says estimates need the in-process mode under --test-command, which never builds a map (#590)" do
+    settings = config(test_command: "bin/rails test")
+    preview(settings).call
+    expect(out.string).to include("no estimate: --test-command runs never build a coverage map; " \
+                                  "estimates need the in-process rspec mode")
+  end
+
   it "rejects stale estimates and reports missing durations" do
     settings = config
     receipt(settings, fingerprint: "old")

@@ -28,8 +28,30 @@ module Saboteur
         _, _, found = Open3.capture3("git", "rev-parse", "--verify", "--quiet", "#{ref}^{commit}", chdir: root)
         return if found.success?
 
-        raise ConfigError, "--since #{ref}: not a commit in this repository " \
-                           "(check the name; a shallow checkout may need a deeper fetch)"
+        raise ConfigError, unknown_ref_message(ref, root)
+      end
+
+      # The failure moment is where the hint belongs (#595): on a repo whose
+      # default branch is not main, a bare `saboteur pr` should say so and
+      # name the branch, rather than only hinting at shallow checkouts.
+      def unknown_ref_message(ref, root)
+        message = "--since #{ref}: not a commit in this repository " \
+                  "(check the name; a shallow checkout may need a deeper fetch)"
+        branch = default_branch(root)
+        return message unless branch
+
+        "#{message}; this repository's default branch is '#{branch}' - " \
+          "pass it explicitly: saboteur pr #{branch}"
+      end
+
+      # The default branch origin publishes, without the remote name, or nil
+      # when origin has no HEAD (a local-only clone keeps the plain hint).
+      def default_branch(root)
+        out, _, ok = Open3.capture3("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short", chdir: root)
+        return nil unless ok.success?
+
+        branch = out.strip.sub(%r{\A[^/]+/}, "")
+        branch.empty? ? nil : branch
       end
 
       def merge_base(ref, root:)
