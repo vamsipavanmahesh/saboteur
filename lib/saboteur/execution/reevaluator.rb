@@ -191,6 +191,13 @@ module Saboteur
         source = subject.file_source.dup.force_encoding(Encoding::UTF_8)
         spliced = source.byteslice(0, subject.start_byte) + text + source.byteslice(subject.end_byte..)
         silencing_warnings { TOPLEVEL_BINDING.eval(spliced, subject.file, 1) }
+        # The eval just loaded the file for this run: a later lazy require
+        # of it (dry-rb load_extensions-style) must be a no-op, or its
+        # re-assignment of the file's constants fires "already initialized
+        # constant" - fatal in --warnings suites with a raising Warning
+        # gate, which wrongly reports every mutant as an error (#632).
+        loaded = File.expand_path(subject.file)
+        $LOADED_FEATURES << loaded unless $LOADED_FEATURES.include?(loaded)
       end
 
       def eval_in_owner(owner, subject, text, extra_lines)
