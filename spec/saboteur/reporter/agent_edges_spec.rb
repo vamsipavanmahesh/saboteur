@@ -411,9 +411,9 @@ RSpec.describe Saboteur::Reporter::Agent::Commands do
   end
 
   it "carries a shard into rerun, but never into a replay command" do
-    provenance = provenance_with(settings: { shard: "2/4" })
-    expect(described_class.rerun(provenance)).to eq("saboteur run --agent --shard 2/4 --seed 7")
-    expect(described_class.replay(provenance, "b" * 16)).to eq("saboteur run --id #{'b' * 16} --seed 7")
+    provenance = provenance_with(settings: { shard: "2/4", jobs: 4 })
+    expect(described_class.rerun(provenance)).to eq("saboteur run --agent --jobs 4 --shard 2/4 --seed 7")
+    expect(described_class.replay(provenance, "b" * 16)).to eq("saboteur run --id #{'b' * 16} --jobs 4 --seed 7")
   end
 
   it "joins array-valued settings with commas" do
