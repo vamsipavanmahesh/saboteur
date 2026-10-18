@@ -39,6 +39,87 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(select([write("cart.rb", source)]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
   end
 
+  # Past five skipped files the note stays readable: the count and the
+  # first five ids, then an ellipsis (#369 review dogfood).
+  it "names the count and first five ids when six files are intentionally untested" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    entries = (1..6).map { |i| "  \"f#{i}.rb\" => []" }.join(",\n")
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n#{entries}\n}.freeze\n")
+    io = StringIO.new
+    diags = Saboteur::Engine::Diagnostics.new(io)
+    files = (1..6).map { |i| write("f#{i}.rb", "module M#{i}\n  def self.m = 1\nend\n") }
+    config = Saboteur::Config.new({}, root: @root)
+
+    expect(described_class.new(config, diags).select(files)).to eq([])
+    expect(io.string).to include("6 subject(s) skipped: intentionally untested in config/saboteur_custom_map.rb: " \
+                                 "M1.m, M2.m, M3.m, M4.m, M5.m, ...")
+    expect(io.string).not_to include("M6.m")
+  end
+
+  # Below five every id fits as well: no ellipsis, and the count matches.
+  it "lists every id without an ellipsis at three skipped subjects" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    entries = (1..3).map { |i| "  \"f#{i}.rb\" => []" }.join(",\n")
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n#{entries}\n}.freeze\n")
+    io = StringIO.new
+    diags = Saboteur::Engine::Diagnostics.new(io)
+    files = (1..3).map { |i| write("f#{i}.rb", "module M#{i}\n  def self.m = 1\nend\n") }
+    config = Saboteur::Config.new({}, root: @root)
+
+    expect(described_class.new(config, diags).select(files)).to eq([])
+    expect(io.string).to include("3 subject(s) skipped: intentionally untested in config/saboteur_custom_map.rb: " \
+                                 "M1.m, M2.m, M3.m")
+    expect(io.string).not_to include("...")
+  end
+
+  # An injected map wins over the one on disk: the engine shares one load
+  # with guessing, so selection must not quietly reload (#369 review).
+  it "uses the injected custom map instead of loading from disk" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n  \"cart.rb\" => []\n}.freeze\n")
+    config = Saboteur::Config.new({}, root: @root)
+    selection = described_class.new(config, diagnostics, custom_map: Saboteur::CustomMap.new([]))
+    expect(selection.select([write("cart.rb", source)]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
+  end
+
+  # At exactly five every id fits: the note lists them all, no ellipsis.
+  it "lists every id without an ellipsis at five skipped subjects" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    entries = (1..5).map { |i| "  \"f#{i}.rb\" => []" }.join(",\n")
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n#{entries}\n}.freeze\n")
+    io = StringIO.new
+    diags = Saboteur::Engine::Diagnostics.new(io)
+    files = (1..5).map { |i| write("f#{i}.rb", "module M#{i}\n  def self.m = 1\nend\n") }
+    config = Saboteur::Config.new({}, root: @root)
+
+    expect(described_class.new(config, diags).select(files)).to eq([])
+    expect(io.string).to include("5 subject(s) skipped: intentionally untested in config/saboteur_custom_map.rb:")
+    expect(io.string).not_to include("...")
+  end
+
+  # A file the custom map marks intentionally untested ("path" => []) is
+  # never mutated: with no test there is no signal, and a guessed selection
+  # would read its empty spec list as "run the whole suite" (#369 review).
+  it "skips subjects whose file the custom map marks intentionally untested" do
+    out = StringIO.new
+    diags = Saboteur::Engine::Diagnostics.new(out)
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    write("config/saboteur_custom_map.rb", "SABOTEUR_CUSTOM_MAP = {\n  \"cart.rb\" => []\n}.freeze\n")
+    file = write("cart.rb", source)
+    config = Saboteur::Config.new({}, root: @root)
+    expect(described_class.new(config, diags).select([file])).to eq([])
+    expect(out.string).to include("intentionally untested", "Shop::Cart#total")
+  end
+
+  it "keeps subjects whose file the custom map maps to specs" do
+    FileUtils.mkdir_p(File.join(@root, "config"))
+    FileUtils.mkdir_p(File.join(@root, "spec"))
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"cart.rb\" => [\"spec/cart_spec.rb\"]\n}.freeze\n")
+    write("spec/cart_spec.rb", "# x\n")
+    expect(select([write("cart.rb", source)]).map(&:id)).to eq(["Shop::Cart#total", "Shop::Cart.empty"])
+  end
+
   it "stays quiet when a pattern matches one of several subjects in a file" do
     select([write("cart.rb", source)], subjects: ["Shop::Cart#total"])
     expect(diagnostics.warnings).to be_empty
@@ -95,19 +176,190 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(diagnostics.warnings).not_to include(a_string_matching(/specs are not mutated/))
   end
 
+  it "names code embedded in a string when the subjectless changed lines sit inside a heredoc (#467)" do
+    file = write("verbs.rb", "module Verbs\n  def self.version = 1\nend\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    added = ["module Verbs", "  class_eval <<-RUBY, __FILE__, __LINE__ + 1", "    def get(url)",
+             "      conn.get(url)", "    end", "  RUBY", "end"]
+    File.write(file, "#{added.join("\n")}\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/code embedded in a string/))
+    expect(diagnostics.warnings.join).not_to match(/may not parse/)
+  end
+
+  # A %w element is a StringNode with no opening_loc at all: the heredoc
+  # scan must not chain into it (disproves the a917152e equivalence: the
+  # safe navigation is load-bearing, the bare chain raises NoMethodError).
+  it "scans a %w array without tripping on its nil opening locations (#540)" do
+    file = write("ops.rb", "OPS = %w[<< >> <=]\n")
+    selection = described_class.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root), diagnostics)
+    selection.instance_variable_set(:@changed_lines, { file => [1] })
+    expect { selection.send(:changed_lines_inside_heredoc?, file) }.not_to raise_error
+    expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(false)
+  end
+
+  # The span's end is inclusive and closing_loc.end_line counts the
+  # terminator's newline, so the line after the heredoc reads as covered
+  # (disproves the 7c748368 equivalence: .. to ... drops that line).
+  it "covers the line after the terminator as inside the heredoc span (#540)" do
+    file = write("hd.rb", "x = <<-END\n  body\nEND\ny = 2\n")
+    selection = described_class.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root), diagnostics)
+    selection.instance_variable_set(:@changed_lines, { file => [4] })
+    expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(true)
+  end
+
+  it "keeps the parse/method hint when the changed lines fall outside every heredoc (#467)" do
+    file = write("note.rb", "TEXT = <<~JS\n  drag()\nJS\n# just a comment\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "TEXT = <<~JS\n  drag()\nJS\n# just a comment\n# more\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/may not parse/))
+    expect(diagnostics.warnings.join).not_to match(/code embedded in a string/)
+  end
+
+  it "names a template constant's heredoc as code embedded in a string (#467)" do
+    file = write("drag.rb", "TEXT = <<~JS\n  drag()\nJS\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "TEXT = <<~JS\n  drag()\n  drop()\nJS\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/code embedded in a string/))
+  end
+
+  it "caps the embedded-code file names at five with an ellipsis (#467)" do
+    6.times { |i| write("a#{i}.rb", "X#{i} = <<~J\n  a\nJ\n") }
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    files = 6.times.map { |i| File.join(@root, "a#{i}.rb") }
+    files.each_with_index { |file, i| File.write(file, "X#{i} = <<~J\n  a\n  b\nJ\n") }
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select(files)
+    warning = diagnostics.warnings.find { |w| w.include?("code embedded in a string") }
+    expect(warning).to match(/mutated from them: a0\.rb, a1\.rb, a2\.rb, a3\.rb, a4\.rb, \.\.\./)
+    expect(warning).to match(/In a0\.rb, a1\.rb, a2\.rb, a3\.rb, a4\.rb, \.\.\. /)
+    expect(warning).to include("class_eval/module_eval", "not mutation subjects")
+    expect(warning).not_to include("a5.rb")
+  end
+
+  it "names every embedded-code file when the cap is not reached (#467)" do
+    4.times { |i| write("a#{i}.rb", "X#{i} = <<~J\n  a\nJ\n") }
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    files = 4.times.map { |i| File.join(@root, "a#{i}.rb") }
+    files.each_with_index { |file, i| File.write(file, "X#{i} = <<~J\n  a\n  b\nJ\n") }
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select(files)
+    warning = diagnostics.warnings.find { |w| w.include?("code embedded in a string") }
+    expect(warning).to include("a3.rb")
+    expect(warning).not_to include("...")
+  end
+
+  it "shows no ellipsis at exactly five embedded-code files (#467)" do
+    5.times { |i| write("a#{i}.rb", "X#{i} = <<~J\n  a\nJ\n") }
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    files = 5.times.map { |i| File.join(@root, "a#{i}.rb") }
+    files.each_with_index { |file, i| File.write(file, "X#{i} = <<~J\n  a\n  b\nJ\n") }
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select(files)
+    warning = diagnostics.warnings.find { |w| w.include?("code embedded in a string") }
+    expect(warning).to include("a4.rb")
+    expect(warning).not_to include("...")
+  end
+
+  it "keeps the parse/method hint when the changed line is a plain string literal (#467)" do
+    file = write("msg.rb", "MSG = \"hello\"\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "MSG = \"goodbye\"\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings.join).to match(/may not parse/)
+    expect(diagnostics.warnings.join).not_to match(/code embedded in a string/)
+  end
+
+  it "names code embedded in a string when a heredoc change mixes with a plain one (#467)" do
+    file = write("mixed.rb", "X = <<~J\n  a\nJ\n# note\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "X = <<~J\n  a\n  b\nJ\n# note changed\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/code embedded in a string/))
+  end
+
+  it "names code embedded in an interpolated heredoc, the class_eval metaprogramming shape (#467)" do
+    file = write("verbs.rb", "module Verbs\n  def self.version = 1\nend\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    added = ["module Verbs", "  %i[get post].each do |verb|", "    class_eval <<-RUBY, __FILE__, __LINE__ + 1",
+             "      def \#{verb}(url)", "        conn.public_send(verb, url)", "      end", "    RUBY", "  end", "end"]
+    File.write(file, "#{added.join("\n")}\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings).to include(a_string_matching(/code embedded in a string/))
+  end
+
+  it "keeps the parse/method hint for a subjectless changed file that does not parse (#467)" do
+    file = write("broken.rb", "X = <<~J\n  a\nJ\ndef nope(\n")
+    [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
+      Open3.capture3("git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args, chdir: @root)
+    end
+    File.write(file, "X = <<~J\n  a\n  b\nJ\ndef nope(\n")
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
+    described_class.new(config, diagnostics).select([file])
+    expect(diagnostics.warnings.join).to match(/may not parse/)
+    expect(diagnostics.warnings.join).not_to match(/code embedded in a string/)
+  end
+
   it "keeps subjects matching --subject patterns, including namespace prefixes" do
     file = write("cart.rb", source)
     expect(select([file], subjects: ["Shop::Cart.empty"]).map(&:id)).to eq(["Shop::Cart.empty"])
     expect(select([file], subjects: ["Shop"]).size).to eq(2)
-    expect(select([file], subjects: ["Sho"])).to be_empty
+    expect { select([file], subjects: ["Sho"]) }.to raise_error(Saboteur::ConfigError,
+                                                                /--subject Sho matches no subject/)
   end
 
-  # Patterns are names, not globs: "Item*" matches nothing, and a silent
-  # empty run looks like a clean one.
-  it "warns about a --subject pattern that matches no subject" do
+  # A typo must not pass silently: when EVERY pattern misses, the run is
+  # usage-class (exit 2 at the CLI) instead of a green zero-subject
+  # summary (#379).
+  it "refuses the run when every --subject pattern matches nothing" do
+    file = write("cart.rb", source)
+    expect { select([file], subjects: ["Shop::Car", "Nope"]) }
+      .to raise_error(Saboteur::ConfigError,
+                      "--subject Shop::Car, Nope matches no subject (patterns are names like " \
+                      "Klass, Klass#meth or Klass.meth, not globs)")
+  end
+
+  # Patterns are names, not globs: "Item*" matches nothing. A partial
+  # miss keeps the run but names both the missing pattern and the
+  # matched count, so a typo is visible in CI logs (#379).
+  it "warns about a --subject pattern that matches no subject and reports the matched count" do
     select([write("cart.rb", source)], subjects: ["Shop::Cart", "Cart*"])
     expect(diagnostics.warnings).to eq(["--subject Cart* matches no subject (patterns are names like " \
-                                        "Klass, Klass#meth or Klass.meth, not globs)"])
+                                        "Klass, Klass#meth or Klass.meth, not globs)",
+                                        "1 of 2 --subject patterns matched"])
+  end
+
+  # The count is a subtraction, not a restatement of the miss count: with
+  # three patterns and one miss the matched count is two (#379 dogfood).
+  it "reports the matched count when only one of three patterns misses" do
+    select([write("cart.rb", source)], subjects: ["Shop::Cart", "Shop::Cart.empty", "Nope"])
+    expect(diagnostics.warnings).to include("2 of 3 --subject patterns matched")
   end
 
   it "keeps only methods with a line changed since the ref" do
@@ -164,6 +416,16 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(select([file], since: "HEAD")).to be_empty
       expect(err.string).to eq("saboteur: 1 changed subject(s) differ only in comments or formatting, " \
                                "so they are skipped: Cart#total\n")
+    end
+
+    # Both maps always come back as a pair, even when the diff changed
+    # nothing: callers destructure [changed, behavior] (#549).
+    it "returns both line maps when the diff changes nothing" do
+      file = commit_base(source)
+      selection = Saboteur::Engine::SubjectSelection.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root),
+                                                         diagnostics)
+      selection.select([file])
+      expect(selection.send(:changed_line_maps)).to eq([{}, {}])
     end
 
     it "reports a re-indented sibling beside a real edit, and scopes mutants to the real edit" do
@@ -295,6 +557,23 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
   it "reports only the first parse error of a file" do
     select([write("broken.rb", "class X\n  def (\n  def )\nend\n")])
+    expect(diagnostics.warnings.size).to eq(1)
+  end
+
+  it "skips ERB generator templates with one summarized note instead of a per-file warning" do
+    template = write("migration.rb",
+                     "class AasmCreate<%= table_name.camelize %> < ApplicationMigration\nend\n")
+    expect(select([template])).to be_empty
+    expect(diagnostics.warnings.grep(/does not parse/)).to be_empty
+    expect(diagnostics.warnings.size).to eq(1)
+    expect(diagnostics.warnings.first).to include("ERB")
+  end
+
+  it "emits the ERB template note once across repeated discovery passes" do
+    template = write("x_template.rb", "class A<%= b %>\nend\n")
+    selection = described_class.new(Saboteur::Config.new({}, root: @root), diagnostics)
+    selection.select([template])
+    selection.select([template])
     expect(diagnostics.warnings.size).to eq(1)
   end
 
@@ -536,14 +815,13 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings).to be_empty
     end
 
-    it "stays quiet when a --subject pattern, already warned about, filtered the subjects" do
+    it "refuses when a --subject pattern matched no subject, even before the diff narrows (#379)" do
       file = write("cart.rb", source)
       commit_all
       File.write(file, source.sub("def total = 1", "def total = 2"))
 
-      expect(select([file], since: "HEAD", subjects: ["Other"])).to be_empty
-      expect(diagnostics.warnings.size).to eq(1)
-      expect(diagnostics.warnings.first).to include("--subject Other matches no subject")
+      expect { select([file], since: "HEAD", subjects: ["Other"]) }
+        .to raise_error(Saboteur::ConfigError, /--subject Other matches no subject/)
     end
   end
 
@@ -602,6 +880,26 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant literals in --since
 
     expect(select([file], since: "HEAD")).to be_empty
     expect(err.string).to include("1 changed subject(s) differ only in comments or formatting")
+  end
+
+  # Monorepo layout: the project root sits below the git toplevel, so the
+  # diff paths carry the subdir prefix. The deletion-only exclusion must
+  # still fire - in canonical-absolute space (#484).
+  it "selects nothing from a deletion-only file when the project root sits below the git toplevel (#484)" do
+    FileUtils.mkdir_p(File.join(@root, "sub"))
+    file = commit_base("module Plugin\n  def rules\n    Helper.validate(1)\n    Helper.call(1, 2)\n  end\nend\n",
+                       "sub/plugin.rb")
+    File.write(file, "module Plugin\n  def rules\n    Helper.call(1, 2)\n  end\nend\n")
+    config = Saboteur::Config.new({ "since" => "HEAD" }, root: File.join(@root, "sub"))
+    expect(described_class.new(config, diagnostics).select([file])).to be_empty
+  end
+
+  it "returns an empty changed map and an empty behavior map when nothing changed since the ref" do
+    file = commit_base(base)
+    config = Saboteur::Config.new({ "since" => "HEAD" }, root: @root)
+    selection = described_class.new(config, diagnostics)
+    selection.select([file])
+    expect(selection.send(:changed_line_maps)).to eq([{}, {}])
   end
 
   it "narrows constant subjects to --subject patterns by their Klass::CONST id" do
@@ -685,6 +983,27 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     expect(select([file], since: "HEAD")).to be_empty
     expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
+  end
+
+  it "uses the plural form when several constant-literal files are unmatched (#537)" do
+    file_a = commit_base("rules_a.rb", "RULES_A = build_a\n")
+    file_b = commit_base("rules_b.rb", "RULES_B = build_b\n")
+    File.write(file_a, "RULES_A = build_more_a\n")
+    File.write(file_b, "RULES_B = build_more_b\n")
+
+    expect(select([file_a, file_b], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("outside a method. 2 of these files have changes " \
+                                "inside a constant literal that is not mutated")
+  end
+
+  it "counts a file with two unsupported changed constants once in the umbrella note (#537)" do
+    file = commit_base("rules.rb", "RULES = build_rules\nLIMITS = build_limits\n")
+    File.write(file, "RULES = build_more_rules\nLIMITS = build_more_limits\n")
+
+    expect(select([file], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 of these file has changes inside a constant literal that is not mutated")
   end
 
   it "admits a skipped constant through the whole_file opt-in" do
@@ -911,6 +1230,27 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant selection edges (#3
     expect(select([file], since: "HEAD")).to be_empty
     expect(diagnostics.warnings.first).to include("changed constant RULES in rules.rb is not mutated",
                                                   ". Only hash and array literal entries are mutated")
+  end
+
+  it "splits constant-literal files out of the umbrella no-subjects warning (#537)" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nRegistry.register(RULES)\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 changed Ruby file(s)", "rules.rb",
+                                "1 of these file has changes inside a constant literal that is not mutated")
+    expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
+  end
+
+  it "leaves the umbrella hint alone when no constant warning fired" do
+    file = commit_base("note.rb", "# a note\n")
+    File.write(file, "# a note\n# more\n")
+
+    select([file], since: "HEAD")
+    umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
+    expect(umbrella).to include("1 changed Ruby file(s)", "note.rb", "outside a method")
+    expect(umbrella).not_to include("constant literal")
   end
 
   it "keeps a constant read at runtime even when another file captures it at load" do

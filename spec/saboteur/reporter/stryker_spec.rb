@@ -24,6 +24,20 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json.dig("files", "person.rb", "language")).to eq("ruby")
   end
 
+  it "records per-worker and supervisor peak memory when the run measured it (#202)" do
+    memory = { workers: [{ worker: 0, peakMb: 12.1 }, { worker: 1, peakMb: 11.0 }], supervisorPeakMb: 30.5 }
+    payload = JSON.parse(JSON.generate(described_class.build(report_of(result_for(:killed), memory:))))
+    expect(payload.dig("saboteur", "memory")).to eq(
+      "workers" => [{ "worker" => 0, "peakMb" => 12.1 }, { "worker" => 1, "peakMb" => 11.0 }],
+      "supervisorPeakMb" => 30.5
+    )
+  end
+
+  it "omits the memory section when the run measured none" do
+    payload = JSON.parse(JSON.generate(described_class.build(report_of(result_for(:killed)))))
+    expect(payload.fetch("saboteur")).not_to have_key("memory")
+  end
+
   it "never labels a --test-command survivor missing_test from pseudo evidence (#305)" do
     external = result_for(:survived, covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
     report = report_of(external, result_for(:survived, covered_by: %w[t1], replacement: "<="))

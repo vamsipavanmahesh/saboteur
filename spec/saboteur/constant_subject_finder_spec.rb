@@ -448,3 +448,121 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "unrooted qualified writes (#319
     expect(parsed.unsupported.map(&:id)).to eq(["Inner::RULES"])
   end
 end
+
+RSpec.describe Saboteur::ConstantSubjectFinder, "class << self owners (#380)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  def find(text)
+    file = File.join(@root, "sample.rb")
+    File.write(file, text)
+    Saboteur::ConstantSubjectFinder.new.call(file)
+  end
+
+  # A constant assigned in `class << self` binds on the singleton class:
+  # the owner says so, and a same-named constant on the attached class is
+  # a different subject.
+  it "names a constant in class << self by its singleton-class owner" do
+    parsed = find("class Host\n  class << self\n    PLAIN = [1]\n  end\nend\n")
+    subject = parsed.subjects.first
+    expect(subject.id).to eq("Host.singleton_class::PLAIN")
+    expect(subject.skip_reason).to be_nil
+  end
+
+  it "keeps same-named constants in the class body and class << self apart" do
+    parsed = find("class Host\n  RULES = { a: 1 }\n  class << self\n    RULES = { b: 2 }\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(%w[Host::RULES Host.singleton_class::RULES])
+    expect(parsed.unsupported).to be_empty
+  end
+
+  it "names a keyword class nested in class << self by its singleton-class owner" do
+    parsed = find("class Host\n  class << self\n    class Nested\n      C = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host.singleton_class::Nested::C"])
+  end
+
+  # Unlike a keyword class, `class << self` depends on the runtime self:
+  # an `included do` block runs with the including class as self, which is
+  # unknowable at parse time, so the constant stays conservatively skipped.
+  it "marks a constant in class << self inside a block as skipped" do
+    parsed = find("class Host\n  1.times do\n    class << self\n      X = [1]\n    end\n  end\nend\n")
+    subject = parsed.subjects.first
+    expect(subject.id).to eq("Host.singleton_class::X")
+    expect(subject.skip_reason).to eq("defined inside a block")
+  end
+
+  # The singleton of a factory's class: the factory block is class_eval'd,
+  # so `class << self` there is the generated class's own singleton, and
+  # the constant is an ordinary subject like any factory-block def (#352).
+  it "names a constant in class << self inside a factory block by the factory's singleton" do
+    parsed = find("Point = Data.define(:x) do\n  class << self\n    META = [1]\n  end\nend\n")
+    subject = parsed.subjects.first
+    expect(subject.id).to eq("Point.singleton_class::META")
+    expect(subject.skip_reason).to be_nil
+  end
+
+  # The factory path carries the full module prefix: the join separator is
+  # observable in the owner path (#395).
+  it "names a constant in class << self inside a factory inside a module by the factory singleton" do
+    source = "module M\n  Point = Data.define(:x) do\n    class << self\n      META = { a: 1 }\n    end\n  end\nend\n"
+    parsed = find(source)
+    expect(parsed.subjects.map(&:id)).to eq(["M::Point.singleton_class::META"])
+  end
+
+  # A keyword scope nested in `class << self` inside a factory drops the
+  # factory from the nesting but keeps the leading singleton scope: a
+  # deeper `class << self` then meets an empty parts list, which must be
+  # skipped rather than suffixed (#395).
+  it "names a constant in class << self under a keyword scope in a factory's class << self" do
+    source = "Point = Data.define(:x) do\n  class << self\n    module M\n      class << self\n        " \
+             "X = { a: 1 }\n      end\n    end\n  end\nend\n"
+    parsed = find(source)
+    expect(parsed.subjects.map(&:id)).to eq(["M.singleton_class::X"])
+  end
+
+  # `class << other` opens other's singleton, which has no static name, so
+  # the constant keeps the enclosing (attached) naming: conservative, and
+  # never confused with the self case.
+  it "keeps the enclosing owner for a singleton class on a non-self receiver (#380)" do
+    parsed = find("class Host\n  other = Object.new\n  class << other\n    X = [1]\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host::X"])
+  end
+
+  # A singleton class directly inside another has no nameable owner either:
+  # the fallback leaves the single enclosing singleton scope in place.
+  it "keeps one singleton scope for class << self nested in class << self (#380)" do
+    parsed = find("class Host\n  class << self\n    class << self\n      X = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host.singleton_class::X"])
+  end
+
+  it "appends the singleton scope to the innermost owner, not the outermost (#380)" do
+    parsed = find("module M\n  class Host\n    class << self\n      RULES = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["M::Host.singleton_class::RULES"])
+  end
+
+  # The factory scope is consumed by the first `class << self`; a keyword
+  # class in between must not let a later one reuse it - the block is
+  # class_eval'd, so the keyword class is top-level with its own singleton.
+  it "attaches a later class << self to a keyword class, not the enclosing factory (#380)" do
+    parsed = find("X = Class.new do\n  class Inner\n    class << self\n      C = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Inner.singleton_class::C"])
+  end
+
+  # The factory path already carries the enclosing prefix: appending it to
+  # the parts instead of replacing them doubled the owner
+  # ("Host::Host::X.singleton_class::M", B builder finding).
+  it "does not double the enclosing scope for class << self inside a factory (#395)" do
+    parsed = find("class Host\n  X = Class.new do\n    class << self\n      M = [1]\n    end\n  end\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["Host::X.singleton_class::M"])
+  end
+
+  # No attached class at the top level: the singleton of the toplevel self
+  # has no static name, so the constant keeps its plain top-level name.
+  it "names a constant in a top-level class << self at the top level (#380)" do
+    parsed = find("class << self\n  X = [1]\nend\n")
+    expect(parsed.subjects.map(&:id)).to eq(["X"])
+  end
+end

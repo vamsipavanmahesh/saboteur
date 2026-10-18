@@ -14,21 +14,16 @@ Real output from a PR branch that changed exactly one source file,
 
 ```
 $ bundle exec saboteur pr origin/master
-saboteur: inferred specs: no changed source file to infer a spec for, so the whole suite runs
-...
-saboteur 0.7.0: 0 subjects, 0 mutants, wall 2.60 s, seed 1 (repeat with --seed 1)
+saboteur: no changed source file lies inside the include scope, so nothing ran. Changed source files outside it: app/models/sidebars/authors_sidebar.rb. Extend include to cover them, or re-run the same command with one --test per existing spec path.
 ```
 
-The message is technically about the *include*: the default mutation scope
-is `lib/**/*.rb`, so a changed file under `app/` - or under
+The refusal is about the *include*: the default mutation scope is
+`lib/**/*.rb`, so a changed file under `app/` - or under
 `engines/billing/lib/` in a monorepo, or `kaminari-activerecord/lib/` in a
-sub-gem layout (#483) - is invisible to the diff scope. Read "no changed
-source file" as "no changed source file inside the configured include".
-
-The fallback is the dangerous half: with zero subjects the `pr` preset runs
-the whole configured suite anyway, which on a large app is the slowest
-possible way to learn nothing. Treat this message as a configuration bug,
-not as a green check.
+sub-gem layout (#483) - is invisible to the diff scope. The run stops
+rather than falling back to the whole suite: with zero subjects in scope
+that fallback was the slowest possible way to learn nothing, and its old
+message read as if the diff had touched no source at all.
 
 ### Fix: include the tree you actually mutate
 
