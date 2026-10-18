@@ -118,7 +118,8 @@ jobs:
           set -euo pipefail
           case "$PR_NUMBER" in *[!0-9]*|'') echo "pr_number must be digits"; exit 1;; esac
           owner="${GITHUB_REPOSITORY%/*}"; name="${GITHUB_REPOSITORY#*/}"
-          payload=$(printf '{"query":"{repository(owner:\"%s\",name:\"%s\"){pullRequest(number:%s){headRepository{nameWithOwner} headRefOid baseRefOid}}}"}' "$owner" "$name" "$PR_NUMBER")
+          # Concatenation, not a printf format: printf eats the \" escapes (#551).
+          payload='{"query":"{repository(owner:\"'"$owner"'\",name:\"'"$name"'\"){pullRequest(number:'"$PR_NUMBER"'){headRepository{nameWithOwner} headRefOid baseRefOid}}}"}'
           resp=$(curl -sfS -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" -d "$payload" https://api.github.com/graphql)
           echo "$resp" | grep -Fq "\"nameWithOwner\":\"$GITHUB_REPOSITORY\"" || { echo "PR #$PR_NUMBER is a fork or unknown head repo: no macOS legs"; exit 1; }
           echo "$resp" | grep -Fq "\"headRefOid\":\"$GITHUB_SHA\"" || { echo "dispatched SHA $GITHUB_SHA is not the current head of PR #$PR_NUMBER"; exit 1; }
