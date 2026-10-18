@@ -40,10 +40,11 @@ module Saboteur
 
       def fetch(files)
         path = cache_path(files)
+        preloaded = LoadCoverage.preloaded_uninstrumented(files)
         cached = cached_map(files)
-        return refuse_empty_map(cached, files) if cached
+        return refuse_empty_map(cached.with_preloaded(preloaded), files, preloaded) if cached
 
-        map = refuse_empty_map(build(files), files)
+        map = refuse_empty_map(build(files).with_preloaded(preloaded), files, preloaded)
         map.save(path)
         File.write(File.join(@config.path("cache_dir"), "preview.json"),
                    JSON.generate(path: path, fingerprint: RunFingerprint.new(config: @config).snapshot.digest))
@@ -157,9 +158,20 @@ module Saboteur
       # these sources, so the map passes with a warning. Applies to a cached
       # map too, so a map cached before this check cannot keep a run green,
       # and the guard runs before saving, so an empty map is never cached.
-      def refuse_empty_map(map, files)
+      def refuse_empty_map(map, files, preloaded)
         return map if files.empty? || !map.empty_for?(files)
 
+        # A file loaded before the executable's Coverage.start can never be
+        # instrumented, so emptiness there is a setup defect, not untested
+        # code: name it apart from the generic no-coverage refusal.
+        preloaded_empty = preloaded & files.map { |file| Selection::CoverageMap.canonical(file) }
+        if preloaded_empty.any?
+          message = preloaded_message(preloaded_empty)
+          raise Error, message if @config["tests"].empty?
+
+          @diagnostics.warn(message)
+          return map
+        end
         if @config["tests"].empty?
           raise Error, "Coverage recorded nothing in #{files.size} included files during a whole-suite " \
                        "build. No test in the suite may exercise these files, or the setup hid the app " \
@@ -168,6 +180,16 @@ module Saboteur
         @diagnostics.warn("Coverage recorded nothing in #{files.size} included files; " \
                           "the selected specs may not exercise them.")
         map
+      end
+
+      def preloaded_message(files)
+        names = files.first(5).map { |file| file.delete_prefix("#{@root}/") }
+        more = files.size > 5 ? ", ..." : ""
+        "#{names.join(', ')}#{more} loaded before saboteur started coverage (a require ran before the " \
+          "executable's Coverage.start - commonly the gemspec requiring the library while bundler/setup " \
+          "evaluates it, or RUBYOPT -r), so no test can ever cover #{files.size > 1 ? 'them' : 'it'}. " \
+          "Let the test suite load these " \
+          "files; a gemspec should require only its version file."
       end
 
       # Bootsnap is named only when it is loaded: blaming a library the app

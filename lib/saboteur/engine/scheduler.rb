@@ -249,17 +249,14 @@ module Saboteur
         [@config["timeout_factor"] * runtime, @config["timeout_min"]].max
       end
 
-      # What a subject no test ran gets. Code that only ran while the app
-      # loaded is not "no coverage" - it ran - but no forked test can re-run
-      # it, so it gets its own status, out of the score, with a hint.
+      # What a subject no test ran gets. Load-only code is not "no coverage":
+      # it ran, but no forked test can re-run it, so it gets its own status.
       def unloadable(candidates, subject, line_numbers = nil)
+        return skip_all(candidates, subject, Selection::CoverageMap::PRELOADED) if @map.preloaded?(subject.file)
         return skip_all(candidates, subject, "no coverage") unless
           @map.ran_at_load?(subject.file, line_numbers || subject.coverage_lines)
 
-        candidates.map do |mutation, text|
-          MutantResult.new(subject: subject, mutation: mutation, status: :ran_at_load, mutated_source: text,
-                           reason: Selection::CoverageMap::RAN_AT_LOAD)
-        end
+        load_time_results(candidates, subject)
       end
 
       # A def-time macro's only callers ran while the app loaded: the

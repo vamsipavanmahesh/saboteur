@@ -32,6 +32,24 @@ module Saboteur
         end
       end
 
+      # Include-listed files that are already loaded yet carry no coverage
+      # instrumentation: something required them before the executable's
+      # Coverage.start (a gemspec requiring the library while bundler/setup
+      # evaluates it, or RUBYOPT -r), so no test can ever be attributed to
+      # them. Read in the parent, where the snapshot still reflects the boot.
+      def self.preloaded_uninstrumented(files, loaded: $LOADED_FEATURES)
+        return [] unless Coverage.state == :suspended
+
+        instrumented = CoverageReads.result(stop: false, clear: false)
+                                    .each_key
+                                    .to_set { |path| Selection::CoverageMap.canonical(path) }
+        loaded_set = loaded.to_set { |path| Selection::CoverageMap.canonical(path) }
+        files.map { |file| Selection::CoverageMap.canonical(file) }
+             .uniq
+             .reject { |file| instrumented.include?(file) }
+             .select { |file| loaded_set.include?(file) }
+      end
+
       # A one-line or endless definition executes its def line even when its
       # body is never called. If any sibling on that physical line is uncalled,
       # discard its ambiguous line evidence rather than crediting every body.
