@@ -29,7 +29,14 @@ permissions:
 # carry no pull_requests entries (verify.cjs falls back to head_sha there
 # too), so they key on the head SHA: same head, same lane.
 concurrency:
-  group: panel-head-gate-${{ github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha || inputs.pr_number || github.ref }}
+  # A newer trigger cancels only within the same event family: cancellation
+  # runs before the job-level if: filters an event out, so without the
+  # suffixes any comment on the PR (any commenter), or a failed-CI
+  # workflow_run on the same head, cancelled an in-progress verdict run and
+  # left the head with no verdict (#628). Comment events get -comment,
+  # non-success workflow_run completions get -inactive; verdict-affecting
+  # events keep the shared per-PR/head lane.
+  group: panel-head-gate-${{ github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha || inputs.pr_number || github.ref }}${{ github.event_name == 'issue_comment' && '-comment' || '' }}${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && '-inactive' || '' }}
   cancel-in-progress: true
   queue: max
 

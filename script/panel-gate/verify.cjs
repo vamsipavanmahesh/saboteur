@@ -349,7 +349,8 @@ async function superseded(api) {
 }
 // Cross-lane serialization (#434): fork PRs run their CI-completion sweep in
 // a head-sha concurrency lane while comment revocations run in the
-// PR-number lane, and the Actions API does not expose another run's
+// PR-number lane's '-comment' suffix family (#628), and the Actions API
+// does not expose another run's
 // targets, so two runs of the same PR can overlap. Each run registers its
 // resolved targets as a status on the revocation anchor BEFORE reading the
 // registry, defers to any newer live lane sharing a PR, and resolves its
