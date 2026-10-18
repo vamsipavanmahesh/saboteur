@@ -13,7 +13,8 @@ module Saboteur
     module SqliteMemoryDatabase
       REMEDY = "a sqlite :memory: database is empty in this forked child: in-memory databases do not " \
                "survive saboteur's fork, so a schema loaded at require time is lost. Load the schema in " \
-               "a before(:suite) hook, or in an after_fork hook (config/saboteur_hooks.rb via c.hooks)"
+               "a before(:suite) hook, or in an after_fork hook in config/saboteur_hooks.rb; wire it in " \
+               'config/saboteur.rb with c.hooks = ["config/saboteur_hooks.rb"]'
 
       module_function
 
