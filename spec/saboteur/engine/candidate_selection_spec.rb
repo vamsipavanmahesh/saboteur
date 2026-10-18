@@ -109,7 +109,25 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     allow(map).to receive(:tests_for).and_return(["t1"])
     scope = instance_double(Saboteur::Engine::DiffScope)
     selection.for(subject_under_test, scope: scope)
-    expect(diagnostics.warnings).to include("K#m: skipped (refinements); its change is not verified by this run")
+    expect(diagnostics.warnings).to include("K#m (#{subject_under_test.file}:2): skipped (refinements); " \
+                                            "its change is not verified by this run")
+  end
+
+  # #627 advisory: a skipped `def K.b` and a real `def self.b` in one class
+  # share the id "K.b", so the announcement must name file:line to tell the
+  # skip apart from the real subject.
+  it "disambiguates a skipped constant-receiver def from a same-id real subject by file:line" do
+    skipped, real = subjects_in("class K\n  def K.b; 1; end\n  def self.b; 2; end\nend\n")
+    expect([skipped.id, real.id]).to eq(["K.b", "K.b"])
+    allow(map).to receive(:tests_for).with(real).and_return(["t1"])
+    allow(candidates).to receive(:for).with(real).and_return([])
+    scope = instance_double(Saboteur::Engine::DiffScope)
+    allow(scope).to receive(:restrict).with(real, []).and_return([])
+    selection.for(skipped, scope: scope)
+    selection.for(real, scope: scope)
+    expect(diagnostics.warnings)
+      .to include("K.b (#{skipped.file}:2): skipped (constant-receiver def); its change is not verified by this run")
+    expect(selection.skipped_subjects.keys).to eq([skipped])
   end
 
   it "names the loaded specs when a scoped subject has no coverage (#636)" do
@@ -122,7 +140,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     scope = instance_double(Saboteur::Engine::DiffScope)
     selection.for(subject_under_test, scope: scope)
     expect(diagnostics.warnings).to include(
-      "K#m: skipped (no coverage); its change is not verified by this run - " \
+      "K#m (#{subject_under_test.file}:2): skipped (no coverage); its change is not verified by this run - " \
       "loaded specs: spec/models/other_spec.rb, spec/models/widget_spec.rb; " \
       "other spec files may cover it, pass --test to load them"
     )
@@ -136,7 +154,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     scope = instance_double(Saboteur::Engine::DiffScope)
     selection.for(subject_under_test, scope: scope)
     expect(diagnostics.warnings).to include(
-      "K#m: skipped (no coverage); its change is not verified by this run - " \
+      "K#m (#{subject_under_test.file}:2): skipped (no coverage); its change is not verified by this run - " \
       "loaded specs: spec/m1_spec.rb, spec/m2_spec.rb, spec/m3_spec.rb, spec/m4_spec.rb, spec/m5_spec.rb; " \
       "other spec files may cover it, pass --test to load them"
     )
@@ -150,7 +168,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     scope = instance_double(Saboteur::Engine::DiffScope)
     selection.for(subject_under_test, scope: scope)
     expect(diagnostics.warnings).to include(
-      "K#m: skipped (no coverage); its change is not verified by this run - " \
+      "K#m (#{subject_under_test.file}:2): skipped (no coverage); its change is not verified by this run - " \
       "loaded specs: spec/m1_spec.rb, spec/m2_spec.rb, spec/m3_spec.rb, spec/m4_spec.rb, spec/m5_spec.rb, ...; " \
       "other spec files may cover it, pass --test to load them"
     )
@@ -164,7 +182,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     scope = instance_double(Saboteur::Engine::DiffScope)
     selection.for(subject_under_test, scope: scope)
     expect(diagnostics.warnings).to include(
-      "K#m: skipped (no coverage); its change is not verified by this run - " \
+      "K#m (#{subject_under_test.file}:2): skipped (no coverage); its change is not verified by this run - " \
       "loaded specs: none; other spec files may cover it, pass --test to load them"
     )
   end

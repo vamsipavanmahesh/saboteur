@@ -8,11 +8,12 @@ module Saboteur
     class CandidateSelection
       attr_reader :skipped_subjects, :selected, :unscoped_digests
 
-      def initialize(candidates:, map:, limit:, diagnostics:)
+      def initialize(candidates:, map:, limit:, diagnostics:, root: nil)
         @candidates = candidates
         @map = map
         @limit = limit
         @diagnostics = diagnostics
+        @root = root
         @skipped_subjects = {}
         @selected = {}
         @unscoped_digests = {}
@@ -53,7 +54,7 @@ module Saboteur
       # read is "untestable" when the truth is "not loaded" (#636). Names
       # at most five, like the other selection notes.
       def skip_announcement(subject, reason)
-        line = "#{subject.id}: skipped (#{reason}); its change is not verified by this run"
+        line = "#{subject.id} (#{subject.location(@root)}): skipped (#{reason}); its change is not verified by this run"
         return line unless reason == "no coverage"
 
         loaded = @map.tests.map { |id| id.split("[").first.delete_prefix("./") }.uniq.sort

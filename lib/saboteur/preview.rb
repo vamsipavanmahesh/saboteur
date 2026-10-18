@@ -133,7 +133,8 @@ module Saboteur
 
     def planned(subject, candidates, scope)
       if subject.skip_reason
-        @diagnostics.warn("#{subject.id}: skipped (#{subject.skip_reason}); excluded from the planned total")
+        @diagnostics.warn("#{subject.id} (#{subject.location(@config.root)}): skipped (#{subject.skip_reason}); " \
+                          "excluded from the planned total")
         return []
       end
 

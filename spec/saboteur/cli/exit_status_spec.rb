@@ -250,7 +250,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
     it "prints the full skipped-subject sentence" do
       report = review_report(skipped: { person_subject => "refinements" })
       harness.code(report)
-      expect(harness.err.string).to include("saboteur: Person#adult? was skipped (refinements), " \
+      expect(harness.err.string).to include("saboteur: Person#adult? (person.rb:2) was skipped (refinements), " \
                                             "so the change under test was not verified")
     end
 

@@ -158,6 +158,7 @@ module Saboteur
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
                  operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
+                 test_command: config["test_command"],
                  shard: @shard, memory: @memory_report)
     end
 
@@ -366,7 +367,8 @@ module Saboteur
 
       candidates = Candidates.build(config, @diagnostics, hazard_guard: hazard_guard)
       selection = CandidateSelection.new(candidates: candidates, map: map,
-                                         limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
+                                         limit: config["max_mutants_per_method"], diagnostics: @diagnostics,
+                                         root: @root)
       lists = subjects.map { |subject| selection.for(subject, scope: scope) }
       @shard = Engine::Shard.parse(config["shard"]) if config["shard"]
       lists = @shard.select(subjects, lists) if @shard
