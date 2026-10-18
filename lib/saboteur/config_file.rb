@@ -9,20 +9,17 @@ module Saboteur
   # boots, so it cannot reference app constants - plain Ruby and ENV only.
   module ConfigFile
     # The assignment target. One setter per Config key; anything else is an
-    # unknown setting. Records the line of each assignment so validation
-    # errors can point at it.
+    # unknown setting.
     class Settings
       def initialize
         @values = {}
-        @lines = {}
       end
 
-      attr_reader :values, :lines
+      attr_reader :values
 
       (Config::DEFAULTS.keys - ["integration"]).each do |key|
         define_method("#{key}=") do |value|
           @values[key] = value
-          @lines[key] = caller_locations(1, 1).first.lineno
         end
       end
 
@@ -33,7 +30,6 @@ module Saboteur
         end
 
         @values["integration"] = value
-        @lines["integration"] = line
       end
 
       # Repeatable per-path score gates (#473), the one setting that takes
@@ -41,7 +37,6 @@ module Saboteur
       # are validated later, on the effective Config.
       def score_gate(pattern, min_score:)
         (@values["score_gates"] ||= []) << { "pattern" => pattern, "min_score" => min_score }
-        @lines["score_gates"] = caller_locations(1, 1).first.lineno
       end
 
       Config::INTEGER_KEYS.each do |key|
@@ -51,7 +46,6 @@ module Saboteur
             raise ConfigError, "#{line}: #{key} must be an Integer, got #{value.inspect}"
           end
           @values[key] = value
-          @lines[key] = caller_locations(1, 1).first.lineno
         end
       end
     end

@@ -50,15 +50,10 @@ RSpec.describe Saboteur::ConfigFile do
     end
   end
 
-  it "records a valid integration assignment and its single caller location (#614)" do
+  it "records a valid integration assignment (#614)" do
     settings = described_class::Settings.new
-    location = instance_double(Thread::Backtrace::Location, lineno: 42)
-    locations = [location]
-    expect(locations).to receive(:fetch).with(0).and_call_original
-    expect(settings).to receive(:caller_locations).with(1, 1).and_return(locations)
     settings.integration = "custom"
     expect(settings.values).to eq("integration" => "custom")
-    expect(settings.lines).to eq("integration" => 42)
   end
 
   it "keeps a String integration usable by the run fingerprint (#614)" do
@@ -196,14 +191,10 @@ RSpec.describe Saboteur::ConfigFile do
     expect { Saboteur::Config.load(root: @root, path: path) }.not_to raise_error
   end
 
-  it "records the line of the c.score_gate call that set the gates (#473)" do
+  it "records the gates set by repeatable c.score_gate calls (#473)" do
     settings = described_class::Settings.new
-    first = __LINE__ + 1
     settings.score_gate("app/**/*", min_score: 90)
-    expect(settings.lines["score_gates"]).to eq(first)
-    second = __LINE__ + 1
     settings.score_gate("lib/**/*", min_score: 80)
-    expect(settings.lines["score_gates"]).to eq(second)
     expect(settings.values["score_gates"].map { |gate| gate["pattern"] }).to eq(%w[app/**/* lib/**/*])
   end
 end
