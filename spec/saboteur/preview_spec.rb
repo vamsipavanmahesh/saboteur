@@ -335,3 +335,37 @@ RSpec.describe "Saboteur::Preview json inventory" do
     expect(payload["estimated_seconds"]).to be_nil
   end
 end
+
+RSpec.describe Saboteur::Preview, "unsupported subjects (#651)" do
+  let(:blocked) do
+    subjects_in("class K\n  tap do\n    def blocked(x)\n      x + 1\n    end\n  end\nend\n").first
+  end
+
+  %w[text json].each do |format|
+    it "excludes block-defined subjects from the #{format} plan without booting" do
+      out = StringIO.new
+      config = Saboteur::Config.new({ "include" => ["*.rb"] }, root: File.dirname(blocked.file))
+      expect(Saboteur::Engine::Boot).not_to receive(:new)
+      described_class.new(config, out:, err: StringIO.new, format: format).call
+      note = "K#blocked: skipped (defined inside a block); excluded from the planned total"
+      if format == "json"
+        payload = JSON.parse(out.string)
+        expect(payload["totals"]["mutants"]).to eq(0)
+        expect(payload["mutants"]).to eq([])
+        expect(payload["subjects"].map { |subject| subject["mutants"] }).to eq([0])
+        expect(payload["warnings"]).to include(note)
+      else
+        expect(out.string).to include("Total: 0 mutants; 0 dropped", note)
+        expect(out.string).not_to match(/K#blocked  \d+ mutants/)
+      end
+    end
+  end
+  it "does not generate candidates for a statically unsupported subject" do
+    blocked.skip_reason = "refinements"
+    config = Saboteur::Config.new({}, root: File.dirname(blocked.file))
+    candidates = instance_double(Saboteur::Engine::Candidates)
+    expect(candidates).not_to receive(:for)
+    preview = described_class.new(config, out: StringIO.new, err: StringIO.new)
+    expect(preview.send(:planned, blocked, candidates, nil)).to eq([])
+  end
+end
