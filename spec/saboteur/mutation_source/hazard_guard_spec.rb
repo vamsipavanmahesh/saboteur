@@ -417,7 +417,6 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
     expect(slices("RULES = [1].freeze(true)\n")).to eq(["RULES = [1].freeze(true) (line 1)"])
     expect(slices("RULES = [1].freeze { 2 }\n")).to eq(["RULES = [1].freeze { 2 } (line 1)"])
     expect(slices("RULES = [1].dup\n")).to eq(["RULES = [1].dup (line 1)"])
-    expect(slices("Point = Data.define(:x)\n")).to eq(["Point = Data.define(:x) (line 1)"])
     # .freeze only vets a value when the frozen receiver is itself plain
     # data; freezing a computed call still runs the call at load.
     expect(slices("RULES = build_rules.freeze\n")).to eq(["RULES = build_rules.freeze (line 1)"])
@@ -495,5 +494,55 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
   it "strips indentation and cites a multiline call by its first line (#664)" do
     expect(slices("class A\n    boot!\nend\n")).to eq(["boot! (line 2)"])
     expect(slices("Registry.register(\n  :x\n)\n")).to eq(["Registry.register( (line 1)"])
+  end
+
+  it "passes a Struct/Data class factory with literal arguments and no block (#537)" do
+    expect(slices("VerificationContext = Struct.new(:payload, keyword_init: true)\n")).to eq([])
+    expect(slices("Point = Data.define(:x)\n")).to eq([])
+    expect(slices("Named = Struct.new(\"Kind\", :x, keyword_init: false)\n")).to eq([])
+    expect(slices("Point = Struct.new\n")).to eq([])
+  end
+
+  it "flags a factory with a block, a computed argument, or another receiver (#537)" do
+    expect(slices("Point = Data.define(:x) { def y = 1 }\n"))
+      .to eq(["Point = Data.define(:x) { def y = 1 } (line 1)"])
+    expect(slices("Ctx = Struct.new(build)\n")).to eq(["Ctx = Struct.new(build) (line 1)"])
+    expect(slices("Ctx = Struct.new(:x, keyword_init: build)\n"))
+      .to eq(["Ctx = Struct.new(:x, keyword_init: build) (line 1)"])
+    expect(slices("Ctx = Class.new\n")).to eq(["Ctx = Class.new (line 1)"])
+    expect(slices("Ctx = Struct.define(:x)\n")).to eq(["Ctx = Struct.define(:x) (line 1)"])
+    expect(slices("Ctx = Data.new(:x)\n")).to eq(["Ctx = Data.new(:x) (line 1)"])
+  end
+
+  it "flags a factory keyword hash with a non-symbol key or a computed pair among literals (#537)" do
+    expect(slices("Ctx = Struct.new(:a, \"kw\" => compute)\n"))
+      .to eq(["Ctx = Struct.new(:a, \"kw\" => compute) (line 1)"])
+    expect(slices("Ctx = Struct.new(:a, \"kw\" => true)\n"))
+      .to eq(["Ctx = Struct.new(:a, \"kw\" => true) (line 1)"])
+    expect(slices("Ctx = Struct.new(:a, keyword_init: true, mode: compute)\n"))
+      .to eq(["Ctx = Struct.new(:a, keyword_init: true, mode: compute) (line 1)"])
+  end
+
+  it "passes private_constant and public_constant with literal names (#537)" do
+    expect(slices("module M\n  X = [1]\n  private_constant(:X)\nend\n")).to eq([])
+    expect(slices("module M\n  X = [1]\n  private_constant \"X\"\nend\n")).to eq([])
+    expect(slices("public_constant :X\n")).to eq([])
+  end
+
+  it "passes a hash of lambdas: the bodies run when called, not at load (#537)" do
+    expect(slices("VERIFIERS = {\n  verify_iat: ->(options) { Claims::IssuedAt.new(leeway: options[:l]) }\n}.freeze\n"))
+      .to eq([])
+  end
+
+  it "does not treat a hazardous call inside a load-level lambda as a load-time hazard (#537)" do
+    expect(described_class.new.load_time_hazards(Prism.parse("HANDLERS = { a: -> { system(\"ls\") } }\n").value))
+      .to eq([])
+  end
+
+  it "flags a constant-visibility call with a computed name or a receiver (#537)" do
+    expect(slices("private_constant(build)\n")).to eq(["private_constant(build) (line 1)"])
+    expect(slices("module M\n  X = [1]\n  private_constant :X, build\nend\n"))
+      .to eq(["private_constant :X, build (line 3)"])
+    expect(slices("self.private_constant(:X)\n")).to eq(["self.private_constant(:X) (line 1)"])
   end
 end
