@@ -123,6 +123,25 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(killed["id"]).to match(/\A\h{16}\z/)
   end
 
+  # A multi-edit mutant is one mutant with one text: the edits' replacements
+  # join with the same " | " the findings report uses (#707).
+  it "joins a multi-edit mutant's replacements with a pipe separator (#707)" do
+    subject = person_subject
+    source = subject.file_source
+    gte = source.index(">=")
+    age = source.index("18")
+    edits = [
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: gte, end_byte: gte + 2, replacement: "LT"),
+      Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: age, end_byte: age + 2, replacement: "AGE")
+    ]
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "test",
+                                                      edits:, coarse: false)
+    result = Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                        mutated_source: subject.apply(edits), covered_by: [])
+    mutants = JSON.parse(JSON.generate(described_class.build(report_of(result)))).dig("files", "person.rb", "mutants")
+    expect(mutants.first["replacement"]).to eq("LT | AGE")
+  end
+
   it "lists each test once under testFiles, grouped by spec file" do
     report = report_of(result_for(:killed, killed_by: ["./spec/a_spec.rb[1:1]"],
                                            covered_by: ["./spec/a_spec.rb[1:1]", "./spec/b_spec.rb[2]"]))
