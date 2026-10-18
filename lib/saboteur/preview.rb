@@ -125,6 +125,11 @@ module Saboteur
     end
 
     def planned(subject, candidates, scope)
+      if subject.skip_reason
+        @diagnostics.warn("#{subject.id}: skipped (#{subject.skip_reason}); excluded from the planned total")
+        return []
+      end
+
       list = candidates.for(subject)
       list = scope.restrict(subject, list) if scope
       limit = @config["max_mutants_per_method"]

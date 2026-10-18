@@ -5,6 +5,11 @@ JSON document on stdout and exits 0. It reads source only: the app never
 boots and no test runs. Without `--format json`, `--dry-run` keeps its
 human-readable text output.
 
+The plan excludes subjects known from source to be unsupported, such as
+methods defined inside blocks, and names them in warnings. It cannot know
+coverage-dependent skips without loading the app and tests, so a real run
+may execute fewer mutants than this static plan.
+
 Two guards keep the surfaces unambiguous: `--dry-run --agent` refuses and
 names `--format json` as the replacement, and `--format json` without
 `--dry-run` is a usage error (exit 2) pointing at `--format agent` for run

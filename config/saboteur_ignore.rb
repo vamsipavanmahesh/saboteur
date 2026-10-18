@@ -459,10 +459,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Reporter::SurvivorList#evidence_group",
              reason: "equivalent: a group is keyed by covering tests, reuse and changed lines, so every member prints the same evidence"
 
-  i.mutation "947651810f34ed47",
-             subject: "Saboteur::Preview#planned",
-             reason: "equivalent: at the exact cap, >= records a zero-count omission; preview only sums omission counts, so displayed counts and selected mutants are unchanged"
-
   i.mutation "dc44b78352b4ef54",
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
@@ -1058,25 +1054,15 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
-  i.mutation "4e0d9e10a1d1193d",
+  i.mutation "ae4eaca715a4b7fa",
              subject: "Saboteur::Preview#planned",
              reason: "equivalent: the record_skip calls this guard gates only write to @skipped, which is read " \
                      "solely by print_inventory; print_inventory runs only in json mode, where @json is already true"
 
-  i.mutation "c24fd3712e351930",
+  i.mutation "b2f9be318bffaabb",
              subject: "Saboteur::Preview#planned",
              reason: "equivalent: at size == limit the >= branch records a zero-count omission and skips nothing, " \
                      "and dry-run output reads omissions only as sum(&:count), so nothing observable changes"
-
-  i.mutation "9e7b23c513922ced",
-             subject: "Saboteur::Preview#planned",
-             reason: "equivalent: the block's @skipped append is the whole behavior and the enumerator's return " \
-                     "value is unused, so each and map agree"
-
-  i.mutation "f678a7b533ec56a6",
-             subject: "Saboteur::Preview#planned",
-             reason: "equivalent: the block's @inventory append is the whole behavior and the enumerator's return " \
-                     "value is unused, so each and map agree"
 
   i.mutation "e2ab34c9185bc8b1",
              subject: "Saboteur::Preview#estimated_seconds",
