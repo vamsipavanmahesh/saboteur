@@ -557,6 +557,21 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
           end
         end
       end
+
+      it "builds the child env without Bundler loaded at all" do
+        hide_const("Bundler")
+        runner = described_class.new(command: "true", root: @dir)
+        env = runner.send(:child_env)
+        expect(env["SABOTEUR_EXTERNAL_CHILD"]).to eq("1")
+        expect(env).not_to have_key("BUNDLE_GEMFILE")
+      end
+
+      it "does not re-add a passthrough key missing from the pre-bundler environment, not even nil-valued" do
+        with_bundle_path(original: false) do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)).not_to have_key("BUNDLE_PATH")
+        end
+      end
     end
   end
 end
