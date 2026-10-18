@@ -3,6 +3,42 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "c4a41e4cf733a770",
+             subject: "Saboteur::ConfigFile::Settings#integration=",
+             reason: "equivalent: caller_locations(1, 2) widens only the frame count; fetch(0) reads the " \
+                     "same first frame, so the reported line is unchanged. The line-changing variant " \
+                     "(first argument 1 -> 2) is killed by the exact-line pins in config_file_spec " \
+                     "(hand-applied: 3 failures including the :2 assignment-line example)"
+
+  i.mutation "c99fc350a7d2d531",
+             subject: "Saboteur::ConfigFile::Settings#integration=",
+             reason: "equivalent: caller_locations(1, 1) returns a single-frame array, where fetch(-1) " \
+                     "is fetch(0) - hand-applied mutant leaves all config_file examples green"
+
+  i.mutation "a8c1471f8292f1f2",
+             subject: "Saboteur::ConfigFile::Settings#integration=",
+             reason: "equivalent: dropping the length argument gives caller_locations(1), whose first " \
+                     "frame is the same one fetch(0) reads - hand-applied mutant leaves all " \
+                     "config_file examples green"
+
+  i.mutation "ba701d82f7059bc8",
+             subject: "Saboteur::ConfigFile::Settings#integration=",
+             reason: "equivalent: same caller_locations(1) shape from the other side of the comma - " \
+                     "fetch(0) reads the same frame - hand-applied mutant leaves all config_file " \
+                     "examples green"
+
+  i.mutation "01788b3c7b37a3cb",
+             subject: "Saboteur::MutationSource::HazardGuard#cite",
+             reason: "equivalent: node.slice of a parsed Prism statement is never empty, so .lines.first is " \
+                     "always a String and the .to_s only collapses a nil that cannot occur - hand-applied " \
+                     "mutant leaves all hazard_guard and subject_selection examples green"
+
+  i.mutation "69c095b81b8911f5",
+             subject: "Saboteur::MutationSource::HazardGuard#cite",
+             reason: "equivalent: in the bundled Prism, Node#start_line is a delegate of " \
+                     "Node#location.start_line (verified against the project's prism), so dropping .location " \
+                     "renders the same line number - hand-applied mutant leaves all examples green"
+
   i.mutation "cacc7042b5677fe6",
              subject: "Saboteur::Engine::CoverageStore#preloaded_message",
              reason: "equivalent: the only caller guards on preloaded_empty.any?, so files.size is always >= 1, " \
@@ -91,24 +127,7 @@ Saboteur.ignore do |i|
              reason: "equivalent: the each result is discarded (the next statement is an assignment), and map runs the " \
                      "same block with the same next and raise"
 
-  i.mutation "b815e12e983b69f8",
-             subject: "Saboteur::ConfigFile::Settings#score_gate",
-             reason: "equivalent: caller_locations(1, 2).first is the same frame as caller_locations(1, 1).first"
-
-  i.mutation "44f2824301440254",
-             subject: "Saboteur::ConfigFile::Settings#score_gate",
-             reason: "equivalent: dropping the first argument leaves caller_locations(1), whose first frame is the same " \
-                     "caller frame that .first reads"
-
-  i.mutation "ee83c7a2358752c9",
-             subject: "Saboteur::ConfigFile::Settings#score_gate",
-             reason: "equivalent: dropping the length leaves caller_locations(1), whose first frame is the same frame .first reads"
-
-  i.mutation "6ffd383fed3956f2",
-             subject: "Saboteur::ConfigFile::Settings#score_gate",
-             reason: "equivalent: caller_locations(1, 1) holds one frame, so first and last are the same frame"
-
-  i.mutation "bb377adb7ae9ce54",
+          i.mutation "bb377adb7ae9ce54",
              subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
              reason: "equivalent: each returns the receiver and join(', ') stringifies via Subject#to_s (the id), " \
                      "so the note reads identically to map(&:id)"
