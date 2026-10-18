@@ -179,6 +179,35 @@ RSpec.describe Saboteur::Execution::Reevaluator do
   end
 
   describe "whole_file" do
+    it "leaves a later require of the eval'd file a no-op under $VERBOSE, so strict warning gates stay quiet (#632)" do
+      lazy_source = <<~RUBY
+        LAZY_WHOLE_FILE_632_MARKER = 1
+
+        class LazyWholeFile632
+          def value
+            1
+          end
+        end
+      RUBY
+      lazy_subject = subjects_in(lazy_source, name: "lazy_whole_file_632.rb").find do |s|
+        s.id == "LazyWholeFile632#value"
+      end
+      path = File.expand_path(lazy_subject.file)
+      described_class.new("nesting", whole_file: ["LazyWholeFile632*"]).call(lazy_subject, lazy_subject.source)
+
+      verbose = $VERBOSE
+      $VERBOSE = true
+      begin
+        expect { require path }.not_to output.to_stderr
+        expect(LAZY_WHOLE_FILE_632_MARKER).to eq(1)
+      ensure
+        $VERBOSE = verbose
+        $LOADED_FEATURES.delete(path)
+        Object.send(:remove_const, :LAZY_WHOLE_FILE_632_MARKER)
+        Object.send(:remove_const, :LazyWholeFile632)
+      end
+    end
+
     let(:source) do
       <<~RUBY
         WHOLE_FILE_LOADS = (defined?(WHOLE_FILE_LOADS) ? WHOLE_FILE_LOADS : 0) + 1

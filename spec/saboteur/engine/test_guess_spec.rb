@@ -46,6 +46,96 @@ RSpec.describe Saboteur::Engine::TestGuess do
       .to eq(["rack/methods"])
   end
 
+  # A Minitest project has no spec/ directory (or no *_spec.rb in it), so a
+  # full run matches every source file to nothing: the stop must be one line
+  # naming the real problem (#606, sibling of the missing-rspec-core refusal
+  # #542), not one line per file.
+  describe "the no-RSpec-suite stop (#606)" do
+    def full_guess
+      config = Saboteur::Config.new({ "include" => ["lib/**/*.rb"] }, root: dir)
+      described_class.new(config).call
+    end
+
+    before { FileUtils.remove_entry(File.join(dir, "spec")) }
+
+    it "stops with one line pointing at Minitest when test/ exists but spec/ does not" do
+      write("test/widget_test.rb")
+      message = full_guess.unmatched_message
+      expected = "no RSpec suite found - saboteur needs RSpec; " \
+                 "this project appears to use Minitest (test/), see docs/minitest.md"
+      expect(message).to eq(expected)
+    end
+
+    it "names no framework when neither spec/ nor test/ exists" do
+      message = full_guess.unmatched_message
+      expect(message).to include("no RSpec suite found - saboteur needs RSpec")
+      expect(message).not_to include("Minitest")
+    end
+
+    it "treats a spec/ directory without *_spec.rb files as no suite" do
+      write("test/widget_test.rb")
+      write("spec/README.md")
+      expect(full_guess.unmatched_message).to include("appears to use Minitest (test/)")
+    end
+
+    it "keeps the per-file expected-spec list behind --verbose" do
+      write("test/widget_test.rb")
+      result = full_guess
+      verbose = result.unmatched_message(verbose: true)
+      expect(verbose).to include("no RSpec suite found - saboteur needs RSpec",
+                                 "lib/a.rb (expected spec/a_spec.rb)")
+      expect(result.unmatched_message).not_to include("lib/a.rb")
+    end
+
+    it "keeps the per-file stop for a project that has an RSpec suite" do
+      write("spec/a_spec.rb")
+      message = full_guess.unmatched_message
+      expect(message).to include("no spec found for")
+      expect(message).not_to include("no RSpec suite found")
+    end
+
+    it "never claims a missing suite for a --subject run, which names its own expected spec" do
+      config = Saboteur::Config.new({ "include" => ["lib/**/*.rb"] }, root: dir)
+      message = described_class.new(config).call_for(["lib/a.rb"]).unmatched_message
+      expect(message).to include("no spec found for")
+      expect(message).not_to include("no RSpec suite found")
+    end
+
+    it "counts a suite that exists only in a nested spec directory" do
+      write("spec/deep/b_spec.rb")
+      message = full_guess.unmatched_message
+      expect(message).to include("no spec found for")
+      expect(message).not_to include("no RSpec suite found")
+    end
+
+    it "treats a spec/ directory holding only nested support files as no suite" do
+      write("spec/support/helper.rb")
+      expect(full_guess.unmatched_message).to include("no RSpec suite found")
+    end
+
+    it "stays silent when nothing is unmatched, even with no suite on disk" do
+      expect(Saboteur::Engine::NoSuiteStop.layout(dir, [], false)).to be_nil
+    end
+
+    it "formats the verbose no-suite line with the exact per-file list" do
+      write("test/widget_test.rb")
+      result = full_guess
+      pairs = result.unmatched.map { |file| result.send(:pair_description, file) }.join(", ")
+      expected = "#{Saboteur::Engine::NoSuiteStop::MINITEST} Files without a guessed spec: #{pairs}."
+      expect(result.unmatched_message(verbose: true)).to eq(expected)
+    end
+
+    # rspec_args can point RSpec outside spec/ (["--default-path", "specs"]):
+    # claiming "no spec file exists" there is false and drops the
+    # --test/--all remedy for a suite that would run (#606 QA).
+    it "does not claim a missing suite when the suite lives outside spec/" do
+      write("specs/a_spec.rb")
+      message = full_guess.unmatched_message
+      expect(message).to include("no spec found for")
+      expect(message).not_to include("no RSpec suite found")
+    end
+  end
+
   it "warns through its diagnostics when untracked files cannot be opened race-free" do
     write("lib/new.rb", base_source)
     diagnostics = instance_double(Saboteur::Engine::Diagnostics)

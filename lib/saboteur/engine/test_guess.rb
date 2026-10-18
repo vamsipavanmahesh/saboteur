@@ -16,6 +16,38 @@ module Saboteur
     # subject need a guessed spec; without --since, every included file with
     # a mutation subject needs one. A file that needs a spec and has none
     # stops the run before boot.
+    # A project with no *_spec.rb anywhere under its root has no RSpec suite
+    # at all: a per-file stop would print one line per
+    # source file and bury the real problem (#606, sibling of the
+    # missing-rspec-core refusal #542). The stop is one line naming it, with
+    # a Minitest pointer when test/ exists; --verbose keeps the per-file list.
+    module NoSuiteStop
+      MINITEST = "no RSpec suite found - saboteur needs RSpec; " \
+                 "this project appears to use Minitest (test/), see docs/minitest.md"
+      PLAIN = "no RSpec suite found - saboteur needs RSpec; no spec file exists to run, see docs/minitest.md"
+
+      module_function
+
+      # nil when the run should not claim a missing suite: a --subject run
+      # already names its expected spec, nothing is unmatched, or a suite
+      # exists. The suite can live outside spec/ - rspec_args can point
+      # RSpec at another default path - so look under the whole root;
+      # claiming "no spec file exists" for such a project is false and
+      # drops the --test/--all remedy (#606). :minitest or :plain otherwise.
+      def layout(root, unmatched, subject_run)
+        return if subject_run || unmatched.empty?
+
+        return unless Dir.glob(File.join(root, "**", "*_spec.rb")).empty?
+
+        File.directory?(File.join(root, "test")) ? :minitest : :plain
+      end
+
+      def message(layout, pairs:, verbose: false)
+        line = layout == :minitest ? MINITEST : PLAIN
+        verbose ? "#{line} Files without a guessed spec: #{pairs.join(', ')}." : line
+      end
+    end
+
     class TestGuess
       # hints: unmatched file -> its conventional spec path (which does
       # not exist; that is why the file is unmatched), for the stop-before-boot
@@ -25,8 +57,9 @@ module Saboteur
       # in specs; skipped_specs: spec files the diff touches that cannot run,
       # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
-                           :skipped_specs, :out_of_scope, :excluded, :near) do
-        def initialize(changed_specs: [], skipped_specs: {}, out_of_scope: [], excluded: [], near: {}, **fields)
+                           :skipped_specs, :out_of_scope, :excluded, :near, :no_suite) do
+        def initialize(changed_specs: [], skipped_specs: {}, out_of_scope: [], excluded: [], near: {},
+                       no_suite: nil, **fields)
           super
         end
 
@@ -35,7 +68,11 @@ module Saboteur
         # command, which could carry a hostile ref or a wrong source scope.
         # When the diff deleted the expected spec or added others, it says
         # so: a renamed spec is the usual cause.
-        def unmatched_message
+        def unmatched_message(verbose: false)
+          if no_suite
+            return NoSuiteStop.message(no_suite, pairs: unmatched.map { |f| pair_description(f) }, verbose: verbose)
+          end
+
           pairs = unmatched.map { |file| pair_description(file) }
           changed = changed_specs.any? ? " Specs the diff adds or changes: #{changed_specs.join(', ')}." : ""
           "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
@@ -148,7 +185,9 @@ module Saboteur
       def call_for(files, patterns = [])
         files = effective_subject_files(files, patterns) if @config["since"]
         guesses = files.to_h { |file| [file, guess_for(file)] }
-        result(guesses, [], files.size)
+        # A --subject run already knows its suite: the stop names the one
+        # expected spec, never the no-suite line (#606 is the full-run flood).
+        result(guesses, [], files.size, subject_run: true)
       end
 
       # specs: existing spec files (relative paths) guessed for the files in
@@ -211,7 +250,7 @@ module Saboteur
 
       # Changed specs join only a run that mutates something: with no file
       # in scope there is nothing for them to kill.
-      def result(guesses, subjectless, changed, out_of_scope: [])
+      def result(guesses, subjectless, changed, out_of_scope: [], subject_run: false)
         unmatched = guesses.select { |_, specs| specs.nil? }.keys
         excluded = guesses.select { |_, specs| specs == :excluded }.keys.sort
         inferred = guesses.values.grep(Array).flatten
@@ -226,7 +265,8 @@ module Saboteur
                    changed_specs: diff[:run],
                    skipped_specs: diff[:skipped],
                    out_of_scope: out_of_scope,
-                   excluded: excluded)
+                   excluded: excluded,
+                   no_suite: NoSuiteStop.layout(@root, unmatched, subject_run))
       end
 
       # Changed Ruby files the include scope hides (#483), relative to the

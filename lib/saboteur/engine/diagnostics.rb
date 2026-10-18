@@ -74,7 +74,7 @@ module Saboteur
       DiscoveryFailure = Data.define(:file, :reason)
 
       attr_reader :warnings, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
-                  :hazard_suppressions, :inline_suppressions
+                  :hazard_suppressions, :inline_suppressions, :verbose
 
       def initialize(err, verbose: false)
         @err = err
