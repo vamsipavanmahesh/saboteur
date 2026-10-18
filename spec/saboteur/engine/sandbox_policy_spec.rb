@@ -20,6 +20,15 @@ RSpec.describe Saboteur::Engine::SandboxPolicy do
   end
 
   describe "#hook with the seatbelt opt-in (#436)" do
+    it "pins the complete degraded macOS note, including the explicit opt-out" do
+      allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(true)
+      expect(policy({}).degraded_note(0)).to eq(
+        "sandbox is on but macOS has no Landlock; children run with the hazard guard and canary only - " \
+        'opt into the macOS sandbox with c.sandbox = "seatbelt" ' \
+        "(docs/guides/macos-seatbelt-sandbox.md), or set c.sandbox = false to silence this"
+      )
+    end
+
     it "confines with Seatbelt when the opt-in is configured on macOS and the probe enforces" do
       allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(true)
       allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:ok)
