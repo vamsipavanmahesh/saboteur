@@ -5,6 +5,13 @@ require "fileutils"
 require "saboteur"
 require "saboteur/cli"
 
+# The specs call the sandbox layers (Sandbox, Seatbelt, LibC) directly and
+# run in any order, so a file can touch Fiddle before any code path has gone
+# through the lazy door (#697) - cold NameError flakes on CI shards. Load
+# fiddle once up front through the one guarded door (#639): the door stays
+# lazy in production, the suite stops depending on example order.
+Saboteur::Execution::FiddleLoader.require_fiddle!(with_import: true)
+
 Dir[File.join(__dir__, "support", "**", "*.rb")].each { |file| require file }
 
 # Fixture repositories must not run Git background auto-maintenance: it
