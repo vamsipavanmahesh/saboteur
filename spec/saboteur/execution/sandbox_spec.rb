@@ -6,6 +6,10 @@ require "fileutils"
 require "open3"
 
 RSpec.describe Saboteur::Execution::Sandbox do
+  before do
+    Saboteur::Execution::FiddleLoader.require_fiddle!(with_import: true)
+  end
+
   it "recognizes Linux only" do
     stub_const("RUBY_PLATFORM", "x86_64-linux")
     expect(described_class.linux?).to be(true)
@@ -188,10 +192,6 @@ RSpec.describe Saboteur::Execution::Sandbox do
   end
 
   describe "InheritedFds sweeping" do
-    before do
-      Saboteur::Execution::FiddleLoader.require_fiddle!(with_import: true)
-    end
-
     it "closes inherited writable regular files outside the granted dirs before restricting" do
       skip "needs /proc/self/fd" unless described_class.linux?
       Dir.mktmpdir("saboteur-fds-") do |root|

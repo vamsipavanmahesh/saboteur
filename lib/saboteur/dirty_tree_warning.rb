@@ -2,8 +2,9 @@
 # frozen_string_literal: true
 
 module Saboteur
-  # The warning shown before a run on a tree with uncommitted changes
-  # (#309, #316). Mutants run your code and can change the tree, so the
+  # The warning shown before a run on a tree with uncommitted
+  # changes (#309, #316); the headline says uncommitted or untracked, so a
+  # tree of only scratch files is not read as edits (#604). Mutants run your code and can change the tree, so the
   # warning stays; it splits the raw count so a tree full of notes or trial
   # setup files does not read like application edits about to be mutated.
   #
@@ -101,7 +102,8 @@ module Saboteur
       groups = [scope.empty? ? "none inside the mutation scope" : counted("inside the mutation scope", scope),
                 counted("outside it", outside)]
       groups << counted("saboteur setup file(s)", setup) unless setup.empty?
-      "saboteur: warning: #{@state.changed_files} uncommitted change(s) in the working tree: #{groups.join(', ')}."
+      "saboteur: warning: #{@state.changed_files} uncommitted or untracked change(s) in the working tree: " \
+        "#{groups.join(', ')}."
     end
 
     def counted(label, changes)
