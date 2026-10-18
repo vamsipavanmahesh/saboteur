@@ -1100,10 +1100,10 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
   # Every unmatched pattern gets its own warning, and the pass returns the
   # pattern list itself (#635, survivor: each -> map).
   it "warns once per unmatched whole_file pattern and returns the patterns (#635)" do
-    config = Saboteur::Config.new({ "whole_file" => ["RUELES", "RELES"] }, root: @root)
+    config = Saboteur::Config.new({ "whole_file" => %w[RUELES RELES] }, root: @root)
     selection = described_class.new(config, diagnostics)
 
-    expect(selection.send(:warn_unmatched_whole_file, [])).to eq(["RUELES", "RELES"])
+    expect(selection.send(:warn_unmatched_whole_file, [])).to eq(%w[RUELES RELES])
     expect(diagnostics.warnings).to include(
       '--since: whole_file pattern "RUELES" matches no discovered subject in this run; ' \
       "subject ids look like RULES, A::B::C or A::B#m"
