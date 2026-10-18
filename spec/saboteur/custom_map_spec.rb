@@ -236,10 +236,21 @@ RSpec.describe Saboteur::CustomMap do
       .to raise_error(Saboteur::ConfigError, /outside the project root/)
   end
 
-  it "refuses a capture-filled spec that escapes the project root" do
+  # The verbatim message pins the map key, the offending file and the first
+  # escaped spec (two escaping templates make first != last), and a sibling
+  # directory that merely shares the root's name prefix must still count as
+  # outside (#712).
+  it "refuses a capture-filled spec that escapes the project root, message verbatim (#712)" do
+    map = load("SABOTEUR_CUSTOM_MAP = { %r{\\Alib/(.*)\\.rb\\z} => ['spec/\\1_spec.rb', 'x/\\1.rb'] }.freeze\n")
+    expected = '/\Alib\/(.*)\.rb\z/ maps lib/../../evil.rb to ' \
+               '"spec/../../evil_spec.rb", which is outside the project root'
+    expect { map.specs_for("lib/../../evil.rb") }.to raise_error(Saboteur::ConfigError, expected)
+  end
+
+  it "refuses a capture-filled spec escaping into a sibling that shares the root prefix (#712)" do
     map = load("SABOTEUR_CUSTOM_MAP = { %r{\\Alib/(.*)\\.rb\\z} => ['spec/\\1_spec.rb'] }.freeze\n")
-    expect { map.specs_for("lib/../../evil.rb") }
-      .to raise_error(Saboteur::ConfigError, /outside the project root/)
+    escapee = "lib/../../#{File.basename(@root)}x/x.rb"
+    expect { map.specs_for(escapee) }.to raise_error(Saboteur::ConfigError, /outside the project root/)
   end
 
   # #712: verbatim pins - the interpolated values must appear in the
