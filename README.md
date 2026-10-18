@@ -86,8 +86,8 @@ the macro itself `ran at load` instead of letting its mutants survive.
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
   you changed, and fails loudly (exit 3) when the changed code cannot be
-  verified - for example when every changed method is skipped because its
-  file uses refinements. The GitHub Action runs on every pull request and
+  verified - for example when every changed method is skipped because a
+  refinement is active where it sits. The GitHub Action runs on every pull request and
   caches the coverage map between runs. `--shard K/N` splits one planned
   inventory deterministically across CI jobs; each shard reports partial
   evidence.

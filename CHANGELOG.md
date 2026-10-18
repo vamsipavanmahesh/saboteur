@@ -103,6 +103,13 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- A single `using` anywhere in a file used to skip every subject in the
+  file. Refinement skips are now scope-granular (#634): a bare `using`
+  skips only subjects after it in its own class/module body (or the
+  rest of the file at the top level), so one module's refinement no
+  longer skips a sibling module's methods. A `using` inside a method
+  or block body still skips the whole file.
+
 - `scope :name, -> { ... }` and `define_singleton_method` bodies are now
   subjects (#194): the human-essentials dogfood showed a scope's lambda
   going unmutated. The call is a singleton subject of the enclosing owner;
