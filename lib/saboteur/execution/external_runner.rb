@@ -257,7 +257,7 @@ module Saboteur
         @path_sources[:rebase].each do |src, expanded|
           copy_path = expanded == @root ? @copy_root : File.join(@copy_root, expanded.delete_prefix("#{@root}/"))
           rewrite_gemfile_source(src, copy_path)
-          rewrite_lockfile_source(src, copy_path)
+          rewrite_lockfile_source(src, expanded, copy_path)
         end
       end
 
@@ -270,14 +270,28 @@ module Saboteur
         File.write(path, text.sub(pattern) { "#{Regexp.last_match(1)}#{copy_path}#{Regexp.last_match(2)}" })
       end
 
-      def rewrite_lockfile_source(src, copy_path)
+      def rewrite_lockfile_source(src, expanded, copy_path)
         # Bundler names the lockfile after the Gemfile: <gemfile>.lock.
         path = File.join(@copy_root, "#{@gemfile_name}.lock")
         return unless File.file?(path)
 
         text = File.read(path)
-        pattern = /^(\s*remote: )#{Regexp.escape(src.original)}$/
-        File.write(path, text.sub(pattern) { "#{Regexp.last_match(1)}#{copy_path}" }) if text.scan(pattern).size == 1
+        # Bundler spells an in-project absolute path: as the root-relative
+        # remote ("vend/g" for /root/vend/g, "." for the root), and that
+        # spelling already resolves inside the copy (#722): accept it as
+        # is. Only the absolute spelling needs the rewrite, and only a
+        # duplicate or a total miss refuses - the lockfile then disagrees
+        # with Bundler's own resolution. The relative spelling must come
+        # from the CANONICAL expanded: src.expanded is Bundler's textual
+        # expand_path, which never matches the realpath'd root behind a
+        # symlinked one (macOS /var -> /private/var, #732).
+        spellings = ([src.original, expanded == @root ? "." : expanded.delete_prefix("#{@root}/")] - [""]).uniq
+        unless text.scan(/^(\s*remote: )(?:#{spellings.map { |s| Regexp.escape(s) }.join('|')})$/).size == 1
+          raise ConfigError, "could not rebase the lockfile's PATH remote for path: source \"#{src.name}\" " \
+                             "(#{src.original}); the lockfile must record it exactly once - run bundle install"
+        end
+        absolute = /^(\s*remote: )#{Regexp.escape(src.original)}$/
+        File.write(path, text.sub(absolute) { "#{Regexp.last_match(1)}#{copy_path}" }) if text.scan(absolute).size == 1
       end
 
       def ambiguous_source_message(src)
@@ -289,7 +303,7 @@ module Saboteur
       # would read a Gemfile - and its path: sources - from outside (#644).
       # Returns its root-relative path, or nil for the root Gemfile.
       def pinned_gemfile
-        pinned = GemfilePathSources.pinned_in(@command)
+        pinned = BundleGemfilePin.pinned_in(@command)
         return nil unless pinned
 
         expanded = GemfilePathSources.canonical_path(File.expand_path(pinned, @root))

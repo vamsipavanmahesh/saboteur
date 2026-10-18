@@ -87,6 +87,15 @@ RSpec.describe Saboteur::Execution::GemfilePathSources do
     end
   end
 
+  it "refuses a command-pinned BUNDLE_GEMFILE that does not exist, failing closed (#722)" do
+    Dir.mktmpdir do |dir|
+      write_gemfile(dir, "source \"https://rubygems.org\"\n")
+
+      expect { described_class.resolve(dir, gemfile: "gemfiles/missing.gemfile") }
+        .to raise_error(Saboteur::ConfigError, /does not exist/)
+    end
+  end
+
   it "drains a resolver child that writes more than a pipe buffer to stderr" do
     Dir.mktmpdir do |dir|
       FileUtils.mkdir_p(File.join(dir, "vend", "inner"))

@@ -20,11 +20,6 @@ module Saboteur
 
       RESOLVE_TIMEOUT = 15
 
-      # A leading BUNDLE_GEMFILE= assignment pins the Gemfile the command
-      # loads (Appraisal style); quoted and bare values are all shell
-      # spelling for the same pin (#644).
-      BUNDLE_GEMFILE_ASSIGNMENT = /\A\s*BUNDLE_GEMFILE=(?:"([^"]+)"|'([^']+)'|(\S+))/
-
       # Bundler::Dsl, not Bundler::Definition: the Gemfile must be PARSED by
       # Bundler itself (it is arbitrary Ruby; a line scan can silently miss
       # or invent a path: source and load unmutated code), but resolving the
@@ -50,6 +45,10 @@ module Saboteur
       # the one parsed (#644).
       def resolve(root, env: ENV, timeout: RESOLVE_TIMEOUT, gemfile: nil)
         path = gemfile ? File.expand_path(gemfile, root) : File.join(root, "Gemfile")
+        if gemfile && !File.file?(path)
+          raise ConfigError, "the test command pins BUNDLE_GEMFILE (#{gemfile}) but #{path} does not exist"
+        end
+
         return [] unless File.file?(path)
 
         stdout, stderr, status = run_resolver(root, env, timeout, gemfile: path)
@@ -66,13 +65,6 @@ module Saboteur
       rescue JSON::ParserError
         raise ConfigError, "could not parse the Gemfile's path: sources (resolver returned unreadable output); " \
                            "external test commands need the Gemfile to resolve"
-      end
-
-      # The command-pinned BUNDLE_GEMFILE, or nil when the command does
-      # not set one.
-      def pinned_in(command)
-        match = BUNDLE_GEMFILE_ASSIGNMENT.match(command)
-        match && (match[1] || match[2] || match[3])
       end
 
       # realpath, canonicalizing the deepest EXISTING ancestor when the
