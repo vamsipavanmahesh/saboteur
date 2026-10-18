@@ -127,4 +127,13 @@ RSpec.describe Saboteur::WorkingTree do
     allow(Open3).to receive(:capture3).and_raise(Errno::ENOENT)
     expect(described_class.new(root).state).to eq(described_class::UNKNOWN)
   end
+  # Directories keep the plain :(exclude) glob form; tool-owned files must be
+  # :(exclude,literal) so a bracketed name cannot glob away real files (#638).
+  it "excludes ignored directories as globs and tool-owned files literally (#638)" do
+    tree = described_class.new(root, ignored: [".saboteur/", "gemfiles/Gemfile.saboteur"])
+    expect(tree.send(:status_command)).to eq(
+      ["git", "status", "-z", "--untracked-files=all", ".",
+       ":(exclude).saboteur/", ":(exclude,literal)gemfiles/Gemfile.saboteur"]
+    )
+  end
 end

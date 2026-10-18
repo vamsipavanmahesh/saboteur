@@ -515,6 +515,16 @@ RSpec.describe Saboteur::Config, "#output_paths" do
       expect(config.output_paths).to eq([".saboteur", "out/r.json"])
     end
   end
+  # The sidecar entries must be root-relative: the dirty-tree scan builds its
+  # exclusion pathspecs from these strings (#638).
+  it "returns the sidecar Gemfile and its lockfile relative to the root (#638)" do
+    Dir.mktmpdir do |dir|
+      config = described_class.new({}, root: File.realpath(dir))
+      expect(config.ignored_tree_paths(gemfile: "gemfiles/Gemfile.saboteur"))
+        .to eq([".saboteur", ".saboteur/report.json", ".saboteur/report.html",
+                "gemfiles/Gemfile.saboteur", "gemfiles/Gemfile.saboteur.lock"])
+    end
+  end
 end
 
 RSpec.describe Saboteur::Config, "matrix" do
