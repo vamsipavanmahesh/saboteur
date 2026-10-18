@@ -567,8 +567,9 @@ module Saboteur
 
         suffix = name.split("/").last(2).map { |segment| escape_glob(segment) }.join("/")
         spec_root = pack ? "#{pack}/spec" : "spec"
-        matches = Dir.glob("#{spec_root}/**/#{suffix}_spec.rb", base: @root)
-                     .select { |path| File.file?(File.join(@root, path)) }.sort
+        matches = Dir.glob(File.join(@root, spec_root, "**", "#{suffix}_spec.rb"))
+                     .select { |path| File.file?(path) }
+                     .map { |path| path.delete_prefix("#{@root}/") }.sort
         matches.one? ? matches.first : nil
       end
 

@@ -1528,6 +1528,49 @@ RSpec.describe Saboteur::Engine::TestGuess do
 
   # A file outside the source roots keeps its literal guess only: the
   # suffix anchor would guess any same-named spec (#600).
+  # With the pack prefix the glob roots at the pack's spec directory: a
+  # same-suffix spec elsewhere in the pack is not a candidate (#701
+  # dogfood).
+  it "roots a pack's suffix guess in the pack's spec directory only (#600)" do
+    write("packs/billing/package.yml", "enforce_dependencies: true\n")
+    write("packs/billing/lib/core/y/z.rb", base_source)
+    write("packs/billing/spec/unit/y/z_spec.rb")
+    write("packs/billing/components/y/z_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "pack spec and decoy")
+    write("packs/billing/lib/core/y/z.rb", changed_source)
+    result = guess(include: ["packs/**/*.rb"])
+    expect(result.specs).to eq(["packs/billing/spec/unit/y/z_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # The fallback spec root is spec/, not the whole tree: a same-suffix
+  # spec outside spec/ is not a candidate (#701 dogfood).
+  it "roots a suffix guess in spec/, not elsewhere in the tree (#600)" do
+    write("lib/x/core/y/z.rb", base_source)
+    write("spec/unit/y/z_spec.rb")
+    write("other/y/z_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "spec and outside decoy")
+    write("lib/x/core/y/z.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/unit/y/z_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # A directory can end in _spec.rb: it is not a spec file, so it must not
+  # be guessed (#701 dogfood).
+  it "ignores a directory named like a spec (#600)" do
+    write("lib/x/core/y/z.rb", base_source)
+    FileUtils.mkdir_p(File.join(dir, "spec/unit/y/z_spec.rb"))
+    git("add", ".")
+    git("commit", "-q", "-m", "spec-looking directory")
+    write("lib/x/core/y/z.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq([])
+    expect(result.unmatched).to eq(["lib/x/core/y/z.rb"])
+  end
+
   it "refuses a suffix guess for a file outside the source roots (#600)" do
     write("vendor/a/b/c.rb", base_source)
     write("spec/x/b/c_spec.rb")
