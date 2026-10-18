@@ -370,7 +370,8 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "splits the score into assertion and crash shares" do
     text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion"),
                                     result_for(:killed, replacement: "<", kill_cause: "NoMethodError")))
-    expect(text).to include("score 100.0 % (assertion 50.0 %, crash 50.0 %)")
+    expect(text).to include("score 100.0 % (assertion 50.0 %, crash 50.0 %)",
+                            "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded")
   end
 
   it "names timeouts and kills with no recorded cause in the split" do
@@ -449,6 +450,14 @@ RSpec.describe Saboteur::Reporter::Terminal do
 
   it "prints n/a for the score when nothing ran" do
     expect(render(report_of)).to include("score n/a")
+  end
+
+  # 31 errored + 9 killed prints "score 100.0 %" over "the run tested almost
+  # nothing": the share covers only scored mutants, so an error-dominated
+  # run says so instead of quoting a perfect score (#557).
+  it "prints the scored share, not a bare score, when most executed mutants errored" do
+    text = render(report_of(result_for(:killed), *Array.new(3) { result_for(:error) }))
+    expect(text).to include("score n/a (1 of 4 mutants scored, 100.0 % of scored)")
   end
 end
 
