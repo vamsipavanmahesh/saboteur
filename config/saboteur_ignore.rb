@@ -62,11 +62,6 @@ Saboteur.ignore do |i|
   i.mutation "6799cc120401b50d",
              subject: "Saboteur::MutationSource::MethodSwap#visit_statements",
              reason: "equivalent: each_with_index bounds index to 0..size-1, where index < size-1 and index != size-1 agree on every reachable value"
-
-  i.mutation "ede248b5be2b2efa",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: without node = statement the loop walks the StatementsNode's children, finds the " \
-                     "same statement again and recurses into it, ending on the same innermost statement"
   i.mutation "9339724fc1dce5eb",
              subject: "Saboteur::SubjectFinder#heredoc_eval?",
              reason: "equivalent on admitted inputs: the immediately preceding arguments&.size == 1 guard establishes a one-element Array, so first and last agree - not a general first/last equivalence"
@@ -457,7 +452,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#call",
              reason: "equivalent: removing the all-reused shortcut still reuses each cached verdict; checked does not run neutral checks for reused verdicts"
 
-
   i.mutation "aff3fcccde575b60",
              subject: "Saboteur::Engine::Scheduler#reuse",
              reason: "equivalent: no covering tests means no stored cache verdict; execute then returns the same uncoverable result"
@@ -730,22 +724,9 @@ Saboteur.ignore do |i|
              reason: "equivalent: start <= line differs from start + count <= line only for a line inside a -b hunk, " \
                      "which restrict keeps through spaced_lines whatever same_tokens? answers"
 
-  i.mutation "bf95736e576b6691",
-             subject: "Saboteur::SubjectFinder#walk",
-             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
-
-  i.mutation "76c21aa993019fba",
-             subject: "Saboteur::SubjectFinder#walk",
-             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
-
   i.mutation "5df3e88b8674c139",
              subject: "Saboteur::SubjectFinder#walk_constant_assignment",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
-
-  i.mutation "6dcd94d3ceb84834",
-             subject: "Saboteur::SubjectFinder#walk_constant_assignment",
-             reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
-
 
   i.mutation "c347d2a83fc6ab38",
              subject: "Saboteur::SubjectFinder#add_subject",
@@ -954,22 +935,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#coverage_lines_for",
              reason: "equivalent: the edit lies inside the statement, so last >= first always and dropping first from the max changes nothing"
 
-  i.mutation "62246b9b752b46ec",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: the block return value is unused, so each and map behave the same"
-
-  i.mutation "16f22a22f4197997",
-             subject: "Saboteur::Subject#pattern_coverage_lines",
-             reason: "equivalent: the block return value is unused, so each and map behave the same"
-
-  i.mutation "5409e3abe122067b",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: prism nodes delegate start_offset to their location"
-
-  i.mutation "67547e3f6461ff28",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: prism nodes delegate end_offset to their location"
-
   i.mutation "e8d05de3635878b8",
              subject: "Saboteur::Subject#contains_edit?",
              reason: "equivalent: prism nodes delegate start_offset to their location"
@@ -977,30 +942,6 @@ Saboteur.ignore do |i|
   i.mutation "15307bd521a10280",
              subject: "Saboteur::Subject#contains_edit?",
              reason: "equivalent: prism nodes delegate end_offset to their location"
-
-  i.mutation "246ec3db3f5b071f",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: a child passing only the end-side check starts after the edit starts, so the recursion finds no deeper statement and returns the same found"
-
-  i.mutation "49fd677035a05b1e",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: same as the dropped start-side check - a child that starts after the edit cannot contain it, so the outcome never changes"
-
-  i.mutation "32ae9c2e217dfa10",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: prism nodes delegate start_offset to their location"
-
-  i.mutation "037d2ad73ecee43b",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: prism nodes delegate end_offset to their location"
-
-  i.mutation "1a1000b9463ba380",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: comparing start_offset with itself is always true, and a child passing only the end-side check cannot contain the edit, so the recursion returns the same found"
-
-  i.mutation "01db290da06b7eb7",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: start_byte <= start_byte is always true, and a child passing only the end-side check cannot contain the edit, so the recursion returns the same found"
   i.mutation "71ae32342742aec3",
              subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
              reason: "equivalent: for a string node, node.start_line and node.opening_loc.start_line are the same line"
@@ -1276,4 +1217,31 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Execution::Reevaluator#eval_whole_file",
              reason: "equivalent: Ruby require membership-checks expanded paths, so a duplicate " \
                      "$LOADED_FEATURES entry is inert; always-append never reloads the file"
+  # #338 subject.rb slice: the chain cuts below are byte-identical because
+  # Prism::Node#start_offset / #end_offset / #start_line delegate to the
+  # location (probed on Prism 1.9.0), same precedent as 41623d58ed9d06c8.
+  i.mutation "24bcc50d50f58ded",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: Prism::Node#start_offset delegates to location.start_offset (probed), " \
+                     "so the chain cut is identical"
+  i.mutation "5fe7685e70b3d92d",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: Prism::Node#end_offset delegates to location.end_offset (probed), " \
+                     "so the chain cut is identical"
+  i.mutation "a337833011bd6c56",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: Prism::Node#start_offset delegates to location.start_offset (probed), " \
+                     "so the chain cut is identical"
+  i.mutation "a56139b006e5cc80",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: Prism::Node#end_offset delegates to location.end_offset (probed), " \
+                     "so the chain cut is identical"
+
+  i.mutation "4d7ee1a553233ee6",
+             subject: "Saboteur::Subject#innermost_statement",
+             reason: "equivalent: among StatementsNode children only the found statement fully contains " \
+                     "the edit, so the else-loop recurses into it whether or not node was reassigned; " \
+                     "the assignment also fed the embedded flag, and a method-body statement is never " \
+                     "an EmbeddedStatementsNode (interpolation bodies sit inside EmbeddedNode parts), " \
+                     "so the flag agrees - replayed and survives"
 end

@@ -744,3 +744,107 @@ RSpec.describe Saboteur::SubjectFinder, "class_eval heredocs (#544)" do
     expect(ids("class A\n  class_eval <<-CODE\n    def broken(\n  CODE\nend\n")).to eq([])
   end
 end
+
+# Kill recipes for the subject_finder dogfood survivors (#338): each spec
+# names the behavior a surviving mutant broke.
+RSpec.describe Saboteur::SubjectFinder, "dogfood survivor kills (#338)" do
+  def ids(source)
+    subjects_in(source).map(&:id)
+  end
+
+  # Dropping the `filepath:` kwarg empties SourceFileNode#filepath
+  # (`__FILE__`) in the returned AST.
+  it "parses with the file path so __FILE__ nodes carry it" do
+    subjects = described_class.new.call("named.rb", source: "class A\n  def m\n    __FILE__\n  end\nend\n")
+    expect(subjects.subjects.first.node.body.body.first.filepath).to eq("named.rb")
+  end
+
+  # map -> each on the parse errors returns ParseError objects, not messages.
+  it "returns error messages, not ParseError objects, for invalid Ruby" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "bad.rb")
+      File.write(path, "class A\n  def m(\nend\n")
+      parsed = described_class.new.call(path)
+      expect(parsed.errors).to all(be_a(String))
+      expect(parsed.errors.first).to match(/expected|unexpected/i)
+    end
+  end
+
+  # node.nil? -> false walks a nil body (empty class) and raises in the
+  # else branch.
+  it "finds no subjects in an empty class or module body" do
+    expect(ids("class Empty\nend\nmodule AlsoEmpty\nend\n")).to eq([])
+  end
+
+  # Dropping `nesting +` on the module branch loses the outer scope of a
+  # def nested through a module.
+  it "keeps the outer class in the owner path of a def nested in a module" do
+    expect(ids("class Outer\n  module M\n    def m; end\n  end\nend\n")).to eq(["Outer::M#m"])
+  end
+
+  # Dropping node.receiver.nil? treats `obj.using X` as a refinement
+  # activation.
+  it "does not treat `obj.using X` with an explicit receiver as a refinement" do
+    found = subjects_in("module B\n  def b_m; end\nend\nclass A\n  obj.using(B)\n  def a_m; end\nend\n")
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["B#b_m", nil], ["A#a_m", nil]])
+  end
+
+  # walk_singleton_class guards: defs in a class << self nested two
+  # levels down are singleton subjects of the inner class.
+  it "finds singleton-class subjects at nesting depth >= 2" do
+    expect(ids("class A\n  class B\n    class << self\n      def deep; end\n    end\n  end\nend\n"))
+      .to eq(["A::B.deep"])
+  end
+
+  # The `last` -> `first` guard mutant: a class << self nested inside a
+  # class << self attaches nowhere the finder can name, so it defines no
+  # subjects.
+  it "skips a class << self nested inside a class << self" do
+    expect(ids("class A\n  class << self\n    class << self\n      def deep; end\n    end\n  end\nend\n")).to eq([])
+  end
+
+  # e4401d8be317a763: dropping the nesting.empty? side calls sclass? on
+  # nil for a top-level class << self.
+  it "skips a top-level class << self with no enclosing scope" do
+    expect(ids("class << self\n  def m; end\nend\n")).to eq([])
+  end
+
+  # `class << obj` (non-self expression) bodies are not subjects.
+  it "skips class << obj bodies" do
+    expect(ids("class A\n  class << B\n    def m; end\n  end\nend\n")).to eq([])
+  end
+
+  # frozen_literals? comment parsing (08f02137f2484b48 family): a dashed
+  # key normalizes like the underscored one.
+  it "notes a dashed frozen-string-literal magic comment" do
+    expect(subjects_in("# frozen-string-literal: true\nclass A\n  def m; end\nend\n").first.frozen_literals).to be(true)
+  end
+
+  # 08f02137f2484b48: dropping the key check reads any true-valued magic
+  # comment as frozen_string_literal.
+  it "does not read an unrelated magic comment's true value as frozen_string_literal" do
+    expect(subjects_in("# typed: true\nclass A\n  def m; end\nend\n").first.frozen_literals).to be(false)
+  end
+
+  # The define_method_subject? guards: name, bare receiver, argument
+  # presence and literal-name shape each decide alone.
+  it "rejects define_method lookalikes and keeps the real shape" do
+    finder = described_class.new
+    node = ->(source) { Prism.parse(source).value.statements.body.first }
+    expect(finder.send(:define_method_subject?, node.call("foo(:x) { 1 }"))).to be(false)
+    expect(finder.send(:define_method_subject?, node.call("obj.define_method(:x) { 1 }"))).to be(false)
+    expect(finder.send(:define_method_subject?, node.call("define_method { 1 }"))).to be(false)
+    expect(finder.send(:define_method_subject?, node.call("define_method(1) { 2 }"))).to be(false)
+    expect(finder.send(:define_method_subject?, node.call("define_method(:x) { 1 }"))).to be(true)
+    expect(finder.send(:define_method_subject?, node.call('define_method("x") { 1 }'))).to be(true)
+  end
+
+  # Only one side of the && holds: right key, false value; right value,
+  # wrong key.
+  it "ignores a frozen_string_literal comment whose value is not true, and a true comment with another key" do
+    literals = subjects_in("# frozen_string_literal: false\nclass A\n  def m; end\nend\n")
+    expect(literals.first.frozen_literals).to be(false)
+    expect(subjects_in("# frozen_string_literal: yes\nclass A\n  def m; end\nend\n").first.frozen_literals).to be(false)
+  end
+end
