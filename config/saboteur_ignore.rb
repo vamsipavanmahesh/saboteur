@@ -1275,4 +1275,9 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Integration::RSpec::SetupOutputCapture#puts",
              reason: "equivalent: Array#join flattens nested arrays recursively and honors to_ary identically " \
                      "to Array#flatten; identical output for every reachable puts argument"
+
+  i.mutation "800f2696b862dbb5",
+             subject: "Saboteur::Execution::Reevaluator#eval_whole_file",
+             reason: "equivalent: Ruby require membership-checks expanded paths, so a duplicate " \
+                     "$LOADED_FEATURES entry is inert; always-append never reloads the file"
 end
