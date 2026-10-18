@@ -653,4 +653,131 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
   end
+
+  describe "Gemfile path: sources (#644)" do
+    def source_row(name:, original:, expanded:)
+      Saboteur::Execution::GemfilePathSources::Source.new(name: name, original: original, expanded: expanded)
+    end
+
+    it "refuses a relative path: source that resolves outside the root, naming it" do
+      Dir.mktmpdir do |dir|
+        row = source_row(name: "mygem", original: "../mygem", expanded: "/elsewhere/mygem")
+        expect { described_class.new(command: "true", root: dir, path_sources: [row]) }
+          .to raise_error(Saboteur::ConfigError,
+                          'the Gemfile\'s path: source "mygem" (../mygem) resolves outside the project root ' \
+                          "(/elsewhere/mygem); external test commands need a self-contained tree")
+      end
+    end
+
+    it "rebases an absolute path: source pointing into the original tree into the copy" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{dir}/engines/mygem\"\n")
+        File.write(File.join(dir, "Gemfile.lock"), "PATH\n  remote: #{dir}/engines/mygem\n  specs:\n\nGEM\n")
+        original = File.join(dir, "engines", "mygem")
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          gemfile = File.read(File.join(copy, "Gemfile"))
+          lockfile = File.read(File.join(copy, "Gemfile.lock"))
+          expect(gemfile).to eq("gem \"mygem\", path: \"#{copy}/engines/mygem\"\n")
+          expect(lockfile).to include("remote: #{copy}/engines/mygem")
+        end
+      end
+    end
+
+    it "refuses a source whose literal path: option is not in the Gemfile exactly once" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: computed_path\n")
+        original = File.join(dir, "engines", "mygem")
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        expect { runner.send(:with_fresh_copy) { nil } }
+          .to raise_error(Saboteur::ConfigError, /could not rebase the Gemfile's path: source "mygem"/)
+      end
+    end
+
+    it "leaves relative inside-root and absolute outside-root sources untouched" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "engines", "rel"))
+        gemfile_text = "gem \"rel\", path: \"engines/rel\"\ngem \"ext\", path: \"/opt/ext\"\n"
+        File.write(File.join(dir, "Gemfile"), gemfile_text)
+        rows = [
+          source_row(name: "rel", original: "engines/rel", expanded: File.join(dir, "engines", "rel")),
+          source_row(name: "ext", original: "/opt/ext", expanded: "/opt/ext")
+        ]
+        runner = described_class.new(command: "true", root: dir, path_sources: rows)
+
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          expect(File.read(File.join(copy, "Gemfile"))).to eq(gemfile_text)
+        end
+      end
+    end
+
+    it "accepts a gemspec's root path source in a gem-style project (#644)" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "tool.gemspec"),
+                   "Gem::Specification.new { |s| s.name = \"tool\"; s.version = \"0.1.0\"; s.authors = [\"x\"]; " \
+                   "s.summary = \"x\" }\n")
+        FileUtils.mkdir_p(File.join(dir, "vend", "inner"))
+        File.write(File.join(dir, "Gemfile"),
+                   "source \"https://rubygems.org\"\ngemspec\ngem \"inner\", path: \"vend/inner\"\n")
+
+        expect { described_class.new(command: "true", root: dir) }.not_to raise_error
+      end
+    end
+
+    it "rebases absolute path: sources from the command's pinned BUNDLE_GEMFILE into its copy" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "gemfiles"))
+        FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
+        File.write(File.join(dir, "gemfiles", "custom.gemfile"),
+                   "gem \"mygem\", path: \"#{dir}/engines/mygem\"\n")
+        File.write(File.join(dir, "gemfiles", "custom.gemfile.lock"),
+                   "PATH\n  remote: #{dir}/engines/mygem\n  specs:\n\nGEM\n")
+        File.write(File.join(dir, "Gemfile"), "source \"https://rubygems.org\"\n")
+        runner = described_class.new(command: "BUNDLE_GEMFILE=gemfiles/custom.gemfile bundle exec rspec", root: dir)
+
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          expect(File.read(File.join(copy, "gemfiles", "custom.gemfile")))
+            .to eq("gem \"mygem\", path: \"#{copy}/engines/mygem\"\n")
+          expect(File.read(File.join(copy, "gemfiles", "custom.gemfile.lock")))
+            .to include("remote: #{copy}/engines/mygem")
+          expect(File.read(File.join(copy, "Gemfile"))).to eq("source \"https://rubygems.org\"\n")
+        end
+      end
+    end
+
+    it "refuses a BUNDLE_GEMFILE pinned outside the project root" do
+      Dir.mktmpdir do |dir|
+        Dir.mktmpdir do |other|
+          File.write(File.join(other, "elsewhere.gemfile"), "gem \"x\", path: \"rel\"\n")
+          expect do
+            described_class.new(command: "BUNDLE_GEMFILE=#{other}/elsewhere.gemfile bundle exec rspec", root: dir)
+          end.to raise_error(Saboteur::ConfigError, /pins BUNDLE_GEMFILE .* outside the project root/)
+        end
+      end
+    end
+
+    it "classifies canonically when the root sits behind a symlink and the source path does not exist yet (#644)" do
+      Dir.mktmpdir do |dir|
+        real = File.join(dir, "real")
+        FileUtils.mkdir_p(real)
+        link = File.join(dir, "link")
+        File.symlink(real, link)
+        File.write(File.join(real, "Gemfile"), "gem \"mygem\", path: computed_path\n")
+        original = File.join(link, "engines", "mygem")
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: link, path_sources: [row])
+
+        expect { runner.send(:with_fresh_copy) { nil } }
+          .to raise_error(Saboteur::ConfigError, /could not rebase the Gemfile's path: source "mygem"/)
+      end
+    end
+  end
 end
