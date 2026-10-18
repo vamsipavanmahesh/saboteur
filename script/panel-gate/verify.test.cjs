@@ -90,7 +90,8 @@ function fakeAPI(change = {}) {
   const pr = {number: 1, state: 'open', draft: false, base: {ref: 'main', sha: BASE}, head: {sha: HEAD}};
   let reads = 0;
   const runs = Object.keys(policy.workflows).map((path, i) => ({id: i + 1, path, head_sha: HEAD,
-    event: 'pull_request', repository: {full_name: 'owner/repo'}, pull_requests: [{number: 1}]}));
+    event: change.dispatchRun && path.endsWith('ci.yml') ? 'workflow_dispatch' : 'pull_request',
+    repository: {full_name: 'owner/repo'}, pull_requests: change.dispatchRun && path.endsWith('ci.yml') ? [] : [{number: 1}]}));
   return {repo: 'owner/repo', statuses,
     async call(path, method, data) {
       if (method === 'POST') { statuses.push(data); return data; }
@@ -153,6 +154,12 @@ test('end-to-end API decision posts pending then success for current facts', asy
 test('a red advisory leg never blocks the verdict', async () => {
   const api = fakeAPI({advisory: true});
   await verify(api, 1);
+  assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
+});
+// Manual PR CI: a workflow_dispatch run of ci.yml on the exact head is as good a
+// current-head workflow as a pull_request run.
+test('end-to-end decision accepts a manually dispatched CI run on the head', async () => {
+  const api = fakeAPI({dispatchRun: true}); await verify(api, 1);
   assert.deepEqual(api.statuses.map(s => s.state), ['pending', 'success']);
 });
 test('a head that trails a moved main still passes when its checks are green', async () => {
@@ -461,6 +468,13 @@ test('a CI run sweeps the PRs it names or whose head it ran, never the rest', as
   assert.deepEqual(await targets(api, 'workflow_run', {workflow_run: {pull_requests: [{number: 1}], head_sha: 'f'.repeat(40)}}), [1]);
   assert.deepEqual(await targets(api, 'workflow_run', {workflow_run: {pull_requests: [], head_sha: 'b'.repeat(40)}}), [2]);
   assert.deepEqual(await targets(api, 'workflow_run', {workflow_run: {head_sha: 'f'.repeat(40)}}), []);
+});
+test('a completed CI run sweeps only when it is not a main-push run', async () => {
+  const api = listAPI([openPR(1, 'a'.repeat(40)), openPR(2, 'b'.repeat(40))]);
+  // Main-push CI completions are covered by the gate's own push sweep.
+  assert.deepEqual(await targets(api, 'workflow_run', {workflow_run: {event: 'push', pull_requests: [{number: 1}], head_sha: 'a'.repeat(40)}}), []);
+  // Manually dispatched CI carries no pull_requests; the head SHA names the PR.
+  assert.deepEqual(await targets(api, 'workflow_run', {workflow_run: {event: 'workflow_dispatch', pull_requests: [], head_sha: 'b'.repeat(40)}}), [2]);
 });
 test('a push to main sweeps every open ready PR', async () => {
   const api = listAPI([openPR(1), openPR(2, 'd'.repeat(40), {draft: true}), openPR(3)]);

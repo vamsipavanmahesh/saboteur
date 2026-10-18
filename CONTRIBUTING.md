@@ -53,3 +53,13 @@ license keeps a fork viable.
 
 Keep them small, describe the behaviour change, and add a CHANGELOG entry
 under "Unreleased".
+
+The CI test matrix does not run automatically on pull requests (the DCO
+check still runs on every pull request). A maintainer dispatches CI by hand
+with `workflow_dispatch` against the pull request's head branch, passing the
+pull request number and its exact base commit, and the run proves both from
+the API before anything is tested. For a fork pull request the maintainer
+first pushes the reviewed head to a temporary branch in this repository and
+dispatches on that branch, so the run covers the exact reviewed commit; the
+self-hosted macOS legs never run fork code. Ask for a dispatch when your
+change is ready for one.

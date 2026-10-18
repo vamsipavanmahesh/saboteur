@@ -3,15 +3,45 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request:
+  # PR CI is manual: the matrix does not run on pull_request events (the DCO
+  # workflow in dco.yml still does). A maintainer runs it against the exact
+  # PR head with
+  #   gh workflow run ci.yml --ref <head-branch> -f pr_number=<n> -f base_sha=<base-sha>
+  # --ref must be a branch or tag name (the dispatch API rejects a raw SHA),
+  # so exact-head binding comes from the API proof inside the run, not from
+  # the ref: the macOS and dogfood jobs prove from the pull request that its
+  # head is the checked-out SHA and its base is the base_sha input, and fail
+  # closed otherwise. For a fork pull request the maintainer first pushes the
+  # reviewed head into this repository, then dispatches on that branch:
+  #   git push origin <reviewed-head-sha>:refs/heads/ci-pr-<n>
+  #   gh workflow run ci.yml --ref ci-pr-<n> -f pr_number=<n> -f base_sha=<base-sha>
+  # The proof still binds headRefOid to the fork's commit, so the branch can
+  # only ever name the reviewed change. head_repo (the PR's
+  # head.repository.full_name) only skips the macOS legs early - the legs
+  # prove the head repo from the API themselves.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number this run covers
+        required: true
+        type: string
+      head_repo:
+        description: The PR head's owner/repo, for the macOS fork guard
+        required: false
+        type: string
+      base_sha:
+        description: The PR's exact base commit (dogfood diff mode needs it)
+        required: true
+        type: string
 
 permissions:
   contents: read
 
-# Newer pushes to a pull request cancel that PR's superseded runs, and a new
-# push to main cancels the previous main run. PRs stay grouped per pull request.
+# A newer dispatch for a pull request cancels that PR's superseded run, and a
+# new push to main cancels the previous main run. PRs stay grouped per pull
+# request (dispatches carry no pull_request payload, so the input names it).
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref_name }}
+  group: ci-${{ github.event.pull_request.number || inputs.pr_number || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -46,23 +76,53 @@ jobs:
 
   # macOS legs run on the owner's self-hosted Mac (a pool of runner
   # instances labelled saboteur-mac on one machine, sized to the hardware).
-  # Self-hosted runners never execute fork code:
-  # fork pull requests skip these legs entirely (the Linux legs still cover
-  # them), and the repository additionally requires approval for all external
-  # contributors before any fork workflow runs. Pull requests run the smallest
-  # useful matrix - the latest stable Ruby only - while pushes to main still
-  # cover every supported Ruby.
+  # Self-hosted runners never execute fork code: the legs run only for main
+  # pushes and for dispatches whose head_repo input names this repository,
+  # and the first step proves that input from the API - the pull request's
+  # head repository must be this one and the dispatched SHA must be its
+  # current head - so a wrong or forged head_repo fails closed before any
+  # code is checked out. A fork pull request gets no macOS legs (the Linux
+  # legs still cover it). Pull requests run the smallest useful matrix -
+  # the latest stable Ruby only - while pushes to main still cover every
+  # supported Ruby.
   test-macos:
     name: Ruby ${{ matrix.ruby }} / macos / shard ${{ matrix.shard }}
     runs-on: [self-hosted, saboteur-mac]
     timeout-minutes: 20
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      # The fork guard reads the pull request's head repo and head SHA.
+      pull-requests: read
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.head_repo == github.repository)
     strategy:
       fail-fast: false
       # (No spaces after the JSON colons: a colon+space would break the YAML
       # plain scalar. The matrix itself is normal JSON.)
-      matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
+      matrix: ${{ github.event_name == 'workflow_dispatch' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
     steps:
+      # The head_repo input is only a skip-early hint. Before anything is
+      # checked out, prove from the API that this dispatch covers one of
+      # this repository's own pull requests and that the dispatched SHA is
+      # that pull request's current head; anything else fails closed.
+      # GraphQL answers with one compact object, so exact greps are safe.
+      - name: Fail closed unless the dispatch is the pull request's own head
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          BASE_SHA: ${{ inputs.base_sha }}
+        # Inline on purpose: this proof must pass before any checkout, and the
+        # repo it would come from is what is being proven. It is the
+        # REQUIRE_OWN_REPO=1 mode of script/ci-prove-pr-binding - keep in sync.
+        run: |
+          set -euo pipefail
+          case "$PR_NUMBER" in *[!0-9]*|'') echo "pr_number must be digits"; exit 1;; esac
+          owner="${GITHUB_REPOSITORY%/*}"; name="${GITHUB_REPOSITORY#*/}"
+          payload=$(printf '{"query":"{repository(owner:\"%s\",name:\"%s\"){pullRequest(number:%s){headRepository{nameWithOwner} headRefOid baseRefOid}}}"}' "$owner" "$name" "$PR_NUMBER")
+          resp=$(curl -sfS -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" -d "$payload" https://api.github.com/graphql)
+          echo "$resp" | grep -Fq "\"nameWithOwner\":\"$GITHUB_REPOSITORY\"" || { echo "PR #$PR_NUMBER is a fork or unknown head repo: no macOS legs"; exit 1; }
+          echo "$resp" | grep -Fq "\"headRefOid\":\"$GITHUB_SHA\"" || { echo "dispatched SHA $GITHUB_SHA is not the current head of PR #$PR_NUMBER"; exit 1; }
+          echo "$resp" | grep -Fq "\"baseRefOid\":\"$BASE_SHA\"" || { echo "base_sha $BASE_SHA is not the base of PR #$PR_NUMBER"; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
@@ -142,11 +202,17 @@ jobs:
   # saboteur on its own changed methods. Survivors fail the check unless they
   # are on config/saboteur_ignore.rb with a reason.
   dogfood:
-    if: github.event_name == 'pull_request'
+    # Mutates the methods a pull request changed, so it runs on the manual
+    # dispatch (the pull_request trigger is gone) but not on main pushes.
+    if: github.event_name == 'workflow_dispatch'
     # 2x4 keeps the whole pull request job set inside the 32 vCPU trial
     # budget; --jobs 2 matches the 2 vCPUs.
     runs-on: nscloud-ubuntu-24.04-amd64-2x4
     timeout-minutes: 10
+    permissions:
+      contents: read
+      # The binding proof reads the pull request's head, base and head repo.
+      pull-requests: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -155,6 +221,18 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
+      # Bind the dispatch to the pull request it names before mutating: the
+      # checked-out SHA must be the pull request's current head and the
+      # base_sha input its current base, proven from the API - the inputs are
+      # never trusted. Fork pull requests are covered too (hosted runners
+      # only), so unlike the macOS legs this does not demand an own-repo head.
+      - name: Fail closed unless the dispatch is the pull request's head and base
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          REQUIRE_OWN_REPO: "0"
+        run: script/ci-prove-pr-binding
       - name: Mutate methods changed in this pull request
         uses: ./
         with:
