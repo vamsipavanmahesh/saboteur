@@ -28,6 +28,18 @@ module Preflight
 
       private
 
+      # The trailing block of "Token: value" lines, matching git interpret-trailers:
+      # a sign-off outside it (subject line, mid-body, or a message with no
+      # subject paragraph before it) does not count.
+      def trailer_block(lines)
+        block = lines.reverse.take_while { |line| line.match?(/\A[A-Za-z0-9-]+: /) }
+        rest = lines.length - block.length
+        # git requires a blank line before the block and a subject before that.
+        return [] if rest < 2 || lines[rest - 1] != ""
+
+        block
+      end
+
       def ai_attribution?(line)
         return true if line.match?(GENERATED)
 
@@ -39,8 +51,8 @@ module Preflight
         author = @repository.capture!(["log", "-1", "--format=%an <%ae>", sha.to_s]).chomp
         lines = @repository.capture!(%W[log -1 --format=%B #{sha}]).split("\n").map(&:chomp)
         found = []
-        unless lines.include?("Signed-off-by: #{author}")
-          found << "#{sha}: no line exactly equal to 'Signed-off-by: #{author}'"
+        unless trailer_block(lines).include?("Signed-off-by: #{author}")
+          found << "#{sha}: no trailer line exactly equal to 'Signed-off-by: #{author}'"
         end
         found << "#{sha}: AI attribution trailer" if lines.any? { |line| ai_attribution?(line) }
         found

@@ -34,6 +34,41 @@ RSpec.describe Preflight::Checks::Signoff, :fixture do
     expect(check.status).to eq(:failed)
   end
 
+  it "fails a sign-off embedded in the subject line" do
+    @fixture.write("a.txt", "x\n")
+    @fixture.commit("rename files  Signed-off-by: Fixture Author <author@example.test>", signoff: nil)
+    expect(check.status).to eq(:failed)
+  end
+
+  it "fails a sign-off that sits above the trailer block" do
+    @fixture.write("a.txt", "x\n")
+    @fixture.commit("mid\n\nSigned-off-by: Fixture Author <author@example.test>\n\nA trailing paragraph.",
+                    signoff: nil)
+    expect(check.status).to eq(:failed)
+  end
+
+  it "passes a sign-off followed by another trailer (valid control)" do
+    @fixture.write("a.txt", "x\n")
+    @fixture.commit("pair2\n\nSigned-off-by: Fixture Author <author@example.test>\nReviewed-by: R <r@example.test>",
+                    signoff: nil)
+    expect(check.status).to eq(:passed)
+  end
+
+  it "fails when the message is only the sign-off line" do
+    @fixture.write("a.txt", "x\n")
+    # git strips a sign-off-only message under default cleanup, so keep it verbatim.
+    @fixture.git("add", "-A")
+    @fixture.git("commit", "-q", "--allow-empty", "--cleanup=verbatim",
+                 "-m", "Signed-off-by: Fixture Author <author@example.test>")
+    expect(check.status).to eq(:failed)
+  end
+
+  it "fails when no blank line precedes the sign-off" do
+    @fixture.write("a.txt", "x\n")
+    @fixture.commit("subj\nSigned-off-by: Fixture Author <author@example.test>", signoff: nil)
+    expect(check.status).to eq(:failed)
+  end
+
   it "fails AI attribution even with a valid sign-off" do
     @fixture.write("a.txt", "x\n")
     @fixture.commit("attrib\n\nCo-Authored-By: Claude <noreply@anthropic.com>")

@@ -43,7 +43,7 @@ The report lists the manual obligations that no script checks. Read them.
 3. `check_policy_changes`: changes to `.rubocop.yml`, Gemfile and gemspec, `.rspec`, `config/`, the harness
    and its specs. These define how checks judge code, so a green run after such a change is not comparable.
    Review the diff. GitHub does not protect all of these files; the report says "review required", not "protected".
-4. `dco_signoff`: every non-merge commit has a line exactly equal to `Signed-off-by: <author>`. A `Co-authored-by` trailer whose
+4. `dco_signoff`: every non-merge commit has a `Signed-off-by: <author>` trailer (`git interpret-trailers` block, so a sign-off embedded in the subject or mid-body does not count). A `Co-authored-by` trailer whose
    whole name is a known AI tool or bot (or whose address is a known AI vendor or `[bot]` address), or a
    `Generated with/by <tool>` line, fails. A human co-author, even one named "Claude Martin", passes. The list
    is a heuristic and misses tools it does not know.

@@ -62,6 +62,19 @@ function jobsPass(jobs, names, head, advisory = []) {
     demand(job && job.head_sha === head && job.status === 'completed' && job.conclusion === 'success', `job not green: ${name}`);
   }
 }
+// The trailing block of "Token: value" lines, matching git interpret-trailers:
+// a sign-off outside it (subject line, mid-body, or a message with no subject
+// paragraph before it) does not count.
+function trailerBlock(message) {
+  const lines = message.split(/\r?\n/);
+  let i = lines.length;
+  while (i > 0 && lines[i - 1] === '') i--;
+  const block = [];
+  while (i > 0 && /^[A-Za-z0-9-]+: /.test(lines[i - 1])) block.unshift(lines[--i]);
+  // git requires a blank line before the block and a subject before that.
+  if (i < 2 || lines[i - 1] !== '') return [];
+  return block;
+}
 function dco(commits) {
   demand(commits.length > 0, 'empty commit range');
   for (const commit of commits) {
@@ -69,7 +82,7 @@ function dco(commits) {
     const author = commit.commit.author;
     demand(author?.name && author?.email, 'missing commit author');
     const line = `Signed-off-by: ${author.name} <${author.email}>`;
-    demand(commit.commit.message.split(/\r?\n/).includes(line), `missing author signoff: ${commit.sha}`);
+    demand(trailerBlock(commit.commit.message).includes(line), `missing author signoff trailer: ${commit.sha}`);
   }
 }
 // GitHub answers quota exhaustion with 403/429. It is reported on its own so the gate stops
