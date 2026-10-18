@@ -25,7 +25,7 @@ module Saboteur
           # In a scoped run every subject is part of the change under
           # review, so a skip is said up front, not only in the end-of-run
           # summary (#574).
-          @diagnostics.announce("#{subject.id}: skipped (#{reason}); its change is not verified by this run") if scope
+          @diagnostics.announce(skip_announcement(subject, reason)) if scope
           return @selected[subject] = []
         end
 
@@ -47,6 +47,21 @@ module Saboteur
       end
 
       private
+
+      # A scoped no-coverage skip names the specs the run loaded: coverage
+      # living in a sibling spec file is otherwise invisible, and the false
+      # read is "untestable" when the truth is "not loaded" (#636). Names
+      # at most five, like the other selection notes.
+      def skip_announcement(subject, reason)
+        line = "#{subject.id}: skipped (#{reason}); its change is not verified by this run"
+        return line unless reason == "no coverage"
+
+        loaded = @map.tests.map { |id| id.split("[").first.delete_prefix("./") }.uniq.sort
+        more = loaded.size > 5 ? ", ..." : ""
+        names = loaded.empty? ? "none" : loaded.first(5).join(", ")
+        "#{line} - loaded specs: #{names}#{more}; " \
+          "other spec files may cover it, pass --test to load them"
+      end
 
       # Load-only code is not "no coverage": it ran, just never inside a
       # test, and no forked test can re-run it (see CoverageMap::RAN_AT_LOAD).
