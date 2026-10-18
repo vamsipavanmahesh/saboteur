@@ -136,14 +136,25 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       end
     end
 
-    it "keeps no coverage, load-only and unsupported subject skips apart" do
-      first, second, third = subjects_in("class K\n  def a; end\n  def b; end\n  def c; end\nend\n")
+    it "classifies loaded-before-coverage skips as preloaded, never unsupported (#688)" do
+      report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1,
+                                    root: "/tmp", seed: 7,
+                                    skipped_subjects: { person_subject => Saboteur::Selection::CoverageMap::PRELOADED })
+      expect(reasons(report)).to eq([{ reason: "preloaded", count: 1,
+                                       meaning: "files loaded before coverage started; their subjects could not " \
+                                                "be attributed to tests; no mutant was judged" }])
+    end
+
+    it "keeps no coverage, load-only, preloaded and unsupported subject skips apart" do
+      first, second, third, fourth = subjects_in("class K\n  def a; end\n  def b; end\n  def c; end\n  " \
+                                                 "def d; end\nend\n")
       skipped = { first => "no coverage", second => "defined inside a block",
-                  third => Saboteur::Selection::CoverageMap::RAN_AT_LOAD }
+                  third => Saboteur::Selection::CoverageMap::RAN_AT_LOAD,
+                  fourth => Saboteur::Selection::CoverageMap::PRELOADED }
       report = Saboteur::Report.new(results: [result_for(:killed)], subjects: skipped.keys, wall_time: 1,
                                     root: "/tmp", seed: 7, skipped_subjects: skipped)
       expect(reasons(report).to_h { |reason| [reason[:reason], reason[:count]] })
-        .to eq("no_coverage" => 1, "unsupported" => 1, "ran_at_load" => 1)
+        .to eq("no_coverage" => 1, "unsupported" => 1, "ran_at_load" => 1, "preloaded" => 1)
     end
 
     it "never calls unjudged load-only or unreachable mutants complete" do
