@@ -35,8 +35,11 @@ module Saboteur
 
       # Absolute monotonic deadline shared with the schedulers (forked
       # workers inherit it): a subject's remaining mutants stop once it
-      # passes, so the overshoot after a spent budget stays under one
-      # mutant deadline.
+      # passes. New mutation work never overshoots more than the fork in
+      # flight; a subject the deadline cut mid-list still confirms the
+      # kills it already measured (#588), and those checks and retries
+      # fork uncapped - the overshoot is bounded by the subject's
+      # distinct killing sequences times their full timeout.
       def budget_deadline
         config["max_duration"] && (@run_started + config["max_duration"])
       end

@@ -64,7 +64,7 @@ module Saboteur
         results = run_candidates(candidates) do |mutation, text|
           reuse(plan, mutation, text) || execute(plan, mutation, text)
         end
-        checked(plan, results)
+        checked(plan, results, truncated: results.size < candidates.size)
       end
 
       # The per-mutant timeout: timeout_factor times what the tests took
@@ -81,14 +81,21 @@ module Saboteur
 
       # Verdicts that did not hold up are warned about once per subject;
       # only checked verdicts are stored for --incremental.
-      # A spent budget admits no check: forking the unchanged run with no
-      # time left would turn genuine kills into fabricated errors and cache
-      # them. Fresh kills stand unverified instead - outside the score,
-      # never cached - and the distribution marks the subject so the run
-      # reports budget-partial.
-      def checked(plan, results)
-        return results.map { |result| unverifiable(result) } if budget_spent?
+      # A spent budget admits no check for a subject that finished its
+      # mutants: forking the unchanged run with no time left would turn
+      # genuine kills into fabricated errors and cache them. Fresh kills
+      # stand unverified instead - outside the score, never cached - and
+      # the distribution marks the subject so the run reports
+      # budget-partial.
+      # A subject the budget stopped mid-list is different (#588): its
+      # completed mutants were already measured, so their checks still
+      # run, uncapped - the budget stops new mutation work, not the
+      # confirmation of work already done. The overshoot stays bounded by
+      # the subject's distinct killing sequences.
+      def checked(plan, results, truncated: false)
+        return results.map { |result| unverifiable(result) } if budget_spent? && !truncated
 
+        @confirming_truncation = truncated
         subject = plan.subject
         check = VerdictCheck.new(run_unchanged: unchanged_runner(subject, plan),
                                  baseline_timeout: @config["baseline_timeout"])
@@ -101,6 +108,8 @@ module Saboteur
           @diagnostics.warn("#{subject.id}: #{overturned} verdict(s) failed with the method unchanged")
         end
         final
+      ensure
+        @confirming_truncation = false
       end
 
       # A kill rejected because its covering examples fail with the method
@@ -111,10 +120,12 @@ module Saboteur
       # mutant's run on the same examples. Otherwise the error stays.
       #
       # Cost bound: at most two extra forks per rejected kill, the unchanged
-      # prefix run and one mutant run. Both spend --max-duration like every
-      # other fork: neither starts once the budget is spent, and neither gets
-      # more than the time left. A retry the budget stops is unverified, not
-      # an error or a kill. Keep this bound if the retry ever grows.
+      # prefix run and one mutant run. Ordinarily both spend --max-duration
+      # like every other fork: neither starts once the budget is spent, and
+      # neither gets more than the time left. A retry the budget stops is
+      # unverified, not an error or a kill. The exception is a truncated
+      # subject (#588): its completed kills still retry, at the full
+      # timeout. Keep this bound if the retry ever grows.
       def retried_in_defined_order(plan, result)
         return result unless result.rejected_kill? && !result.reused? && result.covered_by.any?
 
@@ -129,10 +140,10 @@ module Saboteur
       end
 
       def rerun_in_prefix(plan, result, tests)
-        return result.as_unverified(BUDGET_RETRY_REASON) if budget_spent?
+        return result.as_unverified(BUDGET_RETRY_REASON) if budget_spent? && !@confirming_truncation
 
         full = timeout_for(tests, plan.slowdown)
-        capped = budget_capped(full)
+        capped = @confirming_truncation ? full : budget_capped(full)
         outcome = @runner.run(subject: plan.subject, text: result.mutated_source, test_ids: tests,
                               timeout: capped, mutation: result.mutation, eval_prefix: eval_prefix(plan))
         return result.as_unverified(BUDGET_RETRY_REASON) if outcome.status == :timeout && capped < full
@@ -150,11 +161,11 @@ module Saboteur
       # the check never got its answer (#296).
       def unchanged_runner(subject, plan)
         lambda do |tests, timeout|
-          if budget_spent?
+          if budget_spent? && !@confirming_truncation
             Execution::Runner::Outcome.new(status: :unverified, runtime: 0.0,
                                            message: "the --max-duration budget is spent")
           else
-            capped = budget_capped(timeout)
+            capped = @confirming_truncation ? timeout : budget_capped(timeout)
             outcome = @runner.run(subject: subject, text: subject.source, test_ids: tests, timeout: capped,
                                   eval_prefix: eval_prefix(plan))
             note_leftovers(subject, "verdict check", outcome)
