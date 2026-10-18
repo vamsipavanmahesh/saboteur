@@ -624,6 +624,27 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
         end
       end
 
+      it "preserves scrubbed RUBYLIB bytes when there was no original export" do
+        with_rubylib_scrub(original_rubylib: nil, scrubbed_rubylib: "/one:/two:") do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)["RUBYLIB"]).to eq("/one:/two:")
+        end
+      end
+
+      it "restores exported paths when the scrub removed RUBYLIB entirely" do
+        with_rubylib_scrub(original_rubylib: "/first", scrubbed_rubylib: nil) do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)["RUBYLIB"]).to eq("/first")
+        end
+      end
+
+      it "appends each distinct scrubbed path after restored paths" do
+        with_rubylib_scrub(original_rubylib: "/first:/second", scrubbed_rubylib: "/second:/third") do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)["RUBYLIB"]).to eq("/first:/second:/third")
+        end
+      end
+
       it "does not resurrect an entry bundler itself added and the scrub removed" do
         with_rubylib_scrub(original_rubylib: "/app/lib", scrubbed_rubylib: "/app/lib") do
           runner = described_class.new(command: "true", root: @dir)

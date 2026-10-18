@@ -17,6 +17,7 @@ module Saboteur
         begin
           @runner.setup($stderr, load_output)
         rescue SystemExit => e
+          load_output.replay
           # A spec file calling exit at load makes RSpec print "While
           # loading <file> ..." (which names the file) and re-raise.
           # Uncaught, the parent exits with the spec's status: exit(0)
@@ -24,7 +25,15 @@ module Saboteur
           raise Error, "a spec file called exit while loading (status #{e.status})"
         end
         configuration.order = "rand:#{config.fetch('seed', 1)}"
-        raise Error, load_failure_message(load_output.failed_files) if quit_while_loading?(world)
+        if quit_while_loading?(world)
+          # RSpec's load dump ends in the saboteur frames the load was
+          # triggered through and a "No examples found." from the reporter;
+          # both contradict the tool's own message. Print the suite's error
+          # without them (#608).
+          $stdout.write LoadErrorReport.filter(load_output.text, verbose: config.fetch("verbose", false))
+          raise Error, load_failure_message(load_output.failed_files)
+        end
+        load_output.replay
 
         refuse_unintended_focus
       end
@@ -297,24 +306,76 @@ module Saboteur
           @captured = +""
         end
 
+        # Buffer only: the caller decides after setup whether the captured
+        # text goes out as it is (a clean load), filtered (a load quit,
+        # #608) or verbatim on a SystemExit. Passing through during setup
+        # would print what a later filter needs to drop.
         def write(text)
-          @captured << text
-          super
+          @replayed ? __getobj__.write(text) : @captured << text
+          self
         end
 
         def print(*args)
-          @captured << args.join
-          super
+          write(args.join)
         end
 
         def puts(*args)
-          @captured << args.flatten.join("\n") << "\n"
-          super
+          write("#{args.flatten.join("\n")}\n")
         end
+
+        def replay
+          __getobj__.write(@captured)
+          # RSpec retains this stream for later suite-hook errors.
+          @replayed = true
+        end
+
+        def text = @captured
 
         def failed_files
           LOAD_FAILURE.flat_map { |pattern| @captured.scan(pattern) }.flatten
         end
+      end
+
+      # The load dump RSpec prints when a spec file raises at load, trimmed
+      # to what the user acts on: the first error with the suite's own
+      # frames. The saboteur frames the load was triggered through and the
+      # reporter's "No examples found." (nothing ran because nothing loaded)
+      # read as saboteur crashing and contradict the tool's message; both
+      # stay under --verbose (#608).
+      class LoadErrorReport
+        HEADER = /^An error occurred while loading /
+        # The running tool's install root (a checkout or an unpacked gem),
+        # with separator. Only frames under it are saboteur's: the same
+        # lib/saboteur/ layout under ANOTHER root is the target's vendored
+        # copy or a dogfooded checkout, and those frames are the suite's
+        # (#608).
+        TOOL_ROOT = "#{File.expand_path('../../..', __dir__)}/".freeze
+        private_constant :HEADER, :TOOL_ROOT
+
+        def self.filter(text, verbose: false)
+          return text if verbose
+
+          lines = text.lines.reject { |line| line.strip == "No examples found." || saboteur_frame?(line) }
+          heads = lines.each_index.select { |index| lines[index].match?(HEADER) }
+          return lines.join if heads.size <= 1
+
+          kept = lines[0...heads[1]]
+          kept.pop while kept.last&.strip == ""
+          omitted = heads.size - 1
+          kept << "(#{omitted} more load error#{'s' if omitted > 1} omitted; rerun with --verbose for the full list)\n"
+          kept.join
+        end
+
+        # A backtrace frame inside the tool's install root. Relative frames
+        # (the suite's own "./spec/...") are never the tool's.
+        def self.saboteur_frame?(line)
+          line = line.strip
+          return false unless line.start_with?("# ")
+
+          path = line.sub(/\A#\s+/, "").sub(/:\d+:in .*\z/, "")
+          path.start_with?("/") && File.expand_path(path).start_with?(TOOL_ROOT)
+        end
+        private_class_method :saboteur_frame?
       end
 
       class Listener

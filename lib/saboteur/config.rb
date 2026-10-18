@@ -86,7 +86,10 @@ module Saboteur
       "fingerprint_extra" => [],
       "threshold" => nil,
       "max_timeouts" => nil,
-      "max_errors" => nil
+      "max_errors" => nil,
+      # --verbose also lands here, so boot-time output filters (the rspec
+      # load-error report, #608) can keep their raw text behind the flag.
+      "verbose" => false
     }.freeze
 
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes].freeze
