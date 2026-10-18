@@ -88,7 +88,7 @@ RSpec.describe Saboteur::CustomMap do
     expect(map.specs_for("app/jobs/billing/charge.rb")).to eq(["spec/jobs/billing/charge_spec.rb"])
   end
 
-  it "names unsupported named templates before glob validation (#642)" do
+  it "names unsupported named templates when their literal path is absent (#642)" do
     path = write_map(<<~'RUBY')
       SABOTEUR_CUSTOM_MAP = { %r{\Alib/(?<path>.+)\.rb\z} => ["spec/unit/%<path>s_spec.rb"] }.freeze
     RUBY
@@ -100,12 +100,32 @@ RSpec.describe Saboteur::CustomMap do
     }
   end
 
-  it "rejects named templates even beside a valid numbered backreference (#642)" do
+  # rubocop:disable Style/FormatStringToken -- unsupported syntax is the input under test
+  ["%{p}", '\k<p>', "%-10<a>s", "%<a-b>s"].each do |template|
+    it "names the unsupported #{template} template when missing (#642)" do
+      body = "SABOTEUR_CUSTOM_MAP = { /lib/ => [#{"spec/#{template}_spec.rb".dump}] }"
+      expect { load(body) }.to raise_error(Saboteur::ConfigError, /regex map specs support/)
+    end
+  end
+
+  # rubocop:enable Style/FormatStringToken
+
+  it "keeps a real literal percent-angle file under a Regexp key (#642)" do
+    touch("spec/%<name>s_spec.rb")
+    map = load('SABOTEUR_CUSTOM_MAP = { /lib/ => ["spec/%<name>s_spec.rb"] }')
+    expect(map.specs_for("lib/a.rb")).to eq(["spec/%<name>s_spec.rb"])
+  end
+
+  it "uses the ordinary missing-file error for a String key with named-template text (#642)" do
     expect do
-      load(<<~'RUBY')
-        SABOTEUR_CUSTOM_MAP = { %r{lib/(.*)} => ['spec/\1/%<path>s_spec.rb'] }.freeze
-      RUBY
-    end.to raise_error(Saboteur::ConfigError, /regex map specs support/)
+      load('SABOTEUR_CUSTOM_MAP = { "lib/a.rb" => ["spec/%<missing>s_spec.rb"] }')
+    end.to raise_error(Saboteur::ConfigError, /matches no file/)
+  end
+
+  it "does not diagnose empty percent-angle text as a named template when missing (#642)" do
+    expect do
+      load('SABOTEUR_CUSTOM_MAP = { /lib/ => ["spec/%<>s_spec.rb"] }')
+    end.to raise_error(Saboteur::ConfigError, /matches no file/)
   end
 
   it "does not mistake empty percent-angle text for a named template (#642)" do
