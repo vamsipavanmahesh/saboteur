@@ -12,12 +12,16 @@
 ## Guides
 
 - [Check a project before mutation testing](guides/doctor.md) - `saboteur doctor`.
+- [macOS Seatbelt sandbox](guides/macos-seatbelt-sandbox.md) - opt in with `c.sandbox = "seatbelt"`, probe-gated.
 - [Saboteur vs flaky tests](guides/flaky-tests.md) - baseline refusals, real output, fixes.
 - [How to read survivors](guides/reading-survivors.md) - from output to the killing test.
 - [Replay one mutant](guides/replay.md) - re-run a single mutant by its digest.
+- [The dry-run JSON inventory](dry-run-json.md) - the versioned machine-readable mutation plan.
 - [Monorepos, sub-gems and the custom map](guides/monorepo-and-custom-map.md) - include scope, spec paths, real refusals.
+- [Rails engines and dummy apps](guides/rails-engines-and-dummy-apps.md) - exclude `spec/dummy` and env-dependent integration specs.
 - [Reading a survivor report and fixing survivors](guides/reading-and-fixing-survivors.md) - a real batch from report to clean exit.
 - [saboteur in CI on large Rails apps](guides/ci-large-rails.md) - diff mode on PRs, sharded scheduled audits, caching.
+- [Deterministic shards](guides/sharding.md) - split one planned inventory across CI jobs.
 
 ## Using saboteur
 
@@ -60,6 +64,7 @@
 - [or_assign](operators/or_assign.md)
 - [pair_removal](operators/pair_removal.md)
 - [range](operators/range.md)
+- [regex_replacement](operators/regex_replacement.md)
 - [safe_navigation](operators/safe_navigation.md)
 - [statement_removal](operators/statement_removal.md)
 

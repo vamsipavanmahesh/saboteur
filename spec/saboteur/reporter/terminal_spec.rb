@@ -28,6 +28,17 @@ RSpec.describe Saboteur::Reporter::Terminal do
     )
   end
 
+  it "prints the shard line only for a sharded run" do
+    shard = Saboteur::Engine::Shard.parse("1/2")
+    allow(shard).to receive(:line).and_return("Shard 1/2: 3 of 10 planned mutants; inventory sha256:abc; partial run")
+    sharded = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                   root: File.dirname(person_subject.file), seed: 1, shard: shard)
+    expect(render(sharded)).to include(shard.line)
+    out.truncate(0)
+    out.rewind
+    expect(render(report_of(result_for(:killed)))).not_to include("partial run")
+  end
+
   it "prints excluded operators, and only when the policy excludes some" do
     excluded = Saboteur::Config.new({ "exclude_operators" => %w[condition_negation range] }).operator_policy
     text = render(report_of(result_for(:killed), policy: excluded))
@@ -370,7 +381,8 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "splits the score into assertion and crash shares" do
     text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion"),
                                     result_for(:killed, replacement: "<", kill_cause: "NoMethodError")))
-    expect(text).to include("score 100.0 % (assertion 50.0 %, crash 50.0 %)")
+    expect(text).to include("score 100.0 % (assertion 50.0 %, crash 50.0 %)",
+                            "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded")
   end
 
   it "names timeouts and kills with no recorded cause in the split" do
@@ -449,6 +461,14 @@ RSpec.describe Saboteur::Reporter::Terminal do
 
   it "prints n/a for the score when nothing ran" do
     expect(render(report_of)).to include("score n/a")
+  end
+
+  # 31 errored + 9 killed prints "score 100.0 %" over "the run tested almost
+  # nothing": the share covers only scored mutants, so an error-dominated
+  # run says so instead of quoting a perfect score (#557).
+  it "prints the scored share, not a bare score, when most executed mutants errored" do
+    text = render(report_of(result_for(:killed), *Array.new(3) { result_for(:error) }))
+    expect(text).to include("score n/a (1 of 4 mutants scored, 100.0 % of scored)")
   end
 end
 

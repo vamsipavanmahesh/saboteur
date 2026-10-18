@@ -26,6 +26,14 @@ module Saboteur
         end
       end
 
+      # Repeatable per-path score gates (#473), the one setting that takes
+      # arguments: c.score_gate "app/payments/**/*", min_score: 95. Values
+      # are validated later, on the effective Config.
+      def score_gate(pattern, min_score:)
+        (@values["score_gates"] ||= []) << { "pattern" => pattern, "min_score" => min_score }
+        @lines["score_gates"] = caller_locations(1, 1).first.lineno
+      end
+
       Config::INTEGER_KEYS.each do |key|
         define_method("#{key}=") do |value|
           unless value.is_a?(Integer)

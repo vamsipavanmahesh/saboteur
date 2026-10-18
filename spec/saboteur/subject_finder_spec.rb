@@ -65,6 +65,99 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(found.map(&:skip_reason)).to eq([nil, nil, "defined inside a block", nil])
   end
 
+  # #194, narrowed to the two shapes the human-essentials dogfood exposed:
+  # a bare `scope` call with a literal name and a lambda body defines a
+  # singleton method, as does define_singleton_method. Both become singleton
+  # subjects whose whole call re-evaluates on the owner, the way a
+  # define_method subject's call does today.
+  it "finds call-defined singleton methods" do
+    {
+      "scope :alphabetical, -> { order(:name) }" => "Model.alphabetical",
+      "define_singleton_method(:build) { new }" => "Model.build",
+      "define_singleton_method(:pull, -> { 1 })" => "Model.pull"
+    }.each do |call, id|
+      found = subjects_in("class Model\n  #{call}\nend\n")
+      # The dotted id asserts the singleton attribution.
+      expect(found.map { |subject| [subject.id, subject.skip_reason] }).to eq([[id, nil]]), call
+    end
+  end
+
+  # sclass is a raw attr_reader on Subject: the || false normalization in
+  # walk_call must hold so a call-defined subject with no nesting at all
+  # (a top-level block) reads false, not nil (#571 dogfood, successor of
+  # stale ignore 4aded400397da9fe).
+  it "pins sclass to false, not nil, for a call-defined subject without nesting" do
+    subject = subjects_in("1.times do\n  define_method(:m) { 1 }\nend\n").first
+    expect(subject.sclass).to be(false)
+  end
+
+  it "rejects call shapes that do not define a method body" do
+    [
+      "before_action :check",          # symbol-only call defines nothing here
+      "scope :x, body",                # body must be a lambda literal
+      "scope dynamic_name, -> { 1 }",  # the name must be a literal
+      "scope :x, -> { 1 }, extra",     # unknown extra arguments
+      "Model.scope :x, -> { 1 }",      # an explicit receiver is not a bare DSL call
+      "scope :x do 1 end",             # a block-bodied scope is not a Rails scope
+      "define_singleton_method(:x, \"body\")", # a computed body is not a block or lambda
+      "define_singleton_method(:x)" # a name without a body defines nothing (#571)
+    ].each do |call|
+      expect(subjects_in("class Model\n  def check; end\n  #{call}\nend\n").map(&:id))
+        .to eq(["Model#check"]), call
+    end
+  end
+
+  it "rejects scope calls that carry more than a literal name and one lambda" do
+    [
+      "scope :x, -> { 1 }, -> { 2 }",  # the second argument must be the only lambda
+      "scope :x, -> { 1 } do 2 end"    # a block-bodied call is not a lambda-bodied scope
+    ].each do |call|
+      expect(subjects_in("class Model\n  #{call}\nend\n").map(&:id)).to eq([]), call
+    end
+  end
+
+  # An arg-less call reaches every predicate with node.arguments == nil:
+  # the graceful nil skip must stay a skip, not a NoMethodError (#571
+  # dogfood survivors). literal_name? guards the public path first, so the
+  # lambda_body?/block_only? guards are pinned directly as well.
+  it "rejects arg-less calls instead of raising" do
+    %w[
+      define_method
+      define_singleton_method
+      scope
+    ].each do |call|
+      expect(subjects_in("class Model\n  def check; end\n  #{call}\nend\n").map(&:id))
+        .to eq(["Model#check"]), call
+    end
+  end
+
+  it "answers false for arg-less call nodes in every definition predicate" do
+    bare = Prism.parse("scope").value.statements.body.first
+    blocked = Prism.parse("define_method { 1 }").value.statements.body.first
+    finder = described_class.new
+    expect(finder.send(:literal_name?, bare)).to be(false)
+    expect(finder.send(:lambda_body?, bare)).to be(false)
+    expect(finder.send(:block_only?, bare)).to be(false)
+    expect(finder.send(:block_only?, blocked)).to be(false)
+  end
+
+  # A name-only define_singleton_method carries no body at all: block_only?
+  # must not wave it through on the argument count alone (#571 dogfood
+  # survivor 18b81f2323de4f26).
+  it "answers false for a name-only define_singleton_method in block_only?" do
+    node = Prism.parse("define_singleton_method(:x)").value.statements.body.first
+    expect(described_class.new.send(:block_only?, node)).to be(false)
+  end
+
+  it "exposes a call-defined subject's body: the block for define_method, the lambda for scope and the lambda form" do
+    dm = subjects_in("class A\n  define_method(:dm) { 1 }\nend\n").first
+    scope = subjects_in("class Model\n  scope :x, -> { order(:name) }\nend\n").first
+    dsm = subjects_in("class A\n  define_singleton_method(:pull, -> { 2 })\nend\n").first
+    expect(dm.body_node.slice).to eq("1")
+    expect(scope.body_node.slice).to eq("order(:name)")
+    expect(dsm.body_node.slice).to eq("2")
+  end
+
   it "names a def in an anonymous block after the block, not after the file" do
     source = "class A\n  included do\n    def in_block; end\n  end\nend\n" \
              "Cart = Struct.new(:a) do\n  def total = a\nend\n"
@@ -468,5 +561,102 @@ RSpec.describe Saboteur::SubjectFinder do
       end
     RUBY
     expect(subjects_in(source).map(&:id)).to eq(["Host::W#n"])
+  end
+end
+
+RSpec.describe Saboteur::SubjectFinder, "class_eval heredocs (#544)" do
+  def ids(source)
+    subjects_in(source).map(&:id)
+  end
+
+  it "finds defs in a non-interpolated class_eval heredoc under the enclosing owner" do
+    source = <<~RUBY
+      class Token
+        class_eval <<-CODE
+          def expired?
+            @expires_at < Time.now
+          end
+        CODE
+      end
+    RUBY
+    subject = subject_named(source, "Token#expired?")
+    expect(subject.source).to start_with("def expired?")
+    expect(subject.source).to include("@expires_at < Time.now")
+    expect([subject.start_line, subject.end_line]).to eq([3, 5])
+  end
+
+  it "names the full lexical nesting for a module_eval heredoc and applies mutants to the real file bytes" do
+    source = <<~RUBY
+      module Outer
+        class Inner
+          module_eval <<-CODE
+            def self.build
+              new
+            end
+          CODE
+        end
+      end
+    RUBY
+    subject = subject_named(source, "Outer::Inner.build")
+    expect(subject.singleton).to be(true)
+    texts = mutated_texts(subject)
+    expect(texts).not_to be_empty
+    texts.map(&:last).each { |text| expect(Prism.parse(text).success?).to be(true) }
+    expect(texts.map(&:last)).to all(start_with("def self.build"))
+    expect(texts.map(&:last)).not_to include(subject.source)
+  end
+
+  it "leaves an interpolated heredoc to the code-in-strings warning (#467)" do
+    source = <<~'RUBY'
+      class Token
+        class_eval <<-CODE
+          def #{name}
+            1
+          end
+        CODE
+      end
+    RUBY
+    expect(ids(source)).to eq([])
+  end
+
+  it "leaves a quoted string argument and an explicit receiver out of this slice" do
+    expect(ids("class A\n  class_eval \"def x; end\"\nend\n")).to eq([])
+    expect(ids("class A\n  B.class_eval <<-CODE\n    def y; end\n  CODE\nend\n")).to eq([])
+  end
+
+  it "leaves instance_eval, a block form, extra arguments, a bare call and a non-string argument alone" do
+    expect(ids("class A\n  instance_eval <<-CODE\n    def m; end\n  CODE\nend\n")).to eq([])
+    expect(ids("class A\n  class_eval(\"def n; end\") { }\nend\n")).to eq([])
+    expect(ids("class A\n  class_eval \"def o; end\", \"other.rb\"\nend\n")).to eq([])
+    expect(ids("class A\n  class_eval\nend\n")).to eq([])
+    expect(ids("class A\n  class_eval :not_a_string\nend\n")).to eq([])
+  end
+
+  it "leaves a block form with a heredoc argument alone (#568)" do
+    expect(ids("class A\n  class_eval(<<-CODE) { }\n    def x; end\n  CODE\nend\n")).to eq([])
+  end
+
+  it "leaves extra arguments after a heredoc alone (#568)" do
+    expect(ids("class A\n  class_eval <<-CODE, \"other.rb\"\n    def y; end\n  CODE\nend\n")).to eq([])
+  end
+
+  it "finds defs when the heredoc terminator sits at column 0 (#568)" do
+    expect(ids("class A\n  class_eval <<-CODE\n    def z; end\nCODE\nend\n")).to eq(["A#z"])
+  end
+
+  it "finds defs with a non-ASCII heredoc terminator at column 0 (#568)" do
+    expect(ids("class A\n  class_eval \u003c\u003c-\u00c9\u00c9\n    def z; end\n\u00c9\u00c9\nend\n")).to eq(["A#z"])
+  end
+
+  it "registers nothing when a dangling operator swallows the column-0 terminator's first byte (#568)" do
+    expect(ids("class A\n  class_eval <<-CODE\n    def z = 1 +\nCODE\nend\n")).to eq([])
+  end
+
+  it "finds defs with a quoted punctuation heredoc terminator at column 0 (#568)" do
+    expect(ids("class A\n  class_eval <<-'!'\n    def z; end\n!\nend\n")).to eq(["A#z"])
+  end
+
+  it "registers nothing from a heredoc body that does not parse" do
+    expect(ids("class A\n  class_eval <<-CODE\n    def broken(\n  CODE\nend\n")).to eq([])
   end
 end

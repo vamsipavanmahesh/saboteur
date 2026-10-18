@@ -12,6 +12,7 @@ module Saboteur
     # (VerdictCheck). Each mutant runs only the tests that executed its edit,
     # likeliest killers first, with a timeout from their recorded durations.
     class Scheduler
+      BUDGET_RETRY_REASON = "the --max-duration budget stopped the defined-order retry"
       WHOLE_FILE_HINT = "; add it to c.whole_file to re-evaluate the whole file"
 
       # A subject to run, with what its mutants need. killers counts the
@@ -54,6 +55,7 @@ module Saboteur
 
         tests = @map.tests_for(subject)
         return unloadable(candidates, subject) if tests.empty?
+        return load_time_results(candidates, subject) if load_only?(subject)
 
         plan = Plan.new(subject:, tests:, killers: Hash.new(0), slowdown: 1.0, wrapper: wrapper)
         reused = all_reused(plan, candidates)
@@ -90,7 +92,7 @@ module Saboteur
         subject = plan.subject
         check = VerdictCheck.new(run_unchanged: unchanged_runner(subject, plan),
                                  baseline_timeout: @config["baseline_timeout"])
-        final = check.call(results)
+        final = check.call(results).map { |result| retried_in_defined_order(plan, result) }
         # Unverified verdicts are never cached: a budget-cut check proves
         # nothing, and a stored copy would read as confirmed next run.
         final.reject { |result| result.reused? || result.status == :unverified }.each { |r| @cache&.record(r) }
@@ -99,6 +101,46 @@ module Saboteur
           @diagnostics.warn("#{subject.id}: #{overturned} verdict(s) failed with the method unchanged")
         end
         final
+      end
+
+      # A kill rejected because its covering examples fail with the method
+      # unchanged may only lack the setup examples the subset run skipped
+      # (an order-dependent file, #557). Retry once with the file's examples
+      # in defined order, through the last covering example. It stands only
+      # if that whole run passes unchanged; the mutant's verdict is then the
+      # mutant's run on the same examples. Otherwise the error stays.
+      #
+      # Cost bound: at most two extra forks per rejected kill, the unchanged
+      # prefix run and one mutant run. Both spend --max-duration like every
+      # other fork: neither starts once the budget is spent, and neither gets
+      # more than the time left. A retry the budget stops is unverified, not
+      # an error or a kill. Keep this bound if the retry ever grows.
+      def retried_in_defined_order(plan, result)
+        return result unless result.rejected_kill? && !result.reused? && result.covered_by.any?
+
+        tests = DefinedOrderPrefix.new(@map.tests).for(result.covered_by)
+        return result unless tests
+
+        unchanged = unchanged_runner(plan.subject, plan).call(tests, @config["baseline_timeout"])
+        return result.as_unverified(unchanged.message || BUDGET_RETRY_REASON) if unchanged.status == :unverified
+        return result unless unchanged.status == :survived
+
+        rerun_in_prefix(plan, result, tests)
+      end
+
+      def rerun_in_prefix(plan, result, tests)
+        return result.as_unverified(BUDGET_RETRY_REASON) if budget_spent?
+
+        full = timeout_for(tests, plan.slowdown)
+        capped = budget_capped(full)
+        outcome = @runner.run(subject: plan.subject, text: result.mutated_source, test_ids: tests,
+                              timeout: capped, mutation: result.mutation, eval_prefix: eval_prefix(plan))
+        return result.as_unverified(BUDGET_RETRY_REASON) if outcome.status == :timeout && capped < full
+
+        MutantResult.new(subject: plan.subject, mutation: result.mutation, status: outcome.status,
+                         mutated_source: result.mutated_source, reason: outcome.message, runtime: outcome.runtime,
+                         killed_by: outcome.failed_ids, covered_by: tests, kill_cause: outcome.kill_cause,
+                         executed: outcome.executed_ids)
       end
 
       # Admission is per sequence, not just at checked() entry: a check
@@ -209,6 +251,20 @@ module Saboteur
         end
       end
 
+      # A def-time macro's only callers ran while the app loaded: the
+      # child re-evals the def, but closure consumers captured the
+      # pristine definition, so no test can observe a mutant (#409).
+      def load_only?(subject)
+        !subject.is_a?(ConstantSubject) && @map.called_only_at_load?(subject.file, subject.start_line)
+      end
+
+      def load_time_results(candidates, subject)
+        candidates.map do |mutation, text|
+          MutantResult.new(subject: subject, mutation: mutation, status: :ran_at_load, mutated_source: text,
+                           reason: Selection::CoverageMap::RAN_AT_LOAD)
+        end
+      end
+
       # One mutation whose edited lines no test ran (see unloadable).
       def uncoverable(plan, mutation, text)
         line_numbers = mutation.edits.flat_map { |edit| plan.subject.coverage_lines_for(edit) }.uniq
@@ -224,7 +280,50 @@ module Saboteur
         timeout = timeout_for(tests, plan.slowdown)
         outcome = @runner.run(subject: plan.subject, text: text, test_ids: tests, timeout: timeout,
                               mutation: mutation, eval_prefix: eval_prefix(plan))
-        outcome.status == :timeout ? calibrate(plan, mutation, text, tests, timeout) : outcome
+        outcome = calibrate(plan, mutation, text, tests, timeout) if outcome.status == :timeout
+        flaky_check(plan, mutation, text, tests, outcome)
+      end
+
+      # --flaky-check (#476): one reordered confirmation run per decisive
+      # fresh verdict. A disagreement is unverified - outside the score and
+      # never cached - not "rerun until it passes". A reused verdict is
+      # already trusted evidence and never reaches here. A budget-cut
+      # outcome is already unverified and earns no second fork.
+      def flaky_check(plan, mutation, text, tests, outcome)
+        return outcome unless flaky_checkable?(outcome)
+        return outcome if budget_spent?
+
+        timeout = timeout_for(tests, plan.slowdown)
+
+        rerun = @runner.run(subject: plan.subject, text: text, test_ids: reordered(tests),
+                            timeout: timeout, mutation: mutation, eval_prefix: eval_prefix(plan))
+        return outcome if rerun.status == outcome.status
+
+        Execution::Runner::Outcome.new(status: :unverified, runtime: outcome.runtime + rerun.runtime,
+                                       message: flaky_message(outcome, rerun))
+      end
+
+      # A shuffled order that is guaranteed to differ (a two-test shuffle
+      # has even odds of coming out identical): order-dependence is exactly
+      # what the confirmation run hunts.
+      def reordered(tests)
+        shuffled = tests.shuffle(random: Random.new(@config["seed"]))
+        shuffled == tests && shuffled.size > 1 ? shuffled.rotate : shuffled
+      end
+
+      def flaky_checkable?(outcome)
+        case @config["flaky_check"]
+        when "survivors" then outcome.status == :survived
+        when "decisive" then %i[survived killed].include?(outcome.status)
+        else false
+        end
+      end
+
+      def flaky_message(outcome, rerun)
+        decisive = (outcome.failed_ids | rerun.failed_ids).first(3)
+        named = decisive.empty? ? "" : " (decisive tests: #{decisive.join(', ')})"
+        "flaky verdict: first #{outcome.status}, then #{rerun.status} on a reordered confirmation " \
+          "run#{named} - the mutant is unverified, not #{outcome.status}"
       end
 
       # Each mutant is checked separately: changing a body can change which

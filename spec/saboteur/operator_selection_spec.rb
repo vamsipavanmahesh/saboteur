@@ -95,7 +95,7 @@ RSpec.describe "operator selection and source-only preview" do
   it "records every exact policy field and matches registry examples" do
     registry = Saboteur::MutationSource::OperatorRegistry
     expect(registry.policy(%w[range arithmetic], ["range"]))
-      .to eq("version" => 2, "selected" => %w[range arithmetic], "excluded" => ["range"],
+      .to eq("version" => 3, "selected" => %w[range arithmetic], "excluded" => ["range"],
              "effective" => ["arithmetic"])
     expect(Saboteur::MutationSource::OperatorExamples::EXAMPLES.keys.sort).to eq(registry::DESCRIPTIONS.keys.sort)
     out = StringIO.new
@@ -234,7 +234,10 @@ RSpec.describe "operator selection and source-only preview" do
     command = Saboteur::CLI.new(%w[run --help], out: out)
     expect(command.call).to eq(0)
     expect(out.string).to include("Choose operator names (default: all)", "List operator names and descriptions",
-                                  "Preview mutants without boot, tests, forks or report writes")
+                                  "Preview mutants without boot, tests, forks or report writes",
+                                  "--id DIGEST", "Replay exactly one current mutant by its full digest",
+                                  "--since REF", "Only mutate subjects changed since git REF",
+                                  "--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable")
     parsed = Saboteur::CLI.new(%w[run --operators arithmetic,comparison])
     parsed.parser.parse!(%w[--operators arithmetic,comparison])
     expect(parsed.options[:operators]).to eq(%w[arithmetic comparison])

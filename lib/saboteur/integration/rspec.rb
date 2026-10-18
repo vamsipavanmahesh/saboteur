@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "delegate"
+
 module Saboteur
   module Integration
     # Loads spec files once in the parent. In a child, narrows the already
@@ -8,12 +10,21 @@ module Saboteur
     # reporter, so nothing is printed and no status file is written.
     class RSpec < Base
       def setup
-        require "rspec/core"
+        require_framework
         ::RSpec::Core::Runner.disable_autorun!
         @runner = ::RSpec::Core::Runner.new(configuration_options)
-        @runner.setup($stderr, $stdout)
+        load_output = SetupOutputCapture.new($stdout)
+        begin
+          @runner.setup($stderr, load_output)
+        rescue SystemExit => e
+          # A spec file calling exit at load makes RSpec print "While
+          # loading <file> ..." (which names the file) and re-raise.
+          # Uncaught, the parent exits with the spec's status: exit(0)
+          # would end the run silently green (#411).
+          raise Error, "a spec file called exit while loading (status #{e.status})"
+        end
         configuration.order = "rand:#{config.fetch('seed', 1)}"
-        raise Error, "rspec quit while loading spec files" if world.wants_to_quit
+        raise Error, load_failure_message(load_output.failed_files) if quit_while_loading?(world)
 
         refuse_unintended_focus
       end
@@ -24,7 +35,7 @@ module Saboteur
       # option value such as `--require spec_helper` from passing as a path,
       # and a --default-path from .rspec wins over "spec".
       def rspec_args
-        require "rspec/core"
+        require_framework
         args = Array(config.fetch("rspec_args", []))
         options = ::RSpec::Core::ConfigurationOptions.new(args).options
         Array(options[:files_or_directories_to_run]).empty? ? args + [options[:default_path] || "spec"] : args
@@ -52,7 +63,7 @@ module Saboteur
       # not seen. RSpec resolves patterns against the working directory, so
       # this reads from the root.
       def configured_spec_files(root)
-        require "rspec/core"
+        require_framework
         from_directory(root) do
           options = ::RSpec::Core::ConfigurationOptions.new(rspec_args).options
           configuration = ::RSpec::Core::Configuration.new
@@ -65,6 +76,21 @@ module Saboteur
           prefix = Text.utf8_identity(File.join(Dir.pwd, ""))
           configuration.files_to_run.map { |file| Text.utf8_identity(file).delete_prefix(prefix) }
         end
+      end
+
+      # A missing rspec-core is the target's setup error, not a saboteur
+      # defect (#482): refuse with the remedy instead of crashing into the
+      # internal-error report. Only the framework's own LoadError converts -
+      # matched on the failed feature, not the message, so a missing
+      # rspec/core_ext does not pose as rspec/core; a LoadError the app's
+      # files raise keeps the crash route.
+      def require_framework
+        require "rspec/core"
+      rescue LoadError => e
+        raise unless e.path == "rspec/core"
+
+        raise Error, "rspec is not in the bundle: the RSpec integration needs the rspec-core gem. " \
+                     "Add it to the bundle's test group (or point c.integration at the suite's framework)"
       end
 
       def all_tests
@@ -109,7 +135,36 @@ module Saboteur
                       failure_details: listener.failure_details)
       end
 
+      SHOWN_LOAD_FAILURES = 5
+
       private
+
+      # rspec-core 3.11 added rspec_is_quitting (SyntaxError and SystemExit
+      # at load quit through it, not through wants_to_quit). The gemspec
+      # does not pin rspec, so a target app can carry an older rspec-core;
+      # ask before reading the newer flag (#378).
+      def quit_while_loading?(world)
+        world.wants_to_quit || (world.respond_to?(:rspec_is_quitting) && world.rspec_is_quitting)
+      end
+
+      # The quit reason RSpec keeps is only a flag; the failing files it
+      # printed are what a user needs. Name them and the way out: a repo
+      # whose spec tree cannot load whole (an engine's dummy app, an
+      # env-dependent integration spec) must narrow what loads (#378).
+      def load_failure_message(failed_files)
+        message = +"rspec quit while loading spec files"
+        if failed_files.any?
+          shown = failed_files.first(SHOWN_LOAD_FAILURES)
+          rest = failed_files.size - shown.size
+          message << ": #{failed_files.size} failed to load:"
+          shown.each { |file| message << "\n  #{file}" }
+          message << "\n  ... and #{rest} more" if rest.positive?
+        end
+        message << "\nExclude the broken subtrees in config/saboteur.rb, e.g. " \
+                   'c.rspec_args = ["--exclude-pattern", "spec/dummy/**/*_spec.rb"], or name the ' \
+                   "suite with --test. Rails engines with an embedded dummy app (spec/dummy) need " \
+                   'this; see README "Rails engines and dummy apps".'
+      end
 
       def refuse_unintended_focus
         return if config["allow_focus"]
@@ -219,6 +274,42 @@ module Saboteur
 
         def dump_summary(notification)
           @out.puts(notification.totals_line)
+        end
+      end
+
+      # RSpec prints each load failure ("An error occurred while loading
+      # ...") to the output stream during setup and only marks
+      # world.wants_to_quit. Capture the stream while passing everything
+      # through, so the tool error can name the files (#378).
+      class SetupOutputCapture < SimpleDelegator
+        LOAD_FAILURE = [
+          /^An error occurred while loading (\S+?)\.?(?: - Did you mean\?)?$/,
+          # SyntaxError and SystemExit use their own wording (#378).
+          /^While loading (\S+?) an? `(?:raise SyntaxError|exit)`/
+        ].freeze
+
+        def initialize(io)
+          super
+          @captured = +""
+        end
+
+        def write(text)
+          @captured << text
+          super
+        end
+
+        def print(*args)
+          @captured << args.join
+          super
+        end
+
+        def puts(*args)
+          @captured << args.flatten.join("\n") << "\n"
+          super
+        end
+
+        def failed_files
+          LOAD_FAILURE.flat_map { |pattern| @captured.scan(pattern) }.flatten
         end
       end
 

@@ -75,7 +75,12 @@ module Saboteur
     # The node whose children are the method's statements: the block body
     # for `define_method(:m) { ... }` (#194), the def body otherwise.
     def body_node
-      node.is_a?(Prism::CallNode) ? node.block&.body : node.body
+      return node.body unless node.is_a?(Prism::CallNode)
+
+      # define_method carries its body in the block; scope and the lambda
+      # form of define_singleton_method carry it in the lambda argument.
+      lambda = node.arguments&.arguments&.find { |arg| arg.is_a?(Prism::LambdaNode) }
+      (lambda || node.block)&.body
     end
 
     def source
@@ -183,10 +188,15 @@ module Saboteur
       child.compact_child_nodes.any? { |grandchild| rescuing?(grandchild) }
     end
 
-    def innermost_statement(node, start_byte, end_byte, found = nil)
+    # An interpolation's own statements (#{"..."}) are eager: they run on
+    # the enclosing statement's lines, so they never demote it (#498). A
+    # continuation line of a multi-line interpolated statement can lack a
+    # per-example line hit, so attribution must span from the statement's
+    # first line.
+    def innermost_statement(node, start_byte, end_byte, found = nil, embedded: false)
       return found if node.nil?
 
-      if node.is_a?(Prism::StatementsNode)
+      if node.is_a?(Prism::StatementsNode) && !embedded
         statement = node.body.find do |child|
           child.location.start_offset <= start_byte && end_byte <= child.location.end_offset
         end
@@ -198,7 +208,8 @@ module Saboteur
       node.compact_child_nodes.each do |child|
         next unless child.location.start_offset <= start_byte && end_byte <= child.location.end_offset
 
-        return innermost_statement(child, start_byte, end_byte, found)
+        return innermost_statement(child, start_byte, end_byte, found,
+                                   embedded: embedded || node.is_a?(Prism::EmbeddedStatementsNode))
       end
       found
     end

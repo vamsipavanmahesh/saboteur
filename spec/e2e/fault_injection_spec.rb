@@ -35,6 +35,20 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
     false
   end
 
+  # #411: a spec that calls exit at load makes rspec-core set the quit flag
+  # and re-raise SystemExit. The run must refuse - exit 3 with the refusal
+  # on stderr and rspec's wording naming the file on stdout - never adopt
+  # the spec's own status: exit(0) would pass CI without mutating anything.
+  it "refuses the run when a spec file calls exit at load" do
+    File.write(File.join(dir, "spec", "exit_spec.rb"), "exit(0)\n")
+
+    run = saboteur(dir, "--all")
+
+    expect(run.status).to eq(3)
+    expect(run.err).to include("called exit while loading")
+    expect(run.out).to include("exit_spec.rb")
+  end
+
   it "exits 3 and names the cache dir when it is read-only" do
     cache = File.join(dir, ".saboteur")
     FileUtils.mkdir_p(cache)
@@ -221,6 +235,29 @@ RSpec.describe "fault injection: hostile cache and log state", :e2e do
   # dir, so they survive the removal and every later phase passes straight
   # through. The deadline turns a stuck probe into a failed example instead
   # of a hung suite.
+  # #378: an engine-style repo keeps an embedded dummy app under spec/dummy
+  # whose specs load a Rails env the parent process does not have. Loading
+  # the whole spec tree then dies at setup. The tool error must name the
+  # files that failed to load and the way out, or a new user is stuck.
+  it "names the failed files and the way out when spec files crash at load" do
+    dummy = File.join(dir, "spec", "dummy", "spec")
+    FileUtils.mkdir_p(dummy)
+    File.write(File.join(dummy, "broken_spec.rb"), <<~RUBY)
+      require "rails_helper"
+
+      RSpec.describe "dummy app" do
+        it("works") { expect(1).to eq(1) }
+      end
+    RUBY
+
+    run = saboteur(dir, "--all")
+
+    expect(run.status).to eq(3)
+    expect(run.err).to include("spec/dummy/spec/broken_spec.rb")
+    expect(run.err).to include("--exclude-pattern", "rspec_args")
+    expect(run.err).not_to include("killing test")
+  end
+
   def write_sync_spec(dir, marker, release)
     File.write(File.join(dir, "spec", "sync_spec.rb"), <<~RUBY)
       RSpec.describe "cache probe sync" do
