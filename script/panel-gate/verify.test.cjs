@@ -80,8 +80,17 @@ test('author-matching whole-line DCO, no substring/coercion', () => {
   const commit = {sha: HEAD, parents: [{}], commit: {author: {name: 'Name', email: 'name@example.org'},
     message: 'subject\n\nSigned-off-by: Name <name@example.org>'}};
   dco([commit]);
-  for (const message of ['prefix Signed-off-by: Name <name@example.org>', 'Signed-off-by: Other <name@example.org>', 'Signed-off-by: Name <name@example.org> suffix']) {
-    assert.throws(() => dco([{...commit, commit: {...commit.commit, message}}]));
+  for (const message of ['prefix Signed-off-by: Name <name@example.org>', 'Signed-off-by: Other <name@example.org>', 'Signed-off-by: Name <name@example.org> suffix',
+      'subject  Signed-off-by: Name <name@example.org>',
+      'subject\n\nbody mentions Signed-off-by: Name <name@example.org> mid-sentence\n\nReviewed-by: R <r@example.org>',
+      'subject\n\nSigned-off-by: Name <name@example.org>\n\ntrailing paragraph']) {
+    assert.throws(() => dco([{...commit, commit: {...commit.commit, message}}]), message);
+  }
+  dco([{...commit, commit: {...commit.commit,
+    message: 'subject\n\nSigned-off-by: Name <name@example.org>\nReviewed-by: R <r@example.org>'}}]);
+  for (const message of ['Signed-off-by: Name <name@example.org>',
+      'subject\nSigned-off-by: Name <name@example.org>']) {
+    assert.throws(() => dco([{...commit, commit: {...commit.commit, message}}]), message);
   }
   assert.throws(() => dco([]));
 });
@@ -105,7 +114,7 @@ function fakeAPI(change = {}) {
       if (path.startsWith('commits/') || path === 'issues/1/events' || path === 'issues/2/events') return [];
       if (path === 'issues/1/comments') return change.noQA ? comments().slice(0, 2) : comments();
       if (path === 'pulls/1/commits' || path === 'pulls/2/commits') return [{sha: HEAD, parents: [{}], commit: {
-        author: {name: 'Name', email: 'name@example.org'}, message: 'Signed-off-by: Name <name@example.org>'}}];
+        author: {name: 'Name', email: 'name@example.org'}, message: 'subject\n\nSigned-off-by: Name <name@example.org>'}}];
       if (path.startsWith('actions/runs?')) return change.wrongRun ? runs.map(r => ({...r, head_sha: BASE})) : runs;
       const id = Number(path.split('/')[2]);
       const list = policy.workflows[runs[id - 1].path].map(name => ({name, head_sha: HEAD, status: 'completed', conclusion: change.skipped ? 'skipped' : 'success'}));
