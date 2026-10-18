@@ -78,6 +78,25 @@ RSpec.describe Saboteur::Doctor do
       expect(out.string).to include(sandbox_note, network_note)
     end
 
+    it "reports the Seatbelt probe on macOS when the opt-in is configured (#436)" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      stub_const("RUBY_PLATFORM", "arm64-darwin23")
+      allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:ok)
+      configured = Saboteur::Config.new({ "sandbox" => "seatbelt" })
+      described_class.new(configured, out: out).call
+      expect(out.string).to include(
+        "Seatbelt (opt-in, #436): probe ok - capability probe only, not verified isolation"
+      )
+    end
+
+    it "keeps the Seatbelt probe note off Linux even with the opt-in configured" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      stub_const("RUBY_PLATFORM", "x86_64-linux")
+      configured = Saboteur::Config.new({ "sandbox" => "seatbelt" })
+      described_class.new(configured, out: out).call
+      expect(out.string).not_to include("Seatbelt (opt-in, #436)")
+    end
+
     it "keeps the macOS note off other platforms" do
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
       stub_const("RUBY_PLATFORM", "x86_64-linux")
