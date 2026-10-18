@@ -393,7 +393,10 @@ module Saboteur
       opts.on("--format FORMAT", %w[text agent json], "text, agent or json (--dry-run inventory)") { |v| @format = v }
       opts.on("--agent", "Same as --format agent") { @format = "agent" }
       opts.on("--verbose", "Text report: also print score split, timings and kill causes;",
-              "a crash prints its backtrace") { @verbose = true }
+              "a crash prints its backtrace") do
+        @verbose = true
+        set(:verbose, true)
+      end
       opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
         @color = v ? :always : :never
       end

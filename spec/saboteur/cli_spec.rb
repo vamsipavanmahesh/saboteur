@@ -151,6 +151,15 @@ RSpec.describe Saboteur::CLI do
     expect(command.options).to eq(baseline_passes: 1)
   end
 
+  # The reporter reads the CLI ivar, but the boot-time rspec load-error
+  # filter reads the config: --verbose must land in the overrides (#608).
+  it "lands --verbose in the config overrides (#608)" do
+    command = cli("run", "--verbose")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.config["verbose"]).to be(true)
+  end
+
   it "parses --max-duration with a unit suffix into seconds, plus --max-duration-ok (#245)" do
     command = cli("run", "--max-duration", "10m", "--max-duration-ok")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
