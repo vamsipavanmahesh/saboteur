@@ -573,5 +573,63 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
         end
       end
     end
+
+    # A relocated/toolcache Ruby needs its own rubylibdir in RUBYLIB to
+    # find stdlib; bundler's unbundled scrub drops the entry when it
+    # coincides with what bundler itself adds, and the child dies at
+    # "cannot load such file -- rubygems" (#584).
+    describe "RUBYLIB stdlib entries (#584)" do
+      let(:rubylibdir) { RbConfig::CONFIG["rubylibdir"] }
+      let(:exported) { [rubylibdir, "/app/lib"].join(File::PATH_SEPARATOR) }
+
+      def with_rubylib_scrub(original_rubylib:, scrubbed_rubylib:)
+        saved = ENV.fetch("RUBYLIB", nil)
+        ENV["RUBYLIB"] = exported
+        original_env = Bundler::ORIGINAL_ENV.dup
+        original_rubylib ? original_env["RUBYLIB"] = original_rubylib : original_env.delete("RUBYLIB")
+        stub_const("Bundler::ORIGINAL_ENV", original_env)
+        allow(Bundler).to receive(:with_unbundled_env) do |&block|
+          inner = ENV.fetch("RUBYLIB", nil)
+          scrubbed_rubylib.nil? ? ENV.delete("RUBYLIB") : ENV["RUBYLIB"] = scrubbed_rubylib
+          block.call
+        ensure
+          inner.nil? ? ENV.delete("RUBYLIB") : ENV["RUBYLIB"] = inner
+        end
+        yield
+      ensure
+        saved.nil? ? ENV.delete("RUBYLIB") : ENV["RUBYLIB"] = saved
+      end
+
+      it "restores a shell-exported rubylibdir entry bundler's scrub dropped" do
+        with_rubylib_scrub(original_rubylib: exported, scrubbed_rubylib: "/app/lib") do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)["RUBYLIB"].split(File::PATH_SEPARATOR)).to include(rubylibdir)
+        end
+      end
+
+      it "does not re-add a RUBYLIB entry that was never in the pre-bundler environment" do
+        with_rubylib_scrub(original_rubylib: nil, scrubbed_rubylib: "/bundler/lib") do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)["RUBYLIB"].to_s.split(File::PATH_SEPARATOR)).to eq(["/bundler/lib"])
+        end
+      end
+
+      # RUBYLIB is ordered: two directories providing the same feature load
+      # in path order, so the restored entries keep their pre-bundler
+      # order - /first before /second, not appended behind the survivors.
+      it "keeps the pre-bundler order of restored entries (duplicate-feature precedence)" do
+        with_rubylib_scrub(original_rubylib: "/first:/second", scrubbed_rubylib: "/second") do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)["RUBYLIB"]).to eq("/first:/second")
+        end
+      end
+
+      it "does not resurrect an entry bundler itself added and the scrub removed" do
+        with_rubylib_scrub(original_rubylib: "/app/lib", scrubbed_rubylib: "/app/lib") do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)["RUBYLIB"]).to eq("/app/lib")
+        end
+      end
+    end
   end
 end

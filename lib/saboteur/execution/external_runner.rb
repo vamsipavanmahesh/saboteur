@@ -335,12 +335,30 @@ module Saboteur
         if defined?(Bundler)
           original = Bundler.original_env
           BUNDLER_PASSTHROUGH_KEYS.each { |key| env[key] = original[key] if original.key?(key) }
+          restore_dropped_rubylib_entries(env, original)
         end
         if (rubyopt = env["RUBYOPT"])
           rubyopt = rubyopt.gsub(%r{\s*-rbundler/setup}, "").strip
           rubyopt.empty? ? env.delete("RUBYOPT") : env["RUBYOPT"] = rubyopt
         end
         env.merge(CHILD_MARKER => "1")
+      end
+
+      # bundler <=2.5 scrubs even shell-exported entries (verified
+      # 2.5.22); bundler >=2.6.0 restores the pre-bundler value wholesale
+      # (verified 2.6.0/2.6.9), where this restore is a no-op. A
+      # relocated/toolcache Ruby needs that entry to find its stdlib
+      # (#584). Rebuild the list from the pre-bundler one - RUBYLIB is
+      # ordered, and two directories providing the same feature load in
+      # path order - then append entries only the scrubbed list has;
+      # bundler's own additions (absent from the pre-bundler value) stay
+      # dropped, and duplicates collapse to first occurrence.
+      def restore_dropped_rubylib_entries(env, original)
+        before = original["RUBYLIB"].to_s.split(File::PATH_SEPARATOR)
+        return if before.empty?
+
+        after = env["RUBYLIB"].to_s.split(File::PATH_SEPARATOR)
+        env["RUBYLIB"] = (before | after).join(File::PATH_SEPARATOR)
       end
 
       # Only a failing exit proves the command saw the broken file; a
