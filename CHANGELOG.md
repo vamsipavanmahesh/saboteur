@@ -86,6 +86,10 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- Preflight no longer refuses a precompiled Ruby (mise, ruby-build) whose
+  binary tops the 50 MB evidence-document cap (#364): tool identity
+  digests stream with an executable-sized bound instead. The cap for JSON
+  evidence documents is unchanged.
 - A missing `rspec-core` no longer crashes saboteur into the internal-error
   report with a bare `LoadError`: the RSpec integration refuses with
   "rspec is not in the bundle" and names the remedy, adding the gem to the

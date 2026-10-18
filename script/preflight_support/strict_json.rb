@@ -55,13 +55,13 @@ module Preflight
     end
 
     # SHA-256 of a regular file through the same primitive, read in bounded chunks up to the cap.
-    def digest(path)
+    def digest(path, max_bytes: MAX_BYTES)
       open_regular(path) do |file|
         sha = Digest::SHA256.new
         total = 0
         while (chunk = file.read(1_048_576))
           total += chunk.bytesize
-          raise MalformedDocument, "#{path} is over #{MAX_BYTES} bytes" if total > MAX_BYTES
+          raise MalformedDocument, "#{path} is over #{max_bytes} bytes" if total > max_bytes
 
           sha << chunk
         end
