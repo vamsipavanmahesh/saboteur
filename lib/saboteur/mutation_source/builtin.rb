@@ -17,6 +17,7 @@ require_relative "condition_negation"
 require_relative "method_swap"
 require_relative "operand_replacement"
 require_relative "interpolation_removal"
+require_relative "regex_replacement"
 
 module Saboteur
   module MutationSource
@@ -74,6 +75,7 @@ module Saboteur
         @method_swap = MethodSwap.new(arid: arid)
         @operand_replacement = OperandReplacement.new(arid: arid)
         @interpolation_removal = InterpolationRemoval.new(arid: arid)
+        @regex_replacement = RegexReplacement.new(arid: arid)
       end
 
       def name
@@ -98,7 +100,7 @@ module Saboteur
         [@filter_replacement, @literal_replacement, @argument_removal, @pair_removal, @element_removal,
          @chain_removal,
          @endpoint_replacement, @range_replacement, @operator_assignment, @condition_negation,
-         @method_swap, @operand_replacement, @interpolation_removal]
+         @method_swap, @operand_replacement, @interpolation_removal, @regex_replacement]
       end
 
       private
@@ -120,7 +122,7 @@ module Saboteur
 
       # Nothing but logging: replacing it changes nothing a test can see.
       def nothing_to_remove?(statements)
-        statements.body.all? { |statement| arid?(statement) }
+        statements.body.all? { |statement| arid_statement?(statement) }
       end
 
       # A raise that the method's own rescue catches is absorbed by design. It
@@ -159,7 +161,7 @@ module Saboteur
       def visit_statements(node)
         statements = node.body
         statements.each do |statement|
-          next if arid?(statement)
+          next if arid_statement?(statement)
 
           removable_here = statements.drop(1).any? && removable?(statement)
           add("statement_removal", statement, "nil") if removable_here
@@ -257,6 +259,22 @@ module Saboteur
       def arid?(node)
         source = node.slice
         @arid.any? { |pattern| pattern.match?(source) }
+      end
+
+      # An arid call is noise only in itself. A block on that call is real
+      # work (a notifier wrapping a computation), so the statement still
+      # mutates and keeps its body out of nothing_to_remove?; the walk
+      # descends into the block through the normal visit below.
+      def arid_statement?(statement)
+        return false unless arid?(statement)
+
+        block = statement.is_a?(Prism::CallNode) ? statement.block : nil
+        body = block.is_a?(Prism::BlockNode) ? block.body : nil
+        # A do-block with rescue/ensure parses its body as a BeginNode, not
+        # a StatementsNode (#464): its clauses are real work, not noise.
+        return false if body && !body.is_a?(Prism::StatementsNode)
+
+        body.nil? || body.body.all? { |inner| arid_statement?(inner) }
       end
 
       # node_or_location: a Prism node or location (both have offsets and slice).

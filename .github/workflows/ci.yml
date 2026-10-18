@@ -3,12 +3,22 @@ name: CI
 on:
   push:
     branches: [main]
-  # PR CI is manual: nothing runs on pull_request events. A maintainer runs
-  # the matrix against the exact PR head with
-  #   gh workflow run ci.yml --ref <head-sha> -f pr_number=<n> -f head_repo=<owner/repo>
-  # (head_repo comes from the PR's head.repository.full_name; it only skips
-  # the macOS legs early - the legs themselves prove the head repo and SHA
-  # from the API before running anything, so a wrong input fails closed).
+  # PR CI is manual: the matrix does not run on pull_request events (the DCO
+  # workflow in dco.yml still does). A maintainer runs it against the exact
+  # PR head with
+  #   gh workflow run ci.yml --ref <head-branch> -f pr_number=<n> -f base_sha=<base-sha>
+  # --ref must be a branch or tag name (the dispatch API rejects a raw SHA),
+  # so exact-head binding comes from the API proof inside the run, not from
+  # the ref: the macOS and dogfood jobs prove from the pull request that its
+  # head is the checked-out SHA and its base is the base_sha input, and fail
+  # closed otherwise. For a fork pull request the maintainer first pushes the
+  # reviewed head into this repository, then dispatches on that branch:
+  #   git push origin <reviewed-head-sha>:refs/heads/ci-pr-<n>
+  #   gh workflow run ci.yml --ref ci-pr-<n> -f pr_number=<n> -f base_sha=<base-sha>
+  # The proof still binds headRefOid to the fork's commit, so the branch can
+  # only ever name the reviewed change. head_repo (the PR's
+  # head.repository.full_name) only skips the macOS legs early - the legs
+  # prove the head repo from the API themselves.
   workflow_dispatch:
     inputs:
       pr_number:
@@ -100,14 +110,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ inputs.pr_number }}
+          BASE_SHA: ${{ inputs.base_sha }}
+        # Inline on purpose: this proof must pass before any checkout, and the
+        # repo it would come from is what is being proven. It is the
+        # REQUIRE_OWN_REPO=1 mode of script/ci-prove-pr-binding - keep in sync.
         run: |
           set -euo pipefail
           case "$PR_NUMBER" in *[!0-9]*|'') echo "pr_number must be digits"; exit 1;; esac
           owner="${GITHUB_REPOSITORY%/*}"; name="${GITHUB_REPOSITORY#*/}"
-          payload=$(printf '{"query":"{repository(owner:\"%s\",name:\"%s\"){pullRequest(number:%s){headRepository{nameWithOwner} headRefOid}}}"}' "$owner" "$name" "$PR_NUMBER")
+          payload=$(printf '{"query":"{repository(owner:\"%s\",name:\"%s\"){pullRequest(number:%s){headRepository{nameWithOwner} headRefOid baseRefOid}}}"}' "$owner" "$name" "$PR_NUMBER")
           resp=$(curl -sfS -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" -d "$payload" https://api.github.com/graphql)
           echo "$resp" | grep -Fq "\"nameWithOwner\":\"$GITHUB_REPOSITORY\"" || { echo "PR #$PR_NUMBER is a fork or unknown head repo: no macOS legs"; exit 1; }
           echo "$resp" | grep -Fq "\"headRefOid\":\"$GITHUB_SHA\"" || { echo "dispatched SHA $GITHUB_SHA is not the current head of PR #$PR_NUMBER"; exit 1; }
+          echo "$resp" | grep -Fq "\"baseRefOid\":\"$BASE_SHA\"" || { echo "base_sha $BASE_SHA is not the base of PR #$PR_NUMBER"; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
@@ -195,6 +210,10 @@ jobs:
     # trial budget.
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
     timeout-minutes: 10
+    permissions:
+      contents: read
+      # The binding proof reads the pull request's head, base and head repo.
+      pull-requests: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -203,6 +222,18 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
+      # Bind the dispatch to the pull request it names before mutating: the
+      # checked-out SHA must be the pull request's current head and the
+      # base_sha input its current base, proven from the API - the inputs are
+      # never trusted. Fork pull requests are covered too (hosted runners
+      # only), so unlike the macOS legs this does not demand an own-repo head.
+      - name: Fail closed unless the dispatch is the pull request's head and base
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          REQUIRE_OWN_REPO: "0"
+        run: script/ci-prove-pr-binding
       - name: Mutate methods changed in this pull request
         uses: ./
         with:

@@ -86,10 +86,28 @@ module Saboteur
         @discovery_failures = []
         @hazard_suppressions = 0
         @inline_suppressions = []
+        @erb_template_skips = []
+        @erb_template_note_emitted = false
       end
 
       def warn(message)
         @warnings << message
+      end
+
+      # ERB generator templates (Rails generators carry `.rb` files with ERB
+      # interpolation, conventionally under `lib/generators/**/templates/`)
+      # can never parse as plain Ruby, so they can never hold mutation
+      # subjects (#372). One summarized note per run replaces the per-file
+      # parse warning every discovery pass used to print; a real syntax
+      # error in a plain Ruby file still warns per file.
+      def record_erb_template_skip(file, root:)
+        relative = file.to_s.delete_prefix("#{root}/")
+        @erb_template_skips << relative.freeze unless @erb_template_skips.include?(relative)
+        return if @erb_template_note_emitted
+
+        @erb_template_note_emitted = true
+        warn("skipping ERB template files that cannot parse as Ruby " \
+             "(for example #{relative}); templates are not mutation subjects")
       end
 
       def count_invalid_mutation

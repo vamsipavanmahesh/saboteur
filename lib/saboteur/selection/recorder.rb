@@ -25,7 +25,7 @@ module Saboteur
 
       def start
         Coverage.resume if Coverage.state == :suspended
-        Coverage.result(stop: false, clear: true)
+        CoverageReads.result(stop: false, clear: true)
       end
 
       def test_started(id, test_file)
@@ -44,14 +44,15 @@ module Saboteur
         end
       end
 
-      def result(build_seconds: nil)
+      def result(build_seconds: nil, loaded_files: [])
         assign_outside(@outside, @lines)
         assign_outside(@outside_methods, @methods)
         assign_outside(@outside_branches, @branches)
         lines = @lines.transform_values { |by_line| by_line.transform_values(&:uniq) }
         methods = @methods.transform_values { |by_line| by_line.transform_values(&:uniq) }
+        branches = @branches.transform_values { |arms| arms.transform_values(&:uniq) }
         CoverageMap.new(lines: lines, tests: @tests, build_seconds: build_seconds, durations: @durations,
-                        methods: methods, branches: @branches.transform_values { |arms| arms.transform_values(&:uniq) })
+                        methods: methods, branches: branches, loaded_files: loaded_files)
       end
 
       private
@@ -106,7 +107,7 @@ module Saboteur
       # Coverage is suspended while the delta is processed, so the recorder's
       # own work (and anything it calls) is never attributed to a test.
       def each_hit
-        snapshot = Coverage.result(stop: false, clear: true)
+        snapshot = CoverageReads.result(stop: false, clear: true)
         suspended = Coverage.running?
         Coverage.suspend if suspended
         snapshot.each do |path, data|
