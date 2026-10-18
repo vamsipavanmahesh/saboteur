@@ -43,6 +43,19 @@ RSpec.describe Saboteur::Engine::LoadCoverage, "files loaded before Coverage.sta
     end
   end
 
+  it "lists a file once when the include list spells the same path twice (run dir and symlink)" do
+    Dir.mktmpdir do |dir|
+      Dir.mkdir(File.join(dir, "real"))
+      File.write(File.join(dir, "real", "a.rb"), "1\n")
+      target = File.realpath(File.join(dir, "real", "a.rb"))
+      File.symlink(File.join(dir, "real"), File.join(dir, "link"))
+      spelled = File.join(dir, "link", "a.rb")
+      allow(Saboteur::CoverageReads).to receive(:result).and_return({})
+
+      expect(described_class.preloaded_uninstrumented([target, spelled], loaded: [target])).to eq([target])
+    end
+  end
+
   it "is empty when coverage never started" do
     allow(Coverage).to receive(:state).and_return(:idle)
 

@@ -3,6 +3,12 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "cacc7042b5677fe6",
+             subject: "Saboteur::Engine::CoverageStore#preloaded_message",
+             reason: "equivalent: the only caller guards on preloaded_empty.any?, so files.size is always >= 1, " \
+                     "and for n >= 1 the predicates n > 1 and n != 1 agree everywhere (n = 1: false/false, " \
+                     "n >= 2: true/true) - hand-applied mutant leaves every coverage_store pin green"
+
   i.mutation "02f7817b2ef41452",
              subject: "Saboteur::AttributeFinder#walk",
              reason: "equivalent: the each result is discarded (visit recurses for effect); each and map run the same record/walk calls"
