@@ -18,6 +18,10 @@ module Saboteur
 
       def ran_at_load?(_file, _lines) = false
 
+      # No coverage map exists in external mode, so what ran at boot is
+      # unknowable: never claim the boot-once signature (#575).
+      def boot_once?(_subject) = false
+
       # No boot happens in this mode, so nothing can have run only at load.
       def called_only_at_load?(_file, _line) = false
 

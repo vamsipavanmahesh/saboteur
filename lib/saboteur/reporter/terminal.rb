@@ -297,8 +297,13 @@ module Saboteur
         parts.join("; ")
       end
 
+      # Live-announced warnings already printed when they were announced
+      # (#605): they stay in report.warnings for JSON/HTML/agent consumers
+      # but are not printed a second time here.
       def warnings(report)
-        report.warnings.each { |warning| @out.puts "warning: #{warning}" }
+        report.warnings.each do |warning|
+          @out.puts "warning: #{warning}" unless report.live_announced.include?(warning)
+        end
       end
 
       def errors(report)

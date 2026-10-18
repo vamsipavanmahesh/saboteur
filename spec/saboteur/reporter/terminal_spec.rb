@@ -363,6 +363,13 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "ignored: equivalent: ages are integers")
   end
 
+  it "does not reprint live-announced warnings, but keeps the rest (#605)" do
+    text = render(report_of(result_for(:killed), warnings: ["stale entry", "inferred specs: running only x"],
+                                                 live_announced: ["inferred specs: running only x"]))
+    expect(text).to include("warning: stale entry")
+    expect(text).not_to include("inferred specs: running only")
+  end
+
   it "splits kills into assertion kills and crash kills, by operator" do
     text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion"),
                                     result_for(:killed, replacement: "<", kill_cause: "NoMethodError"),

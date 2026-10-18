@@ -11,6 +11,50 @@ RSpec.describe Saboteur::Selection::CoverageMap do
                         tests: %w[t1 t2 t3 load])
   end
 
+  it "flags a subject every test covers whose lines also ran at load (#575)" do
+    boot_map = described_class.new(lines: { file => { 3 => %w[t1 t2], 4 => %w[t1 t2] } },
+                                   tests: %w[t1 t2], load_lines: { file => [2, 3, 4] })
+    expect(boot_map.boot_once?(subject_under_test)).to be(true)
+    expect(boot_map.boot_credited?(file, [3])).to be(true)
+  end
+
+  it "does not flag partial coverage or a subject that never ran at load (#575)" do
+    partial = described_class.new(lines: { file => { 3 => %w[t1] } }, tests: %w[t1 t2],
+                                  load_lines: { file => [3] })
+    expect(partial.boot_once?(subject_under_test)).to be(false)
+    full_no_boot = described_class.new(lines: { file => { 3 => %w[t1 t2], 4 => %w[t1 t2] } },
+                                       tests: %w[t1 t2], load_lines: { file => [2] })
+    expect(full_no_boot.boot_once?(subject_under_test)).to be(false)
+    expect(full_no_boot.boot_credited?(file, [3])).to be(false)
+    expect(described_class.new(lines: {}, tests: []).boot_once?(subject_under_test)).to be(false)
+  end
+
+  it "never flags a constant subject, however boot-shaped its coverage is (#575)" do
+    Dir.mktmpdir do |dir|
+      constant_file = File.join(dir, "constants.rb")
+      File.write(constant_file, "MAP = { a: 1 }.freeze\n")
+      constant = Saboteur::ConstantSubjectFinder.new.call(constant_file).subjects.first
+      # Every test reads the constant and its assignment ran at load: the
+      # most boot-shaped coverage a constant can have.
+      constant.consumer_lines = { constant.file => [1] }
+      cfile = described_class.canonical(constant.file)
+      boot_map = described_class.new(lines: { cfile => { 1 => %w[t1 t2] } },
+                                     tests: %w[t1 t2], load_lines: { cfile => [1] })
+      expect(boot_map.boot_once?(constant)).to be(false)
+    end
+  end
+
+  it "does not flag anything on an empty map, even with load-line evidence (#575)" do
+    empty = described_class.new(lines: {}, tests: [], load_lines: { file => [3] })
+    expect(empty.boot_once?(subject_under_test)).to be(false)
+  end
+
+  it "flags a subject when only one of its body lines ran at load (#575)" do
+    one_line = described_class.new(lines: { file => { 3 => %w[t1 t2], 4 => %w[t1 t2] } },
+                                   tests: %w[t1 t2], load_lines: { file => [3] })
+    expect(one_line.boot_once?(subject_under_test)).to be(true)
+  end
+
   it "returns the tests that executed any body line, in suite order, without duplicates" do
     expect(map.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
   end

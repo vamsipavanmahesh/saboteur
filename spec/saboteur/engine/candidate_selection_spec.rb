@@ -10,7 +10,33 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
   let(:map) { instance_double(Saboteur::Selection::CoverageMap) }
   let(:selection) { described_class.new(candidates: candidates, map: map, limit: 2, diagnostics: diagnostics) }
 
-  before { allow(map).to receive(:preloaded?).and_return(false) }
+  before do
+    allow(map).to receive(:preloaded?).and_return(false)
+    allow(map).to receive(:boot_once?).and_return(false)
+  end
+
+  it "warns when a subject shows the boot-once signature (#575)" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return(%w[t1 t2])
+    allow(map).to receive(:boot_once?).with(subject_under_test).and_return(true)
+    allow(candidates).to receive(:for).with(subject_under_test).and_return([])
+
+    selection.for(subject_under_test)
+
+    expect(diagnostics.warnings).to include(
+      "#{subject_under_test.id}: covered by every test and run at boot - mutants apply after boot, " \
+      "so a survivor can be a boot-once effect the suite cannot re-observe (#575); " \
+      "verify it by mutating the file on disk"
+    )
+  end
+
+  it "stays silent without the boot-once signature (#575)" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return(%w[t1])
+    allow(candidates).to receive(:for).with(subject_under_test).and_return([])
+
+    selection.for(subject_under_test)
+
+    expect(diagnostics.warnings).to be_empty
+  end
 
   it "records uncovered subjects without generating any mutants" do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])

@@ -152,6 +152,7 @@ module Saboteur
     def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
                  invalid_mutations: @diagnostics.invalid_mutations, warnings: @diagnostics.warnings,
+                 live_announced: @diagnostics.live_announced,
                  review: !scope.nil?, seed: config["seed"], skipped_subjects: @skipped_subjects,
                  diff_scope: scope, generation_events: @diagnostics.generation_events,
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),

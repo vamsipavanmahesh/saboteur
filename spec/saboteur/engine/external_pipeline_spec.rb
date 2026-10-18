@@ -47,6 +47,18 @@ RSpec.describe "Engine external test-command pipeline" do
 
   # Kills must be real: the command fails on the mutant but passes the
   # neutral check - never a kill checked against itself (#305 DevRel).
+  # External mode has no coverage map, so the boot-once signature (#575)
+  # is unknowable: candidate selection must not ask for it (Pod 1 review:
+  # boot_once? on the real map crashed this pipeline with NoMethodError).
+  it "selects candidates without a coverage map and never guesses at boot-once (#575)" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "true" }, root: root)
+      report = Saboteur::Engine.new(config).call
+      expect(report.results).not_to be_empty
+      expect(report.warnings.join).not_to include("boot")
+    end
+  end
+
   it "kills the mutant the command detects and passes the neutral check" do
     with_fixture do |root|
       config = Saboteur::Config.new({ "test_command" => "grep -q 'a + 1' lib/k.rb" }, root: root)
