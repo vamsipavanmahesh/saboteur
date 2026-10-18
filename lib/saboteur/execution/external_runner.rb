@@ -255,7 +255,7 @@ module Saboteur
       # refuse rather than risk loading the original tree (#644).
       def rebase_path_sources
         @path_sources[:rebase].each do |src, expanded|
-          copy_path = File.join(@copy_root, expanded.delete_prefix("#{@root}/"))
+          copy_path = expanded == @root ? @copy_root : File.join(@copy_root, expanded.delete_prefix("#{@root}/"))
           rewrite_gemfile_source(src, copy_path)
           rewrite_lockfile_source(src, copy_path)
         end
