@@ -334,6 +334,14 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
                                                                 /--subject Sho matches no subject/)
   end
 
+  # A bare class pattern is a prefix for its methods under every
+  # separator - including the dot form (#556 dogfood).
+  it "prefix-matches dot-form methods from the bare class pattern" do
+    file = write("cart.rb", source)
+    expect(select([file], subjects: ["Shop::Cart"]).map(&:id))
+      .to contain_exactly("Shop::Cart#total", "Shop::Cart.empty")
+  end
+
   # A typo must not pass silently: when EVERY pattern misses, the run is
   # usage-class (exit 2 at the CLI) instead of a green zero-subject
   # summary (#379).
@@ -1319,6 +1327,16 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     subject = select([file, consumer], since: "HEAD").first
     expect(subject.consumer_lines.keys).to eq([file])
+  end
+
+  # The constant pass (--since) only runs when the method pass missed:
+  # `if constant_finder` alone would recompute matching from constants
+  # alone and drop a file whose method matched (#556 dogfood).
+  it "files_matching keeps a method-matched file whose constants do not match" do
+    file = File.join(@root, "cart.rb")
+    File.write(file, "module Shop\n  class Cart\n    def total = 1\n  end\nend\n")
+    expect(described_class.files_matching(@root, [file], ["Shop::Cart#total"], { "since" => "HEAD" }))
+      .to eq(["cart.rb"])
   end
 
   it "files_matching finds a file holding only the named constant" do
