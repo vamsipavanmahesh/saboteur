@@ -55,7 +55,7 @@ module Saboteur
           next if node.is_a?(Prism::DefNode)
 
           if hazardous?(node)
-            slices << node.slice
+            slices << cite(node)
             next
           end
           stack.concat(node.compact_child_nodes)
@@ -68,6 +68,7 @@ module Saboteur
       # require_relative(begin ... end) runs arbitrary code on every
       # replay, so it is unvetted below like any other helper call.
       SAFE_LOAD_REQUIRES = %w[require require_relative].freeze
+      VISIBILITY_NAMES = %w[public private protected].freeze
 
       # Assignments whose value a replay re-runs: vetted when the value is
       # a plain literal construction.
@@ -81,11 +82,16 @@ module Saboteur
       # at load runs again on every mutant, outside the method hazard guard.
       # The vetted forms are narrow: require/require_relative, pure defs
       # (a body runs when called, not at load), class/module nesting with a
-      # constant superclass, and constant or local writes of plain literal
-      # values (a `.freeze` on the literal is looked through). Everything
-      # else - helper calls, registrations, writes to disk, class factories,
-      # top-level blocks - is named here, NOT proven unsafe: the check only
-      # says saboteur cannot account for what re-running it does (#319).
+      # constant superclass, a `class << self` block of the same vetted
+      # forms, bare visibility calls (public/private/protected with no
+      # argument, literal symbols, or a def - they only re-flag methods),
+      # and constant or local writes of plain literal values (a `.freeze`
+      # on the literal is looked through). Everything else - helper calls,
+      # registrations, writes to disk, class factories, top-level blocks -
+      # is named here, NOT proven unsafe: the check only says saboteur
+      # cannot account for what re-running it does (#319). Each entry is a
+      # one-line citation: the statement's first line cut to 60 characters,
+      # with its line number (#664).
       def unvetted_load_code(root)
         bad = []
         vet_statements(root.statements.body, bad)
@@ -112,19 +118,51 @@ module Saboteur
           nil
         when Prism::ClassNode, Prism::ModuleNode
           vet_scope(node, bad)
+        when Prism::SingletonClassNode
+          if vetted_singleton_target?(node.expression)
+            vet_scope(node, bad)
+          else
+            bad << cite(node)
+          end
         when *WRITE_NODES
-          bad << node.slice unless vetted_value?(node.value)
+          bad << cite(node) unless vetted_value?(node.value)
         when Prism::CallNode
-          bad << node.slice unless vetted_call?(node)
+          bad << cite(node) unless vetted_call?(node) || visibility_call?(node)
         else
-          bad << node.slice
+          bad << cite(node)
         end
+      end
+
+      # "first line of the statement (line N)": a whole class body or a
+      # long call must not flood the warning (#664).
+      def cite(node)
+        first = node.slice.lines.first.to_s.strip
+        first = "#{first[0, 57]}..." if first.length > 60
+        "#{first} (line #{node.location.start_line})"
+      end
+
+      # `class << self` opens self's singleton class, and a constant or
+      # ivar target is only read. Anything else - `class << factory.build` -
+      # RUNS the expression at load, so the whole statement is unvetted.
+      def vetted_singleton_target?(node)
+        node.is_a?(Prism::SelfNode) || constant_read?(node) || node.is_a?(Prism::InstanceVariableReadNode)
       end
 
       def vet_scope(node, bad)
         superclass = node.respond_to?(:superclass) ? node.superclass : nil
-        bad << superclass.slice if superclass && !constant_read?(superclass)
+        bad << cite(superclass) if superclass && !constant_read?(superclass)
         vet_statements(node.body&.body || [], bad)
+      end
+
+      # A bare visibility call re-flags methods and nothing else, so a
+      # replay is harmless: no receiver, no block, and only literal symbol
+      # or def arguments (`private :x`, `private def x`).
+      def visibility_call?(node)
+        return false unless VISIBILITY_NAMES.include?(node.name.to_s) && node.receiver.nil? && node.block.nil?
+
+        (node.arguments&.arguments || []).all? do |argument|
+          argument.is_a?(Prism::SymbolNode) || argument.is_a?(Prism::DefNode)
+        end
       end
 
       def vetted_call?(node)
@@ -146,7 +184,7 @@ module Saboteur
         case node
         when Prism::StringNode, Prism::SymbolNode, Prism::IntegerNode, Prism::FloatNode,
              Prism::TrueNode, Prism::FalseNode, Prism::NilNode, Prism::SourceFileNode,
-             Prism::ConstantReadNode, Prism::ConstantPathNode
+             Prism::ConstantReadNode, Prism::ConstantPathNode, Prism::RegularExpressionNode
           true
         when Prism::ArrayNode
           node.elements.all? { |element| vetted_value?(element) }

@@ -320,7 +320,7 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#load_time_hazards (#319)
 
   it "flags side-effecting top-level and class-body code" do
     expect(slices("FileUtils.rm_rf(\"/tmp/x\")\nclass A\n  system(\"ls\")\nend\n"))
-      .to contain_exactly("FileUtils.rm_rf(\"/tmp/x\")", "system(\"ls\")")
+      .to contain_exactly("FileUtils.rm_rf(\"/tmp/x\") (line 1)", "system(\"ls\") (line 3)")
   end
 
   it "ignores def bodies: they run when called, not at load" do
@@ -328,7 +328,7 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#load_time_hazards (#319)
   end
 
   it "flags a hazardous call inside a block that runs at load" do
-    expect(slices("3.times { system(\"ls\") }\n")).to eq(["system(\"ls\")"])
+    expect(slices("3.times { system(\"ls\") }\n")).to eq(["system(\"ls\") (line 1)"])
   end
 
   it "leaves a pure literal assignment alone" do
@@ -339,7 +339,7 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#load_time_hazards (#319)
   # one, so reporting them too would only repeat the span. Dropping the
   # `next` would also descend into the backtick spawn inside rm_rf.
   it "does not descend into a hazardous call to find nested hazards" do
-    expect(slices("FileUtils.rm_rf(`ls /tmp`)\n")).to eq(["FileUtils.rm_rf(`ls /tmp`)"])
+    expect(slices("FileUtils.rm_rf(`ls /tmp`)\n")).to eq(["FileUtils.rm_rf(`ls /tmp`) (line 1)"])
   end
 end
 
@@ -357,8 +357,8 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
       require("x") { register! }
       RULES = { a: 1 }
     RUBY
-    expect(flagged).to eq(["require(build_path)", %(require_relative(begin\n  "helper"\nend)),
-                           'require("x") { register! }'])
+    expect(flagged).to eq(["require(build_path) (line 1)", "require_relative(begin (line 2)",
+                           'require("x") { register! } (line 5)'])
     expect(slices("require \"json\"\nrequire_relative \"helper\"\nRULES = { a: 1 }\n")).to eq([])
   end
 
@@ -366,10 +366,10 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
   # SAFE_LOAD_REQUIRES name and nothing else: each conjunct stops a
   # different abuse, so each gets its own flagged case here.
   it "flags requires with extra or missing arguments and other single-string calls" do
-    expect(slices("require(\"a\", \"b\")\n")).to eq(['require("a", "b")'])
-    expect(slices("require(build_path, \"a\")\n")).to eq(["require(build_path, \"a\")"])
-    expect(slices("require()\n")).to eq(["require()"])
-    expect(slices("system(\"ls\")\n")).to eq(['system("ls")'])
+    expect(slices("require(\"a\", \"b\")\n")).to eq(['require("a", "b") (line 1)'])
+    expect(slices("require(build_path, \"a\")\n")).to eq(["require(build_path, \"a\") (line 1)"])
+    expect(slices("require()\n")).to eq(["require() (line 1)"])
+    expect(slices("system(\"ls\")\n")).to eq(['system("ls") (line 1)'])
   end
 
   it "passes requires, pure defs, nesting with a constant superclass and literal assignments" do
@@ -390,8 +390,8 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
   end
 
   it "flags a def-free statement even inside a vetted nesting" do
-    expect(slices("class A\n  RULES = [1]\n  boot!\nend\n")).to eq(["boot!"])
-    expect(slices("class A < Struct.new(:x)\nend\n")).to eq(["Struct.new(:x)"])
+    expect(slices("class A\n  RULES = [1]\n  boot!\nend\n")).to eq(["boot! (line 3)"])
+    expect(slices("class A < Struct.new(:x)\nend\n")).to eq(["Struct.new(:x) (line 1)"])
   end
 
   # A bare constant superclass reads a constant just like a qualified
@@ -402,27 +402,98 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
   end
 
   it "flags calls that are not bare requires" do
-    expect(slices("foo.require(\"x\")\n")).to eq(["foo.require(\"x\")"])
-    expect(slices("validate!(RULES)\n")).to eq(["validate!(RULES)"])
-    expect(slices("1.times { boot! }\n")).to eq(["1.times { boot! }"])
-    expect(slices("if flag\n  RULES = [1]\nend\n")).to eq(["if flag\n  RULES = [1]\nend"])
+    expect(slices("foo.require(\"x\")\n")).to eq(["foo.require(\"x\") (line 1)"])
+    expect(slices("validate!(RULES)\n")).to eq(["validate!(RULES) (line 1)"])
+    expect(slices("1.times { boot! }\n")).to eq(["1.times { boot! } (line 1)"])
+    expect(slices("if flag\n  RULES = [1]\nend\n")).to eq(["if flag (line 1)"])
   end
 
   it "flags assignments whose values are not plain literals" do
-    expect(slices("RULES = build_rules\n")).to eq(["RULES = build_rules"])
-    expect(slices("RULES = { a: build }\n")).to eq(["RULES = { a: build }"])
-    expect(slices("RULES = { build => 1 }\n")).to eq(["RULES = { build => 1 }"])
-    expect(slices("RULES = { **other }\n")).to eq(["RULES = { **other }"])
-    expect(slices("RULES = [1, build]\n")).to eq(["RULES = [1, build]"])
-    expect(slices("RULES = [1].freeze(true)\n")).to eq(["RULES = [1].freeze(true)"])
-    expect(slices("RULES = [1].freeze { 2 }\n")).to eq(["RULES = [1].freeze { 2 }"])
-    expect(slices("RULES = [1].dup\n")).to eq(["RULES = [1].dup"])
-    expect(slices("Point = Data.define(:x)\n")).to eq(["Point = Data.define(:x)"])
+    expect(slices("RULES = build_rules\n")).to eq(["RULES = build_rules (line 1)"])
+    expect(slices("RULES = { a: build }\n")).to eq(["RULES = { a: build } (line 1)"])
+    expect(slices("RULES = { build => 1 }\n")).to eq(["RULES = { build => 1 } (line 1)"])
+    expect(slices("RULES = { **other }\n")).to eq(["RULES = { **other } (line 1)"])
+    expect(slices("RULES = [1, build]\n")).to eq(["RULES = [1, build] (line 1)"])
+    expect(slices("RULES = [1].freeze(true)\n")).to eq(["RULES = [1].freeze(true) (line 1)"])
+    expect(slices("RULES = [1].freeze { 2 }\n")).to eq(["RULES = [1].freeze { 2 } (line 1)"])
+    expect(slices("RULES = [1].dup\n")).to eq(["RULES = [1].dup (line 1)"])
+    expect(slices("Point = Data.define(:x)\n")).to eq(["Point = Data.define(:x) (line 1)"])
     # .freeze only vets a value when the frozen receiver is itself plain
     # data; freezing a computed call still runs the call at load.
-    expect(slices("RULES = build_rules.freeze\n")).to eq(["RULES = build_rules.freeze"])
+    expect(slices("RULES = build_rules.freeze\n")).to eq(["RULES = build_rules.freeze (line 1)"])
     # An interpolated string is built at load from its parts, so it is
     # not a plain literal even though a plain string is.
-    expect(slices(%(RULES = "a\#{1}"\n))).to eq([%(RULES = "a\#{1}")])
+    expect(slices(%(RULES = "a\#{1}"\n))).to eq([%(RULES = "a\#{1}" (line 1))])
+  end
+
+  it "passes a frozen regex literal but not a computed or interpolated one (#664)" do
+    expect(slices("OFFSET = /\\A([+-]\\d{1,2})\\z/.freeze\n")).to eq([])
+    expect(slices("OFFSET = /\\A\\d\\z/\n")).to eq([])
+    expect(slices(%(OFFSET = /a\#{1}/.freeze\n))).to eq([%(OFFSET = /a\#{1}/.freeze (line 1))])
+    expect(slices("OFFSET = Regexp.new(build)\n")).to eq(["OFFSET = Regexp.new(build) (line 1)"])
+  end
+
+  it "passes a class << self holding defs and bare visibility calls (#664)" do
+    expect(slices(<<~RUBY)).to eq([])
+      module M
+        LIST = [1, 2].freeze
+        OFFSET = /\\A\\d+\\z/.freeze
+        class << self
+          def from_cron(cron) = cron
+          private
+          def options = {}
+          protected :options
+        end
+      end
+    RUBY
+  end
+
+  it "still flags side-effecting code inside class << self (#664)" do
+    expect(slices("class << self\n  boot!\nend\n")).to eq(["boot! (line 2)"])
+    expect(slices("class << self\n  private build\nend\n")).to eq(["private build (line 2)"])
+  end
+
+  it "flags a class << target whose expression runs at load (#664)" do
+    expect(slices("class << SomeFactory.build\n  def x = 1\nend\n"))
+      .to eq(["class << SomeFactory.build (line 1)"])
+    expect(slices("class << REGISTRY\n  def x = 1\nend\n")).to eq([])
+    expect(slices("class << @registry\n  def x = 1\nend\n")).to eq([])
+  end
+
+  it "pins the visibility-call receiver and block conjuncts (#664)" do
+    expect(slices("self.private :x\n")).to eq(["self.private :x (line 1)"])
+    expect(slices("private :x do |y| y end\n")).to eq(["private :x do |y| y end (line 1)"])
+  end
+
+  it "passes bare visibility calls in a class body (#664)" do
+    expect(slices("class A\n  private\n  def x = 1\n  public :x\nend\n")).to eq([])
+    expect(slices("class A\n  private def y = 2\nend\n")).to eq([])
+  end
+
+  it "cuts a long citation to its first 60 characters plus the line (#664)" do
+    long_call = "register!(\"#{'a' * 80}\")"
+    flagged = slices("#{long_call}\n")
+    expect(flagged).to eq(["#{long_call[0, 57]}... (line 1)"])
+    expect(flagged.first.length).to be <= 71
+  end
+
+  # The boundary is strict: a first line of 60 characters is kept whole,
+  # 61 or more is cut to 57 plus an ellipsis. Indentation is stripped
+  # before measuring, and a multiline call cites its first line only.
+  it "keeps a 60-character first line whole and cuts 61 or more (#664)" do
+    line60 = "register!(:#{'a' * 48})" # 60 characters
+    expect(line60.length).to eq(60)
+    expect(slices("#{line60}\n")).to eq(["#{line60} (line 1)"])
+    line61 = "register!(:#{'a' * 49})"
+    expect(line61.length).to eq(61)
+    expect(slices("#{line61}\n")).to eq(["#{line61[0, 57]}... (line 1)"])
+    line70 = "register!(:#{'a' * 58})"
+    expect(line70.length).to eq(70)
+    expect(slices("#{line70}\n")).to eq(["#{line70[0, 57]}... (line 1)"])
+  end
+
+  it "strips indentation and cites a multiline call by its first line (#664)" do
+    expect(slices("class A\n    boot!\nend\n")).to eq(["boot! (line 2)"])
+    expect(slices("Registry.register(\n  :x\n)\n")).to eq(["Registry.register( (line 1)"])
   end
 end

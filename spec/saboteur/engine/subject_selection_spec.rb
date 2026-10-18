@@ -1461,7 +1461,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant selection edges (#3
     expect(select([file], since: "HEAD")).to be_empty
     # Hazard-denylist entries surface ahead of merely unvetted code, and
     # the warning lists at most two reasons; the third stays unnamed.
-    expect(diagnostics.warnings.join).to include("system(\"ls\"), FileUtils.rm_rf(\"/tmp/x\")",
+    expect(diagnostics.warnings.join).to include("system(\"ls\") (line 3), FileUtils.rm_rf(\"/tmp/x\") (line 1)",
                                                  "in rules.rb are not mutated",
                                                  "at load (",
                                                  "that every constant mutant would run again",
