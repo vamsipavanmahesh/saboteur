@@ -210,10 +210,26 @@ RSpec.describe Saboteur::Engine, "test selection" do
       expect(err.string).to include("inferred specs: running only spec/a_spec.rb, spec/b_spec.rb. " \
                                     "A spec the diff did not change that reaches")
       expect(err.string).not_to include("running the loaded suite unscoped")
+      # Report consumers discard stderr: the caveat must stay in
+      # report.warnings (#605 security review).
       expect(@report.warnings).to include(a_string_starting_with("inferred specs: running only"))
       expect(err.string).to include("is reported as NoCoverage")
+      # ...while printing exactly once to the terminal, up front (#605).
+      expect(err.string.scan("inferred specs: running only").size).to eq(1)
       expect(@engine.guessed_tests).to eq(%w[spec/a_spec.rb spec/b_spec.rb])
       expect(err.string).not_to include("no spec is required")
+    end
+
+    # End to end: the caveat must reach the terminal exactly once through
+    # the whole chain - diagnostics announce, Report#live_announced, and
+    # the terminal's skip of live-announced warnings (#605, Pod 1 KC1/KC2).
+    it "prints the blind-spot caveat exactly once across the whole run and report (#605)" do
+      guess(specs: %w[spec/a_spec.rb spec/b_spec.rb], unmatched: [], changed: 2)
+      @report = run_engine("since" => "origin/main")
+      Saboteur::Reporter::Terminal.new(err).call(@report)
+
+      expect(@report.warnings).to include(a_string_starting_with("inferred specs: running only"))
+      expect(err.string.scan("inferred specs: running only").size).to eq(1)
     end
 
     it "keeps explicit-key provenance through the scoped config clone (#296)" do

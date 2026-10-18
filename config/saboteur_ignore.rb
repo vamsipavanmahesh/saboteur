@@ -1296,4 +1296,10 @@ Saboteur.ignore do |i|
              reason: "equivalent on visited argument ASTs: text starting with << is a heredoc opener, " \
                      "so node.slice and opening_loc.slice agree on this prefix; nil versus false is " \
                      "consumed by || before recursion. Probed ordinary, operator, nested and heredoc arguments"
+
+  i.mutation "eb1652880a85f857",
+             subject: "Saboteur::Reporter::Terminal#warnings",
+             reason: "equivalent: the each result is discarded - call(report) runs warnings(report) for " \
+                     "its puts effect, so each and map run the same body; hand-applied mutant leaves " \
+                     "all 80 terminal_spec examples green"
 end

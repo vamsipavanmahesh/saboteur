@@ -29,6 +29,7 @@ module Saboteur
           return @selected[subject] = []
         end
 
+        warn_boot_once(subject)
         list = @candidates.for(subject)
         # The full pre-scope digests let IgnoreList#apply tell "mutation gone"
         # from "mutation scoped out of this run" (#284).
@@ -47,6 +48,15 @@ module Saboteur
       end
 
       private
+
+      # A note, not a verdict (#575): every mutant still runs and scores.
+      def warn_boot_once(subject)
+        return unless @map.boot_once?(subject)
+
+        @diagnostics.warn("#{subject.id}: covered by every test and run at boot - mutants apply after boot, " \
+                          "so a survivor can be a boot-once effect the suite cannot re-observe (#575); " \
+                          "verify it by mutating the file on disk")
+      end
 
       # A scoped no-coverage skip names the specs the run loaded: coverage
       # living in a sibling spec file is otherwise invisible, and the false

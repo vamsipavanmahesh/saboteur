@@ -124,6 +124,26 @@ module Saboteur
       end
 
       # A requested line ran at load but no test later hit it.
+      # The boot-once signature (#575): every test is credited with the
+      # subject and its lines also ran while the app loaded. The credit is
+      # the boot run leaking into cumulative per-test coverage, so mutants
+      # of the subject - applied after boot - can all survive even where
+      # the suite depends on the method.
+      def boot_once?(subject)
+        return false if subject.is_a?(ConstantSubject)
+        return false unless tests.any? && tests_for(subject).size == tests.size
+
+        boot_credited?(subject.file, subject.coverage_lines)
+      end
+
+      # One of the subject's lines ran while the app loaded.
+      def boot_credited?(file, line_numbers)
+        at_load = load_lines[CoverageMap.canonical(file)]
+        return false unless at_load
+
+        line_numbers.any? { |line| at_load.include?(line) }
+      end
+
       def ran_at_load?(file, line_numbers)
         at_load = load_lines[CoverageMap.canonical(file)]
         return false unless at_load

@@ -73,7 +73,7 @@ module Saboteur
       Omission = Data.define(:subject, :count, :limit)
       DiscoveryFailure = Data.define(:file, :reason)
 
-      attr_reader :warnings, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
+      attr_reader :warnings, :live_announced, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
                   :hazard_suppressions, :inline_suppressions, :verbose
 
       def initialize(err, verbose: false)
@@ -82,6 +82,7 @@ module Saboteur
         @warnings = []
         @invalid_mutations = 0
         @generation_events = []
+        @live_announced = []
         @omissions = []
         @discovery_failures = []
         @hazard_suppressions = 0
@@ -162,10 +163,14 @@ module Saboteur
         inform("#{subject.id}  #{marks}")
       end
 
-      # A message that is both a report warning and a stderr note.
+      # A message that is both a report warning and a stderr note. The
+      # terminal does not reprint it at the end of the run (#605), but it
+      # stays in report.warnings: JSON, HTML and agent consumers discard
+      # stderr and must still see it.
       def announce(message)
         warn(message)
         inform(message)
+        @live_announced << message
       end
 
       # A heartbeat for a long phase: the supervisor's wait loop calls tick
