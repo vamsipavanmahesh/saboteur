@@ -88,6 +88,38 @@ RSpec.describe Saboteur::CustomMap do
     expect(map.specs_for("app/jobs/billing/charge.rb")).to eq(["spec/jobs/billing/charge_spec.rb"])
   end
 
+  it "names unsupported named templates before glob validation (#642)" do
+    path = write_map(<<~'RUBY')
+      SABOTEUR_CUSTOM_MAP = { %r{\Alib/(?<path>.+)\.rb\z} => ["spec/unit/%<path>s_spec.rb"] }.freeze
+    RUBY
+    expect { described_class.load(path, root: @root) }.to raise_error(Saboteur::ConfigError) { |error|
+      key = %r{\Alib/(?<path>.+)\.rb\z}
+      expect(error.message).to eq("#{path}: #{key.inspect} maps to #{'spec/unit/%<path>s_spec.rb'.inspect}; " \
+                                  'regex map specs support \1 backreferences only')
+      expect(error.message).not_to include("matches no file")
+    }
+  end
+
+  it "rejects named templates even beside a valid numbered backreference (#642)" do
+    expect do
+      load(<<~'RUBY')
+        SABOTEUR_CUSTOM_MAP = { %r{lib/(.*)} => ['spec/\1/%<path>s_spec.rb'] }.freeze
+      RUBY
+    end.to raise_error(Saboteur::ConfigError, /regex map specs support/)
+  end
+
+  it "does not mistake empty percent-angle text for a named template (#642)" do
+    touch("spec/%<>s_spec.rb")
+    map = load('SABOTEUR_CUSTOM_MAP = { /lib/ => ["spec/%<>s_spec.rb"] }')
+    expect(map.specs_for("lib/a.rb")).to eq(["spec/%<>s_spec.rb"])
+  end
+
+  it "keeps percent-angle text literal under a String key (#642)" do
+    touch("spec/%<path>s_spec.rb")
+    map = load('SABOTEUR_CUSTOM_MAP = { "lib/a.rb" => ["spec/%<path>s_spec.rb"] }')
+    expect(map.specs_for("lib/a.rb")).to eq(["spec/%<path>s_spec.rb"])
+  end
+
   it "marks an empty array as excluded by config" do
     map = load(<<~RUBY)
       SABOTEUR_CUSTOM_MAP = { "app/generated/**/*.rb" => [] }.freeze

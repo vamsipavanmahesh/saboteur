@@ -84,6 +84,9 @@ SABOTEUR_CUSTOM_MAP = {
 }.freeze
 ```
 
+Regexp spec templates support numbered backreferences such as `\1` only.
+Named templates such as `%<path>s` are rejected at load with a syntax hint.
+
 The file loads before the app boots, so it must be plain Ruby (no Rails
 constants, no requires of app code). `saboteur doctor` confirms it loads:
 
