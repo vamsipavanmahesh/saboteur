@@ -16,8 +16,8 @@ module Saboteur
     # subject need a guessed spec; without --since, every included file with
     # a mutation subject needs one. A file that needs a spec and has none
     # stops the run before boot.
-    # A project with no spec/ directory, or none holding a *_spec.rb file,
-    # has no RSpec suite at all: a per-file stop would print one line per
+    # A project with no *_spec.rb anywhere under its root has no RSpec suite
+    # at all: a per-file stop would print one line per
     # source file and bury the real problem (#606, sibling of the
     # missing-rspec-core refusal #542). The stop is one line naming it, with
     # a Minitest pointer when test/ exists; --verbose keeps the per-file list.
@@ -30,12 +30,14 @@ module Saboteur
 
       # nil when the run should not claim a missing suite: a --subject run
       # already names its expected spec, nothing is unmatched, or a suite
-      # exists. :minitest or :plain otherwise.
+      # exists. The suite can live outside spec/ - rspec_args can point
+      # RSpec at another default path - so look under the whole root;
+      # claiming "no spec file exists" for such a project is false and
+      # drops the --test/--all remedy (#606). :minitest or :plain otherwise.
       def layout(root, unmatched, subject_run)
         return if subject_run || unmatched.empty?
 
-        spec_dir = File.join(root, "spec")
-        return if File.directory?(spec_dir) && !Dir.glob(File.join(spec_dir, "**", "*_spec.rb")).empty?
+        return unless Dir.glob(File.join(root, "**", "*_spec.rb")).empty?
 
         File.directory?(File.join(root, "test")) ? :minitest : :plain
       end

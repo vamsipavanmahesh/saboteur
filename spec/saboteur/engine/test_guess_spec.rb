@@ -93,6 +93,35 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(message).to include("no spec found for")
       expect(message).not_to include("no RSpec suite found")
     end
+
+    it "never claims a missing suite for a --subject run, which names its own expected spec" do
+      config = Saboteur::Config.new({ "include" => ["lib/**/*.rb"] }, root: dir)
+      message = described_class.new(config).call_for(["lib/a.rb"]).unmatched_message
+      expect(message).to include("no spec found for")
+      expect(message).not_to include("no RSpec suite found")
+    end
+
+    it "counts a suite that exists only in a nested spec directory" do
+      write("spec/deep/b_spec.rb")
+      message = full_guess.unmatched_message
+      expect(message).to include("no spec found for")
+      expect(message).not_to include("no RSpec suite found")
+    end
+
+    it "treats a spec/ directory holding only nested support files as no suite" do
+      write("spec/support/helper.rb")
+      expect(full_guess.unmatched_message).to include("no RSpec suite found")
+    end
+
+    # rspec_args can point RSpec outside spec/ (["--default-path", "specs"]):
+    # claiming "no spec file exists" there is false and drops the
+    # --test/--all remedy for a suite that would run (#606 QA).
+    it "does not claim a missing suite when the suite lives outside spec/" do
+      write("specs/a_spec.rb")
+      message = full_guess.unmatched_message
+      expect(message).to include("no spec found for")
+      expect(message).not_to include("no RSpec suite found")
+    end
   end
 
   it "warns through its diagnostics when untracked files cannot be opened race-free" do
