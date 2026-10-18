@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Usage: script/ci-prove-pr-binding
+#
+# Proves from the GitHub API that a workflow_dispatch run of ci.yml covers the
+# exact pull request it names: the checked out commit (GITHUB_SHA) is the pull
+# request's current head, and the base_sha input (BASE_SHA) is the pull
+# request's current base. Anything else fails closed, so a wrong or forged
+# dispatch input can never bind the run to a different change than the one a
+# maintainer reviewed. The dispatch inputs are hints; only the API is trusted.
+#
+# Input comes from environment variables, never from shell text:
+#   GH_TOKEN          token for the API call (the workflow's GITHUB_TOKEN)
+#   GITHUB_REPOSITORY owner/repo of the repository running the workflow
+#   GITHUB_SHA        the commit this run checked out
+#   PR_NUMBER         dispatch input: the pull request number (digits only)
+#   BASE_SHA          dispatch input: the pull request's exact base commit
+#   REQUIRE_OWN_REPO  "1" additionally demands the pull request's head lives in
+#                     this repository (the self-hosted macOS fork guard); "0"
+#                     covers fork pull requests on hosted runners
+#
+# The macOS legs inline this same proof because they must pass it before any
+# checkout happens; keep the inline copy in ci.yml in sync with this script.
+set -euo pipefail
+
+fail() { echo "::error::$1"; exit 1; }
+
+: "${GH_TOKEN:?ci-prove-pr-binding: GH_TOKEN is required}"
+: "${GITHUB_REPOSITORY:?ci-prove-pr-binding: GITHUB_REPOSITORY is required}"
+
+case "${PR_NUMBER:-}" in
+  *[!0-9]*|'') fail "ci-prove-pr-binding: PR_NUMBER must be digits (got '${PR_NUMBER:-}')" ;;
+esac
+[[ "${BASE_SHA:-}" =~ ^[0-9a-f]{40}$ ]] ||
+  fail "ci-prove-pr-binding: BASE_SHA must be the 40-character base commit of PR #${PR_NUMBER}"
+[[ "${GITHUB_SHA:-}" =~ ^[0-9a-f]{40}$ ]] ||
+  fail "ci-prove-pr-binding: GITHUB_SHA is not a 40-character commit"
+
+owner="${GITHUB_REPOSITORY%/*}"; name="${GITHUB_REPOSITORY#*/}"
+# String concatenation, not a printf format: printf would eat the \" escapes
+# and emit invalid JSON (#551's dispatch proof failed closed on every run).
+payload='{"query":"{repository(owner:\"'"$owner"'\",name:\"'"$name"'\"){pullRequest(number:'"$PR_NUMBER"'){headRepository{nameWithOwner} headRefOid baseRefOid}}}"}'
+resp=$(curl -sfS -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" \
+  -d "$payload" https://api.github.com/graphql) ||
+  fail "ci-prove-pr-binding: the GraphQL call for PR #${PR_NUMBER} failed; refusing to run unbound"
+
+# GraphQL answers with one compact object, so exact greps are safe.
+echo "$resp" | grep -Fq "\"headRefOid\":\"$GITHUB_SHA\"" ||
+  fail "ci-prove-pr-binding: dispatched SHA $GITHUB_SHA is not the current head of PR #$PR_NUMBER"
+echo "$resp" | grep -Fq "\"baseRefOid\":\"$BASE_SHA\"" ||
+  fail "ci-prove-pr-binding: base_sha $BASE_SHA is not the base of PR #$PR_NUMBER"
+if [ "${REQUIRE_OWN_REPO:-0}" = "1" ]; then
+  echo "$resp" | grep -Fq "\"nameWithOwner\":\"$GITHUB_REPOSITORY\"" ||
+    fail "ci-prove-pr-binding: PR #$PR_NUMBER is a fork or unknown head repo: no self-hosted legs"
+fi

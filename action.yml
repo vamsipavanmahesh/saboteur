@@ -127,7 +127,7 @@ runs:
         SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
       run: bash "${{ github.action_path }}/action/run-baseline-gate"
     - name: Restore the coverage map
-      if: inputs.baseline == '' && inputs.cache == 'true' && github.event_name == 'pull_request'
+      if: inputs.baseline == '' && inputs.cache == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: .saboteur/coverage-*.json
@@ -140,7 +140,7 @@ runs:
       shell: bash
       env:
         SABOTEUR_EVENT_NAME: ${{ github.event_name }}
-        SABOTEUR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        SABOTEUR_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.inputs.base_sha }}
         SABOTEUR_EXPECTED_HEAD_SHA: ${{ github.sha }}
         SABOTEUR_COMMAND: ${{ inputs.command }}
         SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
@@ -154,7 +154,7 @@ runs:
     # so a stale file restored from a cache is never published. A survivor or
     # incomplete failure still uploads, because the summary promises it.
     - name: Keep the JSON report
-      if: always() && github.event_name == 'pull_request' && steps.run.outputs.report-valid == 'true'
+      if: always() && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && steps.run.outputs.report-valid == 'true'
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}

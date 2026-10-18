@@ -232,11 +232,15 @@ async function revokeEvent(api, event) {
   });
 }
 async function workflows(api, number, head) {
-  const runs = await api.pages(`actions/runs?event=pull_request&head_sha=${head}`, 'workflow_runs');
+  // PR CI runs either on pull_request or, under manual CI, on a maintainer's
+  // workflow_dispatch against the exact head; both prove the same head green.
+  const runs = await api.pages(`actions/runs?head_sha=${head}`, 'workflow_runs');
   const checked = [];
   for (const [path, names] of Object.entries(policy.workflows)) {
-    const matches = r => r.path === path && r.head_sha === head && r.event === 'pull_request' &&
-      r.repository?.full_name === api.repo && r.pull_requests?.some(p => p.number === number);
+    const matches = r => r.path === path && r.head_sha === head &&
+      (r.event === 'pull_request' || r.event === 'workflow_dispatch') &&
+      r.repository?.full_name === api.repo &&
+      (r.pull_requests?.some(p => p.number === number) || r.event === 'workflow_dispatch');
     const run = runs.filter(matches).sort((a, b) => b.id - a.id)[0];
     demand(run, `missing current-head workflow: ${path}`);
     const fresh = await api.call(`actions/runs/${run.id}`);
@@ -410,7 +414,11 @@ async function targets(api, name, event) {
   }
   const open = (await api.pages('pulls?state=open')).filter(eligible);
   if (name !== 'workflow_run') return open.map(p => p.number);
-  // pull_requests can be empty for runs from forks, so the run's head SHA matches too.
+  // Main-push CI completions are covered by the gate's own push sweep; every other
+  // run event (pull_request, or workflow_dispatch under manual PR CI) sweeps here.
+  if (event.workflow_run.event === 'push') return [];
+  // pull_requests can be empty for runs from forks and never exists on
+  // workflow_dispatch runs, so the run's head SHA matches too.
   const run = event.workflow_run, named = new Set((run.pull_requests || []).map(p => p.number));
   return open.filter(p => named.has(p.number) || p.head.sha === run.head_sha).map(p => p.number);
 }
@@ -424,7 +432,6 @@ async function main() {
   // but overflow/lost delivery before ledger persistence cannot be recovered.
   const allowed = ['issue_comment', 'workflow_dispatch', 'workflow_run', 'push'];
   demand(allowed.includes(name), 'unsupported event');
-  if (name === 'workflow_run' && event.workflow_run.event !== 'pull_request') return;
   if (name === 'issue_comment' && !event.issue.pull_request) return;
   if (name === 'issue_comment') await revokeEvent(api, event);
   // Revocation latches above persist even on a stale run; the sweep below is
