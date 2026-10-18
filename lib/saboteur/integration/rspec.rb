@@ -80,7 +80,10 @@ module Saboteur
 
       # A missing rspec-core is the target's setup error, not a saboteur
       # defect (#482): refuse with the remedy instead of crashing into the
-      # internal-error report. Only the framework's own LoadError converts -
+      # internal-error report. It is a usage error (#610): ConfigError maps
+      # to exit 2, and the remedy names docs/minitest.md rather than
+      # c.integration - rspec is the only integration, so pointing at it
+      # sent Minitest users down a dead end. Only the framework's own LoadError converts -
       # matched on the failed feature, not the message, so a missing
       # rspec/core_ext does not pose as rspec/core; a LoadError the app's
       # files raise keeps the crash route.
@@ -89,8 +92,9 @@ module Saboteur
       rescue LoadError => e
         raise unless e.path == "rspec/core"
 
-        raise Error, "rspec is not in the bundle: the RSpec integration needs the rspec-core gem. " \
-                     "Add it to the bundle's test group (or point c.integration at the suite's framework)"
+        raise ConfigError, "rspec is not in the bundle: the RSpec integration needs the rspec-core gem. " \
+                           "Add it to the bundle's test group. saboteur's built-in integration supports RSpec only - " \
+                           "see docs/minitest.md for other suites"
       end
 
       def all_tests
