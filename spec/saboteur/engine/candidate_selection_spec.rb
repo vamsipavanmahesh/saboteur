@@ -101,6 +101,63 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     expect(diagnostics.warnings).to include("K#m: skipped (refinements); its change is not verified by this run")
   end
 
+  it "names the loaded specs when a scoped subject has no coverage (#636)" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
+    allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
+                                        .and_return(false)
+    allow(map).to receive(:tests)
+      .and_return(["./spec/models/widget_spec.rb[1:2]", "./spec/models/widget_spec.rb[1:1]",
+                   "./spec/models/other_spec.rb[1:1]"])
+    scope = instance_double(Saboteur::Engine::DiffScope)
+    selection.for(subject_under_test, scope: scope)
+    expect(diagnostics.warnings).to include(
+      "K#m: skipped (no coverage); its change is not verified by this run - " \
+      "loaded specs: spec/models/other_spec.rb, spec/models/widget_spec.rb; " \
+      "other spec files may cover it, pass --test to load them"
+    )
+  end
+
+  it "lists all five loaded specs without an ellipsis at the boundary (#636)" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
+    allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
+                                        .and_return(false)
+    allow(map).to receive(:tests).and_return((1..5).map { |n| "./spec/m#{n}_spec.rb[1:1]" })
+    scope = instance_double(Saboteur::Engine::DiffScope)
+    selection.for(subject_under_test, scope: scope)
+    expect(diagnostics.warnings).to include(
+      "K#m: skipped (no coverage); its change is not verified by this run - " \
+      "loaded specs: spec/m1_spec.rb, spec/m2_spec.rb, spec/m3_spec.rb, spec/m4_spec.rb, spec/m5_spec.rb; " \
+      "other spec files may cover it, pass --test to load them"
+    )
+  end
+
+  it "truncates to five loaded specs with an ellipsis at six (#636)" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
+    allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
+                                        .and_return(false)
+    allow(map).to receive(:tests).and_return((1..6).map { |n| "./spec/m#{n}_spec.rb[1:1]" })
+    scope = instance_double(Saboteur::Engine::DiffScope)
+    selection.for(subject_under_test, scope: scope)
+    expect(diagnostics.warnings).to include(
+      "K#m: skipped (no coverage); its change is not verified by this run - " \
+      "loaded specs: spec/m1_spec.rb, spec/m2_spec.rb, spec/m3_spec.rb, spec/m4_spec.rb, spec/m5_spec.rb, ...; " \
+      "other spec files may cover it, pass --test to load them"
+    )
+  end
+
+  it "says none when no specs were loaded (#636)" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
+    allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
+                                        .and_return(false)
+    allow(map).to receive(:tests).and_return([])
+    scope = instance_double(Saboteur::Engine::DiffScope)
+    selection.for(subject_under_test, scope: scope)
+    expect(diagnostics.warnings).to include(
+      "K#m: skipped (no coverage); its change is not verified by this run - " \
+      "loaded specs: none; other spec files may cover it, pass --test to load them"
+    )
+  end
+
   it "stays quiet for a skipped subject in an unscoped run" do
     subject_under_test.skip_reason = "refinements"
     allow(map).to receive(:tests_for).and_return(["t1"])
