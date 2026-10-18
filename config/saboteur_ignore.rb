@@ -1237,30 +1237,6 @@ Saboteur.ignore do |i|
              reason: "equivalent: Prism::Node#end_offset delegates to location.end_offset (probed), " \
                      "so the chain cut is identical"
 
-  # The :209 child-selection mutants (start side dropped or replaced) only
-  # widen which child the else-loop recurses into. found changes only
-  # through the :201 StatementsNode find, which still demands full
-  # containment; a child that misses the edit's start holds no descendant
-  # that fully contains it either, so every widened recursion returns the
-  # same found. Replay with the spanning-edit pin spec present still
-  # survives all four (#338).
-  i.mutation "4e1a9ba825b07a1c",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: the widened child selection re-validates full containment at :201 " \
-                     "before found can change; replayed with the spanning-edit pin spec and survives"
-  i.mutation "560d716246834ba8",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: the widened child selection re-validates full containment at :201 " \
-                     "before found can change; replayed with the spanning-edit pin spec and survives"
-  i.mutation "6a3d5fd5f6acce26",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: the widened child selection re-validates full containment at :201 " \
-                     "before found can change; replayed with the spanning-edit pin spec and survives"
-  i.mutation "c24bb473eeeebfc2",
-             subject: "Saboteur::Subject#innermost_statement",
-             reason: "equivalent: start_byte is always truthy, so this drops the start side like the " \
-                     "other :209 mutants; same re-validation argument and replay evidence"
-
   i.mutation "4d7ee1a553233ee6",
              subject: "Saboteur::Subject#innermost_statement",
              reason: "equivalent: among StatementsNode children only the found statement fully contains " \

@@ -212,6 +212,22 @@ RSpec.describe Saboteur::Subject do
       expect(branchy.coverage_lines_for(edit_at(">"))).to eq([3])
     end
 
+    # A modifier-if's children list the predicate BEFORE the statements,
+    # but the predicate sits later in the source: a child-selection check
+    # that lets a source-later child win must not hand the edit to the
+    # whole modifier when a statement truly contains it (#338).
+    ["run { inner } if flag", "run { inner } unless flag"].each do |line|
+      it "returns the deep statement inside `#{line}`, not the whole modifier" do
+        src = "class A\n  def m(flag)\n    #{line}\n  end\nend\n"
+        subject = subjects_in(src).first
+        def_node = Prism.parse(src).value.statements.body.first.body.body.first
+        start = src.index("inner")
+        found = subject.send(:innermost_statement, def_node.body, start, start + "inner".bytesize)
+        expect(found).to be_a(Prism::CallNode)
+        expect(found.slice).to eq("inner")
+      end
+    end
+
     # An edit contained by the if but spanning its predicate and body is
     # held by the if statement itself, never by a body statement that
     # starts after the edit (#338).
