@@ -294,6 +294,62 @@ RSpec.describe Saboteur::CLI do
     expect(err.string).to include("preset 'pr':").and include("--since main")
   end
 
+  # The banner is the reader's only record of the effective settings: an
+  # explicit flag must show there, not the preset's default (#666).
+  it "announces the effective --since ref when an explicit flag overrides the preset's injected ref (#666)" do
+    command = cli("pr", "--since", "e61a9506")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "e61a9506")
+    expect(err.string).to include("--since e61a9506")
+    expect(err.string).not_to include("--since main")
+  end
+
+  it "announces the user's spelling of an overridden preset flag value (#666)" do
+    command = cli("pr", "--baseline-passes", "2")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(err.string).to include("--baseline-passes 2")
+    expect(err.string).not_to include("--baseline-passes 1")
+  end
+
+  it "announces the --flag=value spelling of an override verbatim (#666)" do
+    command = cli("pr", "--since=v1.2.3")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to include(since: "v1.2.3")
+    expect(err.string).to include("--since=v1.2.3")
+    expect(err.string).not_to include("--since main")
+  end
+
+  it "keeps the preset's flags the user did not override in the banner (#666)" do
+    command = cli("pr", "--since", "e61a9506")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(err.string).to include("--baseline-passes 1 --max-duration 10m --since e61a9506")
+  end
+
+  # The audit preset's bare --all rides the banner's non-value branch:
+  # it prints in position and never swallows the token after it (#666).
+  it "keeps a bare preset flag in position in the banner (#666)" do
+    command = cli("audit")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(err.string).to include("preset 'audit': --all --operators all --baseline-passes 2 " \
+                                  "--json .saboteur/audit-report.json --html .saboteur/audit-report.html " \
+                                  "(explicit flags override)")
+  end
+
+  # A value flag dangling as the last argv token overrides nothing: the
+  # banner keeps the preset's spelling and the run reports the missing
+  # value downstream (#666).
+  it "keeps the preset's spelling when the user's value flag dangles without a value (#666)" do
+    command = cli("pr", "--since")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(err.string).to include("--since main")
+  end
+
   it "rejects a whitespace-padded --max-duration with the value in the message (#245)" do
     command = cli("run", "--max-duration", " 10m ")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")

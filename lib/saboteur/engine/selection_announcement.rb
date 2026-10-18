@@ -10,10 +10,15 @@ module Saboteur
     module SelectionAnnouncement
       private
 
+      # A --since diff with no changed source file (a spec-only or docs-only
+      # change) yields zero subjects, so the suite never runs: say there is
+      # nothing to test rather than promise a whole-suite run that does not
+      # happen (#607).
       def selection_message(guess)
-        if guess.changed.zero?
-          target = config["since"] ? "no changed source file" : "no source file"
-          "inferred specs: #{target} to infer a spec for, so the whole suite runs"
+        if guess.changed.zero? && config["since"]
+          "inferred specs: no changed source file to infer a spec for, so there is nothing to test"
+        elsif guess.changed.zero?
+          "inferred specs: no source file to infer a spec for, so the whole suite runs"
         elsif guess.specs.empty?
           guess.no_specs_message(since: config["since"])
         else

@@ -61,6 +61,9 @@ RSpec.describe Saboteur::Doctor do
     end
 
     it "reports the gap as what children would run with when the kernel cannot deliver ABI 3" do
+      # Pin the Linux wording as Linux: #667 makes sandbox_gap platform-aware,
+      # so an unstubbed darwin? would print "macOS has no Landlock" here.
+      allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(false)
       allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
       doctor.call
       expect(out.string).to include("Sandbox: this kernel lacks Landlock (needs Linux 6.2+)",

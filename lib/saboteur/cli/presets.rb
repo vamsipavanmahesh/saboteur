@@ -14,6 +14,10 @@ module Saboteur
                       --html .saboteur/audit-report.html]
       }.freeze
 
+      # Preset flags that take a separate value token: the pairs a user
+      # flag can override in the banner (#666).
+      VALUE_FLAGS = %w[--baseline-passes --max-duration --since --operators --json --html].freeze
+
       private
 
       def preset_or_usage_error(command)
@@ -31,9 +35,45 @@ module Saboteur
         # deprecated inference alias (#245).
         explicit_scope = @argv.any? { |arg| arg == "--test" || arg.start_with?("--test=") || arg == "--guess-tests" }
         flags.delete("--all") if explicit_scope
-        @err.puts("saboteur: preset '#{name}': #{flags.join(' ')} (explicit flags override)")
+        @err.puts("saboteur: preset '#{name}': #{preset_banner(flags).join(' ')} (explicit flags override)")
         @argv = flags + @argv
         run_command
+      end
+
+      # The banner is the reader's only record of the effective settings,
+      # so a preset flag the user also passed shows the user's spelling -
+      # the later occurrence wins (#666). Flags the user did not override
+      # print as the preset declares them.
+      def preset_banner(flags)
+        overrides = user_flag_overrides
+        banner = []
+        index = 0
+        while index < flags.size
+          if VALUE_FLAGS.include?(flags[index])
+            banner.concat(overrides.fetch(flags[index], [flags[index], flags[index + 1]]))
+            index += 2
+          else
+            banner << flags[index]
+            index += 1
+          end
+        end
+        banner
+      end
+
+      # Each long flag the user passed, mapped to its effective spelling:
+      # the last occurrence, verbatim, with its separate value token when
+      # the flag takes one.
+      def user_flag_overrides
+        overrides = {}
+        @argv.each_with_index do |arg, index|
+          name = arg[/\A--[^=]+/] or next
+          if arg.include?("=")
+            overrides[name] = [arg]
+          elsif VALUE_FLAGS.include?(name) && @argv[index + 1]
+            overrides[name] = [name, @argv[index + 1]]
+          end
+        end
+        overrides
       end
     end
   end
