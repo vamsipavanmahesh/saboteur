@@ -201,6 +201,17 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(false)
   end
 
+  # An interpolated heredoc's first StringNode part can start with "<<" at
+  # column zero, and a part's opening_loc is nil: a chain reading node.slice
+  # instead of node.opening_loc&.slice walks into a NoMethodError (#659).
+  it "scans an interpolated heredoc whose body starts with << without raising" do
+    file = write("interp.rb", "x = <<~END\n<<nested \#{1}\nEND\nz = 2\n")
+    selection = described_class.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root), diagnostics)
+    selection.instance_variable_set(:@changed_lines, { file => [2] })
+    expect { selection.send(:changed_lines_inside_heredoc?, file) }.not_to raise_error
+    expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(true)
+  end
+
   # The span's end is inclusive and closing_loc.end_line counts the
   # terminator's newline, so the line after the heredoc reads as covered
   # (disproves the 7c748368 equivalence: .. to ... drops that line).
