@@ -227,6 +227,15 @@ RSpec.describe Saboteur::CustomMap do
       .to raise_error(Saboteur::ConfigError, /outside the project root/)
   end
 
+  # The root check must run before the numbered/named guard: a template
+  # that is both outside the root and mixes backrefs with named captures
+  # must report the root violation, not the template-kind error (#712).
+  it "checks the root before the backreference guard for a doubly-invalid spec (#712)" do
+    path = write_map("SABOTEUR_CUSTOM_MAP = { /a/ => ['../x\\1%<n>s.rb'] }.freeze\n")
+    expect { described_class.load(path, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /outside the project root/)
+  end
+
   it "refuses a capture-filled spec that escapes the project root" do
     map = load("SABOTEUR_CUSTOM_MAP = { %r{\\Alib/(.*)\\.rb\\z} => ['spec/\\1_spec.rb'] }.freeze\n")
     expect { map.specs_for("lib/../../evil.rb") }
