@@ -121,22 +121,29 @@ RSpec.describe Saboteur::CustomMap do
     end
   end
 
-  it "keeps a real literal percent-angle file under a Regexp key (#642)" do
+  # The named-template raise no longer hangs off the file being absent:
+  # with existence unchecked at load (#640), a Regexp key with named
+  # templates is always a load error. A literal percent-angle file can
+  # still be mapped under a String key.
+  it "rejects a named template under a Regexp key even when the literal file exists (#642)" do
     touch("spec/%<name>s_spec.rb")
-    map = load('SABOTEUR_CUSTOM_MAP = { /lib/ => ["spec/%<name>s_spec.rb"] }')
-    expect(map.specs_for("lib/a.rb")).to eq(["spec/%<name>s_spec.rb"])
-  end
-
-  it "uses the ordinary missing-file error for a String key with named-template text (#642)" do
     expect do
-      load('SABOTEUR_CUSTOM_MAP = { "lib/a.rb" => ["spec/%<missing>s_spec.rb"] }')
-    end.to raise_error(Saboteur::ConfigError, /matches no file/)
+      load('SABOTEUR_CUSTOM_MAP = { /lib/ => ["spec/%<name>s_spec.rb"] }')
+    end.to raise_error(Saboteur::ConfigError, /regex map specs support \\1 backreferences only/)
   end
 
+  # Named-template detection is Regexp-key only: under a String key the
+  # text is a literal path, and load no longer checks existence (#640).
+  it "takes named-template text literally under a String key when missing (#642)" do
+    map = load('SABOTEUR_CUSTOM_MAP = { "lib/a.rb" => ["spec/%<missing>s_spec.rb"] }')
+    expect(map.specs_for("lib/a.rb")).to eq(["spec/%<missing>s_spec.rb"])
+  end
+
+  # Empty angle brackets are not a named template, so this is a literal
+  # missing path: it loads, and guess time warns and falls through (#640).
   it "does not diagnose empty percent-angle text as a named template when missing (#642)" do
-    expect do
-      load('SABOTEUR_CUSTOM_MAP = { /lib/ => ["spec/%<>s_spec.rb"] }')
-    end.to raise_error(Saboteur::ConfigError, /matches no file/)
+    map = load('SABOTEUR_CUSTOM_MAP = { /lib/ => ["spec/%<>s_spec.rb"] }')
+    expect(map.specs_for("lib/a.rb")).to eq(["spec/%<>s_spec.rb"])
   end
 
   it "does not mistake empty percent-angle text for a named template (#642)" do
@@ -184,9 +191,12 @@ RSpec.describe Saboteur::CustomMap do
       .to raise_error(Saboteur::ConfigError, /outside the project root/)
   end
 
-  it "rejects a spec path that matches no file" do
-    expect { load("SABOTEUR_CUSTOM_MAP = { \"app/a.rb\" => [\"spec/missing_spec.rb\"] }.freeze\n") }
-      .to raise_error(Saboteur::ConfigError, %r{maps to "spec/missing_spec.rb", which matches no file})
+  # Existence is not checked at load: a stale entry warns at guess time
+  # and falls through there, instead of killing the whole run at boot
+  # (#640).
+  it "loads a spec path that matches no file" do
+    map = load("SABOTEUR_CUSTOM_MAP = { \"app/a.rb\" => [\"spec/missing_spec.rb\"] }.freeze\n")
+    expect(map.specs_for("app/a.rb")).to eq(["spec/missing_spec.rb"])
   end
 
   it "reports a syntax error with the file" do
@@ -222,19 +232,18 @@ RSpec.describe Saboteur::CustomMap do
       .to raise_error(Saboteur::ConfigError, /spec paths must be Strings/)
   end
 
+  # A String key never expands backreferences, so one is returned
+  # literally. Only the single-quoted form keeps the backslash: a
+  # double-quoted "\1" inside the map file is a Ruby octal escape, which
+  # the map file's own plain-Ruby rule already covers.
   it "takes a backreference literally under a String key" do
-    expect { load(%(SABOTEUR_CUSTOM_MAP = { "app/a.rb" => ["spec/\\1_spec.rb"] }.freeze\n)) }
-      .to raise_error(Saboteur::ConfigError, /matches no file/)
+    map = load(%(SABOTEUR_CUSTOM_MAP = { "app/a.rb" => ['spec/\\1_spec.rb'] }.freeze\n))
+    expect(map.specs_for("app/a.rb")).to eq(["spec/\\1_spec.rb"])
   end
 
-  it "checks a backreference-shaped spec literally under a String key" do
-    expect { load(%(SABOTEUR_CUSTOM_MAP = { "app/a.rb" => ['spec/\\1_spec.rb'] }.freeze\n)) }
-      .to raise_error(Saboteur::ConfigError, /matches no file/)
-  end
-
-  it "still checks a static spec path under a Regexp key" do
-    expect { load(%(SABOTEUR_CUSTOM_MAP = { %r{app} => ["spec/missing_spec.rb"] }.freeze\n)) }
-      .to raise_error(Saboteur::ConfigError, /matches no file/)
+  it "takes a static spec path under a Regexp key literally" do
+    map = load(%(SABOTEUR_CUSTOM_MAP = { %r{app} => ["spec/missing_spec.rb"] }.freeze\n))
+    expect(map.specs_for("app/a.rb")).to eq(["spec/missing_spec.rb"])
   end
 
   it "prefers an exact key over a glob with more literal characters" do

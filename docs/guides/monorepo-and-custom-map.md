@@ -97,10 +97,12 @@ Custom map: 1 entries (loaded)
 ```
 
 Validation is strict and load-time: a non-Hash definition, a spec path
-outside the project root, a glob that matches no file, two keys with equal
-specificity matching the same source, or app code in the file are all
-config errors naming the line. Keys that match nothing are warned about as
-stale.
+outside the project root, two keys with equal specificity matching the
+same source, or app code in the file are all config errors naming the
+line. Keys that match nothing are warned about as stale. An entry whose
+specs match no file no longer fails the run: it warns at guess time and
+the naming convention (then the usual stop guidance) takes over, so a
+stale line cannot take down every file.
 
 One honest limit, verified against the 0.7.0 sources: the map is loaded,
 validated, shown in doctor and checked for stale keys, but diff-mode spec

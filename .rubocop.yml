@@ -33,9 +33,11 @@ Metrics/CyclomaticComplexity:
   Max: 12
 Metrics/PerceivedComplexity:
   Max: 12
+# The stacked custom-map work (#600, #642, #640) fits at 310.
 Metrics/ClassLength:
-  # SubjectSelection carries the attribute-miss messaging (#373).
-  Max: 320
+  # SubjectSelection carries the attribute-miss messaging (#373); the
+  # map-entry fall-through (#640) stacks on #373 and #692 at 330.
+  Max: 330
 Metrics/ParameterLists:
   CountKeywordArgs: false
 
