@@ -65,7 +65,14 @@ RSpec.describe Saboteur::RefinementActivations do
     expect(site.covers?(stub_at("x = 1\ndef m; 1; end\n", "def m"))).to be(false)
   end
 
-  # Empty scope bodies are nil in Prism: the body guards in descend must
+  it "walks deeply nested source without a stack error (#711)" do
+    nested = "#{'f(' * 1_500}1#{', 2)' * 1_500}"
+    program = Prism.parse("class K\n  def a\n    #{nested}\n  end\nend\n").value
+    sites = []
+    expect { described_class.collect(program, program.end_offset, false, sites) }.not_to raise_error
+  end
+
+  # Empty scope bodies are nil in Prism: the body guards in collect must
   # stay, or a `module E; end` after a using crashes the walk.
   it "tolerates empty scope bodies after a using" do
     source = "module A\n  using M\n  def a_m; 1; end\nend\n" \

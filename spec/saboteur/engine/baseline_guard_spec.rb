@@ -328,15 +328,58 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       diagnostics.warnings.join("\n")
     end
 
-    it "matches only a line-start require with separating whitespace" do
-      ["  require   'minitest'\n", "require 'minitest'\n"].each do |text|
+    it "matches real require calls, wherever they sit on the line" do
+      ["  require   'minitest'\n", "require 'minitest'\n", "require'minitest'\n",
+       "x = 1; require 'minitest'\n", "require \"minitest/autorun\"\n"].each do |text|
         write_helper(text)
         expect(guard.send(:spec_helper_requires_minitest?)).to be(true)
       end
-      ["# require 'minitest'\n", "x = 1; require 'minitest'\n", "require'minitest'\n"].each do |text|
+    end
+
+    it "walks a deeply nested spec_helper without a stack error (#708)" do
+      write_helper("X = #{'f(' * 1_500}1#{', 2)' * 1_500}\n")
+      expect(guard.send(:spec_helper_requires_minitest?)).to be(false)
+    end
+
+    it "ignores minitest requires that are comments or string content (#708)" do
+      ["# require 'minitest'\n", "  # require \"minitest\"\n",
+       "=begin\nrequire 'minitest'\n=end\n",
+       "NOTE = <<~TEXT\nrequire 'minitest'\nTEXT\n",
+       "# (require 'minitest')\n"].each do |text|
         write_helper(text)
         expect(guard.send(:spec_helper_requires_minitest?)).to be(false)
       end
+    end
+
+    it "ignores receiver-qualified require calls (#708)" do
+      write_helper("Foo.require 'minitest'\nKernel.require \"minitest/autorun\"\n")
+      expect(guard.send(:spec_helper_requires_minitest?)).to be(false)
+    end
+
+    it "ignores non-require calls with a minitest string argument (#708)" do
+      write_helper("require_relative 'minitest'\ngem \"minitest/autorun\"\nload 'minitest.rb'\n")
+      expect(guard.send(:spec_helper_requires_minitest?)).to be(false)
+    end
+
+    it "collects the first string argument of each require call (#708)" do
+      write_helper("require 'minitest', 'other'\n")
+      expect(guard.send(:spec_helper_requires_minitest?)).to be(true)
+    end
+
+    it "tolerates a bare require with no argument list (#708)" do
+      write_helper("require\nrequire 'minitest'\n")
+      expect(guard.send(:spec_helper_requires_minitest?)).to be(true)
+    end
+
+    it "skips non-Node entries while walking the tree (#708)" do
+      walker = Object.new
+      def walker.is_a?(klass)
+        klass == Prism::Node || super
+      end
+      node = Prism.parse("require 'minitest'\n").value
+      walker.define_singleton_method(:compact_child_nodes) { [Object.new, node] }
+
+      expect(guard.send(:require_calls, walker)).to eq(["minitest"])
     end
 
     [1, 2].each do |count|

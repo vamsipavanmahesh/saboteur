@@ -268,11 +268,33 @@ module Saboteur
       end
 
       # The framework check behind the warning: spec_helper is the
-      # suite's own declaration of what it runs on.
+      # suite's own declaration of what it runs on. Parsed, not grepped: a
+      # regex also fires on commented-out or heredoc "require" lines for a
+      # framework the project does not use (#708).
       def spec_helper_requires_minitest?
-        File.read(File.join(@config.root, "spec", "spec_helper.rb")).match?(/^\s*require\s+["']minitest/)
+        require_calls(Prism.parse_file(File.join(@config.root, "spec", "spec_helper.rb")).value)
+          .any? { |name| name == "minitest" || name.start_with?("minitest/") }
       rescue SystemCallError
         false
+      end
+
+      # Iterative like RefinementActivations.collect: a deeply nested
+      # spec_helper must never raise SystemStackError out of a warning
+      # heuristic (same class as #711).
+      def require_calls(node)
+        found = []
+        work = [node]
+        until work.empty?
+          current = work.pop
+          next unless current.is_a?(Prism::Node)
+
+          if current.is_a?(Prism::CallNode) && current.name == :require && current.receiver.nil?
+            argument = current.arguments&.arguments&.first
+            found << argument.unescaped if argument.is_a?(Prism::StringNode)
+          end
+          work.concat(current.compact_child_nodes)
+        end
+        found
       end
 
       # A child that recognises its own failure shape (an empty sqlite

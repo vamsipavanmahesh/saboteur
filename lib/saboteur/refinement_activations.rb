@@ -35,25 +35,37 @@ module Saboteur
       end
     end
 
+    # Iterative on purpose: recursion here crashed whole runs with a raw
+    # SystemStackError on deeply nested source (#711). Sibling children
+    # push in reverse so they record in the recursion's order; a ClassNode
+    # visits its body before its superclass here, unlike the recursion,
+    # which changes nothing - the site list only feeds any? checks.
     def self.collect(node, scope_end, dynamic, sites)
-      if node.is_a?(Prism::CallNode) && node.name == :using && node.receiver.nil?
-        sites << Site.new(start_byte: node.location.start_offset, scope_end: scope_end, dynamic_scope: dynamic)
-      end
-
-      descend(node, scope_end, dynamic, sites)
+      work = [[node, scope_end, dynamic]]
+      visit(*work.pop, work, sites) until work.empty?
     end
 
-    def self.descend(node, scope_end, dynamic, sites)
-      case node
+    def self.visit(current, scope_end, dynamic, work, sites)
+      if current.is_a?(Prism::CallNode) && current.name == :using && current.receiver.nil?
+        sites << Site.new(start_byte: current.start_offset, scope_end: scope_end, dynamic_scope: dynamic)
+      end
+
+      children_of(current, scope_end, dynamic).reverse_each { |entry| work << entry }
+    end
+
+    def self.children_of(current, scope_end, dynamic)
+      case current
       when Prism::ClassNode
-        collect(node.superclass, scope_end, dynamic, sites) if node.superclass
-        collect(node.body, node.end_offset, dynamic, sites) if node.body
+        entries = []
+        entries << [current.body, current.end_offset, dynamic] if current.body
+        entries << [current.superclass, scope_end, dynamic] if current.superclass
+        entries
       when Prism::ModuleNode, Prism::SingletonClassNode
-        collect(node.body, node.end_offset, dynamic, sites) if node.body
+        current.body ? [[current.body, current.end_offset, dynamic]] : []
       when Prism::DefNode, Prism::BlockNode, Prism::LambdaNode
-        node.compact_child_nodes.each { |child| collect(child, scope_end, true, sites) }
+        current.compact_child_nodes.map { |child| [child, scope_end, true] }
       else
-        node.compact_child_nodes.each { |child| collect(child, scope_end, dynamic, sites) }
+        current.compact_child_nodes.map { |child| [child, scope_end, dynamic] }
       end
     end
   end
