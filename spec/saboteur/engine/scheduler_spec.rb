@@ -94,6 +94,222 @@ RSpec.describe Saboteur::Engine::Scheduler, "verifying kills and timeouts" do
     expect(unchanged_runs).to be_empty
   end
 
+  # #588: a budget stop mid-subject must not erase the kills it already
+  # measured. The truncated subject's completed kills still get their
+  # verdict checks - uncapped, because the budget stops new mutation
+  # work, not the confirmation of work already done - so the run reports
+  # them killed instead of dropping every one as unverified (mastodon
+  # printed killed 0 and score 0.0 % after 24 real kills).
+  it "confirms a truncated subject's completed kills instead of dropping them as unverified" do
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                deadline: 100.0)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    now = 99.0
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+    allow(runner).to receive(:run) do |mutation: nil, **|
+      if mutation
+        now = 101.0 # the first mutant spends the budget; no further mutant starts
+        outcome(:killed, failed_ids: ["t1"])
+      else
+        outcome(:survived)
+      end
+    end
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(results.size).to be < candidates.for(subject_under_test).size
+    expect(results.map(&:status).uniq).to eq([:killed])
+  end
+
+  # The confirmation flag is per-subject: after a truncated subject's
+  # uncapped checks, the next subject's ordinary checks must be budget-
+  # capped again. A leaked flag would hand every later check the full
+  # timeout the budget already ruled out.
+  it "resets the truncated-confirmation flag for the next subject" do
+    subjects = subjects_in("class SchedulerTarget\n  def m(a)\n    a + 1\n  end\nend\n" \
+                           "class OtherTarget\n  def m(a)\n    a + 1\n  end\nend\n")
+    subject_a, other = subjects
+    both_map = Saboteur::Selection::CoverageMap.new(lines: { subject_a.file => { 3 => %w[t1 t2], 8 => %w[t1 t2] } },
+                                                    tests: %w[t1 t2], durations: durations)
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: both_map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                deadline: 100.0)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    allow(both_map).to receive(:recorded_runtime).and_return(nil) # full timeout: baseline_timeout, 300.0
+    now = 99.0
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+    timeouts = []
+    flip_now = true
+    allow(runner).to receive(:run) do |mutation: nil, timeout: nil, **|
+      if mutation
+        now = 101.0 if flip_now # the first mutant spends the budget; subject A truncates
+        outcome(:killed, failed_ids: ["t1"])
+      else
+        timeouts << timeout
+        outcome(:survived)
+      end
+    end
+    results = sched.call(subject_a, candidates.for(subject_a))
+    expect(results.map(&:status).uniq).to eq([:killed]) # truncated: confirmed uncapped, timeout 300.0
+    expect(timeouts).to eq([300.0])
+
+    timeouts.clear
+    flip_now = false
+    now = 99.0 # next subject runs with budget left again (stubbed clock)
+    results = sched.call(other, candidates.for(other))
+    expect(results.map(&:status).uniq).to eq([:killed])
+    # 1.0 = deadline 100.0 - now 99.0: capped, so the flag truly reset.
+    expect(timeouts.uniq).to eq([1.0])
+  end
+
+  # Uncapped confirmation covers the retry too: a truncated subject's
+  # rejected kill retries in defined order at the FULL timeout, not the
+  # spent budget's 0.0. Asserting the retried verdict also pins the map
+  # over the results (an each would hand back the rejected verdict).
+  it "retries a truncated subject's rejected kill in defined order at the full timeout" do
+    retry_map = Saboteur::Selection::CoverageMap.new(
+      lines: { subject_under_test.file => { 3 => ["spec/a_spec.rb[1:2]"] } },
+      tests: ["spec/a_spec.rb[1:1]", "spec/a_spec.rb[1:2]"],
+      durations: { "spec/a_spec.rb[1:1]" => 0.1, "spec/a_spec.rb[1:2]" => 0.1 }
+    )
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: retry_map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                deadline: 100.0)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    allow(retry_map).to receive(:recorded_runtime).and_return(nil)
+    now = 99.0
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+    mutant_timeouts = []
+    first_mutant = true
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, timeout: nil, **|
+      if mutation
+        if first_mutant
+          first_mutant = false
+          now = 101.0 # the first mutant spends the budget; the subject truncates
+        else
+          mutant_timeouts << timeout # the retry's mutant re-run
+        end
+        outcome(:killed, failed_ids: ["spec/a_spec.rb[1:2]"])
+      elsif test_ids == ["spec/a_spec.rb[1:2]"]
+        outcome(:error, message: "order-dependent leftovers") # first check rejects the kill
+      else
+        outcome(:survived) # the defined-order retry passes unchanged
+      end
+    end
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(results.map(&:status).uniq).to eq([:killed])
+    expect(mutant_timeouts).to eq([300.0])
+  end
+
+  # The retry of a COMPLETED subject's rejected kill stays budget-bound
+  # (#296): it runs, but at the capped timeout - the truncated-subject
+  # exception (#588) must not leak into the ordinary path.
+  it "retries a completed subject's rejected kill at the budget-capped timeout" do
+    retry_map = Saboteur::Selection::CoverageMap.new(
+      lines: { subject_under_test.file => { 3 => ["spec/a_spec.rb[1:2]"] } },
+      tests: ["spec/a_spec.rb[1:1]", "spec/a_spec.rb[1:2]"],
+      durations: { "spec/a_spec.rb[1:1]" => 0.1, "spec/a_spec.rb[1:2]" => 0.1 }
+    )
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: retry_map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                deadline: 100.0)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    allow(retry_map).to receive(:recorded_runtime).and_return(nil)
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(99.0)
+    retry_timeouts = []
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, timeout: nil, **|
+      if mutation
+        # The retry re-runs the mutant on the defined-order prefix; first
+        # runs cover only the killer's own tests.
+        retry_timeouts << timeout if test_ids == ["spec/a_spec.rb[1:1]", "spec/a_spec.rb[1:2]"]
+        outcome(:killed, failed_ids: ["spec/a_spec.rb[1:2]"])
+      elsif test_ids == ["spec/a_spec.rb[1:2]"]
+        outcome(:error, message: "order-dependent leftovers")
+      else
+        outcome(:survived)
+      end
+    end
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(results.map(&:status).uniq).to eq([:killed])
+    # deadline 100.0 - now 99.0: capped, never the full 300.0.
+    expect(retry_timeouts).not_to be_empty
+    expect(retry_timeouts.uniq).to eq([1.0])
+  end
+
+  # A retry the budget stops before it can fork is unverified, not an
+  # error or a kill (#296): nothing ran, so nothing was proven.
+  it "leaves a completed subject's rejected-kill retry unverified once the budget is spent" do
+    retry_map = Saboteur::Selection::CoverageMap.new(
+      lines: { subject_under_test.file => { 3 => ["spec/a_spec.rb[1:2]"] } },
+      tests: ["spec/a_spec.rb[1:1]", "spec/a_spec.rb[1:2]"],
+      durations: { "spec/a_spec.rb[1:1]" => 0.1, "spec/a_spec.rb[1:2]" => 0.1 }
+    )
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: retry_map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                deadline: 100.0)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    now = 99.0
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+    allow(runner).to receive(:run) do |test_ids:, mutation: nil, **|
+      if mutation
+        outcome(:killed, failed_ids: ["spec/a_spec.rb[1:2]"])
+      elsif test_ids == ["spec/a_spec.rb[1:2]"]
+        outcome(:error, message: "order-dependent leftovers") # first check rejects the kill
+      else
+        now = 101.0 # the retry's unchanged run passes, then the budget is spent
+        outcome(:survived)
+      end
+    end
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(results.map(&:status).uniq).to eq([:unverified])
+    expect(results.first.reason).to eq("the --max-duration budget stopped the defined-order retry")
+  end
+
+  # A budget spent before a subject's first mutant forks nothing at all:
+  # no mutant runs, no checks, and the empty result list cannot be
+  # mistaken for an all-clear.
+  it "forks nothing when the budget is spent before the first mutant" do
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                deadline: 100.0)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(101.0)
+    allow(runner).to receive(:run).and_raise("no fork expected")
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(results).to eq([])
+    expect(runner).not_to have_received(:run)
+  end
+
+  # A subject that finished its mutants before the deadline still gets no
+  # post-deadline forks: its fresh kills stay unverified, naming the
+  # budget (#296), because nothing distinguishes a zero-time check from a
+  # fabricated error.
+  it "still leaves a completed subject's fresh kills unverified when the budget is spent before the check" do
+    sched = described_class.new(config: Saboteur::Config.new({}), runner: runner, map: map,
+                                reevaluator: Saboteur::Execution::Reevaluator.new, diagnostics: diagnostics,
+                                deadline: 100.0)
+    allow(sched).to receive(:load_problem).and_return(nil)
+    now = 99.0
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+    total = candidates.for(subject_under_test).size
+    mutants_run = 0
+    allow(runner).to receive(:run) do |mutation: nil, **|
+      if mutation
+        mutants_run += 1
+        now = 101.0 if mutants_run == total # the last mutant spends the budget
+        outcome(:killed, failed_ids: ["t1"])
+      else
+        outcome(:survived)
+      end
+    end
+    results = sched.call(subject_under_test, candidates.for(subject_under_test))
+    expect(results.size).to eq(candidates.for(subject_under_test).size)
+    expect(results.map(&:status).uniq).to eq([:unverified])
+    # The exact reason pins checked's early return: without it the check
+    # would run and the budget guard inside unchanged_runner would answer
+    # "the --max-duration budget is spent" instead.
+    expect(results.first.reason).to eq("verdict check skipped: the --max-duration budget is spent")
+  end
+
   it "re-runs each kill's own tests up to the killer, once per distinct sequence" do
     results = schedule(mutant: ->(_) { outcome(:killed, failed_ids: ["t2"]) })
     expect(results.map(&:status).uniq).to eq([:killed])

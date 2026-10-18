@@ -96,7 +96,7 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::CoverageStore#budget_stopped?",
              reason: "admitted is clamped to <= the configured phase timeout, so < and != agree on every reachable value"
 
-  i.mutation "5e4ced5440585f8a",
+  i.mutation "486ad51016f34af2",
              subject: "Saboteur::Engine::Scheduler#unchanged_runner",
              reason: "budget_capped clamps its result to <= the given timeout, so < and != agree on every reachable value"
 
@@ -104,11 +104,11 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#unchanged_timing",
              reason: "budget_capped clamps its result to <= the baseline timeout, so < and != agree on every reachable value"
 
-  i.mutation "452346af9d7dfcf0",
+  i.mutation "2c0b34a1f6194653",
              subject: "Saboteur::Engine::Scheduler#unchanged_runner",
              reason: "the 0.0 runtime of a check that never forked is discarded: as_unverified keeps the kill's own runtime"
 
-  i.mutation "dc826f708439e417",
+  i.mutation "7c5f9f0eb018b358",
              subject: "Saboteur::Engine::Scheduler#unchanged_runner",
              reason: "the 0.0 runtime of a check that never forked is discarded: as_unverified keeps the kill's own runtime"
 
@@ -200,7 +200,7 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler.prioritize",
              reason: "equivalent: the default only shifts every never-killer by the same amount, so the order is the same"
 
-  i.mutation "ffdd70017e77a3e4",
+  i.mutation "1ca4289bf90fb951",
              subject: "Saboteur::Engine::Scheduler#call",
              reason: "equivalent: prioritize reads killers with fetch, which ignores the hash default"
 
@@ -419,9 +419,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#call",
              reason: "equivalent: removing the all-reused shortcut still reuses each cached verdict; checked does not run neutral checks for reused verdicts"
 
-  i.mutation "5c4511ee458a0b62",
-             subject: "Saboteur::Engine::Scheduler#call",
-             reason: "equivalent: initial slowdown 1 and 1.0 produce the same float deadline when multiplied by recorded runtime"
 
   i.mutation "aff3fcccde575b60",
              subject: "Saboteur::Engine::Scheduler#reuse",
@@ -513,9 +510,13 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's @out.puts side effects are the whole behavior and the enumerator's " \
                      "return value is unused"
 
-  i.mutation "69ce317bab249ed6",
+  i.mutation "996853fcc7690d62",
+             subject: "Saboteur::Engine::Scheduler#call",
+             reason: "equivalent: results holds at most one entry per run candidate, so size can be shorter than candidates but never longer, and < and != agree (hand-confirmed by QA)"
+
+  i.mutation "406cbdb97f3b37da",
              subject: "Saboteur::Engine::Scheduler#checked",
-             reason: "equivalent: the block's cache record side effects are the whole behavior and the chain's return value is discarded, so each and map agree"
+             reason: "equivalent: #checked re-assigns @confirming_truncation = truncated at entry (scheduler.rb:98) before the only readers (rerun_in_prefix, unchanged_runner) run, so the ensure value never leaks into another subject (driven: survives the full scheduler spec, including the two-subject flag spec)"
 
   i.mutation "e96e7f1845d85ffa",
              subject: "Saboteur::CLI::RunBudgetOptions#parse_duration",
@@ -1014,7 +1015,7 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
              reason: "equivalent: Scheduler#reuse never sets rejected_kill: true, so no reused result can pass the first " \
                      "conjunct and reach the retry"
-  i.mutation "52b79709725195b2",
+  i.mutation "056fa35add185fd9",
              subject: "Saboteur::Engine::Scheduler#rerun_in_prefix",
              reason: "equivalent: budget_capped clamps the retry timeout to <= the full one, so < and != agree on every " \
                      "reachable value"
