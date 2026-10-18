@@ -3,6 +3,24 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "01788b3c7b37a3cb",
+             subject: "Saboteur::MutationSource::HazardGuard#cite",
+             reason: "equivalent: node.slice of a parsed Prism statement is never empty, so .lines.first is " \
+                     "always a String and the .to_s only collapses a nil that cannot occur - hand-applied " \
+                     "mutant leaves all hazard_guard and subject_selection examples green"
+
+  i.mutation "69c095b81b8911f5",
+             subject: "Saboteur::MutationSource::HazardGuard#cite",
+             reason: "equivalent: in the bundled Prism, Node#start_line is a delegate of " \
+                     "Node#location.start_line (verified against the project's prism), so dropping .location " \
+                     "renders the same line number - hand-applied mutant leaves all examples green"
+
+  i.mutation "c2090c5fe1f51d09",
+             subject: "Saboteur::MutationSource::HazardGuard#keyword_bool?",
+             reason: "equivalent: Prism::KeywordHashNode#elements are always AssocNodes (verified against " \
+                     "the project's prism), so the is_a?(Prism::AssocNode) conjunct is always true - " \
+                     "hand-applied mutant leaves all examples green"
+
   i.mutation "cacc7042b5677fe6",
              subject: "Saboteur::Engine::CoverageStore#preloaded_message",
              reason: "equivalent: the only caller guards on preloaded_empty.any?, so files.size is always >= 1, " \
