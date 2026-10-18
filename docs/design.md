@@ -46,9 +46,10 @@ config + CLI
 - `define_method(:m) { ... }` with a literal name and a block is a subject
   too (#194): the block body is the method body, and re-evaluating the whole
   call redefines the method on the enclosing owner. A computed name, an
-  explicit receiver, a lambda argument, or no block cannot be named, and a
-  call in a block whose owner is unknown stays skipped ("defined inside a
-  block").
+  explicit receiver, a lambda argument, a second argument (with two
+  arguments the second is the body and the block is dead code), or no
+  block cannot be named, and a call in a block whose owner is unknown
+  stays skipped ("defined inside a block").
 - Two class-level call shapes are singleton subjects the same way (#194):
   `scope :name, -> { ... }` (the Rails scope shape: literal name, one
   lambda) and `define_singleton_method(:name) { ... }` or

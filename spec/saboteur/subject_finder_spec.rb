@@ -82,6 +82,15 @@ RSpec.describe Saboteur::SubjectFinder do
     end
   end
 
+  # sclass is a raw attr_reader on Subject: the || false normalization in
+  # walk_call must hold so a call-defined subject with no nesting at all
+  # (a top-level block) reads false, not nil (#571 dogfood, successor of
+  # stale ignore 4aded400397da9fe).
+  it "pins sclass to false, not nil, for a call-defined subject without nesting" do
+    subject = subjects_in("1.times do\n  define_method(:m) { 1 }\nend\n").first
+    expect(subject.sclass).to be(false)
+  end
+
   it "rejects call shapes that do not define a method body" do
     [
       "before_action :check",          # symbol-only call defines nothing here
@@ -90,7 +99,8 @@ RSpec.describe Saboteur::SubjectFinder do
       "scope :x, -> { 1 }, extra",     # unknown extra arguments
       "Model.scope :x, -> { 1 }",      # an explicit receiver is not a bare DSL call
       "scope :x do 1 end",             # a block-bodied scope is not a Rails scope
-      "define_singleton_method(:x, \"body\")" # a computed body is not a block or lambda
+      "define_singleton_method(:x, \"body\")", # a computed body is not a block or lambda
+      "define_singleton_method(:x)" # a name without a body defines nothing (#571)
     ].each do |call|
       expect(subjects_in("class Model\n  def check; end\n  #{call}\nend\n").map(&:id))
         .to eq(["Model#check"]), call
@@ -129,6 +139,14 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(finder.send(:lambda_body?, bare)).to be(false)
     expect(finder.send(:block_only?, bare)).to be(false)
     expect(finder.send(:block_only?, blocked)).to be(false)
+  end
+
+  # A name-only define_singleton_method carries no body at all: block_only?
+  # must not wave it through on the argument count alone (#571 dogfood
+  # survivor 18b81f2323de4f26).
+  it "answers false for a name-only define_singleton_method in block_only?" do
+    node = Prism.parse("define_singleton_method(:x)").value.statements.body.first
+    expect(described_class.new.send(:block_only?, node)).to be(false)
   end
 
   it "exposes a call-defined subject's body: the block for define_method, the lambda for scope and the lambda form" do
