@@ -22,6 +22,16 @@ RSpec.describe "--test-command", :e2e do
     statuses = run.json.fetch("mutants", run.json["files"].values.flat_map { |f| f["mutants"] }).map { |m| m["status"] }
     expect(statuses).to include("Survived", "Killed")
     expect(File.read(File.join(dir, "lib", "people.rb"))).to eq(original)
+    expect(run.out).not_to include("ruby executes only the first")
+  end
+
+  # ruby executes only the FIRST script named on its command line; the
+  # rest silently never run and their mutants inflate the survivors (#611).
+  it "warns when one ruby is handed several test files" do
+    File.write(File.join(dir, "a_check_test.rb"), "exit 0\n")
+    File.write(File.join(dir, "b_check_test.rb"), "exit 0\n")
+    run = saboteur(dir, "--test-command", "#{RbConfig.ruby} -Ilib a_check_test.rb b_check_test.rb")
+    expect(run.out).to include("ruby executes only the first")
   end
 
   # The unchanged-tree control: one neutral preflight runs the command
