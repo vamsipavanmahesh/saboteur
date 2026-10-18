@@ -370,7 +370,8 @@ RSpec.describe Saboteur::Reporter::Terminal do
   it "splits the score into assertion and crash shares" do
     text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion"),
                                     result_for(:killed, replacement: "<", kill_cause: "NoMethodError")))
-    expect(text).to include("score 100.0 % (assertion 50.0 %, crash 50.0 %)")
+    expect(text).to include("score 100.0 % (assertion 50.0 %, crash 50.0 %)",
+                            "(killed+timeout)/(killed+survived+timeout); errors, resource limits and skips excluded")
   end
 
   it "names timeouts and kills with no recorded cause in the split" do
