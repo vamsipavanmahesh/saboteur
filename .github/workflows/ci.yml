@@ -83,10 +83,9 @@ jobs:
           bundler-cache: true
       - run: script/rspec-shard ${{ matrix.shard }} 3
 
-  # macOS legs run on the owner's self-hosted Mac (a pool of runner
-  # instances labelled saboteur-mac on one machine, sized to the hardware).
-  # Self-hosted runners never execute fork code: the legs run only for main
-  # pushes and for dispatches whose head_repo input names this repository,
+  # macOS legs run on GitHub-hosted macos-latest (arm64, free for public
+  # repositories). The legs still run only for main pushes and for
+  # dispatches whose head_repo input names this repository,
   # and the first step proves that input from the API - the pull request's
   # head repository must be this one and the dispatched SHA must be its
   # current head - so a wrong or forged head_repo fails closed before any
@@ -96,7 +95,7 @@ jobs:
   # supported Ruby.
   test-macos:
     name: Ruby ${{ matrix.ruby }} / macos / shard ${{ matrix.shard }}
-    runs-on: [self-hosted, saboteur-mac]
+    runs-on: macos-latest
     timeout-minutes: 20
     permissions:
       contents: read
@@ -218,7 +217,7 @@ jobs:
     # The long pole of a pull request run at ~6 minutes: 4x8 halves it, and
     # --jobs 4 matches the 4 vCPUs.
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: read
       # The binding proof reads the pull request's head, base and head repo.
