@@ -23,6 +23,11 @@ RSpec.describe Saboteur::CLI, "preset banner regression pins" do
     expect(cli.send(:user_flag_overrides)).to eq("--since" => ["--since=chosen"])
   end
 
+  it "prints each preset value once" do
+    cli = described_class.new([])
+    expect(cli.send(:preset_banner, ["--since", "origin/main"])).to eq(["--since", "origin/main"])
+  end
+
   it "finishes even for a dangling preset value flag" do
     cli = described_class.new([])
     banner = Timeout.timeout(0.2) { cli.send(:preset_banner, ["--since"]) }
