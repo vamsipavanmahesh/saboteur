@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "../execution/test_command_shape"
+
 module Saboteur
   class Engine
     # The two run pipelines: in-process (boot, coverage, workers) and the
@@ -43,6 +45,12 @@ module Saboteur
       def call_external(ignore_list, started)
         @diagnostics.inform("external test command: #{config['test_command']} " \
                             "(serial, no coverage, unsandboxed, mutants applied in a disposable copy)")
+        if Execution::TestCommandShape.multi_file_ruby?(config["test_command"])
+          @diagnostics.warn("the test command hands several test files to one ruby: ruby executes only " \
+                            "the first, so the rest never run and their mutants silently survive (#611) - " \
+                            "use the framework's multi-file form (bin/rails test f1 f2, rspec f1 f2) or a " \
+                            "shell loop (for f in ...; do ruby \"$f\" || exit 1; done)")
+        end
         files = config.included_files
         subjects, scope = select_subjects(files)
         results = subjects.empty? ? [] : mutate_external(subjects, scope, ignore_list)

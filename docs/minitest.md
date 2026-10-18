@@ -7,6 +7,14 @@ coverage, unsandboxed - not a Minitest path. This page records how much of the e
 RSpec, so the decision to add a Minitest adapter, or to keep the stance, is made
 on measured facts.
 
+When the command runs several test files, use a form that really runs them
+all: `ruby -Itest a_test.rb b_test.rb` executes only `a_test.rb` (the rest
+become `ARGV`), so the unrun files' mutants silently survive (#611). Working
+multi-file forms: `bin/rails test test/a_test.rb test/b_test.rb`,
+`bundle exec rspec spec/a_spec.rb spec/b_spec.rb`, or a shell loop such as
+`for f in test/a_test.rb test/b_test.rb; do ruby -Itest "$f" || exit 1; done`.
+Saboteur warns when it sees one `ruby` handed several test files.
+
 ## How much of the engine is RSpec-specific
 
 Measured on main at 6f704c8 with `git ls-files lib` and `grep`, not with a

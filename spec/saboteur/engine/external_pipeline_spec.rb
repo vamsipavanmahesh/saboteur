@@ -90,6 +90,29 @@ RSpec.describe "Engine external test-command pipeline" do
     end
   end
 
+  # One ruby handed several test files runs only the first; the rest
+  # silently never run (#611).
+  it "warns when the test command hands several test files to one ruby" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "ruby -Itest a_test.rb b_test.rb",
+                                      "include" => ["lib/nope/**/*.rb"] }, root: root)
+      expect(Saboteur::Engine.new(config).call.warnings).to include(
+        "the test command hands several test files to one ruby: ruby executes only " \
+        "the first, so the rest never run and their mutants silently survive (#611) - " \
+        "use the framework's multi-file form (bin/rails test f1 f2, rspec f1 f2) or a " \
+        'shell loop (for f in ...; do ruby "$f" || exit 1; done)'
+      )
+    end
+  end
+
+  it "stays quiet for a single-file command" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "ruby -Itest a_test.rb",
+                                      "include" => ["lib/nope/**/*.rb"] }, root: root)
+      expect(Saboteur::Engine.new(config).call.warnings.join).not_to include("ruby executes only the first")
+    end
+  end
+
   it "skips mutation entirely when nothing is in scope (#305 dogfood)" do
     with_fixture do |root|
       config = Saboteur::Config.new({ "test_command" => "true", "include" => ["lib/nope/**/*.rb"] }, root: root)
