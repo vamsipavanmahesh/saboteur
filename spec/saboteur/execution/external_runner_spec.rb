@@ -705,6 +705,129 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
 
+    it "refuses when the lockfile does not record the source exactly once (#722)" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
+        original = File.join(dir, "engines", "mygem")
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{original}\"\n")
+        File.write(File.join(dir, "Gemfile.lock"), "GEM\n  specs:\n")
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        expect { runner.send(:with_fresh_copy) { nil } }
+          .to raise_error(Saboteur::ConfigError,
+                          /could not rebase the lockfile's PATH remote for path: source "mygem"/)
+      end
+    end
+
+    it "refuses when the lockfile records the source twice (#722)" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
+        original = File.join(dir, "engines", "mygem")
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{original}\"\n")
+        lockfile = "PATH\n  remote: #{original}\n  specs:\n\nPATH\n  remote: #{original}\n  specs:\n\nGEM\n"
+        File.write(File.join(dir, "Gemfile.lock"), lockfile)
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        expect { runner.send(:with_fresh_copy) { nil } }
+          .to raise_error(Saboteur::ConfigError,
+                          /could not rebase the lockfile's PATH remote for path: source "mygem"/)
+      end
+    end
+
+    it "accepts a lockfile spelling an in-project source relatively, as bundle lock writes it (#722)" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "vend", "g"))
+        File.write(File.join(dir, "vend", "g", "g.gemspec"),
+                   "Gem::Specification.new { |s| s.name = \"g\"; s.version = \"0.1.0\"; " \
+                   "s.authors = [\"x\"]; s.summary = \"x\" }\n")
+        original = File.join(dir, "vend", "g")
+        File.write(File.join(dir, "Gemfile"), "source \"https://rubygems.org\"\ngem \"g\", path: \"#{original}\"\n")
+        # The exact layout a real `bundle lock --local` writes for this
+        # Gemfile (captured against bundler 2.5.22 and 4.0.23): an
+        # in-project path: source lands as a ROOT-RELATIVE remote. The
+        # lockfile is written by hand, not produced here: under
+        # `bundle exec` the child inherits RUBYOPT=-rbundler/setup and
+        # BUNDLER_SETUP, and bundler 4 then locks the OUTER project's
+        # Gemfile.lock instead of the tmpdir's (#732 CI).
+        File.write(File.join(dir, "Gemfile.lock"), <<~LOCK)
+          PATH
+            remote: vend/g
+            specs:
+              g (0.1.0)
+
+          GEM
+            remote: https://rubygems.org/
+            specs:
+
+          PLATFORMS
+            ruby
+            x86_64-linux
+
+          DEPENDENCIES
+            g!
+
+          BUNDLED WITH
+             2.5.22
+        LOCK
+
+        row = source_row(name: "g", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          expect(File.read(File.join(copy, "Gemfile"))).to include("path: \"#{copy}/vend/g\"")
+          expect(File.read(File.join(copy, "Gemfile.lock"))).to include("remote: vend/g")
+        end
+      end
+    end
+
+    it "accepts a lockfile relative spelling behind a symlinked root (#722)" do
+      Dir.mktmpdir do |dir|
+        real = File.join(dir, "real")
+        FileUtils.mkdir_p(File.join(real, "vend", "g"))
+        File.write(File.join(real, "vend", "g", "g.gemspec"),
+                   "Gem::Specification.new { |s| s.name = \"g\"; s.version = \"0.1.0\"; " \
+                   "s.authors = [\"x\"]; s.summary = \"x\" }\n")
+        link = File.join(dir, "link")
+        File.symlink(real, link)
+        # The Gemfile spells the source THROUGH the symlink and Bundler's
+        # expanded_original_path is a textual expand_path, so neither is
+        # realpath'd - while the runner realpaths the root (macOS /var ->
+        # /private/var, #732 CI).
+        original = File.join(link, "vend", "g")
+        File.write(File.join(real, "Gemfile"), "source \"https://rubygems.org\"\ngem \"g\", path: \"#{original}\"\n")
+        File.write(File.join(real, "Gemfile.lock"), <<~LOCK)
+          PATH
+            remote: vend/g
+            specs:
+              g (0.1.0)
+
+          GEM
+            remote: https://rubygems.org/
+            specs:
+
+          PLATFORMS
+            ruby
+            x86_64-linux
+
+          DEPENDENCIES
+            g!
+
+          BUNDLED WITH
+             2.5.22
+        LOCK
+
+        row = source_row(name: "g", original: original, expanded: File.expand_path(original))
+        runner = described_class.new(command: "true", root: link, path_sources: [row])
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          expect(File.read(File.join(copy, "Gemfile"))).to include("path: \"#{copy}/vend/g\"")
+          expect(File.read(File.join(copy, "Gemfile.lock"))).to include("remote: vend/g")
+        end
+      end
+    end
+
     it "refuses a source whose literal path: option is not in the Gemfile exactly once" do
       Dir.mktmpdir do |dir|
         File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: computed_path\n")
