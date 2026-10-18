@@ -1072,6 +1072,20 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
     expect(warning).not_to include(%("D"))
   end
 
+  # With several refused ids the glob example must come from the FIRST id's
+  # last segment, not the last id's (#635, survivor: ids.first -> ids.last).
+  it "builds the glob hint from the first refused id when several miss (#635)" do
+    file = commit_base("two.rb",
+                       "Alpha = {a: 1}.freeze\nBeta = {b: 1}.freeze\nvalidate!(Alpha)\n")
+    File.write(file, "Alpha = {a: 1, z: 2}.freeze\nBeta = {b: 1, z: 2}.freeze\nvalidate!(Alpha)\n")
+
+    expect(select([file], since: "HEAD")).to be_empty
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include('Exact id(s): "Alpha", "Beta" (preferred)')
+    expect(warning).to include('a glob like "*Alpha*"')
+    expect(warning).not_to include('"*Beta*"')
+  end
+
   it "warns when a whole_file pattern matches no subject (#635)" do
     file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
     File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
@@ -1079,6 +1093,23 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
     select([file], since: "HEAD", whole_file: ["RUELES"])
     expect(diagnostics.warnings).to include(
       '--since: whole_file pattern "RUELES" matches no discovered subject in this run; ' \
+      "subject ids look like RULES, A::B::C or A::B#m"
+    )
+  end
+
+  # Every unmatched pattern gets its own warning, and the pass returns the
+  # pattern list itself (#635, survivor: each -> map).
+  it "warns once per unmatched whole_file pattern and returns the patterns (#635)" do
+    config = Saboteur::Config.new({ "whole_file" => ["RUELES", "RELES"] }, root: @root)
+    selection = described_class.new(config, diagnostics)
+
+    expect(selection.send(:warn_unmatched_whole_file, [])).to eq(["RUELES", "RELES"])
+    expect(diagnostics.warnings).to include(
+      '--since: whole_file pattern "RUELES" matches no discovered subject in this run; ' \
+      "subject ids look like RULES, A::B::C or A::B#m"
+    )
+    expect(diagnostics.warnings).to include(
+      '--since: whole_file pattern "RELES" matches no discovered subject in this run; ' \
       "subject ids look like RULES, A::B::C or A::B#m"
     )
   end
