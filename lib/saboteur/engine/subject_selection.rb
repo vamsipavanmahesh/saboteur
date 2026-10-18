@@ -33,6 +33,7 @@ module Saboteur
           subjects += constant_subjects
         end
         @discovered = subjects
+        warn_unmatched_whole_file(subjects) if @config["since"]
         subjects = by_pattern(subjects, @config["subjects"]) if @config["subjects"].any?
         subjects = by_change(subjects, @config["since"]) if @config["since"]
         subjects = drop_intentionally_untested(subjects)
@@ -193,7 +194,8 @@ module Saboteur
         @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs code at " \
                           "load (#{listed}) that every constant mutant would run again, and saboteur " \
                           "cannot vet what re-running it does. List the constant in c.whole_file to " \
-                          "replay the file anyway, or move the literal into its own file.")
+                          "replay the file anyway, or move the literal into its own file. " \
+                          "#{whole_file_id_hint(rest)}")
         opted_in
       end
 
@@ -201,6 +203,32 @@ module Saboteur
       # matched like Execution::Reevaluator#whole_file?.
       def whole_file_opted?(subject)
         Array(@config["whole_file"]).any? { |pattern| File.fnmatch?(pattern.to_s, subject.id) }
+      end
+
+      # A bare constant name only ever matches a top-level constant's id -
+      # never a nested one - so name the exact ids to copy into c.whole_file.
+      # The glob example carries its blast radius: it opts in every matching
+      # subject project-wide, so the exact id(s) are the safer pick (#635).
+      def whole_file_id_hint(subjects)
+        ids = subjects.map(&:id)
+        named = ids.first(3).map { |id| "\"#{id}\"" }.join(", ")
+        named += ", +#{ids.size - 3} more" if ids.size > 3
+        "Exact id(s): #{named} (preferred); a glob like \"*#{ids.first.split('::').last}*\" also " \
+          "works but opts in every matching subject project-wide."
+      end
+
+      # A whole_file pattern that matches nothing silently does nothing (#635):
+      # name the pattern and what subject ids look like, so a bare constant
+      # name for a nested constant (which never matches its qualified id)
+      # stands out. Scoped to this run: a pattern for a file outside the
+      # current include set also matches nothing.
+      def warn_unmatched_whole_file(subjects)
+        @config["whole_file"].each do |pattern|
+          next if subjects.any? { |subject| File.fnmatch?(pattern.to_s, subject.id) }
+
+          @diagnostics.warn("--since: whole_file pattern \"#{pattern}\" matches no discovered " \
+                            "subject in this run; subject ids look like RULES, A::B::C or A::B#m")
+        end
       end
 
       def warn_unsupported_constant(found)
