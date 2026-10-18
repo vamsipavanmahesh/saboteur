@@ -130,6 +130,90 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     end
   end
 
+  # The first timed pass prices the whole run against --max-duration:
+  # warn while a Ctrl-C is still cheap (#637).
+  # Warnings buffer into diagnostics.warnings; inform notes print (#640 area).
+  def guard_with_budget(budget, full_passes: 3, baseline_passes: 2, run_started: 100.0)
+    timed = Saboteur::Config.new({ "seed" => 42, "max_duration" => budget,
+                                   "baseline_passes" => baseline_passes }, root: @root)
+    diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: timed, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: diagnostics,
+                        full_passes: full_passes, run_started: run_started).call
+    diagnostics.warnings
+  end
+
+  it "warns when the projected baseline+coverage barely fits --max-duration (#637)" do
+    expect(guard_with_budget(16.0).join).to include("projected baseline+coverage ~15s barely fits " \
+                                                    "--max-duration 16s; mutants would get ~1s")
+  end
+
+  it "says the projection exceeds the budget when nothing is left for mutants (#637)" do
+    expect(guard_with_budget(14.0).join).to include("projected baseline+coverage ~15s exceeds " \
+                                                    "--max-duration 14s; mutants would get ~0s")
+  end
+
+  it "stays quiet when the budget comfortably fits the projection (#637)" do
+    expect(guard_with_budget(25.0)).to be_empty
+  end
+
+  it "stays quiet when the budget leaves exactly one more pass after the projection (#637)" do
+    expect(guard_with_budget(20.0)).to be_empty
+  end
+
+  it "says the projection exceeds the budget when exactly nothing is left for mutants (#637)" do
+    expect(guard_with_budget(15.0).join).to include("projected baseline+coverage ~15s exceeds " \
+                                                    "--max-duration 15s; mutants would get ~0s")
+  end
+
+  it "prices the mutants' share to one decimal (#637)" do
+    expect(guard_with_budget(15.37).join).to include("mutants would get ~0.4s")
+  end
+
+  it "names every remedy in the warning, verbatim (#637)" do
+    expect(guard_with_budget(16.0).first).to eq("projected baseline+coverage ~15s barely fits " \
+                                                "--max-duration 16s; mutants would get ~1s. " \
+                                                "Raise --max-duration, pass fewer " \
+                                                "--baseline-passes, or narrow the scope")
+  end
+
+  it "prices the projection the same when the coverage build is not pending (#637)" do
+    expect(guard_with_budget(16.0, full_passes: 3, baseline_passes: 3).join)
+      .to include("projected baseline+coverage ~15s barely fits --max-duration 16s; mutants would get ~1s")
+  end
+
+  it "stays quiet on the budget when the run clock never started (#637)" do
+    expect(guard_with_budget(16.0, run_started: nil)).to be_empty
+  end
+
+  it "times the budget projection on the monotonic clock (#637)" do
+    timed = Saboteur::Config.new({ "seed" => 42, "max_duration" => 16.0 }, root: @root)
+    diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+    times = [100.0, 105.0]
+    allow(Process).to receive(:clock_gettime) do |*args|
+      raise ArgumentError, "clock_gettime needs its clock_id" if args.empty?
+
+      times.size > 1 ? times.shift : times.first
+    end
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: timed, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: diagnostics,
+                        full_passes: 3, run_started: 100.0).call
+    expect(diagnostics.warnings.join).to include("barely fits")
+  end
+
+  it "stays quiet without --max-duration (#637)" do
+    diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+    allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
+    allow(supervisor).to receive(:run).and_return(response)
+    described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                        supervisor: supervisor, diagnostics: diagnostics,
+                        full_passes: 3, run_started: 100.0).call
+    expect(diagnostics.warnings).to be_empty
+  end
+
   it "announces three or more passes in the plural with the seed (#245)" do
     triple = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 3 }, root: @root)
     err = StringIO.new

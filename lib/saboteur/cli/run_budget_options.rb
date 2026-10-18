@@ -14,7 +14,9 @@ module Saboteur
           set(:seed, v)
         end
         opts.on("--baseline-passes N", Integer, "Unchanged-suite checks (default 2)") { |v| set(:baseline_passes, v) }
-        opts.on("--max-duration DURATION", "Wall-clock budget for the whole run, e.g. 10m; exit 4 when spent") do |v|
+        opts.on("--max-duration DURATION", "Wall-clock budget for the whole run, e.g. 10m; exit 4 when spent - " \
+                                           "the clock starts at engine entry, so boot, baselines and the " \
+                                           "coverage map spend it too") do |v|
           set(:max_duration, parse_duration(v))
         end
         opts.on("--[no-]max-duration-ok", "An exhausted --max-duration budget does not fail the run") do |v|

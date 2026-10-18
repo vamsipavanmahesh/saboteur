@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "fiddle"
+require_relative "fiddle_loader"
 
 module Saboteur
   module Execution
@@ -50,9 +50,16 @@ module Saboteur
         return @probe if defined?(@probe)
         return @probe = :unsupported_platform unless darwin?
 
-        @probe = run_probe
+        # Refuses when fiddle cannot load (#639), before the DLError
+        # degrade below can turn it into a silent :unavailable.
+        FiddleLoader.require_fiddle!
+        @probe = probed
+      end
+
+      def probed
+        run_probe
       rescue Fiddle::DLError
-        @probe = :unavailable
+        :unavailable
       end
 
       def available?

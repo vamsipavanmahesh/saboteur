@@ -5,6 +5,7 @@ require "securerandom"
 
 require_relative "process_tree"
 require_relative "protocol"
+require_relative "fiddle_loader"
 
 module Saboteur
   module Execution
@@ -457,7 +458,7 @@ module Saboteur
       def become_subreaper
         return unless RUBY_PLATFORM.include?("linux")
 
-        require "fiddle"
+        FiddleLoader.require_fiddle!
         prctl = Fiddle::Function.new(Fiddle::Handle::DEFAULT["prctl"],
                                      [Fiddle::TYPE_INT, Fiddle::TYPE_LONG], Fiddle::TYPE_INT)
         prctl.call(PR_SET_CHILD_SUBREAPER, 1)

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "fiddle"
+require_relative "fiddle_loader"
 
 module Saboteur
   module Execution
@@ -33,6 +33,7 @@ module Saboteur
       # usable prctl (macOS) the environment marker still names exec'd
       # descendants and the tree still tracks the rest.
       def write_comm(marker)
+        FiddleLoader.require_fiddle!
         prctl = Fiddle::Function.new(Fiddle::Handle::DEFAULT["prctl"],
                                      [Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP] + ([Fiddle::TYPE_LONG] * 3),
                                      Fiddle::TYPE_INT)

@@ -204,6 +204,23 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).not_to include("partial:")
   end
 
+  it "headlines when the spent budget left no mutants run (#637)" do
+    stop = Saboteur::EarlyStop.new(reason: "max_duration", unreached: [person_subject.id],
+                                   truncated: [], unverified: [])
+    report = Saboteur::Report.new(results: [], subjects: [person_subject], wall_time: 1,
+                                  root: File.dirname(person_subject.file), early_stop: stop)
+    text = render(report)
+    expect(text).to include("no mutants ran before the --max-duration budget was spent; there is no score to judge")
+    expect(text).to include("partial: mutant count unknown")
+  end
+
+  it "keeps the plain partial line when mutants were judged before the budget stop (#637)" do
+    stop = Saboteur::EarlyStop.new(reason: "max_duration", unreached: [], truncated: [], unverified: [])
+    report = Saboteur::Report.new(results: [result_for(:survived)], subjects: [person_subject], wall_time: 1,
+                                  root: File.dirname(person_subject.file), early_stop: stop)
+    expect(render(report)).not_to include("no mutants ran")
+  end
+
   it "names an unknown plan when the budget stops before planning (#654)" do
     stop = Saboteur::EarlyStop.new(reason: "max_duration", unreached: [person_subject.id],
                                    truncated: [], unverified: [])

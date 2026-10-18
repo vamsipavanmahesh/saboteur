@@ -268,7 +268,8 @@ module Saboteur
       guard = BaselineGuard.new(config: config, integration: integration, hooks: hooks,
                                 supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
                                 full_passes: full_passes, timeout_cap: method(:budget_capped_timeout),
-                                between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil)
+                                between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil,
+                                run_started: @run_started)
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       guard.call
       @baseline_elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started

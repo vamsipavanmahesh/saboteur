@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "fiddle"
+require_relative "fiddle_loader"
 
 module Saboteur
   module Execution
@@ -111,14 +111,18 @@ module Saboteur
           return @functions if defined?(@functions)
 
           @functions = begin
-            require "fiddle"
+            FiddleLoader.require_fiddle!
             library = Fiddle.dlopen("/usr/lib/libproc.dylib")
             [Fiddle::Function.new(library["proc_listallpids"], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT],
                                   Fiddle::TYPE_INT),
              Fiddle::Function.new(library["proc_pidinfo"],
                                   [Fiddle::TYPE_INT, Fiddle::TYPE_INT, Fiddle::TYPE_LONG_LONG,
                                    Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT], Fiddle::TYPE_INT)]
-          rescue LoadError, Fiddle::DLError
+          # Error first: the loader's refusal (#639) must match even when
+          # Fiddle is undefined (the DLError constant would not resolve).
+          # The process table is not a sandbox layer, so it keeps
+          # degrading to the next backend.
+          rescue Error, LoadError, Fiddle::DLError
             nil
           end
         end

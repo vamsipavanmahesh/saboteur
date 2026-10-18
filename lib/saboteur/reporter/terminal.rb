@@ -258,6 +258,12 @@ module Saboteur
       def budget_shortfall(stop, completed)
         return unless stop.reason == "max_duration"
 
+        # Exit 4 alone does not say whether anything was judged: headline
+        # it when the baselines and coverage map ate the whole budget (#637).
+        if completed.zero?
+          @out.puts @palette.paint(:yellow, "no mutants ran before the --max-duration budget was spent; " \
+                                            "there is no score to judge")
+        end
         line = if stop.planned_mutants
                  "partial: #{stop.planned_mutants - completed} of #{stop.planned_mutants} mutants not run"
                else

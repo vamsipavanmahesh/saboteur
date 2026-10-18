@@ -33,6 +33,10 @@ Gem::Specification.new do |spec|
 
   # Ruby 3.3 bundles prism 0.19, whose API predates 1.0. Require a 1.x gem
   # with the node names saboteur uses (IfNode#subsequent, UnlessNode#else_clause).
-  spec.add_dependency "fiddle", ">= 1.1"
+  # fiddle ships WITH Ruby (a default gem on 3.x, a bundled gem from
+  # 4.0), so declaring it here only forced a source build that dies on a
+  # box without libffi headers (#639). The sandbox layers load it lazily
+  # through Execution::FiddleLoader and refuse with the fixes when it
+  # cannot load; on Ruby 4.0+ a Gemfile needs `gem "fiddle"` explicitly.
   spec.add_dependency "prism", ">= 1.2", "< 2"
 end
