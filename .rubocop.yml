@@ -34,7 +34,8 @@ Metrics/CyclomaticComplexity:
 Metrics/PerceivedComplexity:
   Max: 12
 Metrics/ClassLength:
-  Max: 300
+  # SubjectSelection carries the attribute-miss messaging (#373).
+  Max: 320
 Metrics/ParameterLists:
   CountKeywordArgs: false
 
