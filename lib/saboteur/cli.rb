@@ -155,7 +155,6 @@ module Saboteur
       return preview if options[:list_operators] || options[:dry_run]
 
       refuse_empty_source_set
-      refuse_empty_since_range
       execute_run
     rescue ConfigError => e
       @err.puts("saboteur: #{e.message}")

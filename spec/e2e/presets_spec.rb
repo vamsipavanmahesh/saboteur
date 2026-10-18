@@ -24,16 +24,15 @@ RSpec.describe "saboteur pr / saboteur audit presets (end to end)", :e2e do
     expect(run.out).to include("1 subjects")
   end
 
-  it "pr defaults the ref to main and refuses an empty range (#643) (#244)" do
+  it "pr defaults the ref to main, says nothing to test, and exits 0 on an empty range (#659) (#244)" do
     git("init", "-q")
     git("checkout", "-q", "-b", "main")
     git("add", ".")
     git("commit", "-q", "-m", "base")
 
     run = saboteur(dir, "pr", "--all", command: nil)
-    expect(run.err).to include("--since main")
-    expect(run.status).to eq(2), run.err
-    expect(run.err).to include("--since main: the resolved range", "has no changes")
+    expect(run.status).to eq(0), run.err
+    expect(run.err).to include("--since main: nothing to test - the resolved range has no changes")
   end
 
   it "audit runs the whole project and writes both reports (#244)" do

@@ -38,7 +38,30 @@ module Saboteur
         subjects = by_pattern(subjects, @config["subjects"]) if @config["subjects"].any?
         subjects = by_change(subjects, @config["since"]) if @config["since"]
         subjects = drop_intentionally_untested(subjects)
+        inform_nothing_to_test(subjects)
         attach_consumers(subjects)
+      end
+
+      # A --since run can legitimately select nothing: the range is empty
+      # (a checkout AT the base, #643) or its changes carry no mutable Ruby
+      # (a docs-only diff, #659). Exit 0 with a notice, not a silent green:
+      # name the base, the changed-file count and why nothing was selected.
+      def inform_nothing_to_test(subjects)
+        ref = @config["since"]
+        return unless ref && subjects.empty?
+
+        changed = Selection::GitDiff.changed_paths(ref, root: @root)
+        count = changed[:present].size + changed[:deleted].size
+        reason = if count.zero?
+                   "the resolved range has no changes"
+                 elsif !@raw_changed_files.intersect?(@files)
+                   "#{count} changed file#{'s' unless count == 1}, none in mutation scope " \
+                     "(docs-only, excluded, or non-Ruby)"
+                 else
+                   "no subject covers the changed lines (layout-only edits, deletions, " \
+                     "or intentionally untested code)"
+                 end
+        @diagnostics.inform("--since #{ref}: nothing to test - #{reason}")
       end
 
       # "Klass#meth", "Klass.meth", or a namespace prefix ("Klass", "A::B").
