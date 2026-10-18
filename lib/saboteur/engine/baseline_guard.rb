@@ -51,7 +51,7 @@ module Saboteur
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           data = check(number)
           announce_first_pass_cost(number, started)
-          refuse_failed_suite(number, data) unless data["passed"] && data["failed"].empty?
+          refuse_suite_failure(number, data) unless data["passed"] && data["failed"].empty?
           executed = data["executed"]
           refuse(number, "executed tests do not match the loaded suite") unless
             executed.sort == expected.sort
@@ -214,6 +214,41 @@ module Saboteur
                                    hint: Frameworks::SqliteMemoryDatabase.fork_loss_hint))
       ensure
         writer.close
+      end
+
+      # A failed unchanged suite never runs mutants: warn first when the
+      # failure carries the Minitest signature (#626), then refuse.
+      def refuse_suite_failure(number, data)
+        warn_minitest_signature(number)
+        refuse_failed_suite(number, data)
+      end
+
+      # Minitest::Spec suites in *_spec.rb clothing load under the RSpec
+      # integration and then fail the baseline with NoMethodError for
+      # Minitest-only methods (#626): the refusal still reads "fix the
+      # suite", so warn what the signature actually points at. It stays a
+      # warning: an RSpec suite can require minitest for a helper and
+      # fail for its own reason, and a heuristic refusal would
+      # false-positive there.
+      def warn_minitest_signature(number)
+        lines = log_lines(number)
+        errors = lines.grep(/NoMethodError/)
+        return if errors.empty? || !spec_helper_requires_minitest?
+
+        symptom = (lines.find { |line| line.include?("undefined method") } || errors.first).strip
+        @diagnostics.warn("the baseline failure looks like a Minitest suite running under RSpec, not a " \
+                          "broken RSpec suite: the log shows #{errors.size} " \
+                          "NoMethodError#{'s' if errors.size > 1} (for example: #{symptom.slice(0, EXCERPT_WIDTH)}) " \
+                          "and spec/spec_helper.rb requires minitest. saboteur is RSpec-only, so a " \
+                          "Minitest suite cannot be mutation tested with it.")
+      end
+
+      # The framework check behind the warning: spec_helper is the
+      # suite's own declaration of what it runs on.
+      def spec_helper_requires_minitest?
+        File.read(File.join(@config.root, "spec", "spec_helper.rb")).match?(/^\s*require\s+["']minitest/)
+      rescue SystemCallError
+        false
       end
 
       # A child that recognises its own failure shape (an empty sqlite

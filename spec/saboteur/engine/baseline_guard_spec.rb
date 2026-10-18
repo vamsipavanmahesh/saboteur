@@ -197,6 +197,79 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect { guard.call }.to raise_error(Saboteur::Error, /the suite failed: t1, t2\./)
   end
 
+  describe "the Minitest signature warning (#626)" do
+    def write_helper(text)
+      FileUtils.mkdir_p(File.join(@root, "spec"))
+      File.write(File.join(@root, "spec", "spec_helper.rb"), text)
+    end
+
+    def write_failure_log(text)
+      path = File.join(@root, ".saboteur", "baseline-1.log")
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, text)
+    end
+
+    def failing_run_output(failed: %w[t1 t2])
+      diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+      allow(supervisor).to receive(:run).and_return(response(passed: false, failed: failed))
+      expect do
+        described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                            supervisor: supervisor, diagnostics: diagnostics).call
+      end.to raise_error(Saboteur::Error, /the suite failed/)
+      diagnostics.warnings.join("\n")
+    end
+
+    # rack-test's suite is Minitest::Spec in *_spec.rb files: it loads
+    # under the RSpec integration and the baseline fails with
+    # NoMethodError for Minitest-only methods, which reads like a broken
+    # suite instead of the wrong framework.
+    it "warns that the failure looks like Minitest, quoting the symptom and the count" do
+      write_helper("require \"minitest/autorun\"\n")
+      write_failure_log(<<~LOG)
+        Failures:
+          1) a
+             NoMethodError:
+               undefined method `custom_request' for #<a>
+          2) b
+             NoMethodError:
+               undefined method `custom_request' for #<b>
+      LOG
+      output = failing_run_output
+      expect(output).to include("looks like a Minitest suite")
+      expect(output).to include("2 NoMethodErrors")
+      expect(output).to include("undefined method `custom_request'")
+      expect(output).to include("spec/spec_helper.rb requires minitest")
+    end
+
+    # The warning stays a warning, and the refusal keeps its shape: an
+    # exit-3 baseline failure either way.
+    it "still refuses the run when it warns" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log("Failures:\n  1) a\n     NoMethodError:\n       undefined method `x' for #<a>\n")
+      failing_run_output(failed: %w[t1])
+    end
+
+    # An RSpec suite can require minitest for a helper: without the
+    # NoMethodError signature there is nothing to warn about.
+    it "stays silent when a minitest-requiring suite fails for another reason" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log("Failures:\n  1) a\n     expected 1, got 2\n")
+      expect(failing_run_output).not_to include("Minitest")
+    end
+
+    # The signature without the helper's minitest require is just a
+    # broken suite.
+    it "stays silent when spec_helper does not require minitest" do
+      write_helper("require \"rspec\"\n")
+      write_failure_log("Failures:\n  1) a\n     NoMethodError:\n       undefined method `x' for #<a>\n")
+      expect(failing_run_output).not_to include("Minitest")
+    end
+
+    it "stays silent with neither a spec_helper nor a log to read" do
+      expect(failing_run_output).not_to include("Minitest")
+    end
+  end
+
   describe "the failure detail printed inline" do
     def write_log(text)
       path = File.join(@root, ".saboteur", "baseline-1.log")
