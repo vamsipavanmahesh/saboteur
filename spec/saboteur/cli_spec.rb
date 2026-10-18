@@ -547,7 +547,7 @@ RSpec.describe Saboteur::CLI do
     it "warns at startup with the number of uncommitted changes" do
       run_on_tree(Saboteur::WorkingTree::State.new(head: "abc", dirty: true, changed_files: 3))
 
-      expect(err.string).to include("saboteur: warning: 3 uncommitted change(s) in the working tree")
+      expect(err.string).to include("saboteur: warning: 3 uncommitted or untracked change(s) in the working tree")
       expect(err.string).to include("clean, committed tree or a CI checkout")
     end
 
@@ -588,7 +588,7 @@ RSpec.describe Saboteur::CLI do
         ENV["BUNDLE_GEMFILE"] = File.join(Dir.pwd, "Gemfile.saboteur")
         run_on_tree(untracked("config/saboteur.rb", "Gemfile.saboteur", "Gemfile.saboteur.lock", "lib/edit.rb"))
 
-        expect(err.string).to include("4 uncommitted change(s) in the working tree: " \
+        expect(err.string).to include("4 uncommitted or untracked change(s) in the working tree: " \
                                       "1 inside the mutation scope (0 tracked, 1 untracked), " \
                                       "0 outside it (0 tracked, 0 untracked), " \
                                       "3 saboteur setup file(s) (0 tracked, 3 untracked).")

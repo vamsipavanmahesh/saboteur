@@ -32,7 +32,7 @@ RSpec.describe Saboteur::DirtyTreeWarning do
                    change("Gemfile"), change("notes/a.md", tracked: false), change("notes/b.md", tracked: false),
                    change("config/saboteur.rb", tracked: false))
 
-    expect(text).to start_with("saboteur: warning: 6 uncommitted change(s) in the working tree: " \
+    expect(text).to start_with("saboteur: warning: 6 uncommitted or untracked change(s) in the working tree: " \
                                "2 inside the mutation scope (1 tracked, 1 untracked), " \
                                "3 outside it (1 tracked, 2 untracked), " \
                                "1 saboteur setup file(s) (0 tracked, 1 untracked).")
@@ -42,13 +42,21 @@ RSpec.describe Saboteur::DirtyTreeWarning do
                              "run on a clean, committed tree or a CI checkout.")
   end
 
+  it "says uncommitted or untracked so a tree of only scratch files is not read as edits (#604)" do
+    text = warning(change("NOTES.md", tracked: false))
+
+    expect(text).to start_with("saboteur: warning: 1 uncommitted or untracked change(s) in the working tree: " \
+                               "none inside the mutation scope, 1 outside it (0 tracked, 1 untracked).")
+  end
+
   it "says when none of the changes is in the mutation scope and names no scope paths" do
     notes = Array.new(3969) { |index| change("notes/#{index}.md", tracked: false) }
     text = warning(*notes, change("config/saboteur.rb", tracked: false), change("Gemfile.saboteur", tracked: false),
                    change("Gemfile.saboteur.lock", tracked: false),
                    setup_files: %w[config/saboteur.rb Gemfile.saboteur Gemfile.saboteur.lock])
 
-    expect(text).to include("3972 uncommitted change(s) in the working tree: none inside the mutation scope, " \
+    expect(text).to include("3972 uncommitted or untracked change(s) in the working tree: " \
+                            "none inside the mutation scope, " \
                             "3969 outside it (0 tracked, 3969 untracked), 3 saboteur setup file(s)")
     expect(text).not_to include("inside the mutation scope:")
     expect(text).to include("setup files: config/saboteur.rb, Gemfile.saboteur, Gemfile.saboteur.lock")
