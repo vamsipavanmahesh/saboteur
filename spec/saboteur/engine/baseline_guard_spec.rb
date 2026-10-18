@@ -290,6 +290,19 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       expect(failing_run_output(failed: %w[t1])).to include("(for example: undefined method `custom_request' for #<a>)")
     end
 
+    it "truncates an over-width symptom at EXCERPT_WIDTH, never quoting it whole (#626)" do
+      write_helper("require \"minitest\"\n")
+      long_symptom = "undefined method `x' for #<#{'y' * 210}>"
+      write_failure_log(<<~LOG)
+        Failures:
+          1) a
+             NoMethodError:
+               #{long_symptom}
+      LOG
+      expect(failing_run_output(failed: %w[t1])).to include("(for example: #{long_symptom.slice(0, 200)})")
+      expect(failing_run_output(failed: %w[t1])).not_to include(long_symptom.slice(0, 201))
+    end
+
     it "falls back to the first NoMethodError line when no line says undefined method (#626)" do
       write_helper("require \"minitest\"\n")
       write_failure_log(<<~LOG)
