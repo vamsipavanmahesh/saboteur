@@ -130,6 +130,9 @@ module Saboteur
         # a spec for it either.
         canonical = ->(map) { map.transform_keys { |file| Selection::CoverageMap.canonical(file) } }
         changed = canonical.call(maps.changed)
+        # Deleted-subject discovery (#466) probes every changed file,
+        # including the deletion-only ones stripped below for scope (#484).
+        @raw_changed_files = changed.keys
         return [changed, canonical.call(maps.behavior)] if changed.empty?
 
         # deletion_only_files returns canonical-absolute paths, the same
@@ -399,10 +402,10 @@ module Saboteur
       # skipped quietly rather than blamed for a comment-only change (#466).
       def drop_unchanged_syntax(subjects, ref)
         # No diff at all: no merge-base lookup, no report.
-        return subjects if @changed_lines.empty?
+        return subjects if @raw_changed_files.empty?
 
         comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(ref, root: @root), root: @root)
-        deleted = comparison.deleted_subjects(@changed_lines.keys)
+        deleted = comparison.deleted_subjects(@raw_changed_files)
         report_deleted(deleted)
         deleted_files = deleted.to_set { |subject| canonical_path(subject.file) }
         same, kept = subjects.partition { |subject| comparison.unchanged?(subject) }
