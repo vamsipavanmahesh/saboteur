@@ -14,6 +14,7 @@ require_relative "cli/run_reporting"
 require_relative "cli/survivors_command"
 require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
+require_relative "cli/shard_options"
 require_relative "cli/selection_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
@@ -27,6 +28,7 @@ module Saboteur
     include SurvivorsCommand
     include SourceSet
     include RunBudgetOptions
+    include ShardOptions
     include SelectionOptions
     include Presets
     include HistoryCommand
@@ -199,6 +201,7 @@ module Saboteur
     # Usage errors found before the target boots.
     def validate_run_options
       reject_format_conflicts
+      validate_shard_options
       Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
     end
 
@@ -405,12 +408,8 @@ module Saboteur
       Gates.define_options(opts) { |key, value| set(key, value) }
     end
 
-    def add_subject(expr)
-      (options[:subjects] ||= []) << expr
-    end
+    def add_subject(expr) = (options[:subjects] ||= []) << expr
 
-    def set(key, value)
-      options[key] = value
-    end
+    def set(key, value) = (options[key] = value)
   end
 end

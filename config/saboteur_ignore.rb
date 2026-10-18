@@ -383,10 +383,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::IgnoreList.unknown_directive_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
 
-  i.mutation "d5d83ae928db4190",
-             subject: "Saboteur::Engine#candidate_lists",
-             reason: "wiring verified end-to-end: without hazard_guard the danger-fixture e2e wipes its copy and fails; subprocess runs are invisible to in-process coverage"
-
   i.mutation "488d29fe1b3f490f",
              subject: "Saboteur::Engine::Distribution#run",
              reason: "equivalent: jobs is validated >= 1, so <= and == agree on every reachable value"

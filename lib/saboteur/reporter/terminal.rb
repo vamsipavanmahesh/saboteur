@@ -91,6 +91,7 @@ module Saboteur
         seed = report.seed && ", seed #{report.seed} (repeat with --seed #{report.seed})"
         @out.puts "saboteur #{VERSION}: #{report.subjects.size} subjects, #{report.results.size} mutants, " \
                   "wall #{format('%.2f', report.wall_time)} s#{seed}"
+        @out.puts report.shard.line if report.shard
         @out.puts status_line(report)
         details(report)
         @score_table.call(report)

@@ -60,6 +60,7 @@ module Saboteur
           ["Pull request: only methods changed since the target branch, with the inferred specs",
            "saboteur run --since origin/main"],
           ["Whole project and whole suite, four workers, repeatable seed", "saboteur run --all --jobs 4 --seed 42"],
+          ["One deterministic CI shard of four", "saboteur run --all --shard 1/4"],
           ["One class or method", "saboteur run --subject 'Person#adult?'"],
           ["Replay one mutant by the digest printed next to a survivor", "saboteur run --id 1a2b3c4d5e6f7a8b"],
           ["Mutate named files against named specs, skipping the whole-suite coverage run",

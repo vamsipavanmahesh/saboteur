@@ -70,6 +70,7 @@ module Saboteur
       "since" => nil,
       "cache" => true,
       "incremental" => false,
+      "shard" => nil,
       "allow_focus" => false,
       "fail_fast" => false,
       "guess_tests" => false,

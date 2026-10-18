@@ -11,7 +11,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
   end
 
   it "rejects reuse, diff and replay before target boot" do
-    [{ "since" => "main" }, { "incremental" => true }].each do |settings|
+    [{ "since" => "main" }, { "incremental" => true }, { "shard" => "1/2" }].each do |settings|
       config = Saboteur::Config.new(settings)
       expect { described_class.new(config, capture_evidence: true) }.to raise_error(Saboteur::ConfigError, /fresh/)
     end

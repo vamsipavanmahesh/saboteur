@@ -20,6 +20,7 @@ module Saboteur
         opts.on("--list-operators", "List operator names and descriptions") { set(:list_operators, true) }
         opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
         opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
+        opts.on("--shard K/N", "Run one of N deterministic candidate shards (for example 1/4)") { |v| set(:shard, v) }
         opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
         flaky_desc = "Confirm a fresh verdict (survivors, decisive) with one reordered rerun"
         opts.on("--flaky-check MODE", %w[off survivors decisive], flaky_desc) { |v| set(:flaky_check, v) }

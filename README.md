@@ -88,7 +88,9 @@ the macro itself `ran at load` instead of letting its mutants survive.
   you changed, and fails loudly (exit 3) when the changed code cannot be
   verified - for example when every changed method is skipped because its
   file uses refinements. The GitHub Action runs on every pull request and
-  caches the coverage map between runs.
+  caches the coverage map between runs. `--shard K/N` splits one planned
+  inventory deterministically across CI jobs; each shard reports partial
+  evidence.
 - **Honest verdicts.** Every kill is verified against the unchanged
   method; a kill the suite cannot confirm stays out of the score.
   Suspect a flaky test? `--flaky-check survivors` confirms each new

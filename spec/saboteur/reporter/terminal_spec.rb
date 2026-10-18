@@ -28,6 +28,17 @@ RSpec.describe Saboteur::Reporter::Terminal do
     )
   end
 
+  it "prints the shard line only for a sharded run" do
+    shard = Saboteur::Engine::Shard.parse("1/2")
+    allow(shard).to receive(:line).and_return("Shard 1/2: 3 of 10 planned mutants; inventory sha256:abc; partial run")
+    sharded = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                   root: File.dirname(person_subject.file), seed: 1, shard: shard)
+    expect(render(sharded)).to include(shard.line)
+    out.truncate(0)
+    out.rewind
+    expect(render(report_of(result_for(:killed)))).not_to include("partial run")
+  end
+
   it "prints excluded operators, and only when the policy excludes some" do
     excluded = Saboteur::Config.new({ "exclude_operators" => %w[condition_negation range] }).operator_policy
     text = render(report_of(result_for(:killed), policy: excluded))

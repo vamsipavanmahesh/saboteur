@@ -39,11 +39,22 @@ module Saboteur
           rejectedKills: report.rejected_kills,
           warnings: report.warnings,
           framework: { name: "saboteur", version: VERSION },
-          saboteur: { findings: Findings.build(report), scores: scores(report),
-                      inlineSuppressions: inline_audit(report) }
-                     .merge(operatorPolicy: report.operator_policy).merge(exit_cause ? { exitCause: exit_cause } : {})
-                     .merge(report.memory ? { memory: report.memory } : {})
+          saboteur: saboteur_enrichment(report, exit_cause)
         }.merge(report.seed ? { config: { seed: report.seed } } : {})
+      end
+
+      # saboteur-namespaced keys beyond Stryker's schema: findings and
+      # scores, then the optional policy, shard, exit-cause and memory keys.
+      def self.saboteur_enrichment(report, exit_cause)
+        { findings: Findings.build(report), scores: scores(report),
+          inlineSuppressions: inline_audit(report) }
+          .merge(operatorPolicy: report.operator_policy).merge(shard(report))
+          .merge(exit_cause ? { exitCause: exit_cause } : {})
+          .merge(report.memory ? { memory: report.memory } : {})
+      end
+
+      def self.shard(report)
+        report.shard ? { shard: report.shard.to_h } : {}
       end
 
       def self.inline_audit(report)

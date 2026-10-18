@@ -74,6 +74,20 @@ RSpec.describe Saboteur::Reporter::Stryker do
   it "carries the operator policy under the saboteur key" do
     expected = JSON.parse(JSON.generate(Saboteur::Config.new({}).operator_policy))
     expect(json.dig("saboteur", "operatorPolicy")).to eq(expected)
+    expect(json.fetch("saboteur")).not_to have_key("shard")
+  end
+
+  it "records shard metadata under the saboteur extension without changing the schema version" do
+    shard = Saboteur::Engine::Shard.parse("2/4")
+    allow(shard).to receive(:to_h).and_return(index: 2, of: 4, selected: 3, planned: 10,
+                                              inventoryDigest: "a" * 64, partial: true)
+    allow(report).to receive(:shard).and_return(shard)
+    document = JSON.parse(JSON.generate(described_class.build(report)))
+    expect(document["schemaVersion"]).to eq("2")
+    expect(document.dig("saboteur", "shard")).to eq(
+      "index" => 2, "of" => 4, "selected" => 3, "planned" => 10,
+      "inventoryDigest" => "a" * 64, "partial" => true
+    )
   end
 
   it "maps ran-at-load and unreachable to Ignored, carrying the reason" do
@@ -207,5 +221,43 @@ RSpec.describe Saboteur::Reporter::Stryker do
   it "omits the exit cause when none is supplied" do
     document = described_class.build(report)
     expect(document.fetch(:saboteur)).not_to have_key(:exitCause)
+  end
+
+  describe "schema keys the #513 dogfood found unpinned" do
+    it "emits the score thresholds" do
+      expect(json["thresholds"]).to eq("high" => 80, "low" => 60)
+    end
+
+    it "emits the framework identity" do
+      expect(json["framework"]).to eq("name" => "saboteur", "version" => Saboteur::VERSION)
+    end
+
+    it "omits the config key when the run recorded no seed" do
+      no_seed = Saboteur::Report.new(results: report.results, subjects: report.subjects,
+                                     wall_time: 1.25, root: report.root,
+                                     operator_policy: report.operator_policy)
+      expect(JSON.parse(JSON.generate(described_class.build(no_seed)))).not_to have_key("config")
+    end
+
+    it "audits inline suppressions with root-relative files under the saboteur key" do
+      entry = { file: File.join(report.root, "person.rb"), line: 2, subject: "Person#adult?",
+                operator: "comparison", digest: "a" * 16, reason: "covered elsewhere" }
+      audited = Saboteur::Report.new(results: report.results, subjects: report.subjects,
+                                     wall_time: 1.25, root: report.root, seed: 1,
+                                     operator_policy: report.operator_policy,
+                                     inline_suppressions: [entry])
+      payload = JSON.parse(JSON.generate(described_class.build(audited)))
+      expect(payload.dig("saboteur", "inlineSuppressions")).to eq(
+        [entry.merge(file: "person.rb").transform_keys(&:to_s)]
+      )
+    end
+
+    it "passes the CLI's exit cause through the instance call into the written file" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "out", "report.json")
+        described_class.new(path).call(report, exit_cause: "errorMajority")
+        expect(JSON.parse(File.read(path)).dig("saboteur", "exitCause")).to eq("errorMajority")
+      end
+    end
   end
 end

@@ -14,6 +14,7 @@ module Saboteur
         class << self
           def reasons(report)
             reasons = []
+            shard_reason(reasons, report)
             add(reasons, "no_coverage", skipped_for_coverage(report), "subjects or mutants had no covering test")
             load_only = report.counts[:ran_at_load] + report.skipped_subjects.values.count do |reason|
               reason == Selection::CoverageMap::RAN_AT_LOAD
@@ -34,6 +35,16 @@ module Saboteur
           end
 
           private
+
+          # A shard always runs a subset of the planned inventory by contract, even
+          # when this shard happened to select every planned mutant (count 0).
+          def shard_reason(reasons, report)
+            shard = report.shard
+            return unless shard
+
+            reasons << { reason: "shard", count: shard.planned_count - shard.selected_count,
+                         meaning: "planned mutants assigned to other shards" }
+          end
 
           # Source the selection could not read at all: its subjects never
           # entered the run, so a clean or complete verdict would be wrong.
