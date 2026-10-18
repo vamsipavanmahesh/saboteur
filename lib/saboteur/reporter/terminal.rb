@@ -87,9 +87,18 @@ module Saboteur
         end
       end
 
+      # An early stop runs fewer mutants than the selection: say both
+      # numbers so "4 mutants" is not read as the whole plan (#582).
+      def mutant_counts(report)
+        planned = report.early_stop&.planned_mutants
+        return "#{report.results.size} mutants" unless planned && planned > report.results.size
+
+        "#{planned} mutants selected, #{report.results.size} attempted"
+      end
+
       def summary(report)
         seed = report.seed && ", seed #{report.seed} (repeat with --seed #{report.seed})"
-        @out.puts "saboteur #{VERSION}: #{report.subjects.size} subjects, #{report.results.size} mutants, " \
+        @out.puts "saboteur #{VERSION}: #{report.subjects.size} subjects, #{mutant_counts(report)}, " \
                   "wall #{format('%.2f', report.wall_time)} s#{seed}"
         @out.puts report.shard.line if report.shard
         @out.puts status_line(report)

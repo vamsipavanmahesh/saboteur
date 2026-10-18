@@ -28,6 +28,56 @@ RSpec.describe Saboteur::Reporter::Terminal do
     )
   end
 
+  it "counts selected versus attempted mutants in the headline when the run stopped early (#582)" do
+    stop = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ["Other#x"], truncated: [], unverified: [],
+                                   planned_mutants: 57)
+    stopped = Saboteur::Report.new(results: [result_for(:killed), result_for(:survived),
+                                             result_for(:killed), result_for(:survived)],
+                                   subjects: [person_subject, person_subject, person_subject], wall_time: 1.25,
+                                   root: File.dirname(person_subject.file), seed: 1, early_stop: stop)
+    expect(render(stopped)).to include("3 subjects, 57 mutants selected, 4 attempted, wall 1.25 s")
+
+    out.truncate(0)
+    out.rewind
+    # A stop without a planned count (budget exhausted in a pre-run phase)
+    # keeps the plain headline.
+    uncounted = Saboteur::EarlyStop.new(reason: "max_duration", unreached: ["Other#x"], truncated: [],
+                                        unverified: [])
+    partial = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.25,
+                                   root: File.dirname(person_subject.file), seed: 1, early_stop: uncounted)
+    expect(render(partial)).to include("1 subjects, 1 mutants, wall 1.25 s")
+
+    out.truncate(0)
+    out.rewind
+    # A stop announced after the last planned mutant ran is not a selection
+    # mismatch.
+    full = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: [], truncated: [], unverified: ["Other#x"],
+                                   planned_mutants: 1)
+    covered = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.25,
+                                   root: File.dirname(person_subject.file), seed: 1, early_stop: full)
+    expect(render(covered)).to include("1 subjects, 1 mutants, wall 1.25 s")
+
+    out.truncate(0)
+    out.rewind
+    # A planned count below the attempted count is stale bookkeeping, not a
+    # selection mismatch: keep the plain headline rather than printing
+    # nonsense like "1 mutants selected, 2 attempted".
+    undercounted = Saboteur::EarlyStop.new(reason: "fail_fast", unreached: ["Other#x"], truncated: [],
+                                           unverified: [], planned_mutants: 1)
+    over = Saboteur::Report.new(results: [result_for(:killed), result_for(:survived)],
+                                subjects: [person_subject], wall_time: 1.25,
+                                root: File.dirname(person_subject.file), seed: 1, early_stop: undercounted)
+    expect(render(over)).to include("1 subjects, 2 mutants, wall 1.25 s")
+  end
+
+  it "omits the seed clause when the run has no seed" do
+    seedless = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.25,
+                                    root: File.dirname(person_subject.file))
+    text = render(seedless)
+    expect(text).to include("1 subjects, 1 mutants, wall 1.25 s")
+    expect(text).not_to include(", seed")
+  end
+
   it "prints the shard line only for a sharded run" do
     shard = Saboteur::Engine::Shard.parse("1/2")
     allow(shard).to receive(:line).and_return("Shard 1/2: 3 of 10 planned mutants; inventory sha256:abc; partial run")
