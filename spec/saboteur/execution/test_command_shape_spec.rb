@@ -81,12 +81,68 @@ RSpec.describe Saboteur::Execution::TestCommandShape do
       "bundle exec rspec a_spec.rb b_spec.rb" => false,
       "ruby -Itest test/a_test.rb" => false,
       "make test" => false,
+      # warns: an empty argument is a plain operand, not an option (#705)
+      'ruby test_a_test.rb "" b.rb' => true,
+      'ruby test_a_test.rb -I "" b.rb' => true,
+      'ruby test_a_test.rb b.rb ""' => true,
+      # quiet: an unterminated quote is not a runnable command (#705)
+      'ruby "unterminated a_test.rb b_test.rb' => false,
+      # quiet: no script at all, or a test-looking name without .rb (#705)
+      "ruby" => false,
+      "ruby spec_helper foo_test.rb" => false,
+      "ruby spec_foo bar.rb" => false,
+      # quiet: an extra non-.rb argument is just ARGV (#705)
+      "ruby a_test.rb extra" => false,
+      # quiet: only ruby[\d.]* is ruby; a ruby-prefixed program is not (#705)
+      "ruby-debug a_test.rb b_test.rb" => false,
+      # warns through a timeout flag and through nested wrappers (#705)
+      "timeout -f 60 ruby a_test.rb b_test.rb" => true,
+      "timeout 60 timeout 30 ruby a_test.rb b_test.rb" => true,
+      # quiet: a wrapper that never reaches a program stays quiet (#705)
+      "timeout -v" => false,
+      "nice -n" => false,
+      "env -i" => false,
+      # quiet: nice skips only its own operand forms (#705)
+      "nice - ruby a_test.rb b_test.rb" => false,
+      "nice -5x ruby a_test.rb b_test.rb" => false,
+      # quiet: only "bundle exec" unwraps, never a near-miss (#705)
+      "bundle xec ruby a_test.rb b_test.rb" => false,
+      "xbundle exec ruby a_test.rb b_test.rb" => false,
+      "bundle foo ruby a_test.rb b_test.rb" => false,
+      # warns: a one-letter environment assignment still unwraps (#705)
+      "A=1 ruby a_test.rb b_test.rb" => true,
+      # quiet: a dangling option finds no script (#705)
+      "ruby -I" => false,
+      # warns: a detached -r takes its operand, the test files remain (#705)
+      "ruby -r helper a_test.rb b_test.rb" => true,
       # quiet: nested shell is a known false negative, by design
       "sh -c 'ruby a_test.rb b_test.rb'" => false
     }.each do |command, warns|
       it "#{warns ? 'warns on' : 'stays quiet for'} `#{command}`" do
         expect(described_class.multi_file_ruby?(command)).to be(warns)
       end
+    end
+  end
+
+  # The conservative direction is the contract: when the parser cannot
+  # tell, the answer is quiet. These pin the branches behind it (#705).
+  describe ".semicolon_segments" do
+    it "keeps a quoted semicolon inside its segment and keeps trailing empty segments (#705)" do
+      expect(described_class.semicolon_segments('ruby "a;b_test.rb";')).to eq(['ruby "a;b_test.rb"', ""])
+    end
+  end
+
+  describe ".ruby_multi_file_simple_command?" do
+    it "stays quiet for an empty token list (#705)" do
+      expect(described_class.ruby_multi_file_simple_command?([])).to be(false)
+    end
+  end
+
+  describe ".unwrap" do
+    it "does not consume the caller's token array (#705)" do
+      tokens = %w[timeout 60 ruby a_test.rb b_test.rb]
+      described_class.unwrap(tokens)
+      expect(tokens).to eq(%w[timeout 60 ruby a_test.rb b_test.rb])
     end
   end
 end

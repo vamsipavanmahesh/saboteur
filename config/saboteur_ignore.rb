@@ -1346,4 +1346,27 @@ i.mutation "fdc4600f4e8e8625",
                      "in-root backref spec then reaches return unless named with named false and " \
                      "returns without error just the same, and an outside-root one already raised " \
                      "- a 10-case probe (plain, numbered, named and mixed templates, inside and outside the root, plus String-keyed backref-marker cases) prints identical outcomes for original and mutant"
+
+  # test_command_shape.rb:62 - String#split treats every negative limit the same: no
+  # truncation, trailing empty fields kept. The pinned quoted-semicolon example expects
+  # the trailing empty segment, so -1 and -2 produce identical segments.
+  i.mutation "0f7ff6bcc042e45b",
+             subject: "Saboteur::Execution::TestCommandShape#semicolon_segments",
+             reason: "equivalent: split(\";\", -2) still means no limit with trailing " \
+                     "empties kept (any negative limit behaves alike); the trailing-empty " \
+                     "pin in the spec stays green either way"
+
+  # test_command_shape.rb:70 - `token == "-e"` is fully covered by the adjacent
+  # `token.start_with?("-e")` disjunct, so any mutation of the equality arm leaves the
+  # -e guard unchanged for every token.
+  i.mutation "d942e3ccba0e9966",
+             subject: "Saboteur::Execution::TestCommandShape#ruby_multi_file_simple_command?",
+             reason: "equivalent: dropping the `token == \"-e\"` arm leaves " \
+                     "start_with?(\"-e\"), which is true for \"-e\" itself - the guard " \
+                     "rejects the same tokens"
+  i.mutation "f2ba2275de6bc416",
+             subject: "Saboteur::Execution::TestCommandShape#ruby_multi_file_simple_command?",
+             reason: "equivalent: `token == \"-e\"` -> false reduces the disjunction to " \
+                     "start_with?(\"-e\"), which covers the equality case - same tokens " \
+                     "rejected"
 end
