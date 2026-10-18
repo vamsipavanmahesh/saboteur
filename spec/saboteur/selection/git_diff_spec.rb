@@ -187,6 +187,31 @@ RSpec.describe Saboteur::Selection::GitDiff do
           .to raise_error(Saboteur::ConfigError, /--since no-such-ref: not a commit in this repository/)
       end
 
+      it "names the repo's default branch when origin publishes one (#595)" do
+        commit_file("a.rb", "1\n")
+        sha = git("rev-parse", "HEAD").first.strip
+        git("update-ref", "refs/remotes/origin/master", sha)
+        git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/master")
+
+        expect { described_class.verify_ref!("main", root: @dir) }
+          .to raise_error(Saboteur::ConfigError) { |error|
+            expect(error.message).to eq("--since main: not a commit in this repository " \
+                                        "(check the name; a shallow checkout may need a deeper fetch); " \
+                                        "this repository's default branch is 'master' - " \
+                                        "pass it explicitly: saboteur pr master")
+          }
+      end
+
+      it "keeps the plain hint when origin publishes no default branch (#595)" do
+        commit_file("a.rb", "1\n")
+
+        expect { described_class.verify_ref!("no-such-ref", root: @dir) }
+          .to raise_error(Saboteur::ConfigError) { |error|
+            expect(error.message).to eq("--since no-such-ref: not a commit in this repository " \
+                                        "(check the name; a shallow checkout may need a deeper fetch)")
+          }
+      end
+
       it "refuses a name that is a blob, not a commit" do
         commit_file("a.rb", "1\n")
 
