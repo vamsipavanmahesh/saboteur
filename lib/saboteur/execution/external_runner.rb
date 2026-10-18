@@ -128,6 +128,41 @@ module Saboteur
         end
       end
 
+      # Mutation-visibility check (#441): the command must FAIL with the
+      # subject file replaced by a load-time error. A pass means the
+      # command never sees the copy's file - a RUBYLIB/-I path or an
+      # installed gem anchors it to the real tree, or the suite never
+      # loads the file - and every mutant on it "survives" unseen, so the
+      # score would read 0.0 % for nothing. Warn loudly and let the run
+      # continue: the file may legitimately be uncovered. The first
+      # runnable subject stands for the whole scope: anchoring breaks
+      # every file alike. Returns the warning, or nil when the command
+      # saw the broken file. Budget and deadline faults still raise.
+      def visibility_check(subject:, deadline:, budget_deadline: nil)
+        budget_limited = !budget_deadline.nil? && budget_deadline <= deadline
+        result = with_fresh_copy do
+          remaining = deadline - monotonic
+          if remaining <= 0
+            if budget_limited
+              raise BudgetPhaseTimeout,
+                    "the --max-duration budget stopped the mutation visibility check"
+            end
+
+            raise Error, "the mutation visibility check's deadline was spent before the command could start"
+          end
+
+          write_subject(subject, visibility_mutation(subject))
+          spawn_and_wait(remaining, timeout_cause: budget_limited ? :budget : :own,
+                                    budget_deadline: budget_deadline)
+        end
+        if result == :budget_timeout
+          raise BudgetPhaseTimeout,
+                "the --max-duration budget stopped the mutation visibility check"
+        end
+
+        visibility_warning(subject, result)
+      end
+
       # Same contract as Runner#run. text, test_ids and eval_prefix belong
       # to the in-process machinery and are ignored here. The neutral run
       # (mutation nil) writes the unchanged bytes explicitly: every
@@ -306,6 +341,36 @@ module Saboteur
           rubyopt.empty? ? env.delete("RUBYOPT") : env["RUBYOPT"] = rubyopt
         end
         env.merge(CHILD_MARKER => "1")
+      end
+
+      # Only a failing exit proves the command saw the broken file; a
+      # pass is the anchoring or no-coverage case, and a timeout or setup
+      # failure leaves visibility unknown. Both warn and name the file.
+      def visibility_warning(subject, result)
+        return nil if result.is_a?(Integer) && !result.zero? && !SETUP_EXIT_CODES.include?(result)
+
+        detail = case result
+                 when 0 then "the test command still passed"
+                 when :timeout then "the test command timed out"
+                 when :signal, *SETUP_EXIT_CODES then "the test command could not run (#{describe_exit(result)})"
+                 when Exception then "the test command could not be started: #{result.message}"
+                 end
+        "mutation visibility check failed for #{relative(subject)}: #{detail} with the file replaced by a " \
+          "load-time error, so mutants in it may all survive unseen and the score would read 0.0 %. The " \
+          "command must load the project's code from the mutated copy; check for anchors to the real tree " \
+          "(RUBYLIB, -I paths, an installed gem) or narrow the scope to files the suite loads."
+      end
+
+      # The whole file becomes a load-time error: any load of it from the
+      # copy fails the suite, while a command anchored elsewhere is
+      # untouched. Valid syntax, so only an actual load trips it.
+      def visibility_mutation(subject)
+        source = subject.file_source
+        edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: 0, end_byte: source.bytesize,
+                                                  replacement: 'raise "saboteur mutation visibility check: ' \
+                                                               'this file must not load during the check"')
+        Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "visibility_check", edits: [edit],
+                                               coarse: false)
       end
 
       def await_exit(pid, timeout)
