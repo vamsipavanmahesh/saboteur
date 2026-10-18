@@ -34,7 +34,7 @@ differently:
 
 | Exit | Ordinary CLI | Agent mode (`--agent`) |
 | --- | --- | --- |
-| 0 | Clean: every selected mutant killed or ignored, or nothing selected at all. Survivors may still be accepted when `--threshold` passes the score, or a budget-stopped run is accepted with `--max-duration-ok` | Verdict `clean` (status `complete`) |
+| 0 | Clean: every selected mutant killed or ignored, or no subjects selected from non-empty source or change sets. Survivors may still be accepted when `--threshold` passes the score, or a budget-stopped run is accepted with `--max-duration-ok` | Verdict `clean` (status `complete`) |
 | 1 | Survivors to review: unignored survivors, a missing or below-`--threshold` score, a `--fail-fast` stop, or a failed custom gate | Verdict `survivors` - including a budget-stopped partial run with unignored survivors |
 | 2 | Usage or configuration error | Verdict `invalid_invocation` |
 | 3 | Incomplete run or tool failure: a stopped run that tested nothing, most mutants errored, an under-threshold incomplete run, or an internal error | Verdict `incomplete` or `not_applicable`, or a `tool_failure` |
@@ -49,12 +49,13 @@ Pass `--max-duration-ok` explicitly to use the ordinary verdict instead.
 The terminal still prints the number of mutants not run, or says the
 count is unknown if planning did not finish.
 
-An empty `--since` range is rejected before boot with exit 2 in both modes
-(#643). This differs from a non-empty range that selects no subjects.
-The modes disagree on an empty selection by design: the ordinary CLI treats
-it as clean and exits 0, while agent mode reports status `not_applicable`,
-verdict `not_applicable`, exit 3, so a harness never mistakes "nothing was
-selected" for "everything passed".
+A `--since` run with no changed files stops before boot with exit 2 in
+both modes (#643). It does not produce a clean result.
+
+A non-empty change range can still select no mutation subjects, for
+example when only comments changed. That is a different case: the ordinary
+CLI exits 0, while agent mode reports status `not_applicable`, verdict
+`not_applicable`, and exit 3. Exit 0 here does not mean any code was tested.
 
 ### The machine report (`.saboteur/report.json`)
 
