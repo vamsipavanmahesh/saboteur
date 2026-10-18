@@ -767,6 +767,10 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk_children",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
 
+  i.mutation "8b0aa5a480f5bf26",
+             subject: "Saboteur::SubjectFinder#walk_call",
+             reason: "equivalent: sig_span: nil restates the keyword default in Subject#initialize (subject.rb:42-43); live-probed: the pair removal survives the subject and subject_finder specs"
+
   i.mutation "51495f10ee14f096",
              subject: "Saboteur::SubjectFinder#walk",
              reason: "equivalent: each vs map on a side-effect-only fallback walk loop; the collected array is discarded"
