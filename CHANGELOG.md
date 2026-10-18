@@ -86,6 +86,11 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- `scope :name, -> { ... }` and `define_singleton_method` bodies are now
+  subjects (#194): the human-essentials dogfood showed a scope's lambda
+  going unmutated. The call is a singleton subject of the enclosing owner;
+  the lambda or block body mutates, and re-evaluating the whole call
+  re-registers the method.
 - An arid statement (a logging or instrumentation call) whose block carries
   real work is now mutated inside the block (#464). The walk used to skip
   the whole statement, so a method like one wrapped in

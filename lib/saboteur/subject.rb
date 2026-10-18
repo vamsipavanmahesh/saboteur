@@ -75,7 +75,12 @@ module Saboteur
     # The node whose children are the method's statements: the block body
     # for `define_method(:m) { ... }` (#194), the def body otherwise.
     def body_node
-      node.is_a?(Prism::CallNode) ? node.block&.body : node.body
+      return node.body unless node.is_a?(Prism::CallNode)
+
+      # define_method carries its body in the block; scope and the lambda
+      # form of define_singleton_method carry it in the lambda argument.
+      lambda = node.arguments&.arguments&.find { |arg| arg.is_a?(Prism::LambdaNode) }
+      (lambda || node.block)&.body
     end
 
     def source

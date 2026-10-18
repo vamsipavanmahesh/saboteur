@@ -739,9 +739,25 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#define_method_subject?",
              reason: "equivalent: the size == 1 guard above means first and last are the same argument"
 
-  i.mutation "1bb4f84260161fd2",
+  i.mutation "907c77941a63c124",
              subject: "Saboteur::Subject#body_node",
-             reason: "equivalent: the finder only builds a define_method subject when node.block is a BlockNode, so the safe navigation never nil-guards"
+             reason: "equivalent: CallNode subjects come only from walk_call after call_defined_method? passed, whose literal_name? guard reads node.arguments&.arguments&.first, so node.arguments is never nil here (live-probed: driven against the subject specs under full body_node coverage)"
+
+  i.mutation "e548f0a66ab5e680",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: the literal_name? gate in call_defined_method? makes node.arguments non-nil for every CallNode subject, so the arguments array is always present and the second safe navigation never fires (live-probed)"
+
+  i.mutation "807b99fc346c595d",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: Prism::ArgumentsNode#find enumerates the same argument nodes as #arguments.find - on `scope :x, -> { 1 }` both return the identical LambdaNode (live-probed) - and node is the subject's own node, never nil"
+
+  i.mutation "f9d3343f983e9d61",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: Prism::ArgumentsNode#find enumerates the same nodes as #arguments.find (live-probed identical LambdaNode), and node.arguments is non-nil via the literal_name? gate in call_defined_method?"
+
+  i.mutation "8a1aa6eb90d0c1d1",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: call_defined_method? admits define_method only with a BlockNode block and scope/define_singleton_method only with a LambdaNode argument or a block, so (lambda || node.block) is never nil for a subject (live-probed)"
 
   i.mutation "9a5e01816b209349",
              subject: "Saboteur::SubjectFinder#walk_statements",
@@ -751,17 +767,9 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk_children",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
 
-  i.mutation "4aded400397da9fe",
+  i.mutation "8b0aa5a480f5bf26",
              subject: "Saboteur::SubjectFinder#walk_call",
-             reason: "equivalent: || false only normalizes nil to false; in_sclass is used in truthiness contexts only"
-
-  i.mutation "d9a37d21f9adda1c",
-             subject: "Saboteur::SubjectFinder#walk_call",
-             reason: "equivalent: define_method_subject? accepts exactly one argument, so first and last are the same"
-
-  i.mutation "51ecbca80e966840",
-             subject: "Saboteur::SubjectFinder#walk_call",
-             reason: "equivalent: sig_span: nil restates the keyword default in Subject#initialize"
+             reason: "equivalent: sig_span: nil restates the keyword default in Subject#initialize (subject.rb:42-43); live-probed: the pair removal survives the subject and subject_finder specs"
 
   i.mutation "51495f10ee14f096",
              subject: "Saboteur::SubjectFinder#walk",

@@ -20,6 +20,7 @@ module Saboteur
   class SubjectFinder
     Parsed = Data.define(:subjects, :errors)
     ANONYMOUS_OWNER = "(anonymous block)"
+    CALL_DEFINED_SINGLETONS = %i[scope define_singleton_method].freeze
     CLASS_FACTORIES = { Data: :define, Struct: :new, Class: :new, Module: :new }.freeze
 
     # source: the text to parse when it is not the file on disk (the file as
@@ -79,7 +80,7 @@ module Saboteur
     # through its children.
     def walk_call(node, nesting, out, **ctx)
       return walk_heredoc_eval(node, nesting, out, **ctx) if heredoc_eval?(node)
-      return walk_children(node, nesting, out, **ctx) unless define_method_subject?(node)
+      return walk_children(node, nesting, out, **ctx) unless call_defined_method?(node)
 
       in_sclass = nesting.last&.sclass? || false
       owner = owner_path(nesting)
@@ -87,7 +88,10 @@ module Saboteur
       return walk_children(node, nesting, out, **ctx) unless owner
 
       name = node.arguments.arguments.first.unescaped.to_sym
-      subject = Subject.new(name: name, owner: owner, singleton: in_sclass, sclass: in_sclass,
+      # scope and define_singleton_method define on the class itself;
+      # define_method follows the surrounding nesting like a def (#194).
+      singleton = in_sclass || CALL_DEFINED_SINGLETONS.include?(node.name)
+      subject = Subject.new(name: name, owner: owner, singleton: singleton, sclass: in_sclass,
                             file: ctx[:file], node: node, file_source: ctx[:source], nesting: nesting,
                             frozen_literals: ctx[:frozen], sig_span: nil)
       subject.skip_reason = "defined inside a block" if ctx[:in_block]
@@ -152,6 +156,37 @@ module Saboteur
 
       name_arg = node.arguments.arguments.first
       name_arg.is_a?(Prism::SymbolNode) || name_arg.is_a?(Prism::StringNode)
+    end
+
+    # Calls that define a method, all with a literal first argument for the
+    # name: define_method (instance, or singleton inside class << self) and
+    # the two class-level shapes the human-essentials dogfood exposed,
+    # `scope :name, -> { ... }` and define_singleton_method (#194). The
+    # whole call is the subject's source and re-evaluates on the owner.
+    def call_defined_method?(node)
+      return false unless node.receiver.nil?
+      return false unless literal_name?(node)
+
+      case node.name
+      when :define_method then define_method_subject?(node)
+      when :define_singleton_method then lambda_body?(node) || block_only?(node)
+      # Rails scope: exactly a literal name and a lambda body.
+      when :scope then lambda_body?(node) && node.arguments.arguments.size == 2
+      else false
+      end
+    end
+
+    def literal_name?(node)
+      name_arg = node.arguments&.arguments&.first
+      name_arg.is_a?(Prism::SymbolNode) || name_arg.is_a?(Prism::StringNode)
+    end
+
+    def lambda_body?(node)
+      node.block.nil? && node.arguments&.arguments&.last.is_a?(Prism::LambdaNode)
+    end
+
+    def block_only?(node)
+      node.block.is_a?(Prism::BlockNode) && node.arguments&.arguments&.size == 1
     end
 
     # `Point = Data.define(:x) do ... end`: the defs belong to Point. Only the
