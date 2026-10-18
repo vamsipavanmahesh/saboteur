@@ -185,10 +185,24 @@ RSpec.describe Saboteur::Engine::Boot do
       end
     end
 
-    it "leaves the load path alone when rails: false" do
+    # Non-Rails gems do not add spec/ to the load path themselves, so the
+    # boot load of their spec helper fails without this (#615).
+    it "puts spec/ on the load path when rails: false (non-Rails gem)" do
       Dir.mktmpdir do |dir|
-        config = Saboteur::Config.new({ "require" => [] }, root: dir)
-        expect { boot_with(config, dir) }.not_to(change { $LOAD_PATH.dup })
+        spec_dir = File.join(dir, "spec")
+        Dir.mkdir(spec_dir)
+        File.write(File.join(spec_dir, "dummy_env.rb"), "DUMMY_ENV_LOADED = true\n")
+        File.write(File.join(spec_dir, "spec_helper.rb"), 'require "dummy_env"')
+        config = Saboteur::Config.new({ "require" => ["./spec/spec_helper"] }, root: dir)
+        begin
+          boot_with(config, dir)
+          expect(defined?(DUMMY_ENV_LOADED)).to eq("constant")
+          expect($LOAD_PATH).to include(File.realpath(spec_dir))
+        ensure
+          Object.send(:remove_const, :DUMMY_ENV_LOADED) if defined?(DUMMY_ENV_LOADED)
+          $LOAD_PATH.delete(File.realpath(spec_dir))
+          $LOADED_FEATURES.delete_if { |feature| feature.start_with?(File.realpath(dir)) }
+        end
       end
     end
   end
