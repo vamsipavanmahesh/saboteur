@@ -1110,6 +1110,17 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(guess.unmatched_message).to include("lib/x.rb (expected spec/x_spec.rb; found: spec/models/x_spec.rb)")
     end
 
+    # #712: pin the "; found: " prefix and the ", " join verbatim with a
+    # two-file example.
+    it "joins two same-basename finds with the separator verbatim (#712)" do
+      FileUtils.mkdir_p(File.join(dir, "spec/models"))
+      write("lib/x.rb", changed_source)
+      write("spec/a/x_spec.rb")
+      write("spec/models/x_spec.rb")
+      expect(guess.unmatched_message)
+        .to include("lib/x.rb (expected spec/x_spec.rb; found: spec/a/x_spec.rb, spec/models/x_spec.rb)")
+    end
+
     # The near misses come sorted and bounded at three: more same-basename
     # specs than that are cut after the third in path order (#585 dogfood).
     it "names at most the first three same-basename specs, sorted" do

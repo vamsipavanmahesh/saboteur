@@ -1312,4 +1312,38 @@ Saboteur.ignore do |i|
              reason: "equivalent: Subject.new's sig_span keyword already defaults to nil (subject.rb:43), " \
                      "so restating it changes nothing (Pod 1 verified at v2) - hand-applied mutant leaves " \
                      "all 558 reporter and subject_finder examples green"
+
+i.mutation "fdc4600f4e8e8625",
+             subject: "Saboteur::CustomMap.validate_spec",
+             reason: "equivalent: with the root check above the numbered && named guard (#712), " \
+                     "numbered = key.is_a?(Regexp) only moves which branch runs - outside-root " \
+                     "templates raise the root error before either form diverges, named templates " \
+                     "raise the same backreferences error at either raise site - a 10-case probe (plain, numbered, named and mixed templates, inside and outside the root, plus String-keyed backref-marker cases) prints identical outcomes for original and mutant"
+
+  i.mutation "9fcef196d5c48899",
+             subject: "Saboteur::CustomMap.validate_spec",
+             reason: "equivalent: numbered = spec.match? widens numbered to String keys carrying a " \
+                     "literal backslash-digit, but the root check guards every path first (#712), " \
+                     "so such a spec is accepted inside the root and rejected outside it exactly " \
+                     "like the original - a 10-case probe (plain, numbered, named and mixed templates, inside and outside the root, plus String-keyed backref-marker cases) prints identical outcomes for original and mutant"
+
+  i.mutation "616bbe561c8b198c",
+             subject: "Saboteur::CustomMap.validate_spec",
+             reason: "equivalent: numbered = false drops the backreference early return, but the " \
+                     "root check guards every path first (#712) and named is false wherever " \
+                     "numbered could have been true alone, so the method returns or raises the " \
+                     "same ConfigError with the same message - a 10-case probe (plain, numbered, named and mixed templates, inside and outside the root, plus String-keyed backref-marker cases) prints identical outcomes for original and mutant"
+
+  i.mutation "ffdffbe395900a87",
+             subject: "Saboteur::CustomMap.validate_spec",
+             reason: "equivalent: when named is true the guard reading bare named instead of " \
+                     "numbered && named raises the same ConfigError with the same message at :79 " \
+                     "instead of the method end - a 10-case probe (plain, numbered, named and mixed templates, inside and outside the root, plus String-keyed backref-marker cases) prints identical outcomes for original and mutant"
+
+  i.mutation "a5d10e356957ec9f",
+             subject: "Saboteur::CustomMap.validate_spec",
+             reason: "equivalent: return if false removes the backreference early return; an " \
+                     "in-root backref spec then reaches return unless named with named false and " \
+                     "returns without error just the same, and an outside-root one already raised " \
+                     "- a 10-case probe (plain, numbered, named and mixed templates, inside and outside the root, plus String-keyed backref-marker cases) prints identical outcomes for original and mutant"
 end

@@ -26,7 +26,7 @@ module Saboteur
     # unknown tree. The root is physical (realpath), like the paths
     # Config#included_files returns.
     def self.for(config, config_path:, gemfile: ENV.fetch("BUNDLE_GEMFILE", nil))
-      state = WorkingTree.new(config.root, ignored: config.output_paths).state
+      state = WorkingTree.new(config.root, ignored: config.ignored_tree_paths(gemfile: gemfile)).state
       root = File.realpath(config.root)
       new(state, included: relative(config.included_files, root), include: config["include"],
                  exclude: config["exclude"], root: root,

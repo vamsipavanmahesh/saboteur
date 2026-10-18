@@ -152,6 +152,48 @@ RSpec.describe Saboteur::DirtyTreeWarning do
       described_class.for(config, config_path: config_path, gemfile: gemfile)
     end
 
+    # #638: the documented Gemfile.saboteur sidecar setup is tool-owned, so
+    # it never counts as a working-tree change.
+    it "stays quiet when only the documented sidecar Gemfile setup is uncommitted (#638)" do
+      dirty_tree("Gemfile.saboteur", "Gemfile.saboteur.lock")
+
+      expect(text(gemfile: File.join(root, "Gemfile.saboteur"))).to be_nil
+    end
+
+    it "counts only the non-tool files when the sidecar setup is present (#638)" do
+      dirty_tree("Gemfile.saboteur", "Gemfile.saboteur.lock", "notes.md")
+
+      warning = text(gemfile: File.join(root, "Gemfile.saboteur"))
+      expect(warning).to start_with("saboteur: warning: 1 uncommitted or untracked change(s)")
+    end
+
+    # A bracketed sidecar name must not glob: "g/[ab].gemfile" excludes
+    # only a file literally named "[ab].gemfile", never g/a.gemfile or
+    # g/b.gemfile.
+    it "treats a bracketed BUNDLE_GEMFILE name as a literal path, not a glob (#638)" do
+      dirty_tree("g/a.gemfile", "g/b.gemfile")
+
+      warning = text(gemfile: "g/[ab].gemfile")
+      expect(warning).to start_with("saboteur: warning: 2 uncommitted or untracked change(s)")
+    end
+
+    it "does not raise when the BUNDLE_GEMFILE directory does not exist (#638)" do
+      dirty_tree("notes.md")
+
+      warning = text(gemfile: "no/such/dir/Gemfile.saboteur")
+      expect(warning).to start_with("saboteur: warning: 1 uncommitted or untracked change(s)")
+    end
+
+    it "excludes nothing when BUNDLE_GEMFILE points outside the repo (#638)" do
+      dirty_tree("Gemfile.lock")
+      outside = Dir.mktmpdir("saboteur-outside-")
+
+      warning = text(gemfile: File.join(outside, "Gemfile.saboteur"))
+      expect(warning).to start_with("saboteur: warning: 1 uncommitted or untracked change(s)")
+    ensure
+      FileUtils.remove_entry(outside) if outside
+    end
+
     it "hands the configured output paths to the tree scan as the ignored list" do
       config = Saboteur::Config.new({ "cache_dir" => "tmp/custom_cache" }, root: root)
       captured = nil
@@ -162,7 +204,7 @@ RSpec.describe Saboteur::DirtyTreeWarning do
 
       described_class.for(config, config_path: nil, gemfile: nil)
 
-      expect(captured).to eq([config.root, { ignored: config.output_paths }])
+      expect(captured).to eq([config.root, { ignored: config.ignored_tree_paths(gemfile: nil) }])
     end
 
     it "matches ./ and absolute include patterns the way the run does (#503)" do
@@ -178,7 +220,7 @@ RSpec.describe Saboteur::DirtyTreeWarning do
       File.symlink(root, link)
 
       warning = text(root_spelling: link, gemfile: File.join(link, "Gemfile.saboteur"))
-      expect(warning).to include("setup files: Gemfile.saboteur, Gemfile.saboteur.lock, config/saboteur.rb")
+      expect(warning).to include("setup files: config/saboteur.rb\n")
       expect(warning).to include("inside the mutation scope: lib/a.rb\n")
     ensure
       FileUtils.rm_f(link)
@@ -193,10 +235,10 @@ RSpec.describe Saboteur::DirtyTreeWarning do
     end
 
     it "leaves out a setup file outside the root" do
-      dirty_tree("Gemfile.saboteur")
+      dirty_tree("Gemfile.saboteur", "notes.md")
 
       warning = text(config_path: File.join(Dir.tmpdir, "elsewhere.rb"), gemfile: File.join(root, "Gemfile.saboteur"))
-      expect(warning).to include("setup files: Gemfile.saboteur\n")
+      expect(warning).to start_with("saboteur: warning: 1 uncommitted or untracked change(s)")
     end
 
     it "counts a deleted source under a ./ pattern, resolved against the root, inside the scope" do
@@ -209,11 +251,10 @@ RSpec.describe Saboteur::DirtyTreeWarning do
       expect(warning).to include("inside the mutation scope: lib/gone.rb\n")
     end
 
-    it "reads a relative BUNDLE_GEMFILE against the root" do
+    it "reads a relative BUNDLE_GEMFILE against the root and excludes that sidecar (#638)" do
       dirty_tree("Gemfile.saboteur", "Gemfile.saboteur.lock")
 
-      warning = Dir.chdir(Dir.tmpdir) { text(gemfile: "Gemfile.saboteur") }
-      expect(warning).to include("setup files: Gemfile.saboteur, Gemfile.saboteur.lock\n")
+      expect(Dir.chdir(Dir.tmpdir) { text(gemfile: "Gemfile.saboteur") }).to be_nil
     end
 
     it "says nothing on a clean tree" do
