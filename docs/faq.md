@@ -123,7 +123,7 @@ one: `--since`, `--subject` and source operands narrow a run further after the
 warning.
 
 ```
-saboteur: warning: 3972 uncommitted change(s) in the working tree: none inside the mutation scope, 3969 outside it (0 tracked, 3969 untracked), 3 saboteur setup file(s) (0 tracked, 3 untracked).
+saboteur: warning: 3972 uncommitted or untracked change(s) in the working tree: none inside the mutation scope, 3969 outside it (0 tracked, 3969 untracked), 3 saboteur setup file(s) (0 tracked, 3 untracked).
   setup files: config/saboteur.rb, Gemfile.saboteur, Gemfile.saboteur.lock
   Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
 ```

@@ -21,25 +21,43 @@ code, so a broken suite never counts as a kill.
 **Docs, benchmarks and guides live on the site:
 [vamsipavanmahesh.github.io/saboteur](https://vamsipavanmahesh.github.io/saboteur/)**
 
-<a id="60-second-quick-start"></a>
+<a id="30-second-quick-start"></a>
 ## 30-second quick start
 
 You need Ruby 3.3 or newer, RSpec, and Linux or macOS with `fork`.
 
-```sh
-# Install the gem:
-gem install saboteur
+Prerequisite: the sandbox layers use fiddle, which ships with Ruby
+(a default gem on Ruby 3.x). On Ruby 4.0+, where fiddle is a bundled
+gem, add `gem "fiddle"` to your Gemfile. If saboteur refuses a run
+because fiddle cannot load: reinstall Ruby, run `gem install fiddle`,
+or install libffi headers (libffi-dev on Debian/Ubuntu, libffi-devel
+on Fedora/RHEL) and reinstall fiddle. libffi headers are required only
+when Ruby's shipped fiddle is missing or must be installed standalone.
 
-# Or add it to the Gemfile:
+```sh
+# Add it to your project's Gemfile:
 bundle add saboteur --group test
 
-# Either way:
+# Then:
 bundle exec saboteur run
 ```
+
+Outside a Bundler project, `gem install saboteur` gives the same
+executable - run it there as plain `saboteur run`, without
+`bundle exec`.
 
 The first run builds a coverage map of which tests touch which code. The
 map is cached and reused while your code and tests stay unchanged, so
 later runs start fast.
+
+If the first run stops with exit 2 and `no spec found for ...`, saboteur
+could not map a source file to its spec: it matches by path first, then
+by parent directory and basename when the layout strips directories,
+and it refuses to guess wrong. Point it at the specs yourself - set
+`test_selection = :all` in `config/saboteur.rb` to run the whole suite
+against each mutant, pass `--test spec/...` to name the specs, or
+declare a custom map
+([monorepos and the custom map](docs/guides/monorepo-and-custom-map.md)).
 
 On a branch, `bundle exec saboteur pr` mutates only the methods you
 changed relative to `main`, with one baseline pass and a ten-minute
@@ -246,6 +264,16 @@ on the site and [docs/benchmark](docs/benchmark/) in this repo.
 - [All documentation](docs/README.md) - configuration, operators, CI, recipes
 - [Contributing](CONTRIBUTING.md) - every commit needs a DCO `Signed-off-by` line
 - [Design notes](docs/design.md)
+
+## Disclaimer
+
+saboteur is provided "as is", without warranty of any kind, express or
+implied. In no event shall the authors or copyright holders be liable
+for any claim, damages or other liability arising from its use -
+including damage caused by mutating your code or by running unusual
+DSLs and metaprogramming-heavy code. Mutation testing runs your test
+suite against deliberately broken code; run it on a clean, committed
+tree or a CI checkout. The full text is in [LICENSE](LICENSE).
 
 ## License
 

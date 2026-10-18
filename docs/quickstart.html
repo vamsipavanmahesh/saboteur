@@ -146,9 +146,9 @@ main .wrap{padding-top:64px;padding-bottom:72px}
 <p class="sub">Needs Ruby 3.3 or newer on Linux or macOS. RSpec only, by design.</p>
 <h3>1. Install</h3>
 <div class="term"><div class="term-bar"><i></i><i></i><i></i><span>install</span></div>
-<pre><code>gem install saboteur
-<span class="c"># or in your Gemfile</span>
-gem "saboteur", group: :test</code></pre></div>
+<pre><code>bundle add saboteur --group test
+<span class="c"># outside a Bundler project: gem install saboteur,</span>
+<span class="c"># then run plain `saboteur run` without bundle exec</span></code></pre></div>
 <h3>2. Turn off SimpleCov for the run</h3>
 <p>saboteur needs Ruby's <code>Coverage</code> for itself. Most projects already guard SimpleCov with an environment variable.</p>
 <h3>3. Run it</h3>

@@ -6,6 +6,121 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-18
+
+### Added
+
+- Positional call-argument swap operator (#653): swaps adjacent positional
+  arguments at call sites, catching specs that do not pin argument order.
+- After the first timed baseline pass, saboteur projects the remaining
+  baseline+coverage cost against `--max-duration` and warns up front when
+  the budget barely fits or is exceeded, naming how much time mutants get
+  and the remedies (#637). A `--max-duration` run that ends with exit 4
+  and 0 mutants now headlines "no mutants ran", and the flag's help states
+  what the clock covers: it starts at engine entry and includes the
+  baseline and coverage phases.
+- fiddle is no longer a hard dependency: it loads lazily through one door
+  that refuses with every working fix named when it is missing, and the
+  sandbox layers fail closed on refusal (#639).
+
+### Fixed
+
+- The DCO checks no longer disagree: CI's check-dco, preflight, and the
+  panel gate all require the Signed-off-by line to be a real git trailer
+  after a blank line (#646).
+- When a changed file matches no spec by id hint, saboteur names the exact
+  ids it looked for (`warn_unmatched_whole_file`, `--since` scoped) (#635).
+- `saboteur pr --since` on a spec-only or docs-only diff no longer warns
+  that "the whole suite runs" - it announces there is nothing to test,
+  matching the zero-subject run that follows (#607).
+- On macOS the degraded-sandbox message no longer claims the kernel "lacks
+  Landlock (needs Linux 6.2+)"; it says macOS has no Landlock and points
+  at `c.sandbox = "seatbelt"` (#667).
+- The preset banner shows the effective flags, including explicit
+  `--since` refs and flag=value spellings (#666).
+- Running saboteur without rspec-core in the bundle (for example a
+  Minitest project) fails as a usage error (exit 2) naming docs/minitest.md,
+  instead of an internal error pointing at the RSpec-only `c.integration`
+  remedy (#610). A baseline that fails with NoMethodError in a suite whose
+  spec_helper requires minitest now warns the suite looks like Minitest
+  running under RSpec, with the symptom and count (#626).
+- Test-file guessing looks for specs below a flattened namespace
+  (rubocop-ast style layouts) (#586), and when a layout strips directories
+  between source and spec trees it picks the unique spec by parent
+  directory and basename instead of failing or guessing wrong (#600).
+- A `--subject` pattern that names an attr_reader, attr_writer or
+  attr_accessor method no longer says "matches no subject"; the method
+  exists but has no body to mutate, and the message says so (#373).
+- Load errors in the target app's boot are reported with the tool's own
+  frames filtered out, with `--verbose` restoring the full backtrace (#608).
+- If a spec file loaded Ruby code before saboteur started coverage,
+  whole-suite runs no longer report "5 subjects, 0 mutants"; saboteur
+  names up to 5 preloaded files with cause and remedy and exits 3. With
+  `--test` it warns and continues (#686).
+- An empty or docs-only `--since` range exits 0 with a "nothing to test"
+  notice instead of failing (#659), and a run no longer floods stderr with
+  Ruby's "possibly useless use of nil in void context" compile warnings
+  when the host suite enables warnings (#656).
+- Running saboteur in a project with no RSpec suite stops with a single
+  line naming the problem and pointing to docs/minitest.md, instead of one
+  line per source file; specs outside spec/ fall back to the per-file stop
+  with `--test`/`--all`. Exit code unchanged (2) (#606).
+- Whole-file targets no longer error "already initialized constant" in
+  strict-warning suites when the app lazily requires the same file (#632).
+- Doctor's macOS degraded-sandbox output names the way out:
+  `c.sandbox = "seatbelt"` with the guide link, or `c.sandbox = false` (#667).
+- Load-time vetting no longer rejects `class << self` or `/re/.freeze`,
+  and the constant-skip warning cites a one-line excerpt plus line instead
+  of whole class bodies (#664). Vetting clears Struct/Data factories,
+  public_constant/private_constant, and lambda literals so those files
+  keep their mutation subjects (#537).
+- A spec load that quits because the suite auto-starts SimpleCov/SingleCov
+  names the suspect and both guard styles, instead of an opaque "No
+  examples found" (#645).
+- A sqlite :memory: database with a schema but zero rows hints at
+  require-time seed data lost across the fork, with the
+  before(:suite)/after_fork remedy and the `c.hooks` wiring (#594).
+- The early-stopped summary headline reads selected versus attempted, for
+  example "57 mutants selected, 4 attempted" (#582).
+- The dirty-tree warning headline says "uncommitted or untracked change(s)"
+  so a tree of only scratch files is not read as edits (#604).
+- Custom-map load errors name unsupported template syntax before glob
+  validation, literal map paths are preserved, and mixing numbered and
+  named map templates is rejected at load with a clear error (#642).
+- The sqlite in-memory database fork-loss hint includes the exact
+  `c.hooks` configuration needed to load the suggested after-fork hooks
+  file (#593).
+- A subject the `--max-duration` budget stops mid-list no longer drops the
+  kills it already measured: the truncated subject's completed kills are
+  confirmed uncapped (#588).
+- Shell-exported RUBYLIB entries that bundler's scrub drops are restored
+  (#584), `spec/` is on the load path for non-Rails boots too (#615), and
+  RSpec core loads before configured boot helpers so non-Rails helpers can
+  call RSpec.configure (#616).
+- `--test-command` warns when one ruby is handed several test files: ruby
+  executes only the first, so the rest never ran and their mutants
+  silently survived (#611).
+- Dry-run excludes statically unsupported subjects, such as methods
+  defined inside blocks, from planned mutant totals and reports the skip
+  reason (#651).
+- Non-String integration assignments fail with a file-and-line
+  configuration error before fingerprinting or boot (#614).
+- Baseline failures outside examples say so and show the log tail instead
+  of an empty failed-example list (#581).
+
+### Documentation
+
+- The flaky-tests and survivors guides catch up with 0.8.0 (#683), and
+  design.md explains the load-time vetting safelist for constant replay
+  under `--since`, including what it cannot account for (#537).
+- Docs drift: the pinned saboteur-vs-mutineer benchmark report names the
+  version it measured (0.1.0), and the compare page scopes its kill
+  re-check claim to fresh kills (#657).
+- The README quick start covers the inference-miss exit 2 and its
+  recovery, the install block leads with Bundler, the quick-start anchor
+  matches its heading, and a no-warranty disclaimer joins the license
+  section (#658, #657, #599).
+
 ## [0.8.0] - 2026-10-18
 
 ### Added
