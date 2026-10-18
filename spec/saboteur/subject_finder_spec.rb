@@ -357,6 +357,123 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(found.first.skip_reason).to eq("defined inside a block")
   end
 
+  # Registry DSL blocks (#700): the call builds a fresh class, class_evals the
+  # block on it and registers it under a predictable constant, so its defs are
+  # ordinary subjects that re-evaluate through the registry constant.
+  it "names Ohai.plugin defs after the registered plugin class (#700)" do
+    found = subjects_in(<<~RUBY)
+      Ohai.plugin(:Network) do
+        def get_mac_for_interface(interfaces, interface)
+          interfaces[interface][:addresses].first
+        end
+      end
+    RUBY
+    expect(found.map { |s| [s.id, s.skip_reason] })
+      .to eq([["Ohai::NamedPlugin::Network#get_mac_for_interface", nil]])
+  end
+
+  it "names Puppet provide defs after the generated provider class (#700)" do
+    found = subjects_in(<<~RUBY)
+      Puppet::Type.type(:package).provide :pacman, parent: nil do
+        def install_from_file(source)
+          pacman "-U", source
+        end
+      end
+    RUBY
+    expect(found.map { |s| [s.id, s.skip_reason] })
+      .to eq([["Puppet::Type::Package::ProviderPacman#install_from_file", nil]])
+  end
+
+  it "camelizes underscored DSL names (#700)" do
+    ohai = subjects_in("Ohai.plugin(:mac_address) do\n  def m; end\nend\n")
+    expect(ohai.map(&:id)).to eq(["Ohai::NamedPlugin::MacAddress#m"])
+    puppet = subjects_in("Puppet::Type.type(:file_line).provide(:ruby_aix) do\n  def m; end\nend\n")
+    expect(puppet.map(&:id)).to eq(["Puppet::Type::FileLine::ProviderRubyAix#m"])
+  end
+
+  it "names the registry class at the top level even inside a lexical scope (#700)" do
+    found = subjects_in("module M\n  Ohai.plugin(:Network) do\n    def m; end\n  end\nend\n")
+    expect(found.map(&:id)).to eq(["Ohai::NamedPlugin::Network#m"])
+  end
+
+  it "keeps defs skipped for DSL-shaped calls the registry does not know (#700)" do
+    [
+      "Ohai.plugins(:Network)",      # wrong method name
+      "Chef.plugin(:Network)",       # unknown receiver
+      "Ohai.plugin(name)",           # non-literal name
+      "Ohai.plugin",                 # no name argument
+      "Puppet::Type.type(:package).provides(:pacman)",
+      "Puppet::Type.type(:package).provide(name)",
+      "Puppet::Type.type(name).provide(:pacman)",
+      "Other::Type.type(:package).provide(:pacman)"
+    ].each do |call|
+      found = subjects_in("#{call} do\n  def m; end\nend\n")
+      expect(found.map { |s| [s.id, s.skip_reason] })
+        .to eq([["(anonymous block)#m", "defined inside a block"]]), call
+    end
+  end
+
+  it "still skips a registry DSL def when the call itself sits in a block (#700)" do
+    found = subjects_in("class A\n  included do\n    Ohai.plugin(:Network) do\n      def m; end\n    end\n  end\nend\n")
+    expect(found.map { |s| [s.id, s.skip_reason] })
+      .to eq([["Ohai::NamedPlugin::Network#m", "defined inside a block"]])
+  end
+
+  it "finds a registry DSL def nested a thousand calls deep (#700)" do
+    source = "#{'a(' * 1000}Ohai.plugin(:Network) do\n  def m; end\nend#{')' * 1000}\n"
+    expect(ids(source)).to eq(["Ohai::NamedPlugin::Network#m"])
+  end
+
+  it "keeps a blockless registry-shaped call an ordinary call (#700)" do
+    expect(subjects_in("Ohai.plugin(:Network)\n")).to eq([])
+  end
+
+  it "keeps defs skipped when the plugin call's receiver is not Ohai (#700)" do
+    [
+      "Chef.plugin(:Network)",  # another constant receiver
+      "plugin(:Network)",       # no receiver at all
+      "foo.plugin(:Network)" # a receiver that is no constant
+    ].each do |call|
+      found = subjects_in("#{call} do\n  def m; end\nend\n")
+      expect(found.map { |s| [s.id, s.skip_reason] })
+        .to eq([["(anonymous block)#m", "defined inside a block"]]), call
+    end
+  end
+
+  it "keeps a bare provide call skipped (#700)" do
+    found = subjects_in("provide :pacman do\n  def m; end\nend\n")
+    expect(found.map { |s| [s.id, s.skip_reason] }).to eq([["(anonymous block)#m", "defined inside a block"]])
+  end
+
+  it "keeps a provide on a non-type Puppet call or a blocked type call skipped (#700)" do
+    [
+      "Puppet::Type.nonetype(:package).provide(:pacman)",
+      "Puppet::Type.type(:package) { }.provide(:pacman)",
+      "type(:package).provide(:pacman)"
+    ].each do |call|
+      found = subjects_in("#{call} do\n  def m; end\nend\n")
+      expect(found.map { |s| [s.id, s.skip_reason] })
+        .to eq([["(anonymous block)#m", "defined inside a block"]]), call
+    end
+  end
+
+  it "keeps a def in the DSL call's own arguments in the enclosing scope (#700)" do
+    source = <<~RUBY
+      Puppet::Type.type(:package).provide :pacman, parent: wrap { def m; end } do
+        def own; end
+      end
+    RUBY
+    found = subjects_in(source)
+    expect(found.map { |s| [s.id, s.skip_reason] })
+      .to eq([["(anonymous block)#m", "defined inside a block"],
+              ["Puppet::Type::Package::ProviderPacman#own", nil]])
+  end
+
+  it "keeps the lexical scope for a class nested in the DSL block (#700)" do
+    found = subjects_in("class A\n  Ohai.plugin(:Network) do\n    class B\n      def n; end\n    end\n  end\nend\n")
+    expect(found.map(&:id)).to eq(["A::B#n"])
+  end
+
   it "keeps walking a factory call that has no block of its own" do
     found = subjects_in("Thing = Class.new(Base.build do\n  def m; end\nend)\n")
     expect(found.map { |subject| [subject.id, subject.skip_reason] })
