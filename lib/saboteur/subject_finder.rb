@@ -17,8 +17,12 @@ module Saboteur
   # names them instead of leaving them out - except the four core class
   # factories: `X = Data.define`, `Struct.new`, `Class.new` or `Module.new`
   # with a block names X as the owner, and its defs are ordinary subjects
-  # that re-evaluate through X.class_eval (#290). Any other block, and a
-  # `A::X = ...` target, keeps the enclosing owner or the placeholder.
+  # that re-evaluate through X.class_eval (#290). Known registry DSLs work
+  # the same way: `Ohai.plugin(:Network) do` and
+  # `Puppet::Type.type(:t).provide :p do` class_eval a class registered
+  # under a predictable constant, so their defs re-evaluate through it
+  # (#700). Any other block, and a `A::X = ...` target, keeps the
+  # enclosing owner or the placeholder.
   class SubjectFinder
     Parsed = Data.define(:subjects, :errors)
     ANONYMOUS_OWNER = "(anonymous block)"
@@ -82,6 +86,10 @@ module Saboteur
     # through its children.
     def walk_call(node, nesting, out, **ctx)
       return walk_heredoc_eval(node, nesting, out, **ctx) if heredoc_eval?(node)
+
+      dsl_owner = registry_dsl_owner(node)
+      return walk_registry_dsl(node, dsl_owner, nesting, out, **ctx) if dsl_owner
+
       return walk_children(node, nesting, out, **ctx) unless call_defined_method?(node)
 
       in_sclass = nesting.last&.sclass? || false
@@ -205,6 +213,55 @@ module Saboteur
       # (#290), while a block nested deeper still marks its defs skipped.
       (call.compact_child_nodes - [call.block]).each { |child| walk(child, nesting, out, **ctx) }
       walk(call.block.body, lexical_nesting(nesting) + [Scope.new(kind: :factory, path: node.name.to_s)], out, **ctx)
+    end
+
+    # Registry DSLs whose block class_evals a fresh class registered under a
+    # predictable constant (#700): `Ohai.plugin(:Network)` registers
+    # Ohai::NamedPlugin::Network, and `Puppet::Type.type(:package).provide
+    # :pacman` registers Puppet::Type::Package::ProviderPacman. Like the core
+    # class factories (#290) the block's defs re-evaluate through that
+    # constant, so they are ordinary subjects. The registry names its class
+    # at the top level, so the path restarts at `::` whatever the enclosing
+    # scope. A call the registry does not know, or one with a non-literal
+    # name, keeps the ordinary "defined inside a block" skip; extend the
+    # list here as more frameworks need it.
+    def registry_dsl_owner(node)
+      return unless node.block.is_a?(Prism::BlockNode)
+
+      if node.name == :plugin && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Ohai
+        name = symbol_argument(node.arguments)
+        "::Ohai::NamedPlugin::#{camelize(name)}" if name
+      elsif node.name == :provide && (type = puppet_type_call(node.receiver))
+        name = symbol_argument(node.arguments)
+        "::Puppet::Type::#{camelize(type)}::Provider#{camelize(name)}" if name
+      end
+    end
+
+    # `Puppet::Type.type(:package)`: the type name the provider attaches to.
+    def puppet_type_call(receiver)
+      return unless receiver.is_a?(Prism::CallNode) && receiver.name == :type && receiver.block.nil?
+      return unless receiver.receiver.is_a?(Prism::ConstantPathNode) && receiver.receiver.slice == "Puppet::Type"
+
+      symbol_argument(receiver.arguments)
+    end
+
+    def symbol_argument(arguments)
+      first = arguments&.arguments&.first
+      first.unescaped if first.is_a?(Prism::SymbolNode)
+    end
+
+    def camelize(name)
+      name.split("_").map!(&:capitalize).join
+    end
+
+    # The receiver and arguments stay in the enclosing scope; only the DSL's
+    # own block belongs to the registered class. Walked like a factory block
+    # (#290): a block nested deeper still marks its defs skipped, and a DSL
+    # call that itself sits in a block names the registry class but keeps
+    # the skip, since the registration may never run.
+    def walk_registry_dsl(node, owner, nesting, out, **ctx)
+      (node.compact_child_nodes - [node.block]).each { |child| walk(child, nesting, out, **ctx) }
+      walk(node.block.body, lexical_nesting(nesting) + [Scope.new(kind: :factory, path: owner)], out, **ctx)
     end
 
     # Constant-introducing declarations (class/module keywords and factory
