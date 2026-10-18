@@ -65,6 +65,31 @@ RSpec.describe Saboteur::Engine::SandboxPolicy do
       expect(diagnostics.warnings.grep(/seatbelt/)).to be_empty
     end
 
+    it "points at the seatbelt opt-in instead of blaming the kernel when macOS has no Landlock (#667)" do
+      allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(true)
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      expect(policy("sandbox" => true).hook).to be_nil
+      warning = diagnostics.warnings.find { |line| line.start_with?("sandbox is on") }
+      expect(warning).to include("macOS has no Landlock")
+      expect(warning).to include('c.sandbox = "seatbelt"')
+      expect(warning).to include("docs/guides/macos-seatbelt-sandbox.md")
+      expect(warning).not_to include("Linux 6.2+")
+    end
+
+    it "keeps the Landlock kernel wording on a Linux kernel without Landlock (#667)" do
+      allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(false)
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      expect(policy("sandbox" => true).hook).to be_nil
+      expect(diagnostics.warnings).to include("sandbox is on but this kernel lacks Landlock (needs Linux 6.2+); " \
+                                              "children run with the hazard guard and canary only")
+    end
+
+    it "keeps the ABI wording on a kernel with Landlock below ABI 3 (#667)" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(2)
+      expect(policy("sandbox" => true).hook).to be_nil
+      expect(diagnostics.warnings.join).to include("Landlock ABI is 2")
+    end
+
     it "keeps the Landlock path for the seatbelt opt-in off macOS" do
       allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(false)
       hook = policy("sandbox" => "seatbelt").hook

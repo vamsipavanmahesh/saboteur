@@ -39,8 +39,7 @@ module Saboteur
         # same line twice (D's review, #178).
         unless @sandbox_note_given
           @sandbox_note_given = true
-          @diagnostics.warn("sandbox is on but #{self.class.sandbox_gap(abi)}; children run with the hazard guard " \
-                            "and canary only")
+          @diagnostics.warn(degraded_note(abi))
         end
         nil
       end
@@ -55,9 +54,28 @@ module Saboteur
       end
 
       def self.sandbox_gap(abi)
-        return "this kernel lacks Landlock (needs Linux 6.2+)" if abi.zero?
+        if abi.zero?
+          # Landlock is Linux-only: on macOS there is no kernel to upgrade,
+          # so name the platform instead of a Linux version (#667).
+          return "macOS has no Landlock" if Execution::Seatbelt.darwin?
+
+          return "this kernel lacks Landlock (needs Linux 6.2+)"
+        end
 
         "this kernel's Landlock ABI is #{abi} but ABI 3 (Linux 6.2+) is needed to restrict truncate()"
+      end
+
+      # The degraded-run note: on macOS the gap is permanent, so point at
+      # the Seatbelt opt-in; on Linux the kernel wording stands alone
+      # (#667). Severity stays a warning - degrading confinement is never
+      # routine.
+      def degraded_note(abi)
+        gap = self.class.sandbox_gap(abi)
+        tail = "children run with the hazard guard and canary only"
+        return "sandbox is on but #{gap}; #{tail}" unless Execution::Seatbelt.darwin?
+
+        "sandbox is on but #{gap}; #{tail} - opt into the macOS sandbox with c.sandbox = \"seatbelt\" " \
+          "(docs/guides/macos-seatbelt-sandbox.md), or set c.sandbox = false to silence this"
       end
 
       def restrict_hook

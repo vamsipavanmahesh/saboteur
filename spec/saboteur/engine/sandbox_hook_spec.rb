@@ -279,7 +279,7 @@ RSpec.describe Saboteur::Engine, 'sandbox hook with c.sandbox = "seatbelt"' do
     [true, "strict"].each do |value|
       engine = engine_for({ "sandbox" => value })
       if value == "strict"
-        expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error, /this kernel lacks Landlock/)
+        expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error, /macOS has no Landlock/)
       else
         expect(engine.send(:sandbox_hook)).to be_nil
       end
