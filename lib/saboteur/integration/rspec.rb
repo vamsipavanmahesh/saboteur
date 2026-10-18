@@ -311,22 +311,22 @@ module Saboteur
         # #608) or verbatim on a SystemExit. Passing through during setup
         # would print what a later filter needs to drop.
         def write(text)
-          @captured << text
+          @replayed ? __getobj__.write(text) : @captured << text
           self
         end
 
         def print(*args)
-          @captured << args.join
-          self
+          write(args.join)
         end
 
         def puts(*args)
-          @captured << args.flatten.join("\n") << "\n"
-          self
+          write("#{args.flatten.join("\n")}\n")
         end
 
         def replay
           __getobj__.write(@captured)
+          # RSpec retains this stream for later suite-hook errors.
+          @replayed = true
         end
 
         def text = @captured

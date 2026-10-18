@@ -93,11 +93,15 @@ RSpec.describe Saboteur::Integration::RSpec, "load-error report (#608)" do
     it "buffers instead of passing through, and replays verbatim on demand" do
       io = StringIO.new
       capture = described_class::SetupOutputCapture.new(io)
-      capture.write("one")
+      expect(capture.write("one")).to equal(capture)
       capture.puts("two")
       expect(io.string).to eq("")
       capture.replay
       expect(io.string).to eq("onetwo\n")
+      capture.write("hook")
+      capture.print(" exploded")
+      capture.puts(["!", ["detail"]], "tail")
+      expect(io.string).to eq("onetwo\nhook exploded!\ndetail\ntail\n")
     end
   end
 end
