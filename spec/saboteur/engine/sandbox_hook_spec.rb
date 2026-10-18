@@ -44,6 +44,7 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
   end
 
   it "warns once and hands no hook on a kernel without Landlock" do
+    allow(Saboteur::Execution::Seatbelt).to receive(:darwin?).and_return(true)
     allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
     engine = engine_for({})
     expect(engine.send(:sandbox_hook)).to be_nil
@@ -52,7 +53,7 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     expect(err.string).to eq("")
     warnings = engine.instance_variable_get(:@diagnostics).warnings
     expect(warnings.size).to eq(1)
-    expect(warnings.first).to include("lacks Landlock").and include("hazard guard and canary only")
+    expect(warnings.first).to include("macOS has no Landlock").and include("hazard guard and canary only")
   end
 
   it "degrades with a one-time note when the kernel's ABI cannot restrict truncate" do
