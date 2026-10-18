@@ -151,6 +151,14 @@ RSpec.describe Saboteur::Engine::Boot do
       described_class.new(config, Saboteur::Hooks.new).load_target
     end
 
+    it "warns before the spec load when the environment looks wrong (#598, #609)" do
+      Dir.mktmpdir do |dir|
+        config = Saboteur::Config.new({ "require" => [] }, root: dir)
+        allow(Saboteur::EnvironmentHints).to receive(:all).and_return(["a fake hint"])
+        expect { boot_with(config, dir) }.to output(/saboteur: warning: a fake hint/).to_stderr
+      end
+    end
+
     it "loads RSpec core before a non-Rails helper without requiring it itself (#616)" do
       Dir.mktmpdir do |dir|
         helper = File.join(dir, "helper.rb")

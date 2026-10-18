@@ -19,6 +19,7 @@ module Saboteur
     def call
       Engine::Boot.refuse_recursion!
       check_runtime
+      check_environment
       check_coverage
       check_boot_files
       check_custom_map
@@ -53,6 +54,11 @@ module Saboteur
       Engine::Boot.new(@config, hooks).load_target
     rescue LoadError, SyntaxError, SystemExit, StandardError => e
       raise Error, "target boot failed: #{e.class}: #{e.message}; check require files, hooks and rspec_args"
+    end
+
+    def check_environment
+      hints = EnvironmentHints.all(@config.root)
+      @out.puts "Environment: #{hints.empty? ? 'no bundler/appraisal problems detected' : hints.join('; ')}"
     end
 
     def check_runtime

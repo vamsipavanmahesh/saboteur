@@ -190,6 +190,8 @@ module Saboteur
                    'c.rspec_args = ["--exclude-pattern", "spec/dummy/**/*_spec.rb"], or name the ' \
                    "suite with --test. Rails engines with an embedded dummy app (spec/dummy) need " \
                    'this; see README "Rails engines and dummy apps".'
+        hints = EnvironmentHints.all(config.root)
+        message << "\nSuspect: #{hints.join('; ')}." if hints.any?
         if coverage_suspect?(captured_text)
           message << "\nSuspect: your suite starts its own Coverage (saboteur starts one itself). " \
                      "Guard it - if ENV[\"COVERAGE\"], or SingleCov's conditional setup API - " \
