@@ -30,8 +30,10 @@ RSpec.describe Saboteur::Engine::LoadCoverage, "files loaded before Coverage.sta
   it "matches files under any spelling of their path (symlinked root)" do
     Dir.mktmpdir do |dir|
       Dir.mkdir(File.join(dir, "real"))
-      target = File.join(dir, "real", "a.rb")
-      File.write(target, "1\n")
+      # Realpath the direct spelling: the matcher returns canonical paths,
+      # and on macOS the tmpdir itself sits behind /var -> /private/var.
+      File.write(File.join(dir, "real", "a.rb"), "1\n")
+      target = File.realpath(File.join(dir, "real", "a.rb"))
       File.symlink(File.join(dir, "real"), File.join(dir, "link"))
       spelled = File.join(dir, "link", "a.rb")
       allow(Saboteur::CoverageReads).to receive(:result).and_return({})
