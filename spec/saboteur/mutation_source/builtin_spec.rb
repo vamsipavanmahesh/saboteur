@@ -19,6 +19,12 @@ RSpec.describe Saboteur::MutationSource::Builtin do
   end
 
   describe "operator wiring" do
+    it "wires arid into regex_replacement too" do
+      regex = subjects_in("class K\n  def m(input)\n    input =~ /\A\d+\z/\n  end\nend\n").first
+      expect(described_class.new(operators: ["regex_replacement"]).mutations_for(regex)).not_to be_empty
+      expect(described_class.new(operators: ["regex_replacement"], arid: ["input"]).mutations_for(regex)).to be_empty
+    end
+
     it "wires arid into method_swap and interpolation_removal too" do
       swap = subjects_in("class K\n  def m(xs)\n    xs.min { |x| x }\n  end\nend\n").first
       expect(described_class.new(operators: ["method_swap"], arid: ["min"]).mutations_for(swap)).to be_empty
@@ -245,7 +251,7 @@ RSpec.describe Saboteur::MutationSource::Builtin do
     end
 
     it "registers every single-purpose source in the delegated walk" do
-      expect(described_class.new.send(:delegated).size).to eq(13)
+      expect(described_class.new.send(:delegated).size).to eq(14)
     end
 
     it "wires custom arid patterns into pair removal" do

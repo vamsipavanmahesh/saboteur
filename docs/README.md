@@ -6,15 +6,19 @@
 - [Your first 10 minutes on a Rails app](guides/first-10-minutes-rails.md) - a narrated real run: install to a killed survivor.
 - [FAQ](faq.md) - requirements, databases, SimpleCov, exit codes, flaky suites.
 - [Project site](index.html) - pitch and benchmark numbers; the quickstart sits on its own page there.
+- [Comparison with other tools](compare.html) - saboteur, mutineer and the wider open-source mutation testing landscape.
 - [Best practices](best-practices.md) - thresholds, cadence and review habits.
 
 ## Guides
 
 - [Check a project before mutation testing](guides/doctor.md) - `saboteur doctor`.
+- [macOS Seatbelt sandbox](guides/macos-seatbelt-sandbox.md) - opt in with `c.sandbox = "seatbelt"`, probe-gated.
 - [Saboteur vs flaky tests](guides/flaky-tests.md) - baseline refusals, real output, fixes.
 - [How to read survivors](guides/reading-survivors.md) - from output to the killing test.
 - [Replay one mutant](guides/replay.md) - re-run a single mutant by its digest.
+- [The dry-run JSON inventory](dry-run-json.md) - the versioned machine-readable mutation plan.
 - [Monorepos, sub-gems and the custom map](guides/monorepo-and-custom-map.md) - include scope, spec paths, real refusals.
+- [Rails engines and dummy apps](guides/rails-engines-and-dummy-apps.md) - exclude `spec/dummy` and env-dependent integration specs.
 - [Reading a survivor report and fixing survivors](guides/reading-and-fixing-survivors.md) - a real batch from report to clean exit.
 - [saboteur in CI on large Rails apps](guides/ci-large-rails.md) - diff mode on PRs, sharded scheduled audits, caching.
 
@@ -46,7 +50,7 @@
 - [condition_negation](operators/condition_negation.md)
 - [condition_true](operators/condition_true.md)
 - [element_removal](operators/element_removal.md)
-- [endpoint_replacement](operators/endpoint-replacement.md)
+- [endpoint_replacement](operators/endpoint_replacement.md)
 - [filter_replacement](operators/filter_replacement.md)
 - [interpolation_removal](operators/interpolation_removal.md)
 - [literal_boolean](operators/literal_boolean.md)
@@ -59,6 +63,7 @@
 - [or_assign](operators/or_assign.md)
 - [pair_removal](operators/pair_removal.md)
 - [range](operators/range.md)
+- [regex_replacement](operators/regex_replacement.md)
 - [safe_navigation](operators/safe_navigation.md)
 - [statement_removal](operators/statement_removal.md)
 

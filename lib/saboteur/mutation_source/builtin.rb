@@ -17,6 +17,7 @@ require_relative "condition_negation"
 require_relative "method_swap"
 require_relative "operand_replacement"
 require_relative "interpolation_removal"
+require_relative "regex_replacement"
 
 module Saboteur
   module MutationSource
@@ -74,6 +75,7 @@ module Saboteur
         @method_swap = MethodSwap.new(arid: arid)
         @operand_replacement = OperandReplacement.new(arid: arid)
         @interpolation_removal = InterpolationRemoval.new(arid: arid)
+        @regex_replacement = RegexReplacement.new(arid: arid)
       end
 
       def name
@@ -98,7 +100,7 @@ module Saboteur
         [@filter_replacement, @literal_replacement, @argument_removal, @pair_removal, @element_removal,
          @chain_removal,
          @endpoint_replacement, @range_replacement, @operator_assignment, @condition_negation,
-         @method_swap, @operand_replacement, @interpolation_removal]
+         @method_swap, @operand_replacement, @interpolation_removal, @regex_replacement]
       end
 
       private

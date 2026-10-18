@@ -93,6 +93,20 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     expect(diagnostics.warnings).to be_empty
     expect(diagnostics.omissions).to be_empty
   end
+  it "announces a skipped subject up front in a scoped run (#574)" do
+    subject_under_test.skip_reason = "refinements"
+    allow(map).to receive(:tests_for).and_return(["t1"])
+    scope = instance_double(Saboteur::Engine::DiffScope)
+    selection.for(subject_under_test, scope: scope)
+    expect(diagnostics.warnings).to include("K#m: skipped (refinements); its change is not verified by this run")
+  end
+
+  it "stays quiet for a skipped subject in an unscoped run" do
+    subject_under_test.skip_reason = "refinements"
+    allow(map).to receive(:tests_for).and_return(["t1"])
+    selection.for(subject_under_test)
+    expect(diagnostics.warnings).to be_empty
+  end
 end
 
 RSpec.describe Saboteur::Engine::CandidateSelection, "real candidate pipeline" do
