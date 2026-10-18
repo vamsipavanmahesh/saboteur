@@ -17,25 +17,52 @@ module Saboteur
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
     class CoverageMap
-      FORMAT = 9
+      FORMAT = 11
 
       RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
 
-      attr_reader :lines, :tests, :build_seconds, :durations, :methods, :load_lines, :branches
+      attr_reader :lines, :tests, :build_seconds, :loaded_files, :durations, :methods, :load_lines, :load_methods,
+                  :branches
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
       # methods: { "/abs/file.rb" => { 12 => ["id1", "id2"] } } keyed by the
       # def's first line; line coverage never counts an endless def's body,
       # so methods carry those subjects (issue #107).
       # durations: { "id1" => seconds }
-      def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {}, branches: {})
+      def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {}, load_methods: {},
+                     branches: {}, loaded_files: nil)
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
         @durations = durations
         @methods = methods
         @load_lines = load_lines
+        @load_methods = load_methods
         @branches = branches
+        @loaded_files = loaded_files || []
+      end
+
+      # Source files the given tests touched, sorted and deduped: the
+      # dependency set a cached verdict must watch (#197). The inversion is
+      # built once per map and memoized.
+      def files_for(test_ids)
+        by_test = @files_by_test ||= invert_coverage
+        test_ids.flat_map { |id| by_test.fetch(id, []) }.uniq.sort
+      end
+
+      # { test id => [source files it touched] }, built once per map. Line
+      # and method coverage both count: an endless def's file has only
+      # method evidence (#107), and a change there must still invalidate (#344).
+      def invert_coverage
+        [lines, methods].each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |hits, acc|
+          hits.each { |file, line_tests| line_tests.each_value { |ids| ids.each { |id| acc[id] << file } } }
+        end
+      end
+
+      # Files that ran while the app loaded: their state precedes every
+      # test, so every cached verdict depends on them (#344).
+      def boot_files
+        load_lines.keys.sort
       end
 
       def tests_for(subject)
@@ -66,9 +93,19 @@ module Saboteur
       end
 
       # Attach the parent's boot counters without losing the child's method coverage.
-      def with_load_lines(load_lines)
+      def with_load_lines(load_lines, load_methods = {})
         self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
-                       methods: methods, load_lines: load_lines, branches: branches)
+                       methods: methods, load_lines: load_lines, load_methods: load_methods, branches: branches,
+                       loaded_files: loaded_files)
+      end
+
+      # A def the boot called (a def-time macro's class-body caller, say)
+      # and no test or hook called again: re-evaluating it post-boot
+      # changes nothing a selected test can observe, because closure
+      # consumers captured the pristine definition (#409).
+      def called_only_at_load?(file, line)
+        file = CoverageMap.canonical(file)
+        load_methods.fetch(file, []).include?(line) && methods.fetch(file, {}).fetch(line, []).empty?
       end
 
       # A requested line ran at load but no test later hit it.
@@ -155,15 +192,19 @@ module Saboteur
           hits.transform_values { |by_line| by_line.to_h { |line, ids| [line.to_s, ids.map { |id| index.fetch(id) }] } }
         end
         JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encode.call(lines),
-                      methods: encode.call(methods), load_lines: load_lines,
+                      methods: encode.call(methods), load_lines: load_lines, load_methods: load_methods,
                       branches: encode_branches(index),
-                      durations: tests.map { |id| durations[id]&.round(6) })
+                      durations: tests.map { |id| durations[id]&.round(6) }, loaded_files: loaded_files)
       end
 
       def self.from_json(json)
         data = JSON.parse(json)
         raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
 
+        from_data(data)
+      end
+
+      def self.from_data(data)
         tests = data["tests"]
         decode = lambda do |hits|
           hits.transform_values do |by_line|
@@ -171,10 +212,14 @@ module Saboteur
           end
         end
         durations = tests.zip(data["durations"]).to_h.compact
-        load_lines = (data["load_lines"] || {}).transform_values { |list| list.map(&:to_i) }
         new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
-            durations: durations, methods: decode.call(data["methods"] || {}), load_lines: load_lines,
-            branches: decode_branches(data.fetch("branches", {}), tests))
+            durations: durations, methods: decode.call(data["methods"] || {}),
+            load_lines: int_lists(data, "load_lines"), load_methods: int_lists(data, "load_methods"),
+            branches: decode_branches(data.fetch("branches", {}), tests), loaded_files: data["loaded_files"])
+      end
+
+      def self.int_lists(data, key)
+        (data[key] || {}).transform_values { |list| list.map(&:to_i) }
       end
 
       def self.decode_branches(branches, tests)
@@ -197,6 +242,25 @@ module Saboteur
         File.realpath(path)
       rescue SystemCallError
         File.expand_path(path)
+      end
+
+      # Every spelling the root can have in $LOADED_FEATURES: a symlink on
+      # the root path (macOS /var -> /private/var) gives the same directory
+      # both the resolved and the spelled form, and canonical() resolves a
+      # loaded feature only while its file exists. Match membership against
+      # both, each with a trailing slash so prefix siblings stay out.
+      def self.root_prefixes(root)
+        [File.realpath(root), File.expand_path(root)].uniq.map { |path| "#{path}/" }
+      end
+
+      # The dependency universe a cached verdict watches when coverage
+      # cannot speak: every project file the booted process loaded, plus
+      # the run's own files (#344).
+      def self.loaded_project_files(files, prefixes:)
+        $LOADED_FEATURES.filter_map do |file|
+          path = Text.utf8_strict(canonical(file))
+          path if path.end_with?(".rb") && prefixes.any? { |prefix| path.start_with?(prefix) }
+        end | files
       end
 
       def self.load(path)

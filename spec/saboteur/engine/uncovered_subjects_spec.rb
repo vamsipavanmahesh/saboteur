@@ -6,7 +6,7 @@ require "stringio"
 RSpec.describe Saboteur::Engine, "uncovered subjects" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   let(:subject_under_test) { subjects_in("class Uncovered\n  def m\n    1\n  end\nend\n").first }
@@ -29,7 +29,7 @@ RSpec.describe Saboteur::Engine, "uncovered subjects" do
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: rails)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection,
-                                  select: [subject_under_test], changed_lines: nil)
+                                  select: [subject_under_test], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
       store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)

@@ -40,6 +40,27 @@ module Saboteur
         end
       end
 
+      # kill_all minus an excluded root, with the pre-kill member
+      # descriptions: [killed pids, notes]. The notes are taken first -
+      # after the kill the command lines are gone (#486).
+      def kill_all_except(root)
+        notes = describe_except(root)
+        [kill_all - [root], notes]
+      end
+
+      # One "pid (command)" note per live member other than an excluded
+      # root, for the leftover-children refusal (#486). Best effort: a
+      # process that vanished mid-look lists its pid alone. Call before the
+      # kill - after it, the command lines are gone.
+      def describe_except(root, table = ProcessTable.snapshot)
+        live_members(table).filter_map do |entry|
+          next if entry.pid == root
+
+          command = ProcessTable.command(entry.pid)
+          command ? "#{entry.pid} (#{command})" : entry.pid.to_s
+        end
+      end
+
       # Count and resident memory of the live members. rss_baseline_kb is the
       # supervisor's own RSS: forked children share its pages, so only growth
       # beyond it is counted per process.
@@ -61,8 +82,9 @@ module Saboteur
           break if live.empty? && escaped.empty?
 
           live.each { |entry| signal("KILL", entry.pid) }
-          escaped.each { |pid| signal("KILL", pid) }
-          killed.concat(live.map(&:pid), escaped)
+          signalled = escaped.select { |entry| escapee_alive?(entry) }
+          signalled.each { |entry| signal("KILL", entry.pid) }
+          killed.concat(live.map(&:pid), signalled.map(&:pid))
           sleep 0.01
         end
         killed.uniq
@@ -77,9 +99,25 @@ module Saboteur
         return [] unless @marker && MarkerSweep.available?
 
         table = ProcessTable.snapshot
-        MarkerSweep.marked_pids(@marker, Supervisor::TREE_ENV).select do |pid|
-          (entry = table[pid]) && !entry.zombie && !@known.key?(pid)
+        root_started = @known[root]
+        MarkerSweep.marked_pids(@marker, Supervisor::TREE_ENV).filter_map do |pid|
+          entry = table[pid]
+          next unless entry && !entry.zombie && !@known.key?(pid)
+
+          # A process started before the run's root carries the marker only
+          # through an exec chain the run did not spawn: never ours (#389).
+          next if root_started && entry.started < root_started
+
+          entry
         end
+      end
+
+      # A pid is not an identity: the escapee can exit between the sweep's
+      # snapshot and the KILL, and the kernel can hand the pid to someone
+      # else. Signal only the process the sweep actually saw (#389).
+      def escapee_alive?(entry)
+        fresh = ProcessTable.snapshot[entry.pid]
+        fresh && !fresh.zombie && fresh.started == entry.started
       end
 
       def grow(table)

@@ -74,7 +74,7 @@ module Saboteur
       return Reads.new([], [], []) if result.failure?
 
       out = { runtime: [], load: [], defs: [] }
-      walk(result.value, [], constant, out, in_def: nil, in_block: false, shadowed: false)
+      walk(result.value, [], constant, out, in_def: nil, in_block: false, shadowed: nil)
       Reads.new(out[:runtime].uniq.sort, out[:load].uniq.sort, out[:defs].uniq.sort)
     end
 
@@ -103,24 +103,37 @@ module Saboteur
         record(node, out, in_def, in_block, capture) if node.slice.delete_prefix("::") == constant.id
         walk_children(node, nesting, constant, out, in_def: in_def, in_block: in_block, capture: capture,
                                                     shadowed: shadowed)
-      when Prism::ModuleNode, Prism::ClassNode
+      when Prism::ModuleNode, Prism::ClassNode, Prism::SingletonClassNode
         walk_scope(node, nesting, constant, out, shadowed)
       else
-        # `class << self` does not add a lexical constant scope worth
-        # separating here.
         walk_children(node, nesting, constant, out, in_def: in_def, in_block: in_block, capture: capture,
                                                     shadowed: shadowed)
       end
     end
 
+    # `class << self` joins the nesting as "<attached>.singleton_class",
+    # matching how ConstantSubjectFinder names that owner (#380); a non-self
+    # receiver or a top-level singleton has no static name and adds nothing.
+    # The shadow carries the path of the scope that set it. Entering the
+    # constant's owner scope lifts a shadow set outside it: the owner's
+    # own definition is lexically closer there (#395). A shadow set
+    # inside the owner subtree still binds below the nested scope that
+    # wrote the constant.
     def walk_scope(node, nesting, constant, out, shadowed)
-      inner = node.constant_path.slice.delete_prefix("::")
-      path = (nesting + [inner]).join("::")
-      # A scope writing its own RULES shadows the outer constant for every
-      # read below it - unless the scope is the constant's owner itself.
-      shadowed ||= path != constant.owner.to_s && writes_constant?(node.body, constant.name)
-      walk(node.body, nesting + [inner], constant, out, in_def: nil, in_block: false,
-                                                        shadowed: shadowed)
+      inner = scope_nesting(node, nesting)
+      path = inner.join("::")
+      scopes = [constant.owner.to_s]
+      shadowed = nil if shadowed && scopes.any? { |scope| path == scope || path.start_with?("#{scope}::") } &&
+                        scopes.none? { |scope| shadowed == scope || shadowed.start_with?("#{scope}::") }
+      shadowed = path if shadowed.nil? && path != scopes.first && writes_constant?(node.body, constant.name)
+      walk(node.body, inner, constant, out, in_def: nil, in_block: false, shadowed: shadowed)
+    end
+
+    def scope_nesting(node, nesting)
+      return nesting + [node.constant_path.slice.delete_prefix("::")] unless node.is_a?(Prism::SingletonClassNode)
+      return nesting unless node.expression.is_a?(Prism::SelfNode) && nesting.any?
+
+      nesting[0...-1] + ["#{nesting.last}.singleton_class"]
     end
 
     def walk_children(node, nesting, constant, out, in_def:, in_block:, capture:, shadowed:)
@@ -145,12 +158,16 @@ module Saboteur
     end
 
     # A bare `RULES` reads this constant when the read's scope is the
-    # constant's owner or nested under it, or the constant is top-level.
+    # constant's owner (or its singleton scope, whose ancestry reaches the
+    # attached class) or nested under either, or it is top-level (#380).
     def bare_match?(node, nesting, constant)
       return false unless node.name == constant.name
+      return true if constant.owner.nil?
 
       path = nesting.join("::")
-      constant.owner.nil? || path == constant.owner || path.start_with?("#{constant.owner}::")
+      [constant.owner, "#{constant.owner}.singleton_class"].any? do |scope|
+        path == scope || path.start_with?("#{scope}::")
+      end
     end
 
     # True when the scope body assigns the constant name at its own level

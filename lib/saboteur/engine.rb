@@ -7,10 +7,15 @@ require_relative "replay"
 require_relative "mutation_source/hazard_guard"
 require_relative "baseline/run_evidence"
 require_relative "engine/early_stop_recording"
+require_relative "engine/gated_run"
+require_relative "engine/load_coverage"
+require_relative "engine/out_of_scope_guard"
 require_relative "engine/run_budget"
+require_relative "engine/selection_announcement"
 require_relative "engine/thread_warnings"
 
 require_relative "engine/pipelines"
+require_relative "engine/shard"
 
 module Saboteur
   # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
@@ -18,7 +23,10 @@ module Saboteur
   # engine/; this class only wires them together.
   class Engine
     include EarlyStopRecording
+    include OutOfScopeGuard
     include RunBudget
+    include GatedRun
+    include SelectionAnnouncement
 
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
@@ -36,8 +44,9 @@ module Saboteur
       @root = File.realpath(config.root)
       @skipped_subjects = {}
       @replay = Replay.new(digest: digest) if digest
-      if capture_evidence && (digest || config["since"] || config["incremental"])
-        raise ConfigError, "baseline evidence requires fresh whole-scope execution: no since, replay or incremental"
+      if capture_evidence && (digest || config["since"] || config["incremental"] || config["shard"])
+        raise ConfigError,
+              "baseline evidence requires fresh whole-scope execution: no since, replay, shard or incremental"
       end
 
       @capture_evidence = capture_evidence
@@ -47,6 +56,7 @@ module Saboteur
 
     def call
       preflight!
+      ensure_artifacts_self_ignored
       started = monotonic
       start_budget_clock(started)
       # Capture evidence inputs before inference narrows the test list: the
@@ -72,7 +82,11 @@ module Saboteur
 
     # Stale entries and duplicate literals never fail a run; they warn so the
     # map does not rot silently. doctor fails on stale keys.
-    def load_custom_map = @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
+    def test_guess = TestGuess.new(config, diagnostics: @diagnostics, custom_map: load_custom_map)
+
+    def load_custom_map
+      @load_custom_map ||= @replay ? CustomMap.new([]) : CustomMap.load(config.path("custom_map"), root: config.root)
+    end
 
     def custom_map_warnings(map)
       path = config.path("custom_map")
@@ -95,18 +109,17 @@ module Saboteur
     # from the named subjects' files, so one unrelated spec-less file can
     # never block a one-method run.
     def select_tests
-      return unless config["tests"].empty?
-      return if @replay || config["all"] || config["test_selection"] == "all"
+      return if !config["tests"].empty? || @replay || config["all"] || config["test_selection"] == "all"
 
       subjects = config["subjects"]
       return select_subject_tests(subjects) if subjects.any?
 
-      guess = TestGuess.new(config, diagnostics: @diagnostics).call
-      @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
-      inform_skipped_specs(guess)
-      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
+      guess = test_guess.call
+      @diagnostics.inform(guess.excluded_message) if guess.excluded.any? && guess.specs.any?
+      report_unmapped(guess)
+      refuse_out_of_scope_changes(guess)
 
-      @diagnostics.announce(selection_message(guess))
+      announce_selection(guess)
     end
 
     # A --subject run infers only from the files holding the named subjects:
@@ -116,7 +129,7 @@ module Saboteur
     # unchanged, comment-only or otherwise pruned subject needs no spec.
     def select_subject_tests(patterns)
       files = SubjectSelection.files_matching(@root, config.included_files, patterns, config)
-      guess = TestGuess.new(config, diagnostics: @diagnostics).call_for(files, patterns)
+      guess = test_guess.call_for(files, patterns)
       # No file in scope: the subjects are unknown (named later, in
       # selection) or --since left every named subject outside the diff, so
       # the run has nothing to mutate and needs no inferred spec.
@@ -125,52 +138,16 @@ module Saboteur
       inform_skipped_specs(guess)
       raise ConfigError, guess.unmatched_message if guess.unmatched.any?
 
+      @diagnostics.inform(guess.excluded_message) if guess.excluded.any?
+      # Every file in scope intentionally untested: mutate nothing. An
+      # empty guess must never read as "run the whole suite" (#369).
+      return if guess.specs.empty?
+
       @diagnostics.announce(scope_to_guesses(guess))
     end
 
-    # A spec file the diff touched that cannot run is named, also before a
-    # stop on an unmatched file: --test, the way out, never reads the diff.
-    def inform_skipped_specs(guess)
-      @diagnostics.inform(guess.skipped_message) if guess.skipped_specs.any?
-    end
-
-    def selection_message(guess)
-      if guess.changed.zero?
-        target = config["since"] ? "no changed source file" : "no source file"
-        "inferred specs: #{target} to infer a spec for, so the whole suite runs"
-      elsif guess.specs.empty?
-        if config["since"]
-          "inferred specs: no changed file has a mutation subject on its changed lines, " \
-            "so there is nothing to mutate"
-        else
-          "inferred specs: no source file has a mutation subject, so there is nothing to mutate"
-        end
-      else
-        scope_to_guesses(guess)
-      end
-    end
-
-    # Stop before boot: name the spec-less files and the ways out. The
-    # hinted spec paths are the conventional ones - they do not exist (that
-    # is why the files are unmatched), so the message never prints them as
-    # a runnable --test command, and it never reconstructs the source
-    # scope: the user appends --test or --all to their own command. The
-    # example is still shell-safe: the ref is user input, so it is quoted
-    # and pinned to the flag with = (a ref like "-x" must not become a
-    # switch).
-    def scope_to_guesses(guess)
-      # The guesses now stand as explicit tests, like --test. guess_tests is
-      # dropped rather than set to false: an explicit false is the deprecated
-      # opt-out and would warn.
-      @config = config.with({ "tests" => guess.specs }, except: ["guess_tests"])
-      @guessed_tests = guess.specs
-      guess.scope_message(since: config["since"])
-    end
-
     # The run's immutable report, built once the last result is in.
-    def announce_operators
-      @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
-    end
+    def announce_operators = @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
 
     def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
@@ -180,7 +157,8 @@ module Saboteur
                  omissions: @diagnostics.omissions, run_evidence: complete_evidence(results, subjects),
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
-                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures)
+                 operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
+                 shard: @shard, memory: @memory_report)
     end
 
     def complete_evidence(results, subjects)
@@ -196,30 +174,31 @@ module Saboteur
     # The subjects to mutate and, in diff mode, the scope of changed lines.
     def select_subjects(files, test_files: nil)
       config.unmatched_patterns.each { |pattern| @diagnostics.warn("#{pattern} matches no file") }
-      selection = SubjectSelection.new(config, @diagnostics, test_files: test_files)
+      selection = SubjectSelection.new(config, @diagnostics,
+                                       test_files: test_files, custom_map: load_custom_map)
       subjects = selection.select(files)
-      scope = selection.changed_lines && DiffScope.new(selection.changed_lines)
+      scope = selection.behavior_lines && DiffScope.new(selection.behavior_lines)
       return replay_subject(subjects, scope) if @replay
 
       [subjects, scope]
     end
 
-    def mutate(subjects, files, integration, scope, ignore_list, load_lines: {})
-      store = coverage_store(integration, load_lines)
+    def mutate(subjects, files, integration, scope, ignore_list, load_lines: {}, load_methods: {})
+      store = coverage_store(integration, load_lines, load_methods)
       full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
       warn_unscoped(integration, full_passes)
       check_baseline(integration, full_passes)
+      refuse_unaffordable_coverage_build(store, files)
       return [] if abandon_for_budget?(subjects)
 
       map = store.fetch(files)
       inform_about_run(subjects, map)
-      cache = result_cache
+      cache = result_cache(map, files)
       scheduler = scheduler_for(map, integration, cache)
       lists = candidate_lists(subjects, scope, map)
-      work = subjects.zip(lists).reject { |_, list| list.empty? }
-      return [] if work.empty?
+      runnable_subjects, runnable_lists = subjects.zip(lists).reject { |_, list| list.empty? }.transpose
+      return [] if runnable_subjects.nil?
 
-      runnable_subjects, runnable_lists = work.transpose
       @rails&.prepare_workers(config["jobs"])
       # The execution phase forks next: the worker batch, or one child per
       # mutant when serial. Pack the heap now that the map and candidates
@@ -239,7 +218,10 @@ module Saboteur
                                       cache: cache, on_start: method(:start_worker),
                                       after_subject: after_subject_hook, stop_after: stop_checks(ignore_list),
                                       halt_check: config["max_duration"] ? method(:budget_exceeded?) : nil)
-      distribution.run(subjects, lists).tap { record_early_stop(distribution) }
+      distribution.run(subjects, lists).tap do
+        record_early_stop(distribution)
+        @memory_report = distribution.memory_report
+      end
     ensure
       @diagnostics.finish_progress
     end
@@ -276,8 +258,8 @@ module Saboteur
       ThreadWarnings.warn(@diagnostics)
     end
 
-    def coverage_store(integration, load_lines)
-      CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:,
+    def coverage_store(integration, load_lines, load_methods = {})
+      CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:, load_methods:,
                         supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
                         timeout_cap: method(:budget_capped_timeout))
     end
@@ -287,11 +269,13 @@ module Saboteur
                                 supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
                                 full_passes: full_passes, timeout_cap: method(:budget_capped_timeout),
                                 between_passes: config["max_duration"] ? method(:budget_exceeded?) : nil)
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       guard.call
+      @baseline_elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
       # Stability is the order comparison between completed checks: the cold
       # coverage build is not a baseline pass, and a budget break shortens
       # the loop, so certify only what actually ran.
-      @stable_suite = guard.completed_passes >= 2
+      @stable_suite = (@completed_baseline_passes = guard.completed_passes) >= 2
     end
 
     # A --id replay targets one known mutant; the whole-suite cost summary
@@ -316,14 +300,21 @@ module Saboteur
       @sandbox_policy.hook
     end
 
-    def result_cache
+    # The dependency universe a cached verdict watches when coverage
+    # cannot speak lives in Selection::CoverageMap (#344).
+    def source_files(files, prefixes: Selection::CoverageMap.root_prefixes(config.root))
+      Selection::CoverageMap.loaded_project_files(files, prefixes: prefixes)
+    end
+
+    def result_cache(map = nil, files = [])
       return nil if @replay
       return nil unless config["incremental"]
 
       inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }
                                             .merge("operator_policy" => config.operator_policy))
       ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
-                      suite_digest: SuiteFiles.new(config).digest)
+                      suite_digest: SuiteFiles.new(config).digest,
+                      coverage: map, fallback_files: source_files(files))
     end
 
     # A cleanup failure must never mask the run's own outcome - not even
@@ -343,11 +334,7 @@ module Saboteur
     # Each subject's candidates, narrowed to changed lines in diff mode.
     # The hazard guard is off only when the user explicitly asks for the
     # dangerous mutants (issue #102); the canary then still watches the tree.
-    def hazard_guard
-      return nil if config["allow_hazardous"]
-
-      MutationSource::HazardGuard.new(config["hazard"])
-    end
+    def hazard_guard = (MutationSource::HazardGuard.new(config["hazard"]) unless config["allow_hazardous"])
 
     # Checks the tree after each subject's mutants; a vanished file means a
     # mutant deleted it, so abort with the most recent mutant's digest.
@@ -379,7 +366,10 @@ module Saboteur
       candidates = Candidates.build(config, @diagnostics, hazard_guard: hazard_guard)
       selection = CandidateSelection.new(candidates: candidates, map: map,
                                          limit: config["max_mutants_per_method"], diagnostics: @diagnostics)
-      subjects.map { |subject| selection.for(subject, scope: scope) }.tap do
+      lists = subjects.map { |subject| selection.for(subject, scope: scope) }
+      @shard = Engine::Shard.parse(config["shard"]) if config["shard"]
+      lists = @shard.select(subjects, lists) if @shard
+      lists.tap do
         @skipped_subjects = selection.skipped_subjects
         @unscoped_digests = selection.unscoped_digests
         if @run_evidence
@@ -402,6 +392,21 @@ module Saboteur
       Execution::Supervisor.new(limits: limits)
     end
 
+    # Artifact dirs ignore themselves, the pattern git, vagrant and bundler
+    # use: a run writes logs, coverage maps and reports under cache_dir, and
+    # without the marker a `git add -A` commits them all (#426). An existing
+    # .gitignore is the user's and stays. Best effort: a cache dir that
+    # cannot be created or written belongs to the stages that need it, and
+    # they refuse with their established wording (#512 CI fault injection).
+    def ensure_artifacts_self_ignored
+      dir = config.path("cache_dir")
+      FileUtils.mkdir_p(dir)
+      marker = File.join(dir, ".gitignore")
+      File.write(marker, "*\n") unless File.exist?(marker)
+    rescue SystemCallError
+      nil
+    end
+
     # The last run's child logs (only those of errors are kept).
     def fresh_log_dir
       File.join(config.path("cache_dir"), "logs").tap do |dir|
@@ -410,46 +415,19 @@ module Saboteur
       end
     end
 
-    # The lines that ran while the app and spec files loaded: the executable
-    # counts from its first line, so this snapshot holds the whole boot.
-    # Read here, in the parent: a forked child does not inherit Coverage
-    # counters. They become the map's load lines, which tell ran-at-load
-    # mutants apart from uncovered ones.
-    def capture_load_lines(files)
-      return {} unless Coverage.state == :suspended
-
-      wanted = files.to_set { |file| Selection::CoverageMap.canonical(file) }
-      Coverage.result(stop: false, clear: false).each_with_object({}) do |(path, data), hits|
-        file = Selection::CoverageMap.canonical(path)
-        next unless wanted.include?(file)
-
-        lines = data[:lines].each_with_index.filter_map { |count, index| index + 1 if count&.positive? }
-        lines -= uncalled_shared_lines(data)
-        hits[file] = lines unless lines.empty?
-      end
-    end
-
-    # A one-line or endless definition executes its def line even when its
-    # body is never called. If any sibling on that physical line is uncalled,
-    # discard its ambiguous line evidence rather than crediting every body.
-    def uncalled_shared_lines(data)
-      shared = data.fetch(:methods, {}).select { |(_owner, _name, first, _column, last, *), _| first == last }
-      calls = shared.group_by { |(_owner, _name, first, *), _count| first }
-      calls.filter_map { |line, entries| line if entries.any? { |_key, count| count.zero? } }
-    end
-
     # Loads the target and stops coverage, returning what the rest of the
     # run needs from that boot.
     def boot_target(boot)
       @diagnostics.inform("loading the application")
       integration = boot.load_target
       files = config.included_files
-      [integration, files, suspend_coverage(files)]
+      load_lines, load_methods = suspend_coverage(files)
+      [integration, files, load_lines, load_methods]
     end
 
     def suspend_coverage(files)
       (@coverage_guard = CoverageGuard.new(@diagnostics)).suspend
-      capture_load_lines(files)
+      LoadCoverage.capture(files)
     end
 
     def monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -472,6 +450,7 @@ require_relative "engine/candidates"
 require_relative "engine/candidate_selection"
 require_relative "engine/diff_scope"
 require_relative "engine/result_cache"
+require_relative "engine/defined_order_prefix"
 require_relative "engine/verdict_check"
 require_relative "engine/scheduler"
 require_relative "engine/canary"

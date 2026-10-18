@@ -7,7 +7,7 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine, "generation evidence" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   it "carries typed generation, omission and diff evidence through the full call" do
@@ -18,7 +18,7 @@ RSpec.describe Saboteur::Engine, "generation evidence" do
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
       selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject],
-                                                                      changed_lines: { subject.file => Set[1] })
+                                                                      behavior_lines: { subject.file => Set[1] })
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       scope = instance_double(Saboteur::Engine::DiffScope)
       allow(Saboteur::Engine::DiffScope).to receive(:new).and_return(scope)

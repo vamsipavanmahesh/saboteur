@@ -3,6 +3,8 @@
 
 require "open3"
 require_relative "../text"
+require_relative "dependency_shield"
+require_relative "layout_only_lines"
 require_relative "untracked_changes"
 
 module Saboteur
@@ -11,7 +13,7 @@ module Saboteur
     # changes, as { "/abs/path.rb" => Set[line numbers in the current file] }.
     module GitDiff
       NO_FILE = "/dev/null" # rubocop:disable Style/FileNull -- literal in git diff output
-      HUNK = /\A@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/
+      HUNK = /\A@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/
 
       module_function
 
@@ -52,9 +54,11 @@ module Saboteur
         diff = %w[diff -z --name-only --relative --no-renames]
         {
           # An untracked file is never in the diff, so the two lists are disjoint.
-          present: (names(root, *diff, "--diff-filter=d", base, "--") +
-                    names(root, "ls-files", "-z", "--others", "--exclude-standard")).sort,
-          deleted: names(root, *diff, "--diff-filter=D", base, "--").sort
+          present: DependencyShield.reject_trees(names(root, *diff, "--diff-filter=d", base, "--") +
+                                                 names(root, "ls-files", "-z", "--others",
+                                                       "--exclude-standard"), root).sort,
+          deleted: DependencyShield.reject_trees(names(root, *diff, "--diff-filter=D", base, "--"),
+                                                 root).sort
         }
       end
 
@@ -62,7 +66,38 @@ module Saboteur
         git(root, *args).b.split("\0").map { |name| Text.utf8_identity(name) }
       end
 
+      # The two line maps of a --since diff (#313). changed holds every line
+      # the text diff touches: subject admission and the formatting-only
+      # skip read it, so a method that was only re-indented is still found
+      # and reported as unchanged. behavior drops the layout-only lines:
+      # only it narrows a changed method's fine-grained mutants.
+      LineMaps = Data.define(:changed, :behavior)
+
       def changed_lines(ref, root:, include: nil, diagnostics: nil)
+        line_maps(ref, root: root, include: include, diagnostics: diagnostics).changed
+      end
+
+      # Tracked files whose diff deletes lines without adding any, as
+      # canonical absolute paths (realpath'd toplevel joined to each diff
+      # path), so callers compare in the same space as
+      # CoverageMap.canonical keys whatever the project-root layout: a
+      # monorepo root below the git toplevel must not silently disable the
+      # exclusion (#484). A pure deletion adds no new code to mutate - the
+      # change itself is what the suite covers - so the file yields no
+      # subject and no fine-grained mutant, and a spec-less such file must
+      # not stop the run. The neighbor lines a pure deletion touches
+      # (touched_lines) are context, not change. Untracked files are
+      # all-additions and never listed.
+      def deletion_only_files(ref, root:) # rubocop:disable Metrics/ModuleLength -- one focused addition to an exactly-full module
+        top = File.realpath(Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip))
+        diff = git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff",
+                   merge_base(ref, root: root), "--").b
+        added = Hash.new { |hash, file| hash[file] = false }
+        each_hunk(diff, top) { |file, (_, _, _, count)| added[file] ||= count.positive? }
+        added.reject { |_, yes| yes }.keys
+      end
+
+      def line_maps(ref, root:, include: nil, diagnostics: nil)
         verify_ref!(ref, root: root)
         base = merge_base(ref, root: root)
         # Root and paths are filesystem identity: strip as bytes and retag
@@ -70,14 +105,30 @@ module Saboteur
         # would rename a raw-byte path). Parse the diff body as bytes and
         # tag each extracted path UTF-8 at the boundary.
         top = Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip)
-        changes = parse(git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
-                            "--no-ext-diff", base, "--").b, top)
+        diff = %w[-c core.quotePath=false diff --unified=0 --no-color --no-ext-diff]
+        changes = parse(git(root, *diff, base, "--").b, top)
         UntrackedChanges.union(changes, top, include: include, diagnostics: diagnostics)
-        changes
+        behavior = drop_layout_only_lines(changes, git(root, *diff, "--ignore-space-change", base, "--").b, base,
+                                          top, include: include)
+        LineMaps.new(changed: changes, behavior: behavior)
       end
 
       def parse(diff, top)
         changes = Hash.new { |hash, file| hash[file] = Set.new }
+        each_hunk(diff, top) { |file, (_, _, start, count)| changes[file].merge(touched_lines(start, count)) }
+        changes.default_proc = nil
+        changes
+      end
+
+      # The new-side lines a hunk touches. A pure deletion touches the lines
+      # on either side of it.
+      def touched_lines(start, count)
+        count.zero? ? [start, start + 1] : (start...(start + count)).to_a
+      end
+
+      # Each hunk header of a zero-context diff as the absolute path of the
+      # file and [old_start, old_count, new_start, new_count].
+      def each_hunk(diff, top)
         file = nil
         diff.each_line do |line|
           if line.start_with?("+++ ")
@@ -86,15 +137,25 @@ module Saboteur
           # HUNK is anchored, so a non-hunk line - including a raw-byte
           # content line - fails the match at its first byte.
           elsif file && (match = HUNK.match(line))
-            start = match[1].to_i
-            count = (match[2] || "1").to_i
-            # A pure deletion touches the lines on either side of it.
-            lines = count.zero? ? [start, start + 1] : (start...(start + count)).to_a
-            changes[file].merge(lines)
+            old_start, old_count, new_start, new_count = match.captures
+            yield file, [old_start.to_i, (old_count || "1").to_i, new_start.to_i, (new_count || "1").to_i]
           end
         end
-        changes.default_proc = nil
-        changes
+      end
+
+      # Only files the run could mutate are lexed; a file new at the base
+      # has nothing to compare with and keeps every line.
+      def drop_layout_only_lines(changes, spaced_diff, base, top, include:)
+        hunks = Hash.new { |hash, file| hash[file] = [] }
+        each_hunk(spaced_diff, top) { |file, hunk| hunks[file] << hunk }
+        changes.to_h do |file, lines|
+          mutable = include.nil? || include.include?(file)
+          base_source = mutable && file_at(base, file.delete_prefix("#{top}/"), root: top)
+          next [file, lines] unless base_source
+
+          [file, LayoutOnlyLines.new(hunks[file], base_source: base_source, current_source: File.binread(file))
+                                .restrict(lines)]
+        end
       end
 
       ESCAPES = { "n" => "\n", "t" => "\t", '"' => '"', "\\" => "\\", "a" => "\a", "b" => "\b",

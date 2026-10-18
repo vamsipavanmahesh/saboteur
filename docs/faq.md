@@ -19,7 +19,16 @@ defaults target plain gems, so a Rails app sets `c.include`, `c.require` and
 PostgreSQL and SQLite, including parallel workers (`--jobs N`), where each
 extra worker gets its own database copy. MySQL is not supported for `--jobs`
 above 1, and older Rails versions have not been tried yet - the tested matrix
-is in the README under "Where it has run".
+is in the README under [Benchmarks and validation](../README.md#benchmarks-and-validation).
+
+## The baseline fails with "Could not find table" on a sqlite in-memory database
+
+A sqlite `:memory:` database is per-process: saboteur's forked children
+reconnect to a fresh, EMPTY in-memory database, so a schema loaded at
+require time is gone. The refusal names the remedies: load the schema in a
+`before(:suite)` hook, or in an `after_fork` hook
+(`config/saboteur_hooks.rb` via `c.hooks`). Rails apps with file-backed
+sqlite, PostgreSQL or SQLite test databases are unaffected.
 
 ## Does saboteur work with SimpleCov?
 
@@ -34,7 +43,7 @@ an environment variable; key it so saboteur runs skip it.
 | 0 | Clean: no unignored survivors (or `--threshold` met) |
 | 1 | Survivors to review, or the score is below `--threshold` |
 | 2 | Usage or configuration error, including a mutated file with no conventional spec |
-| 3 | Tool failure or an incomplete run, such as most mutants erroring |
+| 3 | Tool failure or an incomplete run, such as most mutants erroring, or a `--since` run that skipped every subject of the change (refinements, no coverage), so the change is unverified |
 | 4 | The `--max-duration` budget stopped the run (never with `--max-duration-ok`) |
 
 Agent mode (`--agent`) has no exit 4 and reports budget exhaustion as partial
@@ -95,3 +104,26 @@ debug gem's remote console, which can pause children depending on
 `RUBY_DEBUG_FORK_MODE` - for unattended runs, do not start the remote
 debugger at all. Any other thread gets a generic caveat: background work a
 mutant's test relies on may not run in the child, so results can differ.
+
+## What is the warning about uncommitted changes?
+
+Mutants run your code and could alter or delete files, so before a run on a
+tree with uncommitted changes saboteur warns and splits the count by what is
+at stake (#309, #316). Each change lands in one group, so the groups add up to
+the count: saboteur setup files (the config file the run reads, plus the
+Gemfile `BUNDLE_GEMFILE` names and its lock when that is not the root's own
+`Gemfile`), the mutation scope (a Ruby file the configured `include` and
+`exclude` select, or a path they match, such as a deleted source), and everything else, each
+split into tracked and untracked. Up to five paths are named for the scope and
+for the setup files. A change is counted the way `git status` lists it: a
+rename once under its new path, a deletion under the deleted path (a deleted
+source still counts as in scope), and every file of an untracked directory on
+its own. saboteur's cache and reports never count. The scope is the configured
+one: `--since`, `--subject` and source operands narrow a run further after the
+warning.
+
+```
+saboteur: warning: 3972 uncommitted change(s) in the working tree: none inside the mutation scope, 3969 outside it (0 tracked, 3969 untracked), 3 saboteur setup file(s) (0 tracked, 3 untracked).
+  setup files: config/saboteur.rb, Gemfile.saboteur, Gemfile.saboteur.lock
+  Mutants run your code and could alter or delete files; run on a clean, committed tree or a CI checkout.
+```

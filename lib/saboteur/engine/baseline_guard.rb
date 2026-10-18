@@ -4,6 +4,7 @@
 require "json"
 require "fileutils"
 require_relative "../text"
+require_relative "../frameworks/sqlite_memory_database"
 
 module Saboteur
   class Engine
@@ -52,7 +53,7 @@ module Saboteur
           announce_first_pass_cost(number, started)
           unless data["passed"] && data["failed"].empty?
             refuse(number,
-                   "the suite failed: #{Array(data['failed']).join(', ')}")
+                   with_hint("the suite failed: #{Array(data['failed']).join(', ')}", data))
           end
           executed = data["executed"]
           refuse(number, "executed tests do not match the loaded suite") unless
@@ -85,16 +86,24 @@ module Saboteur
       end
 
       # Once the first pass is timed, the total cost stops being a guess:
-      # the remaining full passes cost roughly the same each.
+      # the remaining full passes cost roughly the same each. full_passes
+      # includes the cold-cache coverage build (#260), so name what actually
+      # remains: with baseline_passes 1 the one remaining pass is the coverage
+      # build, not another baseline check (#465).
       def announce_first_pass_cost(number, started)
         return unless number == 1
 
-        remaining = @full_passes - number
-        return if remaining.zero?
+        coverage_pending = @full_passes > @config["baseline_passes"]
+        remaining = @full_passes - number - (coverage_pending ? 1 : 0)
+        return if remaining.zero? && !coverage_pending
 
         elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round
-        @diagnostics.inform("baseline check #{number} took #{elapsed} s; about #{elapsed * remaining} s left for " \
-                            "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'} at that rate")
+        work = []
+        work << "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'}" if remaining.positive?
+        work << "the coverage map build" if coverage_pending
+        total = remaining + (coverage_pending ? 1 : 0)
+        @diagnostics.inform("baseline check #{number} took #{elapsed} s; about #{elapsed * total} s left for " \
+                            "#{work.join(' and ')} at that rate")
       end
 
       # An admitted pass still gets only the time left in the run budget:
@@ -117,6 +126,24 @@ module Saboteur
                                   "phase timeout)"
       end
 
+      # A containment limit stopping a healthy suite means the limit, not
+      # the suite: name the knob and its current value, like the sqlite
+      # :memory: hint (#387), so the user is not sent debugging a green
+      # suite (#459).
+      def stopped_reason(result)
+        reason = "the suite stopped: #{result.stopped_by} (#{result.detail})"
+        case result.stopped_by
+        when :processes
+          "#{reason}. If this suite forks heavily by design, raise the limit with " \
+          "c.max_processes (currently #{@config['max_processes']})"
+        when :memory
+          "#{reason}. If this suite legitimately needs more memory, raise the limit with " \
+          "c.max_memory_mb (currently #{@config['max_memory_mb']} MB)"
+        else
+          reason
+        end
+      end
+
       def check(number)
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
@@ -126,14 +153,14 @@ module Saboteur
           record(writer, number)
         end
         refuse_budget_stop(number, admitted) if budget_stopped?(result, admitted)
-        refuse(number, "the suite stopped: #{result.stopped_by} (#{result.detail})") if result.stopped_by
+        refuse(number, stopped_reason(result)) if result.stopped_by
         # Before the payload checks: a child killed by a signal (the OOM
         # killer, say) writes nothing, and the signal is the explanation. A
         # child the supervisor itself killed after it had reported is not a
         # failure: its payload is checked below.
         refuse(number, unsuccessful_exit(result.exit_status, result.memory_pressure)) if result.child_failed?
         refuse(number, "the child did not report a result") if result.payload.empty?
-        refuse(number, "the suite left child processes behind") if result.leftover_pids.any?
+        refuse(number, leftover_message(result), excerpt: false) if result.leftover_pids.any?
         parse_result(number, result.payload)
       end
 
@@ -151,7 +178,7 @@ module Saboteur
       def parse_result(number, payload)
         data = JSON.parse(payload)
         refuse(number, "the child reported an invalid result") unless data.is_a?(Hash)
-        refuse(number, data["error"]) if data["error"]
+        refuse(number, with_hint(data["error"], data)) if data["error"]
         refuse(number, "the child reported invalid test results") unless valid_result?(data)
         data
       rescue JSON::ParserError
@@ -172,21 +199,42 @@ module Saboteur
         @hooks.run(:after_fork)
         Kernel.srand(@config["seed"])
         result = @integration.run_baseline(seed: @config["seed"])
-        writer.write(JSON.generate(passed: result.passed, failed: result.failed_ids, executed: result.executed_ids))
+        payload = { passed: result.passed, failed: result.failed_ids, executed: result.executed_ids }
+        payload[:hint] = Frameworks::SqliteMemoryDatabase.fork_loss_hint unless result.passed
+        writer.write(JSON.generate(payload))
       rescue Exception => e # rubocop:disable Lint/RescueException
-        writer.write(JSON.generate(error: "#{e.class}: #{e.message}"))
+        writer.write(JSON.generate(error: "#{e.class}: #{e.message}",
+                                   hint: Frameworks::SqliteMemoryDatabase.fork_loss_hint))
       ensure
         writer.close
+      end
+
+      # A child that recognises its own failure shape (an empty sqlite
+      # :memory: database after the fork, #387) says how to fix it.
+      def with_hint(reason, data)
+        data["hint"] ? "#{reason}. #{data['hint']}" : reason
       end
 
       def log_path(number)
         File.join(@config.path("cache_dir"), "baseline-#{number}.log")
       end
 
-      def refuse(number, reason)
+      # Leftover children are a pass-with-leaks verdict, not a suite
+      # failure: the message names the leaked processes (the supervisor's
+      # pre-kill notes) and skips the log excerpt, which holds only RSpec
+      # output and can never show them (#486).
+      def leftover_message(result)
+        notes = result.leftover_notes
+        detail = notes.empty? ? result.leftover_pids.join(", ") : notes.join(", ")
+        count = result.leftover_pids.size
+        "the suite passed but left #{count} child #{count == 1 ? 'process' : 'processes'} behind: #{detail}"
+      end
+
+      def refuse(number, reason, excerpt: true)
         raise Error, "baseline check #{number} failed at seed #{@config['seed']}: #{reason}. " \
-                     "#{failure_excerpt(number)}See the full log at #{log_path(number)}. Fix the suite or its " \
-                     "setup, then run saboteur again with the same seed. No mutants were started."
+                     "#{failure_excerpt(number) if excerpt}See the full log at #{log_path(number)}. " \
+                     "Fix the suite or its setup, then run saboteur again with the same seed. " \
+                     "No mutants were started."
       end
 
       # The first lines of the failure, inline, so the cause is readable

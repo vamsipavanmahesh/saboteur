@@ -34,7 +34,7 @@ RSpec.describe Saboteur::Engine, "distribution wiring" do
     # Reading load-time coverage would suspend the recorder mid-build when
     # the dogfood's coverage pass runs this spec; the wiring tested here is
     # downstream of boot.
-    allow_any_instance_of(described_class).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(described_class).to receive(:suspend_coverage).and_return([{}, {}])
     stub_boot
     stub_selection_and_store
   end
@@ -48,7 +48,7 @@ RSpec.describe Saboteur::Engine, "distribution wiring" do
 
   def stub_selection_and_store
     selection = instance_double(Saboteur::Engine::SubjectSelection,
-                                select: [subject_under_test], changed_lines: nil)
+                                select: [subject_under_test], behavior_lines: nil)
     allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
     allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)

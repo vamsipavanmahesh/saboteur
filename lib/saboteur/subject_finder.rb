@@ -20,6 +20,7 @@ module Saboteur
   class SubjectFinder
     Parsed = Data.define(:subjects, :errors)
     ANONYMOUS_OWNER = "(anonymous block)"
+    CALL_DEFINED_SINGLETONS = %i[scope define_singleton_method].freeze
     CLASS_FACTORIES = { Data: :define, Struct: :new, Class: :new, Module: :new }.freeze
 
     # source: the text to parse when it is not the file on disk (the file as
@@ -78,7 +79,8 @@ module Saboteur
     # A define_method subject's body is its block; any other call is walked
     # through its children.
     def walk_call(node, nesting, out, **ctx)
-      return walk_children(node, nesting, out, **ctx) unless define_method_subject?(node)
+      return walk_heredoc_eval(node, nesting, out, **ctx) if heredoc_eval?(node)
+      return walk_children(node, nesting, out, **ctx) unless call_defined_method?(node)
 
       in_sclass = nesting.last&.sclass? || false
       owner = owner_path(nesting)
@@ -86,7 +88,10 @@ module Saboteur
       return walk_children(node, nesting, out, **ctx) unless owner
 
       name = node.arguments.arguments.first.unescaped.to_sym
-      subject = Subject.new(name: name, owner: owner, singleton: in_sclass, sclass: in_sclass,
+      # scope and define_singleton_method define on the class itself;
+      # define_method follows the surrounding nesting like a def (#194).
+      singleton = in_sclass || CALL_DEFINED_SINGLETONS.include?(node.name)
+      subject = Subject.new(name: name, owner: owner, singleton: singleton, sclass: in_sclass,
                             file: ctx[:file], node: node, file_source: ctx[:source], nesting: nesting,
                             frozen_literals: ctx[:frozen], sig_span: nil)
       subject.skip_reason = "defined inside a block" if ctx[:in_block]
@@ -106,6 +111,42 @@ module Saboteur
       node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) }
     end
 
+    # `class_eval <<-RUBY ... RUBY` with a non-interpolated heredoc defines
+    # methods on the enclosing owner (#544). Only a bare call with one
+    # heredoc argument counts: an explicit receiver names another owner, and
+    # an interpolated heredoc does not map to file bytes 1:1, so it stays on
+    # the code-in-strings warning (#467).
+    def heredoc_eval?(node)
+      return false unless %i[class_eval module_eval].include?(node.name) && node.receiver.nil? && node.block.nil?
+
+      arguments = node.arguments&.arguments
+      return false unless arguments&.size == 1
+
+      heredoc = arguments.first
+      heredoc.is_a?(Prism::StringNode) && heredoc.opening_loc&.slice&.start_with?("<<")
+    end
+
+    # The heredoc body's bytes sit in the real file 1:1, so blanking every
+    # byte outside the body (keeping newlines) parses the defs at their
+    # real offsets and lines: mutants apply through the ordinary file-bytes
+    # path. The enclosing nesting supplies the owner. A body that does not
+    # parse defines nothing.
+    def walk_heredoc_eval(node, nesting, out, **ctx)
+      location = node.arguments.arguments.first.content_loc
+      virtual = blank_outside(ctx[:source], location.start_offset...location.end_offset)
+      result = Prism.parse(virtual, filepath: ctx[:file])
+      return if result.failure?
+
+      walk(result.value, nesting, out, **ctx)
+    end
+
+    # source with every byte outside range spaced over, except newlines:
+    # offsets and lines inside range stay exactly as in the real file.
+    def blank_outside(source, range)
+      source.bytes.each_with_index.map { |byte, index| range.cover?(index) || byte == 10 ? byte : 32 }.pack("C*")
+            .force_encoding(source.encoding)
+    end
+
     def define_method_subject?(node)
       return false unless node.name == :define_method && node.receiver.nil?
       return false unless node.block.is_a?(Prism::BlockNode)
@@ -115,6 +156,37 @@ module Saboteur
 
       name_arg = node.arguments.arguments.first
       name_arg.is_a?(Prism::SymbolNode) || name_arg.is_a?(Prism::StringNode)
+    end
+
+    # Calls that define a method, all with a literal first argument for the
+    # name: define_method (instance, or singleton inside class << self) and
+    # the two class-level shapes the human-essentials dogfood exposed,
+    # `scope :name, -> { ... }` and define_singleton_method (#194). The
+    # whole call is the subject's source and re-evaluates on the owner.
+    def call_defined_method?(node)
+      return false unless node.receiver.nil?
+      return false unless literal_name?(node)
+
+      case node.name
+      when :define_method then define_method_subject?(node)
+      when :define_singleton_method then lambda_body?(node) || block_only?(node)
+      # Rails scope: exactly a literal name and a lambda body.
+      when :scope then lambda_body?(node) && node.arguments.arguments.size == 2
+      else false
+      end
+    end
+
+    def literal_name?(node)
+      name_arg = node.arguments&.arguments&.first
+      name_arg.is_a?(Prism::SymbolNode) || name_arg.is_a?(Prism::StringNode)
+    end
+
+    def lambda_body?(node)
+      node.block.nil? && node.arguments&.arguments&.last.is_a?(Prism::LambdaNode)
+    end
+
+    def block_only?(node)
+      node.block.is_a?(Prism::BlockNode) && node.arguments&.arguments&.size == 1
     end
 
     # `Point = Data.define(:x) do ... end`: the defs belong to Point. Only the
@@ -135,9 +207,14 @@ module Saboteur
 
     # Constant-introducing declarations (class/module keywords and factory
     # assignments) bind on the enclosing lexical scope: factory blocks open
-    # none, so their scopes never join a new constant's path (#339).
+    # none, so their scopes never join a new constant's path (#339) - unless
+    # an sclass follows the factory: `class << self` inside a factory block
+    # attaches to the factory's class at runtime (class_eval sets self), and
+    # the sclass needs the factory's path to name that attachment (#438).
     def lexical_nesting(nesting)
-      nesting.reject(&:factory?)
+      nesting.each_with_index.reject do |scope, index|
+        scope.factory? && nesting[(index + 1)..].none?(&:sclass?)
+      end.map(&:first)
     end
 
     def class_factory?(call)
@@ -181,14 +258,31 @@ module Saboteur
     end
 
     # Lexical path of the enclosing class/module. `class ::Foo` restarts at the top.
+    # A bare `class << self` scope leaves the owner alone (its defs are the
+    # attached class's singleton methods), but a factory constant assigned
+    # through it binds on the singleton class (#352), so the sclass renders
+    # as a `singleton_class` path segment when a factory scope sits after it
+    # (#406): `Host.singleton_class::Widget`, mirroring the constant side
+    # (#380).
     def owner_path(nesting)
-      parts = nesting.reject(&:sclass?).map(&:path)
-      return nil if parts.empty?
+      segments = nesting.each_with_index.filter_map do |scope, index|
+        if scope.sclass?
+          :singleton_class if nesting[(index + 1)..].any?(&:factory?)
+        else
+          scope.path
+        end
+      end
+      return nil if segments.empty?
 
-      parts.each_with_object([]) do |path, acc|
-        acc.clear if path.start_with?("::")
-        acc << path.delete_prefix("::")
-      end.join("::")
+      segments.each_with_object(+"") do |segment, out|
+        if segment == :singleton_class
+          out << ".singleton_class"
+        else
+          out.clear if segment.start_with?("::")
+          out << "::" unless out.empty?
+          out << segment.delete_prefix("::")
+        end
+      end
     end
 
     def mark_refinements(subjects, program)

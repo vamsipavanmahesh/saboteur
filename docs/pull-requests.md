@@ -15,10 +15,23 @@ run. A method whose only changes are comments, blank lines or spacing is
 skipped, and the run says so: its syntax tree is the same as at the merge
 base, so a mutant of it would test nothing the change touched. `__LINE__`
 counts as its line number, so a method that uses it and moves, or has a line
-added above that use, still runs. Plain `saboteur run` still mutates the whole
+added above that use, still runs. Inside a method that did change, a line
+whose only change is layout is not a changed line either (#313): wrapping
+existing statements in a block re-indents them, and only the new block lines
+and real edits get line-level mutants. The filter only narrows mutants:
+subject selection still reads every touched line, so a method that was only
+re-indented is found and reported as formatting-only. A line counts as
+layout-only when `git diff -b` pairs it with a base line and Prism reads both
+as the same tokens, so whitespace inside a string, heredoc or regexp still
+counts as a change. The method's whole-body mutants still run. Plain `saboteur run` still mutates the whole
 configured project, but since 0.7.0 it infers the specs named after the
 mutated files and runs only those; a mutated file with no conventional spec
-stops the run (exit 2) with the ways out. Pass `--all` (config
+stops the run (exit 2) with the ways out. A `--since` run keeps that stop
+only when a score gate (`--threshold` or a mutant-count gate) is set or no
+changed file maps to a spec: a gate judges the score, and a partial mapping
+would narrow what it covers. Without a gate, each unmapped changed file gets
+a loud warning and the run mutates the mapped subset; lines nothing else
+covers surface as NoCoverage (#370). Pass `--all` (config
 `c.test_selection = :all`) to keep the whole configured suite.
 
 ## GitHub Actions
@@ -89,6 +102,10 @@ selected method, it keeps fine mutants whose edits touch changed lines, plus
 the available coarse whole-method mutants (`nil`, or `true`/`false` for
 predicates, and `raise` where applicable). Keep new files tracked so git diff
 can see them.
+
+The run executes every spec file the diff adds or changes, on top of the
+specs inferred for the mutated files: a spec-only PR still exercises its own
+specs against any mutants the change selected.
 
 Diff mode still builds a per-test coverage map from the inferred or named
 specs when there is no valid cached map. A smaller mutation scope does not

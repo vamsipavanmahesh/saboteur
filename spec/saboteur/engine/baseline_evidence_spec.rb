@@ -7,11 +7,11 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine, "baseline evidence capture" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   it "rejects reuse, diff and replay before target boot" do
-    [{ "since" => "main" }, { "incremental" => true }].each do |settings|
+    [{ "since" => "main" }, { "incremental" => true }, { "shard" => "1/2" }].each do |settings|
       config = Saboteur::Config.new(settings)
       expect { described_class.new(config, capture_evidence: true) }.to raise_error(Saboteur::ConfigError, /fresh/)
     end
@@ -34,7 +34,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: 2)
       allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
@@ -43,7 +43,8 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
       allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
         .and_return([[candidate, subject.apply(candidate.edits)]])
-      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
+      distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                                     unverified: [])
       allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
       expect(distribution).to receive(:run).and_return([result])
       allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
@@ -80,7 +81,8 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
       allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
       allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
         .and_return([[candidate, subject.apply(candidate.edits)]])
-      distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
+      distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [], truncated: [],
+                                                                     unverified: [])
       allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
       expect(distribution).to receive(:run).and_return([result])
       allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
@@ -107,7 +109,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         instance_double(Saboteur::Integration::RSpec, test_files: [])
       end
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
 
       report = described_class.new(Saboteur::Config.new({}, root: root), capture_evidence: true,
@@ -136,7 +138,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
         boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
         allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-        selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], changed_lines: nil)
+        selection = instance_double(Saboteur::Engine::SubjectSelection, select: [subject], behavior_lines: nil)
         allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
         guard = instance_double(Saboteur::Engine::BaselineGuard, call: nil, completed_passes: passes)
         allow(Saboteur::Engine::BaselineGuard).to receive(:new).and_return(guard)
@@ -145,7 +147,8 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         allow(Saboteur::Engine::CoverageStore).to receive(:new).and_return(store)
         allow_any_instance_of(Saboteur::Engine::Candidates).to receive(:for)
           .and_return([[candidate, subject.apply(candidate.edits)]])
-        distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [])
+        distribution = instance_double(Saboteur::Engine::Distribution, memory_report: nil, unreached: [],
+                                                                       truncated: [], unverified: [])
         allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
         allow(distribution).to receive(:run).and_return([result])
         allow(Saboteur::Execution::ForkReadiness).to receive(:prepare_heap)
@@ -173,7 +176,7 @@ RSpec.describe Saboteur::Engine, "baseline evidence capture" do
         instance_double(Saboteur::Integration::RSpec, test_files: [])
       end
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
 
       allow_any_instance_of(Saboteur::Baseline::RunEvidence).to receive(:finish).and_wrap_original do |original, **args|

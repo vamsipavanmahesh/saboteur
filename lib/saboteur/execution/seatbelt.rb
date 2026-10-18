@@ -28,7 +28,9 @@ module Saboteur
       # sandbox_init error texts that say the facility is genuinely gone
       # (a future macOS without Seatbelt): degrade, noted once. Anything
       # else (a profile syntax tightening, EPERM, a lost child) fails
-      # closed - the run refuses rather than confining nothing.
+      # closed: SandboxPolicy#seatbelt_hook refuses the run rather than
+      # confining nothing, exactly like the Landlock probe (#178) - never
+      # silently unsandboxed.
       UNSUPPORTED_ERRORS = ["operation not supported", "function not implemented"].freeze
 
       module_function
@@ -66,13 +68,24 @@ module Saboteur
       # profile as literal grants instead. Pipes and sockets among them
       # have no path and need no grant.
       def restrict!(writable:, keep_fds: [])
-        profile = Profile.build(writable: writable, inherited_files: fd_paths(keep_fds))
+        profile = Profile.build(writable: writable.map { |dir| resolved_grant(dir) },
+                                inherited_files: fd_paths(keep_fds))
         rc, message = sandbox_init(profile)
         unless rc.zero?
           raise Error, "the Seatbelt sandbox refused to engage (#{message}); the mutant does not run unconfined"
         end
 
         nil
+      end
+
+      # Seatbelt compares the kernel's resolved path, so a grant spelled
+      # through a symlink (macOS /var is /private/var) never matches and the
+      # "granted" write is denied. Resolve what exists; a dir not yet
+      # created grants nothing either way, so keep its spelling rather than
+      # fail the child on a dead grant. fcntl(F_GETPATH) already returns
+      # the resolved path for inherited files, so they need no such pass.
+      def resolved_grant(dir)
+        File.exist?(dir) ? File.realpath(dir) : dir
       end
 
       # fcntl(F_GETPATH) maps an inherited descriptor back to its path; a

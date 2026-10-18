@@ -9,7 +9,7 @@ require "tmpdir"
 RSpec.describe Saboteur::Engine, "custom map warnings" do
   before do
     # This nested engine has a fake boot, not ownership of the outer run's Coverage.
-    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(Saboteur::Engine).to receive(:suspend_coverage).and_return([{}, {}])
   end
 
   it "carries stale and duplicate map keys into the report" do
@@ -18,7 +18,7 @@ RSpec.describe Saboteur::Engine, "custom map warnings" do
       integration = instance_double(Saboteur::Integration::RSpec, test_files: [])
       boot = instance_double(Saboteur::Engine::Boot, load_target: integration, rails: nil)
       allow(Saboteur::Engine::Boot).to receive(:new).and_return(boot)
-      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], changed_lines: nil)
+      selection = instance_double(Saboteur::Engine::SubjectSelection, select: [], behavior_lines: nil)
       allow(Saboteur::Engine::SubjectSelection).to receive(:new).and_return(selection)
       map = instance_double(Saboteur::CustomMap,
                             stale_keys: ["app/models/gone.rb"],
