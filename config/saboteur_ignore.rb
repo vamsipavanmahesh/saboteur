@@ -216,10 +216,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::Builtin#rescues_everything?",
              reason: "equivalent: nil and false are both falsy for the caller"
 
-  i.mutation "e962119c0314fa3d",
-             subject: "Saboteur::MutationSource::Builtin#visit_statements",
-             reason: "equivalent: the loop never sees an empty sequence, so != 1 and > 1 agree"
-
   i.mutation "4cc9db1f1c23f253",
              subject: "Saboteur::MutationSource::Builtin#mutate_call",
              reason: "equivalent: Prism always gives ! a receiver"

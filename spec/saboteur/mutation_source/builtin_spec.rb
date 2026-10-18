@@ -237,6 +237,16 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    p(&:first)", "body_nil")).to be_empty
     end
 
+    it "treats an arid call whose do-block rescues as real work, not a crash (#464)" do
+      body = "    Notifications.instrument \"x\" do\n      real_work\n    rescue\n      handle\n    end"
+      expect(texts(body, "body_nil")).to eq(["nil"])
+    end
+
+    it "treats an arid call whose do-block ensures as real work, not a crash (#464)" do
+      body = "    Notifications.instrument \"x\" do\n      real_work\n    ensure\n      cleanup\n    end"
+      expect(texts(body, "body_nil")).to eq(["nil"])
+    end
+
     it "still treats an arid statement without a block, or with an empty one, as noise" do
       expect(texts("    Notifications.instrument \"x\"\n    logger.info(a)", "body_nil")).to be_empty
       expect(texts("    Notifications.instrument(\"x\") {}", "body_nil")).to be_empty

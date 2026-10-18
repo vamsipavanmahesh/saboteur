@@ -270,6 +270,10 @@ module Saboteur
 
         block = statement.is_a?(Prism::CallNode) ? statement.block : nil
         body = block.is_a?(Prism::BlockNode) ? block.body : nil
+        # A do-block with rescue/ensure parses its body as a BeginNode, not
+        # a StatementsNode (#464): its clauses are real work, not noise.
+        return false if body && !body.is_a?(Prism::StatementsNode)
+
         body.nil? || body.body.all? { |inner| arid_statement?(inner) }
       end
 
