@@ -25,7 +25,7 @@ RSpec.describe "script/ci-prove-pr-binding" do
     File.write(fixture, response) if response
     File.write(File.join(bin, "curl"), <<~SH)
       #!/usr/bin/env bash
-      echo "$@" >> "#{File.join(workspace, 'curl-args.log')}"
+      printf '%s\n' "$@" >> "#{File.join(workspace, 'curl-args.log')}"
       [ -f "#{fixture}" ] || exit 22
       cat "#{fixture}"
       exit #{exit_status}
@@ -65,6 +65,22 @@ RSpec.describe "script/ci-prove-pr-binding" do
     args = File.read(File.join(workspace, "curl-args.log"))
     expect(status.exitstatus).to eq(0)
     expect(args).to include("baseRefOid").and include("headRefOid").and include("nameWithOwner")
+  end
+
+  it "sends a GraphQL payload that parses as valid JSON" do
+    write_curl_stub(response: graphql_response)
+    _output, status = prove
+    line = File.readlines(File.join(workspace, "curl-args.log"),
+                          chomp: true).find { |arg| arg.start_with?('{"query"') }
+    parsed = JSON.parse(line)
+    query = parsed["query"]
+    expect([status.exitstatus, query]).to match([
+                                                  0,
+                                                  a_string_including('repository(owner:"owner",name:"repo")')
+                                                    .and(include("pullRequest(number:7)"))
+                                                    .and(include("headRefOid")).and(include("baseRefOid"))
+                                                    .and(include("nameWithOwner"))
+                                                ])
   end
 
   it "fails closed when the dispatched SHA is not the pull request's head" do
