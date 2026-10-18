@@ -206,6 +206,52 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(result.unmatched).to eq(["lib/rules.rb"])
   end
 
+  # Verbatim, so the escape-hatch hint cannot be edited away silently (#640
+  # review): a file no map entry covers hears the map remedy in the stop.
+  # Two uncovered files, so the join separators in the pairs list and the
+  # map hint are pinned too (#640 review): one file never exercises them.
+  # The changed-specs segment gets its own verbatim pin, with two changed
+  # specs so its join separator is pinned too (#640 review).
+  it "prints the stop verbatim when the diff also changes specs (#640)" do
+    write("spec/a_spec.rb", "# a2\n")
+    write("spec/deep/b_spec.rb", "# b2\n")
+    write("lib/c.rb", changed_source)
+
+    expect(guess.unmatched_message).to eq(
+      "no spec found for lib/c.rb (expected spec/c_spec.rb), so nothing ran. " \
+      "Specs the diff adds or changes: spec/a_spec.rb, spec/deep/b_spec.rb. " \
+      "Re-run the same command with one --test per existing spec path, or append --all to use " \
+      "the whole suite without changing the source scope. If the layout defeats the naming " \
+      "convention, map lib/c.rb by hand in config/saboteur_custom_map.rb: no entry covers it."
+    )
+  end
+
+  it "prints the two-file stop verbatim, separators included (#640)" do
+    write("lib/rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "rules")
+    write("lib/rules.rb", "RULES = {\n  a: 1,\n  b: 2\n}.freeze\n")
+    write("lib/c.rb", changed_source)
+
+    expect(guess.unmatched_message).to eq(
+      "no spec found for lib/c.rb (expected spec/c_spec.rb), lib/rules.rb (expected spec/rules_spec.rb), " \
+      "so nothing ran. Re-run the same command with one --test per existing spec path, or append --all " \
+      "to use the whole suite without changing the source scope. If the layout defeats the naming " \
+      "convention, map lib/c.rb, lib/rules.rb by hand in config/saboteur_custom_map.rb: no entry covers it."
+    )
+  end
+
+  it "prints the full stop verbatim, escape-hatch hint included, for a file no map entry covers (#640)" do
+    write("lib/c.rb", changed_source)
+
+    expect(guess.unmatched_message).to eq(
+      "no spec found for lib/c.rb (expected spec/c_spec.rb), so nothing ran. " \
+      "Re-run the same command with one --test per existing spec path, or append --all to use " \
+      "the whole suite without changing the source scope. If the layout defeats the naming " \
+      "convention, map lib/c.rb by hand in config/saboteur_custom_map.rb: no entry covers it."
+    )
+  end
+
   it "names the changed files that have no spec" do
     write("lib/a.rb", changed_source)
     write("lib/c.rb", changed_source)
@@ -228,14 +274,35 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(result.unmatched).to eq([])
   end
 
+  # Map paths are project-relative, never cwd-relative (#640 review): an
+  # entry that leaves and re-enters the project still loads from a foreign
+  # cwd, where a cwd-anchored load would misread it as escaping the root.
+  it "anchors the custom map at the project root, not the cwd (#640)" do
+    reentering = "../#{File.basename(dir)}/spec/unit/c_spec.rb"
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"#{reentering}\"]\n}.freeze\n")
+    write("spec/unit/c_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/c.rb", changed_source)
+
+    Dir.mktmpdir do |elsewhere|
+      Dir.chdir(elsewhere) do
+        result = guess
+        expect(result.specs).to eq([reentering])
+        expect(result.unmatched).to eq([])
+      end
+    end
+  end
+
   # A mapped literal whose bytes are not valid UTF-8 reaches the glob
   # guard itself: match? raises ArgumentError, not the no-match ConfigError
   # a forced Dir.glob branch would produce (#480 audit).
   it "raises ArgumentError, not ConfigError, for a mapped spec literal with invalid UTF-8 bytes" do
     write("config/saboteur_custom_map.rb",
           "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/bad\\xFFx_spec.rb\"]\n}.freeze\n")
-    # The mapped file exists (filesystems allow raw bytes), so it passes the
-    # map's load-time existence check and reaches the glob guard itself.
+    # The mapped file exists (filesystems allow raw bytes), so the literal
+    # survives expansion and reaches the glob guard itself.
     begin
       write("spec/bad\xFFx_spec.rb".b)
     rescue Errno::EILSEQ, Errno::EINVAL
@@ -258,6 +325,49 @@ RSpec.describe Saboteur::Engine::TestGuess do
 
     result = guess
     expect(result.specs).to eq(["spec/unit/a_spec.rb"])
+  end
+
+  # A stale or mistyped entry must not shadow the way out: it warns,
+  # then the naming convention and the usual stop guidance take over
+  # (#640).
+  it "warns and guesses by convention when a map entry's specs match no file (#640)" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/unit/c_spec.rb\"]\n}.freeze\n")
+    write("spec/c_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "map and conventional spec")
+    write("lib/c.rb", changed_source)
+    diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+    allow(diagnostics).to receive(:warn)
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+    result = described_class.new(config, diagnostics: diagnostics).call
+    expect(result.specs).to eq(["spec/c_spec.rb"])
+    expect(diagnostics).to have_received(:warn).with(/match no file/)
+  end
+
+  # With no conventional spec either, the run stops with the normal
+  # unmatched guidance - not the bare ConfigError the entry used to die
+  # with - and it does not point the file back at the map that already
+  # failed it.
+  it "falls through to the normal stop when neither the entry nor a conventional spec exists (#640)" do
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = {\n  \"lib/c.rb\" => [\"spec/unit/c_spec.rb\"]\n}.freeze\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "broken map")
+    write("lib/c.rb", changed_source)
+    result = guess
+    expect(result.unmatched).to eq(["lib/c.rb"])
+    expect(result.unmatched_message).to include("no spec found for lib/c.rb")
+    expect(result.unmatched_message).not_to include("no entry covers it")
+  end
+
+  # The map is the documented escape hatch for layouts the convention
+  # cannot guess: the stop names it for a file no entry covers.
+  it "names the custom map in the stop when no entry covers the file (#640)" do
+    write("lib/gizmo.rb", changed_source)
+    result = guess
+    expect(result.unmatched).to eq(["lib/gizmo.rb"])
+    expect(result.unmatched_message).to include("config/saboteur_custom_map.rb: no entry covers it")
   end
 
   it "maps one file to several specs" do
@@ -352,34 +462,48 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guess.specs).to eq(["spec/unit/c_spec.rb", "spec/unit/deep/c_extra_spec.rb"])
   end
 
-  # Every vanished spec is named, in order, comma-separated (#369 review).
-  it "names each vanished spec in the config error" do
+  # Every vanished spec is named, in order, comma-separated, and the run
+  # then falls through instead of dying on the entry (#640).
+  it "names each vanished spec in the warning" do
     write("config/saboteur_custom_map.rb",
           "SABOTEUR_CUSTOM_MAP = {\n  %r{\\Alib/extra/(.*)\\.rb\\z} => " \
           "['spec/extra/\\1_spec.rb', 'spec/other/\\1_spec.rb']\n}.freeze\n")
     git("add", ".")
     git("commit", "-q", "-m", "map")
     write("lib/extra/widget.rb", changed_source)
+    diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+    allow(diagnostics).to receive(:warn)
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+    result = described_class.new(config, diagnostics: diagnostics).call
 
-    expect { guess }.to raise_error(Saboteur::ConfigError,
-                                    "custom map entry for lib/extra/widget.rb names spec(s) " \
-                                    "spec/extra/widget_spec.rb, spec/other/widget_spec.rb, which match no file")
+    expect(diagnostics).to have_received(:warn).with(
+      "custom map entry for lib/extra/widget.rb names spec(s) " \
+      "spec/extra/widget_spec.rb, spec/other/widget_spec.rb, which match no file"
+    )
+    expect(result.unmatched).to eq(["lib/extra/widget.rb"])
   end
 
   # A regexp backreference can fill in a spec that does not exist: the
-  # mapping is broken, so the run stops naming the entry - it must not
-  # silently guess on and run the wrong specs (#369 review).
-  it "stops with a config error when a mapped regexp spec expands to a missing file" do
+  # entry is stale or mistyped, so it warns and the naming convention and
+  # the usual stop guidance take over (#640; the entry stopped the run
+  # with a ConfigError under #369).
+  it "warns and falls through when a mapped regexp spec expands to a missing file" do
     write("config/saboteur_custom_map.rb",
-          "SABOTEUR_CUSTOM_MAP = {\n  %r{\\Alib/extra/(.*)\\.rb\\z} => ['spec/extra/\\1_spec.rb']\n}.freeze\n")
+          "SABOTEUR_CUSTOM_MAP = {\n  %r{\\Alib/extra/(.*)\\.rb\\z} => ['spec/wrong/\\1_spec.rb']\n}.freeze\n")
+    write("spec/extra/widget_spec.rb")
     write("lib/extra/widget.rb", base_source)
     git("add", ".")
-    git("commit", "-q", "-m", "map")
+    git("commit", "-q", "-m", "map and conventional spec")
     write("lib/extra/widget.rb", changed_source)
+    diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+    allow(diagnostics).to receive(:warn)
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+    result = described_class.new(config, diagnostics: diagnostics).call
 
-    expect { guess }.to raise_error(Saboteur::ConfigError,
-                                    "custom map entry for lib/extra/widget.rb names spec(s) " \
-                                    "spec/extra/widget_spec.rb, which match no file")
+    expect(result.specs).to eq(["spec/extra/widget_spec.rb"])
+    expect(diagnostics).to have_received(:warn).with(
+      "custom map entry for lib/extra/widget.rb names spec(s) spec/wrong/widget_spec.rb, which match no file"
+    )
   end
 
   # A changed spec is not a changed source file: it needs no spec of its

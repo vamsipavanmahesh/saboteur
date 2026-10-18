@@ -57,9 +57,9 @@ module Saboteur
       # in specs; skipped_specs: spec files the diff touches that cannot run,
       # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
-                           :skipped_specs, :out_of_scope, :excluded, :near, :no_suite) do
+                           :skipped_specs, :out_of_scope, :excluded, :near, :no_suite, :without_map_entry) do
         def initialize(changed_specs: [], skipped_specs: {}, out_of_scope: [], excluded: [], near: {},
-                       no_suite: nil, **fields)
+                       no_suite: nil, without_map_entry: [], **fields)
           super
         end
 
@@ -75,9 +75,15 @@ module Saboteur
 
           pairs = unmatched.map { |file| pair_description(file) }
           changed = changed_specs.any? ? " Specs the diff adds or changes: #{changed_specs.join(', ')}." : ""
+          # The map is the documented escape hatch for layouts the
+          # convention cannot guess - named only for files no entry covers;
+          # a file whose own entry broke heard that in the warning (#640).
+          mapped = without_map_entry.any? &&
+                   " If the layout defeats the naming convention, map #{without_map_entry.join(', ')} by hand in " \
+                   "config/saboteur_custom_map.rb: no entry covers it."
           "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
             "one --test per existing spec path, or append --all to use the whole suite without " \
-            "changing the source scope."
+            "changing the source scope.#{mapped}"
         end
 
         private
@@ -248,16 +254,30 @@ module Saboteur
         end
       end
 
+      # The specs the diff itself adds or changes, when a --since run has
+      # any guesses to join them with; empty otherwise.
+      def diff_specs(inferred, guesses)
+        @config["since"] && guesses.any? ? specs_in_diff(inferred) : { run: [], skipped: {} }
+      end
+
+      # Unmatched files no map entry even tries to cover: the stop points
+      # those at the map (#640); a file whose own entry broke already heard
+      # about it in the guess-time warning.
+      def without_map_entry(unmatched)
+        unmatched.select { |file| @custom_map.specs_for(file).nil? }
+      end
+
       # Changed specs join only a run that mutates something: with no file
       # in scope there is nothing for them to kill.
       def result(guesses, subjectless, changed, out_of_scope: [], subject_run: false)
         unmatched = guesses.select { |_, specs| specs.nil? }.keys
         excluded = guesses.select { |_, specs| specs == :excluded }.keys.sort
         inferred = guesses.values.grep(Array).flatten
-        diff = @config["since"] && guesses.any? ? specs_in_diff(inferred) : { run: [], skipped: {} }
+        diff = diff_specs(inferred, guesses)
         unmatched -= covered_by_changed_specs(unmatched, diff[:run])
         Result.new(specs: (inferred + diff[:run]).uniq.sort,
                    unmatched: unmatched,
+                   without_map_entry: without_map_entry(unmatched),
                    subjectless: subjectless,
                    changed: changed,
                    hints: unmatched.to_h { |file| [file, expected_spec(file, diff[:skipped])] },
@@ -458,7 +478,9 @@ module Saboteur
       def guess_for(file)
         mapped = @custom_map.specs_for(file)
         return :excluded if mapped == :excluded
-        return expand_mapped(file, mapped) if mapped
+
+        expanded = mapped && expand_mapped(file, mapped)
+        return expanded if expanded
 
         conventional = candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
         return [conventional] if conventional
@@ -471,8 +493,9 @@ module Saboteur
       # backreference filled at match time, and neither is validated to
       # exist when the map loads. Only specs that exist run; the literal
       # glob string never reaches RSpec. When the winning entry's specs all
-      # vanish the mapping is broken: stop naming it rather than silently
-      # guessing on and running the wrong specs (#369).
+      # vanish the entry is stale or mistyped: warn and fall through to the
+      # naming convention (and, failing that, to the usual stop guidance),
+      # instead of dying with a ConfigError and hiding the way out (#640).
       def expand_mapped(file, specs)
         expanded = specs.flat_map do |spec|
           if spec.match?(/[*?\[{]/)
@@ -484,7 +507,8 @@ module Saboteur
         expanded = expanded.select { |path| File.file?(File.join(@root, path)) }
         return expanded unless expanded.empty?
 
-        raise ConfigError, "custom map entry for #{file} names spec(s) #{specs.join(', ')}, which match no file"
+        @diagnostics&.warn("custom map entry for #{file} names spec(s) #{specs.join(', ')}, which match no file")
+        nil
       end
 
       # Candidate specs for a source file, most specific first: the nearest

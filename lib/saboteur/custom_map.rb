@@ -73,17 +73,17 @@ module Saboteur
       end
       return if numbered # backreference filled in at match time
 
+      # Existence is deliberately not checked here: a stale or mistyped
+      # entry warns at guess time and the naming convention takes over,
+      # instead of the whole run dying at boot on one bad line (#640).
       expanded = File.expand_path(spec, root)
       unless expanded.start_with?("#{root}/")
         raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}, which is outside the project root"
       end
-      return if Dir.glob(expanded).any?
+      return unless named
 
-      if named
-        raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}; " \
-                           'regex map specs support \1 backreferences only'
-      end
-      raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}, which matches no file"
+      raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}; " \
+                         'regex map specs support \1 backreferences only'
     end
 
     private_class_method :validate_entry, :validate_spec
