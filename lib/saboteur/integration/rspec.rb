@@ -31,7 +31,7 @@ module Saboteur
           # both contradict the tool's own message. Print the suite's error
           # without them (#608).
           $stdout.write LoadErrorReport.filter(load_output.text, verbose: config.fetch("verbose", false))
-          raise Error, load_failure_message(load_output.failed_files)
+          raise Error, load_failure_message(load_output.failed_files, load_output.text)
         end
         load_output.replay
 
@@ -150,6 +150,19 @@ module Saboteur
 
       SHOWN_LOAD_FAILURES = 5
 
+      # Ruby's Coverage refuses a second start, so a suite whose
+      # spec_helper auto-starts SimpleCov/SingleCov collides with
+      # saboteur's own Coverage.start and the load quits with an opaque
+      # "No examples found" (#645, real run: audited @ dbf84326). Name the
+      # suspect and both guard styles. The gem's backtrace line is the
+      # fallback: the RuntimeError's text is Coverage's own, whoever
+      # started it second.
+      COVERAGE_DOUBLE_START = /coverage measurement is already setup/i
+      # A gem backtrace frame (path:line) or the start call itself - never a
+      # bare name, which a spec FILE name like simplecov_config_spec.rb
+      # would false-positive on (Pod 3 QA probe, #645).
+      COVERAGE_GEM_FRAME = %r{(?:single_cov|simplecov)[\w.\-/]*\.rb:\d+|\b(?:SimpleCov\.start|SingleCov\.setup)}i
+
       private
 
       # rspec-core 3.11 added rspec_is_quitting (SyntaxError and SystemExit
@@ -164,7 +177,7 @@ module Saboteur
       # printed are what a user needs. Name them and the way out: a repo
       # whose spec tree cannot load whole (an engine's dummy app, an
       # env-dependent integration spec) must narrow what loads (#378).
-      def load_failure_message(failed_files)
+      def load_failure_message(failed_files, captured_text = nil)
         message = +"rspec quit while loading spec files"
         if failed_files.any?
           shown = failed_files.first(SHOWN_LOAD_FAILURES)
@@ -177,6 +190,16 @@ module Saboteur
                    'c.rspec_args = ["--exclude-pattern", "spec/dummy/**/*_spec.rb"], or name the ' \
                    "suite with --test. Rails engines with an embedded dummy app (spec/dummy) need " \
                    'this; see README "Rails engines and dummy apps".'
+        if coverage_suspect?(captured_text)
+          message << "\nSuspect: your suite starts its own Coverage (saboteur starts one itself). " \
+                     "Guard it - if ENV[\"COVERAGE\"], or SingleCov's conditional setup API - " \
+                     "and see docs/recipes/README.md#simplecov."
+        end
+        message
+      end
+
+      def coverage_suspect?(captured_text)
+        captured_text&.match?(COVERAGE_DOUBLE_START) || captured_text&.match?(COVERAGE_GEM_FRAME) || false
       end
 
       def refuse_unintended_focus

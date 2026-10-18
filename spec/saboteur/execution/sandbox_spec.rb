@@ -187,164 +187,170 @@ RSpec.describe Saboteur::Execution::Sandbox do
     expect(described_class.rights_mask & described_class::REFER).to eq(described_class::REFER)
   end
 
-  it "closes inherited writable regular files outside the granted dirs before restricting" do
-    skip "needs /proc/self/fd" unless described_class.linux?
-    Dir.mktmpdir("saboteur-fds-") do |root|
-      granted = File.join(root, "tmp")
-      sibling = File.join(root, "tmp2") # prefix look-alike: must NOT count as granted
-      linked = File.join(root, "link")
-      FileUtils.mkdir_p([granted, sibling])
-      File.symlink(granted, linked)
-      File.write(File.join(root, "project.rb"), "x")
-      File.write(File.join(granted, "ok.rb"), "x")
-      File.write(File.join(sibling, "sib.rb"), "x")
-      File.write(File.join(linked, "via_link.rb"), "x")
-
-      project_io = File.open(File.join(root, "project.rb"), "r+") # rubocop:disable Style/FileOpen
-      readonly_io = File.open(File.join(root, "project.rb"), "r") # rubocop:disable Style/FileOpen
-      granted_io = File.open(File.join(granted, "ok.rb"), "r+") # rubocop:disable Style/FileOpen
-      sibling_io = File.open(File.join(sibling, "sib.rb"), "r+") # rubocop:disable Style/FileOpen
-      symlink_io = File.open(File.join(linked, "via_link.rb"), "r+") # rubocop:disable Style/FileOpen
-      reader, _writer = IO.pipe
-
-      # keep_fds covers stdio: under a redirected suite run, stdout is a
-      # regular file and would itself be swept (that is the #178 behavior;
-      # the forked specs below pin it). Callers pass their own keeps.
-      described_class::InheritedFds.close_writable_files([File.realpath(granted)], [reader.fileno, 0, 1, 2])
-
-      expect(attempt do
-        project_io.write("y")
-        project_io.flush
-      end).to eq("denied")
-      expect(attempt do
-        sibling_io.write("y")
-        sibling_io.flush
-      end).to eq("denied")
-      expect(readonly_io.read(1)).to eq("x")
-      expect(attempt do
-        granted_io.write("y")
-        granted_io.flush
-      end).to eq("ok")
-      expect(attempt do
-        symlink_io.write("y")
-        symlink_io.flush
-      end).to eq("ok")
+  describe "InheritedFds sweeping" do
+    before do
+      Saboteur::Execution::FiddleLoader.require_fiddle!(with_import: true)
     end
-  end
 
-  # A mutant child runs with the suite's locale; under LANG=C its inherited fd
-  # targets arrive tagged US-ASCII. Grant checks must compare bytes, or a
-  # non-ASCII target raises Encoding::CompatibilityError before any test runs.
-  it "sweeps writable fds whose targets carry non-ASCII bytes under a US-ASCII locale" do
-    skip "needs /proc/self/fd" unless described_class.linux?
-    Dir.mktmpdir("saboteur-sweep-") do |base|
-      dir = File.join(base, "café")
-      other = File.join(base, "cåfé")
-      Dir.mkdir(dir)
-      Dir.mkdir(other)
-      File.write(File.join(dir, "ok"), "x")
-      File.write(File.join(other, "log"), "x")
-      granted = File.open(File.join(dir, "ok"), "r+") # rubocop:disable Style/FileOpen
-      ungranted = File.open(File.join(other, "log"), "r+") # rubocop:disable Style/FileOpen
-      begin
-        # keep_fds covers stdio only; every other writable regular-file fd is
-        # swept, so the two fixture fds exercise grant-vs-close by their paths.
-        with_default_external(Encoding::US_ASCII) do
-          described_class::InheritedFds.close_writable_files([File.realpath(dir)], [0, 1, 2])
+    it "closes inherited writable regular files outside the granted dirs before restricting" do
+      skip "needs /proc/self/fd" unless described_class.linux?
+      Dir.mktmpdir("saboteur-fds-") do |root|
+        granted = File.join(root, "tmp")
+        sibling = File.join(root, "tmp2") # prefix look-alike: must NOT count as granted
+        linked = File.join(root, "link")
+        FileUtils.mkdir_p([granted, sibling])
+        File.symlink(granted, linked)
+        File.write(File.join(root, "project.rb"), "x")
+        File.write(File.join(granted, "ok.rb"), "x")
+        File.write(File.join(sibling, "sib.rb"), "x")
+        File.write(File.join(linked, "via_link.rb"), "x")
+
+        project_io = File.open(File.join(root, "project.rb"), "r+") # rubocop:disable Style/FileOpen
+        readonly_io = File.open(File.join(root, "project.rb"), "r") # rubocop:disable Style/FileOpen
+        granted_io = File.open(File.join(granted, "ok.rb"), "r+") # rubocop:disable Style/FileOpen
+        sibling_io = File.open(File.join(sibling, "sib.rb"), "r+") # rubocop:disable Style/FileOpen
+        symlink_io = File.open(File.join(linked, "via_link.rb"), "r+") # rubocop:disable Style/FileOpen
+        reader, _writer = IO.pipe
+
+        # keep_fds covers stdio: under a redirected suite run, stdout is a
+        # regular file and would itself be swept (that is the #178 behavior;
+        # the forked specs below pin it). Callers pass their own keeps.
+        described_class::InheritedFds.close_writable_files([File.realpath(granted)], [reader.fileno, 0, 1, 2])
+
+        expect(attempt do
+          project_io.write("y")
+          project_io.flush
+        end).to eq("denied")
+        expect(attempt do
+          sibling_io.write("y")
+          sibling_io.flush
+        end).to eq("denied")
+        expect(readonly_io.read(1)).to eq("x")
+        expect(attempt do
+          granted_io.write("y")
+          granted_io.flush
+        end).to eq("ok")
+        expect(attempt do
+          symlink_io.write("y")
+          symlink_io.flush
+        end).to eq("ok")
+      end
+    end
+
+    # A mutant child runs with the suite's locale; under LANG=C its inherited fd
+    # targets arrive tagged US-ASCII. Grant checks must compare bytes, or a
+    # non-ASCII target raises Encoding::CompatibilityError before any test runs.
+    it "sweeps writable fds whose targets carry non-ASCII bytes under a US-ASCII locale" do
+      skip "needs /proc/self/fd" unless described_class.linux?
+      Dir.mktmpdir("saboteur-sweep-") do |base|
+        dir = File.join(base, "café")
+        other = File.join(base, "cåfé")
+        Dir.mkdir(dir)
+        Dir.mkdir(other)
+        File.write(File.join(dir, "ok"), "x")
+        File.write(File.join(other, "log"), "x")
+        granted = File.open(File.join(dir, "ok"), "r+") # rubocop:disable Style/FileOpen
+        ungranted = File.open(File.join(other, "log"), "r+") # rubocop:disable Style/FileOpen
+        begin
+          # keep_fds covers stdio only; every other writable regular-file fd is
+          # swept, so the two fixture fds exercise grant-vs-close by their paths.
+          with_default_external(Encoding::US_ASCII) do
+            described_class::InheritedFds.close_writable_files([File.realpath(dir)], [0, 1, 2])
+          end
+          expect(granted.write("y")).to eq(1)
+          expect { ungranted.write("y") }.to raise_error(IOError)
+        ensure
+          [granted, ungranted].each { |io| io.close unless io.closed? }
         end
-        expect(granted.write("y")).to eq(1)
-        expect { ungranted.write("y") }.to raise_error(IOError)
-      ensure
-        [granted, ungranted].each { |io| io.close unless io.closed? }
       end
     end
-  end
 
-  it "sweeps stdio redirected to a writable regular file but keeps stdio on /dev/null" do
-    skip "needs /proc/self/fd" unless described_class.linux?
-    Dir.mktmpdir("saboteur-stdio-") do |root|
-      target = File.join(root, "captured.log")
-      File.write(target, "")
+    it "sweeps stdio redirected to a writable regular file but keeps stdio on /dev/null" do
+      skip "needs /proc/self/fd" unless described_class.linux?
+      Dir.mktmpdir("saboteur-stdio-") do |root|
+        target = File.join(root, "captured.log")
+        File.write(target, "")
 
-      swept_reader, swept_writer = IO.pipe
-      swept = fork do
-        swept_reader.close
-        $stderr.reopen(target, "a")
-        described_class::InheritedFds.close_writable_files([], [swept_writer.fileno])
-        swept_writer.write(attempt do
-          $stderr.write("x")
-          $stderr.flush
-        end)
+        swept_reader, swept_writer = IO.pipe
+        swept = fork do
+          swept_reader.close
+          $stderr.reopen(target, "a")
+          described_class::InheritedFds.close_writable_files([], [swept_writer.fileno])
+          swept_writer.write(attempt do
+            $stderr.write("x")
+            $stderr.flush
+          end)
+          swept_writer.close
+          exit!(0)
+        end
         swept_writer.close
-        exit!(0)
-      end
-      swept_writer.close
-      expect(swept_reader.read).to eq("denied")
-      Process.wait(swept)
+        expect(swept_reader.read).to eq("denied")
+        Process.wait(swept)
 
-      kept_reader, kept_writer = IO.pipe
-      kept = fork do
-        kept_reader.close
-        $stderr.reopen(File::NULL, "a")
-        described_class::InheritedFds.close_writable_files([], [kept_writer.fileno])
-        kept_writer.write(attempt do
-          $stderr.write("x")
-          $stderr.flush
-        end)
+        kept_reader, kept_writer = IO.pipe
+        kept = fork do
+          kept_reader.close
+          $stderr.reopen(File::NULL, "a")
+          described_class::InheritedFds.close_writable_files([], [kept_writer.fileno])
+          kept_writer.write(attempt do
+            $stderr.write("x")
+            $stderr.flush
+          end)
+          kept_writer.close
+          exit!(0)
+        end
         kept_writer.close
-        exit!(0)
+        expect(kept_reader.read).to eq("ok")
+        Process.wait(kept)
       end
-      kept_writer.close
-      expect(kept_reader.read).to eq("ok")
-      Process.wait(kept)
     end
-  end
 
-  it "closes inherited writable files already deleted from the tree" do
-    skip "needs /proc/self/fd" unless described_class.linux?
-    Dir.mktmpdir("saboteur-deleted-") do |root|
-      path = File.join(root, "gone.rb")
-      File.write(path, "x")
-      io = File.open(path, "r+") # rubocop:disable Style/FileOpen
-      File.unlink(path)
-      described_class::InheritedFds.close_writable_files([], [0, 1, 2])
-      expect(attempt do
-        io.write("y")
-        io.flush
-      end).to eq("denied")
-    end
-  end
-
-  it "fails closed when a descriptor's flags cannot be read" do
-    skip "needs /proc/self/fd" unless described_class.linux?
-    Dir.mktmpdir("saboteur-fcntl-") do |root|
-      path = File.join(root, "project.rb")
-      File.write(path, "x")
-      io = File.open(path, "r+") # rubocop:disable Style/FileOpen
-      allow(described_class::LibC).to receive(:fcntl_fn).and_return(double("fcntl", call: -1))
-      described_class::InheritedFds.close_writable_files([], [0, 1, 2])
-      expect(attempt do
-        io.write("y")
-        io.flush
-      end).to eq("denied")
-    end
-  end
-
-  it "fails closed when a descriptor's target cannot be read" do
-    skip "needs /proc/self/fd" unless described_class.linux?
-    Dir.mktmpdir("saboteur-readlink-") do |root|
-      path = File.join(root, "project.rb")
-      File.write(path, "x")
-      io = File.open(path, "r+") # rubocop:disable Style/FileOpen
-      failing = "/proc/self/fd/#{io.fileno}"
-      allow(File).to receive(:readlink).and_wrap_original do |original, link|
-        link == failing ? raise(Errno::EIO) : original.call(link)
+    it "closes inherited writable files already deleted from the tree" do
+      skip "needs /proc/self/fd" unless described_class.linux?
+      Dir.mktmpdir("saboteur-deleted-") do |root|
+        path = File.join(root, "gone.rb")
+        File.write(path, "x")
+        io = File.open(path, "r+") # rubocop:disable Style/FileOpen
+        File.unlink(path)
+        described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+        expect(attempt do
+          io.write("y")
+          io.flush
+        end).to eq("denied")
       end
-      described_class::InheritedFds.close_writable_files([], [0, 1, 2])
-      expect(attempt do
-        io.write("y")
-        io.flush
-      end).to eq("denied")
+    end
+
+    it "fails closed when a descriptor's flags cannot be read" do
+      skip "needs /proc/self/fd" unless described_class.linux?
+      Dir.mktmpdir("saboteur-fcntl-") do |root|
+        path = File.join(root, "project.rb")
+        File.write(path, "x")
+        io = File.open(path, "r+") # rubocop:disable Style/FileOpen
+        allow(described_class::LibC).to receive(:fcntl_fn).and_return(double("fcntl", call: -1))
+        described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+        expect(attempt do
+          io.write("y")
+          io.flush
+        end).to eq("denied")
+      end
+    end
+
+    it "fails closed when a descriptor's target cannot be read" do
+      skip "needs /proc/self/fd" unless described_class.linux?
+      Dir.mktmpdir("saboteur-readlink-") do |root|
+        path = File.join(root, "project.rb")
+        File.write(path, "x")
+        io = File.open(path, "r+") # rubocop:disable Style/FileOpen
+        failing = "/proc/self/fd/#{io.fileno}"
+        allow(File).to receive(:readlink).and_wrap_original do |original, link|
+          link == failing ? raise(Errno::EIO) : original.call(link)
+        end
+        described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+        expect(attempt do
+          io.write("y")
+          io.flush
+        end).to eq("denied")
+      end
     end
   end
 

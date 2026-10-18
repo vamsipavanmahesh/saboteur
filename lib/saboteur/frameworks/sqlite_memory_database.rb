@@ -16,6 +16,16 @@ module Saboteur
                "a before(:suite) hook, or in an after_fork hook in config/saboteur_hooks.rb; wire it in " \
                'config/saboteur.rb with c.hooks = ["config/saboteur_hooks.rb"]'
 
+      # The #594 seed variant: the suite moved its schema into a hook (the
+      # schema remedy above), so children get tables - but rows seeded at
+      # require time (rolify's spec/support/data.rb) lived in the parent's
+      # database and are lost across the fork all the same.
+      SEED_REMEDY = "a sqlite :memory: database in this forked child has its schema but no rows: rows seeded at " \
+                    "require time (seed data, fixtures loaded at boot) are lost across saboteur's fork, just like " \
+                    "the schema. Seed in a before(:suite) hook, or in an after_fork hook in " \
+                    "config/saboteur_hooks.rb; wire it in config/saboteur.rb with " \
+                    'c.hooks = ["config/saboteur_hooks.rb"]'
+
       module_function
 
       # The remedy text when a current pool points at an empty sqlite
@@ -25,7 +35,10 @@ module Saboteur
         return unless defined?(ActiveRecord::Base)
 
         pools = ActiveRecord::Base.connection_handler.connection_pool_list
-        pools.any? { |pool| empty_memory_database?(pool) } ? REMEDY : nil
+        return REMEDY if pools.any? { |pool| empty_memory_database?(pool) }
+        return SEED_REMEDY if pools.any? { |pool| unseeded_memory_database?(pool) }
+
+        nil
       rescue StandardError, ScriptError
         nil
       end
@@ -35,6 +48,22 @@ module Saboteur
         return false unless config.adapter.to_s == "sqlite3" && config.database.to_s == ":memory:"
 
         pool.with_connection { |connection| user_tables(connection).empty? }
+      rescue StandardError
+        false
+      end
+
+      # Schema but not a single row anywhere: the hook-loaded schema
+      # survived the fork, the require-time seeds did not (#594).
+      def unseeded_memory_database?(pool)
+        config = pool.db_config
+        return false unless config.adapter.to_s == "sqlite3" && config.database.to_s == ":memory:"
+
+        pool.with_connection do |connection|
+          tables = user_tables(connection)
+          tables.any? && tables.all? do |table|
+            connection.select_value("SELECT 1 FROM #{connection.quote_table_name(table)} LIMIT 1").nil?
+          end
+        end
       rescue StandardError
         false
       end
