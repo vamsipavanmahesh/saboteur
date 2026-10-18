@@ -236,6 +236,17 @@ RSpec.describe Saboteur::Engine, "test selection" do
                                     "against the inferred specs and a line they miss is reported as NoCoverage")
     end
 
+    # The partial-mapping announce path returns the files it warned about:
+    # each hands the list back, a map swap would hand back the announcements
+    # (#692; pins the each against a method_swap).
+    it "returns the unmatched files it announces in a partial --since mapping" do
+      result = Saboteur::Engine::TestGuess::Result.new(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"],
+                                                       subjectless: [], changed: 2,
+                                                       hints: { "lib/b.rb" => "spec/b_spec.rb" })
+      engine = described_class.new(Saboteur::Config.new({ "since" => "origin/main" }, root: @root), err: err)
+      expect(engine.send(:stop_or_warn_unmapped, result)).to eq(["lib/b.rb"])
+    end
+
     # The stop's message is built with the run's verbosity: under --verbose
     # the no-suite line carries the per-file expected-spec list (#692).
     it "passes verbose through to the full-run stop's message" do
