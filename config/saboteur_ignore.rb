@@ -408,10 +408,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CustomMap#glob_entry",
              reason: "equivalent: best is never empty, so != 1 and > 1 agree"
 
-  i.mutation "278670ade53a7881",
-             subject: "Saboteur::CustomMap#resolve",
-             reason: "equivalent: a spec with a backreference only validates under a Regexp key, where match is always present"
-
   i.mutation "ac6cf2cb71251211",
              subject: "Saboteur::IgnoreList.name_error_message",
              reason: "equivalent: a raised error always has backtrace locations"
@@ -848,7 +844,7 @@ Saboteur.ignore do |i|
              subject: "Saboteur::RefinementActivations.descend",
              reason: "equivalent: each vs map on a side-effect-only collect recursion; the collected array is discarded (live-probed)"
 
-  i.mutation "8b0aa5a480f5bf26",
+  i.mutation "d2d2cb9da8ecc4bc",
              subject: "Saboteur::SubjectFinder#walk_call",
              reason: "equivalent: sig_span: nil restates the keyword default in Subject#initialize (subject.rb:42-43); live-probed: the pair removal survives the subject and subject_finder specs"
 
