@@ -1,6 +1,6 @@
 # saboteur vs mutineer: small-scale benchmark report
 
-Date: 2026-10-10 (IST). saboteur 2b6ec02 (frozen), mutineer 1.6.0.
+Date: 2026-10-10 (IST). saboteur 0.1.0 (commit 2b6ec02, frozen), mutineer 1.6.0.
 Apple M3 Max, 14 cores, 36 GB, macOS 14.3. Ruby 3.4.3 (gems,
 human-essentials) and 4.0.0 (lobsters).
 

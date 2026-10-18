@@ -151,7 +151,7 @@ td.feat{font-family:inherit;font-size:.93rem;color:var(--muted)}
 <div class="table-wrap"><table>
 <thead><tr><th></th><th>saboteur</th><th>mutineer</th></tr></thead>
 <tbody>
-<tr><td class="feat">Latest gem on RubyGems</td><td>0.7.0 (16 October 2026)</td><td>1.6.0 (8 October 2026)</td></tr>
+<tr><td class="feat">Latest gem on RubyGems</td><td>0.8.0 (18 October 2026)</td><td>1.6.0 (8 October 2026)</td></tr>
 <tr><td class="feat">License</td><td>MIT</td><td>MIT</td></tr>
 <tr><td class="feat">Ruby required</td><td>3.3 or newer</td><td>3.4 or newer</td></tr>
 <tr><td class="feat">Test frameworks</td><td>RSpec only, by design</td><td>Minitest (default) and RSpec</td></tr>
@@ -201,7 +201,7 @@ td.feat{font-family:inherit;font-size:.93rem;color:var(--muted)}
 <h3>Where saboteur puts its effort</h3>
 <ul>
 <li><strong>RSpec-only, done properly.</strong> One framework lets the coverage map tie each method to the exact examples that cover it, so each mutant reruns only those. <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/minitest.md">Why no Minitest</a>.</li>
-<li><strong>Verified kills.</strong> Every kill is re-checked against the unchanged code; a kill the suite cannot confirm is rejected and stays out of the score. See <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/rejected-kills.md">rejected kills</a>.</li>
+<li><strong>Verified kills.</strong> Every fresh kill is re-checked against the unchanged code; a kill the suite cannot confirm is rejected and stays out of the score. Timeout checks, other errors and cached kills reused by <code>--incremental</code> are not re-checked. See <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/rejected-kills.md">rejected kills</a>.</li>
 <li><strong>Built for pull requests.</strong> The <code>pr</code> preset scopes the run to changed methods with a 10-minute budget, and the GitHub Action runs advisory by default on every pull request.</li>
 <li><strong>Safety controls.</strong> A hazard guard, canary values, and time, memory and process-count limits on every mutant; a Landlock sandbox on Linux 6.2 and newer.</li>
 <li><strong>Made for agents.</strong> A stable agent JSON output with a documented <a href="https://github.com/vamsipavanmahesh/saboteur/blob/main/docs/stability.md">deprecation policy</a>.</li>
