@@ -1431,6 +1431,125 @@ RSpec.describe Saboteur::Engine::TestGuess do
     write("lib/rubocop/ast/node/block_node.rb", changed_source)
     result = guess
     expect(result.specs).to eq(["spec/rubocop/ast/block_node_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # A spec tree can strip directories the convention keeps: aasm tests
+  # lib/aasm/core/invokers/proc_invoker.rb in
+  # spec/unit/invokers/proc_invoker_spec.rb, dropping the aasm and core
+  # segments and adding a unit/ prefix (#600). All four specs commit the
+  # spec files, so the changed-spec pickup cannot mask which one the
+  # guess itself names.
+  it "finds a spec whose tree strips nested namespace directories (#600)" do
+    write("lib/aasm/core/invokers/proc_invoker.rb", base_source)
+    write("spec/unit/invokers/proc_invoker_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "nested strip layout")
+    write("lib/aasm/core/invokers/proc_invoker.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/unit/invokers/proc_invoker_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # The parent directory and basename are the only anchor such layouts
+  # keep: two matches make the layout ambiguous, and a wrong guess runs
+  # the wrong specs, which reads as a false verdict - worse than the
+  # stop, whose near-miss hint then names the candidates.
+  it "stops and names the candidates when two specs share the parent dir and basename (#600)" do
+    write("lib/x/core/y/z.rb", base_source)
+    write("spec/unit/y/z_spec.rb")
+    write("spec/other/y/z_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "ambiguous layout")
+    write("lib/x/core/y/z.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq([])
+    expect(result.unmatched).to eq(["lib/x/core/y/z.rb"])
+    expect(result.unmatched_message).to include(
+      "lib/x/core/y/z.rb (expected spec/x/core/y/z_spec.rb; found: spec/other/y/z_spec.rb, spec/unit/y/z_spec.rb)"
+    )
+  end
+
+  # The anchor is the parent directory and the basename together, never
+  # the basename alone: a lone same-basename spec stays a near-miss
+  # hint, not a guess.
+  it "does not guess a same-basename spec without the parent directory (#600)" do
+    write("lib/shop.rb", base_source)
+    write("spec/other/shop_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "basename only")
+    write("lib/shop.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq([])
+    expect(result.unmatched).to eq(["lib/shop.rb"])
+  end
+
+  # The unique match qualifies under any prefix the tree uses, not only
+  # unit/: dry-validation keeps specs under spec/integration (#600).
+  it "finds a unique spec under an arbitrary prefix with the parent dir and basename (#600)" do
+    write("lib/x/y/z.rb", base_source)
+    write("spec/integration/y/z_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "integration layout")
+    write("lib/x/y/z.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/integration/y/z_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # Only the full parent-directory-plus-basename suffix anchors the
+  # guess: a same-basename spec under a different parent does not
+  # compete with the real match (#600).
+  it "anchors on the parent directory, not the basename alone (#600)" do
+    write("lib/x/core/y/z.rb", base_source)
+    write("spec/unit/y/z_spec.rb")
+    write("spec/other/w/z_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "same basename, different parents")
+    write("lib/x/core/y/z.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/unit/y/z_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # The search stays inside the file's own pack: a pack spec root is the
+  # pack's spec directory, never the app-wide one (#600).
+  it "finds a stripped-layout spec inside the file's own pack (#600)" do
+    write("packs/billing/package.yml", "enforce_dependencies: true\n")
+    write("packs/billing/lib/core/invokers/proc_invoker.rb", base_source)
+    write("packs/billing/spec/unit/invokers/proc_invoker_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "pack with stripped layout")
+    write("packs/billing/lib/core/invokers/proc_invoker.rb", changed_source)
+    result = guess(include: ["packs/**/*.rb"])
+    expect(result.specs).to eq(["packs/billing/spec/unit/invokers/proc_invoker_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # A file outside the source roots keeps its literal guess only: the
+  # suffix anchor would guess any same-named spec (#600).
+  it "refuses a suffix guess for a file outside the source roots (#600)" do
+    write("vendor/a/b/c.rb", base_source)
+    write("spec/x/b/c_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "vendor layout")
+    write("vendor/a/b/c.rb", changed_source)
+    result = guess(include: ["vendor/**/*.rb"])
+    expect(result.specs).to eq([])
+    expect(result.unmatched).to eq(["vendor/a/b/c.rb"])
+  end
+
+  # A parent directory is data, not a pattern: glob metacharacters in it
+  # must match literally, or the unique match is silently lost (#600).
+  it "matches a parent directory with glob metacharacters literally (#600)" do
+    write("lib/x/core/y[1]/z.rb", base_source)
+    write("spec/unit/y[1]/z_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "metachar parent")
+    write("lib/x/core/y[1]/z.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/unit/y[1]/z_spec.rb"])
+    expect(result.unmatched).to eq([])
   end
 
   describe "Result#out_of_scope_message (#483)" do

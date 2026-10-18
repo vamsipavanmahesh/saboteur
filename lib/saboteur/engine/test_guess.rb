@@ -343,11 +343,15 @@ module Saboteur
       # --test without hunting (#370). Bounded; computed only for
       # unmatched files, which are about to stop or warn.
       def nearby_specs(file)
-        # The basename is data, not a pattern: [, ], {, }, ?, * and \ are
-        # glob metacharacters and must be escaped to match literally.
-        basename = File.basename(file, ".rb").gsub(/[\[\]{}?*\\]/) { |char| "\\#{char}" }
+        basename = escape_glob(File.basename(file, ".rb"))
         Dir.glob("spec/**/#{basename}_spec.rb", base: @root)
            .select { |path| File.file?(File.join(@root, path)) }.sort.first(3)
+      end
+
+      # A path segment is data, not a pattern: [, ], {, }, ?, * and \ are
+      # glob metacharacters and must be escaped to match literally.
+      def escape_glob(segment)
+        segment.gsub(/[\[\]{}?*\\]/) { |char| "\\#{char}" }
       end
 
       # lstat, not stat: a symlink can point anywhere, including a spec of
@@ -457,7 +461,10 @@ module Saboteur
         return expand_mapped(file, mapped) if mapped
 
         conventional = candidates_for(file).find { |path| File.file?(File.join(@root, path)) }
-        conventional && [conventional]
+        return [conventional] if conventional
+
+        unique = unique_suffix_spec(file)
+        unique && [unique]
       end
 
       # A mapped spec can be a glob (expanded against the root) or a regexp
@@ -538,6 +545,31 @@ module Saboteur
 
         path = name.delete_prefix("controllers/")
         ["requests/#{path}", "requests/#{path.delete_suffix('_controller')}"].uniq
+      end
+
+      # The last-resort guess when no named candidate exists (#600): a
+      # spec tree can strip directories the convention keeps - aasm tests
+      # lib/aasm/core/invokers/proc_invoker.rb in
+      # spec/unit/invokers/proc_invoker_spec.rb, dropping the aasm and
+      # core segments. The one anchor such a layout keeps is the file's
+      # parent directory and basename, so a spec under the spec root
+      # ending in that suffix is the guess - but only a unique one: a
+      # second match makes the layout ambiguous, and guessing would run
+      # the wrong specs, a false verdict worse than the stop, whose
+      # near-miss hint names the candidates. Only files under a source
+      # root with a real parent directory qualify: a bare basename can
+      # collide anywhere, so it stays a near-miss hint.
+      def unique_suffix_spec(file)
+        pack = pack_of(file)
+        stem = file.delete_prefix("#{pack}/").delete_suffix(".rb")
+        root_segment, _, name = stem.partition("/")
+        return nil unless SOURCE_ROOTS.include?(root_segment) && name.include?("/")
+
+        suffix = name.split("/").last(2).map { |segment| escape_glob(segment) }.join("/")
+        spec_root = pack ? "#{pack}/spec" : "spec"
+        matches = Dir.glob("#{spec_root}/**/#{suffix}_spec.rb", base: @root)
+                     .select { |path| File.file?(File.join(@root, path)) }.sort
+        matches.one? ? matches.first : nil
       end
 
       # The nearest ancestor directory holding a package.yml (a packwerk
