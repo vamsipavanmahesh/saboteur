@@ -510,6 +510,10 @@ RSpec.describe Saboteur::MutationSource::HazardGuard, "#unvetted_load_code (#319
     expect(slices("Ctx = Struct.new(:x, keyword_init: build)\n"))
       .to eq(["Ctx = Struct.new(:x, keyword_init: build) (line 1)"])
     expect(slices("Ctx = Class.new\n")).to eq(["Ctx = Class.new (line 1)"])
+    # A **OPTS argument is an AssocSplatNode, not an AssocNode: the keyword
+    # guard must reject it as not-a-plain-bool, not reach for a #key it
+    # does not have (#537).
+    expect(slices("X = Struct.new(:a, **OPTS)\n")).to eq(["X = Struct.new(:a, **OPTS) (line 1)"])
     expect(slices("Ctx = Struct.define(:x)\n")).to eq(["Ctx = Struct.define(:x) (line 1)"])
     expect(slices("Ctx = Data.new(:x)\n")).to eq(["Ctx = Data.new(:x) (line 1)"])
   end
