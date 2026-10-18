@@ -67,6 +67,8 @@ module Saboteur
         rails&.before_boot
         @hooks.run(:before_boot)
         add_spec_to_load_path
+        # Helpers may configure RSpec before the integration loads specs.
+        Integration::RSpec.new(@config).require_framework if @config["integration"] == "rspec"
         @config["require"].each { |file| require File.expand_path(file, @root) }
         integration = Integration.fetch(@config["integration"]).new(@config)
         integration.setup

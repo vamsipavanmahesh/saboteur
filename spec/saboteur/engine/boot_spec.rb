@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "open3"
+
 RSpec.describe Saboteur::Engine::Boot do
   describe ".refuse_recursion!" do
     it "refuses to start inside a saboteur child" do
@@ -147,6 +149,55 @@ RSpec.describe Saboteur::Engine::Boot do
       integration = instance_double(Saboteur::Integration::RSpec, setup: nil)
       allow(Saboteur::Integration).to receive(:fetch).and_return(double(new: integration))
       described_class.new(config, Saboteur::Hooks.new).load_target
+    end
+
+    it "loads RSpec core before a non-Rails helper without requiring it itself (#616)" do
+      Dir.mktmpdir do |dir|
+        helper = File.join(dir, "helper.rb")
+        File.write(helper, "RSpec.configure { |c| c.add_setting :boot_helper_loaded, default: true }\n")
+        script = <<~RUBY
+          require "saboteur"
+          require "saboteur/engine"
+          abort "RSpec was loaded before boot" if defined?(::RSpec)
+          class Saboteur::Integration::RSpec
+            def setup; end
+          end
+          config = Saboteur::Config.new({ "require" => [#{helper.dump}] }, root: #{dir.dump})
+          Saboteur::Engine::Boot.new(config, Saboteur::Hooks.new).load_target
+          abort "helper did not run" unless RSpec.configuration.boot_helper_loaded
+        RUBY
+        out, err, status = Open3.capture3(RbConfig.ruby, "-I", File.expand_path("../../../lib", __dir__), "-e", script)
+        expect(status.success?).to be(true), "#{out}#{err}"
+      end
+    end
+
+    it "requires the framework before loading configured files in this process (#616)" do
+      Dir.mktmpdir do |dir|
+        helper = File.join(dir, "helper.rb")
+        File.write(helper, "# boot helper\n")
+        config = Saboteur::Config.new({ "require" => [helper] }, root: dir)
+        integration = instance_double(Saboteur::Integration::RSpec, setup: nil)
+        allow(Saboteur::Integration::RSpec).to receive(:new).with(config).and_return(integration)
+        expect(integration).to receive(:require_framework).ordered
+        expect(integration).to receive(:setup).ordered
+        begin
+          described_class.new(config, Saboteur::Hooks.new).load_target
+        ensure
+          $LOAD_PATH.delete(File.join(File.realpath(dir), "spec"))
+        end
+      end
+    end
+
+    it "does not require RSpec for another integration (#616)" do
+      Dir.mktmpdir do |dir|
+        config = Saboteur::Config.new({ "integration" => "custom" }, root: dir)
+        expect(Saboteur::Integration::RSpec).not_to receive(:new)
+        begin
+          boot_with(config, dir)
+        ensure
+          $LOAD_PATH.delete(File.join(File.realpath(dir), "spec"))
+        end
+      end
     end
 
     # rspec puts spec/ on the load path, so a boot file under spec/ (a
