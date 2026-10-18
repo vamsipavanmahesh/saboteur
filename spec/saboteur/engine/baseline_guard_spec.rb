@@ -219,6 +219,30 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       diagnostics.warnings.join("\n")
     end
 
+    it "matches only a line-start require with separating whitespace" do
+      ["  require   'minitest'\n", "require 'minitest'\n"].each do |text|
+        write_helper(text)
+        expect(guard.send(:spec_helper_requires_minitest?)).to be(true)
+      end
+      ["# require 'minitest'\n", "x = 1; require 'minitest'\n", "require'minitest'\n"].each do |text|
+        write_helper(text)
+        expect(guard.send(:spec_helper_requires_minitest?)).to be(false)
+      end
+    end
+
+    [1, 2].each do |count|
+      it "pins the full Minitest warning for #{count} errors" do
+        write_helper("require 'minitest'\n")
+        write_failure_log("NoMethodError: boom\n" * count)
+        expect(failing_run_output).to eq(
+          "the baseline failure looks like a Minitest suite running under RSpec, not a " \
+          "broken RSpec suite: the log shows #{count} NoMethodError#{'s' if count == 2} " \
+          "(for example: NoMethodError: boom) and spec/spec_helper.rb requires minitest. " \
+          "saboteur is RSpec-only, so a Minitest suite cannot be mutation tested with it."
+        )
+      end
+    end
+
     # rack-test's suite is Minitest::Spec in *_spec.rb files: it loads
     # under the RSpec integration and the baseline fails with
     # NoMethodError for Minitest-only methods, which reads like a broken

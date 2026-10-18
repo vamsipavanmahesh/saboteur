@@ -39,6 +39,13 @@ RSpec.describe Saboteur::Engine::TestGuess do
     git("commit", "-q", "-m", "base")
   end
 
+  it "flattens three segments without retaining the unchanged namespace path" do
+    config = Saboteur::Config.new({}, root: dir)
+    guesser = described_class.new(config)
+    expect(guesser.send(:flattened_below_namespace, ["rack/test/methods"]))
+      .to eq(["rack/methods"])
+  end
+
   it "warns through its diagnostics when untracked files cannot be opened race-free" do
     write("lib/new.rb", base_source)
     diagnostics = instance_double(Saboteur::Engine::Diagnostics)
