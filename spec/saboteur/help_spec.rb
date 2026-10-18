@@ -81,7 +81,7 @@ RSpec.describe Saboteur::Help do
   end
 
   it "documents the preset flag bundles and the budget exit code (#244, #245)" do
-    expect(help.command("pr")).to include("--baseline-passes 1 --max-duration 10m --max-duration-ok")
+    expect(help.command("pr")).to include("--baseline-passes 1 --max-duration 10m")
     expect(help.command("audit")).to include("--json .saboteur/audit-report.json")
     expect(help.command("audit")).to include("--html .saboteur/audit-report.html")
     expect(overview).to include("  4  Time budget spent: --max-duration stopped the run")

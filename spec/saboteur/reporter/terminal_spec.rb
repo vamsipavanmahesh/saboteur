@@ -201,6 +201,15 @@ RSpec.describe Saboteur::Reporter::Terminal do
     text = render(report)
     expect(text).to include("stopped early (--fail-fast): 2 selected subjects did not run",
                             "not run: A#x", "not run: B#y")
+    expect(text).not_to include("partial:")
+  end
+
+  it "names an unknown plan when the budget stops before planning (#654)" do
+    stop = Saboteur::EarlyStop.new(reason: "max_duration", unreached: [person_subject.id],
+                                   truncated: [], unverified: [])
+    report = Saboteur::Report.new(results: [], subjects: [person_subject], wall_time: 1,
+                                  root: File.dirname(person_subject.file), early_stop: stop)
+    expect(render(report)).to include("partial: mutant count unknown; the budget was spent before planning finished")
   end
 
   it "points at the mutated line, not the def line" do

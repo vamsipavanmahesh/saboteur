@@ -13,7 +13,7 @@ is about making it a CI job and reading what the job says.
 
 The whole job is one command. The `pr` preset bundles the pull-request
 defaults: changed methods only, one baseline pass, a ten-minute wall-clock
-budget that reports partial evidence instead of failing the build.
+budget. A budget stop exits 4 and reports partial evidence.
 
 ```yaml
 # .github/workflows/saboteur.yml (the hand-written version; the Action below is shorter)
@@ -80,7 +80,7 @@ bundle exec saboteur pr origin/master --test spec/models/authors_sidebar_spec.rb
 ```
 
 ```
-saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m --max-duration-ok --since origin/master (explicit flags override)
+saboteur: preset 'pr': --baseline-passes 1 --max-duration 10m --since origin/master (explicit flags override)
 ...
 saboteur 0.7.0: 2 subjects, 12 mutants, wall 9.97 s, seed 1 (repeat with --seed 1)
 killed 8  survived 4  timeout 0  resource limit 0  error 0  skipped 0
@@ -124,9 +124,10 @@ replacing the predicate with `true`, or `>=` with `==`, goes unnoticed.
   survivors on the PR, and can [fail on new
   survivors](../github-action.md#failing-on-new-survivors-with-a-baseline)
   when you are ready to enforce.
-- **Budget is not a failure:** the preset's `--max-duration-ok` means a run
-  cut off at ten minutes reports partial evidence (`partial`, score over
-  what ran) instead of a red build.
+- **Budget stops fail by default:** a run cut off at ten minutes exits 4
+  and prints `partial: X of Y mutants not run` (or says the count is unknown
+  if planning did not finish). Pass `--max-duration-ok` explicitly to use
+  the ordinary verdict instead; the warning and other failure gates stay.
 
 Either way the JSON and HTML reports land in `.saboteur/` on the runner;
 upload them as artifacts or let the Action publish them. Cache `.saboteur/`

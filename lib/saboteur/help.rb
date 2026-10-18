@@ -72,13 +72,12 @@ module Saboteur
       Command.new(
         name: "pr",
         summary: "Preset: the fast pull-request loop over the lines changed since a ref",
-        description: "Expands to saboteur run --baseline-passes 1 --max-duration 10m --max-duration-ok " \
+        description: "Expands to saboteur run --baseline-passes 1 --max-duration 10m " \
                      "--since REF, with REF the first operand (default main): one baseline check, a " \
                      "ten-minute wall-clock budget, and mutants limited to the changed methods. The " \
-                     "preset opts out of the budget-specific exit 4; the normal and incomplete " \
-                     "verdicts still fail the run (survivors exit 1, a budget stop before any mutant " \
-                     "ran exits 3). Every run option still works; an explicit flag after the preset " \
-                     "wins (#244).",
+                     "preset fails with exit 4 when the budget is spent; the summary counts the " \
+                     "unrun mutants. Add --max-duration-ok to accept a partial verdict; other " \
+                     "gates still apply. Every run option still works; explicit flags win (#654).",
         takes_options: true,
         exit_codes: EXIT_CODE_MEANINGS,
         examples: [["Changed lines since main", "saboteur pr"],

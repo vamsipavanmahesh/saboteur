@@ -10,12 +10,13 @@ module Saboteur
       private
 
       # The subjects a stop left unrun or mid-way: the verdict covers less than the selection.
-      def record_early_stop(distribution)
+      def record_early_stop(distribution, planned_mutants: nil)
         return if distribution.unreached.empty? && distribution.truncated.empty? && distribution.unverified.empty?
 
         truncated = distribution.truncated.map { |subject, omitted| { subject: subject.id, omitted: omitted } }
         @early_stop = EarlyStop.new(reason: stop_reason(distribution), unreached: distribution.unreached.map(&:id),
-                                    truncated: truncated, unverified: distribution.unverified.map(&:id))
+                                    truncated: truncated, unverified: distribution.unverified.map(&:id),
+                                    planned_mutants: planned_mutants)
       end
 
       # Mid-subject omissions and skipped checks are budget work: only a

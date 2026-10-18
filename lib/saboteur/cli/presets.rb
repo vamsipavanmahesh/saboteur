@@ -4,12 +4,12 @@
 module Saboteur
   class CLI
     # Opinionated bundles (#244): pr is the fast changed-lines loop (one
-    # baseline check, a 10-minute budget that does not fail the build),
+    # baseline check, a 10-minute budget that fails an incomplete run),
     # audit is the whole project with both reports. Preset flags go first,
     # so an explicit flag after them wins on the usual last-flag rule.
     module Presets
       PRESETS = {
-        "pr" => %w[--baseline-passes 1 --max-duration 10m --max-duration-ok],
+        "pr" => %w[--baseline-passes 1 --max-duration 10m],
         "audit" => %w[--all --operators all --baseline-passes 2 --json .saboteur/audit-report.json
                       --html .saboteur/audit-report.html]
       }.freeze
