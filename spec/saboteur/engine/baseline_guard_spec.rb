@@ -268,6 +268,39 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     it "stays silent with neither a spec_helper nor a log to read" do
       expect(failing_run_output).not_to include("Minitest")
     end
+
+    # Message-content pins (#626 v2): the count, its pluralization and
+    # the quoted symptom are the actionable parts of the warning.
+    it "uses the singular for one NoMethodError (#626)" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log("Failures:\n  1) a\n     NoMethodError:\n       undefined method `x' for #<a>\n")
+      output = failing_run_output(failed: %w[t1])
+      expect(output).to include("1 NoMethodError")
+      expect(output).not_to include("1 NoMethodErrors")
+    end
+
+    it "quotes the first undefined-method line, not the error header (#626)" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log(<<~LOG)
+        Failures:
+          1) a
+             NoMethodError:
+               undefined method `custom_request' for #<a>
+      LOG
+      expect(failing_run_output(failed: %w[t1])).to include("(for example: undefined method `custom_request' for #<a>)")
+    end
+
+    it "falls back to the first NoMethodError line when no line says undefined method (#626)" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log(<<~LOG)
+        Failures:
+          1) a
+             NoMethodError: boom one
+          2) b
+             NoMethodError: boom two
+      LOG
+      expect(failing_run_output(failed: %w[t1 t2])).to include("(for example: NoMethodError: boom one)")
+    end
   end
 
   describe "the failure detail printed inline" do
