@@ -136,7 +136,7 @@ module Saboteur
       return if guess.changed.zero?
 
       inform_skipped_specs(guess)
-      raise ConfigError, guess.unmatched_message if guess.unmatched.any?
+      raise ConfigError, guess.unmatched_message(verbose: @diagnostics.verbose) if guess.unmatched.any?
 
       @diagnostics.inform(guess.excluded_message) if guess.excluded.any?
       # Every file in scope intentionally untested: mutate nothing. An

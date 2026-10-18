@@ -26,7 +26,9 @@ module Saboteur
       # a gated run keep the hard stop.
       def stop_or_warn_unmapped(guess)
         return if guess.unmatched.empty?
-        raise ConfigError, guess.unmatched_message if !config["since"] || guess.specs.empty? || gated?
+        if !config["since"] || guess.specs.empty? || gated?
+          raise ConfigError, guess.unmatched_message(verbose: @diagnostics.verbose)
+        end
 
         guess.unmatched.each { |file| @diagnostics.announce(guess.unmatched_warning(file)) }
       end
