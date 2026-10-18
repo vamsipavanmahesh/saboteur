@@ -22,6 +22,7 @@ module Saboteur
         "filter_replacement" => "xs.select { |x| x } -> xs.reject { |x| x }",
         "literal_string" => "\"hello\" -> \"\"",
         "literal_boolean" => "true -> false",
+        "argument_swap" => "send(a, b) -> send(b, a)",
         "argument_removal" => "send(a, b) -> send(a)",
         "pair_removal" => "{a: 1, b: 2} -> {b: 2}",
         "element_removal" => "TAGS = [a, b] -> TAGS = [b]",

@@ -29,6 +29,7 @@ module Saboteur
         "filter_replacement" => "Swap select and reject",
         "literal_string" => "Empty a string literal",
         "literal_boolean" => "Swap a boolean literal",
+        "argument_swap" => "Swap two positional call arguments",
         "argument_removal" => "Remove a call argument",
         "pair_removal" => "Remove a hash pair",
         "element_removal" => "Remove an element of a constant array literal",

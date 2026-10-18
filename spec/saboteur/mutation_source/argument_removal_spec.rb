@@ -121,13 +121,14 @@ RSpec.describe Saboteur::MutationSource::ArgumentRemoval do
 
   it "appends ordinary argument proposals after existing builtin proposals" do
     subject = subject_for("model.includes(:a, :b)")
-    found = Saboteur::MutationSource::Builtin.new.mutations_for(subject)
+    found = Saboteur::MutationSource::Builtin.new(exclude_operators: ["argument_swap"]).mutations_for(subject)
     expect(found.last(2).map(&:operator)).to eq(%w[argument_removal argument_removal])
   end
   it "passes through the normal coarse-first per-method cap" do
     subject = subject_for("model.includes(:a, :b)")
     diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
-    candidates = Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new], diagnostics)
+    builtin = Saboteur::MutationSource::Builtin.new(exclude_operators: ["argument_swap"])
+    candidates = Saboteur::Engine::Candidates.new([builtin], diagnostics)
     all = candidates.for(subject)
     map = Saboteur::Selection::CoverageMap.new(lines: { subject.file => { 3 => ["t1"] } }, tests: ["t1"])
     limit = all.size - 1

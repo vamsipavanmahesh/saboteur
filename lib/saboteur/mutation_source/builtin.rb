@@ -6,6 +6,7 @@ require_relative "base"
 require_relative "filter_replacement"
 require_relative "literal_replacement"
 require_relative "argument_removal"
+require_relative "argument_swap"
 require_relative "chain_removal"
 require_relative "pair_removal"
 require_relative "element_removal"
@@ -65,6 +66,7 @@ module Saboteur
         @filter_replacement = FilterReplacement.new(arid: arid)
         @literal_replacement = LiteralReplacement.new(arid: arid)
         @argument_removal = ArgumentRemoval.new(arid: arid)
+        @argument_swap = ArgumentSwap.new(arid: arid)
         @pair_removal = PairRemoval.new(arid: arid)
         @element_removal = ElementRemoval.new(arid: arid)
         @chain_removal = ChainRemoval.new(arid: arid)
@@ -100,7 +102,7 @@ module Saboteur
         [@filter_replacement, @literal_replacement, @argument_removal, @pair_removal, @element_removal,
          @chain_removal,
          @endpoint_replacement, @range_replacement, @operator_assignment, @condition_negation,
-         @method_swap, @operand_replacement, @interpolation_removal, @regex_replacement]
+         @method_swap, @operand_replacement, @interpolation_removal, @regex_replacement, @argument_swap]
       end
 
       private
