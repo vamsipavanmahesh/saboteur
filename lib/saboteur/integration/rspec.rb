@@ -10,7 +10,7 @@ module Saboteur
     # reporter, so nothing is printed and no status file is written.
     class RSpec < Base
       def setup
-        require "rspec/core"
+        require_framework
         ::RSpec::Core::Runner.disable_autorun!
         @runner = ::RSpec::Core::Runner.new(configuration_options)
         load_output = SetupOutputCapture.new($stdout)
@@ -35,7 +35,7 @@ module Saboteur
       # option value such as `--require spec_helper` from passing as a path,
       # and a --default-path from .rspec wins over "spec".
       def rspec_args
-        require "rspec/core"
+        require_framework
         args = Array(config.fetch("rspec_args", []))
         options = ::RSpec::Core::ConfigurationOptions.new(args).options
         Array(options[:files_or_directories_to_run]).empty? ? args + [options[:default_path] || "spec"] : args
@@ -63,7 +63,7 @@ module Saboteur
       # not seen. RSpec resolves patterns against the working directory, so
       # this reads from the root.
       def configured_spec_files(root)
-        require "rspec/core"
+        require_framework
         from_directory(root) do
           options = ::RSpec::Core::ConfigurationOptions.new(rspec_args).options
           configuration = ::RSpec::Core::Configuration.new
@@ -76,6 +76,21 @@ module Saboteur
           prefix = Text.utf8_identity(File.join(Dir.pwd, ""))
           configuration.files_to_run.map { |file| Text.utf8_identity(file).delete_prefix(prefix) }
         end
+      end
+
+      # A missing rspec-core is the target's setup error, not a saboteur
+      # defect (#482): refuse with the remedy instead of crashing into the
+      # internal-error report. Only the framework's own LoadError converts -
+      # matched on the failed feature, not the message, so a missing
+      # rspec/core_ext does not pose as rspec/core; a LoadError the app's
+      # files raise keeps the crash route.
+      def require_framework
+        require "rspec/core"
+      rescue LoadError => e
+        raise unless e.path == "rspec/core"
+
+        raise Error, "rspec is not in the bundle: the RSpec integration needs the rspec-core gem. " \
+                     "Add it to the bundle's test group (or point c.integration at the suite's framework)"
       end
 
       def all_tests

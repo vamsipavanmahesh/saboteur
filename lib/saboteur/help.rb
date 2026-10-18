@@ -25,7 +25,9 @@ module Saboteur
       2 => "Usage or configuration error: fix the command or config/saboteur.rb. A replay --id that matches no " \
            "mutant is only found after the target has booted. A named source or test file that does not exist.",
       3 => "Tool error: saboteur could not finish, or more than half of the executed mutants errored (such " \
-           "a run tested almost nothing). With --threshold, also any errored or resource-limited mutant.",
+           "a run tested almost nothing), or a --since run skipped every subject of the change (for example " \
+           "refinements or no coverage), so the change is unverified. With --threshold, also any errored or " \
+           "resource-limited mutant.",
       4 => "Time budget spent: --max-duration stopped the run before the next subject, so the score is " \
            "partial. --max-duration-ok leaves the exit to the plain verdict: 0, 1, or 3 when the budget " \
            "stopped the run before any mutant was tested."
@@ -130,6 +132,22 @@ module Saboteur
                    ["Check fresh outcomes", "saboteur baseline check --baseline baseline.json"],
                    ["Also fail on a score drop of more than 2 points",
                     "saboteur baseline check --baseline baseline.json --epsilon 2"]]
+      ),
+      Command.new(
+        name: "survivors",
+        summary: "Browse a report's survivors in the terminal, read-only",
+        description: "Reads the Stryker JSON report without booting the project or rerunning tests. " \
+                     "Lists every survivor with rank, file, line, operator, digest and triage label; " \
+                     "filters with --file, --operator and --triage; --ranked uses the report's ranked " \
+                     "findings order. --show DIGEST prints the diff, the exact replay command and an " \
+                     "ignore-file entry template for that mutant. It never edits the ignore file.",
+        takes_options: false,
+        exit_codes: { 0 => "Survivors listed or shown (including none).",
+                      2 => "Missing, malformed or unreadable report; bad arguments." },
+        examples: [["List survivors from the last run", "saboteur survivors .saboteur/report.json"],
+                   ["Review-priority order", "saboteur survivors .saboteur/report.json --ranked"],
+                   ["Diff, replay command and ignore template for one mutant",
+                    "saboteur survivors .saboteur/report.json --show 1a2b3c4d5e6f7a8b"]]
       ),
       Command.new(
         name: "badge",

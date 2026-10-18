@@ -3,6 +3,14 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "54845ce72e86f30a",
+             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
+             reason: "equivalent: Subject#to_s returns the id, so join renders the subjects the same without map(&:id)"
+
+  i.mutation "a3766004f0709c6f",
+             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
+             reason: "equivalent: each returns the array itself and join calls Subject#to_s, which returns the id"
+
   i.mutation "4431382aefb4312a",
              subject: "Saboteur::CLI::HistoryCommand#history_path",
              reason: "equivalent: UsageError < ConfigError, so the or-raise is caught by the method's own " \
@@ -207,10 +215,6 @@ Saboteur.ignore do |i|
   i.mutation "a7573a705c635da0",
              subject: "Saboteur::MutationSource::Builtin#rescues_everything?",
              reason: "equivalent: nil and false are both falsy for the caller"
-
-  i.mutation "e962119c0314fa3d",
-             subject: "Saboteur::MutationSource::Builtin#visit_statements",
-             reason: "equivalent: the loop never sees an empty sequence, so != 1 and > 1 agree"
 
   i.mutation "4cc9db1f1c23f253",
              subject: "Saboteur::MutationSource::Builtin#mutate_call",
@@ -735,9 +739,25 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#define_method_subject?",
              reason: "equivalent: the size == 1 guard above means first and last are the same argument"
 
-  i.mutation "1bb4f84260161fd2",
+  i.mutation "907c77941a63c124",
              subject: "Saboteur::Subject#body_node",
-             reason: "equivalent: the finder only builds a define_method subject when node.block is a BlockNode, so the safe navigation never nil-guards"
+             reason: "equivalent: CallNode subjects come only from walk_call after call_defined_method? passed, whose literal_name? guard reads node.arguments&.arguments&.first, so node.arguments is never nil here (live-probed: driven against the subject specs under full body_node coverage)"
+
+  i.mutation "e548f0a66ab5e680",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: the literal_name? gate in call_defined_method? makes node.arguments non-nil for every CallNode subject, so the arguments array is always present and the second safe navigation never fires (live-probed)"
+
+  i.mutation "807b99fc346c595d",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: Prism::ArgumentsNode#find enumerates the same argument nodes as #arguments.find - on `scope :x, -> { 1 }` both return the identical LambdaNode (live-probed) - and node is the subject's own node, never nil"
+
+  i.mutation "f9d3343f983e9d61",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: Prism::ArgumentsNode#find enumerates the same nodes as #arguments.find (live-probed identical LambdaNode), and node.arguments is non-nil via the literal_name? gate in call_defined_method?"
+
+  i.mutation "8a1aa6eb90d0c1d1",
+             subject: "Saboteur::Subject#body_node",
+             reason: "equivalent: call_defined_method? admits define_method only with a BlockNode block and scope/define_singleton_method only with a LambdaNode argument or a block, so (lambda || node.block) is never nil for a subject (live-probed)"
 
   i.mutation "9a5e01816b209349",
              subject: "Saboteur::SubjectFinder#walk_statements",
@@ -747,17 +767,9 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk_children",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
 
-  i.mutation "4aded400397da9fe",
+  i.mutation "8b0aa5a480f5bf26",
              subject: "Saboteur::SubjectFinder#walk_call",
-             reason: "equivalent: || false only normalizes nil to false; in_sclass is used in truthiness contexts only"
-
-  i.mutation "d9a37d21f9adda1c",
-             subject: "Saboteur::SubjectFinder#walk_call",
-             reason: "equivalent: define_method_subject? accepts exactly one argument, so first and last are the same"
-
-  i.mutation "51ecbca80e966840",
-             subject: "Saboteur::SubjectFinder#walk_call",
-             reason: "equivalent: sig_span: nil restates the keyword default in Subject#initialize"
+             reason: "equivalent: sig_span: nil restates the keyword default in Subject#initialize (subject.rb:42-43); live-probed: the pair removal survives the subject and subject_finder specs"
 
   i.mutation "51495f10ee14f096",
              subject: "Saboteur::SubjectFinder#walk",
@@ -767,6 +779,41 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
+  i.mutation "fd1253fb224794ff",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; dropping the size guard changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "7955f85bfb432312",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size >= 1 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "17068564717dfd5d",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size != 1 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "50e206442fdad447",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size > 0 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "1734bd1a82e156ea",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; a bare size (always truthy) changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "f719923d733c3339",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; a bare 1 (always truthy) changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
   i.mutation "ce91efaab8362061",
              subject: "Saboteur::ConstantReads#walk_scope",
              reason: "equivalent: shadowed's only non-nil assignment is guarded by path != scopes.first and scopes " \
@@ -928,6 +975,7 @@ Saboteur.ignore do |i|
   i.mutation "d5995bea5d0f1b12",
              subject: "Saboteur::Engine::GatedRun#stop_or_warn_unmapped",
              reason: "equivalent: each and map both announce every unmatched file's warning; the collected array is discarded - the method's return value is unused by its only caller, report_unmapped"
+
   i.mutation "4cde174a623048a8",
              subject: "Saboteur::Engine::Scheduler#retried_in_defined_order",
              reason: "equivalent: covered_by entries are non-nil test id strings, so all? is true exactly when any? is " \
@@ -1137,4 +1185,33 @@ Saboteur.ignore do |i|
              reason: "equivalent: dropping the unmatched.empty? check leaves select running on an empty list, " \
                      "which returns [] exactly like the early return"
 
+  i.mutation "18a3dccbcb3e3f87",
+             subject: "Saboteur::CLI::SurvivorsBrowser#all_survivors",
+             reason: "equivalent: the memoized list is a pure function of @report, so dropping ||= for = only " \
+                     "recomputes the same value on repeat calls - hand-applied mutant leaves all 16 browser " \
+                     "pin examples green"
+
+  i.mutation "25001e3b3f1acb36",
+             subject: "Saboteur::CLI::SurvivorsBrowser#findings_by_digest",
+             reason: "equivalent: the memoized index is a pure function of @findings, so dropping ||= for = only " \
+                     "recomputes the same value on repeat calls - hand-applied mutant leaves all 16 browser " \
+                     "pin examples green"
+
+  i.mutation "8bc1d296bb4eea51",
+             subject: "Saboteur::CLI::SurvivorsBrowser#original_line",
+             reason: "equivalent on reachable inputs: the report entry's source is always a String and " \
+                     "String#to_s is identity - hand-applied mutant leaves all 16 browser pin examples green"
+
+  i.mutation "8cf9af2d9d2832d2",
+             subject: "Saboteur::CLI::SurvivorsBrowser#original_line",
+             reason: "equivalent on reachable inputs: the mutant's line always exists in the same entry's " \
+                     "source (both come from one report entry), so lines[i] is a String and its to_s is " \
+                     "identity - hand-applied mutant leaves all 16 browser pin examples green"
+
+  i.mutation "49370ec53fcedd1f",
+             subject: "Saboteur::CLI::SurvivorsBrowser#ranked_order",
+             reason: "digest is the final tie-break of the ranked sort key and only decides under a full " \
+                     "[rank, -coverage, path, line] tie; removing it leaves equal keys whose order Ruby's " \
+                     "sort_by leaves unspecified, which no deterministic spec can pin - hand-applied mutant " \
+                     "leaves all 16 browser pin examples green"
 end

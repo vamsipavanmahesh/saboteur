@@ -234,6 +234,30 @@ RSpec.describe Saboteur::Config do
     expect(config.included_files).to eq([File.join(@root, "lib", "real.rb")])
   end
 
+  # A dangling symlink matches Dir.glob but has no real path: it is not
+  # mutation source, so it is skipped instead of crashing the run (#503).
+  it "skips a dangling symlink in the include set instead of raising Errno::ENOENT" do
+    write("lib/ok.rb", "")
+    File.symlink("gone.rb", File.join(@root, "lib", "broken.rb"))
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "ok.rb")])
+  end
+
+  it "skips a self-referencing symlink and one that runs through a regular file" do
+    write("lib/ok.rb", "")
+    File.symlink("loop.rb", File.join(@root, "lib", "loop.rb"))
+    File.symlink("ok.rb/nope.rb", File.join(@root, "lib", "notdir.rb"))
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect(config.included_files).to eq([File.join(@root, "lib", "ok.rb")])
+  end
+
+  it "still raises when a regular file cannot be resolved" do
+    write("lib/ok.rb", "")
+    allow(File).to receive(:realpath).and_raise(Errno::EACCES)
+    config = described_class.new({ "include" => ["lib/**/*.rb"], "exclude" => [] }, root: @root)
+    expect { config.included_files }.to raise_error(Errno::EACCES)
+  end
+
   it "keeps the exact bytes of a non-UTF-8 file name losslessly (#231)" do
     bytes = "caf\xE9.rb".b
     FileUtils.mkdir_p(File.join(@root, "lib"))
@@ -408,6 +432,32 @@ RSpec.describe Saboteur::Config, "details" do
     expect { described_class.new({ "test_command" => "make test", "sandbox" => "strict" }) }
       .to raise_error(Saboteur::ConfigError, /sandbox "strict" cannot be honored/)
     expect(described_class.new({ "test_command" => "make test" })["test_command"]).to eq("make test")
+  end
+
+  it "rejects test_command combined with an active flaky_check, naming the missing scheduler (#476)" do
+    %w[survivors decisive].each do |mode|
+      expect { described_class.new({ "test_command" => "make test", "flaky_check" => mode }) }
+        .to raise_error(Saboteur::ConfigError,
+                        "test_command cannot be combined with flaky_check: an external run has no " \
+                        "in-process scheduler to rerun the decisive tests through")
+    end
+  end
+
+  # The allowed-mode guard pins both the rejection and the exact words: the
+  # CLI rejects bad modes, and a direct or file-loaded Config must too (#476).
+  it "rejects an unknown flaky_check mode with the allowed-modes message (#476)" do
+    expect { described_class.new({ "flaky_check" => "sometimes" }) }
+      .to raise_error(Saboteur::ConfigError, "flaky_check must be one of: off, survivors, decisive")
+
+    write("config/saboteur.rb", 'Saboteur.configure { |c| c.flaky_check = "sometimes" }')
+    expect { described_class.load(root: @root) }
+      .to raise_error(Saboteur::ConfigError, "flaky_check must be one of: off, survivors, decisive")
+  end
+
+  it "accepts every documented flaky_check mode (#476)" do
+    %w[off survivors decisive].each do |mode|
+      expect(described_class.new({ "flaky_check" => mode })["flaky_check"]).to eq(mode)
+    end
   end
 
   it "rejects a non-string test_command (#305 Architect)" do

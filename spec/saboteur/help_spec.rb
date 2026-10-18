@@ -20,8 +20,8 @@ RSpec.describe Saboteur::Help do
                            "EXAMPLES",
                            "EXIT CODES (saboteur run)", "EXIT CODES (saboteur pr)", "EXIT CODES (saboteur audit)",
                            "EXIT CODES (saboteur doctor)",
-                           "EXIT CODES (saboteur baseline)", "EXIT CODES (saboteur badge)",
-                           "EXIT CODES (saboteur trend)",
+                           "EXIT CODES (saboteur baseline)", "EXIT CODES (saboteur survivors)",
+                           "EXIT CODES (saboteur badge)", "EXIT CODES (saboteur trend)",
                            "CONFIG FILE (config/saboteur.rb)", "FILES"])
   end
 

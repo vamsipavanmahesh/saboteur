@@ -8,6 +8,16 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `saboteur survivors <report.json>` (#475): a read-only terminal browser
+  for the Stryker JSON report - list and filter survivors (with the
+  ranked-findings order available via `--ranked`), and `--show DIGEST`
+  prints the diff, the exact replay command and an ignore-file entry
+  template. It never boots the project or edits the ignore file.
+- `--flaky-check survivors|decisive` (#476): one reordered confirmation
+  rerun per new survivor (and per fresh kill in `decisive` mode). A
+  verdict the confirmation disagrees with becomes `unverified` - named
+  with its decisive tests, outside the score, never retried until it
+  passes.
 - `saboteur badge` writes Shields endpoint JSON from the opt-in score
   history and `saboteur trend` prints the covered-score delta against the
   last comparable record (#474). A README badge needs no hosted service:
@@ -51,6 +61,11 @@ All notable changes are documented here. The format follows
   min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
   validated at load (min_score 0-100, pattern must match an included file).
   Enforcement lands with slice 2 (#570).
+- Per-path score gates are enforced (#473, slice 2): each `score_gate`
+  subtree from slice 1 (#565) is scored with the run's own formula. A gate under its floor fails the run like the
+  count gates (`scoreGate` cause in the JSON report); a gate with nothing
+  executed under it passes vacuously and says so. Score gates cannot combine
+  with `--agent`, like `--threshold`.
 - Peak-memory measurement (#202, slice 1): each worker reports its kernel
   peak RSS (VmHWM) when it retires, and the JSON report records it under
   `saboteur.memory` as per-worker `peakMb` values plus the supervisor's own
@@ -70,6 +85,46 @@ All notable changes are documented here. The format follows
   the matched count.
 
 ### Fixed
+
+- `scope :name, -> { ... }` and `define_singleton_method` bodies are now
+  subjects (#194): the human-essentials dogfood showed a scope's lambda
+  going unmutated. The call is a singleton subject of the enclosing owner;
+  the lambda or block body mutates, and re-evaluating the whole call
+  re-registers the method.
+- An arid statement (a logging or instrumentation call) whose block carries
+  real work is now mutated inside the block (#464). The walk used to skip
+  the whole statement, so a method like one wrapped in
+  `Notifications.instrument ... do |payload| ... end` produced only the
+  coarse `body_raise` and no statement_removal, boolean_logic or other
+  fine mutants on the changed lines. The block body is walked like any
+  other, and such a statement also keeps the method out of the
+  nothing-to-remove coarse check.
+- A loaded class defining a singleton `hash` that does not return an
+  Integer (forem's `ReactionCategory`) no longer crashes the boot as an
+  internal TypeError: every `Coverage.result` read now refuses with a
+  diagnostic explaining the violated `#hash` contract and blaming the
+  application's code (#564).
+- A `--since` diff that deletes a method no longer reports the deletion as
+  "differ only in comments or formatting" and no longer names the method the
+  deleted lines drifted onto. The run says what was deleted instead: `N
+  changed subject(s) were deleted, nothing to mutate: ...` (#466).
+- An error-dominated run no longer prints a bare score above the "tested almost nothing" warning: the terminal reports "score n/a (N of M mutants scored, X % of scored)" so the scored share cannot be misread as a run-wide score (#557).
+- Preflight no longer refuses a precompiled Ruby (mise, ruby-build) whose
+  binary tops the 50 MB evidence-document cap (#364): tool identity
+  digests stream with an executable-sized bound instead. The cap for JSON
+  evidence documents is unchanged.
+- A missing `rspec-core` no longer crashes saboteur into the internal-error
+  report with a bare `LoadError`: the RSpec integration refuses with
+  "rspec is not in the bundle" and names the remedy, adding the gem to the
+  test group or pointing `c.integration` at the suite's framework (#482).
+  Only the framework's own `LoadError` converts; a `LoadError` raised by
+  the app's own files, or for a different feature such as `rspec/core_ext`,
+  keeps the crash route.
+- A `--since` run whose changed methods were all skipped - refinements,
+  no coverage, or any other skip reason - used to exit 0 with `score n/a`,
+  a green run that tested nothing. It now exits 3 and names each skipped
+  subject with its reason, and a partially skipped diff announces each
+  skip up front instead of only in the end-of-run summary (#574).
 
 - `saboteur badge` escapes incomplete-run reasons with `.inspect` in its
   refusal message, so a reason carrying newlines or control characters
@@ -222,6 +277,13 @@ All notable changes are documented here. The format follows
   unrelated classes each keep their own subjects: the singleton-side one is
   now named `Host.singleton_class::Widget#doubled`, so reports, `--subject`
   filters, ignore entries and the unchanged-syntax comparison can name it.
+- `--test-command` keeps env-exported bundler settings the child needs:
+  `Bundler.with_unbundled_env` strips every `BUNDLE_*` key, so a
+  shell-exported `BUNDLE_PATH` (common in CI without a `.bundle/config`)
+  left the child's bundler unable to find the app's gems and the run
+  failed at baseline (#449). Values present in the pre-bundler
+  environment are re-added; bundler-activated values and anchor keys
+  stay dropped.
 - `--test-command` no longer inherits bundler anchors (`BUNDLE_GEMFILE`,
   `BUNDLE_BIN_PATH`, `BUNDLER_SETUP`, ...) from a `bundle exec` parent or
   an exported shell environment (#435). The anchored child resolved the
@@ -276,6 +338,17 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
+- The dirty-tree warning splits its count (#309, #316): changes inside
+  the mutation scope (the Ruby files the configured include and
+  exclude select; source operands narrow the run after the warning),
+  outside it, and saboteur setup files (the config file the run reads, a
+  `BUNDLE_GEMFILE` trial Gemfile and its lock), each as tracked and
+  untracked, naming up to five scope and setup paths. The groups add up
+  to the count. A tree of untracked notes or trial setup files no longer
+  reads like application edits about to be mutated.
+- A broken `.rb` symlink under `include` (dangling, a loop, or through a
+  regular file) is skipped instead of ending the run with an internal
+  error: it has no real path, so it is not mutation source (#503).
 - The `each`/`map` method swap is no longer emitted where the call stands
   as a non-last statement (#399): its return value is discarded there, and
   both names run the same block, so the swap is treated as equivalent.
@@ -292,7 +365,9 @@ All notable changes are documented here. The format follows
   runs the mapped subset with a loud warning per unmapped file instead of
   stopping with "so nothing ran"; the stop message and the warning name
   same-basename specs found under `spec/**`, so the file can be passed to
-  `--test` without hunting. A run with no guesses at all still stops, as
+  `--test` without hunting; a basename containing glob metacharacters is
+  matched literally, never as a pattern. A run with no guesses at all
+  still stops, as
   do full runs, `--subject` runs, and any run with a `--threshold` or a
   `--max-*` gate, since the gate would judge a score the unmapped file
   never joined (#370).
@@ -409,7 +484,6 @@ All notable changes are documented here. The format follows
   `spec/policy_finder_spec.rb` and `lib/aasm/base.rb` finds
   `spec/unit/base_spec.rb`, so `--subject` and `--since` stop hard-stopping
   on pundit, aasm and shoulda-matchers style layouts (#394, #370, #393).
-
 - Methods defined in the four core class factories (`X = Data.define(...)`,
   `Struct.new`, `Class.new`, `Module.new` with a block) are mutation
   subjects instead of skipped subjects (#290): the finder names the

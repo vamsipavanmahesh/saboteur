@@ -522,5 +522,56 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
         end
       end
     end
+
+    # with_unbundled_env strips every BUNDLE_* key (bundler's
+    # unbundled_env deletes the whole prefix), including settings the
+    # SHELL exported - CI commonly exports BUNDLE_PATH without writing
+    # .bundle/config, and dropping it leaves the child's bundler unable
+    # to find the app's gems (#449).
+    describe "env-exported bundler settings (#449)" do
+      # A shell export is present in the pre-bundler environment
+      # (ORIGINAL_ENV); a value bundler itself activated is not.
+      def with_bundle_path(original:)
+        saved = ENV.fetch("BUNDLE_PATH", nil)
+        ENV["BUNDLE_PATH"] = "/ci/gems"
+        base = Bundler::ORIGINAL_ENV
+        stub_const("Bundler::ORIGINAL_ENV", # unfrozen, like the real one
+                   original ? base.merge("BUNDLE_PATH" => "/ci/gems") : base.dup)
+        yield
+      ensure
+        saved ? ENV["BUNDLE_PATH"] = saved : ENV.delete("BUNDLE_PATH")
+      end
+
+      it "re-adds a BUNDLE_PATH the shell exported" do
+        with_bundle_path(original: true) do
+          Dir.mktmpdir do |dir|
+            expect(child_env_output(dir)).to include("BUNDLE_PATH=/ci/gems")
+          end
+        end
+      end
+
+      it "still drops a BUNDLE_PATH that bundler itself activated" do
+        with_bundle_path(original: false) do
+          Dir.mktmpdir do |dir|
+            expect(child_env_output(dir)).not_to include("BUNDLE_PATH=")
+          end
+        end
+      end
+
+      it "builds the child env without Bundler loaded at all" do
+        hide_const("Bundler")
+        runner = described_class.new(command: "true", root: @dir)
+        env = runner.send(:child_env)
+        expect(env["SABOTEUR_EXTERNAL_CHILD"]).to eq("1")
+        expect(env).not_to have_key("BUNDLE_GEMFILE")
+      end
+
+      it "does not re-add a passthrough key missing from the pre-bundler environment, not even nil-valued" do
+        with_bundle_path(original: false) do
+          runner = described_class.new(command: "true", root: @dir)
+          expect(runner.send(:child_env)).not_to have_key("BUNDLE_PATH")
+        end
+      end
+    end
   end
 end

@@ -106,12 +106,19 @@ exit 1 when the covered score is below PERCENT, even with survivors:
 - Survivors on the ignore list still count as survived in the score, so
   ignoring a survivor does not raise the number.
 
-Per-path gates are accepted and validated by the config already:
-`c.score_gate "app/payments/**/*", min_score: 95` (repeatable) requires a
-`min_score` between 0 and 100 and a pattern that matches at least one
-included file, so a gate cannot pass vacuously on a typo. They are not
-enforced yet - enforcement lands with #570 - so until then `--threshold` is
-the only gate that fails a run.
+Per-path score gates hold one subtree to a stricter floor than the rest
+(#473). In `config/saboteur.rb`:
+
+```ruby
+Saboteur.configure do |c|
+  c.score_gate "app/payments/**/*", min_score: 95
+end
+```
+
+Each gate scores only the mutants under its pattern, with the same formula
+as `--threshold`, and fails the run under its floor. A gate whose pattern
+matches no executed mutant passes vacuously and says so on stderr. Like
+`--threshold`, score gates cannot combine with `--agent`.
 
 A sensible way to pick a number:
 

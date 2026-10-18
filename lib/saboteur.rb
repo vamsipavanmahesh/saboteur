@@ -43,6 +43,7 @@ module Saboteur
   end
 end
 
+require_relative "saboteur/coverage_reads"
 require_relative "saboteur/hooks"
 require_relative "saboteur/mutation_source/base"
 require_relative "saboteur/mutation_source/builtin"
@@ -81,6 +82,7 @@ require_relative "saboteur/reporter/diff"
 require_relative "saboteur/reporter/findings"
 require_relative "saboteur/reporter/agent"
 require_relative "saboteur/working_tree"
+require_relative "saboteur/dirty_tree_warning"
 require_relative "saboteur/agent_skill"
 require_relative "saboteur/reporter/terminal"
 require_relative "saboteur/reporter/stryker"

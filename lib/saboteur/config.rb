@@ -39,6 +39,10 @@ module Saboteur
       # seatbelt opts into the macOS Seatbelt sandbox (on Linux it behaves like true).
       "sandbox" => true,
       "sandbox_writable" => [],
+      # off, survivors, or decisive (#476): one reordered confirmation run
+      # per new survivor (and per fresh kill in decisive); a disagreement
+      # becomes unverified, outside the score.
+      "flaky_check" => "off",
       "timeout_factor" => 3.0,
       "timeout_min" => 5.0,
       "baseline_timeout" => 300.0,
@@ -172,8 +176,19 @@ module Saboteur
       matched = self["include"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       excluded = self["exclude"].flat_map { |pattern| Dir.glob(pattern, base: root) }
       (matched - excluded).select { |file| file.end_with?(".rb") }
-                          .map { |file| File.realpath(File.expand_path(Text.utf8_identity(file), root)) }
+                          .filter_map { |file| real_source_path(file) }
                           .uniq.sort
+    end
+
+    # A broken symlink matches Dir.glob but has no real path: dangling
+    # (ENOENT), a loop (ELOOP) or through a regular file (ENOTDIR). It is
+    # not mutation source, so it is skipped rather than crashing the run
+    # (#503). A regular file that cannot be resolved still raises.
+    def real_source_path(file)
+      path = File.expand_path(Text.utf8_identity(file), root)
+      File.realpath(path)
+    rescue SystemCallError
+      raise unless File.symlink?(path)
     end
 
     # Patterns that match no file. A pattern goes stale when files move;
@@ -335,6 +350,10 @@ module Saboteur
       return if command.to_s.empty?
       raise ConfigError, "test_command cannot be combined with tests" unless self["tests"].empty?
       raise ConfigError, "test_command cannot be combined with incremental" if self["incremental"]
+      unless self["flaky_check"] == "off"
+        raise ConfigError, "test_command cannot be combined with flaky_check: an external run has no " \
+                           "in-process scheduler to rerun the decisive tests through"
+      end
       return unless self["sandbox"] == "strict"
 
       raise ConfigError, 'test_command runs the command unsandboxed, so sandbox "strict" cannot be honored'
@@ -349,6 +368,9 @@ module Saboteur
       raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
       unless [true, false, "strict", "seatbelt"].include?(self["sandbox"])
         raise ConfigError, 'sandbox must be true, false, "strict", or "seatbelt"'
+      end
+      unless %w[off survivors decisive].include?(self["flaky_check"])
+        raise ConfigError, "flaky_check must be one of: off, survivors, decisive"
       end
 
       validate_mutant_limit!

@@ -70,6 +70,11 @@ Each survivor comes with its diff, the tests that ran, and a triage label
 The labels are heuristics for reading order, never a diagnosis, and they
 never change the score.
 
+A run on a tree with uncommitted changes opens with a warning that splits
+the count into changes inside the mutation scope, outside it, and
+saboteur's own setup files. Mutants run your code, so run on a clean,
+committed tree or a CI checkout.
+
 Code that only runs while the app loads cannot be judged by replacing the
 method later, so it reports as `ran at load`, outside the score. The same
 holds for def-time macros - a `deprecate`-style helper, a `before_action`
@@ -80,11 +85,18 @@ the macro itself `ran at load` instead of letting its mutants survive.
 ## What you get
 
 - **Fast pull-request runs.** `--since main` scopes the run to the methods
-  you changed. The GitHub Action runs on every pull request and caches
-  the coverage map between runs. `--shard K/N` splits one planned inventory
-  deterministically across CI jobs; each shard reports partial evidence.
+  you changed, and fails loudly (exit 3) when the changed code cannot be
+  verified - for example when every changed method is skipped because its
+  file uses refinements. The GitHub Action runs on every pull request and
+  caches the coverage map between runs. `--shard K/N` splits one planned
+  inventory deterministically across CI jobs; each shard reports partial
+  evidence.
 - **Honest verdicts.** Every kill is verified against the unchanged
-  method; a kill the suite cannot confirm stays out of the score. A spec
+  method; a kill the suite cannot confirm stays out of the score.
+  Suspect a flaky test? `--flaky-check survivors` confirms each new
+  survivor with one reordered rerun (`decisive` also confirms fresh
+  kills); a verdict the rerun disagrees with becomes `unverified`,
+  named with its tests, and stays out of the score. A spec
   file whose examples depend on earlier ones is retried in defined order
   before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
@@ -94,6 +106,11 @@ the macro itself `ran at load` instead of letting its mutants survive.
   mutant with its stable digest and edits - without booting the suite.
 - **A review workflow.** An ignore list with reasons and triage states,
   an opt-in survivor baseline, score thresholds and score history.
+  `saboteur survivors .saboteur/report.json` browses survivors in the
+  terminal straight from the JSON report - list, filter
+  (`--file`/`--operator`/`--triage`/`--ranked`), and `--show DIGEST`
+  for the diff, the exact `run --id` replay command and an ignore-file
+  entry template. It never boots your project or edits the ignore file.
 - **A local README badge.** `saboteur badge` writes Shields endpoint JSON
   from the score history and `saboteur trend` prints the score delta -
   no hosted service:
@@ -112,12 +129,11 @@ the macro itself `ran at load` instead of letting its mutants survive.
 - **Extension points.** Add your own mutation operators through the
   public interface.
 
-Per-path score gates are on the way: `c.score_gate "app/payments/**/*",
-min_score: 95` in `config/saboteur.rb` (repeatable) is already accepted and
-validated - `min_score` must be between 0 and 100 and the pattern must match
-at least one included file - but nothing enforces the gates yet; enforcement
-lands with #570. Until then `--threshold` (or `c.threshold`) stays the
-global gate. See
+Per-path score gates hold one subtree to a stricter floor: `c.score_gate
+"app/payments/**/*", min_score: 95` in config/saboteur.rb (repeatable). Each
+gate scores only the mutants under its pattern and fails the run under its
+floor; a gate with nothing executed under it passes vacuously and says so.
+See
 [choosing and raising a threshold](docs/best-practices.md#choosing-and-raising-a-threshold)
 for how to pick a number.
 
