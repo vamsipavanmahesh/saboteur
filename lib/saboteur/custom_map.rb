@@ -64,7 +64,14 @@ module Saboteur
       unless spec.is_a?(String)
         raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}; spec paths must be Strings"
       end
-      return if key.is_a?(Regexp) && spec.match?(/\\\d/) # backreference filled in at match time
+
+      numbered = key.is_a?(Regexp) && spec.match?(/\\\d/)
+      named = key.is_a?(Regexp) && spec.match?(/%[-0-9]*[<{][^>}]+[>}]|\\k</)
+      if numbered && named
+        raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}; " \
+                           'regex map specs support \1 backreferences only'
+      end
+      return if numbered # backreference filled in at match time
 
       expanded = File.expand_path(spec, root)
       unless expanded.start_with?("#{root}/")
@@ -72,7 +79,7 @@ module Saboteur
       end
       return if Dir.glob(expanded).any?
 
-      if key.is_a?(Regexp) && spec.match?(/%[-0-9]*[<{][^>}]+[>}]|\\k</)
+      if named
         raise ConfigError, "#{path}: #{key.inspect} maps to #{spec.inspect}; " \
                            'regex map specs support \1 backreferences only'
       end

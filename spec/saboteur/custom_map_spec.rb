@@ -110,6 +110,17 @@ RSpec.describe Saboteur::CustomMap do
 
   # rubocop:enable Style/FormatStringToken
 
+  ['spec/\1_%<p>s.rb', 'spec/%<a\1>s.rb'].each do |template|
+    it "rejects mixed numbered and named templates in #{template} (#642)" do
+      body = "SABOTEUR_CUSTOM_MAP = { %r{lib/(.*)} => [#{template.dump}] }"
+      path = write_map(body)
+      expect { described_class.load(path, root: @root) }.to raise_error(Saboteur::ConfigError) { |error|
+        expect(error.message).to eq("#{path}: #{%r{lib/(.*)}.inspect} maps to #{template.inspect}; " \
+                                    'regex map specs support \1 backreferences only')
+      }
+    end
+  end
+
   it "keeps a real literal percent-angle file under a Regexp key (#642)" do
     touch("spec/%<name>s_spec.rb")
     map = load('SABOTEUR_CUSTOM_MAP = { /lib/ => ["spec/%<name>s_spec.rb"] }')
