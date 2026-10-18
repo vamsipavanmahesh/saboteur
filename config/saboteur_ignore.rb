@@ -711,9 +711,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk_constant_assignment",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
 
-  i.mutation "6d0178897b4f0480",
-             subject: "Saboteur::SubjectFinder#mark_refinements",
-             reason: "equivalent: each vs map on a side-effect-only loop that sets skip_reason; the array is discarded"
 
   i.mutation "c347d2a83fc6ab38",
              subject: "Saboteur::SubjectFinder#add_subject",
@@ -762,6 +759,38 @@ Saboteur.ignore do |i|
   i.mutation "2037a2fdac063a81",
              subject: "Saboteur::SubjectFinder#walk_children",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
+
+  i.mutation "21bc3e08c57297ab",
+             subject: "Saboteur::RefinementActivations.collect",
+             reason: "equivalent: Prism::Node#start_offset delegates to location.start_offset, so the chain cut is identical (live-probed on a `using M` call node)"
+
+  i.mutation "ef239b357ad7b089",
+             subject: "Saboteur::RefinementActivations::Site#covers?",
+             reason: "equivalent: a subject can never start on the using call's own first byte, so > and >= agree (live-probed: survives the full refinement specs)"
+
+  i.mutation "4766d590fd60b0d1",
+             subject: "Saboteur::RefinementActivations::Site#covers?",
+             reason: "equivalent: a subject cannot start exactly at the scope's end offset - the scope's `end` keyword occupies the bytes before it - so < and <= agree (live-probed)"
+
+  i.mutation "3358f408831faf79",
+             subject: "Saboteur::RefinementActivations.mark",
+             reason: "equivalent: with no sites the any?/each below are no-ops, so the empty-sites early return only skips work (live-probed)"
+
+  i.mutation "85af2fd1d4997170",
+             subject: "Saboteur::RefinementActivations.mark",
+             reason: "equivalent: removing the empty-sites return falls through to the same no-op any?/each over zero sites (live-probed)"
+
+  i.mutation "06be8ce5bdca364f",
+             subject: "Saboteur::RefinementActivations.mark",
+             reason: "equivalent: each vs map on a side-effect-only skip-marking loop; the collected array is discarded (live-probed)"
+
+  i.mutation "825bc1faf1060c3d",
+             subject: "Saboteur::RefinementActivations.descend",
+             reason: "equivalent: each vs map on a side-effect-only collect recursion; the collected array is discarded (live-probed)"
+
+  i.mutation "2b5152178ac3cd0b",
+             subject: "Saboteur::RefinementActivations.descend",
+             reason: "equivalent: each vs map on a side-effect-only collect recursion; the collected array is discarded (live-probed)"
 
   i.mutation "8b0aa5a480f5bf26",
              subject: "Saboteur::SubjectFinder#walk_call",

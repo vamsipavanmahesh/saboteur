@@ -184,6 +184,90 @@ RSpec.describe Saboteur::SubjectFinder do
     expect(subject.skip_reason).to eq("refinements")
   end
 
+  # #634: a `using` activates its refinement from where it sits to the end
+  # of its own scope only. Subjects before it or in sibling scopes are
+  # unaffected (the kaminari shape: a `using` in one module must not skip
+  # another module's subjects).
+  it "skips only subjects lexically after a using in the same or an enclosing scope" do
+    found = subjects_in(<<~RUBY)
+      module Alpha
+        def a_before; 1; end
+        using Something
+        def a_after; 2; end
+      end
+      module Beta
+        def b_m; 3; end
+      end
+    RUBY
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["Alpha#a_before", nil], ["Alpha#a_after", "refinements"], ["Beta#b_m", nil]])
+  end
+
+  it "lets a top-level using skip the rest of the file, including nested scopes" do
+    found = subjects_in(<<~RUBY)
+      module Early
+        def e_m; 1; end
+      end
+      using Something
+      module Late
+        def l_m; 2; end
+        class Nested
+          def n_m; 3; end
+        end
+      end
+    RUBY
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["Early#e_m", nil], ["Late#l_m", "refinements"], ["Late::Nested#n_m", "refinements"]])
+  end
+
+  # #634 round 2: activation is lexical, not namespaced. A `class ::Q`
+  # nested in the body still runs under the refinement (a constant-path
+  # restart does not open a new lexical scope), while a reopened body
+  # with the same path after the scope's `end` is a fresh scope.
+  it "covers a constant-path restart nested in the using's scope" do
+    found = subjects_in(<<~RUBY)
+      module A
+        using Something
+        class ::Q
+          def q_m; 1; end
+        end
+      end
+    RUBY
+    expect(found.map { |subject| [subject.id, subject.skip_reason] }).to eq([["Q#q_m", "refinements"]])
+  end
+
+  it "does not cover reopened bodies or compact paths after the scope's end" do
+    found = subjects_in(<<~RUBY)
+      module R
+        using Something
+      end
+      module R
+        def r_m; 1; end
+      end
+      class R::C
+        def c_m; 2; end
+      end
+    RUBY
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["R#r_m", nil], ["R::C#c_m", nil]])
+  end
+
+  it "keeps the whole-file skip for a using inside a method or block body" do
+    in_def = subjects_in(<<~RUBY)
+      module A
+        def a_m; using Something; end
+        def b_m; 2; end
+      end
+      module B
+        def c_m; 3; end
+      end
+    RUBY
+    expect(in_def.map(&:skip_reason)).to eq(["refinements"] * 3)
+
+    in_block = subjects_in("1.times { using Something }\nmodule B\n  def c_m; 3; end\nend\n")
+    expect(in_block.map(&:skip_reason)).to eq(["refinements"])
+  end
+
   it "returns parse errors instead of subjects for invalid Ruby" do
     dir = Dir.mktmpdir
     path = File.join(dir, "bad.rb")
