@@ -3,6 +3,12 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  # deep_source.rb:43 > -> >= - max is monotone, so the equal case reassigns the same value.
+  # Strictly equivalent; hand-probed specs green and depth() identical across a battery.
+  i.mutation "e6d7d3cf383401ec",
+             subject: "Saboteur::DeepSource.depth",
+             reason: "equivalent: when level == max the overwrite assigns the same value, " \
+                     "leaving observable state unchanged; hand-probed depth() identical"
   # environment_hints.rb:34 - an empty BUNDLE_GEMFILE expands to the project root, which
   # never starts with <root>/gemfiles/, so dropping the `!setting.empty?` conjunct leaves
   # `under` false in exactly the same cases (verified by hand against the full

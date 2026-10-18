@@ -3,6 +3,7 @@
 
 require "prism"
 require_relative "subject"
+require_relative "deep_source"
 
 module Saboteur
   # Finds `def` methods in a Ruby file with Prism.
@@ -34,6 +35,8 @@ module Saboteur
     def call(file, source: File.binread(file))
       result = Prism.parse(source, filepath: file)
       return Parsed.new(subjects: [], errors: result.errors.map(&:message)) if result.failure?
+
+      DeepSource.check!(result.value, file)
 
       frozen = frozen_literals?(result)
       subjects = []

@@ -565,4 +565,7 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "class << self owners (#380)" do
     parsed = find("class << self\n  X = [1]\nend\n")
     expect(parsed.subjects.map(&:id)).to eq(["X"])
   end
+  it "refuses a file nested deeper than the walker can safely recurse (#719)" do
+    expect { find("#{'a(' * 1500}1#{')' * 1500}\n") }.to raise_error(Saboteur::DeepSourceError, /sample\.rb/)
+  end
 end

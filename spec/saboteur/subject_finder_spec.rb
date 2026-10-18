@@ -987,4 +987,13 @@ RSpec.describe Saboteur::SubjectFinder, "dogfood survivor kills (#338)" do
     found = subjects_in("class K\n  def build\n    k = K.new\n    def k.m; 1; end\n  end\nend\n")
     expect(found.map(&:id)).to eq(["K#build"])
   end
+  it "refuses a file nested deeper than the walker can safely recurse (#719)" do
+    source = "#{'a(' * 1500}1#{')' * 1500}\n"
+    expect { subjects_in(source) }.to raise_error(Saboteur::DeepSourceError, /subject_fixture\.rb/)
+  end
+
+  it "still walks a file nested a thousand calls deep (#719)" do
+    source = "class A\n  def m\n    #{'a(' * 1000}1#{')' * 1000}\n  end\nend\n"
+    expect(ids(source)).to eq(["A#m"])
+  end
 end

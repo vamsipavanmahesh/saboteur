@@ -322,4 +322,37 @@ RSpec.describe Saboteur::Engine::Candidates, ".build with constant literals (#30
   it "drops constant mutation when the builtin source is not configured" do
     expect(build_with(sources: []).for(constant_subject("MAP = { a: 1 }\n"))).to be_empty
   end
+  it "refuses to mutate a subject nested deeper than the operator walks survive (#719)" do
+    # 700 nested calls is about 1400 AST levels: over MAX_MUTATION_DEPTH,
+    # under MAX_AST_DEPTH, so the refusal pins the mutation-stage limit
+    # itself, not the finder default.
+    source = "def m\n  #{'a(' * 700}1#{')' * 700}\nend\n"
+    defnode = Prism.parse(source).value.statements.body.first
+    deep_subject = Saboteur::Subject.new(name: :m, owner: "A", singleton: false, sclass: false,
+                                         file: "deep.rb", node: defnode, file_source: source,
+                                         nesting: [], frozen_literals: false)
+    silent = Class.new(Saboteur::MutationSource::Base) do
+      define_method(:mutations_for) { |_subject| [] }
+    end.new
+    expect { described_class.new([silent], diagnostics).for(deep_subject) }
+      .to raise_error(Saboteur::DeepSourceError, /deep\.rb/)
+  end
+
+  it "allows exactly the mutation limit and refuses one level past it (#719, #730)" do
+    # Absolute literals: stubbing with MAX_MUTATION_DEPTH would move both
+    # sides of the pin together and let +-1 mutants on it survive.
+    source = "def m\n  1\nend\n"
+    defnode = Prism.parse(source).value.statements.body.first
+    subject = Saboteur::Subject.new(name: :m, owner: "A", singleton: false, sclass: false,
+                                    file: "fine.rb", node: defnode, file_source: source,
+                                    nesting: [], frozen_literals: false)
+    silent = Class.new(Saboteur::MutationSource::Base) do
+      define_method(:mutations_for) { |_subject| [] }
+    end.new
+    allow(Saboteur::DeepSource).to receive(:depth).and_return(1200)
+    expect { described_class.new([silent], diagnostics).for(subject) }.not_to raise_error
+    allow(Saboteur::DeepSource).to receive(:depth).and_return(1201)
+    expect { described_class.new([silent], diagnostics).for(subject) }
+      .to raise_error(Saboteur::DeepSourceError, /fine\.rb/)
+  end
 end

@@ -45,8 +45,16 @@ module Saboteur
         files.flat_map do |file|
           next [] unless file.end_with?(".rb") && File.file?(file)
 
-          current_ids = unique_by_id(File.read(file), file).keys
-          base_subjects(file).values.reject { |subject| current_ids.include?(subject.id) }
+          # The diff reaches files outside the mutation scope (fixtures,
+          # scripts): an in-scope file nested too deeply already refused
+          # the run at subject finding, so a DeepSourceError here can only
+          # come from a file the run never mutates. Skip it (#719, #730).
+          begin
+            current_ids = unique_by_id(File.read(file), file).keys
+            base_subjects(file).values.reject { |subject| current_ids.include?(subject.id) }
+          rescue DeepSourceError
+            []
+          end
         end
       end
 
