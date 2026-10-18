@@ -36,8 +36,9 @@ esac
   fail "ci-prove-pr-binding: GITHUB_SHA is not a 40-character commit"
 
 owner="${GITHUB_REPOSITORY%/*}"; name="${GITHUB_REPOSITORY#*/}"
-payload=$(printf '{"query":"{repository(owner:\"%s\",name:\"%s\"){pullRequest(number:%s){headRepository{nameWithOwner} headRefOid baseRefOid}}}"}' \
-  "$owner" "$name" "$PR_NUMBER")
+# String concatenation, not a printf format: printf would eat the \" escapes
+# and emit invalid JSON (#551's dispatch proof failed closed on every run).
+payload='{"query":"{repository(owner:\"'"$owner"'\",name:\"'"$name"'\"){pullRequest(number:'"$PR_NUMBER"'){headRepository{nameWithOwner} headRefOid baseRefOid}}}"}'
 resp=$(curl -sfS -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" \
   -d "$payload" https://api.github.com/graphql) ||
   fail "ci-prove-pr-binding: the GraphQL call for PR #${PR_NUMBER} failed; refusing to run unbound"
