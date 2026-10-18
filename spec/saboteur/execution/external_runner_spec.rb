@@ -688,6 +688,23 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
 
+    it "rebases an absolute path: source equal to the project root onto the copy root (#722)" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{dir}\"\n")
+        File.write(File.join(dir, "Gemfile.lock"), "PATH\n  remote: #{dir}\n  specs:\n\nGEM\n")
+        row = source_row(name: "mygem", original: dir, expanded: dir)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          gemfile = File.read(File.join(copy, "Gemfile"))
+          lockfile = File.read(File.join(copy, "Gemfile.lock"))
+          expect(gemfile).to eq("gem \"mygem\", path: \"#{copy}\"\n")
+          expect(lockfile).to include("remote: #{copy}")
+        end
+      end
+    end
+
     it "refuses a source whose literal path: option is not in the Gemfile exactly once" do
       Dir.mktmpdir do |dir|
         File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: computed_path\n")
