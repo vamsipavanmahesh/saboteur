@@ -102,8 +102,12 @@ module Saboteur
           @out.puts %(Seatbelt (opt-in, #436): probe #{Execution::Seatbelt.probe} - capability probe only, ) \
                     "not verified isolation"
         elsif RUBY_PLATFORM.match?(/darwin/i)
+          # Point at the way OUT of the degraded state, like the run
+          # warning does (#667): the opt-in Seatbelt sandbox, or silence.
           @out.puts "macOS: mutants run unsandboxed (Landlock is Linux-only) - a container contains " \
                     "filesystem writes outside the project"
+          @out.puts %(macOS: opt into the sandbox with c.sandbox = "seatbelt" ) \
+                    "(docs/guides/macos-seatbelt-sandbox.md), or set c.sandbox = false to silence this"
           @out.puts "Network: never restricted on any platform, and a plain container keeps outbound " \
                     "access - deny or stub the network when a mutant could reach real APIs"
         end

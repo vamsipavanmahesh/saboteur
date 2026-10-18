@@ -78,7 +78,9 @@ RSpec.describe Saboteur::Doctor do
                      "filesystem writes outside the project"
       network_note = "Network: never restricted on any platform, and a plain container keeps outbound " \
                      "access - deny or stub the network when a mutant could reach real APIs"
-      expect(out.string).to include(sandbox_note, network_note)
+      seatbelt_note = 'macOS: opt into the sandbox with c.sandbox = "seatbelt" ' \
+                      "(docs/guides/macos-seatbelt-sandbox.md), or set c.sandbox = false to silence this"
+      expect(out.string).to include(sandbox_note, network_note, seatbelt_note)
     end
 
     it "reports the Seatbelt probe on macOS when the opt-in is configured (#436)" do
