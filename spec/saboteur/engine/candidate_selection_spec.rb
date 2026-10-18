@@ -10,6 +10,8 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
   let(:map) { instance_double(Saboteur::Selection::CoverageMap) }
   let(:selection) { described_class.new(candidates: candidates, map: map, limit: 2, diagnostics: diagnostics) }
 
+  before { allow(map).to receive(:preloaded?).and_return(false) }
+
   it "records uncovered subjects without generating any mutants" do
     allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
     allow(map).to receive(:ran_at_load?).with(subject_under_test.file, subject_under_test.coverage_lines)
@@ -17,6 +19,15 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     expect(candidates).not_to receive(:for)
     expect(selection.for(subject_under_test)).to be_empty
     expect(selection.skipped_subjects).to eq(subject_under_test => "no coverage")
+  end
+
+  it "classifies a subject in a file loaded before Coverage.start distinctly from no coverage" do
+    allow(map).to receive(:tests_for).with(subject_under_test).and_return([])
+    allow(map).to receive(:preloaded?).with(subject_under_test.file).and_return(true)
+    expect(candidates).not_to receive(:for)
+
+    expect(selection.for(subject_under_test)).to be_empty
+    expect(selection.skipped_subjects).to eq(subject_under_test => "loaded before coverage started")
   end
 
   it "names an explicit skip reason before looking at coverage or generating mutants" do

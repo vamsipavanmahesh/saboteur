@@ -66,6 +66,7 @@ module Saboteur
       # Load-only code is not "no coverage": it ran, just never inside a
       # test, and no forked test can re-run it (see CoverageMap::RAN_AT_LOAD).
       def skip_reason_for(subject)
+        return Selection::CoverageMap::PRELOADED if @map.preloaded?(subject.file)
         return "no coverage" unless @map.ran_at_load?(subject.file, subject.coverage_lines)
 
         Selection::CoverageMap::RAN_AT_LOAD

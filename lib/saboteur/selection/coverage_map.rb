@@ -20,9 +20,10 @@ module Saboteur
       FORMAT = 11
 
       RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
+      PRELOADED = "loaded before coverage started"
 
       attr_reader :lines, :tests, :build_seconds, :loaded_files, :durations, :methods, :load_lines, :load_methods,
-                  :branches
+                  :branches, :preloaded
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
       # methods: { "/abs/file.rb" => { 12 => ["id1", "id2"] } } keyed by the
@@ -30,7 +31,7 @@ module Saboteur
       # so methods carry those subjects (issue #107).
       # durations: { "id1" => seconds }
       def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {}, load_methods: {},
-                     branches: {}, loaded_files: nil)
+                     branches: {}, loaded_files: nil, preloaded: [])
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
@@ -40,6 +41,7 @@ module Saboteur
         @load_methods = load_methods
         @branches = branches
         @loaded_files = loaded_files || []
+        @preloaded = preloaded.to_set { |file| CoverageMap.canonical(file) }
       end
 
       # Source files the given tests touched, sorted and deduped: the
@@ -97,6 +99,19 @@ module Saboteur
         self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
                        methods: methods, load_lines: load_lines, load_methods: load_methods, branches: branches,
                        loaded_files: loaded_files)
+      end
+
+      # Files that loaded before Coverage.start (gemspec require, RUBYOPT
+      # -r): they can never carry hits, so their subjects are reported as
+      # loaded before coverage started instead of no coverage.
+      def with_preloaded(paths)
+        self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
+                       methods: methods, load_lines: load_lines, load_methods: load_methods, branches: branches,
+                       loaded_files: loaded_files, preloaded: paths)
+      end
+
+      def preloaded?(file)
+        preloaded.include?(CoverageMap.canonical(file))
       end
 
       # A def the boot called (a def-time macro's class-body caller, say)

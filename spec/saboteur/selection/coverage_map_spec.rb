@@ -129,6 +129,45 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(map.with_load_lines({ "boot.rb" => [1, 2] }).loaded_files).to eq(["/app/support/helper.rb"])
   end
 
+  it "preserves every field through with_preloaded and answers preloaded? for exact and absent files" do
+    full = described_class.new(lines: { "/app/lib/a.rb" => { 3 => ["t1"] } }, tests: ["t1"], build_seconds: 2.5,
+                               durations: { "t1" => 0.5 }, methods: { "/app/lib/a.rb" => { 4 => ["t1"] } },
+                               load_lines: { "/app/lib/a.rb" => [1] }, load_methods: { "/app/lib/a.rb" => [10] },
+                               branches: { "/app/lib/a.rb" => { [5, :then, 6] => ["t1"] } },
+                               loaded_files: ["/app/lib/a.rb"])
+
+    map = full.with_preloaded(["/app/lib/a.rb"])
+
+    expect(map.lines).to eq(full.lines)
+    expect(map.tests).to eq(full.tests)
+    expect(map.build_seconds).to eq(2.5)
+    expect(map.durations).to eq("t1" => 0.5)
+    expect(map.methods).to eq("/app/lib/a.rb" => { 4 => ["t1"] })
+    expect(map.load_lines).to eq("/app/lib/a.rb" => [1])
+    expect(map.load_methods).to eq("/app/lib/a.rb" => [10])
+    expect(map.branches).to eq("/app/lib/a.rb" => { [5, :then, 6] => ["t1"] })
+    expect(map.loaded_files).to eq(["/app/lib/a.rb"])
+    expect(map.preloaded?("/app/lib/a.rb")).to be(true)
+    expect(map.preloaded?("/app/lib/b.rb")).to be(false)
+    expect(full.preloaded?("/app/lib/a.rb")).to be(false)
+  end
+
+  it "matches preloaded files under any spelling of their path (symlinked root)" do
+    Dir.mktmpdir do |dir|
+      Dir.mkdir(File.join(dir, "real"))
+      Dir.mkdir(File.join(dir, "real", "lib"))
+      target = File.join(dir, "real", "lib", "a.rb")
+      File.write(target, "1\n")
+      File.symlink(File.join(dir, "real"), File.join(dir, "link"))
+      spelled = File.join(dir, "link", "lib", "a.rb")
+
+      map = described_class.new(lines: {}, tests: []).with_preloaded([spelled])
+
+      expect(map.preloaded?(target)).to be(true)
+      expect(map.preloaded?(spelled)).to be(true)
+    end
+  end
+
   it "keeps the loaded source list through the JSON round-trip (#353)" do
     map = described_class.new(lines: {}, tests: [], loaded_files: ["/app/support/helper.rb"])
     expect(described_class.from_json(map.to_json).loaded_files).to eq(["/app/support/helper.rb"])

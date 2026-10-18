@@ -13,6 +13,8 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     end
   end
 
+  before { allow(Saboteur::CoverageReads).to receive(:result).and_return({}) }
+
   let(:file) { File.join(@root, "a.rb").tap { |path| File.write(path, "1\n") } }
   let(:integration) { instance_double(Saboteur::Integration::RSpec, test_files: []) }
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
@@ -346,6 +348,67 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(cache_files).to be_empty
   end
 
+  # With --test the preloaded refusal softens to a warning: the user
+  # narrowed the suite on purpose, so the run continues with the subjects
+  # classified "loaded before coverage started".
+  it "warns and continues when a preloaded file empties the map but explicit tests narrowed the suite" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    allow(supervisor).to receive(:run).and_return(built_result(empty.to_json))
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(Saboteur::Engine::LoadCoverage).to receive(:preloaded_uninstrumented).and_return([file])
+    diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+    config = Saboteur::Config.new({ "tests" => ["spec/stage_spec.rb"] }, root: @root)
+    store = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                supervisor: supervisor, diagnostics: diagnostics)
+
+    expect(store.fetch([file]).tests).to eq(["t1"])
+    expect(diagnostics.warnings.join).to include("a.rb loaded before saboteur started coverage")
+  end
+
+  it "names the first five preloaded files with a tail and the plural pronoun" do
+    files = %w[a.rb b.rb c.rb d.rb e.rb f.rb].map { |name| File.join(@root, name).tap { |p| File.write(p, "1\n") } }
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    allow(supervisor).to receive(:run).and_return(built_result(empty.to_json))
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(Saboteur::Engine::LoadCoverage).to receive(:preloaded_uninstrumented).and_return(files)
+
+    expect { store.fetch(files) }.to raise_error(
+      Saboteur::Error,
+      "a.rb, b.rb, c.rb, d.rb, e.rb, ... loaded before saboteur started coverage (a require ran before " \
+      "the executable's Coverage.start - commonly the gemspec requiring the library while bundler/setup " \
+      "evaluates it, or RUBYOPT -r), so no test can ever cover them. Let the test suite load these " \
+      "files; a gemspec should require only its version file."
+    )
+  end
+
+  it "uses the singular pronoun for one preloaded file" do
+    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
+    allow(supervisor).to receive(:run).and_return(built_result(empty.to_json))
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(Saboteur::Engine::LoadCoverage).to receive(:preloaded_uninstrumented).and_return([file])
+
+    expect { store.fetch([file]) }.to raise_error(
+      Saboteur::Error,
+      "a.rb loaded before saboteur started coverage (a require ran before the executable's " \
+      "Coverage.start - commonly the gemspec requiring the library while bundler/setup evaluates it, " \
+      "or RUBYOPT -r), so no test can ever cover it. Let the test suite load these files; a gemspec " \
+      "should require only its version file."
+    )
+  end
+
+  # The files argument can spell a path through a symlink while the
+  # preloaded list holds the canonical form; the refusal must still fire.
+  it "refuses a preloaded file even when the run spells its path through a symlink" do
+    File.symlink(@root, File.join(@root, "link"))
+    spelled = File.join(@root, "link", "a.rb")
+    hollow = Saboteur::Selection::CoverageMap.new(lines: { file => {} }, tests: ["t1"])
+    allow(supervisor).to receive(:run).and_return(built_result(hollow.to_json))
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    allow(Saboteur::Engine::LoadCoverage).to receive(:preloaded_uninstrumented).and_return([file])
+
+    expect { store.fetch([spelled]) }.to raise_error(Saboteur::Error, /a\.rb loaded before saboteur started coverage/)
+  end
+
   # Spec files sit in the recorder's map, so a suite that tests nothing in
   # the included files still records its own spec code. The run must stop
   # even though the map as a whole is not empty.
@@ -439,6 +502,8 @@ RSpec.describe Saboteur::Engine::CoverageStore, "heap preparation" do
       example.run
     end
   end
+
+  before { allow(Saboteur::CoverageReads).to receive(:result).and_return({}) }
 
   let(:file) { File.join(@root, "a.rb").tap { |path| File.write(path, "1\n") } }
   let(:integration) { instance_double(Saboteur::Integration::RSpec, test_files: []) }
