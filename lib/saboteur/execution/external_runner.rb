@@ -74,12 +74,19 @@ module Saboteur
       # holding the pipe past this no longer blocks the run.
       DRAIN_GRACE = 0.5
 
-      def initialize(command:, root:)
+      def initialize(command:, root:, path_sources: nil)
         @command = command
         # realpath, not expand_path: the tree must be judged by where it
         # really is, so a subject path can be checked against the same
         # canonical root without a symlink making it look outside (#305 QA).
         @root = File.realpath(root)
+        # The Gemfile the command actually loads, root-relative: its own
+        # pinned BUNDLE_GEMFILE when it sets one (Appraisal style), else
+        # the root Gemfile (#644).
+        pinned = pinned_gemfile
+        @gemfile_name = pinned || "Gemfile"
+        sources = path_sources || GemfilePathSources.resolve(@root, gemfile: pinned)
+        @path_sources = classify_path_sources(sources)
         @copy_root = nil
         at_exit { close }
       rescue SystemCallError
@@ -211,7 +218,87 @@ module Saboteur
         @copy_root = File.realpath(Dir.mktmpdir("saboteur-external-"))
         FileUtils.cp_r(File.join(@root, "."), @copy_root, preserve: true)
         rebuild_symlinks
+        rebase_path_sources
         yield
+      end
+
+      # path: sources are judged against the canonical root (#644): a
+      # RELATIVE source resolving outside the tree would escape the
+      # disposable copy, so it refuses the run at startup naming the
+      # source; an ABSOLUTE source pointing into the original tree is
+      # rebased into the copy below so bundler loads the copy's (possibly
+      # mutated) code, never the original's. Anything unresolved or
+      # ambiguous refuses - never a guess that could load unmutated code.
+      def classify_path_sources(sources)
+        sources.each_with_object(rebase: []) do |src, groups|
+          expanded = GemfilePathSources.canonical_path(src.expanded)
+          # The root itself counts as inside: a `gemspec` line makes
+          # Bundler report the gem's own path source ".", expanded to the
+          # project root - refusing it would refuse every gem-style
+          # project (#644 security).
+          inside = expanded == @root || expanded.start_with?("#{@root}/")
+          next if inside && !Pathname.new(src.original).absolute?
+          next if !inside && Pathname.new(src.original).absolute?
+
+          unless inside
+            raise ConfigError, "the Gemfile's path: source \"#{src.name}\" (#{src.original}) resolves outside the " \
+                               "project root (#{expanded}); external test commands need a self-contained tree"
+          end
+
+          groups[:rebase] << [src, expanded]
+        end
+      end
+
+      # Rewrites each rebased source in the COPY's Gemfile (quoted option)
+      # and Gemfile.lock (PATH remote line). Zero or several matches mean
+      # the file computes the path or disagrees with Bundler's resolution -
+      # refuse rather than risk loading the original tree (#644).
+      def rebase_path_sources
+        @path_sources[:rebase].each do |src, expanded|
+          copy_path = File.join(@copy_root, expanded.delete_prefix("#{@root}/"))
+          rewrite_gemfile_source(src, copy_path)
+          rewrite_lockfile_source(src, copy_path)
+        end
+      end
+
+      def rewrite_gemfile_source(src, copy_path)
+        path = File.join(@copy_root, @gemfile_name)
+        text = File.read(path)
+        pattern = /(path:\s*["'])#{Regexp.escape(src.original)}(["'])/
+        raise ConfigError, ambiguous_source_message(src) unless text.scan(pattern).size == 1
+
+        File.write(path, text.sub(pattern) { "#{Regexp.last_match(1)}#{copy_path}#{Regexp.last_match(2)}" })
+      end
+
+      def rewrite_lockfile_source(src, copy_path)
+        # Bundler names the lockfile after the Gemfile: <gemfile>.lock.
+        path = File.join(@copy_root, "#{@gemfile_name}.lock")
+        return unless File.file?(path)
+
+        text = File.read(path)
+        pattern = /^(\s*remote: )#{Regexp.escape(src.original)}$/
+        File.write(path, text.sub(pattern) { "#{Regexp.last_match(1)}#{copy_path}" }) if text.scan(pattern).size == 1
+      end
+
+      def ambiguous_source_message(src)
+        "could not rebase the Gemfile's path: source \"#{src.name}\" (#{src.original}) into the disposable copy; " \
+          "external test commands need a literal path: option they can rewrite"
+      end
+
+      # A command-pinned Gemfile must live inside the tree, or the copy
+      # would read a Gemfile - and its path: sources - from outside (#644).
+      # Returns its root-relative path, or nil for the root Gemfile.
+      def pinned_gemfile
+        pinned = GemfilePathSources.pinned_in(@command)
+        return nil unless pinned
+
+        expanded = GemfilePathSources.canonical_path(File.expand_path(pinned, @root))
+        unless expanded == @root || expanded.start_with?("#{@root}/")
+          raise ConfigError, "the test command pins BUNDLE_GEMFILE (#{pinned}) outside the project root " \
+                             "(#{expanded}); external test commands need the Gemfile inside the tree"
+        end
+
+        expanded.delete_prefix("#{@root}/")
       end
 
       # cp_r keeps symlinks, and a write through a link that escapes the

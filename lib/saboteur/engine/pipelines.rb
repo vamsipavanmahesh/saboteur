@@ -86,7 +86,7 @@ module Saboteur
         end
         run_candidates(runnable_subjects, runnable_lists, scheduler, nil, ignore_list)
       ensure
-        runner.close
+        runner&.close
       end
 
       # Warn loudly when the command cannot see mutants at all: an
