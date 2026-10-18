@@ -49,6 +49,21 @@ RSpec.describe Saboteur::Preview do
     expect(out.string).to match(/^Operators: \w+(, \w+)+/)
   end
 
+  it "prints the shard slice with the full inventory digest" do
+    preview(config).call
+    full = out.string[/Total: (\d+) mutants/, 1].to_i
+    out.truncate(0)
+
+    totals = (1..3).map do |index|
+      preview(config(shard: "#{index}/3")).call
+      expect(out.string).to include("Shard #{index}/3:", "inventory sha256:", "partial run")
+      selected = out.string[/Total: (\d+) mutants/, 1].to_i
+      out.truncate(0)
+      selected
+    end
+    expect(totals.sum).to eq(full)
+  end
+
   it "uses diff lines both to select methods and to restrict their candidates" do
     allow(Saboteur::Selection::GitDiff).to receive(:line_maps)
       .with("base", root: root, include: anything, diagnostics: anything)
@@ -56,6 +71,7 @@ RSpec.describe Saboteur::Preview do
                                                              behavior: { target.file => [4] }))
     allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("base")
     allow(Saboteur::Selection::GitDiff).to receive(:file_at).and_return(nil)
+    allow(Saboteur::Selection::GitDiff).to receive(:deletion_only_files).and_return([])
     allow(Saboteur::Selection::UntrackedChanges).to receive(:paths).and_return([])
     scoped = config(since: "base")
     selection = Saboteur::Engine::SubjectSelection.new(scoped, Saboteur::Engine::Diagnostics.new(StringIO.new))
@@ -236,5 +252,86 @@ RSpec.describe Saboteur::Preview do
     expect(Saboteur::MutationSource::HazardGuard).to receive(:new).with(["x.+"]).and_return(guard)
     allow(guard).to receive(:partition) { |list, _subject| [list, []] }
     preview(settings).call
+  end
+end
+
+RSpec.describe "Saboteur::Preview json inventory" do
+  let(:target) { subjects_in("class PreviewCases\n  def m(x)\n    x + 1\n    x * 2\n  end\nend\n").first }
+  let(:root) { File.dirname(target.file) }
+  let(:out) { StringIO.new }
+
+  def config(**settings)
+    Saboteur::Config.new({ "include" => ["*.rb"] }.merge(settings.transform_keys(&:to_s)), root: root)
+  end
+
+  def json_preview(settings = config)
+    Saboteur::Preview.new(settings, out: out, err: StringIO.new, format: "json")
+  end
+
+  def payload
+    JSON.parse(out.string)
+  end
+
+  it "emits a versioned inventory naming each planned mutant with location and edits" do
+    json_preview.call
+    expect(payload["schema_version"]).to eq(1)
+    expect(payload["saboteur_version"]).to eq(Saboteur::VERSION)
+    expect(payload["mode"]).to eq("dry-run")
+    expect(payload["test_selection"]).to eq("auto")
+    expect(payload["mutants"]).not_to be_empty
+    expect(payload["totals"]["mutants"]).to eq(payload["mutants"].size)
+    entry = payload["mutants"].first
+    expect(entry).to include("subject" => "PreviewCases#m")
+    expect(entry["digest"]).to match(/\A[0-9a-f]{16}\z/)
+    expect(entry["line"]).to be_between(3, 4)
+    edit = entry["edits"].first
+    expect(edit["start_byte"]).to be <= edit["end_byte"]
+    expect(edit["original"]).not_to eq(edit["replacement"])
+    expect(payload["subjects"]).to eq(
+      [{ "id" => "PreviewCases#m", "file" => File.basename(target.file),
+         "start_line" => 2, "end_line" => 5, "mutants" => payload["mutants"].size }]
+    )
+  end
+
+  it "names each planned mutant by the digest a run or --id replay computes" do
+    subject = Saboteur::SubjectFinder.new.call(target.file).subjects.first
+    diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+    mutations = Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new], diagnostics).for(subject)
+    expected = mutations.map do |(mutation, _)|
+      mutation.digest(subject_start: subject.start_byte, original_source: subject.file_source)
+    end
+    json_preview.call
+    expect(payload["mutants"].map { |entry| entry["digest"] }).to match_array(expected)
+  end
+
+  it "lists mutants dropped by the per-method cap with their digests and reason" do
+    json_preview(config(max_mutants_per_method: 1)).call
+    expect(payload["totals"]).to include("mutants" => 1)
+    expect(payload["totals"]["dropped_by_max_mutants_per_method"]).to be_positive
+    expect(payload["skipped"].map { |skip| skip["reason"] }.uniq).to eq(["max_mutants_per_method"])
+    expect(payload["skipped"].map { |skip| skip["digest"] }).to all(match(/\A[0-9a-f]{16}\z/))
+  end
+
+  it "lists inline-suppressed candidates with the directive reason" do
+    File.write(target.file,
+               "class PreviewCases\n  def m(x)\n    x + 1 # saboteur:disable-line reason=\"stop\"\n  end\nend\n")
+    json_preview.call
+    skipped = payload["skipped"]
+    expect(skipped).not_to be_empty
+    expect(skipped.map { |skip| skip["reason"] }.uniq).to eq(["inline_suppression: stop"])
+    expect(skipped.first).to include("subject" => "PreviewCases#m", "line" => 3)
+  end
+
+  it "lists hazard-refused candidates" do
+    File.write(target.file, "class PreviewCases\n  def m\n    FileUtils.rm_rf(\"tmp\")\n  end\nend\n")
+    json_preview.call
+    expect(payload["skipped"].map { |skip| skip["reason"] }).to include("hazardous")
+  end
+
+  it "keeps stdout parseable when discovery fails and reports the gap in totals" do
+    File.write(target.file, "def broken(")
+    json_preview.call
+    expect(payload["totals"]["incomplete_files"]).to eq(1)
+    expect(payload["estimated_seconds"]).to be_nil
   end
 end

@@ -85,6 +85,26 @@ RSpec.describe Saboteur::Doctor do
       expect(out.string).not_to include("mutants run unsandboxed (Landlock is Linux-only)")
     end
 
+    # The Seatbelt line is for the opt-in value on macOS only: it names
+    # the probe verdict as a capability probe, not verified isolation.
+    it "reports the Seatbelt probe verdict on macOS when c.sandbox = \"seatbelt\"" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      allow(Saboteur::Execution::Seatbelt).to receive(:probe).and_return(:unsupported_platform)
+      stub_const("RUBY_PLATFORM", "arm64-darwin23")
+      configured = Saboteur::Config.new({ "sandbox" => "seatbelt" })
+      described_class.new(configured, out: out).call
+      expect(out.string).to include("Seatbelt (opt-in, #436): probe unsupported_platform - capability probe only, " \
+                                    "not verified isolation")
+    end
+
+    it "keeps the Seatbelt line off other platforms even with the opt-in value" do
+      allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(0)
+      stub_const("RUBY_PLATFORM", "x86_64-linux")
+      configured = Saboteur::Config.new({ "sandbox" => "seatbelt" })
+      described_class.new(configured, out: out).call
+      expect(out.string).not_to include("Seatbelt (opt-in")
+    end
+
     it "reports the sandbox as off when configured off" do
       configured = Saboteur::Config.new({ "sandbox" => false })
       described_class.new(configured, out: out).call

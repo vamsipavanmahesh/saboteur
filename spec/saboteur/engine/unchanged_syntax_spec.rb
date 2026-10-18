@@ -30,6 +30,48 @@ RSpec.describe Saboteur::Engine::UnchangedSyntax do
     described_class.new(git("rev-parse", "HEAD").first.strip, root: @root).unchanged?(subject)
   end
 
+  describe "#deleted_subjects (#466)" do
+    def deleted_subjects(files, base_text: before, after: nil)
+      File.write(file, base_text)
+      git("init", "-q")
+      git("add", ".")
+      git("commit", "-q", "-m", "base")
+      File.write(file, after) if after
+      described_class.new(git("rev-parse", "HEAD").first.strip, root: @root).deleted_subjects(files)
+    end
+
+    it "finds a method removed from the working tree" do
+      expect(deleted_subjects([file], after: "class Cart\nend\n").map(&:id)).to eq(["Cart#total"])
+    end
+
+    it "does not report a method that moved but still exists" do
+      after = "class Cart\n  def other = 2\n\n  def total(a)\n    x = a + 1\n    x\n  end\nend\n"
+      moved = before.sub("end\nend\n", "end\n\n  def other = 2\nend\n")
+      expect(deleted_subjects([file], base_text: moved, after: after)).to be_empty
+    end
+
+    it "ignores a non-Ruby file even when its base text defined a method" do
+      gemfile = File.join(@root, "Gemfile")
+      File.write(gemfile, "class C\n  def total = 1\nend\n")
+      git("init", "-q")
+      git("add", ".")
+      git("commit", "-q", "-m", "base")
+      File.write(gemfile, "# none left\n")
+      comparison = described_class.new(git("rev-parse", "HEAD").first.strip, root: @root)
+      expect(comparison.deleted_subjects([gemfile])).to be_empty
+    end
+
+    it "ignores a path that no longer exists on disk" do
+      File.write(file, before)
+      git("init", "-q")
+      git("add", ".")
+      git("commit", "-q", "-m", "base")
+      File.delete(file)
+      comparison = described_class.new(git("rev-parse", "HEAD").first.strip, root: @root)
+      expect(comparison.deleted_subjects([file])).to be_empty
+    end
+  end
+
   it "is true for a comment, a blank line and spacing" do
     after = "class Cart\n  # explains total\n  def total(a)\n    x = a+1 # inline\n\n    x\n  end\nend\n"
 

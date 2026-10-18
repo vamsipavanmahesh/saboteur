@@ -9,7 +9,8 @@ module Saboteur
       def option_lines
         run = parser.summarize
         { "run" => run, "pr" => run, "audit" => run, "doctor" => doctor_parser.summarize,
-          "baseline" => baseline_parser.summarize }
+          "baseline" => baseline_parser.summarize, "badge" => badge_parser.summarize,
+          "trend" => trend_parser.summarize }
       end
     end
   end
