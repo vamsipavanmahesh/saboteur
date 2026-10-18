@@ -197,6 +197,149 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect { guard.call }.to raise_error(Saboteur::Error, /the suite failed: t1, t2\./)
   end
 
+  describe "the Minitest signature warning (#626)" do
+    def write_helper(text)
+      FileUtils.mkdir_p(File.join(@root, "spec"))
+      File.write(File.join(@root, "spec", "spec_helper.rb"), text)
+    end
+
+    def write_failure_log(text)
+      path = File.join(@root, ".saboteur", "baseline-1.log")
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, text)
+    end
+
+    def failing_run_output(failed: %w[t1 t2])
+      diagnostics = Saboteur::Engine::Diagnostics.new(StringIO.new)
+      allow(supervisor).to receive(:run).and_return(response(passed: false, failed: failed))
+      expect do
+        described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                            supervisor: supervisor, diagnostics: diagnostics).call
+      end.to raise_error(Saboteur::Error, /the suite failed/)
+      diagnostics.warnings.join("\n")
+    end
+
+    it "matches only a line-start require with separating whitespace" do
+      ["  require   'minitest'\n", "require 'minitest'\n"].each do |text|
+        write_helper(text)
+        expect(guard.send(:spec_helper_requires_minitest?)).to be(true)
+      end
+      ["# require 'minitest'\n", "x = 1; require 'minitest'\n", "require'minitest'\n"].each do |text|
+        write_helper(text)
+        expect(guard.send(:spec_helper_requires_minitest?)).to be(false)
+      end
+    end
+
+    [1, 2].each do |count|
+      it "pins the full Minitest warning for #{count} errors" do
+        write_helper("require 'minitest'\n")
+        write_failure_log("NoMethodError: boom\n" * count)
+        expect(failing_run_output).to eq(
+          "the baseline failure looks like a Minitest suite running under RSpec, not a " \
+          "broken RSpec suite: the log shows #{count} NoMethodError#{'s' if count == 2} " \
+          "(for example: NoMethodError: boom) and spec/spec_helper.rb requires minitest. " \
+          "saboteur is RSpec-only, so a Minitest suite cannot be mutation tested with it."
+        )
+      end
+    end
+
+    # rack-test's suite is Minitest::Spec in *_spec.rb files: it loads
+    # under the RSpec integration and the baseline fails with
+    # NoMethodError for Minitest-only methods, which reads like a broken
+    # suite instead of the wrong framework.
+    it "warns that the failure looks like Minitest, quoting the symptom and the count" do
+      write_helper("require \"minitest/autorun\"\n")
+      write_failure_log(<<~LOG)
+        Failures:
+          1) a
+             NoMethodError:
+               undefined method `custom_request' for #<a>
+          2) b
+             NoMethodError:
+               undefined method `custom_request' for #<b>
+      LOG
+      output = failing_run_output
+      expect(output).to include("looks like a Minitest suite")
+      expect(output).to include("2 NoMethodErrors")
+      expect(output).to include("undefined method `custom_request'")
+      expect(output).to include("spec/spec_helper.rb requires minitest")
+    end
+
+    # The warning stays a warning, and the refusal keeps its shape: an
+    # exit-3 baseline failure either way.
+    it "still refuses the run when it warns" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log("Failures:\n  1) a\n     NoMethodError:\n       undefined method `x' for #<a>\n")
+      failing_run_output(failed: %w[t1])
+    end
+
+    # An RSpec suite can require minitest for a helper: without the
+    # NoMethodError signature there is nothing to warn about.
+    it "stays silent when a minitest-requiring suite fails for another reason" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log("Failures:\n  1) a\n     expected 1, got 2\n")
+      expect(failing_run_output).not_to include("Minitest")
+    end
+
+    # The signature without the helper's minitest require is just a
+    # broken suite.
+    it "stays silent when spec_helper does not require minitest" do
+      write_helper("require \"rspec\"\n")
+      write_failure_log("Failures:\n  1) a\n     NoMethodError:\n       undefined method `x' for #<a>\n")
+      expect(failing_run_output).not_to include("Minitest")
+    end
+
+    it "stays silent with neither a spec_helper nor a log to read" do
+      expect(failing_run_output).not_to include("Minitest")
+    end
+
+    # Message-content pins (#626 v2): the count, its pluralization and
+    # the quoted symptom are the actionable parts of the warning.
+    it "uses the singular for one NoMethodError (#626)" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log("Failures:\n  1) a\n     NoMethodError:\n       undefined method `x' for #<a>\n")
+      output = failing_run_output(failed: %w[t1])
+      expect(output).to include("1 NoMethodError")
+      expect(output).not_to include("1 NoMethodErrors")
+    end
+
+    it "quotes the first undefined-method line, not the error header (#626)" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log(<<~LOG)
+        Failures:
+          1) a
+             NoMethodError:
+               undefined method `custom_request' for #<a>
+      LOG
+      expect(failing_run_output(failed: %w[t1])).to include("(for example: undefined method `custom_request' for #<a>)")
+    end
+
+    it "truncates an over-width symptom at EXCERPT_WIDTH, never quoting it whole (#626)" do
+      write_helper("require \"minitest\"\n")
+      long_symptom = "undefined method `x' for #<#{'y' * 210}>"
+      write_failure_log(<<~LOG)
+        Failures:
+          1) a
+             NoMethodError:
+               #{long_symptom}
+      LOG
+      expect(failing_run_output(failed: %w[t1])).to include("(for example: #{long_symptom.slice(0, 200)})")
+      expect(failing_run_output(failed: %w[t1])).not_to include(long_symptom.slice(0, 201))
+    end
+
+    it "falls back to the first NoMethodError line when no line says undefined method (#626)" do
+      write_helper("require \"minitest\"\n")
+      write_failure_log(<<~LOG)
+        Failures:
+          1) a
+             NoMethodError: boom one
+          2) b
+             NoMethodError: boom two
+      LOG
+      expect(failing_run_output(failed: %w[t1 t2])).to include("(for example: NoMethodError: boom one)")
+    end
+  end
+
   describe "the failure detail printed inline" do
     def write_log(text)
       path = File.join(@root, ".saboteur", "baseline-1.log")

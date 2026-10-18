@@ -39,6 +39,13 @@ RSpec.describe Saboteur::Engine::TestGuess do
     git("commit", "-q", "-m", "base")
   end
 
+  it "flattens three segments without retaining the unchanged namespace path" do
+    config = Saboteur::Config.new({}, root: dir)
+    guesser = described_class.new(config)
+    expect(guesser.send(:flattened_below_namespace, ["rack/test/methods"]))
+      .to eq(["rack/methods"])
+  end
+
   it "warns through its diagnostics when untracked files cannot be opened race-free" do
     write("lib/new.rb", base_source)
     diagnostics = instance_double(Saboteur::Engine::Diagnostics)
@@ -410,10 +417,11 @@ RSpec.describe Saboteur::Engine::TestGuess do
     expect(guesser.send(:candidates_for, "app/models/user.rb"))
       .to eq(["spec/models/user_spec.rb", "spec/lib/models/user_spec.rb", "spec/app/models/user_spec.rb",
               "spec/unit/models/user_spec.rb", "spec/unit/lib/models/user_spec.rb",
-              "spec/unit/app/models/user_spec.rb", "spec/user_spec.rb", "spec/unit/user_spec.rb"])
+              "spec/unit/app/models/user_spec.rb", "spec/lib/user_spec.rb", "spec/app/user_spec.rb",
+              "spec/user_spec.rb", "spec/unit/user_spec.rb"])
     expect(guesser.send(:candidates_for, "lib/a/b.rb"))
       .to eq(["spec/a/b_spec.rb", "spec/lib/a/b_spec.rb", "spec/unit/a/b_spec.rb",
-              "spec/unit/lib/a/b_spec.rb", "spec/b_spec.rb", "spec/unit/b_spec.rb"])
+              "spec/unit/lib/a/b_spec.rb", "spec/lib/b_spec.rb", "spec/b_spec.rb", "spec/unit/b_spec.rb"])
   end
 
   it "adds request spec names only for controllers" do
@@ -1273,6 +1281,66 @@ RSpec.describe Saboteur::Engine::TestGuess do
     result = guess
     expect(result.specs).to eq(["spec/unit/base_spec.rb"])
     expect(result.unmatched).to eq([])
+  end
+
+  # A spec tree can mirror the gem namespace but drop directories below
+  # it: rubocop-ast tests lib/rubocop/ast/node/block_node.rb in
+  # spec/rubocop/ast/block_node_spec.rb, dropping node/ (#586).
+  it "finds a spec that drops one directory below the gem namespace (#586)" do
+    write("lib/rubocop/ast/node/block_node.rb", changed_source)
+    write("spec/rubocop/ast/block_node_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/rubocop/ast/block_node_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # Deeper drops flatten every directory below the namespace, one at a
+  # time from the inside out: rubocop-ast tests
+  # lib/rubocop/ast/node/mixin/conditional_node.rb in
+  # spec/rubocop/ast/conditional_node_spec.rb.
+  it "finds a spec that drops several directories below the gem namespace (#586)" do
+    write("lib/rubocop/ast/node/mixin/conditional_node.rb", changed_source)
+    write("spec/rubocop/ast/conditional_node_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/rubocop/ast/conditional_node_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # A repeated namespace segment is still just a mid directory: money
+  # tests lib/money/money/allocation.rb in spec/money/allocation_spec.rb.
+  it "finds a spec below a doubled namespace segment (#586)" do
+    write("lib/money/money/allocation.rb", changed_source)
+    write("spec/money/allocation_spec.rb")
+    result = guess
+    expect(result.specs).to eq(["spec/money/allocation_spec.rb"])
+    expect(result.unmatched).to eq([])
+  end
+
+  # Both committed, so the changed-spec pickup cannot mask which one the
+  # guess names. Fewer directories dropped keeps more of the mirrored
+  # path, so it is the stronger guess.
+  it "prefers the drop of fewer directories when several flattened specs exist (#586)" do
+    write("lib/rubocop/ast/node/mixin/conditional_node.rb", base_source)
+    write("spec/rubocop/ast/node/conditional_node_spec.rb")
+    write("spec/rubocop/ast/conditional_node_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "two flattened specs")
+    write("lib/rubocop/ast/node/mixin/conditional_node.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/rubocop/ast/node/conditional_node_spec.rb"])
+  end
+
+  # Same committed fixture: the namespace-anchored drop beats the bare
+  # basename, which keeps none of the mirrored path below the namespace.
+  it "prefers a mid-directory drop over the basename at the spec root (#586)" do
+    write("lib/rubocop/ast/node/block_node.rb", base_source)
+    write("spec/rubocop/ast/block_node_spec.rb")
+    write("spec/block_node_spec.rb")
+    git("add", ".")
+    git("commit", "-q", "-m", "both specs")
+    write("lib/rubocop/ast/node/block_node.rb", changed_source)
+    result = guess
+    expect(result.specs).to eq(["spec/rubocop/ast/block_node_spec.rb"])
   end
 
   describe "Result#out_of_scope_message (#483)" do

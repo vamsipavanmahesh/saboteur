@@ -464,14 +464,31 @@ module Saboteur
 
       # Layouts that mirror less of the source path, after every mirrored
       # guess (#394): a spec/unit/ prefix (shoulda-matchers mirrors below
-      # it, #393), the basename at the spec root (pundit), and both
-      # together (aasm, #370). Weaker guesses come last: the first
-      # candidate that exists wins. A file outside the source roots
-      # keeps its literal guess only: dropping directories from a path
-      # the roots never anchored would guess any same-named spec.
+      # it, #393), directories dropped between the gem namespace and the
+      # file (rubocop-ast tests lib/rubocop/ast/node/block_node.rb in
+      # spec/rubocop/ast/block_node_spec.rb, #586), the basename at the
+      # spec root (pundit), and both together (aasm, #370). Weaker
+      # guesses come last: the first candidate that exists wins. A file
+      # outside the source roots keeps its literal guess only: dropping
+      # directories from a path the roots never anchored would guess any
+      # same-named spec.
       def layout_variants(names)
         flat = names.map { |name| name.split("/").last }.uniq
-        (names + names.map { |name| "unit/#{name}" } + flat + flat.map { |name| "unit/#{name}" }).uniq
+        (names + names.map { |name| "unit/#{name}" } + flattened_below_namespace(names) + flat +
+          flat.map { |name| "unit/#{name}" }).uniq
+      end
+
+      # Every way to drop mid directories from a name, fewest dropped
+      # first: each guess keeps at least the leading namespace segment
+      # and the basename, so it stays anchored on the gem namespace and
+      # more specific than the bare basename flatten (#586).
+      def flattened_below_namespace(names)
+        names.flat_map do |name|
+          segments = name.split("/")
+          (segments.size - 2).downto(1).map do |keep|
+            (segments.first(keep) + [segments.last]).join("/")
+          end
+        end.uniq
       end
 
       # Rails tests controllers as request specs: spec/requests/users_spec.rb

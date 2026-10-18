@@ -1226,4 +1226,10 @@ Saboteur.ignore do |i|
                      "[rank, -coverage, path, line] tie; removing it leaves equal keys whose order Ruby's " \
                      "sort_by leaves unspecified, which no deterministic spec can pin - hand-applied mutant " \
                      "leaves all 16 browser pin examples green"
+
+  i.mutation "9561b9b71f0ba7a2",
+             subject: "Saboteur::Engine::BaselineGuard#warn_minitest_signature",
+             reason: "equivalent on reachable inputs: errors.empty? returns before pluralization at zero; " \
+                     "errors.size is therefore an Integer >= 1, where > 1 and != 1 agree. " \
+                     "Hand-applied mutant passes exact full-warning assertions for one and two errors"
 end

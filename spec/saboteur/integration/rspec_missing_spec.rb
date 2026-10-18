@@ -13,7 +13,7 @@ RSpec.describe Saboteur::Integration::RSpec, "with rspec-core missing (#482)" do
 
   it "refuses setup with the remedy instead of crashing into the internal-error report" do
     without_rspec_core do
-      expect { integration.setup }.to raise_error(Saboteur::Error, /rspec is not in the bundle.*test group/m)
+      expect { integration.setup }.to raise_error(Saboteur::ConfigError, /rspec is not in the bundle.*test group/m)
     end
   end
 
@@ -21,7 +21,7 @@ RSpec.describe Saboteur::Integration::RSpec, "with rspec-core missing (#482)" do
     without_rspec_core do
       expect do
         integration.configured_spec_files(Dir.pwd)
-      end.to raise_error(Saboteur::Error, /rspec is not in the bundle/)
+      end.to raise_error(Saboteur::ConfigError, /rspec is not in the bundle/)
     end
   end
 
@@ -30,6 +30,23 @@ RSpec.describe Saboteur::Integration::RSpec, "with rspec-core missing (#482)" do
     allow(load_error).to receive(:path).and_return("the_app/boot")
     allow(integration).to receive(:require).and_raise(load_error)
     expect { integration.setup }.to raise_error(LoadError, %r{the_app/boot})
+  end
+
+  it "names docs/minitest.md instead of the dead-end c.integration remedy (#610)" do
+    without_rspec_core do
+      expect { integration.setup }.to raise_error(
+        Saboteur::ConfigError,
+        %r{saboteur's built-in integration supports RSpec only - see docs/minitest\.md for other suites}
+      )
+    end
+  end
+
+  it "does not offer the dead-end c.integration remedy (#610)" do
+    without_rspec_core do
+      expect { integration.setup }.to raise_error(Saboteur::ConfigError) { |error|
+        expect(error.message).not_to include("point c.integration")
+      }
+    end
   end
 
   it "re-raises a LoadError for rspec/core_ext: the message matches, the feature does not" do
@@ -65,7 +82,7 @@ RSpec.describe Saboteur::Integration::RSpec, "framework load at each entry point
     allow(integration).to receive(:rspec_args).and_return([])
     allow(integration).to receive(:require).and_raise(load_error)
     allow(RSpec::Core::Runner).to receive(:disable_autorun!).and_raise("setup ran past the framework load")
-    expect { integration.setup }.to raise_error(Saboteur::Error, /rspec is not in the bundle/)
+    expect { integration.setup }.to raise_error(Saboteur::ConfigError, /rspec is not in the bundle/)
   end
 
   it "loads the framework in configured_spec_files before reading any RSpec option" do
@@ -73,12 +90,12 @@ RSpec.describe Saboteur::Integration::RSpec, "framework load at each entry point
     allow(integration).to receive(:require).and_raise(load_error)
     allow(RSpec::Core::ConfigurationOptions).to receive(:new).and_raise("read options past the framework load")
     expect { integration.configured_spec_files(Dir.pwd) }
-      .to raise_error(Saboteur::Error, /rspec is not in the bundle/)
+      .to raise_error(Saboteur::ConfigError, /rspec is not in the bundle/)
   end
 
   it "loads the framework in rspec_args before parsing" do
     allow(integration).to receive(:require).and_raise(load_error)
     allow(RSpec::Core::ConfigurationOptions).to receive(:new).and_raise("parsed past the framework load")
-    expect { integration.rspec_args }.to raise_error(Saboteur::Error, /rspec is not in the bundle/)
+    expect { integration.rspec_args }.to raise_error(Saboteur::ConfigError, /rspec is not in the bundle/)
   end
 end
