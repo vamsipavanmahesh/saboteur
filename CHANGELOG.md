@@ -103,18 +103,6 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
-- Suites that turn warnings into errors (`--warnings` plus a raising
-  `Warning.warn` or `Warning.process` handler, dry-rb/hanami-style) no
-  longer error every mutant: the re-evaluation's own "method redefined"
-  notice is silenced while the mutant is installed, the same guard the
-  whole-file strategy already had (#603).
-
-- Suites that turn warnings into errors (`--warnings` plus a raising
-  `Warning.warn` or `Warning.process` handler, dry-rb/hanami-style) no
-  longer error every mutant: the re-evaluation's own "method redefined"
-  notice is silenced while the mutant is installed, the same guard the
-  whole-file strategy already had (#603).
-
 - A single `using` anywhere in a file used to skip every subject in the
   file. Refinement skips are now scope-granular (#634): a bare `using`
   skips only subjects after it in its own class/module body (or the
