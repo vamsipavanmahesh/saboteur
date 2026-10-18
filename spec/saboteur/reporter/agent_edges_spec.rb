@@ -190,6 +190,29 @@ RSpec.describe Saboteur::Reporter::Agent, "exact values" do
       expect(payload_for(report_of(result_for(:killed)))).not_to have_key(:shard)
     end
 
+    it "keeps every shard partial, even one that selected its whole inventory or none of it" do
+      full = Saboteur::Engine::Shard.parse("1/2")
+      allow(full).to receive(:planned_count).and_return(1)
+      allow(full).to receive(:selected_count).and_return(1)
+      allow(full).to receive(:to_h).and_return(index: 1, of: 2, selected: 1, planned: 1,
+                                               inventoryDigest: "a" * 64, partial: true)
+      full_report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject],
+                                         wall_time: 1, root: "/tmp", seed: 7, shard: full)
+      expect(reasons(full_report)).to include(
+        reason: "shard", count: 0, meaning: "planned mutants assigned to other shards"
+      )
+      expect(payload_for(full_report)).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+
+      empty = Saboteur::Engine::Shard.parse("2/2")
+      allow(empty).to receive(:planned_count).and_return(1)
+      allow(empty).to receive(:selected_count).and_return(0)
+      allow(empty).to receive(:to_h).and_return(index: 2, of: 2, selected: 0, planned: 1,
+                                                inventoryDigest: "b" * 64, partial: true)
+      empty_report = Saboteur::Report.new(results: [], subjects: [], wall_time: 1,
+                                          root: "/tmp", seed: 7, shard: empty)
+      expect(payload_for(empty_report)).to include(status: "partial", verdict: "incomplete", exitCode: 3)
+    end
+
     it "says what errors and resource limits mean" do
       report = report_of(result_for(:killed), result_for(:error, replacement: "<"),
                          result_for(:resource_limit, replacement: "=="))

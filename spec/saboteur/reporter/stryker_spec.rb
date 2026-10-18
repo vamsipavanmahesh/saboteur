@@ -239,6 +239,19 @@ RSpec.describe Saboteur::Reporter::Stryker do
       expect(JSON.parse(JSON.generate(described_class.build(no_seed)))).not_to have_key("config")
     end
 
+    it "audits inline suppressions with root-relative files under the saboteur key" do
+      entry = { file: File.join(report.root, "person.rb"), line: 2, subject: "Person#adult?",
+                operator: "comparison", digest: "a" * 16, reason: "covered elsewhere" }
+      audited = Saboteur::Report.new(results: report.results, subjects: report.subjects,
+                                     wall_time: 1.25, root: report.root, seed: 1,
+                                     operator_policy: report.operator_policy,
+                                     inline_suppressions: [entry])
+      payload = JSON.parse(JSON.generate(described_class.build(audited)))
+      expect(payload.dig("saboteur", "inlineSuppressions")).to eq(
+        [entry.merge(file: "person.rb").transform_keys(&:to_s)]
+      )
+    end
+
     it "passes the CLI's exit cause through the instance call into the written file" do
       Dir.mktmpdir do |dir|
         path = File.join(dir, "out", "report.json")

@@ -48,7 +48,8 @@ module Saboteur
 
     attr_reader :options
 
-    # Found before parsing, so even a bad option can answer an agent with JSON.
+    # Found before parsing, so any error, even a bad option that comes first, still
+    # answers an agent with JSON. Class-level: the executable's fallback reads raw arguments.
     def self.agent_requested?(argv)
       argv.include?("--agent") || argv.include?("--format=agent") ||
         argv.each_cons(2).any? { |flag, value| flag == "--format" && value == "agent" }

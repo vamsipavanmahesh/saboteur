@@ -8,6 +8,14 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `--shard K/N` (#470): run one deterministic slice of the planned candidate
+  inventory - `K` is the 1-based shard and `N` the number of shards. Each
+  planned mutant is assigned by a SHA-256 of its candidate identity, never by
+  position, so the split stays stable when an earlier subject gains or loses a
+  mutant. The terminal, JSON and agent outputs name the shard, the inventory
+  digest and the selected/planned counts, and a shard run is always reported
+  partial. See docs/guides/sharding.md for the CI matrix setup.
+
 - `saboteur survivors <report.json>` (#475): a read-only terminal browser
   for the Stryker JSON report - list and filter survivors (with the
   ranked-findings order available via `--ranked`), and `--show DIGEST`

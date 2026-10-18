@@ -22,6 +22,24 @@ RSpec.describe "saboteur run --shard" do
     expect(err.string).to include("--id cannot be combined with --shard")
   end
 
+  it "replays one mutant without a shard and never raises the shard error" do
+    config = Saboteur::Config.new({ "json_report" => nil })
+    allow(Saboteur::Config).to receive(:load).and_return(config)
+    report = report_of(result_for(:killed))
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    expect(cli("run", "--id", "a" * 16).call).to eq(0)
+    expect(err.string).not_to include("--id cannot be combined with --shard")
+  end
+
+  it "runs unsharded without parsing a shard" do
+    config = Saboteur::Config.new({ "json_report" => nil })
+    allow(Saboteur::Config).to receive(:load).and_return(config)
+    report = report_of(result_for(:killed))
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    expect(cli("run").call).to eq(0)
+    expect(err.string).not_to include("shard must be k/n")
+  end
+
   it "documents the public flag and its argument" do
     expect(cli("help", "run").call).to eq(0)
     expect(out.string).to include("--shard K/N", "Run one of N deterministic candidate shards (for example 1/4)")

@@ -36,12 +36,14 @@ module Saboteur
 
           private
 
+          # A shard always runs a subset of the planned inventory by contract, even
+          # when this shard happened to select every planned mutant (count 0).
           def shard_reason(reasons, report)
             shard = report.shard
             return unless shard
 
-            add(reasons, "shard", shard.planned_count - shard.selected_count,
-                "planned mutants assigned to other shards")
+            reasons << { reason: "shard", count: shard.planned_count - shard.selected_count,
+                         meaning: "planned mutants assigned to other shards" }
           end
 
           # Source the selection could not read at all: its subjects never
