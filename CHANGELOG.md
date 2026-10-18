@@ -90,6 +90,7 @@ All notable changes are documented here. The format follows
   "differ only in comments or formatting" and no longer names the method the
   deleted lines drifted onto. The run says what was deleted instead: `N
   changed subject(s) were deleted, nothing to mutate: ...` (#466).
+- An error-dominated run no longer prints a bare score above the "tested almost nothing" warning: the terminal reports "score n/a (N of M mutants scored, X % of scored)" so the scored share cannot be misread as a run-wide score (#557).
 - Preflight no longer refuses a precompiled Ruby (mise, ruby-build) whose
   binary tops the 50 MB evidence-document cap (#364): tool identity
   digests stream with an executable-sized bound instead. The cap for JSON
