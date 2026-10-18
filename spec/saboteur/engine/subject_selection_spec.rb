@@ -348,11 +348,77 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
   # Patterns are names, not globs: "Item*" matches nothing. A partial
   # miss keeps the run but names both the missing pattern and the
   # matched count, so a typo is visible in CI logs (#379).
+  # An attribute macro defines the method, but saboteur has no body to
+  # mutate: name that instead of blaming the pattern format (#373).
+  it "names the attribute macro when a --subject pattern names an attr_reader method" do
+    file = write("state.rb", "class State\n  attr_reader :name\n  def label = 1\nend\n")
+    select([file], subjects: ["State#label", "State#name"])
+    expect(diagnostics.warnings)
+      .to include("--subject State#name is defined by attr_reader and has no body to mutate")
+    expect(diagnostics.warnings.grep(/State#name matches no subject/)).to be_empty
+  end
+
+  # The issue's shape: the only pattern names a reader, so the run refuses
+  # - and the refusal says why instead of hinting at pattern syntax (#373).
+  it "refuses with the attribute reason when every missed pattern is attribute-defined" do
+    file = write("state.rb", "class State\n  attr_accessor :name\nend\n")
+    expect { select([file], subjects: ["State#name"]) }
+      .to raise_error(Saboteur::ConfigError,
+                      "--subject State#name is defined by attr_accessor and has no body to mutate")
+  end
+
+  # A mixed total miss stays generic: one pattern names a reader, the
+  # other names nothing at all, so blaming macro-generated bodies for the
+  # whole list would mislead (#373 dogfood: all? -> any?).
+  it "keeps the generic refusal when only some missed patterns are attribute-defined" do
+    file = write("state.rb", "class State\n  attr_reader :name\nend\n")
+    expect { select([file], subjects: ["State#name", "State#nope"]) }
+      .to raise_error(Saboteur::ConfigError,
+                      "--subject State#name, State#nope matches no subject (patterns are names like " \
+                      "Klass, Klass#meth or Klass.meth, not globs)")
+  end
+
+  # Two attribute-defined misses read as one sentence each, separated so
+  # the second reason is not glued to the first (#373 dogfood: join).
+  it "joins the per-pattern attribute reasons in a total attribute miss" do
+    file = write("state.rb", "class State\n  attr_reader :name, :size\nend\n")
+    expect { select([file], subjects: ["State#name", "State#size"]) }
+      .to raise_error(Saboteur::ConfigError,
+                      "--subject State#name is defined by attr_reader and has no body to mutate; " \
+                      "--subject State#size is defined by attr_reader and has no body to mutate")
+  end
+
   it "warns about a --subject pattern that matches no subject and reports the matched count" do
     select([write("cart.rb", source)], subjects: ["Shop::Cart", "Cart*"])
     expect(diagnostics.warnings).to eq(["--subject Cart* matches no subject (patterns are names like " \
                                         "Klass, Klass#meth or Klass.meth, not globs)",
                                         "1 of 2 --subject patterns matched"])
+  end
+
+  # The attribute lookup parses the files once per selection, however many
+  # patterns missed, and only after a miss (#373 dogfood).
+  it "parses attribute macros once for several missed patterns" do
+    file = write("state.rb", "class State\n  attr_reader :name\nend\n")
+    allow(Saboteur::AttributeFinder).to receive(:new).and_call_original
+    expect { select([file], subjects: ["State#name", "State#name="]) }.to raise_error(Saboteur::ConfigError)
+    expect(Saboteur::AttributeFinder).to have_received(:new).once
+  end
+
+  it "never parses attribute macros when every pattern matches" do
+    file = write("state.rb", "class State\n  attr_reader :name\n  def label = 1\nend\n")
+    allow(Saboteur::AttributeFinder).to receive(:new).and_call_original
+    select([file], subjects: ["State#label"])
+    expect(Saboteur::AttributeFinder).not_to have_received(:new)
+  end
+
+  # The match is exact: a pattern that only nearly names a generated
+  # method (a prefix, or the bare class) keeps the generic message (#373
+  # dogfood).
+  it "does not attribute-explain a pattern that only nearly matches a generated id" do
+    file = write("state.rb", "class State\n  attr_reader :name\n  def label = 1\nend\n")
+    select([file], subjects: ["State#label", "State#na"])
+    expect(diagnostics.warnings)
+      .to include(a_string_starting_with("--subject State#na matches no subject"))
   end
 
   # The count is a subtraction, not a restatement of the miss count: with

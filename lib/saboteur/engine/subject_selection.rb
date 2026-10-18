@@ -4,6 +4,7 @@
 require_relative "../text"
 require_relative "../constant_subject"
 require_relative "../constant_subject_finder"
+require_relative "../attribute_finder"
 require_relative "../constant_reads"
 
 module Saboteur
@@ -97,21 +98,48 @@ module Saboteur
           subjects.any? { |subject| self.class.match?(subject.id, pattern) }
         end
         missed.each do |pattern|
-          @diagnostics.warn("--subject #{pattern} matches no subject (patterns are names like " \
-                            "Klass, Klass#meth or Klass.meth, not globs)")
+          @diagnostics.warn(missed_pattern_message(pattern))
         end
         # A total miss is a typo: refuse instead of a green zero-subject
         # summary (#379). A partial miss runs, but the matched count is
         # on the record.
-        if missed.size == patterns.size
-          raise ConfigError, "--subject #{patterns.join(', ')} matches no subject (patterns are names like " \
-                             "Klass, Klass#meth or Klass.meth, not globs)"
-        end
+        raise ConfigError, total_miss_message(missed) if missed.size == patterns.size
 
         if missed.any?
           @diagnostics.warn("#{patterns.size - missed.size} of #{patterns.size} --subject patterns matched")
         end
         subjects.select { |subject| patterns.any? { |pattern| self.class.match?(subject.id, pattern) } }
+      end
+
+      # The refusal when every pattern missed (#379). A pattern naming an
+      # attribute-macro method gets the real reason - the method exists but
+      # has no body to mutate (#373) - instead of the pattern-format hint.
+      def total_miss_message(missed)
+        if missed.all? { |pattern| attribute_macro_for(pattern) }
+          return missed.map { |pattern| missed_pattern_message(pattern) }.join("; ")
+        end
+
+        "--subject #{missed.join(', ')} matches no subject (patterns are names like " \
+          "Klass, Klass#meth or Klass.meth, not globs)"
+      end
+
+      # Why one missed pattern matched nothing: when it names a method an
+      # attribute macro generated, say so (#373); otherwise the pattern
+      # itself is suspect.
+      def missed_pattern_message(pattern)
+        macro = attribute_macro_for(pattern)
+        return "--subject #{pattern} is defined by #{macro} and has no body to mutate" if macro
+
+        "--subject #{pattern} matches no subject (patterns are names like " \
+          "Klass, Klass#meth or Klass.meth, not globs)"
+      end
+
+      # The attribute macro that generated the method a pattern names, if
+      # any. The files are parsed for macros once, only when a pattern
+      # missed.
+      def attribute_macro_for(pattern)
+        attributes = @attributes ||= @files.flat_map { |file| AttributeFinder.new.call(file) }
+        attributes.find { |found| found.id == pattern }&.macro
       end
 
       def by_change(subjects, ref)

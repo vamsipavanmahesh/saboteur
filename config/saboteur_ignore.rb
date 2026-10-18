@@ -3,6 +3,30 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "02f7817b2ef41452",
+             subject: "Saboteur::AttributeFinder#walk",
+             reason: "equivalent: the each result is discarded (visit recurses for effect); each and map run the same record/walk calls"
+
+  i.mutation "75f0bf52ff86b7ce",
+             subject: "Saboteur::AttributeFinder#walk",
+             reason: "equivalent: the each result is discarded (visit recurses for effect); each and map run the same record/walk calls"
+
+  i.mutation "192607563f4b49cb",
+             subject: "Saboteur::AttributeFinder#record_macro",
+             reason: "equivalent: the owner guard above returns unless owner_path(nesting) is non-nil, and a non-nil owner means nesting has a real scope, so nesting.last is never nil at the separator line"
+
+  i.mutation "84c1c1d2c77efa3d",
+             subject: "Saboteur::AttributeFinder#record_macro",
+             reason: "equivalent: the each result is discarded (out is mutated for effect); each and map run the same body"
+
+  i.mutation "647ef4d1e06082e0",
+             subject: "Saboteur::AttributeFinder#record_macro",
+             reason: "equivalent: the each result is discarded (out is mutated for effect); each and map run the same body"
+
+  i.mutation "e28a064f17fcb078",
+             subject: "Saboteur::AttributeFinder#walk_singleton_class",
+             reason: "equivalent: the sclass scope's path is never rendered - owner_path skips sclass scopes and only kind: :sclass decides the separator - so the literal is inert"
+
   i.mutation "54845ce72e86f30a",
              subject: "Saboteur::Engine::SubjectSelection#report_deleted",
              reason: "equivalent: Subject#to_s returns the id, so join renders the subjects the same without map(&:id)"
