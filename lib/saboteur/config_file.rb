@@ -19,11 +19,21 @@ module Saboteur
 
       attr_reader :values, :lines
 
-      Config::DEFAULTS.each_key do |key|
+      (Config::DEFAULTS.keys - ["integration"]).each do |key|
         define_method("#{key}=") do |value|
           @values[key] = value
           @lines[key] = caller_locations(1, 1).first.lineno
         end
+      end
+
+      def integration=(value)
+        line = caller_locations(1, 1).fetch(0).lineno
+        unless value.is_a?(String)
+          raise ConfigError, "#{line}: integration must be a String, got #{value.inspect}; use \"rspec\""
+        end
+
+        @values["integration"] = value
+        @lines["integration"] = line
       end
 
       # Repeatable per-path score gates (#473), the one setting that takes

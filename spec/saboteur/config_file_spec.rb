@@ -30,6 +30,44 @@ RSpec.describe Saboteur::ConfigFile do
     expect([config["include"], config["jobs"], config["threshold"]]).to eq([["app/**/*.rb"], 4, 80.0])
   end
 
+  it "rejects a Symbol integration with the config file and assignment line (#614)" do
+    path = write_config("Saboteur.configure do |c|\n  c.integration = :rspec\nend\n")
+    expect { Saboteur::Config.load(root: @root, path: path) }
+      .to raise_error(Saboteur::ConfigError, "#{path}:2: integration must be a String, got :rspec; use \"rspec\"")
+  end
+
+  %w[run doctor].each do |command|
+    it "reports invalid integration as exit 2 before #{command} boots (#614)" do
+      path = write_config("Saboteur.configure { |c| c.integration = :rspec }")
+      err = StringIO.new
+      expect(Saboteur::Engine::Boot).not_to receive(:new)
+      code = Dir.chdir(@root) do
+        Saboteur::CLI.new([command, "--config", path], out: StringIO.new, err: err).call
+      end
+      expect(code).to eq(2)
+      expect(err.string).to include("#{path}:1: integration must be a String, got :rspec")
+      expect(err.string).not_to include("internal error")
+    end
+  end
+
+  it "records a valid integration assignment and its single caller location (#614)" do
+    settings = described_class::Settings.new
+    location = instance_double(Thread::Backtrace::Location, lineno: 42)
+    locations = [location]
+    expect(locations).to receive(:fetch).with(0).and_call_original
+    expect(settings).to receive(:caller_locations).with(1, 1).and_return(locations)
+    settings.integration = "custom"
+    expect(settings.values).to eq("integration" => "custom")
+    expect(settings.lines).to eq("integration" => 42)
+  end
+
+  it "keeps a String integration usable by the run fingerprint (#614)" do
+    path = write_config('Saboteur.configure { |c| c.integration = "rspec" }')
+    config = Saboteur::Config.load(root: @root, path: path)
+    expect(config["integration"]).to eq("rspec")
+    expect { Saboteur::Engine::RunFingerprint.new(config: config).snapshot }.not_to raise_error
+  end
+
   it "lets a later configure block win" do
     path = write_config(<<~RUBY)
       Saboteur.configure { |c| c.jobs = 2 }
