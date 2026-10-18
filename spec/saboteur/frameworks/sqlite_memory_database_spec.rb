@@ -20,6 +20,29 @@ RSpec.describe Saboteur::Frameworks::SqliteMemoryDatabase do
     out.lines.last.to_s.strip
   end
 
+  it "shows the hooks file and the exact wiring needed in config/saboteur.rb (#593)" do
+    pool = double("empty sqlite pool")
+    handler = double("connection handler", connection_pool_list: [pool])
+    stub_const("ActiveRecord::Base", double("ActiveRecord base", connection_handler: handler))
+    allow(described_class).to receive(:empty_memory_database?).with(pool).and_return(true)
+    expect(described_class.fork_loss_hint).to eq(
+      "a sqlite :memory: database is empty in this forked child: in-memory databases do not " \
+      "survive saboteur's fork, so a schema loaded at require time is lost. Load the schema in " \
+      "a before(:suite) hook, or in an after_fork hook in config/saboteur_hooks.rb; wire it in " \
+      'config/saboteur.rb with c.hooks = ["config/saboteur_hooks.rb"]'
+    )
+  end
+
+  it "only suggests the remedy when at least one current pool lost its schema" do
+    handler = double("connection handler", connection_pool_list: %i[healthy empty])
+    stub_const("ActiveRecord::Base", double("ActiveRecord base", connection_handler: handler))
+    allow(described_class).to receive(:empty_memory_database?).with(:healthy).and_return(false)
+    allow(described_class).to receive(:empty_memory_database?).with(:empty).and_return(true)
+    expect(described_class.fork_loss_hint).to eq(described_class::REMEDY)
+    allow(handler).to receive(:connection_pool_list).and_return([:healthy])
+    expect(described_class.fork_loss_hint).to be_nil
+  end
+
   it "names the remedy when a sqlite :memory: database has no schema" do
     expect(hint_in(<<~RUBY)).to eq("HINT")
       require "active_record"
