@@ -137,4 +137,7 @@ RSpec.describe Saboteur::AttributeFinder do
     Saboteur::AttributeFinder.new.call(file)
     expect(Prism).to have_received(:parse).with(anything, filepath: file)
   end
+  it "refuses a file nested deeper than the walker can safely recurse (#719)" do
+    expect { find("#{'a(' * 1500}1#{')' * 1500}\n") }.to raise_error(Saboteur::DeepSourceError, /sample\.rb/)
+  end
 end

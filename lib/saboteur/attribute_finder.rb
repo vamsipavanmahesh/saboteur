@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "prism"
+require_relative "deep_source"
 require_relative "subject"
 
 module Saboteur
@@ -23,6 +24,8 @@ module Saboteur
     def call(file)
       result = Prism.parse(File.binread(file), filepath: file)
       return [] if result.failure?
+
+      DeepSource.check!(result.value, file)
 
       found = []
       walk(result.value, [], found)

@@ -61,6 +61,20 @@ RSpec.describe Saboteur::Engine::UnchangedSyntax do
       expect(comparison.deleted_subjects([gemfile])).to be_empty
     end
 
+    it "skips a changed file nested too deeply instead of refusing the run (#719, #730)" do
+      # The diff reaches files outside the mutation scope (fixtures,
+      # scripts): they are probed here without ever passing the in-scope
+      # depth guard, so a too-deep one must not fail the run.
+      deep = File.join(@root, "deep.rb")
+      File.write(deep, "#{'a(' * 1500}1#{')' * 1500}\n")
+      git("init", "-q")
+      git("add", ".")
+      git("commit", "-q", "-m", "base")
+      comparison = described_class.new(git("rev-parse", "HEAD").first.strip, root: @root)
+      expect { comparison.deleted_subjects([deep]) }.not_to raise_error
+      expect(comparison.deleted_subjects([deep])).to eq([])
+    end
+
     it "ignores a path that no longer exists on disk" do
       File.write(file, before)
       git("init", "-q")

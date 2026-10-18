@@ -109,6 +109,9 @@ module Saboteur
       end
 
       def proposals(source, subject)
+        # The operator visits recurse over the subject's body; refuse a
+        # body nested too deeply instead of crashing the run (#719).
+        DeepSource.check!(subject.node, subject.file, limit: DeepSource::MAX_MUTATION_DEPTH)
         proposals = source.mutations_for(subject)
         if proposals.empty?
           @diagnostics.record_generation(subject, source: source_name(source), reason: "empty_generation")

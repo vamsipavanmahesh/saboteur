@@ -3,6 +3,7 @@
 
 require "prism"
 require_relative "subject"
+require_relative "deep_source"
 require_relative "constant_subject"
 
 module Saboteur
@@ -46,6 +47,8 @@ module Saboteur
     def call(file, source: File.binread(file))
       result = Prism.parse(source)
       return Parsed.new(subjects: [], unsupported: [], errors: result.errors.map(&:message)) if result.failure?
+
+      DeepSource.check!(result.value, file)
 
       ctx = { file: file, source: source, frozen: frozen_literals?(result) }
       out = { subjects: [], unsupported: [], ambiguous: [] }
