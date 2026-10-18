@@ -34,7 +34,7 @@ RSpec.describe Saboteur::Engine, "distribution wiring" do
     # Reading load-time coverage would suspend the recorder mid-build when
     # the dogfood's coverage pass runs this spec; the wiring tested here is
     # downstream of boot.
-    allow_any_instance_of(described_class).to receive(:suspend_coverage).and_return({})
+    allow_any_instance_of(described_class).to receive(:suspend_coverage).and_return([{}, {}])
     stub_boot
     stub_selection_and_store
   end

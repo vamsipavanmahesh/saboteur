@@ -17,11 +17,12 @@ module Saboteur
       # narrow a changed method's fine-grained mutants.
       attr_reader :behavior_lines
 
-      def initialize(config, diagnostics, test_files: nil)
+      def initialize(config, diagnostics, test_files: nil, custom_map: nil)
         @config = config
         @diagnostics = diagnostics
         @root = File.realpath(config.root)
         @test_files = test_files
+        @custom_map = custom_map || CustomMap.load(config.path("custom_map"), root: config.root)
       end
 
       def select(files)
@@ -34,6 +35,7 @@ module Saboteur
         @discovered = subjects
         subjects = by_pattern(subjects, @config["subjects"]) if @config["subjects"].any?
         subjects = by_change(subjects, @config["since"]) if @config["since"]
+        subjects = drop_intentionally_untested(subjects)
         attach_consumers(subjects)
       end
 
@@ -72,22 +74,41 @@ module Saboteur
       def find(files)
         finder = SubjectFinder.new
         files.flat_map do |file|
-          InlineSuppression.new(file, File.read(file))
+          source = File.read(file)
+          InlineSuppression.new(file, source)
           parsed = finder.call(file)
-          @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax") unless parsed.errors.empty?
-          parsed.errors.first(1).each do |message|
-            @diagnostics.warn("#{file.delete_prefix("#{@root}/")} does not parse: #{message}")
+          unless parsed.errors.empty?
+            if source.include?("<%")
+              @diagnostics.record_erb_template_skip(file, root: @root)
+            else
+              @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax")
+              parsed.errors.first(1).each do |message|
+                @diagnostics.warn("#{file.delete_prefix("#{@root}/")} does not parse: #{message}")
+              end
+            end
           end
           parsed.subjects
         end
       end
 
       def by_pattern(subjects, patterns)
-        patterns.each do |pattern|
-          next if subjects.any? { |subject| self.class.match?(subject.id, pattern) }
-
+        missed = patterns.reject do |pattern|
+          subjects.any? { |subject| self.class.match?(subject.id, pattern) }
+        end
+        missed.each do |pattern|
           @diagnostics.warn("--subject #{pattern} matches no subject (patterns are names like " \
                             "Klass, Klass#meth or Klass.meth, not globs)")
+        end
+        # A total miss is a typo: refuse instead of a green zero-subject
+        # summary (#379). A partial miss runs, but the matched count is
+        # on the record.
+        if missed.size == patterns.size
+          raise ConfigError, "--subject #{patterns.join(', ')} matches no subject (patterns are names like " \
+                             "Klass, Klass#meth or Klass.meth, not globs)"
+        end
+
+        if missed.any?
+          @diagnostics.warn("#{patterns.size - missed.size} of #{patterns.size} --subject patterns matched")
         end
         subjects.select { |subject| patterns.any? { |pattern| self.class.match?(subject.id, pattern) } }
       end
@@ -104,8 +125,20 @@ module Saboteur
       def changed_line_maps
         maps = Selection::GitDiff.line_maps(@config["since"], root: @root, include: @files.to_set,
                                                               diagnostics: @diagnostics)
+        # A deletion-only file yields no subject and no fine-grained mutant
+        # (#484); TestGuess reads the same list, so inference never demands
+        # a spec for it either.
         canonical = ->(map) { map.transform_keys { |file| Selection::CoverageMap.canonical(file) } }
-        [canonical.call(maps.changed), canonical.call(maps.behavior)]
+        changed = canonical.call(maps.changed)
+        # Deleted-subject discovery (#466) probes every changed file,
+        # including the deletion-only ones stripped below for scope (#484).
+        @raw_changed_files = changed.keys
+        return [changed, canonical.call(maps.behavior)] if changed.empty?
+
+        # deletion_only_files returns canonical-absolute paths, the same
+        # space as the canonical map keys in any project-root layout.
+        deletion_only = Selection::GitDiff.deletion_only_files(@config["since"], root: @root)
+        [changed.except(*deletion_only), canonical.call(maps.behavior).except(*deletion_only)]
       end
 
       # Changed entries of a constant hash or array literal are behavior
@@ -125,10 +158,13 @@ module Saboteur
 
           parsed = finder.call(file)
           parsed.unsupported.each do |found|
-            warn_unsupported_constant(found) if found.overlaps_lines?(lines)
+            next unless found.overlaps_lines?(lines)
+
+            warn_unsupported_constant(found)
+            constant_warned_files << canonical
           end
           accepted = parsed.subjects.select { |subject| subject.overlaps_lines?(lines) }
-          subjects.concat(admit_replayable_file(file, accepted))
+          subjects.concat(admit_replayable_file(file, accepted, canonical))
         end
         subjects
       end
@@ -142,7 +178,7 @@ module Saboteur
       # write to disk - needs the explicit whole_file opt-in, which says
       # the user accepts the replay (#319). Passing the vet is not a safety
       # proof; it only means no unrecognized code runs at load.
-      def admit_replayable_file(file, subjects)
+      def admit_replayable_file(file, subjects, canonical)
         opted_in, rest = subjects.partition { |subject| whole_file_opted?(subject) }
         return subjects if rest.empty?
 
@@ -151,6 +187,7 @@ module Saboteur
         reasons = (guard.load_time_hazards(root) + guard.unvetted_load_code(root)).uniq
         return subjects if reasons.empty?
 
+        constant_warned_files << canonical
         path = file.delete_prefix("#{@root}/")
         listed = reasons.first(2).join(", ")
         @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs code at " \
@@ -230,6 +267,13 @@ module Saboteur
         end
       end
 
+      # Changed files a constant literal warning already covers (#537):
+      # the umbrella counts them, but its parse/method guesses do not apply,
+      # so it says how many sit in a constant literal instead.
+      def constant_warned_files
+        @constant_warned_files ||= Set.new
+      end
+
       # A changed Ruby file in scope whose changed lines cover no subject
       # silently contributes nothing to the run (#232): warn, or a typo, an
       # unparseable file or a selection bug passes as a clean selection.
@@ -248,15 +292,62 @@ module Saboteur
 
         names = unmatched.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
         more = unmatched.size > 5 ? ", ..." : ""
-        # Specs land here when one --test carries several paths; the
-        # parse/method guesses do not apply to them, so say what happened.
-        hint = if unmatched.all? { |file| file.end_with?("_spec.rb") }
-                 "These are spec files; specs are not mutated - pass them with --test."
-               else
-                 "The file may not parse, or every change may sit outside a method."
-               end
+        note = constant_note(unmatched)
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
-                          "the changed lines, so nothing is mutated from them: #{names}#{more}. #{hint}")
+                          "the changed lines, so nothing is mutated from them: #{names}#{more}. " \
+                          "#{subjectless_hint(unmatched)}#{note}")
+      end
+
+      # One sentence naming how many umbrella files a constant warning
+      # already covers (#537): without it a constant edit the safety bar
+      # refuses to mutate reads like an unexplained miss in the umbrella.
+      def constant_note(unmatched)
+        constants = unmatched.count { |file| constant_warned_files.include?(file) }
+        return "" if constants.zero?
+
+        " #{constants} of these #{constants == 1 ? 'file has' : 'files have'} changes inside " \
+          "a constant literal that is not mutated (the constant warnings above name them)."
+      end
+
+      # Specs land here when one --test carries several paths; the
+      # parse/method guesses do not apply to them, so say what happened.
+      def subjectless_hint(unmatched)
+        return "These are spec files; specs are not mutated - pass them with --test." if
+          unmatched.all? { |file| file.end_with?("_spec.rb") }
+
+        embedded = unmatched.select { |file| changed_lines_inside_heredoc?(file) }
+        return "The file may not parse, or every change may sit outside a method." if embedded.empty?
+
+        names = embedded.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
+        more = embedded.size > 5 ? ", ..." : ""
+        "In #{names}#{more} the changed lines are code embedded in a string (a heredoc, often the " \
+          "argument to class_eval/module_eval or a template constant); methods defined by evaluating " \
+          "strings are not mutation subjects, so this run cannot see that behavior."
+      end
+
+      # A heredoc body is code the static subject walk cannot see: methods
+      # defined by class_eval'ing the string, or behavior living in a
+      # template constant, exist only when the string is evaluated (#467).
+      # Changed lines inside one deserve the specific warning, not the
+      # generic parse/method guess. A file that does not parse keeps the
+      # generic hint: its problem is named there already.
+      def changed_lines_inside_heredoc?(file)
+        result = Prism.parse(File.binread(file))
+        return false if result.failure?
+
+        spans = heredoc_spans(result.value)
+        @changed_lines[file].any? { |line| spans.any? { |span| span.cover?(line) } }
+      end
+
+      def heredoc_spans(node, spans = [])
+        if (node.is_a?(Prism::StringNode) || node.is_a?(Prism::InterpolatedStringNode)) &&
+           node.opening_loc&.slice&.start_with?("<<")
+          # The node location of an interpolated string stops at the opening
+          # marker; opening through closing covers the whole heredoc body.
+          spans << (node.opening_loc.start_line..node.closing_loc.end_line)
+        end
+        node.compact_child_nodes.each { |child| heredoc_spans(child, spans) }
+        spans
       end
 
       # A changed Ruby file that an include pattern covers but c.exclude
@@ -287,15 +378,49 @@ module Saboteur
         (territory & excluded).select { |file| file.end_with?(".rb") }.map(&canonical)
       end
 
+      # A file the custom map marks intentionally untested ("path" => []) is
+      # never mutated: with no test there is no signal, and a guessed
+      # selection would read its empty spec list as "run the whole suite"
+      # (#369). The skip is named, never silent.
+      def drop_intentionally_untested(subjects)
+        kept, dropped = subjects.partition do |subject|
+          relative = subject.file.delete_prefix("#{@root}/")
+          @custom_map.specs_for(relative) != :excluded
+        end
+        return subjects if dropped.empty?
+
+        names = dropped.first(5).map(&:id).join(", ")
+        more = dropped.size > 5 ? ", ..." : ""
+        @diagnostics.inform("#{dropped.size} subject(s) skipped: intentionally untested in " \
+                            "config/saboteur_custom_map.rb: #{names}#{more}")
+        kept
+      end
+
       # A method whose only changes are comments, blank lines or spacing has
-      # nothing new to test.
+      # nothing new to test. A method the diff deleted is neither: it is
+      # reported as deleted, and the neighbours its lines drifted onto are
+      # skipped quietly rather than blamed for a comment-only change (#466).
       def drop_unchanged_syntax(subjects, ref)
-        return subjects if subjects.empty?
+        # No diff at all: no merge-base lookup, no report.
+        return subjects if @raw_changed_files.empty?
 
         comparison = UnchangedSyntax.new(Selection::GitDiff.merge_base(ref, root: @root), root: @root)
+        deleted = comparison.deleted_subjects(@raw_changed_files)
+        report_deleted(deleted)
+        deleted_files = deleted.to_set { |subject| canonical_path(subject.file) }
         same, kept = subjects.partition { |subject| comparison.unchanged?(subject) }
-        report_unchanged_syntax(same)
+        report_unchanged_syntax(same.reject { |subject| deleted_files.include?(canonical_path(subject.file)) })
         kept
+      end
+
+      # Names at most five, like the other selection notes.
+      def report_deleted(deleted)
+        return if deleted.empty?
+
+        names = deleted.first(5).map(&:id).join(", ")
+        more = deleted.size > 5 ? ", ..." : ""
+        verb = deleted.one? ? "subject was" : "subjects were"
+        @diagnostics.inform("#{deleted.size} changed #{verb} deleted, nothing to mutate: #{names}#{more}")
       end
 
       def report_unchanged_syntax(subjects)
@@ -305,6 +430,10 @@ module Saboteur
         more = subjects.size > 5 ? ", ..." : ""
         @diagnostics.inform("#{subjects.size} changed subject(s) differ only in comments or formatting, " \
                             "so they are skipped: #{names}#{more}")
+      end
+
+      def canonical_path(file)
+        Selection::CoverageMap.canonical(Text.utf8_identity(file))
       end
     end
   end

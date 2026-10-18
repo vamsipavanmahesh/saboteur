@@ -16,3 +16,12 @@ Baseline children run `after_fork` for child setup, but do not call the
 mutation-specific `before_fork` or `around_mutant` callbacks. The parent was
 already prepared by normal boot (including the Rails disconnect step). Coverage
 uses the same RSpec seed/order and refuses a failing suite instead of caching it.
+
+## Time budget and the cold coverage build
+
+With `--max-duration`, once the baseline passes are timed, a run whose
+remaining budget cannot cover a cold coverage map build stops before building
+it. The build costs about one more full pass and keeps nothing when it is cut
+off. The stop names the shortfall and the remedies: a higher budget, fewer
+`--baseline-passes`, or one unbudgeted run to warm the coverage cache for
+later `--incremental` resumes (#427).
