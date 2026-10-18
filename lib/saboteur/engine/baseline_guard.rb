@@ -24,7 +24,7 @@ module Saboteur
       # coverage build when the cache is cold, so the first timed pass can
       # price the rest (#260).
       def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, full_passes: 2, between_passes: nil,
-                     timeout_cap: nil)
+                     timeout_cap: nil, run_started: nil)
         @config = config
         @integration = integration
         @hooks = hooks
@@ -33,6 +33,7 @@ module Saboteur
         @full_passes = full_passes
         @between_passes = between_passes
         @timeout_cap = timeout_cap
+        @run_started = run_started
         @completed_passes = 0
       end
 
@@ -102,15 +103,38 @@ module Saboteur
 
         coverage_pending = @full_passes > @config["baseline_passes"]
         remaining = @full_passes - number - (coverage_pending ? 1 : 0)
+        elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round
+        warn_budget_projection(elapsed, remaining + (coverage_pending ? 1 : 0))
         return if remaining.zero? && !coverage_pending
 
-        elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round
         work = []
         work << "the remaining #{remaining} full #{remaining == 1 ? 'pass' : 'passes'}" if remaining.positive?
         work << "the coverage map build" if coverage_pending
         total = remaining + (coverage_pending ? 1 : 0)
         @diagnostics.inform("baseline check #{number} took #{elapsed} s; about #{elapsed * total} s left for " \
                             "#{work.join(' and ')} at that rate")
+      end
+
+      # The first timed pass also prices the run against --max-duration:
+      # boot and this pass are spent, the remaining passes and a cold
+      # coverage build cost about that much again at that rate, and only
+      # what is left feeds mutants. Warn while a Ctrl-C is still cheap -
+      # the refusal only fires once the coverage build is unaffordable
+      # outright (#637).
+      def warn_budget_projection(pass_elapsed, remaining_passes)
+        budget = @config["max_duration"]
+        return unless budget && @run_started
+
+        spent = Process.clock_gettime(Process::CLOCK_MONOTONIC) - @run_started
+        projected = spent + (pass_elapsed * remaining_passes)
+        mutants_get = budget - projected
+        return if mutants_get >= pass_elapsed
+
+        verdict = mutants_get <= 0 ? "exceeds" : "barely fits"
+        @diagnostics.warn("projected baseline+coverage ~#{projected.round}s #{verdict} " \
+                          "--max-duration #{budget.round}s; mutants would get " \
+                          "~#{format('%g', [mutants_get, 0].max.round(1))}s. Raise --max-duration, pass fewer " \
+                          "--baseline-passes, or narrow the scope")
       end
 
       # An admitted pass still gets only the time left in the run budget:
