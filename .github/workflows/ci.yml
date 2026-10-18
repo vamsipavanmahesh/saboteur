@@ -3,12 +3,22 @@ name: CI
 on:
   push:
     branches: [main]
-  # PR CI is manual: nothing runs on pull_request events. A maintainer runs
-  # the matrix against the exact PR head with
-  #   gh workflow run ci.yml --ref <head-sha> -f pr_number=<n> -f head_repo=<owner/repo>
-  # (head_repo comes from the PR's head.repository.full_name; it only skips
-  # the macOS legs early - the legs themselves prove the head repo and SHA
-  # from the API before running anything, so a wrong input fails closed).
+  # PR CI is manual: the matrix does not run on pull_request events (the DCO
+  # workflow in dco.yml still does). A maintainer runs it against the exact
+  # PR head with
+  #   gh workflow run ci.yml --ref <head-branch> -f pr_number=<n> -f base_sha=<base-sha>
+  # --ref must be a branch or tag name (the dispatch API rejects a raw SHA),
+  # so exact-head binding comes from the API proof inside the run, not from
+  # the ref: the macOS and dogfood jobs prove from the pull request that its
+  # head is the checked-out SHA and its base is the base_sha input, and fail
+  # closed otherwise. For a fork pull request the maintainer first pushes the
+  # reviewed head into this repository, then dispatches on that branch:
+  #   git push origin <reviewed-head-sha>:refs/heads/ci-pr-<n>
+  #   gh workflow run ci.yml --ref ci-pr-<n> -f pr_number=<n> -f base_sha=<base-sha>
+  # The proof still binds headRefOid to the fork's commit, so the branch can
+  # only ever name the reviewed change. head_repo (the PR's
+  # head.repository.full_name) only skips the macOS legs early - the legs
+  # prove the head repo from the API themselves.
   workflow_dispatch:
     inputs:
       pr_number:
