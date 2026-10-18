@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "fiddle"
-require "fiddle/import"
+require_relative "fiddle_loader"
 
 module Saboteur
   module Execution
@@ -57,6 +56,13 @@ module Saboteur
         return @abi_version if defined?(@abi_version)
         return @abi_version = 0 unless linux?
 
+        # Refuses when fiddle cannot load (#639): the sandbox is mandatory,
+        # so this error must reach the run, not the DLError degrade below.
+        FiddleLoader.require_fiddle!(with_import: true)
+        @abi_version = probed_abi_version
+      end
+
+      def probed_abi_version
         # Build the errno reader BEFORE the probe: its lazy dlopen/dlsym run
         # libc calls that can set errno, so building it between the probe and
         # the read can replace the real answer with a stale 0.
@@ -66,11 +72,11 @@ module Saboteur
         # the kernel's real answer - the read was clobbered between the call
         # and here. Probe once more, now with every Fiddle function warm.
         version, errno = probe_once if !version.positive? && errno.zero?
-        @abi_version = probe_abi(version, errno)
+        probe_abi(version, errno)
       rescue Fiddle::DLError
         # No usable libc (an unusual musl/ldso layout): the sandbox cannot
         # be built here, so degrade to the unsandboxed note, not a crash.
-        @abi_version = 0
+        0
       end
 
       # A positive answer is the ABI. ENOSYS/EOPNOTSUPP mean the kernel has
