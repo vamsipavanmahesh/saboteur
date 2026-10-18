@@ -109,6 +109,36 @@ RSpec.describe Saboteur::Execution::GemfilePathSources do
     end
   end
 
+  it "falls back to expand_path when realpath races the path away (#722)" do
+    Dir.mktmpdir do |dir|
+      allow(File).to receive(:realpath).and_raise(Errno::ENOENT)
+      expect(described_class.canonical_path(dir)).to eq(File.expand_path(dir))
+    end
+  end
+
+  it "does not block on the pipes of a grandchild that left the process group (#722)" do
+    Dir.mktmpdir do |dir|
+      write_gemfile(dir, "spawn(RbConfig.ruby, \"-e\", \"Process.setsid; sleep 30\")\nsleep 30\n")
+
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      expect { described_class.resolve(dir, timeout: 1) }
+        .to raise_error(Saboteur::ConfigError, /timed out/)
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+      expect(elapsed).to be < 15
+    end
+  end
+
+  it "refuses a clean-exiting resolver whose grandchild holds the pipes open (#722)" do
+    Dir.mktmpdir do |dir|
+      write_gemfile(dir, "spawn(RbConfig.ruby, \"-e\", \"Process.setsid; sleep 25\")\n")
+
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      expect { described_class.resolve(dir) }
+        .to raise_error(Saboteur::ConfigError, /pipes open/)
+      expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 15
+    end
+  end
+
   it "kills the resolver's whole process group on timeout, not only the ruby pid" do
     Dir.mktmpdir do |dir|
       flag = File.join(dir, "grandchild-lived")
