@@ -742,6 +742,15 @@ RSpec.describe Saboteur::CLI do
       expect(err.string).to include("--max-* gates cannot be combined with --agent")
     end
 
+    it "refuses score gates with --agent too, and names them (#473)" do
+      Dir.mktmpdir do |root|
+        path = File.join(root, "saboteur.rb")
+        File.write(path, 'Saboteur.configure { |c| c.score_gate "lib/**/*", min_score: 95 }')
+        expect(cli("run", "--agent", "--config", path).call).to eq(2)
+        expect(err.string).to include("score gates cannot be combined with --agent")
+      end
+    end
+
     it "is 3 when every executed mutant errored" do
       expect(run_with(report_of(result_for(:error), result_for(:skipped, reason: "no coverage")))).to eq(3)
     end

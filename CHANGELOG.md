@@ -8,6 +8,16 @@ All notable changes are documented here. The format follows
 
 ### Added
 
+- `saboteur survivors <report.json>` (#475): a read-only terminal browser
+  for the Stryker JSON report - list and filter survivors (with the
+  ranked-findings order available via `--ranked`), and `--show DIGEST`
+  prints the diff, the exact replay command and an ignore-file entry
+  template. It never boots the project or edits the ignore file.
+- `--flaky-check survivors|decisive` (#476): one reordered confirmation
+  rerun per new survivor (and per fresh kill in `decisive` mode). A
+  verdict the confirmation disagrees with becomes `unverified` - named
+  with its decisive tests, outside the score, never retried until it
+  passes.
 - `saboteur badge` writes Shields endpoint JSON from the opt-in score
   history and `saboteur trend` prints the covered-score delta against the
   last comparable record (#474). A README badge needs no hosted service:
@@ -51,6 +61,11 @@ All notable changes are documented here. The format follows
   min_score: 95` in `saboteur.rb` declares a per-subtree score floor,
   validated at load (min_score 0-100, pattern must match an included file).
   Enforcement lands with slice 2 (#570).
+- Per-path score gates are enforced (#473, slice 2): each `score_gate`
+  subtree from slice 1 (#565) is scored with the run's own formula. A gate under its floor fails the run like the
+  count gates (`scoreGate` cause in the JSON report); a gate with nothing
+  executed under it passes vacuously and says so. Score gates cannot combine
+  with `--agent`, like `--threshold`.
 - Peak-memory measurement (#202, slice 1): each worker reports its kernel
   peak RSS (VmHWM) when it retires, and the JSON report records it under
   `saboteur.memory` as per-worker `peakMb` values plus the supervisor's own
@@ -76,6 +91,15 @@ All notable changes are documented here. The format follows
   internal TypeError: every `Coverage.result` read now refuses with a
   diagnostic explaining the violated `#hash` contract and blaming the
   application's code (#564).
+- A `--since` diff that deletes a method no longer reports the deletion as
+  "differ only in comments or formatting" and no longer names the method the
+  deleted lines drifted onto. The run says what was deleted instead: `N
+  changed subject(s) were deleted, nothing to mutate: ...` (#466).
+- An error-dominated run no longer prints a bare score above the "tested almost nothing" warning: the terminal reports "score n/a (N of M mutants scored, X % of scored)" so the scored share cannot be misread as a run-wide score (#557).
+- Preflight no longer refuses a precompiled Ruby (mise, ruby-build) whose
+  binary tops the 50 MB evidence-document cap (#364): tool identity
+  digests stream with an executable-sized bound instead. The cap for JSON
+  evidence documents is unchanged.
 - A missing `rspec-core` no longer crashes saboteur into the internal-error
   report with a bare `LoadError`: the RSpec integration refuses with
   "rspec is not in the bundle" and names the remedy, adding the gem to the

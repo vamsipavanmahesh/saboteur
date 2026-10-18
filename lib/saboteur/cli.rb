@@ -11,8 +11,10 @@ require_relative "baseline/command"
 require_relative "cli/exit_status"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/survivors_command"
 require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
+require_relative "cli/selection_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
 require_relative "cli/history_command"
@@ -22,8 +24,10 @@ module Saboteur
     include Baseline::Command
     include ExitStatus
     include RunReporting
+    include SurvivorsCommand
     include SourceSet
     include RunBudgetOptions
+    include SelectionOptions
     include Presets
     include HistoryCommand
     include HelpOptions
@@ -62,12 +66,13 @@ module Saboteur
       case command
       when "run" then run_command
       when "baseline" then baseline
+      when "survivors" then survivors_command
       when "doctor" then doctor_command
       when "badge", "trend" then history_entry(command)
       when "version", "--version" then @out.puts(VERSION) || EXIT_OK
       when "help", "--help", "-h" then show_help(@argv.shift)
       when "agent-skill" then @out.print(AgentSkill::TEXT) || EXIT_OK
-      else PRESETS.key?(command) ? preset(command) : usage_error
+      else preset_or_usage_error(command)
       end
     rescue OptionParser::ParseError => e
       usage_error(e.message)
@@ -200,7 +205,8 @@ module Saboteur
     # Agent mode allows no score gates (one strict exit 0); the json inventory is --dry-run planning only.
     def reject_format_conflicts
       if agent? && (config["threshold"] || gates.any?)
-        raise UsageError, "#{config['threshold'] ? '--threshold' : '--max-* gates'} cannot be combined with --agent"
+        raise UsageError, "#{config['threshold'] ? '--threshold' : gates.agent_option_name} " \
+                          "cannot be combined with --agent"
       end
       return unless @format == "json" && !options[:dry_run]
 
@@ -210,8 +216,7 @@ module Saboteur
     # One line naming the reports written, paths relative to the root when
     # they sit under it (a blank line before it, as the old JSON line had).
     def announce_reports(reports)
-      written = reports.select { |path, _label| path }
-      return if written.empty?
+      return if (written = reports.select { |path, _label| path }).empty?
 
       root = File.join(File.realpath(config.root), "")
       names = written.map do |path, label|
@@ -341,20 +346,6 @@ module Saboteur
 
       Preview.new(config, out: @out, err: @err, format: @format).call
       EXIT_OK
-    end
-
-    def define_selection_options(opts)
-      opts.on("--operators NAMES", Array, "Choose operator names (default: all)") do |v|
-        set(:operators, v)
-      end
-      opts.on("--exclude-operators NAMES", Array, "Exclude operator names from the selected set") do |v|
-        set(:exclude_operators, v)
-      end
-      opts.on("--list-operators", "List operator names and descriptions") { set(:list_operators, true) }
-      opts.on("--dry-run", "Preview mutants without boot, tests, forks or report writes") { set(:dry_run, true) }
-      opts.on("--id DIGEST", "Replay exactly one current mutant by its full digest") { |v| set(:id, v) }
-      opts.on("--since REF", "Only mutate subjects changed since git REF") { |v| options[:since] = v }
-      opts.on("--subject EXPR", "Klass#meth, Klass.meth or a namespace; repeatable") { |v| add_subject(v) }
     end
 
     def define_execution_options(opts)

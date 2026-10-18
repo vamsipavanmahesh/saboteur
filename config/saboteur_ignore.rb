@@ -3,6 +3,14 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "54845ce72e86f30a",
+             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
+             reason: "equivalent: Subject#to_s returns the id, so join renders the subjects the same without map(&:id)"
+
+  i.mutation "a3766004f0709c6f",
+             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
+             reason: "equivalent: each returns the array itself and join calls Subject#to_s, which returns the id"
+
   i.mutation "4431382aefb4312a",
              subject: "Saboteur::CLI::HistoryCommand#history_path",
              reason: "equivalent: UsageError < ConfigError, so the or-raise is caught by the method's own " \
@@ -767,6 +775,41 @@ Saboteur.ignore do |i|
              subject: "Saboteur::CLI#use_explicit_sources",
              reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
+  i.mutation "fd1253fb224794ff",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; dropping the size guard changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "7955f85bfb432312",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size >= 1 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "17068564717dfd5d",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size != 1 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "50e206442fdad447",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; size > 0 changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "1734bd1a82e156ea",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; a bare size (always truthy) changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
+
+  i.mutation "f719923d733c3339",
+             subject: "Saboteur::Engine::Scheduler#reordered",
+             reason: "equivalent: the size guard only matters for lists of 0 or 1 tests, where rotate " \
+                     "returns the same list; a bare 1 (always truthy) changes no output (probed over sizes " \
+                     "0-6 and 300 seeds, no divergence)"
   i.mutation "ce91efaab8362061",
              subject: "Saboteur::ConstantReads#walk_scope",
              reason: "equivalent: shadowed's only non-nil assignment is guarded by path != scopes.first and scopes " \
@@ -1138,4 +1181,33 @@ Saboteur.ignore do |i|
              reason: "equivalent: dropping the unmatched.empty? check leaves select running on an empty list, " \
                      "which returns [] exactly like the early return"
 
+  i.mutation "18a3dccbcb3e3f87",
+             subject: "Saboteur::CLI::SurvivorsBrowser#all_survivors",
+             reason: "equivalent: the memoized list is a pure function of @report, so dropping ||= for = only " \
+                     "recomputes the same value on repeat calls - hand-applied mutant leaves all 16 browser " \
+                     "pin examples green"
+
+  i.mutation "25001e3b3f1acb36",
+             subject: "Saboteur::CLI::SurvivorsBrowser#findings_by_digest",
+             reason: "equivalent: the memoized index is a pure function of @findings, so dropping ||= for = only " \
+                     "recomputes the same value on repeat calls - hand-applied mutant leaves all 16 browser " \
+                     "pin examples green"
+
+  i.mutation "8bc1d296bb4eea51",
+             subject: "Saboteur::CLI::SurvivorsBrowser#original_line",
+             reason: "equivalent on reachable inputs: the report entry's source is always a String and " \
+                     "String#to_s is identity - hand-applied mutant leaves all 16 browser pin examples green"
+
+  i.mutation "8cf9af2d9d2832d2",
+             subject: "Saboteur::CLI::SurvivorsBrowser#original_line",
+             reason: "equivalent on reachable inputs: the mutant's line always exists in the same entry's " \
+                     "source (both come from one report entry), so lines[i] is a String and its to_s is " \
+                     "identity - hand-applied mutant leaves all 16 browser pin examples green"
+
+  i.mutation "49370ec53fcedd1f",
+             subject: "Saboteur::CLI::SurvivorsBrowser#ranked_order",
+             reason: "digest is the final tie-break of the ranked sort key and only decides under a full " \
+                     "[rank, -coverage, path, line] tie; removing it leaves equal keys whose order Ruby's " \
+                     "sort_by leaves unspecified, which no deterministic spec can pin - hand-applied mutant " \
+                     "leaves all 16 browser pin examples green"
 end

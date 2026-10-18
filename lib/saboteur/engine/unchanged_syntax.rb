@@ -38,6 +38,18 @@ module Saboteur
           self.class.digest(before.node) == self.class.digest(subject.node)
       end
 
+      # Subjects the diff deleted from a changed file: defined once at the
+      # base of the --since ref and gone from the working tree. A method
+      # that moved but still exists keeps its id and is not a deletion.
+      def deleted_subjects(files)
+        files.flat_map do |file|
+          next [] unless file.end_with?(".rb") && File.file?(file)
+
+          current_ids = unique_by_id(File.read(file), file).keys
+          base_subjects(file).values.reject { |subject| current_ids.include?(subject.id) }
+        end
+      end
+
       # The node as plain data: type and fields, never locations (except
       # the line a `__LINE__` stands for).
       def self.digest(value)
