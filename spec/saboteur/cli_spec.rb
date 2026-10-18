@@ -1888,19 +1888,15 @@ RSpec.describe Saboteur::CLI, "empty --since range (issue #643)" do
   end
 
   # `saboteur pr <merge_sha>` on a checkout AT the merge diffs the merge
-  # against itself: 0 subjects, exit 0, a silent false-green in CI.
-  it "refuses a --since run whose resolved range has no changes, naming base and range" do
-    allow(Saboteur::Engine).to receive(:new)
+  # against itself. The run is not refused (#659): the engine selects no
+  # subjects and the report says nothing to test, exit 0.
+  it "runs a --since run whose resolved range has no changes instead of refusing" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "engine reached")
     git_fixture
-    base = `git rev-parse HEAD`.strip
 
-    expect(cli("run", "--since", "HEAD", "--test", "spec/cart_spec.rb").call).to eq(2)
-    expect(err.string).to include(
-      "saboteur: --since HEAD: the resolved range #{base}..the working tree has no changes - the run would " \
-      "pass with 0 subjects. A checkout AT the ref (the CI merge-sha checkout) diffs it against itself: " \
-      "fetch the merge's parent, or point --since at the base of the change under test"
-    )
-    expect(Saboteur::Engine).not_to have_received(:new)
+    expect(cli("run", "--since", "HEAD", "--test", "spec/cart_spec.rb").call).to eq(3)
+    expect(err.string).to include("engine reached")
+    expect(Saboteur::Engine).to have_received(:new)
   end
 
   it "runs when the resolved range has changes" do

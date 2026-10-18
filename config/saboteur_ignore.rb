@@ -9,6 +9,14 @@ Saboteur.ignore do |i|
                      "and for n >= 1 the predicates n > 1 and n != 1 agree everywhere (n = 1: false/false, " \
                      "n >= 2: true/true) - hand-applied mutant leaves every coverage_store pin green"
 
+  i.mutation "ecc14ca9f634c6b4",
+             subject: "Saboteur::Engine::HeredocSpans#collect",
+             reason: "equivalent: the span push only runs for nodes whose opening marker starts with <<, " \
+                     "and a heredoc string node's location begins at its opening marker (probed on Prism " \
+                     "1.9.0: StringNode and InterpolatedStringNode slice == opening marker, node start_line " \
+                     "== opening_loc.start_line), so dropping .opening_loc yields the same start line; " \
+                     "hand-applied mutant leaves all 132 subject_selection examples green"
+
   i.mutation "02f7817b2ef41452",
              subject: "Saboteur::AttributeFinder#walk",
              reason: "equivalent: the each result is discarded (visit recurses for effect); each and map run the same record/walk calls"

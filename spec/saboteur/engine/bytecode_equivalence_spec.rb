@@ -6,6 +6,25 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
 
   let(:original) { "def clamp(x)\n  x < 0 ? 0 : x\nend" }
 
+  # body_nil/statement_removal mutants put nil or a literal in void context,
+  # which Ruby warns about when the host suite runs with -w: one line per
+  # mutant floods stderr (#592, #656). The check is internal, so the
+  # compiler's own warnings carry no signal - but a syntax error must still
+  # count as not equivalent.
+  it "suppresses Ruby's own compile warnings even when the process runs with -w" do
+    verbose = $VERBOSE
+    $VERBOSE = true
+    expect do
+      # A nil inserted in void context compiles away, so this pair IS
+      # equivalent - and is exactly the shape -w warns about (#592's repro).
+      expect(filter.equivalent?("def m\n  a = 1\n  a\nend", "def m\n  nil\n  a = 1\n  a\nend")).to be(true)
+      # A mutant that does not parse still counts as not equivalent.
+      expect(filter.equivalent?("def m\n  42\nend", "def m(\n")).to be(false)
+    end.to output("").to_stderr
+  ensure
+    $VERBOSE = verbose
+  end
+
   it "treats a different line layout and comments as equivalent" do
     reformatted = "def clamp(x)\n  x < 0 ? 0 : x # same\n\n\nend"
 
@@ -79,7 +98,7 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
     filter.equivalent?("def m\n  \"a\"\nend", "def m\n  \"b\"\nend", frozen_string_literal: true)
 
     expect(RubyVM::InstructionSequence).to have_received(:compile)
-      .with(anything, nil, nil, 1, { frozen_string_literal: true }).twice
+      .with(anything, "saboteur/bytecode-equivalence", nil, 1, { frozen_string_literal: true }).twice
   end
 
   it "never equates an Integer with a Float" do

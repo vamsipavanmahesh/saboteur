@@ -18,24 +18,6 @@ module Saboteur
         raise UsageError, empty_source_set_message
       end
 
-      # A --since ref whose resolved range diffs empty yields 0 subjects
-      # and a green run over nothing: `saboteur pr <merge_sha>` on a
-      # checkout AT the merge diffs the merge against itself (#643).
-      # Refuse like a typo'd ref: exit 2, name the base and the range.
-      def refuse_empty_since_range
-        ref = config["since"]
-        return unless ref
-
-        paths = Selection::GitDiff.changed_paths(ref, root: config.root)
-        return unless paths.values.all?(&:empty?)
-
-        base = Selection::GitDiff.merge_base(ref, root: config.root)
-        raise UsageError, "--since #{ref}: the resolved range #{base}..the working tree has no changes - " \
-                          "the run would pass with 0 subjects. A checkout AT the ref (the CI merge-sha " \
-                          "checkout) diffs it against itself: fetch the merge's parent, or point --since " \
-                          "at the base of the change under test"
-      end
-
       def empty_source_set_message
         include_patterns = config["include"]
         matched = include_patterns.flat_map { |pattern| Dir.glob(pattern, base: config.root) }

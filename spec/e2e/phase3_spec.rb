@@ -92,12 +92,21 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       end
     end
 
-    it "refuses an empty range with exit 2 before boot (#643)" do
+    it "mutates nothing, says so, and exits 0 when nothing changed (#659)" do
       run = saboteur(dir, "--since", "HEAD", "--all")
-      expect(run.status).to eq(2)
-      expect(run.err).to include("--since HEAD: the resolved range", "has no changes",
-                                 "fetch the merge's parent")
-      expect(run.err).not_to include("checking the unchanged suite")
+      expect(run.status).to eq(0)
+      expect(run.out).to include("0 subjects, 0 mutants")
+      expect(run.err).to include("--since HEAD: nothing to test - the resolved range has no changes")
+    end
+
+    it "mutates nothing, names the count and reason, and exits 0 on a docs-only diff (#659)" do
+      File.write(File.join(dir, "README.md"), "# docs only\n")
+      git("add", "README.md")
+      git("commit", "-q", "-m", "docs")
+      run = saboteur(dir, "--since", "HEAD~1", "--all")
+      expect(run.status).to eq(0)
+      expect(run.out).to include("0 subjects, 0 mutants")
+      expect(run.err).to include("--since HEAD~1: nothing to test - 1 changed file, none in mutation scope")
     end
 
     # A misspelled --subject must not read as a green zero-subject run

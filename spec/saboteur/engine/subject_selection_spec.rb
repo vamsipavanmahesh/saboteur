@@ -201,6 +201,17 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(false)
   end
 
+  # An interpolated heredoc's first StringNode part can start with "<<" at
+  # column zero, and a part's opening_loc is nil: a chain reading node.slice
+  # instead of node.opening_loc&.slice walks into a NoMethodError (#659).
+  it "scans an interpolated heredoc whose body starts with << without raising" do
+    file = write("interp.rb", "x = <<~END\n<<nested \#{1}\nEND\nz = 2\n")
+    selection = described_class.new(Saboteur::Config.new({ "since" => "HEAD" }, root: @root), diagnostics)
+    selection.instance_variable_set(:@changed_lines, { file => [2] })
+    expect { selection.send(:changed_lines_inside_heredoc?, file) }.not_to raise_error
+    expect(selection.send(:changed_lines_inside_heredoc?, file)).to eq(true)
+  end
+
   # The span's end is inclusive and closing_loc.end_line counts the
   # terminator's newline, so the line after the heredoc reads as covered
   # (disproves the 7c748368 equivalence: .. to ... drops that line).
@@ -334,6 +345,14 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
                                                                 /--subject Sho matches no subject/)
   end
 
+  # A bare class pattern is a prefix for its methods under every
+  # separator - including the dot form (#556 dogfood).
+  it "prefix-matches dot-form methods from the bare class pattern" do
+    file = write("cart.rb", source)
+    expect(select([file], subjects: ["Shop::Cart"]).map(&:id))
+      .to contain_exactly("Shop::Cart#total", "Shop::Cart.empty")
+  end
+
   # A typo must not pass silently: when EVERY pattern misses, the run is
   # usage-class (exit 2 at the CLI) instead of a green zero-subject
   # summary (#379).
@@ -461,7 +480,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(select([file], since: "HEAD")).to be_empty
       expect(err.string).to eq("saboteur: 2 changed subject(s) differ only in comments or formatting, " \
-                               "so they are skipped: Cart#total, Cart#count\n")
+                               "so they are skipped: Cart#total, Cart#count\n" \
+                               "saboteur: --since HEAD: nothing to test - no subject covers the changed lines " \
+                               "(layout-only edits, deletions, or intentionally untested code)\n")
     end
 
     it "keeps the method whose code changed and skips the other" do
@@ -481,7 +502,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(select([file], since: "HEAD")).to be_empty
       expect(err.string).to eq("saboteur: 1 changed subject(s) differ only in comments or formatting, " \
-                               "so they are skipped: Cart#total\n")
+                               "so they are skipped: Cart#total\n" \
+                               "saboteur: --since HEAD: nothing to test - no subject covers the changed lines " \
+                               "(layout-only edits, deletions, or intentionally untested code)\n")
     end
 
     # Both maps always come back as a pair, even when the diff changed
@@ -518,7 +541,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       File.write(file, "class Cart\n  def count\n    2\n  end\nend\n")
 
       expect(select([file], since: "HEAD")).to be_empty
-      expect(err.string).to eq("saboteur: 1 changed subject was deleted, nothing to mutate: Cart#total\n")
+      expect(err.string).to eq("saboteur: 1 changed subject was deleted, nothing to mutate: Cart#total\n" \
+                               "saboteur: --since HEAD: nothing to test - no subject covers the changed lines " \
+                               "(layout-only edits, deletions, or intentionally untested code)\n")
       expect(err.string).not_to include("differ only in comments or formatting")
     end
 
@@ -529,7 +554,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(select([file], since: "HEAD")).to be_empty
       expect(err.string).to eq("saboteur: 5 changed subjects were deleted, nothing to mutate: " \
-                               "Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5\n")
+                               "Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5\n" \
+                               "saboteur: --since HEAD: nothing to test - no subject covers the changed lines " \
+                               "(layout-only edits, deletions, or intentionally untested code)\n")
     end
 
     it "keeps the comments-or-formatting note for other files when one file loses a method (#466)" do
@@ -559,12 +586,15 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
     it "names every skipped method up to five" do
       expect(commented_methods(5)).to be_empty
-      expect(err.string).to end_with("skipped: Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5\n")
+      expect(err.string).to end_with("saboteur: --since HEAD: nothing to test - no subject covers the changed lines " \
+                                     "(layout-only edits, deletions, or intentionally untested code)\n")
     end
 
     it "names five and then an ellipsis when more were skipped" do
       expect(commented_methods(6)).to be_empty
-      expect(err.string).to include("6 changed subject(s)").and end_with("Cart#m4, Cart#m5, ...\n")
+      expect(err.string).to include("6 changed subject(s)")
+      expect(err.string).to end_with("saboteur: --since HEAD: nothing to test - no subject covers the changed " \
+                                     "lines (layout-only edits, deletions, or intentionally untested code)\n")
     end
 
     it "scopes the diff to the selected files and reports through the run diagnostics" do
@@ -575,12 +605,12 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
         .with("HEAD", root: @root, include: [file].to_set, diagnostics: diagnostics)
     end
 
-    it "does not look up the merge base when no method changed" do
+    it "looks up the merge base only for the diff and the nothing-to-test count when no method changed" do
       file = commit_base(two_methods)
       allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_call_original
 
       expect(select([file], since: "HEAD")).to be_empty
-      expect(Saboteur::Selection::GitDiff).to have_received(:merge_base).once
+      expect(Saboteur::Selection::GitDiff).to have_received(:merge_base).twice
     end
 
     it "says nothing when no method is skipped" do
@@ -797,7 +827,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings.first).not_to include("...")
     end
 
-    it "stays quiet when the diff touches no included Ruby file" do
+    it "says nothing to test, with the count and reason, when the diff touches no included Ruby file (#659)" do
       file = write("cart.rb", source)
       readme = write("README.md", "hi\n")
       commit_all
@@ -805,7 +835,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(select([file], since: "HEAD")).to be_empty
       expect(diagnostics.warnings).to be_empty
-      expect(err.string).to eq("")
+      expect(err.string).to eq("saboteur: --since HEAD: nothing to test - 1 changed file, none in mutation " \
+                               "scope (docs-only, excluded, or non-Ruby)\n")
     end
 
     it "selects every subject of an untracked file, as fully changed (#295)" do
@@ -1321,6 +1352,16 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
     expect(subject.consumer_lines.keys).to eq([file])
   end
 
+  # The constant pass (--since) only runs when the method pass missed:
+  # `if constant_finder` alone would recompute matching from constants
+  # alone and drop a file whose method matched (#556 dogfood).
+  it "files_matching keeps a method-matched file whose constants do not match" do
+    file = File.join(@root, "cart.rb")
+    File.write(file, "module Shop\n  class Cart\n    def total = 1\n  end\nend\n")
+    expect(described_class.files_matching(@root, [file], ["Shop::Cart#total"], { "since" => "HEAD" }))
+      .to eq(["cart.rb"])
+  end
+
   it "files_matching finds a file holding only the named constant" do
     file = File.join(@root, "rules.rb")
     File.write(file, "RULES = { a: 1 }.freeze\n")
@@ -1522,5 +1563,71 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant selection edges (#3
     expect(subject).not_to be_nil
     expect(subject.consumer_lines).to eq({})
     expect(diagnostics.warnings.grep(/load time/)).to be_empty
+  end
+end
+
+RSpec.describe Saboteur::Engine::SubjectSelection, "nothing-to-test notice (#659)" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      example.run
+    end
+  end
+
+  let(:err) { StringIO.new }
+  let(:diagnostics) { Saboteur::Engine::Diagnostics.new(err) }
+
+  def select_with_since(files, changed_paths:, changed_map: {})
+    allow(Saboteur::Selection::GitDiff).to receive(:line_maps)
+      .and_return(double(changed: changed_map, behavior: changed_map))
+    allow(Saboteur::Selection::GitDiff).to receive(:deletion_only_files).and_return([])
+    allow(Saboteur::Selection::GitDiff).to receive(:changed_paths).and_return(changed_paths)
+    allow(Saboteur::Selection::UntrackedChanges).to receive(:paths).and_return([])
+    allow(Saboteur::Selection::GitDiff).to receive(:merge_base).and_return("base")
+    config = Saboteur::Config.new({ "since" => "main" }, root: @root)
+    described_class.new(config, diagnostics).select(files)
+  end
+
+  it "names the base and the empty range when nothing changed" do
+    select_with_since([], changed_paths: { present: [], deleted: [] })
+    expect(err.string).to include("--since main: nothing to test - the resolved range has no changes")
+  end
+
+  it "names the changed-file count and the scope reason on a docs-only diff" do
+    select_with_since([], changed_paths: { present: ["README.md", "docs/guide.md"], deleted: [] })
+    expect(err.string).to include("--since main: nothing to test - 2 changed files, none in mutation scope " \
+                                  "(docs-only, excluded, or non-Ruby)")
+  end
+
+  it "counts present and deleted changed files in the notice" do
+    select_with_since([], changed_paths: { present: ["README.md"], deleted: ["lib/old.rb"] })
+    expect(err.string).to include("--since main: nothing to test - 2 changed files, none in mutation scope " \
+                                  "(docs-only, excluded, or non-Ruby)")
+  end
+
+  it "names the no-covering-subject reason when a changed Ruby file selects nothing" do
+    notes = File.join(@root, "lib/notes.rb")
+    FileUtils.mkdir_p(File.dirname(notes))
+    File.write(notes, "# notes
+")
+    notes = Saboteur::Selection::CoverageMap.canonical(notes)
+    select_with_since([notes], changed_paths: { present: ["lib/notes.rb"], deleted: [] },
+                               changed_map: { notes => [1] })
+    expect(err.string).to include("--since main: nothing to test - no subject covers the changed lines")
+  end
+
+  it "says nothing when the run is not a --since run" do
+    config = Saboteur::Config.new({}, root: @root)
+    described_class.new(config, diagnostics).select([])
+    expect(err.string).not_to include("nothing to test")
+  end
+
+  it "says nothing when subjects were selected" do
+    path = File.join(@root, "cart.rb")
+    File.write(path, "class Cart\n  def total = 1\nend\n")
+    subjects = select_with_since([path], changed_paths: { present: ["cart.rb"], deleted: [] },
+                                         changed_map: { path => [1, 2] })
+    expect(subjects).not_to be_empty
+    expect(err.string).not_to include("nothing to test")
   end
 end

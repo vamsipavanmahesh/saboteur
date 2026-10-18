@@ -11,6 +11,32 @@ module Saboteur
   class Engine
     # The subjects to mutate: every def in the included files, narrowed by
     # --subject patterns and by --since (methods with a changed line).
+    # A heredoc body is code the static subject walk cannot see: methods
+    # defined by class_eval'ing the string, or behavior living in a
+    # template constant, exist only when the string is evaluated (#467).
+    module HeredocSpans
+      module_function
+
+      def changed_lines_inside?(file, changed_lines)
+        result = Prism.parse(File.binread(file))
+        return false if result.failure?
+
+        spans = collect(result.value)
+        changed_lines.any? { |line| spans.any? { |span| span.cover?(line) } }
+      end
+
+      def collect(node, spans = [])
+        if (node.is_a?(Prism::StringNode) || node.is_a?(Prism::InterpolatedStringNode)) &&
+           node.opening_loc&.slice&.start_with?("<<")
+          # The node location of an interpolated string stops at the opening
+          # marker; opening through closing covers the whole heredoc body.
+          spans << (node.opening_loc.start_line..node.closing_loc.end_line)
+        end
+        node.compact_child_nodes.each { |child| collect(child, spans) }
+        spans
+      end
+    end
+
     class SubjectSelection
       # Lines changed since the --since ref, by file; nil without --since.
       attr_reader :changed_lines
@@ -38,7 +64,30 @@ module Saboteur
         subjects = by_pattern(subjects, @config["subjects"]) if @config["subjects"].any?
         subjects = by_change(subjects, @config["since"]) if @config["since"]
         subjects = drop_intentionally_untested(subjects)
+        inform_nothing_to_test(subjects)
         attach_consumers(subjects)
+      end
+
+      # A --since run can legitimately select nothing: the range is empty
+      # (a checkout AT the base, #643) or its changes carry no mutable Ruby
+      # (a docs-only diff, #659). Exit 0 with a notice, not a silent green:
+      # name the base, the changed-file count and why nothing was selected.
+      def inform_nothing_to_test(subjects)
+        ref = @config["since"]
+        return unless ref && subjects.empty?
+
+        changed = Selection::GitDiff.changed_paths(ref, root: @root)
+        count = changed[:present].size + changed[:deleted].size
+        reason = if count.zero?
+                   "the resolved range has no changes"
+                 elsif !@raw_changed_files.intersect?(@files)
+                   "#{count} changed file#{'s' unless count == 1}, none in mutation scope " \
+                     "(docs-only, excluded, or non-Ruby)"
+                 else
+                   "no subject covers the changed lines (layout-only edits, deletions, " \
+                     "or intentionally untested code)"
+                 end
+        @diagnostics.inform("--since #{ref}: nothing to test - #{reason}")
       end
 
       # "Klass#meth", "Klass.meth", or a namespace prefix ("Klass", "A::B").
@@ -381,30 +430,9 @@ module Saboteur
           "strings are not mutation subjects, so this run cannot see that behavior."
       end
 
-      # A heredoc body is code the static subject walk cannot see: methods
-      # defined by class_eval'ing the string, or behavior living in a
-      # template constant, exist only when the string is evaluated (#467).
-      # Changed lines inside one deserve the specific warning, not the
-      # generic parse/method guess. A file that does not parse keeps the
-      # generic hint: its problem is named there already.
-      def changed_lines_inside_heredoc?(file)
-        result = Prism.parse(File.binread(file))
-        return false if result.failure?
-
-        spans = heredoc_spans(result.value)
-        @changed_lines[file].any? { |line| spans.any? { |span| span.cover?(line) } }
-      end
-
-      def heredoc_spans(node, spans = [])
-        if (node.is_a?(Prism::StringNode) || node.is_a?(Prism::InterpolatedStringNode)) &&
-           node.opening_loc&.slice&.start_with?("<<")
-          # The node location of an interpolated string stops at the opening
-          # marker; opening through closing covers the whole heredoc body.
-          spans << (node.opening_loc.start_line..node.closing_loc.end_line)
-        end
-        node.compact_child_nodes.each { |child| heredoc_spans(child, spans) }
-        spans
-      end
+      # Changed lines inside a heredoc deserve the specific warning, not the
+      # generic parse/method guess (#467); the scan lives in HeredocSpans.
+      def changed_lines_inside_heredoc?(file) = HeredocSpans.changed_lines_inside?(file, @changed_lines[file])
 
       # A changed Ruby file that an include pattern covers but c.exclude
       # removes yields zero candidates with no other sign - this repo's own

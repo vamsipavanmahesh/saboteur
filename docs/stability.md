@@ -49,13 +49,12 @@ Pass `--max-duration-ok` explicitly to use the ordinary verdict instead.
 The terminal still prints the number of mutants not run, or says the
 count is unknown if planning did not finish.
 
-A `--since` run with no changed files stops before boot with exit 2 in
-both modes (#643). It does not produce a clean result.
-
-A non-empty change range can still select no mutation subjects, for
-example when only comments changed. That is a different case: the ordinary
-CLI exits 0, while agent mode reports status `not_applicable`, verdict
-`not_applicable`, and exit 3. Exit 0 here does not mean any code was tested.
+An empty `--since` range, or one whose changes carry no mutable Ruby (a
+docs-only diff), is not an error: the CLI prints a `nothing to test` notice
+naming the base, the changed-file count and the reason, and exits 0 (#659).
+Agent mode reports status `not_applicable`, verdict `not_applicable`, and
+exit 3, so a harness never mistakes "nothing was selected" for
+"everything passed".
 
 ### The machine report (`.saboteur/report.json`)
 
