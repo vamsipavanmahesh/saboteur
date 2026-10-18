@@ -308,6 +308,9 @@ RSpec.describe "Saboteur::Preview json inventory" do
     json_preview(config(max_mutants_per_method: 1)).call
     expect(payload["totals"]).to include("mutants" => 1)
     expect(payload["totals"]["dropped_by_max_mutants_per_method"]).to be_positive
+    expect(payload["skipped"].size).to eq(payload["totals"]["dropped_by_max_mutants_per_method"])
+    expect(payload["skipped"].map { |skip| skip["digest"] } & payload["mutants"].map { |entry| entry["digest"] })
+      .to eq([])
     expect(payload["skipped"].map { |skip| skip["reason"] }.uniq).to eq(["max_mutants_per_method"])
     expect(payload["skipped"].map { |skip| skip["digest"] }).to all(match(/\A[0-9a-f]{16}\z/))
   end
