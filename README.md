@@ -43,8 +43,11 @@ later runs start fast.
 
 On a branch, `bundle exec saboteur pr` mutates only the methods you
 changed relative to `main`, with one baseline pass and a ten-minute
-budget. Pass `--since` for a different base, for example
-`bundle exec saboteur pr --since master`.
+budget. If the budget stops the run, it exits 4 and prints `partial: X
+of Y mutants not run` (or says the count is unknown when planning did
+not finish). Pass `--max-duration-ok` to accept a partial verdict; the
+warning stays, and other failure gates still apply. Pass `--since` for a
+different base, for example `bundle exec saboteur pr --since master`.
 
 Setup, configuration and CI:
 [the quickstart](https://vamsipavanmahesh.github.io/saboteur/quickstart.html).
@@ -89,10 +92,13 @@ the macro itself `ran at load` instead of letting its mutants survive.
   `saboteur pr $GITHUB_SHA` on a checkout at the merge commit diffs the
   merge against itself - and fails loudly (exit 3) when the changed code
   cannot be verified - for example when every changed method is skipped
-  because a refinement is active where it sits. The GitHub Action runs on every pull request and
-  caches the coverage map between runs. `--shard K/N` splits one planned
-  inventory deterministically across CI jobs; each shard reports partial
-  evidence.
+  because a refinement is active where it sits. A changed method skipped
+  for no coverage names the specs the run loaded; when its coverage
+  lives in a sibling spec file, pass `--test spec/models` (the directory
+  holding it) to load it. The GitHub Action runs on every pull request
+  and caches the coverage map between runs. `--shard K/N` splits one
+  planned inventory deterministically across CI jobs; each shard reports
+  partial evidence.
 - **Honest verdicts.** Every kill is verified against the unchanged
   method; a kill the suite cannot confirm stays out of the score.
   Suspect a flaky test? `--flaky-check survivors` confirms each new

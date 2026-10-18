@@ -6,6 +6,8 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-18
+
 ### Added
 
 - `--test-command` runs a mutation-visibility check before the first
@@ -430,6 +432,13 @@ All notable changes are documented here. The format follows
   the reason, also before a stop on an unmatched file. `--test` and
   `--all` are unchanged.
 
+- **Breaking change:** the pr preset no longer accepts a budget-stopped
+  run by default. It exits 4; pass `--max-duration-ok` explicitly to
+  accept the ordinary verdict. The terminal prints how many planned
+  mutants did not run, or says the count is unknown when planning did not
+  finish. (#654)
+
+
 ### Fixed
 
 - A non-Rails suite that connects ActiveRecord to sqlite `:memory:` and
@@ -506,6 +515,30 @@ All notable changes are documented here. The format follows
 - `--test-command` on macOS no longer refuses every tree containing an
   internal symlink: the disposable copy root is canonicalized before
   symlink targets are judged against it (/var vs /private/var) (#305).
+
+- Suites that turn warnings into errors (`--warnings` plus a raising
+  `Warning.warn` or `Warning.process` handler, dry-rb/hanami-style) no
+  longer error every mutant: the re-evaluation's own "method redefined"
+  notice is silenced while the mutant is installed, the same guard the
+  whole-file strategy already had (#603).
+
+- A mutant reported Survived when the suite itself replaced its
+  definition mid-run: a `before(:each)` that re-loads the mutated source
+  file (rolify-style `load "lib/..."`, #597) puts the original back
+  before any test calls it, so every selected test passing proved
+  nothing. The child now records which definition the mutant's
+  evaluation installed and compares it with what is in place after the
+  tests; a positively identified different def marks the mutant
+  Unreachable (out of the score), never Survived, only when no test ever
+  invoked the mutant, and the warning names the re-load site. A run
+  where every mutant ends Unreachable exits 3 instead of going silently
+  green. (#662)
+
+- A scoped (`--since`) run that skips a subject for no coverage now
+  names the loaded specs (or says none) and points at `--test`. Coverage
+  in sibling spec files may not have been loaded; the existing exit-3
+  gate is unchanged. (#636)
+
 
 ### Added
 
