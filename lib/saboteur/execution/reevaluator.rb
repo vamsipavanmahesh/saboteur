@@ -144,28 +144,36 @@ module Saboteur
 
       # The file as it is on disk, with the method's bytes replaced by text,
       # evaluated at top level under the file's own name and first line.
-      # Redefinition warnings are expected and silenced.
       def eval_whole_file(subject, text)
         source = subject.file_source.dup.force_encoding(Encoding::UTF_8)
         spliced = source.byteslice(0, subject.start_byte) + text + source.byteslice(subject.end_byte..)
-        verbose = $VERBOSE
-        $VERBOSE = nil
-        TOPLEVEL_BINDING.eval(spliced, subject.file, 1)
-      ensure
-        $VERBOSE = verbose
+        silencing_warnings { TOPLEVEL_BINDING.eval(spliced, subject.file, 1) }
       end
 
       def eval_in_owner(owner, subject, text, extra_lines)
         code, line = with_magic_comment(subject, text, extra_lines)
         eval_target = subject.sclass ? owner.singleton_class : owner
-        eval_target.class_eval(code, subject.file, line)
+        silencing_warnings { eval_target.class_eval(code, subject.file, line) }
       end
 
       def eval_nested(subject, text, extra_lines)
         headers = subject.nesting.map(&:header)
         wrapped = "#{headers.join('; ')}; #{text}; #{(['end'] * headers.size).join('; ')}"
         code, line = with_magic_comment(subject, wrapped, extra_lines)
-        TOPLEVEL_BINDING.eval(code, subject.file, line)
+        silencing_warnings { TOPLEVEL_BINDING.eval(code, subject.file, line) }
+      end
+
+      # Re-evaluation redefines the method by design, and a "method
+      # redefined" warning is only ever emitted under $VERBOSE. Suites that
+      # raise on warnings (--warnings plus a raising Warning.warn or
+      # Warning.process handler, dry-rb/hanami-style) must not see it:
+      # before the guard every mutant errored as RuntimeError (#603).
+      def silencing_warnings
+        verbose = $VERBOSE
+        $VERBOSE = nil
+        yield
+      ensure
+        $VERBOSE = verbose
       end
 
       # The first line of code sits extra_lines above the def, so the def
