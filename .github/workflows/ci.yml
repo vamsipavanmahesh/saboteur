@@ -3,6 +3,15 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs-only merges skip the matrix: the panel gate never waits on main
+    # push runs (it checks the pull request head's own run), so spawning a
+    # full macOS matrix for a docs page only starves the self-hosted pool.
+    paths-ignore:
+      - 'README*'
+      - 'CHANGELOG*'
+      - '*.md'
+      - 'docs/**'
+      - 'assets/**'
   # PR CI is manual: the matrix does not run on pull_request events (the DCO
   # workflow in dco.yml still does). A maintainer runs it against the exact
   # PR head with
