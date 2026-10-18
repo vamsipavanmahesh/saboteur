@@ -217,7 +217,7 @@ jobs:
     # The long pole of a pull request run at ~6 minutes: 4x8 halves it, and
     # --jobs 4 matches the 4 vCPUs.
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: read
       # The binding proof reads the pull request's head, base and head repo.
