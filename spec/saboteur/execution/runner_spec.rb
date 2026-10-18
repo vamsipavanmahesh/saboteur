@@ -27,7 +27,7 @@ RSpec.describe Saboteur::Execution::Runner do
   # each example can make the child pass, fail, hang or crash.
   let(:reevaluator) do
     dir = tmpdir
-    Class.new do
+    Class.new(Saboteur::Execution::Reevaluator) do
       define_method(:call) do |_subject, text, prefix: nil|
         # Runs in the forked child, so observable effects go to the tmpdir.
         File.write(File.join(dir, "prefix"), prefix.to_s)
@@ -37,11 +37,41 @@ RSpec.describe Saboteur::Execution::Runner do
 
         File.write(File.join(dir, "rand_on_eval"), rand(1_000_000_000).to_s) if text == "pass"
         @replaced = "f.rb:9" if text.start_with?("replaced_")
-        @mode = text.delete_prefix("replaced_")
+        @overwritten = text.start_with?("overwritten_")
+        @chained = text.start_with?("chained_")
+        @mode = text.sub(/\A(?:replaced|overwritten|chained)_/, "")
       end
 
       define_method(:mode) { @mode }
       define_method(:replaced_definition) { |_subject| @replaced }
+      # Two real Method objects stand in for "the definition in place": a
+      # suite that re-loads the file mid-run leaves a different one behind.
+      owner = Class.new do
+        def first_def = nil
+        def second_def = nil
+      end
+      first = owner.instance_method(:first_def)
+      second = owner.instance_method(:second_def)
+      # A prepend-style wrapper: the "later" definition's super chain still
+      # holds the one the mutant installed, so the tests did run it.
+      chain_owner = Class.new do
+        def chained_def = nil
+      end
+      base = chain_owner.instance_method(:chained_def)
+      chain_owner.prepend(Module.new do
+        def chained_def = nil
+      end)
+      wrapped = chain_owner.instance_method(:chained_def)
+      define_method(:installed_definition) do |_subject|
+        @fetches = (@fetches || 0) + 1
+        if @chained && @fetches > 1
+          wrapped
+        elsif @overwritten && @fetches > 1
+          second
+        else
+          @chained ? base : first
+        end
+      end
     end.new
   end
 
@@ -268,6 +298,44 @@ RSpec.describe Saboteur::Execution::Runner do
       expect(run_replaced("fail").status).to eq(:killed)
       expect(run_replaced("partial").status).to eq(:error)
       expect(run_replaced("pass", mutation: nil).status).to eq(:survived)
+    end
+  end
+
+  describe "a mutant whose definition the tests themselves replaced (issue #597)" do
+    let(:mutation) do
+      edit = Saboteur::MutationSource::Edit.new(file: "f.rb", start_byte: 0, end_byte: 1, replacement: "x")
+      Saboteur::MutationSource::Mutation.new(subject_id: "Stub#run", operator: "comparison", edits: [edit])
+    end
+
+    # The guard only converts a positively identified overwrite: the later
+    # definition must come from the subject's own file, which the fake's
+    # Method objects (defined in this spec) satisfy here.
+    let(:file_subject) { Struct.new(:id, :file).new("Stub#run", File.expand_path(__FILE__)) }
+
+    def run_overwritten(mode, mutation: self.mutation)
+      runner.run(subject: file_subject, text: "overwritten_#{mode}", test_ids: %w[t1 t2], timeout: 5, mutation:)
+    end
+
+    def run_chained(mode, mutation: self.mutation)
+      runner.run(subject: file_subject, text: "chained_#{mode}", test_ids: %w[t1 t2], timeout: 5, mutation:)
+    end
+
+    it "is unreachable, not survived, naming where the later definition sits" do
+      outcome = run_overwritten("pass")
+      expect(outcome.status).to eq(:unreachable)
+      expect(outcome.message).to match(/\Athe tests \(or their hooks\) replaced the definition while they ran \(/)
+        .and match(/runner_spec\.rb:\d+\), so this mutant never ran\z/)
+    end
+
+    it "leaves a kill, other outcomes and the unchanged-method check alone" do
+      expect(run_overwritten("fail").status).to eq(:killed)
+      expect(run_overwritten("partial").status).to eq(:error)
+      expect(run_overwritten("pass", mutation: nil).status).to eq(:survived)
+    end
+
+    it "keeps the verdict when a prepended wrapper still reaches the mutant via super" do
+      expect(run_chained("pass").status).to eq(:survived)
+      expect(run_chained("fail").status).to eq(:killed)
     end
   end
 
@@ -504,6 +572,10 @@ RSpec.describe "Runner sandbox wiring (#152)" do
       def call(_subject, _text, prefix: nil); end
 
       def replaced_definition(_subject) = nil
+
+      def installed_definition(_subject) = nil
+
+      def overwritten_site(_subject, _installed) = nil
     end.new
     Saboteur::Execution::Runner.new(integration: integration, reevaluator: reevaluator,
                                     log_dir: log_dir, sandbox: sandbox, canary: canary)

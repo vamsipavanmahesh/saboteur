@@ -55,21 +55,30 @@ module Saboteur
         true
       end
 
-      # A scoped run whose subjects were all skipped (refinements, no
-      # coverage, ...) verified none of the change under review; exit 0
-      # with score n/a would green-light an untested change (#574).
+      # A run that verified none of the change under review - every
+      # subject skipped (refinements, no coverage, ..., #574) or every
+      # mutant unreachable (a suite re-loading mutated files, #597) -
+      # must not exit 0 with score n/a and green-light an untested change.
       def unverifiable_scope?(report)
-        return false unless unverifiable_review?(report)
-
-        report.skipped_subjects.each do |subject, reason|
-          @err.puts("saboteur: #{subject.id} was skipped (#{reason}), so the change under test was not verified")
+        if unverifiable_review?(report)
+          report.skipped_subjects.each do |subject, reason|
+            @err.puts("saboteur: #{subject.id} was skipped (#{reason}), so the change under test was not verified")
+          end
+          return true
         end
+        return false unless unverifiable_unreachable?(report)
+
+        @err.puts("saboteur: all mutants ran unreachable, so the change under test was not verified")
         true
       end
 
       def unverifiable_review?(report)
         report.review? && report.subjects.any? &&
           report.subjects.all? { |subject| report.skipped_subjects.key?(subject) }
+      end
+
+      def unverifiable_unreachable?(report)
+        report.executed.any? && report.executed.all? { |result| result.status == :unreachable }
       end
 
       def gates = (@gates ||= Gates.new(config))
@@ -108,7 +117,8 @@ module Saboteur
         else
           if report.majority_errored?
             "errorMajority"
-          elsif unverifiable_review?(report) || (report.early_stop && report.score_breakdown.tested.zero?)
+          elsif unverifiable_review?(report) || unverifiable_unreachable?(report) ||
+                (report.early_stop && report.score_breakdown.tested.zero?)
             "incomplete"
           else
             "incompleteUnderThreshold"

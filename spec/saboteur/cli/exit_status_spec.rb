@@ -124,6 +124,8 @@ RSpec.describe Saboteur::CLI::ExitStatus do
           score_breakdown: instance_double(Saboteur::Score, tested: tested),
           majority_errored?: false,
           review?: false,
+          subjects: [],
+          executed: [],
           unignored_survivors: [instance_double(Saboteur::MutantResult)]
         )
       end
@@ -157,7 +159,9 @@ RSpec.describe Saboteur::CLI::ExitStatus do
         early_stop: early_stop,
         score_breakdown: instance_double(Saboteur::Score, tested: tested),
         majority_errored?: majority_errored,
-        review?: false
+        review?: false,
+        subjects: [],
+        executed: []
       )
     end
 
@@ -256,6 +260,37 @@ RSpec.describe Saboteur::CLI::ExitStatus do
                              subjects: [person_subject, refined],
                              results: [result_for(:killed)])
       expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_OK)
+    end
+  end
+
+  describe "a review run whose mutants all ran unreachable (#597)" do
+    let(:config) { {} }
+
+    def unreachable_report(results:, review: true)
+      Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.0,
+                           root: File.dirname(person_subject.file), review:, seed: 1,
+                           skipped_subjects: {}, operator_policy: Saboteur::Config.new({}).operator_policy)
+    end
+
+    it "exits 3 instead of going silently green" do
+      report = unreachable_report(results: [result_for(:unreachable), result_for(:unreachable)])
+      expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_TOOL)
+      expect(harness.err.string).to include("unreachable").and include("not verified")
+    end
+
+    it "records incomplete as the exit cause, not incompleteUnderThreshold" do
+      report = unreachable_report(results: [result_for(:unreachable)])
+      expect(harness.cause(report, Saboteur::CLI::EXIT_TOOL)).to eq("incomplete")
+    end
+
+    it "keeps a normal verdict when any mutant was judged" do
+      report = unreachable_report(results: [result_for(:unreachable), result_for(:killed)])
+      expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_OK)
+    end
+
+    it "fails a full run the same way: unreachable mutants verified nothing" do
+      report = unreachable_report(results: [result_for(:unreachable)], review: false)
+      expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_TOOL)
     end
   end
 end
