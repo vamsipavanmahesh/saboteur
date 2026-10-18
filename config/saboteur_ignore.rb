@@ -3,6 +3,14 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  i.mutation "54845ce72e86f30a",
+             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
+             reason: "equivalent: Subject#to_s returns the id, so join renders the subjects the same without map(&:id)"
+
+  i.mutation "a3766004f0709c6f",
+             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
+             reason: "equivalent: each returns the array itself and join calls Subject#to_s, which returns the id"
+
   i.mutation "4431382aefb4312a",
              subject: "Saboteur::CLI::HistoryCommand#history_path",
              reason: "equivalent: UsageError < ConfigError, so the or-raise is caught by the method's own " \
@@ -207,10 +215,6 @@ Saboteur.ignore do |i|
   i.mutation "a7573a705c635da0",
              subject: "Saboteur::MutationSource::Builtin#rescues_everything?",
              reason: "equivalent: nil and false are both falsy for the caller"
-
-  i.mutation "e962119c0314fa3d",
-             subject: "Saboteur::MutationSource::Builtin#visit_statements",
-             reason: "equivalent: the loop never sees an empty sequence, so != 1 and > 1 agree"
 
   i.mutation "4cc9db1f1c23f253",
              subject: "Saboteur::MutationSource::Builtin#mutate_call",

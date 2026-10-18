@@ -86,6 +86,28 @@ All notable changes are documented here. The format follows
 
 ### Fixed
 
+- An arid statement (a logging or instrumentation call) whose block carries
+  real work is now mutated inside the block (#464). The walk used to skip
+  the whole statement, so a method like one wrapped in
+  `Notifications.instrument ... do |payload| ... end` produced only the
+  coarse `body_raise` and no statement_removal, boolean_logic or other
+  fine mutants on the changed lines. The block body is walked like any
+  other, and such a statement also keeps the method out of the
+  nothing-to-remove coarse check.
+- A loaded class defining a singleton `hash` that does not return an
+  Integer (forem's `ReactionCategory`) no longer crashes the boot as an
+  internal TypeError: every `Coverage.result` read now refuses with a
+  diagnostic explaining the violated `#hash` contract and blaming the
+  application's code (#564).
+- A `--since` diff that deletes a method no longer reports the deletion as
+  "differ only in comments or formatting" and no longer names the method the
+  deleted lines drifted onto. The run says what was deleted instead: `N
+  changed subject(s) were deleted, nothing to mutate: ...` (#466).
+- An error-dominated run no longer prints a bare score above the "tested almost nothing" warning: the terminal reports "score n/a (N of M mutants scored, X % of scored)" so the scored share cannot be misread as a run-wide score (#557).
+- Preflight no longer refuses a precompiled Ruby (mise, ruby-build) whose
+  binary tops the 50 MB evidence-document cap (#364): tool identity
+  digests stream with an executable-sized bound instead. The cap for JSON
+  evidence documents is unchanged.
 - A missing `rspec-core` no longer crashes saboteur into the internal-error
   report with a bare `LoadError`: the RSpec integration refuses with
   "rspec is not in the bundle" and names the remedy, adding the gem to the

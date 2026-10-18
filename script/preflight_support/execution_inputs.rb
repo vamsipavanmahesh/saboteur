@@ -14,6 +14,9 @@ module Preflight
   # installed gems not pinned by the lockfile. A required input that exists but cannot be read stops the run.
   class ExecutionInputs
     IGNORED_FILES = %w[Gemfile.lock .bundle/config .rspec-local .rubocop-local.yml].freeze
+    # Executables are not JSON evidence documents: a precompiled Ruby with YJIT and debug symbols runs
+    # past the document cap (#364). The digest stays bounded, so a growing file cannot stream forever.
+    MAX_TOOL_BYTES = 2 * 1024 * 1024 * 1024
     RELEVANT_ENV = %w[BUNDLE_APP_CONFIG BUNDLE_USER_CONFIG BUNDLE_GEMFILE RUBYOPT RUBYLIB RSPEC_OPTS RUBOCOP_OPTS CI
                       LANG LC_ALL TZ].freeze
 
@@ -166,7 +169,10 @@ module Preflight
         raise ExecutionGap, "PATH has an empty or relative entry #{dir.inspect}" unless dir.start_with?("/")
 
         candidate = File.join(dir, name)
-        return "#{File.realpath(candidate)}:#{StrictJson.digest(candidate)}" if runnable?(candidate)
+        next unless runnable?(candidate)
+
+        identity = StrictJson.digest(candidate, max_bytes: MAX_TOOL_BYTES)
+        return "#{File.realpath(candidate)}:#{identity}"
       end
       raise ExecutionGap, "#{name} was not found on PATH"
     rescue SystemCallError => e
