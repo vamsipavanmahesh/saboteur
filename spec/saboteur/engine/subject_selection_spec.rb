@@ -1014,6 +1014,116 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
     expect(select([file], since: "HEAD", whole_file: ["RULES"]).map(&:id)).to eq(["RULES"])
   end
 
+  # A bare constant name never matches a qualified subject id, so the skip
+  # warning must name the exact id to copy into c.whole_file (#635).
+  it "names the exact qualified id when a whole_file pattern misses it (#635)" do
+    file = commit_base("nested.rb",
+                       "module Sidekiq\n  module JobUtil\n    RECURSIVE_JSON_UNSAFE = { a: 1 }.freeze\n  end\n  " \
+                       "Registry.register(JobUtil::RECURSIVE_JSON_UNSAFE)\nend\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n      b: 2"))
+
+    expect(select([file], since: "HEAD", whole_file: ["RECURSIVE_JSON_UNSAFE"])).to be_empty
+    expect(diagnostics.warnings.join).to include(
+      'Exact id(s): "Sidekiq::JobUtil::RECURSIVE_JSON_UNSAFE" (preferred); ' \
+      'a glob like "*RECURSIVE_JSON_UNSAFE*" also works but opts in every matching subject project-wide.'
+    )
+  end
+
+  # Boundary: exactly three refused constants shows all three with no
+  # "+0 more" tail (#635, survivor cluster at the first(3) / > 3 cap).
+  it "shows all three ids with no +N more tail when exactly three are refused (#635)" do
+    file = commit_base("three.rb",
+                       "A = {a: 1}.freeze\nB = {b: 1}.freeze\nC = {c: 1}.freeze\nvalidate!(A)\n")
+    File.write(file,
+               "A = {a: 1, z: 2}.freeze\nB = {b: 1, z: 2}.freeze\nC = {c: 1, z: 2}.freeze\nvalidate!(A)\n")
+
+    expect(select([file], since: "HEAD")).to be_empty
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include('Exact id(s): "A", "B", "C" (preferred)')
+    expect(warning).not_to include("more")
+  end
+
+  it "caps the named ids at three with a +N more note (#635)" do
+    file = commit_base("many.rb",
+                       "A = {a: 1}.freeze\nB = {b: 1}.freeze\nC = {c: 1}.freeze\nD = {d: 1}.freeze\n" \
+                       "E = {e: 1}.freeze\nvalidate!(A)\n")
+    File.write(file,
+               "A = {a: 1, z: 2}.freeze\nB = {b: 1, z: 2}.freeze\nC = {c: 1, z: 2}.freeze\nD = {d: 1, z: 2}.freeze\n" \
+               "E = {e: 1, z: 2}.freeze\nvalidate!(A)\n")
+
+    expect(select([file], since: "HEAD")).to be_empty
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include('Exact id(s): "A", "B", "C", +2 more (preferred)')
+    expect(warning).not_to include(%("D"), %("E"))
+  end
+
+  # Boundary above the cap: four refused constants show three plus
+  # "+1 more" (#635, survivor cluster widening the cap comparison).
+  it "shows three ids plus +1 more when exactly four are refused (#635)" do
+    file = commit_base("four.rb",
+                       "A = {a: 1}.freeze\nB = {b: 1}.freeze\nC = {c: 1}.freeze\nD = {d: 1}.freeze\nvalidate!(A)\n")
+    File.write(file,
+               "A = {a: 1, z: 2}.freeze\nB = {b: 1, z: 2}.freeze\nC = {c: 1, z: 2}.freeze\n" \
+               "D = {d: 1, z: 2}.freeze\nvalidate!(A)\n")
+
+    expect(select([file], since: "HEAD")).to be_empty
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include('Exact id(s): "A", "B", "C", +1 more (preferred)')
+    expect(warning).not_to include(%("D"))
+  end
+
+  it "warns when a whole_file pattern matches no subject (#635)" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    select([file], since: "HEAD", whole_file: ["RUELES"])
+    expect(diagnostics.warnings).to include(
+      '--since: whole_file pattern "RUELES" matches no discovered subject in this run; ' \
+      "subject ids look like RULES, A::B::C or A::B#m"
+    )
+  end
+
+  # one matching subject is enough; the pattern need not match them all
+  # (#635, survivor: subjects.any? -> all?).
+  it "does not warn when the pattern matches one of several subjects (#635)" do
+    file = commit_base("rules.rb",
+                       "RULES = {\n  a: 1\n}.freeze\nLIMITS = {\n  b: 1\n}.freeze\n")
+    File.write(file, "RULES = {\n  a: 1,\n  z: 2\n}.freeze\nLIMITS = {\n  b: 1,\n  z: 2\n}.freeze\n")
+
+    select([file], since: "HEAD", whole_file: ["RULES"])
+    expect(diagnostics.warnings.join).not_to include("matches no discovered subject")
+  end
+
+  it "stays quiet when every whole_file pattern matches a subject (#635)" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nvalidate!(RULES)\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    select([file], since: "HEAD", whole_file: ["RULES"])
+    expect(diagnostics.warnings.join).not_to include("matches no discovered subject")
+  end
+
+  # whole_file only applies to --since runs; without it an unmatched
+  # pattern must stay silent (#635, survivor 22a901e2).
+  it "ignores unmatched whole_file patterns without --since (#635)" do
+    file = File.join(@root, "plain.rb")
+    File.write(file, "def m = 1\n")
+
+    select([file], whole_file: ["NOPE"])
+    expect(diagnostics.warnings.join).not_to include("matches no discovered subject")
+  end
+
+  # One refused constant names exactly one id - no "+N more" tail (#635,
+  # survivor a367d740 and the cap-math cluster).
+  it "names a single id without a +N more note (#635)" do
+    file = commit_base("rules.rb", "RULES = {\n  a: 1\n}.freeze\nvalidate!(RULES)\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    select([file], since: "HEAD")
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include(%("RULES"))
+    expect(warning).not_to include("more")
+  end
+
   it "replays a file whose load-time code is only requires, defs and literal assignments" do
     file = commit_base("rules.rb",
                        "require \"json\"\nRULES = {\n  a: 1\n}.freeze\ndef rule_for(k) = RULES[k]\n")
