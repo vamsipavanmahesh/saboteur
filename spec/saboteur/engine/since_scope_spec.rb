@@ -374,11 +374,12 @@ RSpec.describe Saboteur::Engine, "test selection" do
       end
     end
 
-    it "runs the whole suite when nothing changed" do
+    it "says there is nothing to test when --since leaves no changed source file (#607)" do
       guess(specs: [], unmatched: [], changed: 0)
       run_engine("since" => "origin/main")
       expect(err.string).to include("inferred specs: no changed source file to infer a spec for, " \
-                                    "so the whole suite runs")
+                                    "so there is nothing to test")
+      expect(err.string).not_to include("the whole suite runs")
     end
 
     it "names every subjectless file in the note" do
@@ -560,15 +561,16 @@ RSpec.describe Saboteur::Engine, "test selection" do
     guess(specs: [], unmatched: [], changed: 0)
     used = tests_the_run_used { run_engine("since" => "origin/main") }
     expect(used).to eq([])
-    expect(err.string).to include("inferred specs: no changed source file to infer a spec for, so the whole suite runs")
+    expect(err.string).to include("inferred specs: no changed source file to infer a spec for, " \
+                                  "so there is nothing to test")
     expect(err.string).to include("running the loaded suite unscoped")
   end
 
-  it "keeps the whole-suite note a report warning when nothing changed (#468)" do
+  it "keeps the nothing-to-test note a report warning when nothing changed (#468)" do
     guess(specs: [], unmatched: [], changed: 0)
     report = run_engine("since" => "origin/main")
     expect(report.warnings)
-      .to include("inferred specs: no changed source file to infer a spec for, so the whole suite runs")
+      .to include("inferred specs: no changed source file to infer a spec for, so there is nothing to test")
   end
 
   it "names the no-source-file case without --since" do
