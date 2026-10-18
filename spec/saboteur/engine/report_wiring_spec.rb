@@ -19,6 +19,26 @@ RSpec.describe Saboteur::Engine, "report wiring" do
     expect(report.shard).to be(shard)
   end
 
+  it "flows the configured --test-command into the report (#641)" do
+    config = Saboteur::Config.new({ "test_command" => "bin/rails test" })
+    engine = described_class.new(config, err: StringIO.new)
+    report = engine.send(:build_report, [], [], nil, engine.send(:monotonic))
+    expect(report.test_command).to eq("bin/rails test")
+  end
+
+  it "hands the engine root to candidate selection so skip announcements stay relative (#627)" do
+    engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    subject = instance_double(Saboteur::Subject)
+    map = instance_double(Saboteur::Selection::CoverageMap)
+    selection = instance_double(Saboteur::Engine::CandidateSelection,
+                                skipped_subjects: {}, unscoped_digests: {})
+    allow(selection).to receive(:for).with(subject, scope: nil).and_return([])
+    expect(Saboteur::Engine::CandidateSelection).to receive(:new)
+      .with(hash_including(root: engine.instance_variable_get(:@root)))
+      .and_return(selection)
+    engine.send(:candidate_lists, [subject], nil, map)
+  end
+
   it "passes the diff scope through before applying the shard" do
     engine = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
     subject = instance_double(Saboteur::Subject)

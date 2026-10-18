@@ -9,8 +9,10 @@ module Saboteur
   #
   # Included: instance methods and `def self.x` inside a class or module,
   # defs inside `class << self`, and defs passed to a receiverless call such
-  # as `private def x`. Skipped: top-level defs, defs nested in defs, and
-  # `def obj.x` for obj != self. Defs in blocks (`included do`, builders)
+  # as `private def x`. Skipped: top-level defs and defs nested in defs.
+  # `def Const.m` is found but marked skipped (a constant receiver names an
+  # owner saboteur cannot re-evaluate through, #627); `def obj.x` for any
+  # other obj is dropped, as before. Defs in blocks (`included do`, builders)
   # are found but marked skipped ("defined inside a block"), so the report
   # names them instead of leaving them out - except the four core class
   # factories: `X = Data.define`, `Struct.new`, `Class.new` or `Module.new`
@@ -233,8 +235,11 @@ module Saboteur
 
     def add_subject(node, nesting, out, file:, source:, frozen:, previous: nil, in_block: false)
       in_sclass = nesting.last&.sclass? || false
-      # `def self.x` inside `class << self`, and `def obj.x`, are not subjects.
-      return unless node.receiver.nil? || (node.receiver.is_a?(Prism::SelfNode) && !in_sclass)
+      # `def self.x` inside `class << self` is not a subject. A def with
+      # any other explicit receiver goes through the report-it door (#627).
+      if node.receiver && !(node.receiver.is_a?(Prism::SelfNode) && !in_sclass)
+        return report_receiver_def(node, out, file: file, source: source, frozen: frozen)
+      end
 
       singleton = in_sclass || !node.receiver.nil?
       owner = owner_path(nesting)
@@ -245,6 +250,26 @@ module Saboteur
                             file: file, node: node, file_source: source, nesting: nesting,
                             frozen_literals: frozen, sig_span: sig_span(previous))
       subject.skip_reason = "defined inside a block" if in_block
+      out << subject
+    end
+
+    # `def Const.m` defines a singleton on the named constant; re-evaluating
+    # it through the enclosing owner would not redefine it. Emit it as a
+    # skipped subject so the report names it (#627) instead of the run
+    # reading as "nothing to mutate". A receiver saboteur cannot name (a
+    # local, a call result) stays out, as before.
+    def report_receiver_def(node, out, file:, source:, frozen:)
+      # Ruby only allows a bare constant here (`def A::B.m` is a syntax
+      # error), so the receiver is a ConstantReadNode or nothing we name.
+      receiver = node.receiver
+      return unless receiver.is_a?(Prism::ConstantReadNode)
+
+      owner = receiver.name.to_s
+
+      subject = Subject.new(name: node.name, owner: owner, singleton: true, sclass: false,
+                            file: file, node: node, file_source: source, nesting: [],
+                            frozen_literals: frozen, sig_span: nil)
+      subject.skip_reason = "constant-receiver def"
       out << subject
     end
 

@@ -34,6 +34,15 @@ RSpec.describe "--test-command", :e2e do
     expect(run.out).to include("ruby executes only the first")
   end
 
+  # #641: a command that never exercises a subject leaves its mutants
+  # surviving with no coverage map to explain why; the report names the gap
+  # per subject instead of reading as real survivors.
+  it "names subjects the command may never exercise when everything survives" do
+    run = saboteur(dir, "--test-command", "true")
+    expect(run.out).to include("no coverage map under --test-command; " \
+                               "check your command exercises lib/people.rb")
+  end
+
   # The unchanged-tree control: one neutral preflight runs the command
   # before any mutant exists, so a command that fails without the mutant
   # fails the whole run up front with its own exit status (exit 3, #305).

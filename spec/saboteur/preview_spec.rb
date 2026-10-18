@@ -357,7 +357,7 @@ RSpec.describe Saboteur::Preview, "unsupported subjects (#651)" do
       config = Saboteur::Config.new({ "include" => ["*.rb"] }, root: File.dirname(blocked.file))
       expect(Saboteur::Engine::Boot).not_to receive(:new)
       described_class.new(config, out:, err: StringIO.new, format: format).call
-      note = "K#blocked: skipped (defined inside a block); excluded from the planned total"
+      note = "K#blocked (subject_fixture.rb:3): skipped (defined inside a block); excluded from the planned total"
       if format == "json"
         payload = JSON.parse(out.string)
         expect(payload["totals"]["mutants"]).to eq(0)
