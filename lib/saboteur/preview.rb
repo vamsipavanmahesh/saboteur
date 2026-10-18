@@ -84,6 +84,13 @@ module Saboteur
     end
 
     def estimate(subjects, lists)
+      # External-command runs are serial and never build a coverage map, so
+      # "run once" can never fix the estimate (#590): say what would.
+      if @config["test_command"]
+        return @out.puts("no estimate: --test-command runs never build a coverage map; " \
+                         "estimates need the in-process rspec mode")
+      end
+
       map = cached_map
       return @out.puts("no estimate: run once to build the coverage map") unless map
 
