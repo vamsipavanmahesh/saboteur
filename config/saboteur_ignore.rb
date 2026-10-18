@@ -1281,4 +1281,19 @@ Saboteur.ignore do |i|
              reason: "equivalent with a nil pack: interpolating nil makes the branch " \
                      "'/spec', and File.join(@root, '/spec', ...) joins to the same path " \
                      "as 'spec' - hand-applied mutant passes all 144 test_guess_spec examples"
+  i.mutation "e03f49bead1413b5",
+             subject: "Saboteur::MutationSource::ArgumentSwap#mutate_node",
+             reason: "equivalent for Prism nodes: Node#start_offset delegates to location.start_offset, " \
+                     "so removing .location constructs the same byte-range edit"
+
+  i.mutation "76a68daf2dc3ee7a",
+             subject: "Saboteur::MutationSource::ArgumentSwap#mutate_node",
+             reason: "equivalent for Prism nodes: Node#end_offset delegates to location.end_offset, " \
+                     "so removing .location constructs the same byte-range edit"
+
+  i.mutation "be3a75c7143053e0",
+             subject: "Saboteur::MutationSource::ArgumentSwap#heredoc?",
+             reason: "equivalent on visited argument ASTs: text starting with << is a heredoc opener, " \
+                     "so node.slice and opening_loc.slice agree on this prefix; nil versus false is " \
+                     "consumed by || before recursion. Probed ordinary, operator, nested and heredoc arguments"
 end
