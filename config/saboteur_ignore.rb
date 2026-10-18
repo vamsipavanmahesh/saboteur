@@ -52,6 +52,12 @@ Saboteur.ignore do |i|
                      "1.9.0: StringNode and InterpolatedStringNode slice == opening marker, node start_line " \
                      "== opening_loc.start_line), so dropping .opening_loc yields the same start line; " \
                      "hand-applied mutant leaves all 132 subject_selection examples green"
+  i.mutation "fe711104425ed7f9",
+             subject: "Saboteur::Frameworks::SqliteMemoryDatabase#fork_loss_hint",
+             reason: "equivalent: forcing defined?(ActiveRecord::Base) true only defers the same nil - with " \
+                     "ActiveRecord undefined the next line's ActiveRecord::Base reference raises NameError, " \
+                     "which the method's own rescue StandardError turns into nil - hand-applied mutant leaves " \
+                     "all sqlite_memory_database examples green"
 
   i.mutation "02f7817b2ef41452",
              subject: "Saboteur::AttributeFinder#walk",
