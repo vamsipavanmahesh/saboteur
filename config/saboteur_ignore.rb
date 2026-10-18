@@ -1269,4 +1269,16 @@ Saboteur.ignore do |i|
                      "the assignment also fed the embedded flag, and a method-body statement is never " \
                      "an EmbeddedStatementsNode (interpolation bodies sit inside EmbeddedNode parts), " \
                      "so the flag agrees - replayed and survives"
+
+  i.mutation "f6ca28570a86f500",
+             subject: "Saboteur::Engine::TestGuess#unique_suffix_spec",
+             reason: "equivalent under the one? guard: matches holds exactly one element when " \
+                     "first is evaluated, so first and last agree - hand-applied mutant passes " \
+                     "all 144 test_guess_spec examples"
+
+  i.mutation "79a615dba02c8a27",
+             subject: "Saboteur::Engine::TestGuess#unique_suffix_spec",
+             reason: "equivalent with a nil pack: interpolating nil makes the branch " \
+                     "'/spec', and File.join(@root, '/spec', ...) joins to the same path " \
+                     "as 'spec' - hand-applied mutant passes all 144 test_guess_spec examples"
 end
