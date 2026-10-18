@@ -103,10 +103,12 @@ module Saboteur
         survived = "survived #{c[:survived]}"
         ignored = report.survivors.size - report.unignored_survivors.size
         survived += " (#{ignored} ignored)" if ignored.positive?
+        rejected = report.rejected_kills
+        rejected_note = " (#{rejected} rejected kill#{'s' if rejected > 1})" if rejected.positive?
         line = "#{@palette.paint(:green,
                                  "killed #{c[:killed]}")}  #{@palette.paint(:red,
                                                                             survived)}  timeout #{c[:timeout]}  " \
-               "resource limit #{c[:resource_limit]}  error #{c[:error]}  skipped #{c[:skipped]}"
+               "resource limit #{c[:resource_limit]}  error #{c[:error]}#{rejected_note}  skipped #{c[:skipped]}"
         line += "  ran at load #{c[:ran_at_load]}" if c[:ran_at_load].positive?
         line += "  unreachable #{c[:unreachable]}" if c[:unreachable].positive?
         line += "  unverified #{c[:unverified]}" if c[:unverified].positive?
@@ -122,11 +124,19 @@ module Saboteur
 
       def details(report)
         breakdown = report.score_breakdown
-        @out.puts "score #{percent(breakdown.value)}" \
-                  "#{if @verbose
-                       "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
-                         'errors, resource limits and skips excluded'
-                     end}"
+        # The share covers scored mutants only, so an error-dominated run
+        # must not print it as a bare score: "score 100.0 %" above "the run
+        # tested almost nothing" reads as a contradiction (#557).
+        if report.majority_errored?
+          @out.puts "score n/a (#{breakdown.tested} of #{report.executed.size} mutants scored, " \
+                    "#{percent(breakdown.value)} of scored)"
+        else
+          @out.puts "score #{percent(breakdown.value)}" \
+                    "#{if @verbose
+                         "#{score_split(breakdown)} (killed+timeout)/(killed+survived+timeout); " \
+                           'errors, resource limits and skips excluded'
+                       end}"
+        end
         report.skip_reasons.each { |reason, count| @out.puts "skipped: #{reason}: #{count}" }
         reused = report.results.count(&:reused?)
         @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
@@ -264,10 +274,20 @@ module Saboteur
       end
 
       def errors(report)
-        errored = report.results.select { |result| result.status == :error }
+        # Rejected kills are verdicts, not tool errors: the tests failed,
+        # but they also fail with the method unchanged (#375).
+        rejected, errored = report.results.select { |result| result.status == :error }.partition(&:rejected_kill?)
+        unless rejected.empty?
+          @out.puts "\nRejected kills (tests also fail with the method unchanged; not counted as killed):"
+          print_error_lines(rejected)
+        end
         return if errored.empty?
 
         @out.puts "\nErrors (not counted as killed):"
+        print_error_lines(errored)
+      end
+
+      def print_error_lines(errored)
         errored.first(MAX_ERRORS).each do |result|
           lines = result.reason.to_s.lines.map(&:strip)
           @out.puts "  #{result.subject.id} #{result.mutation.operator} #{result.digest}: #{lines.first}"

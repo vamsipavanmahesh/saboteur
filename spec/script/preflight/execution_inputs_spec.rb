@@ -116,6 +116,18 @@ RSpec.describe Preflight::ExecutionInputs, :fixture do
     expect(subject_inputs.digest).not_to eq(first)
   end
 
+  it "digests a tool binary over the JSON document cap - precompiled Rubies ship YJIT and symbols (#364)" do
+    bin = Dir.mktmpdir
+    ruby = File.join(bin, "ruby")
+    File.write(ruby, "\0", perm: 0o755)
+    File.truncate(ruby, Preflight::StrictJson::MAX_BYTES + 1)
+    File.write(File.join(bin, "bundle"), "#!/bin/sh\n", perm: 0o755)
+    env["PATH"] = bin
+    identity = inputs.snapshot[:tools]["ruby"]
+    expect(identity).to start_with("#{File.realpath(ruby)}:")
+    expect(identity).to match(/:[0-9a-f]{64}\z/)
+  end
+
   it "ignores a non-executable decoy earlier on PATH, as the OS does (valid control and negative)" do
     decoy = Dir.mktmpdir
     real = Dir.mktmpdir

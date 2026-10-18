@@ -3,6 +3,7 @@
 
 require "open3"
 require_relative "../text"
+require_relative "dependency_shield"
 require_relative "layout_only_lines"
 require_relative "untracked_changes"
 
@@ -53,9 +54,11 @@ module Saboteur
         diff = %w[diff -z --name-only --relative --no-renames]
         {
           # An untracked file is never in the diff, so the two lists are disjoint.
-          present: (names(root, *diff, "--diff-filter=d", base, "--") +
-                    names(root, "ls-files", "-z", "--others", "--exclude-standard")).sort,
-          deleted: names(root, *diff, "--diff-filter=D", base, "--").sort
+          present: DependencyShield.reject_trees(names(root, *diff, "--diff-filter=d", base, "--") +
+                                                 names(root, "ls-files", "-z", "--others",
+                                                       "--exclude-standard"), root).sort,
+          deleted: DependencyShield.reject_trees(names(root, *diff, "--diff-filter=D", base, "--"),
+                                                 root).sort
         }
       end
 
@@ -72,6 +75,26 @@ module Saboteur
 
       def changed_lines(ref, root:, include: nil, diagnostics: nil)
         line_maps(ref, root: root, include: include, diagnostics: diagnostics).changed
+      end
+
+      # Tracked files whose diff deletes lines without adding any, as
+      # canonical absolute paths (realpath'd toplevel joined to each diff
+      # path), so callers compare in the same space as
+      # CoverageMap.canonical keys whatever the project-root layout: a
+      # monorepo root below the git toplevel must not silently disable the
+      # exclusion (#484). A pure deletion adds no new code to mutate - the
+      # change itself is what the suite covers - so the file yields no
+      # subject and no fine-grained mutant, and a spec-less such file must
+      # not stop the run. The neighbor lines a pure deletion touches
+      # (touched_lines) are context, not change. Untracked files are
+      # all-additions and never listed.
+      def deletion_only_files(ref, root:) # rubocop:disable Metrics/ModuleLength -- one focused addition to an exactly-full module
+        top = File.realpath(Text.utf8_identity(git(root, "rev-parse", "--show-toplevel").b.strip))
+        diff = git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color", "--no-ext-diff",
+                   merge_base(ref, root: root), "--").b
+        added = Hash.new { |hash, file| hash[file] = false }
+        each_hunk(diff, top) { |file, (_, _, _, count)| added[file] ||= count.positive? }
+        added.reject { |_, yes| yes }.keys
       end
 
       def line_maps(ref, root:, include: nil, diagnostics: nil)

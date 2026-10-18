@@ -24,7 +24,7 @@ RSpec.describe Saboteur::Reporter::HistoryRecord do
     invalid(current.except("operatorPolicy"), /invalid record schema/)
     invalid(current.merge("version" => 3), /invalid version/)
     invalid([], /invalid version/)
-    [policy.merge("version" => 1), policy.merge("selected" => "range"),
+    [policy.merge("selected" => "range"),
      policy.merge("selected" => [1]), policy.merge("excluded" => [1]),
      policy.merge("effective" => [1]), policy.merge("effective" => []),
      policy.merge("excluded" => ["typo"]), policy.except("version")].each do |value|
@@ -55,6 +55,13 @@ RSpec.describe Saboteur::Reporter::HistoryRecord do
     validator.validate_policy(policy)
   end
 
+  it "accepts every policy version from 1 up and rejects version 0 (#135)" do
+    policy = Saboteur::Config.new.operator_policy
+    expect { described_class.validate_policy(policy.merge("version" => 1)) }.not_to raise_error
+    expect { described_class.validate_policy(policy.merge("version" => 0)) }
+      .to raise_error(Saboteur::Error, "score history contains invalid operator policy")
+  end
+
   it "does not dispatch a policy for legacy rows and refuses version/type guards independently" do
     validator = described_class
     expect(validator).not_to receive(:validate_policy)
@@ -62,7 +69,12 @@ RSpec.describe Saboteur::Reporter::HistoryRecord do
     RSpec::Mocks.space.proxy_for(validator).reset
     policy = Saboteur::Config.new.operator_policy
     validator.fields(policy, %w[version selected excluded effective])
-    expect { validator.validate_policy(policy.merge("version" => 3)) }.to raise_error(Saboteur::Error)
+    expect { validator.validate_policy(policy.merge("version" => 4)) }.to raise_error(Saboteur::Error)
+    # An older POLICY_VERSION is shape-checked only: the operator set has
+    # moved on, so it stays readable but never recomputes - or compares -
+    # equal to a current run's policy (#135).
+    old_policy = policy.merge("version" => 2, "effective" => policy["effective"] - ["regex_replacement"])
+    expect { validator.validate_policy(old_policy) }.not_to raise_error
     expect { validator.validate_policy(policy.merge("effective" => [Object.new])) }.to raise_error(Saboteur::Error)
   end
 

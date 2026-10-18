@@ -79,6 +79,7 @@ module Saboteur
     # A define_method subject's body is its block; any other call is walked
     # through its children.
     def walk_call(node, nesting, out, **ctx)
+      return walk_heredoc_eval(node, nesting, out, **ctx) if heredoc_eval?(node)
       return walk_children(node, nesting, out, **ctx) unless call_defined_method?(node)
 
       in_sclass = nesting.last&.sclass? || false
@@ -110,6 +111,53 @@ module Saboteur
       node.compact_child_nodes.each { |child| walk(child, nesting, out, **ctx) }
     end
 
+    # `class_eval <<-RUBY ... RUBY` with a non-interpolated heredoc defines
+    # methods on the enclosing owner (#544). Only a bare call with one
+    # heredoc argument counts: an explicit receiver names another owner, and
+    # an interpolated heredoc does not map to file bytes 1:1, so it stays on
+    # the code-in-strings warning (#467).
+    def heredoc_eval?(node)
+      return false unless %i[class_eval module_eval].include?(node.name) && node.receiver.nil? && node.block.nil?
+
+      arguments = node.arguments&.arguments
+      return false unless arguments&.size == 1
+
+      heredoc = arguments.first
+      heredoc.is_a?(Prism::StringNode) && heredoc.opening_loc&.slice&.start_with?("<<")
+    end
+
+    # The heredoc body's bytes sit in the real file 1:1, so blanking every
+    # byte outside the body (keeping newlines) parses the defs at their
+    # real offsets and lines: mutants apply through the ordinary file-bytes
+    # path. The enclosing nesting supplies the owner. A body that does not
+    # parse defines nothing.
+    def walk_heredoc_eval(node, nesting, out, **ctx)
+      location = node.arguments.arguments.first.content_loc
+      virtual = blank_outside(ctx[:source], location.start_offset...location.end_offset)
+      result = Prism.parse(virtual, filepath: ctx[:file])
+      return if result.failure?
+
+      walk(result.value, nesting, out, **ctx)
+    end
+
+    # source with every byte outside range spaced over, except newlines:
+    # offsets and lines inside range stay exactly as in the real file.
+    def blank_outside(source, range)
+      source.bytes.each_with_index.map { |byte, index| range.cover?(index) || byte == 10 ? byte : 32 }.pack("C*")
+            .force_encoding(source.encoding)
+    end
+
+    def define_method_subject?(node)
+      return false unless node.name == :define_method && node.receiver.nil?
+      return false unless node.block.is_a?(Prism::BlockNode)
+
+      # With two arguments the second is the body and the block is dead code.
+      return false unless node.arguments&.arguments&.size == 1
+
+      name_arg = node.arguments.arguments.first
+      name_arg.is_a?(Prism::SymbolNode) || name_arg.is_a?(Prism::StringNode)
+    end
+
     # Calls that define a method, all with a literal first argument for the
     # name: define_method (instance, or singleton inside class << self) and
     # the two class-level shapes the human-essentials dogfood exposed,
@@ -120,7 +168,7 @@ module Saboteur
       return false unless literal_name?(node)
 
       case node.name
-      when :define_method then block_only?(node)
+      when :define_method then define_method_subject?(node)
       when :define_singleton_method then lambda_body?(node) || block_only?(node)
       # Rails scope: exactly a literal name and a lambda body.
       when :scope then lambda_body?(node) && node.arguments.arguments.size == 2
@@ -159,9 +207,14 @@ module Saboteur
 
     # Constant-introducing declarations (class/module keywords and factory
     # assignments) bind on the enclosing lexical scope: factory blocks open
-    # none, so their scopes never join a new constant's path (#339).
+    # none, so their scopes never join a new constant's path (#339) - unless
+    # an sclass follows the factory: `class << self` inside a factory block
+    # attaches to the factory's class at runtime (class_eval sets self), and
+    # the sclass needs the factory's path to name that attachment (#438).
     def lexical_nesting(nesting)
-      nesting.reject(&:factory?)
+      nesting.each_with_index.reject do |scope, index|
+        scope.factory? && nesting[(index + 1)..].none?(&:sclass?)
+      end.map(&:first)
     end
 
     def class_factory?(call)
