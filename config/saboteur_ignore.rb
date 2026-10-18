@@ -1054,16 +1054,6 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's acc-append side effects are the whole behavior and the " \
                      "enumerator's return value is unused, so each and map agree"
 
-  i.mutation "ae4eaca715a4b7fa",
-             subject: "Saboteur::Preview#planned",
-             reason: "equivalent: the record_skip calls this guard gates only write to @skipped, which is read " \
-                     "solely by print_inventory; print_inventory runs only in json mode, where @json is already true"
-
-  i.mutation "b2f9be318bffaabb",
-             subject: "Saboteur::Preview#planned",
-             reason: "equivalent: at size == limit the >= branch records a zero-count omission and skips nothing, " \
-                     "and dry-run output reads omissions only as sum(&:count), so nothing observable changes"
-
   i.mutation "e2ab34c9185bc8b1",
              subject: "Saboteur::Preview#estimated_seconds",
              reason: "equivalent: work_seconds rescues StandardError and returns nil, so calling it with a nil map " \
@@ -1302,4 +1292,15 @@ Saboteur.ignore do |i|
              reason: "equivalent: the each result is discarded - call(report) runs warnings(report) for " \
                      "its puts effect, so each and map run the same body; hand-applied mutant leaves " \
                      "all 80 terminal_spec examples green"
+  i.mutation "5026bbf067f91fad",
+             subject: "Saboteur::Reporter::Terminal#test_command_gaps",
+             reason: "equivalent: the block's @out.puts side effects are the whole behavior and the " \
+                     "group_by enumerator's return value is unused, so each and map agree - hand-applied " \
+                     "mutant leaves all 558 reporter and subject_finder examples green"
+
+  i.mutation "374ebee170d105b5",
+             subject: "Saboteur::SubjectFinder#report_receiver_def",
+             reason: "equivalent: Subject.new's sig_span keyword already defaults to nil (subject.rb:43), " \
+                     "so restating it changes nothing (Pod 1 verified at v2) - hand-applied mutant leaves " \
+                     "all 558 reporter and subject_finder examples green"
 end

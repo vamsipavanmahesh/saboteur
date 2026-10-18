@@ -29,6 +29,7 @@ module Saboteur
         survivors(report)
         errors(report)
         skipped_subjects(report)
+        test_command_gaps(report)
         outside_the_score(report)
         inline_suppressions(report)
         warnings(report)
@@ -215,6 +216,24 @@ module Saboteur
           "#{operator} #{count} of #{results.size}" if count.positive?
         end
         parts.join(", ")
+      end
+
+      # #641: a --test-command run has no coverage map, so a subject the
+      # command never loads reads as ordinary survivors. When a subject's
+      # mutants all came back without a single kill or error and at least
+      # one survivor, say the command may not exercise it - a heuristic
+      # line, never a score or exit-code change.
+      def test_command_gaps(report)
+        return unless report.test_command
+
+        report.results.group_by(&:subject).each do |subject, results|
+          next if results.any? { |result| %i[killed timeout].include?(result.status) }
+          next if results.any? { |result| result.status == :error }
+          next unless results.any?(&:survived?)
+
+          file = relative(subject.file, report.root)
+          @out.puts "#{subject.id}: no coverage map under --test-command; check your command exercises #{file}"
+        end
       end
 
       def skipped_subjects(report)

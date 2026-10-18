@@ -140,7 +140,7 @@ module Saboteur
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :live_announced, :root, :seed,
                 :skipped_subjects,
                 :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop, :inline_suppressions,
-                :operator_policy, :discovery_failures, :memory, :shard
+                :operator_policy, :discovery_failures, :memory, :shard, :test_command
 
     # REVIEW: diff mode; the terminal then shows one survivor per line.
     # seed: the random seed every test run started from (nil when unknown).
@@ -148,7 +148,8 @@ module Saboteur
                    review: false,
                    seed: nil, skipped_subjects: {}, diff_scope: nil, generation_events: [], omissions: [],
                    run_evidence: nil, hazard_suppressions: 0, early_stop: nil, matrix: false, inline_suppressions: [],
-                   operator_policy: nil, discovery_failures: [], memory: nil, shard: nil)
+                   operator_policy: nil, discovery_failures: [], memory: nil, shard: nil,
+                   test_command: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -173,6 +174,9 @@ module Saboteur
       # it (#202); nil elsewhere, so JSON reports omit the section.
       @memory = memory.dup.freeze
       @shard = shard
+      # The external command of a --test-command run, nil for in-process
+      # runs. Its presence means survivors carry no coverage map (#641).
+      @test_command = test_command
     end
 
     # A --matrix run: every covering test ran per mutant.

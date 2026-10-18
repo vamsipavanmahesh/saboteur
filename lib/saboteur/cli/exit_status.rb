@@ -62,7 +62,7 @@ module Saboteur
       def unverifiable_scope?(report)
         if unverifiable_review?(report)
           report.skipped_subjects.each do |subject, reason|
-            @err.puts("saboteur: #{subject.id} was skipped (#{reason}), so the change under test was not verified")
+            @err.puts(subject.skipped_gate_sentence(reason, report.root))
           end
           return true
         end

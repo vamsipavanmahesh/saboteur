@@ -847,4 +847,27 @@ RSpec.describe Saboteur::SubjectFinder, "dogfood survivor kills (#338)" do
     expect(literals.first.frozen_literals).to be(false)
     expect(subjects_in("# frozen_string_literal: yes\nclass A\n  def m; end\nend\n").first.frozen_literals).to be(false)
   end
+
+  # #627: `def Const.m` defines a singleton on the named constant, which the
+  # enclosing owner cannot re-evaluate - and it used to vanish silently, so
+  # `run --all` read as "nothing to mutate" when the file was full of defs.
+  # Report-it-or-support-it: emit a skipped subject the report names.
+  it "reports constant-receiver defs as skipped subjects instead of dropping them (#627)" do
+    found = subjects_in(<<~RUBY)
+      class K
+        def K.b; 2; end
+        def self.c; 3; end
+        def d; 4; end
+      end
+    RUBY
+    expect(found.map { |subject| [subject.id, subject.skip_reason] })
+      .to eq([["K.b", "constant-receiver def"], ["K.c", nil], ["K#d", nil]])
+    skipped = found.first
+    expect([skipped.name, skipped.owner, skipped.singleton, skipped.sclass]).to eq([:b, "K", true, false])
+  end
+
+  it "still drops receivers saboteur cannot name, like a local (#627)" do
+    found = subjects_in("class K\n  def build\n    k = K.new\n    def k.m; 1; end\n  end\nend\n")
+    expect(found.map(&:id)).to eq(["K#build"])
+  end
 end

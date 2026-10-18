@@ -72,6 +72,21 @@ module Saboteur
       "#{owner}#{singleton ? '.' : '#'}#{name}"
     end
 
+    # "path:line" for warnings, relative to the run root (or the full path
+    # without one), so a skipped subject can be told apart from a real
+    # subject sharing its id (#627).
+    def location(root)
+      file = root ? @file.delete_prefix("#{root}/") : @file
+      "#{file}:#{start_line}"
+    end
+
+    # The gate sentence a scoped run prints when every subject was skipped
+    # (#574); the location disambiguates a skipped subject from a real one
+    # sharing its id (#627).
+    def skipped_gate_sentence(reason, root)
+      "saboteur: #{id} (#{location(root)}) was skipped (#{reason}), so the change under test was not verified"
+    end
+
     # The node whose children are the method's statements: the block body
     # for `define_method(:m) { ... }` (#194), the def body otherwise.
     def body_node

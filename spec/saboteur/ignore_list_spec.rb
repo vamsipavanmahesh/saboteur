@@ -12,11 +12,11 @@ RSpec.describe Saboteur::IgnoreList do
     end
   end
 
-  def entry_for(digest, reason: "equivalent", state: nil)
+  def entry_for(digest, reason: "equivalent", state: nil, subject: "Person#adult?")
     extra = state ? ", state: #{state.inspect}" : ""
     <<~RUBY
       Saboteur.ignore do |i|
-        i.mutation "#{digest}", subject: "Person#adult?", reason: #{reason.inspect}#{extra}
+        i.mutation "#{digest}", subject: #{subject.inspect}, reason: #{reason.inspect}#{extra}
       end
     RUBY
   end
@@ -102,6 +102,33 @@ RSpec.describe Saboteur::IgnoreList do
       warnings = described_class.load(path)
                                 .apply([result_for(:survived)], unscoped_digests: {})
       expect(warnings).to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation"])
+    end
+  end
+
+  # #627 advisory: a skipped `def K.b` and a real `def self.b` in one class
+  # share the id "K.b". Digests are subject-start-relative, so an ignore
+  # written for the real singleton cannot match - or be kept live by - the
+  # skipped subject, which yields no results at all.
+  it "never matches an ignore for a real singleton against a same-id skipped subject (#627)" do
+    skipped, real = subjects_in("class K\n  def K.b; 1 + 1; end\n  def self.b; 1 + 1; end\nend\n", name: "k.rb")
+    expect([skipped.id, skipped.skip_reason]).to eq(["K.b", "constant-receiver def"])
+    expect(real.id).to eq("K.b")
+
+    at = real.file_source.index("+", real.start_byte)
+    edit = Saboteur::MutationSource::Edit.new(file: real.file, start_byte: at, end_byte: at + 1, replacement: "-")
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: real.id, operator: "arithmetic", edits: [edit])
+    digest = mutation.digest(subject_start: real.start_byte, original_source: real.file_source)
+    # The same edit content under the skipped subject's start is a different digest.
+    expect(mutation.digest(subject_start: skipped.start_byte, original_source: real.file_source)).not_to eq(digest)
+
+    result = Saboteur::MutantResult.new(subject: real, mutation:, status: :survived,
+                                        mutated_source: real.file_source.sub("+", "-"))
+    with_file(entry_for(digest, subject: "K.b")) do |path|
+      list = described_class.load(path)
+      expect(list.apply([result])).to eq([])
+      expect(result.ignored).not_to be_nil
+      # The skipped subject alone examines nothing: no match, no stale call.
+      expect(list.apply([])).to eq([])
     end
   end
 
