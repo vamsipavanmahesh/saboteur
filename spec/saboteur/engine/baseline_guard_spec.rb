@@ -192,6 +192,11 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect { guard.call }.to raise_error(Saboteur::Error, /baseline check 1 failed.*seed 42.*t1.*Fix/m)
   end
 
+  it "separates multiple failed example IDs in the baseline refusal (#581)" do
+    allow(supervisor).to receive(:run).and_return(response(passed: false, failed: %w[t1 t2]))
+    expect { guard.call }.to raise_error(Saboteur::Error, /the suite failed: t1, t2\./)
+  end
+
   describe "the failure detail printed inline" do
     def write_log(text)
       path = File.join(@root, ".saboteur", "baseline-1.log")
@@ -204,6 +209,17 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       guard.call
     rescue Saboteur::Error => e
       e.message
+    end
+
+    it "names an outside-example error and shows its tail instead of an empty Failures section (#581)" do
+      write_log("Failures:\n0 examples, 0 failures\n#{(1..12).map { |i| "filler #{i}" }.join("\n")}\n" \
+                "SQLite3::BusyException: database is locked\n./spec/rails_helper.rb:41:in `before suite'\n")
+      allow(supervisor).to receive(:run).and_return(response(passed: false, failed: []))
+      expect { guard.call }.to raise_error(Saboteur::Error) { |error|
+        expect(error.message).to include("the suite errored outside any example; see the log tail",
+                                         "SQLite3::BusyException: database is locked", "./spec/rails_helper.rb:41")
+        expect(error.message).not_to include("the suite failed: .", "0 examples, 0 failures", "  Failures:")
+      }
     end
 
     it "shows the first ten lines of RSpec's Failures section, not the progress lines before it" do

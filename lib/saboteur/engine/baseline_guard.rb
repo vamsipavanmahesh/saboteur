@@ -51,10 +51,7 @@ module Saboteur
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           data = check(number)
           announce_first_pass_cost(number, started)
-          unless data["passed"] && data["failed"].empty?
-            refuse(number,
-                   with_hint("the suite failed: #{Array(data['failed']).join(', ')}", data))
-          end
+          refuse_failed_suite(number, data) unless data["passed"] && data["failed"].empty?
           executed = data["executed"]
           refuse(number, "executed tests do not match the loaded suite") unless
             executed.sort == expected.sort
@@ -66,6 +63,16 @@ module Saboteur
       end
 
       private
+
+      def refuse_failed_suite(number, data)
+        outside = data["failed"].empty?
+        reason = if outside
+                   "the suite errored outside any example; see the log tail"
+                 else
+                   "the suite failed: #{data['failed'].join(', ')}"
+                 end
+        refuse(number, with_hint(reason, data), tail: outside)
+      end
 
       # A spent --max-duration budget skips the remaining passes - including
       # the first, when boot alone already spent it (#245).
@@ -230,9 +237,9 @@ module Saboteur
         "the suite passed but left #{count} child #{count == 1 ? 'process' : 'processes'} behind: #{detail}"
       end
 
-      def refuse(number, reason, excerpt: true)
+      def refuse(number, reason, excerpt: true, tail: false)
         raise Error, "baseline check #{number} failed at seed #{@config['seed']}: #{reason}. " \
-                     "#{failure_excerpt(number) if excerpt}See the full log at #{log_path(number)}. " \
+                     "#{failure_excerpt(number, tail: tail) if excerpt}See the full log at #{log_path(number)}. " \
                      "Fix the suite or its setup, then run saboteur again with the same seed. " \
                      "No mutants were started."
       end
@@ -240,11 +247,11 @@ module Saboteur
       # The first lines of the failure, inline, so the cause is readable
       # without opening the log: RSpec's "Failures:" section when the log has
       # one, otherwise the last lines of the log.
-      def failure_excerpt(number)
+      def failure_excerpt(number, tail: false)
         lines = log_lines(number)
         return "" if lines.empty?
 
-        start = lines.index { |line| line.start_with?("Failures:") }
+        start = lines.index { |line| line.start_with?("Failures:") } unless tail
         shown = start ? lines[start, EXCERPT_LINES] : lines.last(EXCERPT_LINES)
         "The log says:\n#{shown.map { |line| "  #{line.slice(0, EXCERPT_WIDTH)}" }.join("\n")}\n"
       end
