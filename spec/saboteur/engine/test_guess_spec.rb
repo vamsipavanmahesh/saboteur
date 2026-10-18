@@ -113,6 +113,18 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(full_guess.unmatched_message).to include("no RSpec suite found")
     end
 
+    it "stays silent when nothing is unmatched, even with no suite on disk" do
+      expect(Saboteur::Engine::NoSuiteStop.layout(dir, [], false)).to be_nil
+    end
+
+    it "formats the verbose no-suite line with the exact per-file list" do
+      write("test/widget_test.rb")
+      result = full_guess
+      pairs = result.unmatched.map { |file| result.send(:pair_description, file) }.join(", ")
+      expected = "#{Saboteur::Engine::NoSuiteStop::MINITEST} Files without a guessed spec: #{pairs}."
+      expect(result.unmatched_message(verbose: true)).to eq(expected)
+    end
+
     # rspec_args can point RSpec outside spec/ (["--default-path", "specs"]):
     # claiming "no spec file exists" there is false and drops the
     # --test/--all remedy for a suite that would run (#606 QA).

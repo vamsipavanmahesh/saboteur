@@ -67,10 +67,11 @@ RSpec.describe Saboteur::Engine, "test selection" do
   end
 
   def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {}, out_of_scope: [],
-            excluded: [])
+            excluded: [], no_suite: nil)
     hints = unmatched.to_h { |file| [file, "spec/#{File.basename(file, '.rb')}_spec.rb"] }
     result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:,
-                                                     changed_specs:, skipped_specs:, out_of_scope:, excluded:)
+                                                     changed_specs:, skipped_specs:, out_of_scope:, excluded:,
+                                                     no_suite:)
     allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
                                                                                    call: result, call_for: result))
   end
@@ -233,6 +234,26 @@ RSpec.describe Saboteur::Engine, "test selection" do
         .and include("inferred specs: no spec found for lib/c.rb (expected spec/c_spec.rb)")
       expect(err.string).to include("lib/b.rb (expected spec/b_spec.rb); its mutants run only " \
                                     "against the inferred specs and a line they miss is reported as NoCoverage")
+    end
+
+    # The stop's message is built with the run's verbosity: under --verbose
+    # the no-suite line carries the per-file expected-spec list (#692).
+    it "passes verbose through to the full-run stop's message" do
+      guess(specs: [], unmatched: ["lib/b.rb"], changed: 1, no_suite: :plain)
+      stub_boot_phase
+      stub_test_phases
+      @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2 }, root: @root), err: err, verbose: true)
+      expect { @engine.call }.to raise_error(Saboteur::ConfigError, %r{Files without a guessed spec: lib/b\.rb})
+    end
+
+    it "passes verbose through to the subject-run stop's message" do
+      guess(specs: ["spec/a_spec.rb"], unmatched: ["lib/b.rb"], changed: 2, no_suite: :plain)
+      allow(Saboteur::Engine::SubjectSelection).to receive(:files_matching).and_return(%w[lib/a.rb lib/b.rb])
+      stub_boot_phase
+      stub_test_phases
+      @engine = described_class.new(Saboteur::Config.new({ "jobs" => 2, "subjects" => ["A#a", "B#b"] }, root: @root),
+                                    err: err, verbose: true)
+      expect { @engine.call }.to raise_error(Saboteur::ConfigError, %r{Files without a guessed spec: lib/b\.rb})
     end
 
     # A threshold or mutant-count gate judges the score, and a partial
