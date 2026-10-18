@@ -11,6 +11,15 @@ RSpec.describe Saboteur::Subject do
     Saboteur::MutationSource::Edit.new(file:, start_byte:, end_byte:, replacement:)
   end
 
+  # The lambda form carries its body in the lambda argument, not the
+  # (nil) block: lambda || node.block must keep the lambda side (#338).
+  it "takes the body from the lambda argument for scope and lambda define_singleton_method subjects" do
+    scope = subjects_in("class Model\n  scope :x, -> { order(:name) }\nend\n").first
+    dsm = subjects_in("class A\n  define_singleton_method(:pull, -> { 2 })\nend\n").first
+    expect(scope.body_node.location.slice).to eq("order(:name)")
+    expect(dsm.body_node.location.slice).to eq("2")
+  end
+
   it "takes the body from the block for a define_method subject, from the def otherwise (#194)" do
     dm = subjects_in("class A\n  define_method(:m) { |x| x * 2 }\nend\n").first
     expect(dm.body_node).to be_a(Prism::StatementsNode)
@@ -201,6 +210,28 @@ RSpec.describe Saboteur::Subject do
 
     it "maps an edit in a condition to the statement that holds it" do
       expect(branchy.coverage_lines_for(edit_at(">"))).to eq([3])
+    end
+
+    # An edit contained by the if but spanning its predicate and body is
+    # held by the if statement itself, never by a body statement that
+    # starts after the edit (#338).
+    it "keeps an edit spanning a predicate and the body on the enclosing statement" do
+      source = branchy.file_source
+      start = source.index("x > 1")
+      edit = Saboteur::MutationSource::Edit.new(file: branchy.file, start_byte: start,
+                                                end_byte: source.index("total") + 3, replacement: "x")
+      expect(branchy.coverage_lines_for(edit)).to eq([3, 4])
+    end
+
+    # An edit inside a string interpolation's expression is held by the
+    # statement, not by the interpolated fragment (#338).
+    it "maps an edit inside interpolation to the statement's lines" do
+      interp = subjects_in("class A\n  def m\n    s = \"\#{1 + 2}\"\n    t = 3\n  end\nend\n").first
+      source = interp.file_source
+      start = source.index("1 + 2")
+      edit = Saboteur::MutationSource::Edit.new(file: interp.file, start_byte: start,
+                                                end_byte: start + 5, replacement: "x")
+      expect(interp.coverage_lines_for(edit)).to eq([3])
     end
 
     it "maps an edit outside every statement to the whole method" do
