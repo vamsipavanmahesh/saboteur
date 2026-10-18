@@ -47,6 +47,8 @@ survivors exits 1 and any other budget-stopped run exits 3.
 `--max-duration-ok` does not certify an unscored run. Presets that opt out
 of budget exits say so in `saboteur help`.
 
+An empty `--since` range is rejected before boot with exit 2 in both modes
+(#643). This differs from a non-empty range that selects no subjects.
 The modes disagree on an empty selection by design: the ordinary CLI treats
 it as clean and exits 0, while agent mode reports status `not_applicable`,
 verdict `not_applicable`, exit 3, so a harness never mistakes "nothing was

@@ -814,7 +814,15 @@ RSpec.describe Saboteur::CLI do
       engine = instance_double(Saboteur::Engine, guessed_tests: %w[spec/a_spec.rb], call: report)
       allow(Saboteur::Engine).to receive(:new).and_return(engine)
       allow(Saboteur::Reporter::Agent).to receive(:call).and_call_original
-      cli("run", "--agent", "--since", "HEAD", "--guess-tests").call
+      # Keep --since, with the range made non-empty by an untracked file:
+      # an empty resolved range is refused before the engine runs (#643).
+      probe = "agent-provenance-probe-#{Process.pid}.txt"
+      File.write(probe, "x")
+      begin
+        cli("run", "--agent", "--since", "HEAD", "--guess-tests").call
+      ensure
+        File.delete(probe)
+      end
       expect(Saboteur::Reporter::Agent).to have_received(:call) do |_report, provenance|
         expect(provenance.tests).to eq(%w[spec/a_spec.rb])
       end
@@ -1794,5 +1802,55 @@ RSpec.describe Saboteur::CLI, "empty source set (issue #447)" do
     FileUtils.touch("lib/a.rb")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
     expect(cli("run").call).to eq(3)
+  end
+end
+
+RSpec.describe Saboteur::CLI, "empty --since range (issue #643)" do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+
+  around do |example|
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) { example.run }
+    end
+  end
+
+  def cli(*argv)
+    described_class.new(argv, out:, err:)
+  end
+
+  def git_fixture
+    FileUtils.mkdir_p(%w[lib spec])
+    File.write("lib/cart.rb", "class Cart\n  def total\n    1 + 1\n  end\nend\n")
+    File.write("spec/cart_spec.rb", "# spec\n")
+    system("git", "init", "-q", out: File::NULL, exception: true)
+    system("git", "add", "-A", out: File::NULL, exception: true)
+    system("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base",
+           out: File::NULL, exception: true)
+  end
+
+  # `saboteur pr <merge_sha>` on a checkout AT the merge diffs the merge
+  # against itself: 0 subjects, exit 0, a silent false-green in CI.
+  it "refuses a --since run whose resolved range has no changes, naming base and range" do
+    allow(Saboteur::Engine).to receive(:new)
+    git_fixture
+    base = `git rev-parse HEAD`.strip
+
+    expect(cli("run", "--since", "HEAD", "--test", "spec/cart_spec.rb").call).to eq(2)
+    expect(err.string).to include(
+      "saboteur: --since HEAD: the resolved range #{base}..the working tree has no changes - the run would " \
+      "pass with 0 subjects. A checkout AT the ref (the CI merge-sha checkout) diffs it against itself: " \
+      "fetch the merge's parent, or point --since at the base of the change under test"
+    )
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  it "runs when the resolved range has changes" do
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    git_fixture
+    File.write("lib/cart.rb", "class Cart\n  def total\n    1 + 2\n  end\nend\n")
+
+    expect(cli("run", "--since", "HEAD", "--test", "spec/cart_spec.rb").call).to eq(3)
+    expect(err.string).to include("stop")
   end
 end

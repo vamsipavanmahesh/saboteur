@@ -92,10 +92,12 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       end
     end
 
-    it "mutates nothing and exits 0 when nothing changed" do
+    it "refuses an empty range with exit 2 before boot (#643)" do
       run = saboteur(dir, "--since", "HEAD", "--all")
-      expect(run.status).to eq(0)
-      expect(run.out).to include("0 subjects, 0 mutants")
+      expect(run.status).to eq(2)
+      expect(run.err).to include("--since HEAD: the resolved range", "has no changes",
+                                 "fetch the merge's parent")
+      expect(run.err).not_to include("checking the unchanged suite")
     end
 
     # A misspelled --subject must not read as a green zero-subject run

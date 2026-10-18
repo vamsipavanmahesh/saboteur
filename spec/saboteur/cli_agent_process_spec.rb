@@ -57,6 +57,7 @@ RSpec.describe Saboteur::CLI, "agent mode in this process" do
     it "takes the ref and the diff mode from the effective config" do
       File.write(File.join(root, "config", "saboteur.rb"), "Saboteur.configure { |c| c.since = \"HEAD\" }\n")
       git("commit", "-q", "-am", "config")
+      File.write(File.join(root, "lib", "probe.rb"), "class Probe; end\n")
       provenance = run_in_repository("run", "--agent")["provenance"]
       expect(provenance).to include("mode" => "diff", "ref" => "HEAD")
     end

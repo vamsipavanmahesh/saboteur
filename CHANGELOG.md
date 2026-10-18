@@ -91,6 +91,12 @@ All notable changes are documented here. The format follows
 
 ### Changed
 
+- Any `--since` run whose resolved range has no changes now refuses with
+  exit 2 instead of passing with 0 subjects (#643) - scheduled or no-op
+  runs included. The common hit is `saboteur pr <merge_sha>` on a
+  checkout AT the merge commit, which diffed the merge against itself;
+  the refusal names the base and the resolved range and says to fetch
+  the merge's parent or point `--since` at the change's base.
 - A run whose effective include set selects no Ruby file now refuses with
   exit 2 instead of passing with 0 subjects (#447). The default include
   targets plain gems, so a first run on a Rails-shaped tree used to be a
