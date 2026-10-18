@@ -77,14 +77,16 @@ Failures section and no leftover processes visible). If you hit it, the
 baseline log (`.../.saboteur/baseline-N.log`) and `ps` output from the
 same moment decide which side you are on; report the pair on the issue.
 
-## What is not here yet
+## The bounded recheck: --flaky-check
 
-There is no dedicated flaky-verdict recheck: today a survivor that only
-survived because its covering test flakes can look like a clean kill on
-another day. Issue #476 proposes a bounded `--flaky-check` (rerun decisive
-tests for new survivors, or for all decisive verdicts, under a different
-order) - unresolved, so for now the defenses are the double baseline, the
-unchanged-method check, and suite hygiene above.
+Since 0.8.0, `--flaky-check survivors` gives each new survivor one
+reordered confirmation rerun, and `--flaky-check decisive` does the same
+for every fresh kill as well. A verdict the confirmation disagrees with
+becomes `unverified` - named with its decisive tests, outside the score,
+never retried until it passes. The check is opt-in and bounded to one
+rerun per verdict, so a test that flakes in lockstep with the mutant can
+still slip through: the double baseline, the unchanged-method check, and
+suite hygiene above stay the base defenses.
 
 Related: [Check a project before mutation testing](doctor.md),
 [How to read survivors](reading-survivors.md).
