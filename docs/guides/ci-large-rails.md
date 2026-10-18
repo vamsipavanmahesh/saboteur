@@ -69,6 +69,8 @@ fail the step on its own. Explicit flags after the preset win.
 - `--max-duration 10m` bounds the wall clock. A spent budget stops before the
   next subject, reports partial evidence, and exits 4 unless
   `--max-duration-ok` leaves the exit to the verdict.
+  A budget too small for a cold coverage build stops before it starts; see
+  [the baseline stability check](../baseline-stability.md#time-budget-and-the-cold-coverage-build).
 
 ## Caching
 

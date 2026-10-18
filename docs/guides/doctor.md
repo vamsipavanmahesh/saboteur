@@ -21,7 +21,9 @@ enforced, or the gap when it cannot. Then `c.sandbox = "strict"` refuses
 to run rather than let children run without the sandbox - children never
 run degraded under strict - while a non-strict run notes once that
 children run with the hazard guard and canary only. `c.sandbox = false`
-reports off. A probe the kernel refuses (EPERM under a seccomp policy,
+reports off. On macOS with `c.sandbox = "seatbelt"` (#436) it prints the
+Seatbelt probe's result with the same framing - a capability probe, not
+verified isolation. A probe the kernel refuses (EPERM under a seccomp policy,
 for example) is an actionable tool error with exit 3, not a crash
 report, and doctor stays read-only.
 It does not certify a Rails/database version; successful boot and tests are the
