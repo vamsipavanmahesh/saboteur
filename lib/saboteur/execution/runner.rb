@@ -144,6 +144,7 @@ module Saboteur
         @reevaluator.call(job.subject, job.text, prefix: job.eval_prefix)
         replaced = @reevaluator.replaced_definition(job.subject)
         Protocol.emit(writer, "replaced", site: replaced) if replaced
+        @installed_definition = job.mutation ? @reevaluator.installed_definition(job.subject) : nil
       end
 
       # Capture detection is best-effort: a subject shape it cannot scan
@@ -156,18 +157,40 @@ module Saboteur
 
       def emit_result(writer, job, has_captures)
         method = replacement_method(job) if has_captures && job.mutation
-        called = method ? false : nil
-        trace = TracePoint.new(:call) { called = true } if method
+        flags = { replacement_called: method ? false : nil, mutant_called: false }
+        target = method || (job.mutation ? @installed_definition : nil)
+        trace = call_probe(target, flags)
         started_at = Time.now
-        result = if trace
-                   trace.enable(target: method) { @hooks.around(job.mutation) { run_tests(job.test_ids) } }
-                 else
-                   @hooks.around(job.mutation) { run_tests(job.test_ids) }
-                 end
+        suite = proc { @hooks.around(job.mutation) { run_tests(job.test_ids) } }
+        result = trace ? trace.enable(target: target, &suite) : suite.call
         if result.nil?
           Protocol.emit(writer, "error", message: "around_mutant hook did not run the tests")
         else
+          called = flags[:replacement_called]
           Protocol.emit(writer, "result", **with_crash_detail(result, started_at), replacement_called: called)
+          # A reload after the mutant already ran (an after-hook restore)
+          # is no reason to doubt the verdict; only a never-invoked mutant
+          # can have been hidden by the overwrite.
+          emit_overwritten(writer, job, flags[:mutant_called])
+        end
+      end
+
+      # A reload after the mutant already ran (an after-hook restore) is
+      # no reason to doubt the verdict; only a never-invoked mutant can
+      # have been hidden by the overwrite.
+      def emit_overwritten(writer, job, mutant_called)
+        overwritten = job.mutation && @installed_definition &&
+                      @reevaluator.overwritten_site(job.subject, @installed_definition)
+        Protocol.emit(writer, "overwritten", site: overwritten) if overwritten && !mutant_called
+      end
+
+      # One call probe on the installed definition feeds both verdicts:
+      # replacement_called for stale captures, and overwrite detection for
+      # a mutant the suite replaced before any test ran it (#597).
+      def call_probe(target, flags)
+        target && TracePoint.new(:call) do
+          flags[:mutant_called] = true
+          flags[:replacement_called] = true unless flags[:replacement_called].nil?
         end
       end
 
@@ -392,6 +415,9 @@ module Saboteur
         captures = events.find { |event| event["event"] == "captures" }
         return unreachable(outcome, captures) if unobservable?(outcome, captures, job, result["replacement_called"])
 
+        overwritten = events.find { |event| event["event"] == "overwritten" }
+        return overwritten_by_later_load(outcome, overwritten) if replaced_while_running?(outcome, overwritten, job)
+
         outcome
       end
 
@@ -412,6 +438,19 @@ module Saboteur
       # kill.
       def unobservable?(outcome, captures, job, replacement_called)
         captures && job.mutation && outcome.status == :survived && replacement_called == false
+      end
+
+      # A surviving mutant the tests themselves overwrote: a before(:each)
+      # re-loading the file replaced it before any test ran (rolify's suite
+      # shape, #597), so the verdict says nothing about the tests.
+      def replaced_while_running?(outcome, overwritten, job)
+        overwritten && job.mutation && outcome.status == :survived
+      end
+
+      def overwritten_by_later_load(outcome, overwritten)
+        Outcome.new(status: :unreachable, runtime: outcome.runtime,
+                    message: "the tests (or their hooks) replaced the definition while they ran " \
+                             "(#{overwritten['site']}), so this mutant never ran")
       end
 
       # A survivor that no test could have observed: a Method object

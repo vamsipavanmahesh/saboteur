@@ -54,6 +54,49 @@ module Saboteur
         nil
       end
 
+      # The method object the subject's def currently resolves to,
+      # normalized through a known def-time wrapper. The runner compares
+      # what the mutant's evaluation installed with what is in place after
+      # the tests: a suite that re-loads the file mid-run (a before(:each)
+      # `load "lib/..."`, rolify-style) quietly replaces the mutant, and a
+      # "survivor" then only proves the tests never ran it. nil when this
+      # cannot be told (a missing or non-Ruby method): the caller keeps the
+      # verdict.
+      def installed_definition(subject)
+        owner = resolve_owner(subject)
+        target = subject.singleton ? owner.singleton_class : owner
+        method = target.instance_method(subject.name)
+        Wrapper.original_def(method) || method
+      rescue StandardError
+        nil
+      end
+
+      # The definition now in place for the subject versus the one the
+      # mutant's evaluation installed: a "file:line" site when the tests
+      # provably replaced it - a before(:each) re-loading the subject's
+      # own file (rolify-style `load "lib/..."`, #597) puts the original
+      # back before any test calls it, so a "survivor" proves nothing.
+      # Only a positively identified overwrite counts: the replacement
+      # comes from the subject's own file, and no prepend or
+      # allow_any_instance_of-style wrapper whose super chain still
+      # reaches the mutant (those tests did run it). Anything
+      # undecidable returns nil and the verdict stands.
+      def overwritten_site(subject, installed)
+        now = installed_definition(subject)
+        return nil if now.nil? || now == installed
+
+        method = now
+        method = method.super_method until method.nil? || method == installed
+        return nil if method # the mutant is still reachable through super
+
+        file, line = now.source_location
+        return nil unless file && File.expand_path(file) == File.expand_path(subject.file)
+
+        "#{file}:#{line}"
+      rescue StandardError
+        nil
+      end
+
       # True when the subject's id matches a whole_file entry (exact or a
       # File.fnmatch glob).
       def whole_file?(subject)
