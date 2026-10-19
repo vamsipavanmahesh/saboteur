@@ -254,3 +254,40 @@ jobs:
         with:
           name: saboteur-report
           path: .saboteur/report.json
+
+  # Ignore-hygiene audit (#703): a digest a pull request adds to
+  # config/saboteur_ignore.rb must arise live on its head; a dropped
+  # digest must be dead or killed by the suite. The de-ignore incident on
+  # #571 slipped past scoped dogfood because the subject had not changed.
+  ignore-audit:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # The binding proof reads the pull request's head, base and head repo.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Fail closed unless the dispatch is the pull request's head and base
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          REQUIRE_OWN_REPO: "0"
+        run: script/ci-prove-pr-binding
+      - name: Audit ignore-file digest churn
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+        # Run the BASE ref's audit code against the head checkout: a pull
+        # request must not edit the audit that judges it. A base predating
+        # the script (it lands with this change) fails closed here.
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/ignore-audit-base" "$BASE_SHA"
+          bundle exec ruby "$RUNNER_TEMP/ignore-audit-base/script/ignore-audit" "$BASE_SHA"
