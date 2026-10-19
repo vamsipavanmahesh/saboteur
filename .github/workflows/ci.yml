@@ -84,7 +84,18 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }}
+      # The extra json formatter only records per-example run times for the
+      # shard weights (script/rspec-shard); the progress output and the
+      # pass/fail verdict are unchanged. One Ruby per OS keeps the artifact
+      # count down.
+      - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }} --format progress --format json --out "$RUNNER_TEMP/rspec-times.json"
+      - name: Keep the per-example run times
+        if: always() && matrix.ruby == 'ruby'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rspec-times-linux-${{ matrix.shard }}
+          path: ${{ runner.temp }}/rspec-times.json
+          if-no-files-found: ignore
 
   # macOS legs run on GitHub-hosted macos-latest (arm64, free for public
   # repositories). The legs still run only for main pushes and for
@@ -140,7 +151,14 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }}
+      - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }} --format progress --format json --out "$RUNNER_TEMP/rspec-times.json"
+      - name: Keep the per-example run times
+        if: always() && matrix.ruby == 'ruby'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rspec-times-macos-${{ matrix.shard }}
+          path: ${{ runner.temp }}/rspec-times.json
+          if-no-files-found: ignore
       - name: Clean up after a non-ephemeral runner
         if: always()
         run: |
@@ -165,14 +183,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
+        total: [4]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: "3.4"
           bundler-cache: true
-      - run: script/rspec-shard ${{ matrix.shard }} 3
+      - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }}
 
   lint:
     runs-on: nscloud-ubuntu-24.04-amd64-1x2

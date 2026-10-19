@@ -192,6 +192,16 @@ RSpec.describe Saboteur::Execution::Sandbox do
   end
 
   describe "InheritedFds sweeping" do
+    # Every fd the suite holds before the example opens its fixtures: stdio and
+    # rspec's own report file (--out). The sweep must not close those. The
+    # listing's own dir handle is dropped: its number is reused by fixtures.
+    # /proc/self/fd is Linux-only (the examples skip elsewhere), so macOS gets [].
+    let!(:suite_fds) do
+      next [] unless described_class.linux?
+
+      Dir.open("/proc/self/fd") { |dir| dir.children.map(&:to_i) - [dir.fileno] }
+    end
+
     it "closes inherited writable regular files outside the granted dirs before restricting" do
       skip "needs /proc/self/fd" unless described_class.linux?
       Dir.mktmpdir("saboteur-fds-") do |root|
@@ -215,7 +225,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
         # keep_fds covers stdio: under a redirected suite run, stdout is a
         # regular file and would itself be swept (that is the #178 behavior;
         # the forked specs below pin it). Callers pass their own keeps.
-        described_class::InheritedFds.close_writable_files([File.realpath(granted)], [reader.fileno, 0, 1, 2])
+        described_class::InheritedFds.close_writable_files([File.realpath(granted)], suite_fds + [reader.fileno])
 
         expect(attempt do
           project_io.write("y")
@@ -255,7 +265,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
           # keep_fds covers stdio only; every other writable regular-file fd is
           # swept, so the two fixture fds exercise grant-vs-close by their paths.
           with_default_external(Encoding::US_ASCII) do
-            described_class::InheritedFds.close_writable_files([File.realpath(dir)], [0, 1, 2])
+            described_class::InheritedFds.close_writable_files([File.realpath(dir)], suite_fds)
           end
           expect(granted.write("y")).to eq(1)
           expect { ungranted.write("y") }.to raise_error(IOError)
@@ -312,7 +322,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
         File.write(path, "x")
         io = File.open(path, "r+") # rubocop:disable Style/FileOpen
         File.unlink(path)
-        described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+        described_class::InheritedFds.close_writable_files([], suite_fds)
         expect(attempt do
           io.write("y")
           io.flush
@@ -327,7 +337,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
         File.write(path, "x")
         io = File.open(path, "r+") # rubocop:disable Style/FileOpen
         allow(described_class::LibC).to receive(:fcntl_fn).and_return(double("fcntl", call: -1))
-        described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+        described_class::InheritedFds.close_writable_files([], suite_fds)
         expect(attempt do
           io.write("y")
           io.flush
@@ -345,7 +355,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
         allow(File).to receive(:readlink).and_wrap_original do |original, link|
           link == failing ? raise(Errno::EIO) : original.call(link)
         end
-        described_class::InheritedFds.close_writable_files([], [0, 1, 2])
+        described_class::InheritedFds.close_writable_files([], suite_fds)
         expect(attempt do
           io.write("y")
           io.flush
@@ -418,9 +428,11 @@ RSpec.describe Saboteur::Execution::Sandbox do
 
   it "raises rather than run half-restricted when a writable dir cannot be opened" do
     skip "Landlock unavailable" unless described_class.available?
-    # keep stdio: this spec runs in the suite process, whose redirected
-    # stdout is a regular file the sweep would otherwise close (#178).
-    expect { described_class.restrict!(writable: ["/nonexistent/saboteur-test"], keep_fds: [0, 1, 2]) }
+    # keep every fd the suite process holds: its redirected stdout and any
+    # rspec report file (--out) are regular files the sweep would otherwise
+    # close (#178). Landlock is Linux-only, so /proc/self/fd exists here.
+    keep = Dir.children("/proc/self/fd").map(&:to_i)
+    expect { described_class.restrict!(writable: ["/nonexistent/saboteur-test"], keep_fds: keep) }
       .to raise_error(SystemCallError)
   end
 

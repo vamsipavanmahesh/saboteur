@@ -35,6 +35,7 @@
       "Ruby 3.4 / LANG=C / shard 1",
       "Ruby 3.4 / LANG=C / shard 2",
       "Ruby 3.4 / LANG=C / shard 3",
+      "Ruby 3.4 / LANG=C / shard 4",
       "lint",
       "dry-inflector (class_eval)",
       "dry-inflector (nesting)",
