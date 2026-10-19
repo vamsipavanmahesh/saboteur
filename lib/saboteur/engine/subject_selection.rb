@@ -268,6 +268,7 @@ module Saboteur
         constant_warned_files << canonical
         path = file.delete_prefix("#{@root}/")
         listed = reasons.first(2).join(", ")
+        listed += ", and #{reasons.size - 2} more" if reasons.size > 2
         @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs code at " \
                           "load (#{listed}) that every constant mutant would run again, and saboteur " \
                           "cannot vet what re-running it does. List the constant in c.whole_file to " \

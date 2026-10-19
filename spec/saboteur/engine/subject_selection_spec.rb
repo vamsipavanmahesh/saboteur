@@ -683,6 +683,13 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     expect(diagnostics.discovery_failures.first.file).to be_frozen
   end
 
+  # Boundary at the first-error cap: a file with several syntax errors
+  # warns once, naming the first error, not once per error.
+  it "warns once when a file has several syntax errors" do
+    expect(select([write("broken.rb", "def a(\nend\ndef b(\nend\n")])).to be_empty
+    expect(diagnostics.warnings.grep(/does not parse/).size).to eq(1)
+  end
+
   describe "--since when a changed Ruby file is excluded by c.exclude (#282)" do
     def commit_all
       [%w[init -q], %w[add .], %w[commit -q -m base]].each do |args|
@@ -1080,6 +1087,32 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     expect(select([file], since: "HEAD")).to be_empty
     expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
+  end
+
+  # Boundary at the two-reason cap: exactly two load-time reasons are both
+  # named, with no "and N more" tail.
+  it "names both load-time reasons when exactly two refuse the replay" do
+    file = commit_base("rules.rb",
+                       "FileUtils.rm_rf(\"/tmp/x\")\nFile.delete(\"/tmp/y\")\nRULES = {\n  a: 1\n}.freeze\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include(%(FileUtils.rm_rf("/tmp/x")), %(File.delete("/tmp/y")))
+    expect(warning).not_to include("and 0 more", "and 1 more")
+  end
+
+  # Boundary above the cap: the third load-time reason is counted, not
+  # listed, so the warning stays scannable.
+  it "caps the named load-time reasons at two with an and-1-more tail" do
+    file = commit_base("rules.rb",
+                       "FileUtils.rm_rf(\"/tmp/x\")\nFile.delete(\"/tmp/y\")\nDir.rmdir(\"/tmp/z\")\n" \
+                       "RULES = {\n  a: 1\n}.freeze\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include("and 1 more")
   end
 
   it "uses the plural form when several constant-literal files are unmatched (#537)" do
