@@ -183,9 +183,8 @@ module Saboteur
       end
 
       def preloaded_message(files)
-        names = files.first(5).map { |file| file.delete_prefix("#{@root}/") }
-        more = files.size > 5 ? ", ..." : ""
-        "#{names.join(', ')}#{more} loaded before saboteur started coverage (a require ran before the " \
+        names = Text.name_list(files.map { |file| file.delete_prefix("#{@root}/") })
+        "#{names} loaded before saboteur started coverage (a require ran before the " \
           "executable's Coverage.start - commonly the gemspec requiring the library while bundler/setup " \
           "evaluates it, or RUBYOPT -r), so no test can ever cover #{files.size > 1 ? 'them' : 'it'}. " \
           "Let the test suite load these " \

@@ -11,6 +11,14 @@ module Saboteur
   module Text
     module_function
 
+    # A list for a warning or note: the first five items, then "and N more".
+    # One rule for every message that names files, subjects or specs (#332).
+    def name_list(items, limit: 5)
+      shown = items.first(limit).join(", ")
+      rest = items.size - limit
+      rest.positive? ? "#{shown} and #{rest} more" : shown
+    end
+
     # Lossy: bytes that are not valid UTF-8 become the replacement
     # character. For log and message display only - never feed the result
     # back into filesystem, cache or protocol identity: scrubbing rewrites
