@@ -1,30 +1,87 @@
 #!/usr/bin/env bash
 # Usage: script/rspec-shard INDEX TOTAL [extra rspec args...]
 #
-# Runs one deterministic shard of the spec suite: the sorted spec file list
-# is dealt round-robin across TOTAL shards, so every shard mixes fast unit
-# specs with slow e2e specs and each file lands in exactly one shard.
-# INDEX is 1-based. Kept Bash 3.2 compatible for the macOS runners (no
-# mapfile/readarray).
+# Runs one deterministic shard of the spec suite. Each spec file lands in
+# exactly one shard. INDEX is 1-based. Kept Bash 3.2 compatible for the
+# macOS runners (no mapfile/readarray/associative arrays; the deal is awk).
+#
+# Without script/rspec-shard-weights.txt (or with only comments in it) the
+# sorted spec list is dealt round-robin: position i goes to shard i % TOTAL + 1.
+# With weights ("<seconds> <path>" per line, # comments and blank lines
+# ignored, paths that are not specs ignored, a later line for the same path
+# wins) the deal balances time so no CI leg waits on one heavy shard:
+#   1. weighted files, heaviest first (ties by path), each to the shard with
+#      the smallest running total (ties to the lowest index);
+#   2. unweighted files, in sorted order, round-robin starting at the shard
+#      with the smallest running total, each adding the median weight.
 set -euo pipefail
 
 index=$1
 total=$2
 shift 2
 
-specs=()
-# Fixture projects carry their own specs as test data; they are not part
-# of the suite (the .rspec exclude-pattern skips them too).
-while IFS= read -r file; do
-  specs+=("$file")
-done < <(git ls-files 'spec/**/*_spec.rb' ':(exclude)spec/fixtures/**' | sort)
+weights="$(cd "$(dirname "$0")" && pwd)/rspec-shard-weights.txt"
 
+# First line: how many spec files exist. Then this shard's files, in sorted
+# order. Fixture projects carry their own specs as test data; they are not
+# part of the suite (the .rspec exclude-pattern skips them too).
+output=$(git ls-files 'spec/**/*_spec.rb' ':(exclude)spec/fixtures/**' | sort | awk -v total="$total" -v index_="$index" -v wfile="$weights" '
+  function weight_before(a, b) {
+    return weight[spec[a]] > weight[spec[b]] || (weight[spec[a]] == weight[spec[b]] && spec[a] < spec[b])
+  }
+  function smallest(   s, best) {
+    best = 1
+    for (s = 2; s <= total; s++) if (running[s] < running[best]) best = s
+    return best
+  }
+  BEGIN {
+    while ((getline line < wfile) > 0) {
+      if (line ~ /^[ \t]*(#|$)/) continue
+      if (!match(line, /^[ \t]*[0-9]+(\.[0-9]+)?[ \t]+/)) continue
+      seconds = substr(line, 1, RLENGTH) + 0
+      path = substr(line, RLENGTH + 1)
+      sub(/[ \t\r]+$/, "", path)
+      if (seconds > 0 && path != "") weight[path] = seconds
+    }
+    close(wfile)
+  }
+  { spec[count++] = $0 }
+  END {
+    for (s = 1; s <= total; s++) running[s] = 0
+    nw = 0
+    for (i = 0; i < count; i++) if (spec[i] in weight) order[nw++] = i
+    for (i = 1; i < nw; i++) {
+      held = order[i]
+      for (j = i - 1; j >= 0 && weight_before(held, order[j]); j--) order[j + 1] = order[j]
+      order[j + 1] = held
+    }
+    for (k = 0; k < nw; k++) {
+      s = smallest()
+      shard[order[k]] = s
+      running[s] += weight[spec[order[k]]]
+    }
+    median = 0
+    if (nw > 0) {
+      for (k = 0; k < nw; k++) sorted[k] = weight[spec[order[nw - 1 - k]]]
+      median = (nw % 2) ? sorted[(nw - 1) / 2] : (sorted[nw / 2 - 1] + sorted[nw / 2]) / 2
+    }
+    s = smallest()
+    for (i = 0; i < count; i++) {
+      if (i in shard) continue
+      shard[i] = s
+      running[s] += median
+      s = s % total + 1
+    }
+    print count
+    for (i = 0; i < count; i++) if (shard[i] == index_) print spec[i]
+  }
+')
+
+specs_count=$(printf '%s\n' "$output" | head -n 1)
 picked=()
-for i in "${!specs[@]}"; do
-  if (( i % total == index - 1 )); then
-    picked+=("${specs[$i]}")
-  fi
-done
+while IFS= read -r file; do
+  picked+=("$file")
+done < <(printf '%s\n' "$output" | tail -n +2 | sed '/^$/d')
 
-echo "shard ${index}/${total}: ${#picked[@]} of ${#specs[@]} spec files"
-exec bundle exec rspec "$@" "${picked[@]}"
+echo "shard ${index}/${total}: ${#picked[@]} of ${specs_count} spec files"
+exec bundle exec rspec "$@" ${picked[@]+"${picked[@]}"}
