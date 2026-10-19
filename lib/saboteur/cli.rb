@@ -25,6 +25,7 @@ require_relative "cli/output_options"
 require_relative "cli/explicit_file_options"
 require_relative "cli/doctor_command"
 require_relative "cli/agent_provenance"
+require_relative "cli/preview_command"
 
 module Saboteur
   class CLI
@@ -45,6 +46,7 @@ module Saboteur
     include DoctorCommand
     include AgentProvenance
     include HelpOptions
+    include PreviewCommand
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -275,19 +277,6 @@ module Saboteur
     end
 
     def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
-
-    def preview
-      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON; use --format json" if agent?
-      raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
-
-      if options[:list_operators]
-        MutationSource::OperatorRegistry.list(@out, names: config["operators"], excluded: config["exclude_operators"])
-        return EXIT_OK
-      end
-
-      Preview.new(config, out: @out, err: @err, format: @format).call
-      EXIT_OK
-    end
 
     def add_subject(expr) = (options[:subjects] ||= []) << expr
 
