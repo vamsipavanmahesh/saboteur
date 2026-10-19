@@ -223,6 +223,49 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect(described_class.live).to be_empty
   end
 
+  # Fault injection for #762: the CI flake where Supervisor.live kept a
+  # ProcessTree entry after a run. When the process table is unreadable
+  # (ProcessTable.snapshot raises through kill_all_except), containment must
+  # still kill and reap the child and unregister it, or the entry leaks and
+  # the child runs unsupervised.
+  it "still kills, reaps and unregisters the child when the process table is unreadable (#762)" do
+    pid_file = File.join(dir, "child.pid")
+    # Fail the table only once the child is up and its pid fully written
+    # (same window as #277): before that the run must proceed normally.
+    real_snapshot = Saboteur::Execution::ProcessTable.method(:snapshot)
+    allow(Saboteur::Execution::ProcessTable).to receive(:snapshot) do
+      raise Errno::EIO, "ps failed" if File.exist?(pid_file) && File.read(pid_file).to_i.positive?
+
+      real_snapshot.call
+    end
+    expect do
+      supervisor.run(timeout: 30) do |_writer|
+        File.write(pid_file, Process.pid)
+        sleep 30
+      end
+    end.to raise_error(Errno::EIO)
+    pid = File.read(pid_file).to_i
+    expect(pid).to be_positive
+    expect { Process.kill(0, pid) }.to raise_error(Errno::ESRCH)
+    expect(described_class.live).to be_empty
+  end
+
+  # Fail-closed, not fail-open: when the table goes blind only at release
+  # time (watch saw a healthy table), the run must surface the scan error
+  # instead of returning a clean Result the guards would read as no leak.
+  it "does not return a clean Result when the release-time table scan fails (#762)" do
+    real_snapshot = Saboteur::Execution::ProcessTable.method(:snapshot)
+    allow(Saboteur::Execution::ProcessTable).to receive(:snapshot) do
+      raise Errno::EIO, "ps failed" if caller_locations(1, 30).any? { |loc| loc.base_label == "kill_all_except" }
+
+      real_snapshot.call
+    end
+    expect do
+      supervisor.run(timeout: 30) { |writer| writer.write("hello") }
+    end.to raise_error(Errno::EIO)
+    expect(described_class.live).to be_empty
+  end
+
   it "records a child exception on stderr before exiting, so an empty result has a cause (#255)" do
     expect do
       supervisor.run(timeout: 5) { |_writer| raise "boom in child" }
