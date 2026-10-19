@@ -66,6 +66,13 @@ RSpec.describe Saboteur::Engine::ResultCache do
     expect(store.send(:fingerprint, person_subject, tests)).to eq(Digest::SHA256.hexdigest(raw))
   end
 
+  it "fingerprints the covering tests in sorted order, whatever order they arrive in" do
+    store = cache
+    ordered = ["./spec/person_spec.rb[1:1]", "./spec/person_spec.rb[1:2]"]
+    expect(store.send(:fingerprint, person_subject, ordered.reverse))
+      .to eq(store.send(:fingerprint, person_subject, ordered))
+  end
+
   it "returns a stored verdict while nothing it depends on changed" do
     stored
     reused = cache.lookup(person_subject, comparison_mutation, tests)

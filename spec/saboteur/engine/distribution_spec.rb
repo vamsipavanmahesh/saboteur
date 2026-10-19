@@ -436,6 +436,17 @@ RSpec.describe Saboteur::Engine::Distribution do
     expect(result.mutated_source).to eq("text")
   end
 
+  it "reads a worker row without a rejected_kill field as not rejected" do
+    subject = fixture_subject
+    mutation = fixture_mutation(subject)
+    row = { "results" => [{ "position" => 0, "status" => "killed", "reason" => nil, "runtime" => 0.1,
+                            "killed_by" => ["t"], "covered_by" => ["t"], "kill_cause" => "assertion",
+                            "reused" => false, "executed" => ["t"] }] }
+    distribution = described_class.new(jobs: 2, scheduler: ->(_s, _l) { [] }, diagnostics:, cache: nil)
+    result = distribution.send(:decode, row, subject, [[mutation, "text"]]).first
+    expect(result.rejected_kill?).to be(false)
+  end
+
   it "records fresh results in the cache and skips reused ones" do
     subject = fixture_subject
     mutation = fixture_mutation(subject)
