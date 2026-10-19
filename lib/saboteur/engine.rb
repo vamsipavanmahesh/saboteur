@@ -264,7 +264,8 @@ module Saboteur
     def coverage_store(integration, load_lines, load_methods = {})
       CoverageStore.new(config: config, integration: integration, hooks: hooks, load_lines:, load_methods:,
                         supervisor: supervisor(memory_factor: 4), diagnostics: @diagnostics,
-                        timeout_cap: method(:budget_capped_timeout))
+                        timeout_cap: method(:budget_capped_timeout),
+                        parts: config["coverage_parts"])
     end
 
     def check_baseline(integration, full_passes)

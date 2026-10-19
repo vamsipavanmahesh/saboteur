@@ -144,6 +144,13 @@ RSpec.describe Saboteur::CLI do
                                   reeval: "nesting", cache: false, seed: 42)
   end
 
+  it "parses --coverage-parts into config overrides (#741)" do
+    command = cli("run", "--coverage-parts", "3")
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    command.call
+    expect(command.options).to eq(coverage_parts: 3)
+  end
+
   it "parses --baseline-passes into config overrides (#55)" do
     command = cli("run", "--baseline-passes", "1")
     allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
@@ -1275,6 +1282,7 @@ RSpec.describe Saboteur::CLI, "details" do
     Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
     expect(out.string).to include("Seed for Ruby's random numbers in every test run (default 1)",
                                   "Unchanged-suite checks (default 2)",
+                                  "--coverage-parts N", "Build the coverage map in N parallel parts (default 1)",
                                   "Wall-clock budget for the whole run, e.g. 10m; exit 4 when spent",
                                   "An exhausted --max-duration budget does not fail the run")
   end

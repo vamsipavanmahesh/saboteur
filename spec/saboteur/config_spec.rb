@@ -413,6 +413,13 @@ RSpec.describe Saboteur::Config, "details" do
     expect { described_class.new({ "seed" => -1 }) }.to raise_error(Saboteur::ConfigError, /seed must be >= 0/)
   end
 
+  it "defaults coverage_parts to 1, coerces it, and rejects values below 1 (#741)" do
+    expect(described_class.new({})["coverage_parts"]).to eq(1)
+    expect(described_class.new({ "coverage_parts" => "4" })["coverage_parts"]).to eq(4)
+    expect { described_class.new({ "coverage_parts" => 0 }) }
+      .to raise_error(Saboteur::ConfigError, /coverage_parts must be >= 1/)
+  end
+
   it "defaults baseline_passes to 2, accepts 1, and rejects values below 1 (#55)" do
     expect(described_class.new({})["baseline_passes"]).to eq(2)
     expect(described_class.new({ "baseline_passes" => 1 })["baseline_passes"]).to eq(1)

@@ -178,6 +178,38 @@ RSpec.describe Saboteur::Engine::CoverageStore, "in parts" do
     expect(store(parts: 0).fetch([source]).tests).to eq(%w[t1])
   end
 
+  it "gives each part child its own TEST_ENV_NUMBER, empty for the first" do
+    counts
+    seen = []
+    allow(supervisor).to receive(:run_many) do |_count, **, &block|
+      saved = ENV.fetch("TEST_ENV_NUMBER", nil)
+      2.times do |index|
+        allow_any_instance_of(described_class).to receive(:record) { seen << ENV.fetch("TEST_ENV_NUMBER", nil) }
+        block.call(:writer, index)
+      end
+      ENV["TEST_ENV_NUMBER"] = saved
+      [result(part_map("t1", "t3")), result(part_map("t2"))]
+    end
+
+    store.fetch([source])
+
+    expect(seen).to eq(["", "2"])
+  end
+
+  it "reports a file list the suite cannot honor as a usage error, not a crash" do
+    allow(integration).to receive(:example_count).and_raise(ArgumentError, "no example group in: /s/a_spec.rb")
+    expect(supervisor).not_to receive(:run_many)
+
+    expect { store.fetch([source]) }
+      .to raise_error(Saboteur::ConfigError, "no example group in: /s/a_spec.rb")
+  end
+
+  it "reports an unusable partition request as a usage error too" do
+    allow(Saboteur::Engine::SuitePartition).to receive(:parts).and_raise(ArgumentError, "bad parts")
+
+    expect { store.fetch([source]) }.to raise_error(Saboteur::ConfigError, "bad parts")
+  end
+
   describe "recording one part" do
     it "runs the whole suite, with no files argument, when no part is given" do
       recorder = instance_double(Saboteur::Selection::Recorder, start: nil)

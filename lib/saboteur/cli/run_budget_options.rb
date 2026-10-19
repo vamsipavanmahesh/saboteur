@@ -13,6 +13,9 @@ module Saboteur
         opts.on("--seed N", Integer, "Seed for Ruby's random numbers in every test run (default 1)") do |v|
           set(:seed, v)
         end
+        opts.on("--coverage-parts N", Integer, "Build the coverage map in N parallel parts (default 1)") do |v|
+          set(:coverage_parts, v)
+        end
         opts.on("--baseline-passes N", Integer, "Unchanged-suite checks (default 2)") { |v| set(:baseline_passes, v) }
         opts.on("--max-duration DURATION", "Wall-clock budget for the whole run, e.g. 10m; exit 4 when spent - " \
                                            "the clock starts at engine entry, so boot, baselines and the " \

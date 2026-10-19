@@ -79,6 +79,8 @@ module Saboteur
       "matrix" => false,
       "seed" => 1,
       "baseline_passes" => 2,
+      # Parallel children for the coverage-map build (#741); 1 keeps the single child.
+      "coverage_parts" => 1,
       "max_duration" => nil,
       "max_duration_ok" => false,
       "tests" => [],
@@ -92,7 +94,8 @@ module Saboteur
       "verbose" => false
     }.freeze
 
-    INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes].freeze
+    INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes
+                      coverage_parts].freeze
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
     NILABLE_FLOAT_KEYS = %w[threshold max_duration].freeze
     THRESHOLD_RANGE = (0.0..100.0)
@@ -272,6 +275,7 @@ module Saboteur
     def validate_baseline!
       raise ConfigError, "seed must be >= 0" if self["seed"].negative?
       raise ConfigError, "baseline_passes must be >= 1" if self["baseline_passes"] < 1
+      raise ConfigError, "coverage_parts must be >= 1" if self["coverage_parts"] < 1
       raise ConfigError, "max_duration must be > 0" if self["max_duration"] && !self["max_duration"].positive?
     end
 

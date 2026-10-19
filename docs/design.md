@@ -496,6 +496,7 @@ Saboteur.configure do |c|
   c.max_memory_mb = 2048                 # growth cap per mutant process tree
   c.max_processes = 64                   # process cap per mutant tree
   c.coverage_timeout = 3600              # seconds for the coverage-map build
+  c.coverage_parts = 1                   # parallel children for the coverage-map build (--coverage-parts N)
   c.baseline_timeout = 300               # seconds for each verdict-check run
   c.verbose = false                      # true = --verbose always on: boot-time output
                                          # filters (rspec load errors, #608) keep raw text
