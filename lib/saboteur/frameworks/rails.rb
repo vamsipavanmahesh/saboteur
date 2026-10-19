@@ -18,9 +18,6 @@ module Saboteur
     # forking, and drops database connections in the parent so each child opens
     # its own. Prints host names only, never credentials.
     class Rails
-      # How many blocking session names the template-copy error lists.
-      MAX_BLOCKER_NAMES = 5
-
       # sqlite3-ruby's Backup#step returns raw SQLite status codes instead
       # of raising, and finish discards its own: without an explicit check
       # a partial destination would pass as a copy.
@@ -362,9 +359,9 @@ module Saboteur
         SQL
         return if blockers.empty?
 
-        names = blockers.map { |app| app.to_s.empty? ? "unnamed" : app }.first(MAX_BLOCKER_NAMES)
+        names = Text.name_list(blockers.map { |app| app.to_s.empty? ? "unnamed" : app })
         raise Error, "cannot copy the test database #{database}: #{blockers.size} other session(s) connected " \
-                     "(#{names.join(', ')})#{', ...' if blockers.size > names.size}. " \
+                     "(#{names}). " \
                      "Stop other test runs, consoles or Spring, then run saboteur again."
       end
 

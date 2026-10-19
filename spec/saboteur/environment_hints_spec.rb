@@ -150,13 +150,13 @@ RSpec.describe Saboteur::EnvironmentHints do
       end
     end
 
-    it "caps the list at five with a +1 more suffix when there are exactly six" do
+    it "caps the list at five and names the rest as and 1 more when there are exactly six" do
       files = (0..5).to_h { |i| ["gemfiles/g#{i}.gemfile", ""] }
       with_root(files) do |dir|
         hint = described_class.appraisal(dir, env: {})
         expect(hint).to eq(
           "Appraisal gemfiles found (gemfiles/g0.gemfile, gemfiles/g1.gemfile, gemfiles/g2.gemfile, " \
-          "gemfiles/g3.gemfile, gemfiles/g4.gemfile, +1 more) but BUNDLE_GEMFILE is not set: run " \
+          "gemfiles/g3.gemfile, gemfiles/g4.gemfile and 1 more) but BUNDLE_GEMFILE is not set: run " \
           "`BUNDLE_GEMFILE=gemfiles/<name>.gemfile bundle exec saboteur run` or " \
           "`bundle exec appraisal <name> saboteur run`"
         )

@@ -452,7 +452,7 @@ RSpec.describe Saboteur::Frameworks::Rails, skip: sqlite3_missing do
       stub_const("ActiveRecord::Base",
                  fake_base(fake_pool(:writing).db_config, template_sessions: %w[a b c d e f g]))
       expect { rails.prepare_workers(2) }.to raise_error(
-        Saboteur::Error, /7 other session.*connected \(a, b, c, d, e\), \.\.\./
+        Saboteur::Error, /7 other session.*connected \(a, b, c, d, e and 2 more\)/
       )
     end
     # The database lives in the parent's connection, so there is no file to
