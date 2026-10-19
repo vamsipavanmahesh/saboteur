@@ -1526,4 +1526,24 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: the each result is discarded (acc is mutated for effect); " \
                      "each and map run the same body - hand-applied mutant leaves " \
                      "all 70 coverage_map examples green"
+
+  i.mutation "4a03618cb8cf293d",
+             subject: "Saboteur::Execution::SupervisorBatch#reap_started",
+             reason: "equivalent: each and map run the same block for its contain " \
+                     "side effects; the result is unused - hand-applied mutant " \
+                     "leaves all 14 run_many examples green"
+
+  i.mutation "5832856abbec07b5",
+             subject: "Saboteur::Execution::SupervisorBatch#reap_started",
+             reason: "equivalent: a contain deadline of -1, 0 or 1 second only " \
+                     "changes how soon contain starts its terminate; every child is " \
+                     "already killed first and reaped either way - hand-applied " \
+                     "mutant leaves all 14 run_many examples green"
+
+  i.mutation "f87be5407d5c0b29",
+             subject: "Saboteur::Execution::SupervisorBatch#reap_started",
+             reason: "equivalent: a contain deadline of -1, 0 or 1 second only " \
+                     "changes how soon contain starts its terminate; every child is " \
+                     "already killed first and reaped either way - hand-applied " \
+                     "mutant leaves all 14 run_many examples green"
 end

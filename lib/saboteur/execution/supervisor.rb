@@ -6,6 +6,7 @@ require "securerandom"
 require_relative "process_tree"
 require_relative "protocol"
 require_relative "fiddle_loader"
+require_relative "supervisor_batch"
 
 module Saboteur
   module Execution
@@ -30,6 +31,8 @@ module Saboteur
     #      intermediate parent between polls (#365), so kill_all also sweeps
     #      the process table for the marker, which survives both escapes.
     class Supervisor
+      include SupervisorBatch
+
       # Set in every child to its nesting depth (1 for a child of a top-level
       # run). Engine refuses to start when it is set; the supervisor itself
       # refuses to fork past MAX_DEPTH, so even a run with that guard removed
@@ -132,7 +135,20 @@ module Saboteur
       # on_tick is called from the parent's wait loop after the fork, about
       # every poll, so callers can report progress without a thread alive
       # at fork time.
-      def run(timeout:, cpu_seconds: nil, on_tick: nil, label: "supervised child died", &block)
+      def run(timeout:, cpu_seconds: nil, on_tick: nil, label: "supervised child died", &)
+        pid, reader, started = start(timeout, cpu_seconds, label, &)
+        begin
+          contain(pid, reader, started, timeout, on_tick)
+        ensure
+          reader.close unless reader.closed?
+        end
+      end
+
+      private
+
+      # Forks the child and returns [pid, reader, started]; the caller owns
+      # supervising it with contain and closing the reader.
+      def start(timeout, cpu_seconds, label, &block)
         depth = ENV.fetch(CHILD_ENV, "0").to_i
         raise Error, "refusing to fork: saboteur children nested #{depth} deep (limit #{MAX_DEPTH})" if
           depth >= MAX_DEPTH
@@ -150,12 +166,11 @@ module Saboteur
         @marker = SecureRandom.hex(6)
         pid = fork { child(reader, writer, supervisor, cpu_seconds, depth + 1, &block) }
         writer.close
-        contain(pid, reader, started, timeout, on_tick)
-      ensure
+        [pid, reader, started]
+      rescue Exception # rubocop:disable Lint/RescueException
         reader&.close unless reader&.closed?
+        raise
       end
-
-      private
 
       # --- child ----------------------------------------------------------
 
