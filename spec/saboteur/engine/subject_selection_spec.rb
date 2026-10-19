@@ -32,7 +32,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     config = Saboteur::Config.new({}, root: @root)
     described_class.new(config, diags).select([file])
     expect(Saboteur::InlineSuppression).to have_received(:new).with(file, "def nope(\n")
-    expect(diags.warnings).to include(a_string_matching(/broken\.rb does not parse: \S/))
+    expect(diags.warnings).to include(a_string_matching(/fix the syntax in broken\.rb: does not parse \(\S/))
   end
 
   it "finds every def in the files" do
@@ -409,8 +409,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
   it "warns about a --subject pattern that matches no subject and reports the matched count" do
     select([write("cart.rb", source)], subjects: ["Shop::Cart", "Cart*"])
-    expect(diagnostics.warnings).to eq(["--subject Cart* matches no subject (patterns are names like " \
-                                        "Klass, Klass#meth or Klass.meth, not globs)",
+    expect(diagnostics.warnings).to eq(['fix the --subject pattern "Cart*": it matches no subject ' \
+                                        "(patterns are names like Klass, Klass#meth or Klass.meth, " \
+                                        "not globs)",
                                         "1 of 2 --subject patterns matched"])
   end
 
@@ -437,7 +438,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     file = write("state.rb", "class State\n  attr_reader :name\n  def label = 1\nend\n")
     select([file], subjects: ["State#label", "State#na"])
     expect(diagnostics.warnings)
-      .to include(a_string_starting_with("--subject State#na matches no subject"))
+      .to include(a_string_starting_with('fix the --subject pattern "State#na": it matches no subject'))
   end
 
   # The count is a subtraction, not a restatement of the miss count: with
@@ -675,12 +676,20 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
   it "warns about files that do not parse and skips them" do
     expect(select([write("broken.rb", "class X\n  def (\nend\n")])).to be_empty
-    expect(diagnostics.warnings.first).to start_with("broken.rb does not parse")
+    expect(diagnostics.warnings.first).to eq("fix the syntax in broken.rb: does not parse " \
+                                             "(expected a receiver for the method definition)")
     expect(diagnostics.discovery_failures.map(&:to_h)).to eq([
                                                                { file: File.join(@root, "broken.rb"),
                                                                  reason: "invalid_file_syntax" }
                                                              ])
     expect(diagnostics.discovery_failures.first.file).to be_frozen
+  end
+
+  # Boundary at the first-error cap: a file with several syntax errors
+  # warns once, naming the first error, not once per error.
+  it "warns once when a file has several syntax errors" do
+    expect(select([write("broken.rb", "def a(\nend\ndef b(\nend\n")])).to be_empty
+    expect(diagnostics.warnings.grep(/does not parse/).size).to eq(1)
   end
 
   describe "--since when a changed Ruby file is excluded by c.exclude (#282)" do
@@ -699,9 +708,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       select([], since: "HEAD", include: ["*.rb"], exclude: ["cart.rb"])
 
       expect(diagnostics.warnings.size).to eq(1)
-      expect(diagnostics.warnings.first).to include("--since: 1 changed Ruby file(s) are covered by c.include " \
-                                                    "but removed by c.exclude, so nothing is mutated from " \
-                                                    "them: cart.rb")
+      expect(diagnostics.warnings.first).to include("1 changed Ruby file(s) are covered by c.include " \
+                                                    "but removed by c.exclude",
+                                                    "--since: nothing is mutated from them: cart.rb")
       expect(diagnostics.warnings.first).not_to include("...")
     end
 
@@ -728,9 +737,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       select([], since: "HEAD", include: ["*.rb"], exclude: ["cart.rb"])
 
       warning = diagnostics.warnings.first
-      expect(warning).to include("Narrow or remove the c.exclude entry",
+      expect(warning).to include("narrow or remove the c.exclude entry",
                                  "pass the file as a positional source operand")
-      expect(warning).to end_with("(configured excludes are then ignored).")
+      expect(warning).to end_with("(configured excludes are then ignored)")
       expect(warning).not_to include("--subject")
     end
 
@@ -765,7 +774,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(diagnostics.warnings.size).to eq(1)
       warning = diagnostics.warnings.first
-      expect(warning).to include("--since: 6 changed Ruby file(s) are covered by c.include")
+      expect(warning).to include("6 changed Ruby file(s) are covered by c.include")
       expect(warning).to include("from them: f1.rb, f2.rb, f3.rb, f4.rb, f5.rb and 1 more")
       expect(warning).not_to include("f6.rb")
     end
@@ -796,7 +805,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(diagnostics.warnings.size).to eq(1)
       warning = diagnostics.warnings.first
-      expect(warning).to include("--since: 5 changed Ruby file(s)")
+      expect(warning).to include("operand: 5 changed Ruby file(s)")
       expect(warning).to include("g1.rb, g2.rb, g3.rb, g4.rb, g5.rb")
       expect(warning).not_to include("...")
     end
@@ -1066,8 +1075,14 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
     File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
 
     expect(select([file], since: "HEAD")).to be_empty
-    expect(diagnostics.warnings.join).to include("FileUtils.rm_rf(\"/tmp/x\")", "c.whole_file",
-                                                 "move the literal into its own file")
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to eq("rules.rb: list the constant in c.whole_file to replay it anyway, or move the " \
+                          "literal into its own file\n  " \
+                          "--since: constant subject(s) in this file are not mutated: it runs code at " \
+                          "load (FileUtils.rm_rf(\"/tmp/x\") (line 1)) that every constant mutant would " \
+                          "run again, and saboteur cannot vet what re-running it does. " \
+                          "Exact id(s): \"RULES\" (preferred); a glob like \"*RULES*\" also works but " \
+                          "opts in every matching subject project-wide.")
   end
 
   # The denylist is not the boundary: a top-level helper call, a
@@ -1080,6 +1095,32 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     expect(select([file], since: "HEAD")).to be_empty
     expect(diagnostics.warnings.join).to include("Registry.register(RULES)", "c.whole_file")
+  end
+
+  # Boundary at the two-reason cap: exactly two load-time reasons are both
+  # named, with no "and N more" tail.
+  it "names both load-time reasons when exactly two refuse the replay" do
+    file = commit_base("rules.rb",
+                       "FileUtils.rm_rf(\"/tmp/x\")\nFile.delete(\"/tmp/y\")\nRULES = {\n  a: 1\n}.freeze\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include(%(FileUtils.rm_rf("/tmp/x")), %(File.delete("/tmp/y")))
+    expect(warning).not_to include("and 0 more", "and 1 more")
+  end
+
+  # Boundary above the cap: the third load-time reason is counted, not
+  # listed, so the warning stays scannable.
+  it "caps the named load-time reasons at two with an and-1-more tail" do
+    file = commit_base("rules.rb",
+                       "FileUtils.rm_rf(\"/tmp/x\")\nFile.delete(\"/tmp/y\")\nDir.rmdir(\"/tmp/z\")\n" \
+                       "RULES = {\n  a: 1\n}.freeze\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    expect(select([file], since: "HEAD")).to be_empty
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to include("and 1 more")
   end
 
   it "uses the plural form when several constant-literal files are unmatched (#537)" do
@@ -1189,8 +1230,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     select([file], since: "HEAD", whole_file: ["RUELES"])
     expect(diagnostics.warnings).to include(
-      '--since: whole_file pattern "RUELES" matches no discovered subject in this run; ' \
-      "subject ids look like RULES, A::B::C or A::B#m"
+      'fix the whole_file entry "RUELES": it matches no discovered subject in this run ' \
+      "(subject ids look like RULES, A::B::C or A::B#m)"
     )
   end
 
@@ -1202,12 +1243,12 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     expect(selection.send(:warn_unmatched_whole_file, [])).to eq(%w[RUELES RELES])
     expect(diagnostics.warnings).to include(
-      '--since: whole_file pattern "RUELES" matches no discovered subject in this run; ' \
-      "subject ids look like RULES, A::B::C or A::B#m"
+      'fix the whole_file entry "RUELES": it matches no discovered subject in this run ' \
+      "(subject ids look like RULES, A::B::C or A::B#m)"
     )
     expect(diagnostics.warnings).to include(
-      '--since: whole_file pattern "RELES" matches no discovered subject in this run; ' \
-      "subject ids look like RULES, A::B::C or A::B#m"
+      'fix the whole_file entry "RELES": it matches no discovered subject in this run ' \
+      "(subject ids look like RULES, A::B::C or A::B#m)"
     )
   end
 
@@ -1462,11 +1503,11 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant selection edges (#3
     # Hazard-denylist entries surface ahead of merely unvetted code, and
     # the warning lists at most two reasons; the third stays unnamed.
     expect(diagnostics.warnings.join).to include("system(\"ls\") (line 3), FileUtils.rm_rf(\"/tmp/x\") (line 1)",
-                                                 "in rules.rb are not mutated",
+                                                 "in this file are not mutated",
                                                  "at load (",
                                                  "that every constant mutant would run again",
                                                  "cannot vet what re-running it does",
-                                                 "c.whole_file to replay the file anyway",
+                                                 "c.whole_file to replay it anyway",
                                                  "move the literal into its own file")
     expect(diagnostics.warnings.join).not_to include("mkdir_p")
   end
