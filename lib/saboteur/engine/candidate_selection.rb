@@ -54,9 +54,9 @@ module Saboteur
       def warn_boot_once(subject)
         return unless @map.boot_once?(subject)
 
-        @diagnostics.warn("#{subject.id}: covered by every test and run at boot - mutants apply after boot, " \
-                          "so a survivor can be a boot-once effect the suite cannot re-observe (#575); " \
-                          "verify it by mutating the file on disk")
+        @diagnostics.warn("#{subject.id}: verify a survivor here by mutating the file on disk\n  " \
+                          "covered by every test and run at boot: mutants apply after boot, so a survivor " \
+                          "can be a boot-once effect the suite cannot re-observe (#575)")
       end
 
       # A scoped no-coverage skip names the specs the run loaded: coverage

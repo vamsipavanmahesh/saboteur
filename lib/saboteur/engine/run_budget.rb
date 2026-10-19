@@ -64,11 +64,11 @@ module Saboteur
 
         needed = per_pass - remaining
         raise BudgetPhaseTimeout,
-              "the --max-duration budget cannot cover the coverage map build: baseline passes took about " \
-              "#{per_pass.round}s each, only #{remaining.round(1)}s remain, and a cold build needs about one " \
-              "more full pass and keeps nothing when it is cut off. Re-run with --max-duration about " \
-              "#{needed.round}s higher, fewer --baseline-passes, or once without --max-duration so the " \
-              "coverage cache is built for later --incremental runs"
+              "re-run with --max-duration about #{needed.round}s higher, fewer --baseline-passes, or once " \
+              "without --max-duration so the coverage cache is built for later --incremental runs: " \
+              "the budget cannot cover the coverage map build - baseline passes took about " \
+              "#{per_pass.round}s each, only #{remaining.round(1)}s remain, and a cold build needs about " \
+              "one more full pass and keeps nothing when it is cut off"
       end
 
       # Boot and baselines can spend the budget by themselves: stop before

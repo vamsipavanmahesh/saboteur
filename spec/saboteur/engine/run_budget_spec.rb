@@ -67,11 +67,11 @@ RSpec.describe Saboteur::Engine, "RunBudget and mutate flow pins (#443 dogfood)"
       allow(Process).to receive(:clock_gettime).and_return(1000.0)
       expect { engine.send(:refuse_unaffordable_coverage_build, store_with(false), [], 47.3, 2) }
         .to raise_error(Saboteur::BudgetPhaseTimeout,
-                        eq("the --max-duration budget cannot cover the coverage map build: baseline passes " \
-                           "took about 24s each, only 20.0s remain, and a cold build needs about one more " \
-                           "full pass and keeps nothing when it is cut off. Re-run with --max-duration about " \
-                           "4s higher, fewer --baseline-passes, or once without --max-duration so the " \
-                           "coverage cache is built for later --incremental runs"))
+                        eq("re-run with --max-duration about 4s higher, fewer --baseline-passes, or once " \
+                           "without --max-duration so the coverage cache is built for later --incremental " \
+                           "runs: the budget cannot cover the coverage map build - baseline passes took " \
+                           "about 24s each, only 20.0s remain, and a cold build needs about one more full " \
+                           "pass and keeps nothing when it is cut off"))
     end
   end
 

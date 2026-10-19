@@ -32,7 +32,7 @@ RSpec.describe Saboteur::Engine, "--max-duration budget (#245)" do
     engine = engine_with({ "max_duration" => 60 }, StringIO.new)
     engine.instance_variable_set(:@run_started, Process.clock_gettime(Process::CLOCK_MONOTONIC) - 55.0)
     expect { engine.send(:refuse_unaffordable_coverage_build, unreusable_store, [], 50.0, 2) }
-      .to raise_error(Saboteur::BudgetPhaseTimeout, /cannot cover the coverage map build.*--baseline-passes/m)
+      .to raise_error(Saboteur::BudgetPhaseTimeout, /\Are-run with --max-duration about \d+s higher/)
   end
 
   it "admits the build when the budget covers about one more pass (#427)" do

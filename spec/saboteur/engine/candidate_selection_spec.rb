@@ -23,9 +23,9 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     selection.for(subject_under_test)
 
     expect(diagnostics.warnings).to include(
-      "#{subject_under_test.id}: covered by every test and run at boot - mutants apply after boot, " \
-      "so a survivor can be a boot-once effect the suite cannot re-observe (#575); " \
-      "verify it by mutating the file on disk"
+      "#{subject_under_test.id}: verify a survivor here by mutating the file on disk\n  " \
+      "covered by every test and run at boot: mutants apply after boot, so a survivor " \
+      "can be a boot-once effect the suite cannot re-observe (#575)"
     )
   end
 

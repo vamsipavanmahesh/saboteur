@@ -40,7 +40,7 @@ The same note led by the action:
 
 ```text
 Billing::Invoice#total: verify a survivor here by mutating the file on disk
-  the method runs at boot, so mutants apply after boot and the suite cannot re-observe a boot-once effect (#575)
+  covered by every test and run at boot: mutants apply after boot, so a survivor can be a boot-once effect the suite cannot re-observe (#575)
 ```
 
 The five-item rule:
