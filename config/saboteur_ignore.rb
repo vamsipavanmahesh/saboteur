@@ -261,10 +261,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#all_reused",
              reason: "equivalent: without a cache every reuse returns nil, so the pass ends at the first mutant; only speed differs"
 
-  i.mutation "30f5bc370f581852",
-             subject: "Saboteur::Engine::Scheduler#execute",
-             reason: "equivalent: counting each kill as 2 keeps the same order of killers"
-
   i.mutation "a7573a705c635da0",
              subject: "Saboteur::MutationSource::Builtin#rescues_everything?",
              reason: "equivalent: nil and false are both falsy for the caller"
@@ -399,18 +395,6 @@ Saboteur.ignore do |i|
   i.mutation "0031eaebba2ea9ab",
              subject: "Saboteur::CustomMap.name_error_message",
              reason: "equivalent: the backtrace starts at the loaded file, so find { true } returns the same location"
-
-  i.mutation "50aeb1c93f0d6b6c",
-             subject: "Saboteur::IgnoreList::Collector#mutation",
-             reason: "equivalent: caller_locations(1, 2).first is the same frame as caller_locations(1, 1).first"
-
-  i.mutation "db8db6c223204ba6",
-             subject: "Saboteur::IgnoreList::Collector#mutation",
-             reason: "equivalent: caller_locations(1) starts at the same frame and .first is unchanged"
-
-  i.mutation "6fdb2fe6bf77bf08",
-             subject: "Saboteur::IgnoreList::Collector#mutation",
-             reason: "equivalent: caller_locations(1) starts at the same frame and .first is unchanged"
 
   i.mutation "433983b0f5dac95d",
              subject: "Saboteur::IgnoreList.unknown_directive_message",
@@ -997,11 +981,6 @@ Saboteur.ignore do |i|
              reason: "equivalent: the trailing separator only separates entries, and entry count and content " \
                      "still change the digest - the next entry starts with its own path bytes"
 
-  i.mutation "69e619be29339f30",
-             subject: "Saboteur::Engine::ResultCache#digest_tests",
-             reason: "equivalent: the block's digest-append side effects are the whole behavior and the " \
-                     "enumerator's return value is unused, so each and map agree"
-
   i.mutation "485c590681bcde38",
              subject: "Saboteur::Selection::CoverageMap#files_for",
              reason: "equivalent: nothing mutates the coverage map after construction, so recomputing " \
@@ -1510,4 +1489,32 @@ i.mutation "fdc4600f4e8e8625",
                      "changes how soon contain starts its terminate; every child is " \
                      "already killed first and reaped either way - hand-applied " \
                      "mutant leaves all 14 run_many examples green"
+
+  i.mutation "0b52736c7cda4d11",
+             subject: "Saboteur::Engine::Scheduler#execute",
+             reason: "equivalent: plan.killers only orders tests by kill count in Scheduler.prioritize, " \
+                     "and counting each kill as 2 keeps every comparison the same"
+
+  i.mutation "0f936f408a58ca61",
+             subject: "Saboteur::Engine::ResultCache#digest_tests",
+             reason: "equivalent: the LOCKFILES block appends to the digest as a side effect and " \
+                     "digest_tests' return value is unused, so each and map agree"
+
+  i.mutation "4eed968b7a1035f9",
+             subject: "Saboteur::IgnoreList::Collector#mutation",
+             reason: "equivalent: caller_locations(1, 1) holds one frame, so first and last are the same frame"
+
+  i.mutation "d76b6c974576b095",
+             subject: "Saboteur::IgnoreList::Collector#mutation",
+             reason: "equivalent: caller_locations(1, 2).first is the same frame as caller_locations(1, 1).first"
+
+  i.mutation "936bc9297892bfcb",
+             subject: "Saboteur::IgnoreList::Collector#mutation",
+             reason: "equivalent: caller_locations(1) starts at the same frame, so its first element is " \
+                     "the same as caller_locations(1, 1).first"
+
+  i.mutation "f1d535ff37ca4bc6",
+             subject: "Saboteur::IgnoreList::Collector#mutation",
+             reason: "equivalent: caller_locations(1) starts at the same frame, so its first element is " \
+                     "the same as caller_locations(1, 1).first"
 end
