@@ -260,11 +260,12 @@ module Saboteur
         return if errors.empty? || !spec_helper_requires_minitest?
 
         symptom = (lines.find { |line| line.include?("undefined method") } || errors.first).strip
-        @diagnostics.warn("the baseline failure looks like a Minitest suite running under RSpec, not a " \
+        @diagnostics.warn("run saboteur on an RSpec suite: it is RSpec-only, so a Minitest suite cannot be " \
+                          "mutation tested with it\n  " \
+                          "the baseline failure looks like a Minitest suite running under RSpec, not a " \
                           "broken RSpec suite: the log shows #{errors.size} " \
                           "NoMethodError#{'s' if errors.size > 1} (for example: #{symptom.slice(0, EXCERPT_WIDTH)}) " \
-                          "and spec/spec_helper.rb requires minitest. saboteur is RSpec-only, so a " \
-                          "Minitest suite cannot be mutation tested with it.")
+                          "and spec/spec_helper.rb requires minitest")
       end
 
       # The framework check behind the warning: spec_helper is the

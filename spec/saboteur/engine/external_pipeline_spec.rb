@@ -109,11 +109,20 @@ RSpec.describe "Engine external test-command pipeline" do
       config = Saboteur::Config.new({ "test_command" => "ruby -Itest a_test.rb b_test.rb",
                                       "include" => ["lib/nope/**/*.rb"] }, root: root)
       expect(Saboteur::Engine.new(config).call.warnings).to include(
-        "the test command hands several test files to one ruby: ruby executes only " \
-        "the first, so the rest never run and their mutants silently survive (#611) - " \
         "use the framework's multi-file form (bin/rails test f1 f2, rspec f1 f2) or a " \
-        'shell loop (for f in ...; do ruby "$f" || exit 1; done)'
+        "shell loop (for f in ...; do ruby \"$f\" || exit 1; done)\n  " \
+        "the test command hands several test files to one ruby: ruby executes only " \
+        "the first, so the rest never run and their mutants silently survive (#611)"
       )
+    end
+  end
+
+  it "leads the several-files warning with the remedy, not the cause" do
+    with_fixture do |root|
+      config = Saboteur::Config.new({ "test_command" => "ruby -Itest a_test.rb b_test.rb",
+                                      "include" => ["lib/nope/**/*.rb"] }, root: root)
+      first = Saboteur::Engine.new(config).call.warnings.find { |w| w.include?("hands several test files") }
+      expect(first.lines.first).to start_with("use the framework's multi-file form")
     end
   end
 

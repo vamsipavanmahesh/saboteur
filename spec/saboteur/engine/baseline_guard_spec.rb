@@ -387,10 +387,11 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
         write_helper("require 'minitest'\n")
         write_failure_log("NoMethodError: boom\n" * count)
         expect(failing_run_output).to eq(
+          "run saboteur on an RSpec suite: it is RSpec-only, so a Minitest suite cannot be " \
+          "mutation tested with it\n  " \
           "the baseline failure looks like a Minitest suite running under RSpec, not a " \
           "broken RSpec suite: the log shows #{count} NoMethodError#{'s' if count == 2} " \
-          "(for example: NoMethodError: boom) and spec/spec_helper.rb requires minitest. " \
-          "saboteur is RSpec-only, so a Minitest suite cannot be mutation tested with it."
+          "(for example: NoMethodError: boom) and spec/spec_helper.rb requires minitest"
         )
       end
     end
