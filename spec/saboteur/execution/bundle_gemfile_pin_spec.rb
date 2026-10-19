@@ -39,6 +39,27 @@ RSpec.describe Saboteur::Execution::BundleGemfilePin do
       expect(described_class.pinned_in('A="x"BUNDLE_GEMFILE=g cmd')).to be_nil
     end
 
+    it "keeps an = inside the gemfile path as part of the value (#732)" do
+      expect(described_class.pinned_in("BUNDLE_GEMFILE=gemfiles/a=b.gemfile rspec")).to eq("gemfiles/a=b.gemfile")
+    end
+
+    it "refuses a cwd-repointing flag after /usr/bin/env too (#732)" do
+      expect { described_class.pinned_in("/usr/bin/env -C sub BUNDLE_GEMFILE=g rspec") }
+        .to raise_error(Saboteur::ConfigError, /pin BUNDLE_GEMFILE as a leading assignment/)
+    end
+
+    it "does not read flags after a non-env word as env flags (#732)" do
+      expect(described_class.pinned_in("BUNDLE_GEMFILE=g wrapper -C sub rspec")).to eq("g")
+    end
+
+    it "does not read flags after the command word as env flags (#732)" do
+      expect(described_class.pinned_in("env BUNDLE_GEMFILE=g rspec -C sub")).to eq("g")
+    end
+
+    it "matches env flags only at the start of a word (#732)" do
+      expect(described_class.pinned_in("env -v-C BUNDLE_GEMFILE=g rspec")).to eq("g")
+    end
+
     it "refuses BUNDLE_GEMFILE it cannot read as a leading pin, failing closed (#722)" do
       [
         "bundle exec rspec BUNDLE_GEMFILE=g",
