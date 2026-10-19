@@ -705,6 +705,104 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
 
+    it 'accepts the lockfile relative "." spelling for a root path: source (#729)' do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{dir}\"\n")
+        File.write(File.join(dir, "Gemfile.lock"), "PATH\n  remote: .\n  specs:\n\nGEM\n")
+        row = source_row(name: "mygem", original: dir, expanded: dir)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          lockfile = File.read(File.join(copy, "Gemfile.lock"))
+          expect(lockfile).to include("remote: .")
+        end
+      end
+    end
+
+    it "escapes the path spellings before matching the lockfile remote (#729)" do
+      Dir.mktmpdir("proj.x") do |dir|
+        FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
+        original = File.join(dir, "engines", "mygem")
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{original}\"\n")
+        decoy = original.sub("proj.x", "proj3x")
+        File.write(File.join(dir, "Gemfile.lock"),
+                   "PATH\n  remote: #{original}\n  specs:\n\nPATH\n  remote: #{decoy}\n  specs:\n\nGEM\n")
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          lockfile = File.read(File.join(copy, "Gemfile.lock"))
+          expect(lockfile).to include("remote: #{copy}/engines/mygem")
+        end
+      end
+    end
+
+    it "leaves a read-only lockfile untouched when the remote already fits the copy (#729)" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "vend", "g"))
+        original = File.join(dir, "vend", "g")
+        File.write(File.join(dir, "Gemfile"), "gem \"g\", path: \"#{original}\"\n")
+        lock = File.join(dir, "Gemfile.lock")
+        File.write(lock, "PATH\n  remote: vend/g\n  specs:\n\nGEM\n")
+        row = source_row(name: "g", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        # cp_r preserves the 0444 mode into the copy, so any rewrite attempt
+        # raises EACCES for a mortal user; the write spy keeps the pin live
+        # where root ignores the permission bits (#305).
+        FileUtils.chmod(0o444, lock)
+        begin
+          writes = []
+          allow(File).to receive(:write).and_wrap_original do |original, target, *args|
+            writes << target
+            original.call(target, *args)
+          end
+          expect { runner.send(:with_fresh_copy) { nil } }.not_to raise_error
+          expect(writes.grep(/Gemfile\.lock\z/)).to be_empty
+        ensure
+          FileUtils.chmod(0o644, lock)
+        end
+      end
+    end
+
+    it "rewrites the real remote and not an earlier decoy section (#729)" do
+      Dir.mktmpdir("proj.x") do |dir|
+        FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
+        original = File.join(dir, "engines", "mygem")
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{original}\"\n")
+        decoy = original.sub("proj.x", "proj3x")
+        File.write(File.join(dir, "Gemfile.lock"),
+                   "PATH\n  remote: #{decoy}\n  specs:\n\nPATH\n  remote: #{original}\n  specs:\n\nGEM\n")
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          lockfile = File.read(File.join(copy, "Gemfile.lock"))
+          expect(lockfile).to include("remote: #{copy}/engines/mygem")
+          expect(lockfile).to include("remote: #{decoy}")
+        end
+      end
+    end
+
+    it "states the lockfile refusal with the source name, original path, and remedy (#729)" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
+        original = File.join(dir, "engines", "mygem")
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{original}\"\n")
+        File.write(File.join(dir, "Gemfile.lock"), "GEM\n  specs:\n")
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        expect { runner.send(:with_fresh_copy) { nil } }
+          .to raise_error(Saboteur::ConfigError,
+                          "could not rebase the lockfile's PATH remote for path: source \"mygem\" " \
+                          "(#{original}); the lockfile must record it exactly once - run bundle install")
+      end
+    end
+
     it "refuses when the lockfile does not record the source exactly once (#722)" do
       Dir.mktmpdir do |dir|
         FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
