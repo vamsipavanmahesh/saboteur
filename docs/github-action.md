@@ -80,6 +80,10 @@ summary lists them apart with the reason from the ignore list.
 | `cache` | `true` | `true` or `false`; any other value fails the step. `false` skips restoring the cached coverage map and also passes `--no-cache` to saboteur, so the map is rebuilt. |
 | `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only, and it may not start with `-`. |
 | `artifact-name` | `saboteur-report-<job>-<matrix leg>` | Name of the uploaded JSON report artifact. Set it when one job uses this action more than once: upload-artifact rejects a second upload under one name. |
+| `review-comments` | `false` | `true` posts surviving mutants as review comments on the pull request's changed lines. Anything but `true` posts nothing. Needs `pull-requests: write`; see "Review comments" below. |
+| `max-comments` | `10` | The most review comments kept on the pull request. Survivors beyond it are counted in one summary comment that links the run. |
+| `github-token` | `${{ github.token }}` | Token the comments are posted with. |
+| `bot-login` | `github-actions[bot]` | Login of the account `github-token` posts as. Only its comments are deduplicated and removed. Set it when the token is a personal access token or an app token, or the cap is posted again on every push. |
 | `baseline` | empty | Path of an accepted survivor baseline. Runs `saboteur baseline check` instead of the diff-mode run; see "Failing on new survivors with a baseline" below. |
 | `baseline-epsilon` | empty | Only with `baseline`. The largest allowed score drop in percentage points (0 to 100, at most three decimals). |
 
@@ -123,6 +127,53 @@ which.
 
 A pull request is also limited by what diff mode selects, and by the
 `max_mutants_per_method` cap. The score says nothing about the whole project.
+
+## Review comments
+
+Set `review-comments: "true"` to post each surviving mutant as a review comment
+on its changed line, next to the annotation. The comment shows the operator,
+the original text, the mutant and a short hint, and starts with a hidden marker
+holding the mutant's digest. Nothing is posted by default.
+
+The job needs `pull-requests: write` on top of the usual `contents: read`:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+```
+
+and the action step gets the input:
+
+```yaml
+      - uses: vamsipavanmahesh/saboteur@main
+        with:
+          review-comments: "true"
+```
+
+How it behaves:
+
+- At most `max-comments` comments are kept. When more survivors exist, one
+  summary comment says how many were left out and links the run and its report.
+- A survivor already commented is not posted again on the next push. Survivors
+  saboteur labels `likely_equivalent` or `arid`, and accepted survivors, get no
+  comment.
+- A comment is removed, and a stale summary comment too, only when the report
+  says `saboteur.complete` is true: the run judged everything it selected. A
+  run that errored, hit a resource limit, was stopped early or sharded, skipped
+  files, or had mutants left unverified removes nothing, because a survivor may
+  simply not have been looked at. Posting goes on either way.
+- Only comments written by `bot-login` are ever touched. Mutation text comes from
+  the pull request's code, so it is shown in a code block and stripped of
+  control and direction-changing characters.
+- It comments only on `pull_request` runs from the same repository. A fork's
+  token is read-only, so the step prints a notice and does nothing. The step
+  never fails the job: a refused or failed GitHub call becomes a warning.
+- The line a comment sits on is the first changed line of the mutated code in
+  the commit the job checked out, which for `pull_request` is GitHub's merge
+  commit. The comment is attached to the pull request's head commit. If the base
+  branch changed the same file after the pull request branched, those two can
+  differ, so check the annotation or the report when a comment looks off.
 
 ## Failing on new survivors with a baseline
 
