@@ -305,8 +305,8 @@ module Saboteur
         @config["whole_file"].each do |pattern|
           next if subjects.any? { |subject| File.fnmatch?(pattern.to_s, subject.id) }
 
-          @diagnostics.warn("fix the whole_file entry \"#{pattern}\": it matches no discovered subject in " \
-                            "this run (subject ids look like RULES, A::B::C or A::B#m)")
+          @diagnostics.warn("fix the whole_file entry \"#{Text.display_safe(pattern.to_s)}\": it matches no " \
+                            "discovered subject in this run (subject ids look like RULES, A::B::C or A::B#m)")
         end
       end
 

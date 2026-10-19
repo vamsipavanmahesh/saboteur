@@ -19,6 +19,19 @@ module Saboteur
       rest.positive? ? "#{shown} and #{rest} more" : shown
     end
 
+    # Display-safe single line for text a repository controls (file names,
+    # config patterns, subject ids) before it joins a warning CI prints
+    # (#834): control characters become \xNN escapes so an injected newline
+    # cannot start a fresh line, a "##[" anywhere (Azure DevOps) loses its
+    # bracket, and a "::" starting the text (a GitHub workflow command -
+    # the runner trims leading whitespace first) loses its first colon.
+    # Other colons and brackets, as in "Saboteur::Error", stay as they are.
+    # Invalid UTF-8 is scrubbed first, as everywhere Text renders outside bytes.
+    def display_safe(text)
+      escaped = utf8(text).gsub(/[\x00-\x1f\x7f\u0080-\u009f]/) { |char| format("\\x%02x", char.ord) }
+      escaped.gsub("##[", "##\\x5b").sub(/\A[[:space:]]*\K:(?=:)/) { "\\x3a" }
+    end
+
     # Lossy: bytes that are not valid UTF-8 become the replacement
     # character. For log and message display only - never feed the result
     # back into filesystem, cache or protocol identity: scrubbing rewrites

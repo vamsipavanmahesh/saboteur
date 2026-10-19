@@ -399,10 +399,7 @@ module Saboteur
       # trims all Unicode spaces first) and a "##[" anywhere in it. Other
       # colons and brackets, as in "Saboteur::Error", are left alone.
       def plain_line(line)
-        text = line.chomp.gsub(/\e\[[0-9;]*[A-Za-z]/, "").gsub(/[\x00-\x1f\x7f\u0080-\u009f]/) do |char|
-          format("\\x%02x", char.ord)
-        end
-        text = text.gsub("##[", "##\\x5b").sub(/\A[[:space:]]*\K:(?=:)/) { "\\x3a" }
+        text = Text.display_safe(line.chomp.gsub(/\e\[[0-9;]*[A-Za-z]/, ""))
         text.size > TAIL_LINE_WIDTH ? "#{text[0, TAIL_LINE_WIDTH]}..." : text
       end
 
