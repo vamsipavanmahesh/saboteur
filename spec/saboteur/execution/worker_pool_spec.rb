@@ -385,4 +385,39 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     pids = described_class.new(jobs: 1).map([1, 2]) { |_| { "pid" => Process.pid } }
     expect(pids.map { |r| r["pid"] }.uniq).to eq([Process.pid])
   end
+
+  # Unit pins for the stop-time sweep internals (the v4 dogfood survivors
+  # on drain's tail guard, drain's report flag and kill_hard's direct arm).
+  describe "stop-time sweep internals" do
+    def pipe_worker(text)
+      rd, wr = IO.pipe
+      wr.write(text)
+      wr.close
+      described_class::Worker.new(0, 1234, nil, rd, :item, 0, nil, nil, nil)
+    end
+
+    it "skips an unterminated line left in a dead worker's pipe" do
+      worker = pipe_worker(%({"square": 4}))
+      results = {}
+      described_class.new(jobs: 1).send(:drain, worker, results)
+      expect(results).to be_empty
+      expect(worker.current).to eq(:item)
+    end
+
+    it "reports a drained line through the arrival callback when report is on" do
+      arrivals = []
+      pool = described_class.new(jobs: 1, on_result: ->(item, row) { arrivals << [item, row] })
+      results = {}
+      pool.send(:drain, pipe_worker(%({"square": 4}\n)), results, report: true)
+      expect(arrivals).to eq([[:item, { "square" => 4 }]])
+      expect(results).to eq(item: { "square" => 4 })
+    end
+
+    it "targets the group and the wedged worker's own pid when the direct kill is on" do
+      allow(Process).to receive(:kill)
+      described_class.new(jobs: 1).send(:kill_hard, 1234, direct: true)
+      expect(Process).to have_received(:kill).with("KILL", -1234).ordered
+      expect(Process).to have_received(:kill).with("KILL", 1234).ordered
+    end
+  end
 end
