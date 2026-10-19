@@ -131,10 +131,10 @@ module Saboteur
                       failure_details: listener.failure_details)
       end
 
-      def run_all(recorder)
+      def run_all(recorder, files: nil)
         configuration.order = "rand:#{config.fetch('seed', 1)}"
         configuration.fail_fast = false
-        execute(Listener.new(recorder), log_phase: true)
+        execute(Listener.new(recorder), log_phase: true, files: files)
       end
 
       def run_baseline(seed:)
@@ -262,10 +262,10 @@ module Saboteur
       # redirected to the phase's log: progress and failure detail land in
       # that log, so a failed phase can be diagnosed from it. Mutant runs
       # stay quiet.
-      def execute(listener, log_phase: false)
+      def execute(listener, log_phase: false, files: nil)
         reporter = ::RSpec::Core::Reporter.new(configuration)
         reporter.register_listener(listener, *Listener::EVENTS)
-        groups = world.ordered_example_groups.select { |group| group.descendant_filtered_examples.any? }
+        groups = runnable_groups(files)
         count = world.example_count(groups)
         if log_phase
           logger = PhaseLogger.new($stdout, total: count)
@@ -277,6 +277,17 @@ module Saboteur
         end
         listener.runtime = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
         passed && !world.non_example_failure
+      end
+
+      # The top-level groups with examples to run, in the world's order. With
+      # files, only the groups a spec file in that list defines (a part of a
+      # partitioned coverage build, #741).
+      def runnable_groups(files)
+        groups = world.ordered_example_groups.select { |group| group.descendant_filtered_examples.any? }
+        return groups unless files
+
+        wanted = files.to_set { |file| File.expand_path(file) }
+        groups.select { |group| wanted.include?(File.expand_path(group.metadata[:file_path])) }
       end
 
       # Progress and failure detail for a phase log. Every 25 finished
