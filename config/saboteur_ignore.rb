@@ -1503,4 +1503,27 @@ i.mutation "fdc4600f4e8e8625",
                      "argv is empty - and every element is truthy, so any? and all? " \
                      "agree on every reachable value - hand-applied mutant leaves " \
                      "all 12 agent_provenance examples green"
+  i.mutation "78ef1d693e21db45",
+             subject: "Saboteur::Selection::CoverageMap.combine_tests",
+             reason: "equivalent: Array#tally only emits counts of 1 or more, so count > 1 and " \
+                     "count != 1 agree on every input - hand-applied mutant leaves " \
+                     "all 70 coverage_map examples green"
+
+  i.mutation "2b0d2e7470854410",
+             subject: "Saboteur::Selection::CoverageMap.combine_hits",
+             reason: "equivalent: the each result is discarded (acc is mutated for effect); " \
+                     "each and map run the same body - hand-applied mutant leaves " \
+                     "all 70 coverage_map examples green"
+
+  i.mutation "9c92542e3d5e8c07",
+             subject: "Saboteur::Selection::CoverageMap.combine_hits",
+             reason: "equivalent: the each result is discarded (target is mutated for effect); " \
+                     "each and map run the same body - hand-applied mutant leaves " \
+                     "all 70 coverage_map examples green"
+
+  i.mutation "1aea04b4ad2b5797",
+             subject: "Saboteur::Selection::CoverageMap.combine_lists",
+             reason: "equivalent: the each result is discarded (acc is mutated for effect); " \
+                     "each and map run the same body - hand-applied mutant leaves " \
+                     "all 70 coverage_map examples green"
 end
