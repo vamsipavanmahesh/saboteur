@@ -131,6 +131,10 @@ module Saboteur
                       failure_details: listener.failure_details)
       end
 
+      def example_count(files: nil)
+        world.example_count(runnable_groups(files))
+      end
+
       def run_all(recorder, files: nil)
         configuration.order = "rand:#{config.fetch('seed', 1)}"
         configuration.fail_fast = false
