@@ -18,7 +18,10 @@ module Saboteur
       DEFAULT_LIMIT = 10
       MAX_TEXT = 200
       DIGEST = /\A\h{8,64}\z/
-      MARKER_PATTERN = /<!-- #{MARKER}(\h{8,64}) -->/
+      MARKER_PATTERN = /\A<!-- #{MARKER}(\h{8,64}) -->/
+      HTTPS_URL = %r{\Ahttps://\S+\z}
+      # Bidirectional overrides, zero-width marks and control characters other than tab and newline.
+      UNSAFE_TEXT = /[\u202a-\u202e\u2066-\u2069\u200b-\u200f\u2060\u061c\ufeff\u0000-\u0008\u000b-\u001f\u007f]/
       # Labels whose survivors are probably noise: never worth a comment.
       QUIET = %w[likely_equivalent arid].freeze
 
@@ -36,11 +39,11 @@ module Saboteur
         # existing: the bot's review comments, as hashes with "id" and "body".
         # Returns post (path, line, digest, body), delete (comment ids) and
         # summary (text, or nil when nothing was left out).
-        def plan(findings, existing: [], limit: DEFAULT_LIMIT, run_url: nil)
+        def plan(findings, existing: [], limit: DEFAULT_LIMIT, run_url: nil, complete: false)
           posted = digests_of(existing)
           candidates = candidates(findings)
           fresh = candidates.reject { |finding| posted.key?(finding["digest"]) }
-          gone = stale(posted, findings)
+          gone = complete == true ? stale(posted, findings) : {}
           room = [Integer(limit) - (posted.size - gone.size), 0].max
           Plan.new(post: fresh.first(room).map { |finding| comment(finding) }, delete: gone.values,
                    summary: summary(findings, fresh, room, run_url))
@@ -54,6 +57,11 @@ module Saboteur
            fenced(finding["replacement"], "Mutant"),
            "",
            hint(finding["classification"])].join("\n")
+        end
+
+        # A summary comment the bot left: the marker must lead the body.
+        def summary_comment?(body)
+          body.to_s.start_with?(SUMMARY_MARKER)
         end
 
         def marker(digest)
@@ -70,8 +78,13 @@ module Saboteur
         def candidates(findings)
           Array(findings["survivors"]).select do |finding|
             DIGEST.match?(finding["digest"].to_s) && finding["path"].is_a?(String) &&
-              !Array(finding["changedLines"]).empty? && !QUIET.include?(finding["classification"])
+              finding["changedLines"].is_a?(Array) && usable_line?(finding["changedLines"].first) &&
+              !QUIET.include?(finding["classification"])
           end
+        end
+
+        def usable_line?(line)
+          line.is_a?(Integer) && line.positive?
         end
 
         def digests_of(existing)
@@ -85,7 +98,7 @@ module Saboteur
         # findings list every live survivor; a truncated list says nothing
         # about the ones it left out, so nothing is deleted then.
         def stale(posted, findings)
-          return {} unless findings["survivorsTruncated"].to_i.zero?
+          return {} unless findings["survivors"].is_a?(Array) && findings["survivorsTruncated"].to_i.zero?
 
           live = Array(findings["survivors"]).map { |finding| finding["digest"] }
           posted.except(*live)
@@ -97,7 +110,7 @@ module Saboteur
 
           text = "#{SUMMARY_MARKER}\n#{left_out} more surviving mutant#{'s' unless left_out == 1} " \
                  "not shown as comments."
-          run_url ? "#{text} Full report: #{run_url}" : text
+          HTTPS_URL.match?(run_url.to_s) ? "#{text} Full report: #{run_url}" : text
         end
 
         def hint(label)
@@ -109,7 +122,7 @@ module Saboteur
         end
 
         def fenced(text, label)
-          code = text.to_s.scrub[0, MAX_TEXT]
+          code = text.to_s.scrub.gsub(UNSAFE_TEXT, "")[0, MAX_TEXT]
           fence = "`" * [3, code.scan(/`{1,}/).map(&:size).max.to_i + 1].max
           "#{label}:\n#{fence}ruby\n#{code}\n#{fence}"
         end

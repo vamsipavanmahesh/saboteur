@@ -70,6 +70,20 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
       expect(fence_of("`` and ````")).to eq("`````")
     end
 
+    it "strips bidirectional and control characters from the mutation text" do
+      body = described_class.body(finding("aabbccdd11223344",
+                                          replacement: "a\u202eb\u2066c\u0007d\te\nf\u200fg\u200bh\u200ci\u200d" \
+                                                       "j\u2060k\ufeffl\u061cm"))
+
+      expect(body).to include("Mutant:\n```ruby\nabcd\te\nfghijklm\n```")
+    end
+
+    it "replaces invalid UTF-8 instead of raising" do
+      body = described_class.body(finding("aabbccdd11223344", replacement: (+"a\xFFb").force_encoding("UTF-8")))
+
+      expect(body).to include("Mutant:\n```ruby\na\uFFFDb\n```")
+    end
+
     it "writes missing text as an empty block, and keeps 40 characters of the operator" do
       body = described_class.body(finding("aabbccdd11223344", original: nil, operator: "o" * 50))
 
@@ -90,7 +104,7 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
 
     it "frees room by deleting the comments of survivors that are gone" do
       plan = described_class.plan(findings(finding("aabbccdd11223302"), finding("aabbccdd11223303")),
-                                  existing: [posted("aabbccdd11223301", 1)], limit: 1)
+                                  existing: [posted("aabbccdd11223301", 1)], limit: 1, complete: true)
 
       expect(plan.delete).to eq([1])
       expect(plan.post.map { |c| c[:digest] }).to eq(%w[aabbccdd11223302])
@@ -98,10 +112,67 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
 
     it "carries the full body, and reads findings that omit the truncation count" do
       one = finding("aabbccdd11223344")
-      plan = described_class.plan({ "survivors" => [one] }, existing: [posted("aabbccdd11223355", 5)])
+      plan = described_class.plan({ "survivors" => [one] }, existing: [posted("aabbccdd11223355", 5)],
+                                                            complete: true)
 
       expect(plan.post.first[:body]).to eq(described_class.body(one))
       expect(plan.delete).to eq([5])
+    end
+
+    it "reads a marker only at the start of the body" do
+      quoted = { "id" => 8, "body" => "see #{described_class.marker('aabbccdd11223344')}" }
+      plan = described_class.plan(findings(finding("aabbccdd11223344")), existing: [quoted])
+
+      expect(plan.post.size).to eq(1)
+      expect(described_class.plan(findings, existing: [quoted], complete: true).delete).to eq([])
+    end
+
+    it "deletes nothing when the findings carry no survivor list, but does when the list is empty" do
+      gone = [posted("aabbccdd11223344", 9)]
+
+      expect(described_class.plan({}, existing: gone, complete: true).delete).to eq([])
+      expect(described_class.plan({ "survivors" => {} }, existing: gone, complete: true).delete).to eq([])
+      expect(described_class.plan({ "survivors" => [] }, existing: gone, complete: true).delete).to eq([9])
+    end
+
+    it "deletes only when complete is exactly true" do
+      gone = [posted("aabbccdd11223344", 9)]
+
+      expect(described_class.plan(findings, existing: gone).delete).to eq([])
+      [false, nil, "false", "true", 1, :yes].each do |value|
+        expect(described_class.plan(findings, existing: gone, complete: value).delete).to eq([])
+      end
+      expect(described_class.plan(findings, existing: gone, complete: true).delete).to eq([9])
+    end
+
+    it "skips a survivor whose first changed line is not a positive integer" do
+      plan = described_class.plan(findings(finding("aabbccdd11223301", changedLines: ["7"]),
+                                           finding("aabbccdd11223302", changedLines: [0]),
+                                           finding("aabbccdd11223303", changedLines: "7"),
+                                           finding("aabbccdd11223304", changedLines: [7.0]),
+                                           finding("aabbccdd11223305", changedLines: [7])))
+
+      expect(plan.post.map { |c| c[:digest] }).to eq(%w[aabbccdd11223305])
+    end
+
+    it "only looks at the first changed line" do
+      plan = described_class.plan(findings(finding("aabbccdd11223344", changedLines: [7, "x"])))
+
+      expect(plan.post.map { |c| c[:line] }).to eq([7])
+    end
+
+    it "links the run only when it is an https URL" do
+      many = findings(finding("aabbccdd11223344"))
+      ["http://x.test/r", "javascript:alert(1)", "https://x.test/a b", nil].each do |url|
+        expect(described_class.plan(many, limit: 0, run_url: url).summary).not_to include("Full report")
+      end
+      expect(described_class.plan(many, limit: 0, run_url: "https://x.test/r").summary).to end_with("report: https://x.test/r")
+    end
+
+    it "recognizes the summary comment only when the marker leads" do
+      expect(described_class.summary_comment?("#{described_class::SUMMARY_MARKER}\n2 more")).to be(true)
+      expect(described_class.summary_comment?("quote #{described_class::SUMMARY_MARKER}")).to be(false)
+      expect(described_class.summary_comment?(nil)).to be(false)
     end
 
     it "accepts the limit as a string" do
@@ -138,21 +209,22 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
 
     it "deletes the comment of a survivor that is gone" do
       plan = described_class.plan(findings(finding("aabbccdd11223355")),
-                                  existing: [posted("aabbccdd11223344", 9), { "id" => 4, "body" => "human note" }])
+                                  existing: [posted("aabbccdd11223344", 9), { "id" => 4, "body" => "human note" }],
+                                  complete: true)
 
       expect(plan.delete).to eq([9])
     end
 
     it "keeps a still-live survivor's comment even when it is quiet now" do
       plan = described_class.plan(findings(finding("aabbccdd11223344", classification: "arid")),
-                                  existing: [posted("aabbccdd11223344", 9)])
+                                  existing: [posted("aabbccdd11223344", 9)], complete: true)
 
       expect(plan.delete).to eq([])
     end
 
     it "deletes nothing when the findings list was truncated" do
       plan = described_class.plan(findings(finding("aabbccdd11223355"), truncated: 3),
-                                  existing: [posted("aabbccdd11223344", 9)])
+                                  existing: [posted("aabbccdd11223344", 9)], complete: true)
 
       expect(plan.delete).to eq([])
     end
