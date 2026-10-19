@@ -1377,4 +1377,15 @@ i.mutation "fdc4600f4e8e8625",
                      "surviving .uniq removes it, and even without dedup a duplicated " \
                      "regex alternation matches the same strings - hand-applied mutant " \
                      "leaves all 67 external_runner examples green"
+
+  # external_runner.rb:257 - the block's return value is discarded: rebase_path_sources
+  # iterates for side effects only, and Array#map visits the same pairs in the same
+  # order as Array#each. Hand-applied mutant: all 67 external_runner examples green on
+  # merged main 28162ddb.
+  i.mutation "35143ffa0853a1c4",
+             subject: "Saboteur::Execution::ExternalRunner#rebase_path_sources",
+             reason: "equivalent: the block's return value is discarded - " \
+                     "rebase_path_sources iterates for side effects only - and Array#map " \
+                     "visits the same pairs in the same order as Array#each - " \
+                     "hand-applied mutant leaves all 67 external_runner examples green"
 end

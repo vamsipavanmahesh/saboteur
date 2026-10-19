@@ -688,6 +688,23 @@ RSpec.describe Saboteur::Execution::ExternalRunner do
       end
     end
 
+    it "tolerates a missing Gemfile.lock: the Gemfile rewrite proceeds without one (#729)" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "engines", "mygem"))
+        File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{dir}/engines/mygem\"\n")
+        original = File.join(dir, "engines", "mygem")
+        row = source_row(name: "mygem", original: original, expanded: original)
+        runner = described_class.new(command: "true", root: dir, path_sources: [row])
+
+        runner.send(:with_fresh_copy) do
+          copy = runner.instance_variable_get(:@copy_root)
+          gemfile = File.read(File.join(copy, "Gemfile"))
+          expect(gemfile).to eq("gem \"mygem\", path: \"#{copy}/engines/mygem\"\n")
+          expect(File.exist?(File.join(copy, "Gemfile.lock"))).to be(false)
+        end
+      end
+    end
+
     it "rebases an absolute path: source equal to the project root onto the copy root (#722)" do
       Dir.mktmpdir do |dir|
         File.write(File.join(dir, "Gemfile"), "gem \"mygem\", path: \"#{dir}\"\n")
