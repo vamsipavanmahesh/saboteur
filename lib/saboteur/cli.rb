@@ -30,6 +30,7 @@ require_relative "cli/help_command"
 require_relative "cli/run_validation"
 require_relative "cli/explicit_sources"
 require_relative "cli/run_output"
+require_relative "cli/dirty_tree_notice"
 
 module Saboteur
   class CLI
@@ -55,6 +56,7 @@ module Saboteur
     include RunValidation
     include ExplicitSources
     include RunOutput
+    include DirtyTreeNotice
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -159,16 +161,6 @@ module Saboteur
     rescue Error => e
       @err.puts("saboteur: #{e.message}")
       agent_failure(e.message, EXIT_TOOL)
-    end
-
-    # Mutants run your code, and a mutant of code that writes or deletes files
-    # can change the tree. Say so up front when uncommitted work is at stake.
-    # The scope the warning names is the configured one: positional source
-    # operands narrow the run after the warning, so the include/exclude they
-    # imply stay out of its config (#309, #503 review).
-    def warn_dirty_tree
-      warning = @sources ? Config.load(path: options[:config], overrides: overrides.except(:include, :exclude)) : config
-      DirtyTreeWarning.for(warning, config_path: options[:config])&.then { |text| @err.puts(text) }
     end
 
     def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
