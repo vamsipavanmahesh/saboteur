@@ -11,7 +11,18 @@ module Saboteur
         SYNTAX_FAILURE = "invalid_file_syntax"
         UNREADABLE_FAILURE = "unreadable"
 
+        # The only reason that leaves a run complete: the author suppressed
+        # candidates inline, on purpose. Every other reason can drop a survivor.
+        BENIGN = %w[inline_suppressed].freeze
+
         class << self
+          # True when the run judged everything it selected (the saboteur.complete
+          # flag in the JSON report): what an action may rely on before it removes
+          # a review comment because its survivor is no longer reported.
+          def complete?(report)
+            reasons(report).all? { |reason| BENIGN.include?(reason[:reason]) }
+          end
+
           def reasons(report)
             reasons = []
             shard_reason(reasons, report)
