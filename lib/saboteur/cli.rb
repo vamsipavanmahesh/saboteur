@@ -28,6 +28,7 @@ require_relative "cli/agent_provenance"
 require_relative "cli/preview_command"
 require_relative "cli/help_command"
 require_relative "cli/run_validation"
+require_relative "cli/explicit_sources"
 
 module Saboteur
   class CLI
@@ -51,6 +52,7 @@ module Saboteur
     include PreviewCommand
     include HelpCommand
     include RunValidation
+    include ExplicitSources
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -191,40 +193,6 @@ module Saboteur
     ensure
       $stdout.reopen(saved) if saved
       saved&.close
-    end
-
-    # Positional arguments name the files (or directories) to mutate. They
-    # replace the configured include and exclude patterns. Each must exist,
-    # so a typo is an error and not a run over zero subjects.
-    def use_explicit_sources
-      Selection::SourceScope.verify_no_specs!(@argv)
-      options[:tests]&.each { |test| require_existing_test(test) }
-      # --test may stand alone: the configured include (or the --since
-      # diff) names the sources. The files must still exist.
-      return if @argv.empty?
-
-      @sources = @argv.dup
-      options[:include] = @argv.map { |source| source_pattern(source) }
-      options[:exclude] = []
-    end
-
-    def source_pattern(source)
-      return "#{glob_escape(source.chomp('/'))}/**/*.rb" if File.directory?(source)
-      raise UsageError, "source is not a Ruby file: #{source}" if File.file?(source) && !source.end_with?(".rb")
-      raise UsageError, "source file not found: #{source}" unless File.file?(source)
-
-      glob_escape(source)
-    end
-
-    # include is a list of glob patterns; a named file must match only itself.
-    def glob_escape(path)
-      path.gsub(/[\\*?\[\]{}]/) { |character| "\\#{character}" }
-    end
-
-    # A test may carry an example selector: spec/a_spec.rb:12 or spec/a_spec.rb[1:2].
-    def require_existing_test(test)
-      path = test.sub(/(:\d+|\[[\d:,]+\])+\z/, "")
-      raise UsageError, "test file not found: #{test}" unless File.exist?(path)
     end
 
     def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
