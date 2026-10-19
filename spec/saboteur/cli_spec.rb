@@ -795,6 +795,14 @@ RSpec.describe Saboteur::CLI do
                  File.join(Dir.mktmpdir, "r.json")).call).to eq(0)
     end
 
+    it "still makes a resource-limit mutant incomplete under --threshold with --max-errors" do
+      report = report_of(*killed(8), result_for(:resource_limit))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+      expect(cli("run", "--threshold", "50", "--max-errors", "1", "--json",
+                 File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
+      expect(err.string).to include("1 mutant(s) errored or hit a resource limit, so the score is incomplete")
+    end
+
     it "still makes an errored mutant incomplete under --threshold with only --max-timeouts" do
       report = report_of(*killed(8), result_for(:error))
       allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
@@ -865,6 +873,40 @@ RSpec.describe Saboteur::CLI do
       report = report_of(result_for(:killed), result_for(:error), result_for(:error))
       expect(run_with(report)).to eq(3)
       expect(err.string).to include("2 of 3 mutants errored")
+    end
+
+    # A worker killed by a signal (the OOM killer, a CI timeout) errors
+    # its mutants; the exit message must name that cause, not only the
+    # count (#848).
+    it "names the signal when most executed mutants errored because a worker was killed" do
+      died = "worker 1 died (signal KILL), running this item"
+      report = report_of(result_for(:killed), result_for(:error, reason: died),
+                         result_for(:error, reason: died.sub("1", "2")),
+                         result_for(:error, reason: "boot failed: boom"))
+      expect(run_with(report)).to eq(3)
+      expect(err.string).to include(
+        "saboteur: fix the errors and run again\n  3 of 4 mutants errored, so the run tested almost nothing\n  " \
+        "most common cause (2 of 3): #{died}\n"
+      )
+    end
+
+    it "names a non-signal error cause, first line only, and stays silent when no result has a reason" do
+      report = report_of(result_for(:error, reason: "boot failed: boom\n  from x.rb:1"), result_for(:error))
+      expect(run_with(report)).to eq(3)
+      expect(err.string).to include("most common cause (1 of 2): boot failed: boom\n")
+      expect(err.string).not_to include("x.rb:1")
+      err.truncate(0)
+      expect(run_with(report_of(result_for(:error), result_for(:error)))).to eq(3)
+      expect(err.string).to end_with("2 of 2 mutants errored, so the run tested almost nothing\n")
+    end
+
+    it "names the cause under --threshold when a mutant errored" do
+      died = "worker 2 died (signal KILL), running this item"
+      report = report_of(result_for(:killed), result_for(:error, reason: died))
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, guessed_tests: nil,
+                                                                                            call: report))
+      expect(cli("run", "--threshold", "50", "--json", File.join(Dir.mktmpdir, "r.json")).call).to eq(3)
+      expect(err.string).to include("score is incomplete\n  most common cause (1 of 1): worker 2 died (signal KILL)")
     end
 
     it "still passes when at most half of the executed mutants errored" do
