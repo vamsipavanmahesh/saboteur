@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "stringio"
 require "timeout"
 require "tmpdir"
 
@@ -173,5 +174,33 @@ RSpec.describe Saboteur::Engine::ResumeManifest do
     allow(File).to receive(:link).and_raise(Errno::EACCES)
     expect { manifest.verify! }.to raise_error(Errno::EACCES)
     expect(Dir.children(dir)).to be_empty
+  end
+
+  describe "in Engine#preflight! (#471)" do
+    def engine(**kwargs)
+      config = Saboteur::Config.new({ "resume" => dir }, root: File.dirname(dir))
+      Saboteur::Engine.new(config, err: StringIO.new, **kwargs)
+    end
+
+    it "writes the manifest for a normal run" do
+      engine.send(:verify_resume_directory)
+      expect(File).to exist(File.join(dir, "manifest.json"))
+    end
+
+    it "touches nothing for a replay, which never reads the cache" do
+      engine(digest: "a" * 16).send(:verify_resume_directory)
+      expect(File).not_to exist(dir)
+    end
+
+    it "does nothing without a resume directory" do
+      config = Saboteur::Config.new({}, root: File.dirname(dir))
+      expect(Saboteur::Engine.new(config, err: StringIO.new).send(:verify_resume_directory)).to be_nil
+    end
+
+    it "turns a Mismatch into a ConfigError" do
+      FileUtils.mkdir_p(dir)
+      File.write(File.join(dir, "manifest.json"), "{nope")
+      expect { engine.send(:verify_resume_directory) }.to raise_error(Saboteur::ConfigError, /unreadable manifest/)
+    end
   end
 end

@@ -82,7 +82,7 @@ module Saboteur
 
     # An unusable --resume directory fails before the expensive phases (#471).
     def verify_resume_directory
-      return unless config["resume"]
+      return if @replay || !config["resume"]
 
       ResumeManifest.new(directory: config.path("resume"), identity: Digest::SHA256.hexdigest(verdict_inputs)).verify!
     rescue ResumeManifest::Mismatch => e
