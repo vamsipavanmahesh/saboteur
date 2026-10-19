@@ -33,7 +33,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "cache-miss note (#46)" do
     first, first_err = noisy_store
     first.fetch([file])
     expect(first_err.string).to include("saboteur: coverage cache miss: no earlier map to compare with;")
-    expect(File.exist?(File.join(@root, ".saboteur", "inputs-coverage.json"))).to be(true)
+    expect(Dir[File.join(@root, ".saboteur", "inputs-*.json")].size).to eq(1)
 
     File.write(file, "2\n")
     second, second_err = noisy_store
@@ -91,9 +91,9 @@ RSpec.describe Saboteur::Engine::CoverageStore, "cache-miss note (#46)" do
     first, = noisy_store
     allow(first).to receive(:build).and_return(map)
     first.fetch([file])
-    path = File.join(@root, ".saboteur", "inputs-coverage.json")
+    path = Dir[File.join(@root, ".saboteur", "inputs-*.json")].fetch(0)
     data = JSON.parse(File.read(path))
-    data["files"]["a\n::error::boom ##[warning]x\e[31m"] = "digest"
+    data["files"]["a\n::error::boom ##[warning]x\e[31m"] = "f" * 64
     File.write(path, JSON.generate(data))
     File.write(file, "2\n")
     second, err = noisy_store
@@ -120,7 +120,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "cache-miss note (#46)" do
     changed, err = noisy_store(rspec_args: ["--tag", "fast"])
     changed.fetch([file])
 
-    expect(err.string).to include("coverage cache miss: settings or saboteur version changed;")
+    expect(err.string).to include("coverage cache miss: settings, Ruby or saboteur version changed;")
   end
 
   it "says settings changed when only the saboteur version changes" do
@@ -130,7 +130,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "cache-miss note (#46)" do
     later, err = noisy_store
     later.fetch([file])
 
-    expect(err.string).to include("coverage cache miss: settings or saboteur version changed;")
+    expect(err.string).to include("coverage cache miss: settings, Ruby or saboteur version changed;")
   end
 
   describe "the cache key's file list" do

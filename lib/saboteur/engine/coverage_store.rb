@@ -100,7 +100,7 @@ module Saboteur
 
       def miss_note(files)
         CoverageMissNote.new(cache_dir: @config.path("cache_dir"), root: @root, files: key_files(files).sort,
-                             settings: [Saboteur::VERSION, key_inputs],
+                             settings: key_inputs, map_key: cache_key(files),
                              clean: ->(path) { plain_line(Text.utf8(path.to_s)) })
       end
 

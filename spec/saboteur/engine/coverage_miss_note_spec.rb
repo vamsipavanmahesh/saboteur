@@ -12,21 +12,25 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
   end
 
   let(:cache_dir) { File.join(@root, ".saboteur") }
-  let(:snapshot) { File.join(cache_dir, "inputs-coverage.json") }
+  let(:map_key) { "a" * 64 }
+  let(:snapshot) { File.join(cache_dir, "inputs-#{map_key}.json") }
   let(:hint) { "--test narrows the specs the build runs" }
 
   def write(name, body = "1\n")
     File.join(@root, name).tap { |path| File.write(path, body) }
   end
 
-  def note(names, settings: "s1", clean: :itself.to_proc)
+  def note(names, settings: "s1", clean: :itself.to_proc, key: "b" * 64)
     described_class.new(cache_dir: cache_dir, root: @root, files: names.map { |name| File.join(@root, name) },
-                        settings: settings, clean: clean)
+                        settings: settings, map_key: key, clean: clean)
   end
 
+  # An earlier map under map_key, with its snapshot written the way the store does.
   def seed(names, settings: "s1")
     names.each { |name| write(name) }
-    note(names, settings: settings).save
+    FileUtils.mkdir_p(cache_dir)
+    File.write(File.join(cache_dir, "coverage-#{map_key}.json"), "{}")
+    note(names, settings: settings, key: map_key).save
   end
 
   it "says there is nothing to compare with before any map was saved" do
@@ -84,7 +88,9 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
 
   it "treats a listed file that does not exist yet as different from one that now has content" do
     write("a.rb")
-    note(%w[a.rb ghost.rb]).save
+    FileUtils.mkdir_p(cache_dir)
+    File.write(File.join(cache_dir, "coverage-#{map_key}.json"), "{}")
+    note(%w[a.rb ghost.rb], key: map_key).save
     write("ghost.rb")
 
     expect(note(%w[a.rb ghost.rb]).message(scoped: false))
@@ -95,7 +101,7 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
     seed(%w[a.rb])
 
     expect(note(%w[a.rb], settings: "s2").message(scoped: false))
-      .to include("coverage cache miss: settings or saboteur version changed;")
+      .to include("coverage cache miss: settings, Ruby or saboteur version changed;")
   end
 
   it "reports files and settings together" do
@@ -103,7 +109,7 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
     write("a.rb", "2\n")
 
     expect(note(%w[a.rb], settings: "s2").message(scoped: false))
-      .to include("1 edited (a.rb); settings or saboteur version changed;")
+      .to include("1 edited (a.rb); settings, Ruby or saboteur version changed;")
   end
 
   it "does not claim the map file is gone when inputs match, only that it is missing or unusable" do
@@ -167,52 +173,68 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
     seed(%w[a.rb])
     File.write(File.join(@root, "a.rb"), "2\n")
     names = described_class.new(cache_dir: cache_dir, root: @root, files: [File.join(@root, "a.rb"), outside],
-                                settings: "s1", clean: :itself.to_proc)
+                                settings: "s1", map_key: "b" * 64, clean: :itself.to_proc)
 
     expect(names.message(scoped: false)).to include("1 edited, 1 added (#{outside}, a.rb);")
   ensure
     FileUtils.rm_f(outside)
   end
 
+  it "does not compare against a snapshot whose map file is gone" do
+    seed(%w[a.rb])
+    File.delete(File.join(cache_dir, "coverage-#{map_key}.json"))
+    write("a.rb", "2\n")
+
+    expect(note(%w[a.rb]).message(scoped: false)).to include("no earlier map to compare with")
+  end
+
+  it "says the Ruby or saboteur version changed when only the runtime identity differs" do
+    seed(%w[a.rb])
+    allow(Saboteur::Engine::RunFingerprint).to receive(:runtime_identity)
+      .and_return(Saboteur::Engine::RunFingerprint.runtime_identity.merge(version: "0.0.0"))
+
+    expect(note(%w[a.rb]).message(scoped: false))
+      .to include("coverage cache miss: settings, Ruby or saboteur version changed;")
+  end
+
   describe "#save" do
+    it "does nothing when the map it names was never saved" do
+      write("a.rb")
+      note(["a.rb"], key: map_key).save
+
+      expect(File.exist?(snapshot)).to be(false)
+    end
+
     it "writes through a temp file renamed into place and leaves nothing else behind" do
       write("a.rb")
+      FileUtils.mkdir_p(cache_dir)
+      File.write(File.join(cache_dir, "coverage-#{map_key}.json"), "{}")
       allow(File).to receive(:rename).and_call_original
-      note(["a.rb"]).save
+      note(["a.rb"], key: map_key).save
 
       expect(File).to have_received(:rename).with("#{snapshot}.#{Process.pid}.tmp", snapshot)
-      expect(Dir.children(cache_dir)).to eq(["inputs-coverage.json"])
+      expect(Dir.children(cache_dir).sort).to eq(["coverage-#{map_key}.json", "inputs-#{map_key}.json"])
     end
 
     it "ignores a write failure, so a good run is not aborted" do
       write("a.rb")
-      allow(File).to receive(:write).and_raise(Errno::ENOSPC)
+      FileUtils.mkdir_p(cache_dir)
+      File.write(File.join(cache_dir, "coverage-#{map_key}.json"), "{}")
+      allow(File).to receive(:write).and_call_original
+      allow(File).to receive(:write).with(/\.tmp\z/, anything).and_raise(Errno::ENOSPC)
 
-      expect { note(["a.rb"]).save }.not_to raise_error
-    end
-
-    it "ignores an unwritable cache directory" do
-      write("a.rb")
-      allow(FileUtils).to receive(:mkdir_p).and_raise(Errno::EACCES)
-
-      expect { note(["a.rb"]).save }.not_to raise_error
+      expect { note(["a.rb"], key: map_key).save }.not_to raise_error
+      expect(File.exist?(snapshot)).to be(false)
     end
 
     it "removes the temp file when the rename fails" do
       write("a.rb")
-      allow(File).to receive(:rename).and_raise(Errno::EXDEV)
-      note(["a.rb"]).save
-
-      expect(Dir.children(cache_dir)).to eq([])
-    end
-
-    it "ignores a path that cannot be encoded as JSON" do
       FileUtils.mkdir_p(cache_dir)
-      bad = described_class.new(cache_dir: cache_dir, root: @root, files: [write("a.rb")], settings: "s1",
-                                clean: :itself.to_proc)
-      bad.instance_variable_set(:@current, { "files" => { "\xff".b => "x" } })
+      File.write(File.join(cache_dir, "coverage-#{map_key}.json"), "{}")
+      allow(File).to receive(:rename).and_raise(Errno::EXDEV)
+      note(["a.rb"], key: map_key).save
 
-      expect { bad.save }.not_to raise_error
+      expect(Dir.children(cache_dir)).to eq(["coverage-#{map_key}.json"])
     end
   end
 end
