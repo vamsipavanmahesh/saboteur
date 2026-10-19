@@ -331,7 +331,8 @@ module Saboteur
                        "build. No test in the suite may exercise these files, or the setup hid the app " \
                        "from Coverage#{bootsnap_note}. Run `saboteur doctor`."
         end
-        @diagnostics.warn("Coverage recorded nothing in #{files.size} included files; " \
+        @diagnostics.warn("name the specs that exercise them in --test, or drop --test to run the whole suite\n  " \
+                          "Coverage recorded nothing in #{files.size} included files; " \
                           "the selected specs may not exercise them.")
         map
       end

@@ -496,7 +496,10 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                 integration: integration, hooks: Saboteur::Hooks.new, supervisor: supervisor,
                                 diagnostics: Saboteur::Engine::Diagnostics.new(err))
     expect(store.fetch([file]).tests).to eq(["t1"])
-    expect(store.instance_variable_get(:@diagnostics).warnings.last).to include("may not exercise them")
+    expect(store.instance_variable_get(:@diagnostics).warnings.last).to eq(
+      "name the specs that exercise them in --test, or drop --test to run the whole suite\n  " \
+      "Coverage recorded nothing in 1 included files; the selected specs may not exercise them."
+    )
   end
 
   it "keeps the explicit-test and whole-suite caches separate" do
