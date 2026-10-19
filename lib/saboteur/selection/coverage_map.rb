@@ -320,7 +320,6 @@ module Saboteur
       # sums the shards' effort, staying nil when no shard recorded one.
       def self.combine(maps)
         raise ArgumentError, "no coverage maps to combine" if maps.empty?
-        return maps.first if maps.size == 1
 
         new(lines: combine_hits(maps.map(&:lines)), methods: combine_hits(maps.map(&:methods)),
             branches: combine_hits(maps.map(&:branches)), tests: combine_tests(maps),

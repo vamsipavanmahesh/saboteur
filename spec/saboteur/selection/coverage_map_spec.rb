@@ -110,18 +110,30 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(described_class.combine([plain, described_class.new(lines: {}, tests: %w[t3])]).build_seconds).to be_nil
     end
 
-    it "returns the single map for a one-shard build and refuses an empty build (#741)" do
-      map = described_class.new(lines: {}, tests: %w[t1])
+    it "reads a one-shard build as an equal map and refuses an empty build (#741)" do
+      map = described_class.new(lines: { file => { 3 => %w[t1] } }, tests: %w[t1], durations: { "t1" => 0.5 },
+                                build_seconds: 2)
+      combined = described_class.combine([map])
 
-      expect(described_class.combine([map])).to equal(map)
-      expect { described_class.combine([]) }.to raise_error(ArgumentError, /no coverage maps/)
+      expect(combined.tests).to eq(%w[t1])
+      expect(combined.tests_for_lines(file, [3])).to eq(%w[t1])
+      expect(combined.recorded_runtime(%w[t1])).to eq(0.5)
+      expect(combined.build_seconds).to eq(2)
+      expect { described_class.combine([]) }.to raise_error(ArgumentError, "no coverage maps to combine")
     end
 
     it "refuses shards that repeat a test id: the partition is not disjoint (#741)" do
       left = described_class.new(lines: {}, tests: %w[t1 t2])
       right = described_class.new(lines: {}, tests: %w[t2 t3])
 
-      expect { described_class.combine([left, right]) }.to raise_error(ArgumentError, /share test ids: t2/)
+      expect { described_class.combine([left, right]) }
+        .to raise_error(ArgumentError, "coverage maps share test ids: t2")
+
+      first = described_class.new(lines: {}, tests: %w[t9 t5 t1])
+      second = described_class.new(lines: {}, tests: %w[t1 t7 t9])
+
+      expect { described_class.combine([first, second]) }
+        .to raise_error(ArgumentError, "coverage maps share test ids: t1, t9")
     end
   end
 
