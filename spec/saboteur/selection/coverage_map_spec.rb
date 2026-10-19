@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "timeout"
+
 require "tmpdir"
 
 RSpec.describe Saboteur::Selection::CoverageMap do
@@ -323,6 +325,116 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       path = File.join(dir, "nested", "map.json")
       map.save(path)
       expect(described_class.load(path).tests).to eq(map.tests)
+      File.write(path, "{not json")
+      expect(described_class.load(path)).to be_nil
+    end
+  end
+
+  describe ".load of an untrusted file (#427)" do
+    around { |example| Dir.mktmpdir { |dir| (@dir = dir) && example.run } }
+
+    let(:path) { File.join(@dir, "map.json") }
+
+    def within_timeout(&)
+      Timeout.timeout(2, &)
+    end
+
+    it "loads a well-formed regular file" do
+      map.save(path)
+      expect(within_timeout { described_class.load(path) }.tests).to eq(map.tests)
+    end
+
+    it "treats a missing file as a miss" do
+      expect(described_class.load(path)).to be_nil
+    end
+
+    it "ignores a symlink to a valid map, even when lstat reports a regular file" do
+      map.save("#{path}.real")
+      File.symlink("#{path}.real", path)
+      expect(within_timeout { described_class.load(path) }).to be_nil
+      allow(File).to receive(:lstat).and_call_original
+      allow(File).to receive(:lstat).with(path).and_return(File.stat("#{path}.real"))
+      expect(within_timeout { described_class.load(path) }).to be_nil
+    end
+
+    it "ignores a symlink to /dev/zero" do
+      File.symlink("/dev/zero", path)
+      expect(within_timeout { described_class.load(path) }).to be_nil
+    end
+
+    it "ignores a FIFO" do
+      File.mkfifo(path)
+      expect(within_timeout { described_class.load(path) }).to be_nil
+    end
+
+    it "ignores a FIFO that holds a valid map" do
+      File.mkfifo(path)
+      File.open(path, File::RDWR) do |writer|
+        writer.write(map.to_json)
+        expect(within_timeout { described_class.load(path) }).to be_nil
+      end
+    end
+
+    it "does not read a FIFO even when lstat reports a regular file" do
+      File.mkfifo(path)
+      allow(File).to receive(:lstat).and_call_original
+      allow(File).to receive(:lstat).with(path).and_return(File.stat(__FILE__))
+      File.open(path, File::RDWR) do |writer|
+        writer.write(map.to_json)
+        expect(within_timeout { described_class.load(path) }).to be_nil
+      end
+    end
+
+    it "rejects a file over the size cap and reads one exactly at it" do
+      map.save(path)
+      size = File.size(path)
+      stub_const("#{described_class}::MAX_BYTES", size - 1)
+      expect(within_timeout { described_class.load(path) }).to be_nil
+      stub_const("#{described_class}::MAX_BYTES", size)
+      expect(within_timeout { described_class.load(path) }).not_to be_nil
+    end
+
+    it "rejects valid JSON followed by more bytes than the cap" do
+      map.save(path)
+      body = File.read(path)
+      File.write(path, body + (" " * 50))
+      stub_const("#{described_class}::MAX_BYTES", body.bytesize)
+      expect(within_timeout { described_class.load(path) }).to be_nil
+    end
+
+    {
+      "a null document" => "null",
+      "a top-level array" => "[1]",
+      "a bare format" => '{"format":11}',
+      "tests that are not a list" => '{"format":11,"tests":"x","durations":[],"lines":{}}',
+      "tests holding a non-String" => '{"format":11,"tests":[1],"durations":[null],"lines":{}}',
+      "lines that are an array" => '{"format":11,"tests":["t"],"durations":[null],"lines":[1]}',
+      "a file entry that is a String" => '{"format":11,"tests":["t"],"durations":[null],"lines":{"/a.rb":"x"}}',
+      "a line entry that is an Integer" => '{"format":11,"tests":["t"],"durations":[null],"lines":{"/a.rb":{"1":3}}}',
+      "a test index out of range" => '{"format":11,"tests":["t"],"durations":[null],"lines":{"/a.rb":{"1":[5]}}}',
+      "branches that are an array" =>
+        '{"format":11,"tests":["t"],"durations":[null],"lines":{},"branches":[1]}'
+    }.each do |label, content|
+      it "treats #{label} as a miss" do
+        File.write(path, content)
+        expect(within_timeout { described_class.load(path) }).to be_nil
+      end
+    end
+
+    it "raises a map error, not a crash, from from_json on a wrong top-level shape or tests list" do
+      expect { described_class.from_json("[1]") }.to raise_error(Saboteur::Error)
+      expect { described_class.from_json('{"format":11,"tests":"x"}') }.to raise_error(Saboteur::Error)
+      expect { described_class.from_json('{"format":11,"tests":["a",1]}') }.to raise_error(Saboteur::Error)
+    end
+
+    it "treats an empty file as a miss" do
+      File.write(path, "")
+      expect(within_timeout { described_class.load(path) }).to be_nil
+    end
+
+    it "treats invalid UTF-8 and corrupt JSON as a miss" do
+      File.binwrite(path, "\xFF\xFE".b)
+      expect(described_class.load(path)).to be_nil
       File.write(path, "{not json")
       expect(described_class.load(path)).to be_nil
     end
