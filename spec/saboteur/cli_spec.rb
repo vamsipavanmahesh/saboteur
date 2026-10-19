@@ -809,6 +809,45 @@ RSpec.describe Saboteur::CLI do
       end
     end
 
+    it "writes score-gate breakdowns into the JSON report (#473)" do
+      Dir.mktmpdir do |dir|
+        config = File.join(dir, "saboteur.rb")
+        File.write(config, 'Saboteur.configure { |c| c.score_gate "**/*", min_score: 95 }')
+        json = File.join(dir, "r.json")
+        engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+        allow(Saboteur::Engine).to receive(:new).and_return(engine)
+        expect(cli("run", "--config", config, "--json", json).call).to eq(0), "stderr: #{err.string}"
+        expect(JSON.parse(File.read(json)).dig("saboteur", "scoreGates")).to eq(
+          [{ "pattern" => "**/*", "minScore" => 95, "mutants" => 1, "tested" => 1, "score" => 100.0,
+             "passed" => true, "failingSubjects" => 0, "files" => ["person.rb"] }]
+        )
+      end
+    end
+
+    it "omits scoreGates from the JSON report when no score gates are configured" do
+      json = File.join(Dir.mktmpdir, "r.json")
+      engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+      allow(Saboteur::Engine).to receive(:new).and_return(engine)
+      expect(cli("run", "--json", json).call).to eq(0)
+      expect(JSON.parse(File.read(json))["saboteur"]).not_to have_key("scoreGates")
+    end
+
+    # A failing score gate must still print when plain survivors already
+    # force exit 1: the survivors keep the recorded cause (record_cause:
+    # false), but the gate line is the actionable output (#473).
+    it "still prints a failing score gate when survivors already fail the run" do
+      Dir.mktmpdir do |dir|
+        config = File.join(dir, "saboteur.rb")
+        File.write(config, 'Saboteur.configure { |c| c.score_gate "**/*", min_score: 95 }')
+        json = File.join(dir, "r.json")
+        engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:survived)))
+        allow(Saboteur::Engine).to receive(:new).and_return(engine)
+        expect(cli("run", "--config", config, "--json", json).call).to eq(1)
+        expect(err.string).to include("saboteur: score gate **/*: score 0.0 below 95")
+        expect(JSON.parse(File.read(json)).dig("saboteur", "exitCause")).to eq("survivors")
+      end
+    end
+
     it "is 3 when every executed mutant errored" do
       expect(run_with(report_of(result_for(:error), result_for(:skipped, reason: "no coverage")))).to eq(3)
     end
