@@ -1437,4 +1437,12 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Selection::Recorder#record_branches",
              reason: "equivalent: the return value of the arm loop is the return value of the branch loop's " \
                      "block, which each discards, so each and map yield the same spans"
+
+  i.mutation "87fc46488069845b",
+             subject: "Saboteur::MethodCalls#enable",
+             reason: "equivalent: TracePoint#enable on an already enabled tracepoint is a no-op, so skipping the enabled? check never changes the state"
+
+  i.mutation "897010b2f5594c0c",
+             subject: "Saboteur::MethodCalls#disable",
+             reason: "equivalent: TracePoint#disable on a disabled tracepoint is a no-op, so always disabling never changes the state"
 end
