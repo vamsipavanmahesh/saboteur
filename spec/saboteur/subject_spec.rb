@@ -407,6 +407,30 @@ RSpec.describe Saboteur::Subject do
     expect(sigged.sig_source).to eq("sig { params(x: Integer).returns(Integer) }")
   end
 
+  # Prism 1.2, the gemspec minimum, has no Node#start_line or Node#end_line:
+  # only node.location carries them. These pin the location hop (the ignore
+  # reasons for dropping it only hold on newer Prism).
+  describe "Prism 1.2 compatibility" do
+    let(:location_only) do
+      real = subject_under_test.node
+      Struct.new(:location).new(real.location)
+    end
+
+    it "reads start and end lines through node.location, not the node itself" do
+      built = described_class.new(name: "m", owner: "A", singleton: false, sclass: false,
+                                  file: subject_under_test.file, node: location_only,
+                                  file_source: source, nesting: [], frozen_literals: false)
+      expect([built.start_line, built.end_line]).to eq([2, 4])
+    end
+
+    it "reads a statement's first line through its location when mapping an edit" do
+      statement = instance_double(Prism::Location, start_line: 3)
+      allow(subject_under_test).to receive(:innermost_statement).and_return(Struct.new(:location).new(statement))
+      at = source.index("x >= 1")
+      expect(subject_under_test.coverage_lines_for(edit(at, at + 6, "x"))).to eq([3])
+    end
+  end
+
   describe "constructor state" do
     let(:nested) do
       subjects_in("module Outer\n  class A\n    def self.build; end\n\n    class << self\n      def make; end\n    " \
