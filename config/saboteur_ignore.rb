@@ -1443,6 +1443,13 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: posts only grows by one per pass and the loop stops when it reaches room, " \
                      "so posts.size is never above room and >= and == stop at the same iteration"
 
+  i.mutation "eca2fcc5f3c20fcf",
+             subject: "Saboteur::Selection::TraceRecorder#each_hit",
+             reason: "equivalent: the yielded hits are the whole behavior and the enumerator's return value is unused, so each and map agree"
+  i.mutation "184db463a4589ad6",
+             subject: "Saboteur::Selection::TraceRecorder#each_hit",
+             reason: "equivalent: the yielded hits are the whole behavior and the enumerator's return value is unused, so each and map agree"
+
   i.mutation "87fc46488069845b",
              subject: "Saboteur::MethodCalls#enable",
              reason: "equivalent: TracePoint#enable on an already enabled tracepoint is a no-op, so skipping the enabled? check never changes the state"
