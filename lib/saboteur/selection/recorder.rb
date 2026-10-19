@@ -24,6 +24,8 @@ module Saboteur
         @outside = per_file { Set.new }
         @outside_methods = per_file { Set.new }
         @durations = {}
+        @first_loaders = {}
+        @seen = Set.new
       end
 
       def start
@@ -37,6 +39,7 @@ module Saboteur
         @tests << id
         @tests_by_file[test_file] << id
         each_hit do |file, line, kind|
+          @seen << file
           { line: @outside, method: @outside_methods, branch: @outside_branches }.fetch(kind)[test_file] << [file, line]
         end
         @started_at = monotonic
@@ -45,6 +48,7 @@ module Saboteur
       def test_finished(id)
         @durations[id] = monotonic - @started_at if @started_at
         each_hit do |file, line, kind|
+          @first_loaders[file] = id if @seen.add?(file)
           { line: @lines, method: @methods, branch: @branches }.fetch(kind)[file][line] << id
         end
       end
@@ -57,7 +61,8 @@ module Saboteur
         methods = @methods.transform_values { |by_line| by_line.transform_values(&:uniq) }
         branches = @branches.transform_values { |arms| arms.transform_values(&:uniq) }
         CoverageMap.new(lines: lines, tests: @tests, build_seconds: build_seconds, durations: @durations,
-                        methods: methods, branches: branches, loaded_files: loaded_files)
+                        methods: methods, branches: branches, loaded_files: loaded_files,
+                        first_loaders: @first_loaders.dup)
       end
 
       private

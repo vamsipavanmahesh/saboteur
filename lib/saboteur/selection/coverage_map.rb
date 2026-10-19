@@ -23,15 +23,19 @@ module Saboteur
       PRELOADED = "loaded before coverage started"
 
       attr_reader :lines, :tests, :build_seconds, :loaded_files, :durations, :methods, :load_lines, :load_methods,
-                  :branches, :preloaded
+                  :branches, :preloaded, :first_loaders
 
       # lines: { "/abs/file.rb" => { 12 => ["id1", "id2"] } }
       # methods: { "/abs/file.rb" => { 12 => ["id1", "id2"] } } keyed by the
       # def's first line; line coverage never counts an endless def's body,
       # so methods carry those subjects (issue #107).
       # durations: { "id1" => seconds }
+      # first_loaders: { "/abs/file.rb" => "id1" } the test during which a file
+      # first showed any hit, which is when a lazy require ran its load-time
+      # lines; nil when the map predates the record, so nothing is known.
       def initialize(lines:, tests:, build_seconds: nil, durations: {}, methods: {}, load_lines: {}, load_methods: {},
-                     branches: {}, loaded_files: nil, preloaded: [])
+                     branches: {}, loaded_files: nil, preloaded: [], first_loaders: nil)
+        @first_loaders = first_loaders
         @lines = lines
         @tests = tests
         @build_seconds = build_seconds
@@ -98,7 +102,7 @@ module Saboteur
       def with_load_lines(load_lines, load_methods = {})
         self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
                        methods: methods, load_lines: load_lines, load_methods: load_methods, branches: branches,
-                       loaded_files: loaded_files)
+                       loaded_files: loaded_files, first_loaders: first_loaders)
       end
 
       # Files that loaded before Coverage.start (gemspec require, RUBYOPT
@@ -107,7 +111,7 @@ module Saboteur
       def with_preloaded(paths)
         self.class.new(lines: lines, tests: tests, build_seconds: build_seconds, durations: durations,
                        methods: methods, load_lines: load_lines, load_methods: load_methods, branches: branches,
-                       loaded_files: loaded_files, preloaded: paths)
+                       loaded_files: loaded_files, preloaded: paths, first_loaders: first_loaders)
       end
 
       def preloaded?(file)
@@ -229,7 +233,8 @@ module Saboteur
         JSON.generate(format: FORMAT, tests: tests, build_seconds: build_seconds, lines: encode.call(lines),
                       methods: encode.call(methods), load_lines: load_lines, load_methods: load_methods,
                       branches: encode_branches(index),
-                      durations: tests.map { |id| durations[id]&.round(6) }, loaded_files: loaded_files)
+                      durations: tests.map { |id| durations[id]&.round(6) }, loaded_files: loaded_files,
+                      first_loaders: first_loaders)
       end
 
       def self.from_json(json)
@@ -250,7 +255,17 @@ module Saboteur
         new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
             durations: durations, methods: decode.call(data["methods"] || {}),
             load_lines: int_lists(data, "load_lines"), load_methods: int_lists(data, "load_methods"),
+            first_loaders: decode_first_loaders(data["first_loaders"], tests),
             branches: decode_branches(data.fetch("branches", {}), tests), loaded_files: data["loaded_files"])
+      end
+
+      # Untrusted cache content: only a table of known test ids counts,
+      # anything else is "nothing known".
+      def self.decode_first_loaders(table, tests)
+        return unless table.is_a?(Hash)
+
+        known = tests.to_set
+        table.values.all? { |id| known.include?(id) } ? table : nil
       end
 
       def self.int_lists(data, key)
