@@ -318,6 +318,24 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     end
   end
 
+  describe "--resume" do
+    let(:flags) { ["--all", "--resume", "state/run1", "--subject", "People::Person#adult?"] }
+
+    it "creates the directory, reuses verdicts in the next run and refuses changed inputs (#471)" do
+      first = saboteur(dir, *flags)
+      total = mutants(first).size
+      expect(File).to exist(File.join(dir, "state", "run1", "manifest.json"))
+      expect(File).to exist(File.join(dir, "state", "run1", "results.json"))
+
+      second = saboteur(dir, *flags)
+      expect(second.out).to include("reused #{total} of #{total} verdicts")
+
+      changed = saboteur(dir, *flags, "--seed", "2")
+      expect(changed.status).to eq(2)
+      expect(changed.err).to include("the run inputs changed since this directory was created")
+    end
+  end
+
   describe "ignore list" do
     def survivor_digests(run)
       mutants(run).select { |m| m["status"] == "Survived" }.map { |m| m["id"] }

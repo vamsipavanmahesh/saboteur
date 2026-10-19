@@ -45,7 +45,7 @@ module Saboteur
       @root = File.realpath(config.root)
       @skipped_subjects = {}
       @replay = Replay.new(digest: digest) if digest
-      if capture_evidence && (digest || config["since"] || config["incremental"] || config["shard"])
+      if capture_evidence && (digest || config["since"] || config["incremental"] || config["resume"] || config["shard"])
         raise ConfigError,
               "baseline evidence requires fresh whole-scope execution: no since, replay, shard or incremental"
       end
@@ -77,6 +77,16 @@ module Saboteur
     def preflight!
       Boot.refuse_recursion!
       refuse_fail_fast_evidence
+      verify_resume_directory
+    end
+
+    # An unusable --resume directory fails before the expensive phases (#471).
+    def verify_resume_directory
+      return unless config["resume"]
+
+      ResumeManifest.new(directory: config.path("resume"), identity: Digest::SHA256.hexdigest(verdict_inputs)).verify!
+    rescue ResumeManifest::Mismatch => e
+      raise ConfigError, e.message
     end
 
     def warn_custom_map = @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
@@ -313,13 +323,16 @@ module Saboteur
 
     def result_cache(map = nil, files = [])
       return nil if @replay
-      return nil unless config["incremental"]
+      return nil unless config["incremental"] || config["resume"]
 
-      inputs = JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }
-                                            .merge("operator_policy" => config.operator_policy))
-      ResultCache.new(path: File.join(config.path("cache_dir"), "results.json"), root: @root, inputs: inputs,
+      directory = config.path("resume") || config.path("cache_dir")
+      ResultCache.new(path: File.join(directory, "results.json"), root: @root, inputs: verdict_inputs,
                       suite_digest: SuiteFiles.new(config).digest,
                       coverage: map, fallback_files: source_files(files))
+    end
+
+    def verdict_inputs
+      JSON.generate(VERDICT_INPUTS.to_h { |key| [key, config[key]] }.merge("operator_policy" => config.operator_policy))
     end
 
     # A cleanup failure must never mask the run's own outcome - not even

@@ -73,6 +73,7 @@ module Saboteur
       # cache miss and compares it with the full map, which the run still uses.
       "partial_coverage" => "off",
       "incremental" => false,
+      "resume" => nil,
       "shard" => nil,
       "allow_focus" => false,
       "fail_fast" => false,
@@ -221,10 +222,9 @@ module Saboteur
     # Paths of saboteur's own output, relative to the root, that do not count as source changes.
     def output_paths
       prefix = File.join(File.realpath(root), "")
-      %w[cache_dir json_report html_report score_history].filter_map { |key| path(key) }
-                                                         .map { |file| File.expand_path(file) }
-                                                         .select { |file| file.start_with?(prefix) }
-                                                         .map { |file| file.delete_prefix(prefix) }
+      %w[cache_dir json_report html_report score_history resume].filter_map { |key| path(key) }
+                                                                .select { |file| file.start_with?(prefix) }
+                                                                .map { |file| file.delete_prefix(prefix) }
     end
 
     # Tool-owned paths, relative to the root, that never count as
@@ -304,6 +304,7 @@ module Saboteur
     def validate_modes!
       validate_fail_fast!
       validate_matrix!
+      validate_resume!
       validate_test_selection!
       validate_gates!
       validate_score_gates!
@@ -359,6 +360,17 @@ module Saboteur
       return unless self["matrix"] && self["incremental"]
 
       raise ConfigError, "matrix cannot be combined with incremental: reused verdicts list only the first killer"
+    end
+
+    # --resume DIR keeps verdicts in DIR for a later run (#471); it reuses
+    # them the way --incremental does, so the same limits apply.
+    def validate_resume!
+      resume = self["resume"]
+      return if resume.nil?
+      raise ConfigError, "resume must be a non-blank directory path" unless resume.is_a?(String) && !resume.strip.empty?
+      return unless self["matrix"] || !self["test_command"].to_s.empty?
+
+      raise ConfigError, "resume cannot be combined with matrix or test_command: reused verdicts are not valid there"
     end
 
     def validate_threshold!

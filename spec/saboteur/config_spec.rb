@@ -564,3 +564,31 @@ RSpec.describe Saboteur::Config, "matrix" do
     end
   end
 end
+
+RSpec.describe Saboteur::Config, "resume (#471)" do
+  it "is unset by default and an output path that is not a source change" do
+    expect(described_class.new({})["resume"]).to be_nil
+    expect(described_class.new({ "resume" => "state/run1" }).output_paths).to include("state/run1")
+  end
+
+  [[7, "an Integer"], ["", "an empty string"], ["  ", "a blank string"], [["a"], "an Array"]].each do |value, label|
+    it "refuses #{label}" do
+      expect { described_class.new({ "resume" => value }) }
+        .to raise_error(Saboteur::ConfigError, "resume must be a non-blank directory path")
+    end
+  end
+
+  {
+    "matrix" => { "matrix" => true },
+    "test_command" => { "test_command" => "bin/test" }
+  }.each do |label, extra|
+    it "refuses to combine with #{label}" do
+      expect { described_class.new({ "resume" => "state" }.merge(extra)) }
+        .to raise_error(Saboteur::ConfigError, /resume cannot be combined with matrix or test_command/)
+    end
+  end
+
+  it "accepts a directory on its own" do
+    expect(described_class.new({ "resume" => "state" })["resume"]).to eq("state")
+  end
+end

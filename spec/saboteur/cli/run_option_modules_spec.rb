@@ -35,6 +35,7 @@ RSpec.describe "run option modules (#334)" do
       "--allow-hazardous" => "Also run mutants inside destructive calls (rm_rf, system, ...)",
       "--fail-fast" => "Stop after the first subject with a survivor (needs --jobs 1)",
       "--incremental" => "Reuse earlier verdicts whose inputs did not change",
+      "--resume DIR" => "Keep verdicts in DIR and reuse them in a later run with the same inputs",
       "--allow-focus" => "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite",
       "--all" => "Run the whole configured test suite instead of inferring the specs named after the mutated files",
       "--test-command CMD" => "Run CMD per mutant in the project root",
@@ -60,8 +61,8 @@ RSpec.describe "run option modules (#334)" do
     text = out.string
     # --fail-fast sits between --allow-hazardous and --incremental, after the
     # run-budget group (--jobs, --max-duration); execution before matrix.
-    order = ["--jobs", "--max-duration ", "--allow-hazardous", "--fail-fast", "--incremental", "--test-command",
-             "--matrix"]
+    order = ["--jobs", "--max-duration ", "--allow-hazardous", "--fail-fast", "--incremental", "--resume",
+             "--test-command", "--matrix"]
     positions = order.map { |flag| text.index(flag) }
     expect(positions).to all(be_a(Integer))
     expect(positions).to eq(positions.sort)
@@ -94,6 +95,10 @@ RSpec.describe "run option modules parsing (#334)" do
                     "--allow-focus", "--all")
     expect(cli.options).to eq(cache: false, allow_hazardous: true, fail_fast: true,
                               incremental: true, allow_focus: true, all: true)
+  end
+
+  it "parses --resume with its directory" do
+    expect(parse_run("--resume", "state/run1").options).to eq(resume: "state/run1")
   end
 
   it "parses --test-command and --[no-]guess-tests" do

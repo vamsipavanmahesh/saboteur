@@ -13,7 +13,7 @@ module Saboteur
     class RunFingerprint
       FORMAT_VERSION = 1
       MANIFESTS = %w[Gemfile gems.rb Gemfile.lock gems.locked .rspec .rspec-local].freeze
-      LOCATION_SETTINGS = %w[cache_dir json_report html_report score_history].freeze
+      LOCATION_SETTINGS = %w[cache_dir json_report html_report score_history resume].freeze
       ENTRY_KINDS = %w[ruby manifest boot hook source_plugin extra data].freeze
       EXCLUDED_DIRECTORIES = %w[.git vendor node_modules].freeze
       Entry = Data.define(:path, :kind, :state, :sha256, :required)

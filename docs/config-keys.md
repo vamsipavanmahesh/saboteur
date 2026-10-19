@@ -58,6 +58,7 @@ first-run rows and point here for the rest.
 | `shard` | `nil` | Sharded CI (see [sharding](guides/sharding.md)) | Default |
 | `matrix` | `false` | Operator-matrix CI | Default |
 | `incremental` | `false` | Local iteration | Default; run without it on main now and then |
+| `resume` | `nil` | Keep verdicts in a directory across runs (`--resume DIR`); anyone who can write it can forge verdicts, so restore it only from a trusted-branch cache, never from fork PRs | Default |
 | `cache` | `true` | A suspect cached run | Default |
 | `cache_dir` | `".saboteur"` | Non-standard cache locations | Default |
 | `partial_coverage` | `"off"` | Experimental: `"shadow"` also rebuilds the map partially after a cache miss and writes a comparison report; the full map is still the one used; never reused when RSpec selects examples from `spec/examples.txt` (`--only-failures`, `--next-failure`, however RSpec was given them) | Default |

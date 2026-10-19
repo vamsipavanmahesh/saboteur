@@ -19,7 +19,7 @@ module Saboteur
                 "Also run mutants inside destructive calls (rm_rf, system, ...)") { set(:allow_hazardous, true) }
         opts.on("--fail-fast",
                 "Stop after the first subject with a survivor (needs --jobs 1)") { set(:fail_fast, true) }
-        opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
+        add_reuse_options(opts)
         opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
           set(:allow_focus, true)
         end
@@ -32,6 +32,13 @@ module Saboteur
         opts.on("--[no-]guess-tests", "Deprecated alias: inferred specs are already the default; " \
                                       "--no-guess-tests warns and is ignored - use --all for the whole suite") do |v|
           set(:guess_tests, v)
+        end
+      end
+
+      def add_reuse_options(opts)
+        opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
+        opts.on("--resume DIR", "Keep verdicts in DIR and reuse them in a later run with the same inputs") do |v|
+          set(:resume, v)
         end
       end
     end
