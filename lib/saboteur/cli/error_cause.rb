@@ -30,12 +30,7 @@ module Saboteur
       # cap before anything groups or prints it, and never raise.
       def self.first_line(reason)
         text = Text.utf8(reason.to_s).lines.map(&:strip).find { |line| !line.empty? }.to_s
-        text = text.gsub(/\e\[[0-9;]*[A-Za-z]/, "").gsub(/[\x00-\x1f\x7f\u0080-\u009f]/) do |char|
-          format("\\x%02x", char.ord)
-        end
-        # Break what GitHub Actions reads as a workflow command, as the
-        # coverage log does: "##[" anywhere, "::" at the start.
-        text = text.gsub("##[", "##\\x5b").sub(/\A[[:space:]]*\K:(?=:)/) { "\\x3a" }
+        text = Text.display_safe(text.gsub(/\e\[[0-9;]*[A-Za-z]/, ""))
         text.length > LIMIT ? "#{text[0, LIMIT]}..." : text
       rescue StandardError
         reason.to_s.dump[0, LIMIT]

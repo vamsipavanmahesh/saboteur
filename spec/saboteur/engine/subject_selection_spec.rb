@@ -1237,6 +1237,18 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
   # Every unmatched pattern gets its own warning, and the pass returns the
   # pattern list itself (#635, survivor: each -> map).
+  it "escapes a whole_file pattern that reads as a CI workflow command (#834)" do
+    config = Saboteur::Config.new({ "whole_file" => ["ok\n::error::injected=1", "x##[warning]y"] }, root: @root)
+    selection = described_class.new(config, diagnostics)
+
+    expect(selection.send(:warn_unmatched_whole_file, [])).to eq(["ok\n::error::injected=1", "x##[warning]y"])
+    text = diagnostics.warnings.join("\n")
+    expect(text).not_to match(/^\s*::error::/)
+    expect(text).not_to include("##[")
+    expect(text).to include('fix the whole_file entry "ok\\x0a::error::injected=1"')
+    expect(text).to include('fix the whole_file entry "x##\\x5bwarning]y"')
+  end
+
   it "warns once per unmatched whole_file pattern and returns the patterns (#635)" do
     config = Saboteur::Config.new({ "whole_file" => %w[RUELES RELES] }, root: @root)
     selection = described_class.new(config, diagnostics)
