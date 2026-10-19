@@ -1,0 +1,122 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# SPDX-License-Identifier: MIT
+# Posts a pull request's surviving mutants as review comments on its changed
+# lines (#246). Opt-in; see Saboteur::Reporter::ReviewComments for what is
+# posted, kept and deleted. Never fails the gate: a refused or failed call
+# becomes a workflow warning and the run goes on.
+#
+# Input comes from environment variables, never from shell text:
+#   SABOTEUR_REPORT_PATH     saboteur's JSON report (its saboteur.findings is read)
+#   SABOTEUR_EVENT_NAME      only "pull_request" posts
+#   SABOTEUR_PR_NUMBER       the pull request
+#   SABOTEUR_HEAD_SHA        commit the comments attach to
+#   SABOTEUR_HEAD_REPO       repository of the pull request's head; a fork has a read-only token
+#   GITHUB_REPOSITORY        owner/name of the base repository
+#   SABOTEUR_MAX_COMMENTS    comment cap (default 10)
+#   SABOTEUR_RUN_URL         link for the "more survivors" summary
+#   SABOTEUR_BOT_LOGIN       author of the comments this script owns (default github-actions[bot])
+#   SABOTEUR_GH              the GitHub CLI to call (default gh); GH_TOKEN is its credential
+require "json"
+require "open3"
+require_relative "../lib/saboteur/reporter/review_comments"
+
+ReviewComments = Saboteur::Reporter::ReviewComments
+MAX_PAGES = 20
+
+def warn_step(message)
+  puts "::warning::saboteur review comments: #{message}"
+end
+
+def skip(reason)
+  puts "saboteur review comments: #{reason}; skipped"
+end
+
+def gh(*)
+  out, status = Open3.capture2e(ENV.fetch("SABOTEUR_GH", "gh"), "api", *)
+  [status.success?, out]
+end
+
+def pages(path)
+  (1..MAX_PAGES).each_with_object([]) do |page, all|
+    ok, out = gh("#{path}?per_page=100&page=#{page}")
+    raise "listing #{path} failed" unless ok
+
+    rows = JSON.parse(out)
+    all.concat(rows)
+    break all if rows.size < 100
+  end
+end
+
+# Only comments written by the account the token posts as (logins are unique,
+# so another user quoting a marker never counts).
+def bot_owned(rows, login)
+  rows.select { |row| row.dig("user", "login") == login }
+end
+
+def post(repo, number, sha, comment)
+  line = comment[:line]
+  return warn_step("skipped a comment with no usable line") unless line.is_a?(Integer) && line.positive?
+
+  ok, = gh("-X", "POST", "repos/#{repo}/pulls/#{number}/comments", "-f", "body=#{comment[:body]}",
+           "-f", "commit_id=#{sha}", "-f", "path=#{comment[:path]}", "-F", "line=#{line}", "-f", "side=RIGHT")
+  warn_step("GitHub refused one comment") unless ok
+end
+
+def sync_summary(repo, number, text, login, complete)
+  found = bot_owned(pages("repos/#{repo}/issues/#{number}/comments"), login)
+          .find { |row| ReviewComments.summary_comment?(row["body"]) }
+  path = found ? "repos/#{repo}/issues/comments/#{found['id']}" : "repos/#{repo}/issues/#{number}/comments"
+  ok, = if text then gh("-X", found ? "PATCH" : "POST", path, "-f", "body=#{text}")
+        elsif found && complete then gh("-X", "DELETE", path)
+        else [true]
+        end
+  warn_step("could not update the summary comment") unless ok
+end
+
+# Comments are removed only for a report that says it judged everything it
+# selected (saboteur.complete, written by the engine). A report without the
+# key, or with anything but the boolean true, removes nothing.
+def complete?(report)
+  report.dig("saboteur", "complete") == true
+end
+
+# The report to act on, or nil (after saying why) when this run must not comment.
+def eligible_report(env)
+  return skip("only pull_request runs post") unless env["SABOTEUR_EVENT_NAME"] == "pull_request"
+  return skip("a fork's token cannot comment") unless env["SABOTEUR_HEAD_REPO"] == env.fetch("GITHUB_REPOSITORY")
+
+  report = JSON.parse(File.read(env.fetch("SABOTEUR_REPORT_PATH")))
+  report if report.dig("saboteur", "findings") || skip("the report has no findings")
+end
+
+def apply(plan, env)
+  repo = env.fetch("GITHUB_REPOSITORY")
+  plan.delete.each do |id|
+    ok, = gh("-X", "DELETE", "repos/#{repo}/pulls/comments/#{Integer(id)}")
+    warn_step("could not delete a comment for a fixed survivor") unless ok
+  end
+  plan.post.each do |comment|
+    post(repo, Integer(env.fetch("SABOTEUR_PR_NUMBER")), env.fetch("SABOTEUR_HEAD_SHA"), comment)
+  end
+end
+
+def run(env)
+  report = eligible_report(env) or return
+  repo = env.fetch("GITHUB_REPOSITORY")
+  number = Integer(env.fetch("SABOTEUR_PR_NUMBER"))
+  login = env.fetch("SABOTEUR_BOT_LOGIN", "github-actions[bot]")
+  existing = bot_owned(pages("repos/#{repo}/pulls/#{number}/comments"), login)
+  plan = ReviewComments.plan(report.dig("saboteur", "findings"), existing: existing,
+                                                                 limit: env.fetch("SABOTEUR_MAX_COMMENTS", "10"),
+                                                                 run_url: env["SABOTEUR_RUN_URL"],
+                                                                 complete: complete?(report))
+  apply(plan, env)
+  sync_summary(repo, number, plan.summary, login, complete?(report))
+  puts "saboteur review comments: #{plan.post.size} posted, #{plan.delete.size} removed"
+rescue StandardError => e
+  warn_step("#{e.class}: stopped without changing the check")
+end
+
+run(ENV.to_h) if $PROGRAM_NAME == __FILE__
