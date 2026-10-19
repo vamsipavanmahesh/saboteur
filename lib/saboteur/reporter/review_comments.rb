@@ -39,14 +39,21 @@ module Saboteur
         # existing: the bot's review comments, as hashes with "id" and "body".
         # Returns post (path, line, digest, body), delete (comment ids) and
         # summary (text, or nil when nothing was left out).
-        def plan(findings, existing: [], limit: DEFAULT_LIMIT, run_url: nil, complete: false)
+        #
+        # locate: maps a finding to the line its comment goes on, or nil when
+        # that line cannot be placed on the pull request. A finding it cannot
+        # place is counted in the summary, never moved on a guess. The default
+        # is the first changed line.
+        def plan(findings, existing: [], limit: DEFAULT_LIMIT, run_url: nil, complete: false,
+                 locate: ->(finding) { finding["changedLines"].first })
           posted = digests_of(existing)
           candidates = candidates(findings)
           fresh = candidates.reject { |finding| posted.key?(finding["digest"]) }
           gone = complete == true ? stale(posted, findings) : {}
           room = [Integer(limit) - (posted.size - gone.size), 0].max
-          Plan.new(post: fresh.first(room).map { |finding| comment(finding) }, delete: gone.values,
-                   summary: summary(findings, fresh, room, run_url))
+          posts = place(fresh, room, locate)
+          Plan.new(post: posts, delete: gone.values,
+                   summary: summary(findings, fresh.size - posts.size, run_url))
         end
 
         def body(finding)
@@ -70,9 +77,21 @@ module Saboteur
 
         private
 
-        def comment(finding)
-          { path: finding["path"], line: finding["changedLines"].first, digest: finding["digest"],
-            body: body(finding) }
+        # Up to room comments, each on a line locate accepts. A finding it
+        # refuses is skipped, and the next one takes its room.
+        def place(fresh, room, locate)
+          posts = []
+          fresh.each do |finding|
+            break if posts.size >= room
+
+            line = locate.call(finding)
+            posts << comment(finding, line) if usable_line?(line)
+          end
+          posts
+        end
+
+        def comment(finding, line)
+          { path: finding["path"], line: line, digest: finding["digest"], body: body(finding) }
         end
 
         def candidates(findings)
@@ -104,8 +123,8 @@ module Saboteur
           posted.except(*live)
         end
 
-        def summary(findings, fresh, room, run_url)
-          left_out = [fresh.size - room, 0].max + findings["survivorsTruncated"].to_i
+        def summary(findings, not_posted, run_url)
+          left_out = not_posted + findings["survivorsTruncated"].to_i
           return nil if left_out.zero?
 
           text = "#{SUMMARY_MARKER}\n#{left_out} more surviving mutant#{'s' unless left_out == 1} " \
