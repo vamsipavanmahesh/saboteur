@@ -120,8 +120,8 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
     expect(reports.first["result"]).to eq("mismatch")
     message = diagnostics.warnings.join
     expect(message).to match(Regexp.new(["\\Apartial coverage shadow run: the partial map differs ",
-                                         "from the full map in 3 place\\(s\\), first deps ",
-                                         Regexp.escape(x_id), "; this run used the full map\\. ",
+                                         "from the full map in 2 place\\(s\\), first lines ",
+                                         Regexp.escape(file), "; this run used the full map\\. ",
                                          "Report: \\S+shadow-\\w+\\.json\\z"].join))
   end
 

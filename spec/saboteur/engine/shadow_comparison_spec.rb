@@ -12,7 +12,7 @@ RSpec.describe Saboteur::Engine::ShadowComparison do
   end
 
   it "matches identical maps" do
-    expect(compare(map)).to eq(match: true, total: 0, differences: [])
+    expect(compare(map)).to eq(result: :match, match: true, total: 0, extra: 0, differences: [])
   end
 
   it "ignores durations, build time, id order and entries with no test" do
@@ -25,6 +25,73 @@ RSpec.describe Saboteur::Engine::ShadowComparison do
     result = compare(map(lines: { "/a.rb" => { 1 => %w[t1] } }))
     expect(result[:match]).to be(false)
     expect(result[:differences]).to include(kind: "lines", name: "/a.rb")
+  end
+
+  describe "when the partial map only credits more tests" do
+    let(:full) { map(lines: { "/a.rb" => { 1 => %w[t1] } }) }
+
+    it "is a superset, and counts each extra credit" do
+      result = compare(map(lines: { "/a.rb" => { 1 => %w[t1 t2], 2 => %w[t1] } }), full)
+      expect(result).to include(result: :superset, match: false, total: 1, extra: 2)
+      expect(result[:differences]).to eq([{ kind: "lines", name: "/a.rb" }])
+      expect(result.keys).to eq(%i[result match total extra differences])
+    end
+
+    it "is a superset for a test that touches an extra file, and counts it" do
+      partial = map(lines: { "/a.rb" => { 1 => %w[t1] }, "/b.rb" => { 1 => %w[t1] } })
+      result = compare(partial, full)
+      expect(result).to include(result: :superset, extra: 1, total: 1)
+      expect(result[:differences]).to eq([{ kind: "lines", name: "/b.rb" }])
+    end
+
+    it "is a mismatch when it also lacks a credit the full map has" do
+      result = compare(map(lines: { "/a.rb" => { 1 => %w[t2], 2 => %w[t1] } }), full)
+      expect(result).to include(result: :mismatch, extra: 2)
+    end
+
+    it "lists differences sorted by kind then name, with exactly kind and name" do
+      partial = map(lines: { "/b.rb" => { 1 => %w[t1] }, "/a.rb" => { 1 => %w[t1 t2], 2 => %w[t1] } },
+                    methods: { "/a.rb" => { 1 => %w[t1] } })
+      names = compare(partial, map(lines: { "/a.rb" => { 1 => %w[t1 t2] } }))[:differences]
+      expect(names).to eq([{ kind: "lines", name: "/a.rb" }, { kind: "lines", name: "/b.rb" },
+                           { kind: "methods", name: "/a.rb" }])
+    end
+
+    it "is a mismatch when a whole line is missing" do
+      result = compare(map(lines: { "/a.rb" => {} }), full)
+      expect(result).to include(result: :mismatch, extra: 0)
+    end
+
+    it "is a mismatch when the load-time lines differ, even only by extra ones" do
+      with = ->(lines) { map(lines: full.lines, load_lines: { "/b.rb" => lines }) }
+      result = compare(with.call([1, 2]), with.call([1]))
+      expect(result).to include(result: :mismatch, total: 1, differences: [{ kind: "load", name: "/b.rb" }])
+    end
+
+    it "lists each difference with its kind first, then its name" do
+      result = compare(map(lines: full.lines, load_lines: { "/b.rb" => [1] }),
+                       map(lines: full.lines, load_lines: { "/b.rb" => [2] }))
+      expect(result[:differences].map(&:keys)).to eq([%i[kind name]])
+    end
+
+    it "matches when the same load-time lines were seen" do
+      same = map(lines: full.lines, load_lines: { "/b.rb" => [2, 1] })
+      expect(compare(same, map(lines: full.lines, load_lines: { "/b.rb" => [1, 2] }))[:result]).to eq(:match)
+    end
+
+    it "is a mismatch when a test lost a file it touched, even if it gained another" do
+      partial = map(lines: { "/b.rb" => { 1 => %w[t1] } })
+      full = map(lines: { "/a.rb" => { 1 => %w[t1] } })
+      expect(compare(partial, full)[:result]).to eq(:mismatch)
+    end
+
+    it "is a mismatch when the set of tests differs" do
+      expect(compare(map(lines: full.lines, tests: %w[t1 t2 t3]), full)[:result]).to eq(:mismatch)
+    end
+
+    it "is a mismatch when the unobserved or boot files differ, even by extra ones" do
+      expect(compare(map(lines: full.lines, loaded_files: ["/u.rb"]), full)[:result]).to eq(:mismatch)
+    end
   end
 
   it "names a method, a branch arm and a load-time difference" do
@@ -65,7 +132,7 @@ RSpec.describe Saboteur::Engine::ShadowComparison do
   it "counts every difference but lists at most MAX_DIFFERENCES, sorted" do
     many = (1..60).to_h { |index| ["/f#{format('%02d', index)}.rb", { 1 => %w[t1] }] }
     result = compare(map(lines: many), map(lines: {}))
-    expect(result[:total]).to be > 60
+    expect(result[:total]).to eq(60)
     expect(result[:differences].size).to eq(50)
     expect(result[:differences]).to eq(result[:differences].sort_by { |item| [item[:kind], item[:name]] })
   end
@@ -75,7 +142,7 @@ RSpec.describe Saboteur::Engine::ShadowComparison do
                   loaded_files: ["/u.rb"])
     full = map(lines: {}, tests: %w[t1])
     expect(compare(partial, full)[:differences].map { |item| item.values_at(:kind, :name) }).to eq(
-      [["deps", "(unobserved files)"], ["deps", "t1"], ["lines", "/b.rb"], ["lines", "/z.rb"],
+      [["deps", "(unobserved files)"], ["lines", "/b.rb"], ["lines", "/z.rb"],
        ["tests", "the set of test ids"]]
     )
   end

@@ -23,7 +23,8 @@ module Saboteur
 
         merged = stale.empty? ? base_map : PartialMerge.call(base_map, rerun.call(stale, base["seed"]), stale)
         verdict = ShadowComparison.call(merged, full_map, fallback_files: fallback_files)
-        report.merge("result" => verdict[:match] ? "match" : "mismatch", "stale" => stale.map(&clean),
+        report.merge("result" => verdict[:result].to_s, "extra_credits" => verdict[:extra],
+                     "stale" => stale.map(&clean),
                      "stale_share" => invalidation.share(stale), "total" => verdict[:total],
                      "differences" => verdict[:differences].map do |item|
                        item.to_h do |key, value|
