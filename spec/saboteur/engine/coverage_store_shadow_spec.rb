@@ -135,6 +135,27 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
     expect(reports.first).to include("result" => "skipped")
   end
 
+  it "records the seconds the full build and the partial rerun took" do
+    first_run
+    ticks = [10.0, 12.346, 20.0, 20.254].each
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { ticks.next }
+    allow(supervisor).to receive(:run).and_return(child_result(rerun_map))
+    store(partial_coverage: "shadow").fetch([file])
+
+    expect(reports.first).to include("full_build_seconds" => 2.35, "rerun_seconds" => 0.25)
+  end
+
+  it "records the build seconds and no rerun seconds when the shadow step skips" do
+    first_run
+    File.write(file, "2\n")
+    File.write(File.join(@root, "other.yml"), "x\n")
+    ticks = [1.0, 4.126].each
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { ticks.next }
+    store(partial_coverage: "shadow").fetch([file])
+
+    expect(reports.first).to include("full_build_seconds" => 3.13, "rerun_seconds" => nil)
+  end
+
   it "writes the report privately, through a fresh temporary name" do
     first_run
     allow(supervisor).to receive(:run).and_return(child_result(rerun_map))
