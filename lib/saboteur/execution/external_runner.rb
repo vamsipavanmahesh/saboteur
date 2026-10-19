@@ -291,7 +291,10 @@ module Saboteur
                              "(#{src.original}); the lockfile must record it exactly once - run bundle install"
         end
         absolute = /^(\s*remote: )#{Regexp.escape(src.original)}$/
-        File.write(path, text.sub(absolute) { "#{Regexp.last_match(1)}#{copy_path}" }) if text.scan(absolute).size == 1
+        # Write back only when the absolute spelling matched: a no-match sub
+        # would write identical bytes, which still fails on a read-only
+        # lockfile carried into the copy (#729 security).
+        File.write(path, text.sub(absolute) { "#{Regexp.last_match(1)}#{copy_path}" }) if text.match?(absolute)
       end
 
       def ambiguous_source_message(src)
