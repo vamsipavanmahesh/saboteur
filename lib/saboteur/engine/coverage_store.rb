@@ -16,8 +16,9 @@ module Saboteur
       LOG = "coverage-build.log"
 
       def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, load_lines: {}, load_methods: {},
-                     timeout_cap: nil)
+                     timeout_cap: nil, parts: 1)
         @config = config
+        @parts = parts
         @integration = integration
         @hooks = hooks
         @supervisor = supervisor
@@ -100,6 +101,9 @@ module Saboteur
                        "Run through the saboteur executable and disable SimpleCov for the run."
         end
 
+        parts = suite_parts
+        return build_parts(files, parts) if parts.size > 1
+
         scope = @config["tests"].empty? ? "the whole suite" : "the selected specs"
         @diagnostics.inform("building coverage map (runs #{scope} once)")
         # The suite child forked next inherits this heap; pack it first, to
@@ -112,6 +116,60 @@ module Saboteur
           record(writer, files)
         end
         map_from(result, admitted)
+      end
+
+      # The spec files dealt into @parts disjoint parts; one part (the
+      # default, or a suite with fewer files than parts) keeps the single
+      # child build (#741).
+      def suite_parts
+        return [] unless @parts > 1
+
+        Engine::SuitePartition.parts(@integration.test_files, @parts)
+      end
+
+      # The same suite pass as build, run as several children at once, each
+      # over its own spec files. Fails loudly unless the parts hold exactly
+      # the suite's examples before the run and the combined map holds
+      # exactly its tests after it, and refuses a part that recorded no test.
+      def build_parts(files, parts)
+        total = check_parts_cover_suite(parts)
+        @diagnostics.inform("building coverage map (runs the suite once, in #{parts.size} parallel parts)")
+        Execution::ForkReadiness.prepare_heap
+        heartbeat = @diagnostics.progress_heartbeat("building coverage map")
+        admitted = build_timeout
+        results = @supervisor.run_many(parts.size, timeout: admitted, on_tick: heartbeat.method(:tick),
+                                                   label: "coverage child died during the map build") do |writer, index|
+          record(writer, files, only: parts[index], log: part_log_path(index))
+        end
+        maps = results.each_with_index.map { |result, index| part_map(map_from(result, admitted), index, parts.size) }
+        combine_parts(maps, total)
+      end
+
+      def check_parts_cover_suite(parts)
+        total = @integration.example_count
+        counts = parts.map { |part| @integration.example_count(files: part) }
+        return total if counts.sum == total
+
+        raise Error, "the coverage parts hold #{counts.sum} examples but the suite has #{total}; " \
+                     "refusing to build a map from a partition that does not cover the suite"
+      end
+
+      def part_map(map, index, total)
+        return map unless map.tests.empty?
+
+        raise Error, "coverage part #{index + 1} of #{total} recorded no tests; refusing to build a partial map"
+      end
+
+      def combine_parts(maps, total)
+        map = Selection::CoverageMap.combine(maps)
+        return map if map.tests.size == total
+
+        raise Error, "the combined coverage map holds #{map.tests.size} tests but the suite has #{total}; " \
+                     "refusing to use a partial map"
+      end
+
+      def part_log_path(index)
+        File.join(@config.path("cache_dir"), "coverage-build-#{index + 1}.log")
       end
 
       def map_from(result, admitted = @config["coverage_timeout"])
@@ -210,9 +268,9 @@ module Saboteur
 
       # Runs in the supervised child. The suite's output goes to a log, so a
       # child that dies without reporting can still be diagnosed.
-      def record(writer, files)
-        FileUtils.mkdir_p(File.dirname(log_path))
-        $stdout.reopen(log_path, "w")
+      def record(writer, files, only: nil, log: log_path)
+        FileUtils.mkdir_p(File.dirname(log))
+        $stdout.reopen(log, "w")
         $stdout.sync = true
         $stderr.reopen($stdout)
         @hooks.run(:after_fork)
@@ -223,7 +281,7 @@ module Saboteur
         recorder = Selection::Recorder.new(files + @integration.test_files)
         recorder.start
         Kernel.srand(@config["seed"])
-        passed = @integration.run_all(recorder)
+        passed = only ? @integration.run_all(recorder, files: only) : @integration.run_all(recorder)
         if passed == false
           raise Error, "the unchanged suite failed while building coverage. Fix the suite, then run again " \
                        "with seed #{@config['seed']}."

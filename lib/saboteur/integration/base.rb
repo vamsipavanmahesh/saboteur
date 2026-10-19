@@ -68,6 +68,13 @@ module Saboteur
         raise NotImplementedError
       end
 
+      # How many tests run_all would run, over files when given (a part of
+      # a partitioned build, #741). Adapters that cannot split a build keep
+      # this refusal.
+      def example_count(files: nil)
+        raise NotImplementedError, "#{self.class} cannot count a part of the suite (files: #{files.inspect})"
+      end
+
       # Checks the unchanged suite in a fresh child. Existing adapters can
       # use their selected-test runner; adapters may override to retain full
       # suite ordering and report every executed test.

@@ -80,6 +80,18 @@ RSpec.describe Saboteur::Integration::RSpec, "#run_all with files" do
     expect { runnable(["spec/nope_spec.rb"]) }.to raise_error(Errno::ENOENT)
   end
 
+  it "counts the examples of the runnable groups for the given files" do
+    expect(integration.send(:world)).to receive(:example_count).with([@second]).and_return(7)
+
+    expect(integration.example_count(files: ["spec/b_spec.rb"])).to eq(7)
+  end
+
+  it "counts the examples of every runnable group when no files are given" do
+    expect(integration.send(:world)).to receive(:example_count).with([@first, @second]).and_return(9)
+
+    expect(integration.example_count).to eq(9)
+  end
+
   it "hands its files to the suite run" do
     allow(integration).to receive(:configuration)
       .and_return(instance_double(RSpec::Core::Configuration, "order=": nil, "fail_fast=": nil))
