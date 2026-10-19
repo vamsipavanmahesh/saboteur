@@ -22,4 +22,14 @@ RSpec.describe Saboteur::CLI::PreviewCommand do
       expect(out.string).to match(/^comparison  on  /)
     end
   end
+
+  it "creates no --resume directory or manifest for --dry-run (#471)" do
+    Dir.mktmpdir do |dir|
+      resume = File.join(dir, "state")
+      File.write(File.join(dir, "a.rb"), "def a = 1\n")
+      out = StringIO.new
+      Dir.chdir(dir) { Saboteur::CLI.new(["run", "a.rb", "--dry-run", "--resume", resume], out:, err: StringIO.new).call }
+      expect(File).not_to exist(resume)
+    end
+  end
 end
