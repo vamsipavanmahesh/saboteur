@@ -80,6 +80,32 @@ inputs:
       more than once: upload-artifact rejects a second upload under one name.
     required: false
     default: ""
+  review-comments:
+    description: >-
+      "true" posts surviving mutants as review comments on the pull request's
+      changed lines, at most max-comments of them, and removes a comment once
+      its mutant is killed. The default, "false", posts nothing. Needs
+      `pull-requests: write` for the job; a fork's pull request is skipped.
+      A failure to comment never fails the step.
+    required: false
+    default: "false"
+  max-comments:
+    description: >-
+      The most review comments to keep on the pull request. More survivors are
+      counted in one summary comment that links the run.
+    required: false
+    default: "10"
+  github-token:
+    description: Token the review comments are posted with.
+    required: false
+    default: ${{ github.token }}
+  bot-login:
+    description: >-
+      Login of the account github-token posts as. Only its comments are kept,
+      deduplicated and removed. Set it when github-token is a personal access
+      token or an app token, or the comment cap is posted again on every push.
+    required: false
+    default: github-actions[bot]
 
 outputs:
   ran:
@@ -179,3 +205,18 @@ runs:
         name: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}
         path: ${{ inputs.report-path }}
         if-no-files-found: ignore
+    - name: Comment surviving mutants on the pull request
+      if: always() && inputs.review-comments == 'true' && github.event_name == 'pull_request' && steps.run.outputs.report-valid == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        SABOTEUR_EVENT_NAME: ${{ github.event_name }}
+        SABOTEUR_REPORT_PATH: ${{ inputs.report-path }}
+        SABOTEUR_PR_NUMBER: ${{ github.event.pull_request.number }}
+        SABOTEUR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        SABOTEUR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        SABOTEUR_MAX_COMMENTS: ${{ inputs.max-comments }}
+        SABOTEUR_BOT_LOGIN: ${{ inputs.bot-login }}
+        SABOTEUR_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: ruby "${{ github.action_path }}/action/post-review-comments"
