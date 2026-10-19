@@ -5,11 +5,18 @@ RSpec.describe Saboteur::Selection::UntrackedChanges do
   let(:diagnostics) { instance_double(Saboteur::Engine::Diagnostics, warn: nil) }
 
   describe ".warn_unreadable" do
-    it "names up to five files, sorted, then an ellipsis" do
+    it "names up to five files, sorted, then 'and N more'" do
       described_class.warn_unreadable(%w[f.rb e.rb d.rb c.rb b.rb a.rb], diagnostics)
       expect(diagnostics).to have_received(:warn)
         .with("--since: 6 included untracked file(s) could not be read (vanished, unreadable or " \
-              "replaced), so their subjects are not covered: a.rb, b.rb, c.rb, d.rb, e.rb, ...")
+              "replaced), so their subjects are not covered: a.rb, b.rb, c.rb, d.rb, e.rb and 1 more")
+    end
+
+    it "counts every file past the fifth" do
+      described_class.warn_unreadable(("a".."h").map { |name| "#{name}.rb" }, diagnostics)
+      expect(diagnostics).to have_received(:warn)
+        .with("--since: 8 included untracked file(s) could not be read (vanished, unreadable or " \
+              "replaced), so their subjects are not covered: a.rb, b.rb, c.rb, d.rb, e.rb and 3 more")
     end
 
     it "names every file when fewer are unreadable" do
@@ -19,7 +26,7 @@ RSpec.describe Saboteur::Selection::UntrackedChanges do
               "replaced), so their subjects are not covered: a.rb, b.rb, c.rb")
     end
 
-    it "adds no ellipsis at exactly five" do
+    it "adds no 'and N more' at exactly five" do
       described_class.warn_unreadable(%w[e.rb d.rb c.rb b.rb a.rb], diagnostics)
       expect(diagnostics).to have_received(:warn)
         .with("--since: 5 included untracked file(s) could not be read (vanished, unreadable or " \

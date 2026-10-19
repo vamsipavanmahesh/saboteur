@@ -84,8 +84,7 @@ module Saboteur
       def warn_unreadable(names, diagnostics)
         return if names.empty? || diagnostics.nil?
 
-        shown = names.sort.first(5).join(", ")
-        shown += ", ..." if names.size > 5
+        shown = Text.name_list(names.sort)
         diagnostics.warn("--since: #{names.size} included untracked file(s) could not be read (vanished, " \
                          "unreadable or replaced), so their subjects are not covered: #{shown}")
       end
