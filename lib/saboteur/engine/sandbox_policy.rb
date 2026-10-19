@@ -144,7 +144,8 @@ module Saboteur
       def check_sandbox_write_set(all_dirs, user_dirs)
         holder = all_dirs.find { |dir| path_contains?(dir, @root) }
         if holder
-          message = "sandbox grant #{holder} contains the project root; mutant children can write the whole tree"
+          message = "narrow the sandbox grant #{holder} so it no longer contains the project root\n  " \
+                    "sandbox grant #{holder} contains the project root; mutant children can write the whole tree"
           raise Error, %(#{message} - refusing under c.sandbox = "strict") if @config["sandbox"] == "strict"
 
           @diagnostics.warn(message)

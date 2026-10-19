@@ -140,7 +140,11 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     engine = engine_for({ "sandbox_writable" => [@root] })
     engine.send(:sandbox_hook)
     warnings = engine.instance_variable_get(:@diagnostics).warnings
-    expect(warnings.join).to include("contains the project root")
+    holder = File.realpath(@root)
+    expect(warnings.first).to eq(
+      "narrow the sandbox grant #{holder} so it no longer contains the project root\n  " \
+      "sandbox grant #{holder} contains the project root; mutant children can write the whole tree"
+    )
   end
 
   it "warns when a user grant is a strict ancestor of the project root" do
@@ -186,7 +190,12 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     allow(Saboteur::Execution::Sandbox).to receive(:abi_version).and_return(3)
     Dir.mktmpdir("saboteur-under-tmp-") do |tmp_root|
       engine = described_class.new(Saboteur::Config.new({ "sandbox" => "strict" }, root: tmp_root), err: err)
-      expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error, /refusing under c.sandbox = "strict"/)
+      expect { engine.send(:sandbox_hook) }.to raise_error(Saboteur::Error) do |error|
+        expect(error.message).to start_with("narrow the sandbox grant ")
+        expect(error.message).to match(/ so it no longer contains the project root\n  sandbox grant /)
+        expect(error.message).to end_with("; mutant children can write the whole tree - " \
+                                          'refusing under c.sandbox = "strict"')
+      end
     end
   end
 
