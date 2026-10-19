@@ -353,6 +353,14 @@ RSpec.describe Saboteur::Selection::CoverageMap do
 
   describe "Recorder" do
     let(:recorder) { Saboteur::Selection::Recorder.new([file]) }
+
+    # Stands in for the method tracer: hands out the queued [line, name] hits once each.
+    def fake_calls(*batches)
+      calls = instance_double(Saboteur::MethodCalls, enable: nil, resume: nil)
+      allow(calls).to receive(:pause).and_return(calls)
+      allow(calls).to receive(:drain).and_return(*batches, {})
+      calls
+    end
     let(:results) { [] }
 
     before do
@@ -481,9 +489,8 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(recorder.result(build_seconds: 12.5).build_seconds).to eq(12.5)
     end
 
-    it "ignores method keys with zero hits" do
-      key = ["A", :m, 2, 2, 2, 10]
-      results.push({}, { file => { lines: [], methods: { key => 0 } } })
+    it "records no methods when the tracer saw no call" do
+      results.push({}, { file => { lines: [] } })
       recorder.test_started("t1", "/spec/a_spec.rb")
       recorder.test_finished("t1")
       expect(recorder.result.methods).to eq({})
@@ -522,17 +529,46 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect(Coverage).to have_received(:resume).twice
     end
 
+    it "arms its method tracer on start and pauses it around every read" do
+      calls = fake_calls
+      allow(Saboteur::MethodCalls).to receive(:new).and_return(calls)
+      allow(Coverage).to receive(:state).and_return(:running)
+      recorder.start
+      expect(calls).to have_received(:enable).once
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      expect(calls).to have_received(:pause).once
+      expect(calls).to have_received(:resume).once
+    end
+
+    it "builds its tracer for the recorded files, canonicalizing each path it sees" do
+      allow(Saboteur::MethodCalls).to receive(:new).and_return(fake_calls)
+      recorder
+      expect(Saboteur::MethodCalls).to have_received(:new) do |files, canonical:|
+        expect(files).to eq(Set[file])
+        expect(canonical.call("#{File.dirname(file)}/../#{File.basename(File.dirname(file))}/#{File.basename(file)}"))
+          .to eq(file)
+      end
+    end
+
+    it "drops calls from files the Coverage snapshot never instrumented" do
+      allow(Saboteur::MethodCalls).to receive(:new).and_return(fake_calls({}, { file => Set[[2, :m]] }))
+      results.push({}, { "/elsewhere.rb" => { lines: [] } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.methods).to be_empty
+    end
+
     it "records per-test method hits, for endless defs whose lines never count" do
-      key = ["A", :m, 2, 2, 2, 10]
-      results.push({}, { file => { lines: [nil, nil], methods: { key => 1 } } })
+      allow(Saboteur::MethodCalls).to receive(:new).and_return(fake_calls({}, { file => Set[[2, :m]] }))
+      results.push({}, { file => { lines: [nil, nil] } })
       recorder.test_started("t1", "/spec/a_spec.rb")
       recorder.test_finished("t1")
       expect(recorder.result.methods[file]).to eq(2 => %w[t1])
     end
 
     it "attributes method calls outside a test to the next test's file" do
-      key = ["A", :m, 2, 2, 2, 10]
-      results.push({ file => { lines: [], methods: { key => 1 } } }, {})
+      allow(Saboteur::MethodCalls).to receive(:new).and_return(fake_calls({ file => Set[[2, :m]] }, {}))
+      results.push({ file => { lines: [] } }, {})
       recorder.test_started("t1", "/spec/a_spec.rb")
       recorder.test_finished("t1")
       expect(recorder.result.methods[file]).to eq(2 => %w[t1])

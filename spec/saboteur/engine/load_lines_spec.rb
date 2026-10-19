@@ -51,13 +51,19 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
   # A def-time macro's only caller runs while spec files load: the boot's
   # method counters name such defs so their mutants read as ran at load
   # instead of surviving on the pristine closure (#409).
-  it "keeps only positive method-call counters for included files" do
+  def boot_calls(hits)
+    tracer = instance_double(Saboteur::MethodCalls, disable: nil, drain: hits)
+    allow(Saboteur::MethodCalls).to receive(:booted).and_return(tracer)
+  end
+
+  def source_file(text)
+    File.join(root, "defs.rb").tap { |path| File.write(path, text) }.then { |path| File.realpath(path) }
+  end
+
+  it "keeps the called methods' def lines for included files only" do
     file = File.realpath(__FILE__)
-    methods = { [Object, :called, 3, 0, 5, 20] => 2, [Object, :skipped, 8, 0, 9, 20] => 0 }
-    allow(fake_coverage).to receive(:result).and_return(
-      file => { lines: [],
-                methods: methods }, "/outside.rb" => { lines: [], methods: { [Object, :x, 1, 0, 1, 2] => 1 } }
-    )
+    boot_calls(file => Set[[3, :called]], "/outside.rb" => Set[[1, :x]])
+    allow(fake_coverage).to receive(:result).and_return(file => { lines: [] }, "/outside.rb" => { lines: [] })
     expect(Saboteur::Engine::LoadCoverage.capture([file])).to eq([{}, { file => [3] }])
     expect(Saboteur::Engine::LoadCoverage.capture([])).to eq([{}, {}])
     allow(fake_coverage).to receive(:state).and_return(:running)
@@ -65,10 +71,17 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
   end
 
   it "dedupes a def line shared by two called one-line methods" do
+    file = source_file("def one = 1; def two = 2\n")
+    boot_calls(file => Set[[1, :one], [1, :two]])
+    allow(fake_coverage).to receive(:result).and_return(file => { lines: [] })
+    expect(Saboteur::Engine::LoadCoverage.capture([file])).to eq([{}, { file => [1] }])
+  end
+
+  it "reads no methods when the executable never armed the tracer" do
     file = File.realpath(__FILE__)
-    methods = { [Object, :one, 3, 0, 3, 20] => 1, [Object, :two, 3, 22, 3, 40] => 1 }
-    allow(fake_coverage).to receive(:result).and_return(file => { lines: [], methods: methods })
-    expect(Saboteur::Engine::LoadCoverage.capture([file])).to eq([{}, { file => [3] }])
+    allow(Saboteur::MethodCalls).to receive(:booted).and_return(nil)
+    allow(fake_coverage).to receive(:result).and_return(file => { lines: [] })
+    expect(Saboteur::Engine::LoadCoverage.capture([file])).to eq([{}, {}])
   end
 
   it "boots before selecting files and returns the captured load lines and methods" do
@@ -146,20 +159,73 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     allow(engine).to receive(:candidate_lists).and_return([[]])
     expect(engine.call.results).to eq([])
   end
-  it "uses method-call counters to exclude uncalled shared def/body lines" do
-    file = File.realpath(__FILE__)
-    methods = { [Object, :called, 1, 0, 1, 20] => 2, [Object, :uncalled, 2, 0, 2, 20] => 0,
-                [Object, :multi, 3, 0, 5, 3] => 0 }
-    allow(fake_coverage).to receive(:result).and_return(file => { lines: [1, 1, 1, 1], methods: methods })
+  it "uses method calls to exclude uncalled shared def/body lines" do
+    file = source_file("def called = 1\ndef uncalled = 2\ndef multi\n  3\nend\n")
+    boot_calls(file => Set[[1, :called]])
+    allow(fake_coverage).to receive(:result).and_return(file => { lines: [1, 1, 1, 1] })
     expect(Saboteur::Engine::LoadCoverage.capture([file]).first).to eq(file => [1, 3, 4])
   end
 
   it "discards an ambiguous shared line when a sibling method was never called" do
-    data = { methods: { [Object, :unused, 1, 0, 1, 10] => 0, [Object, :used, 1, 12, 1, 20] => 1 } }
-    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(data)).to eq([1])
+    file = source_file("def used = 1; def unused = 2\n")
+    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(file, Set[[1, :used]])).to eq([1])
   end
+
   it "retains a shared line only when every method defined there was called" do
-    data = { methods: { [Object, :first, 1, 0, 1, 10] => 1, [Object, :second, 1, 12, 1, 20] => 2 } }
-    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(data)).to eq([])
+    file = source_file("def first = 1; def second = 2\n")
+    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(file, Set[[1, :first], [1, :second]])).to eq([])
+  end
+
+  it "treats one-line define_method blocks like one-line defs" do
+    file = source_file("define_method(:a) { 1 }\ndef b; 2; end\n" \
+                       "define_method(:c) { 3 }; define_singleton_method(:d) { 4 }\n")
+    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(file, Set.new)).to eq([1, 2, 3])
+    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(file, Set[[3, :c]])).to eq([1, 2, 3])
+    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(file,
+                                                                Set[[1, :a], [2, :b], [3, :c], [3, :d]])).to eq([])
+  end
+
+  it "ignores calls that are not a define_method with a block and a literal symbol name" do
+    file = source_file("memoize(:z) { 1 }\ndefine_method { 1 }\ndefine_method(\"s\") { 1 }\n" \
+                       "define_method(:a, impl)\ndefine_method(name) { 1 }\ndefine_method(:b) do\n  1\nend\n")
+    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(file, Set.new)).to eq([])
+  end
+
+  it "names a one-line define_method by its first argument" do
+    file = source_file("define_method(:e, :f) { 1 }\n")
+    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(file, Set[[1, :e]])).to eq([])
+  end
+
+  it "reports no shared lines for an unreadable file" do
+    expect(Saboteur::Engine::LoadCoverage.uncalled_shared_lines(File.join(root, "gone.rb"), Set.new)).to eq([])
+  end
+
+  it "pauses the booted call tracer as soon as coverage is suspended, and copes without one" do
+    guard = instance_double(Saboteur::Engine::CoverageGuard, suspend: nil)
+    allow(Saboteur::Engine::CoverageGuard).to receive(:new).and_return(guard)
+    allow(Saboteur::Engine::LoadCoverage).to receive(:capture).and_return([{}, {}])
+    tracer = instance_double(Saboteur::MethodCalls, pause: nil)
+    allow(Saboteur::MethodCalls).to receive(:booted).and_return(tracer)
+    engine.send(:suspend_coverage, [])
+    expect(tracer).to have_received(:pause)
+    allow(Saboteur::MethodCalls).to receive(:booted).and_return(nil)
+    expect { engine.send(:suspend_coverage, []) }.not_to raise_error
+  end
+
+  it "disables the boot tracer when it reads the boot calls" do
+    file = File.realpath(__FILE__)
+    tracer = instance_double(Saboteur::MethodCalls, disable: nil, drain: { file => Set[[3, :called]] })
+    allow(Saboteur::MethodCalls).to receive(:booted).and_return(tracer)
+    allow(fake_coverage).to receive(:result).and_return(file => { lines: [] })
+    Saboteur::Engine::LoadCoverage.capture([file])
+    expect(tracer).to have_received(:disable)
+  end
+
+  it "merges the calls of two spellings of one file instead of keeping the last" do
+    file = source_file("def one = 1\ndef two = 2\n")
+    respelled = File.join(File.dirname(file), ".", File.basename(file))
+    boot_calls(file => Set[[1, :one]], respelled => Set[[2, :two]])
+    allow(fake_coverage).to receive(:result).and_return(file => { lines: [] })
+    expect(Saboteur::Engine::LoadCoverage.capture([file]).last).to eq(file => [1, 2])
   end
 end

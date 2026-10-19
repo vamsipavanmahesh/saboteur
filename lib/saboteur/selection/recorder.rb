@@ -3,6 +3,7 @@
 
 require "coverage"
 require_relative "coverage_map"
+require_relative "../method_calls"
 
 module Saboteur
   module Selection
@@ -12,6 +13,7 @@ module Saboteur
       def initialize(files)
         @files = Set.new(files.map { |file| CoverageMap.canonical(file) })
         @canonical = Hash.new { |hash, path| hash[path] = CoverageMap.canonical(path) }
+        @calls = MethodCalls.new(@files, canonical: ->(path) { @canonical[path] })
         @arm_spans = {}
         @lines = hit_table
         @methods = hit_table
@@ -26,7 +28,9 @@ module Saboteur
 
       def start
         Coverage.resume if Coverage.state == :suspended
-        CoverageReads.result(stop: false, clear: true)
+        snapshot = CoverageReads.result(stop: false, clear: true)
+        @calls.enable
+        snapshot
       end
 
       def test_started(id, test_file)
@@ -121,6 +125,7 @@ module Saboteur
       # own work (and anything it calls) is never attributed to a test.
       def each_hit
         snapshot = CoverageReads.result(stop: false, clear: true)
+        calls = @calls.pause.drain
         suspended = Coverage.running?
         Coverage.suspend if suspended
         snapshot.each do |path, data|
@@ -128,16 +133,21 @@ module Saboteur
           next unless @files.include?(file)
 
           # Lines mode (set up by the executable); nil marks a line with no
-          # code. Methods mode keys are [owner, name, start_line, ...]; an
-          # endless def's body never counts a line hit, but its calls count
-          # here (issue #107).
+          # code. An endless def's body never counts a line hit, but its
+          # calls count through the method tracer (issue #107).
           data[:lines].each_with_index { |count, index| yield file, index + 1, :line if count&.positive? }
           record_branches(file, data) { |span| yield file, span, :branch }
-          data[:methods]&.each do |(_owner, _name, start_line, *), count|
-            yield file, start_line, :method if count.positive?
-          end
+        end
+        calls.each do |path, hits|
+          # A file loaded before Coverage started has no line evidence; its
+          # calls must not make it look recorded (the preloaded refusal).
+          next unless snapshot.key?(path)
+
+          file = @canonical[path]
+          hits.to_set(&:first).each { |line| yield file, line, :method }
         end
       ensure
+        @calls.resume
         Coverage.resume if suspended
       end
     end

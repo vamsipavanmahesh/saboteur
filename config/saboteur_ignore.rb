@@ -1449,4 +1449,31 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "897010b2f5594c0c",
              subject: "Saboteur::MethodCalls#disable",
              reason: "equivalent: TracePoint#disable on a disabled tracepoint is a no-op, so always disabling never changes the state"
+  i.mutation "79b0ad2bc1178eb6",
+             subject: "Saboteur::Engine::LoadCoverage.one_line_defs",
+             reason: "equivalent: Prism::Node#start_line delegates to location.start_line in the prism 1.x the gemspec requires, so dropping .location reads the same line"
+
+  i.mutation "f086d50c32fbf02a",
+             subject: "Saboteur::Engine::LoadCoverage.one_line_defs",
+             reason: "equivalent: Prism::Node#end_line delegates to location.end_line in the prism 1.x the gemspec requires, so dropping .location reads the same line"
+
+  i.mutation "758245efed081451",
+             subject: "Saboteur::Engine::LoadCoverage.one_line_defs",
+             reason: "equivalent: Prism::Node#start_line delegates to location.start_line in the prism 1.x the gemspec requires, so dropping .location reads the same line"
+
+  i.mutation "98684baa2d17a991",
+             subject: "Saboteur::Engine::LoadCoverage.one_line_defs",
+             reason: "equivalent: the walk lambda is called for its side effect on found; the return value of compact_child_nodes.each is unused, so each and map visit the same nodes"
+
+  i.mutation "1d01461d9f530d5b",
+             subject: "Saboteur::Engine::LoadCoverage.boot_calls",
+             reason: "equivalent: capture reads boot_calls only for files in its own wanted set, so keeping the calls of other files in the result changes nothing it returns"
+
+  i.mutation "1fa4bba99b359d4e",
+             subject: "Saboteur::Selection::Recorder#each_hit",
+             reason: "equivalent: the return value of the per-file calls loop is unused (the method ends in ensure), so each and map yield the same hits"
+
+  i.mutation "af6eb7e89ce485cc",
+             subject: "Saboteur::Selection::Recorder#each_hit",
+             reason: "equivalent: the return value of the per-line yield loop is unused, so each and map yield the same hits"
 end
