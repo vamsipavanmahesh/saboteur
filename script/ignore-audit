@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+# Run as `bundle exec ruby script/ignore-audit BASE [HEAD]` (HEAD defaults
+# to the checkout). Exit 0: clean or the ignore file is untouched. 1:
+# digest-churn violations, printed with their subjects. 2: invalid
+# invocation or unverifiable refs. 3: the audit could not finish.
+require_relative "ignore_audit/audit"
+
+base = ARGV[0]
+head = ARGV[1] || "HEAD"
+if base.nil? || !system("git", "rev-parse", "--verify", "--quiet", "#{base}^{commit}", out: File::NULL) ||
+   !system("git", "rev-parse", "--verify", "--quiet", "#{head}^{commit}", out: File::NULL)
+  warn "usage: ruby script/ignore-audit BASE [HEAD]  (both must resolve to commits)"
+  exit 2
+end
+
+begin
+  exit IgnoreAudit::Audit.new(base: base, head: head).call
+rescue IgnoreAudit::Error, Saboteur::ConfigError, SystemCallError, IOError => e
+  warn "ignore-audit: incomplete: #{e.message}"
+  exit 3
+end
