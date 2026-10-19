@@ -676,7 +676,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
   it "warns about files that do not parse and skips them" do
     expect(select([write("broken.rb", "class X\n  def (\nend\n")])).to be_empty
-    expect(diagnostics.warnings.first).to start_with("fix the syntax in broken.rb: does not parse")
+    expect(diagnostics.warnings.first).to eq("fix the syntax in broken.rb: does not parse " \
+                                             "(expected a receiver for the method definition)")
     expect(diagnostics.discovery_failures.map(&:to_h)).to eq([
                                                                { file: File.join(@root, "broken.rb"),
                                                                  reason: "invalid_file_syntax" }
@@ -1074,8 +1075,14 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
     File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
 
     expect(select([file], since: "HEAD")).to be_empty
-    expect(diagnostics.warnings.join).to include("FileUtils.rm_rf(\"/tmp/x\")", "c.whole_file",
-                                                 "move the literal into its own file")
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).to eq("rules.rb: list the constant in c.whole_file to replay it anyway, or move the " \
+                          "literal into its own file\n  " \
+                          "--since: constant subject(s) in this file are not mutated: it runs code at " \
+                          "load (FileUtils.rm_rf(\"/tmp/x\") (line 1)) that every constant mutant would " \
+                          "run again, and saboteur cannot vet what re-running it does. " \
+                          "Exact id(s): \"RULES\" (preferred); a glob like \"*RULES*\" also works but " \
+                          "opts in every matching subject project-wide.")
   end
 
   # The denylist is not the boundary: a top-level helper call, a

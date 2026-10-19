@@ -120,7 +120,8 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     it "keeps the run and reports the matched count when one --subject pattern misses" do
       run = saboteur(dir, "--all", "--subject", "People::Person#adult?", "--subject", "People::Person#typo_xyz")
       expect(run.status).not_to eq(2)
-      expect(run.out).to include("warning: --subject People::Person#typo_xyz matches no subject")
+      expect(run.out).to include('warning: fix the --subject pattern "People::Person#typo_xyz": ' \
+                                 "it matches no subject")
       expect(run.out).to include("warning: 1 of 2 --subject patterns matched")
       expect(mutants(run)).not_to be_empty
     end
