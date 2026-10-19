@@ -16,6 +16,7 @@ require_relative "engine/thread_warnings"
 
 require_relative "engine/pipelines"
 require_relative "engine/shard"
+require_relative "engine/suite_partition"
 
 module Saboteur
   # A single-use instance runs one pipeline: boot the target, select subjects, fetch the
