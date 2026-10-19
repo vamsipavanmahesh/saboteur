@@ -831,8 +831,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings.first).to include("--since: 1 changed Ruby file(s) have no subjects " \
                                                     "covering the changed lines, so nothing is mutated " \
                                                     "from them: cart.rb")
-      expect(diagnostics.warnings.first).to end_with("The file may not parse, or every change may sit " \
-                                                     "outside a method.")
+      expect(diagnostics.warnings.first).to end_with("from them: cart.rb\n  The file may not parse, or every " \
+                                                     "change may sit outside a method.")
       expect(diagnostics.warnings.first).not_to include("...")
     end
 
@@ -907,7 +907,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(select(files, since: "HEAD")).to be_empty
       expect(diagnostics.warnings.size).to eq(1)
-      expect(diagnostics.warnings.first).to include("from them: g1.rb, g2.rb, g3.rb, g4.rb, g5.rb.")
+      expect(diagnostics.warnings.first).to include("from them: g1.rb, g2.rb, g3.rb, g4.rb, g5.rb\n  ")
       expect(diagnostics.warnings.first).not_to include("...")
     end
 
@@ -1131,7 +1131,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     expect(select([file_a, file_b], since: "HEAD")).to be_empty
     umbrella = diagnostics.warnings.find { |warning| warning.include?("no subjects covering the changed lines") }
-    expect(umbrella).to include("outside a method. 2 of these files have changes " \
+    expect(umbrella).to include("outside a method.\n  2 of these files have changes " \
                                 "inside a constant literal that is not mutated")
   end
 
