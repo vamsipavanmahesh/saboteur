@@ -61,9 +61,23 @@ RSpec.describe "score history CLI" do
     history = instance_double(Saboteur::Reporter::ScoreHistory)
     expect(Saboteur::Reporter::ScoreHistory).to receive(:new).with(config.path("score_history")).and_return(history)
     report = report_of(result_for(:killed))
-    expected = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir")
+    expected = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir", "resume")
     expect(history).to receive(:append).with(report, head: "a" * 40, scope: expected).and_return("recorded")
     command.send(:record_history, report)
+  end
+
+  it "does not split the history scope by the resume directory (#471)" do
+    command = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+    config = Saboteur::Config.new({ "score_history" => "out/history.jsonl", "resume" => "state/run1" })
+    allow(command).to receive(:config).and_return(config)
+    state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
+    allow(Saboteur::WorkingTree).to receive(:new).and_return(instance_double(Saboteur::WorkingTree, state: state))
+    history = instance_double(Saboteur::Reporter::ScoreHistory)
+    allow(Saboteur::Reporter::ScoreHistory).to receive(:new).and_return(history)
+    allow(history).to receive(:append).and_return("recorded")
+    command.send(:record_history, report_of(result_for(:killed)))
+    expect(history).to have_received(:append).with(anything, head: "a" * 40,
+                                                             scope: hash_excluding("resume", "cache_dir"))
   end
 
   it "does not ask for a history writer unless explicitly enabled" do
