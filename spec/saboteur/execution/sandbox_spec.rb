@@ -418,9 +418,11 @@ RSpec.describe Saboteur::Execution::Sandbox do
 
   it "raises rather than run half-restricted when a writable dir cannot be opened" do
     skip "Landlock unavailable" unless described_class.available?
-    # keep stdio: this spec runs in the suite process, whose redirected
-    # stdout is a regular file the sweep would otherwise close (#178).
-    expect { described_class.restrict!(writable: ["/nonexistent/saboteur-test"], keep_fds: [0, 1, 2]) }
+    # keep every fd the suite process holds: its redirected stdout and any
+    # rspec report file (--out) are regular files the sweep would otherwise
+    # close (#178). Landlock is Linux-only, so /proc/self/fd exists here.
+    keep = Dir.children("/proc/self/fd").map(&:to_i)
+    expect { described_class.restrict!(writable: ["/nonexistent/saboteur-test"], keep_fds: keep) }
       .to raise_error(SystemCallError)
   end
 
