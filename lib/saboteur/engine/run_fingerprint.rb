@@ -3,6 +3,7 @@
 
 require "digest"
 require "json"
+require_relative "../config"
 require_relative "../text"
 require_relative "data_inputs"
 
