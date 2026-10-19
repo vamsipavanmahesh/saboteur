@@ -54,12 +54,6 @@ Saboteur.ignore do |i|
                      "Node#location.start_line (verified against the project's prism), so dropping .location " \
                      "renders the same line number - hand-applied mutant leaves all examples green"
 
-  i.mutation "cacc7042b5677fe6",
-             subject: "Saboteur::Engine::CoverageStore#preloaded_message",
-             reason: "equivalent: the only caller guards on preloaded_empty.any?, so files.size is always >= 1, " \
-                     "and for n >= 1 the predicates n > 1 and n != 1 agree everywhere (n = 1: false/false, " \
-                     "n >= 2: true/true) - hand-applied mutant leaves every coverage_store pin green"
-
   i.mutation "ecc14ca9f634c6b4",
              subject: "Saboteur::Engine::HeredocSpans#collect",
              reason: "equivalent: the span push only runs for nodes whose opening marker starts with <<, " \
@@ -97,14 +91,6 @@ Saboteur.ignore do |i|
   i.mutation "e28a064f17fcb078",
              subject: "Saboteur::AttributeFinder#walk_singleton_class",
              reason: "equivalent: the sclass scope's path is never rendered - owner_path skips sclass scopes and only kind: :sclass decides the separator - so the literal is inert"
-
-  i.mutation "54845ce72e86f30a",
-             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
-             reason: "equivalent: Subject#to_s returns the id, so join renders the subjects the same without map(&:id)"
-
-  i.mutation "a3766004f0709c6f",
-             subject: "Saboteur::Engine::SubjectSelection#report_deleted",
-             reason: "equivalent: each returns the array itself and join calls Subject#to_s, which returns the id"
 
   i.mutation "4431382aefb4312a",
              subject: "Saboteur::CLI::HistoryCommand#history_path",
@@ -147,11 +133,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Config#validate_score_gates!",
              reason: "equivalent: the each result is discarded (the next statement is an assignment), and map runs the " \
                      "same block with the same next and raise"
-
-          i.mutation "bb377adb7ae9ce54",
-             subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
-             reason: "equivalent: each returns the receiver and join(', ') stringifies via Subject#to_s (the id), " \
-                     "so the note reads identically to map(&:id)"
 
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
@@ -351,18 +332,6 @@ Saboteur.ignore do |i|
   i.mutation "33b888a35f749d05",
              subject: "Saboteur::Engine::TestGuess#call_all",
              reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
-
-  i.mutation "1585456d1fd69b1a",
-             subject: "Saboteur::Engine::SubjectSelection#report_unchanged_syntax",
-             reason: "equivalent: Subject#to_s is its id, so joining subjects reads the same as joining their ids"
-
-  i.mutation "b3fd9ed8d22fac26",
-             subject: "Saboteur::Engine::SubjectSelection#report_unchanged_syntax",
-             reason: "equivalent: Subject#to_s is its id, and the block's return value is only joined, so map and each read the same"
-
-  i.mutation "ef5c88b04ed4987a",
-             subject: "Saboteur::Engine::SubjectSelection#drop_intentionally_untested",
-             reason: "equivalent: Subject#to_s is its id, so joining subjects reads the same as joining their ids"
 
   i.mutation "460c99badd064fe9",
              subject: "Saboteur::Frameworks::Rails#sqlite_absolute",
