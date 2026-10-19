@@ -213,6 +213,22 @@ request, and keep the diff-mode run for pull requests.
    accept.
 3. Set `fail-on-survivors: "true"`. saboteur's own CI does this.
 
+## Per-path gates
+
+One subtree can be held to a stricter floor than the rest of the run. In
+`config/saboteur.rb`:
+
+```ruby
+Saboteur.configure do |c|
+  c.score_gate "app/payments/**/*", min_score: 95
+end
+```
+
+The gate scores only the mutants under its pattern and fails the step under
+its floor, with the matched files and failing subjects named in the log.
+The global `--threshold`, if any, stays the fallback for everything else.
+See [Best practices](best-practices.md) for when to raise a floor.
+
 ## Caching
 
 The action caches the coverage map files (`.saboteur/coverage-*.json`) and
