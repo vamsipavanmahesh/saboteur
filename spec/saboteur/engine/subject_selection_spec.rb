@@ -1237,6 +1237,26 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
   # Every unmatched pattern gets its own warning, and the pass returns the
   # pattern list itself (#635, survivor: each -> map).
+  it "escapes a load-hazard file name that reads as a CI workflow command (#834)" do
+    file = commit_base("evil\n::error::injected.rb", "FileUtils.rm_rf(\"/tmp/x\")\nPROBE = { a: 1 }.freeze\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    select([file], since: "HEAD")
+    warning = diagnostics.warnings.find { |text| text.include?("c.whole_file") }
+    expect(warning).not_to match(/^\s*::error::/)
+    expect(warning).to include("evil\\x0a::error::injected.rb: list the constant in c.whole_file")
+  end
+
+  it "escapes the file name in the unsupported-constant warning (#834)" do
+    found = Struct.new(:file, :id, :reason).new(File.join(@root, "lib/a##[warning]b.rb"), "RULES", "not a literal")
+    selection = described_class.new(Saboteur::Config.new({}, root: @root), diagnostics)
+
+    selection.send(:warn_unsupported_constant, found)
+    text = diagnostics.warnings.join("\n")
+    expect(text).not_to include("##[")
+    expect(text).to include("changed constant RULES in lib/a##\\x5bwarning]b.rb is not mutated")
+  end
+
   it "escapes a whole_file pattern that reads as a CI workflow command (#834)" do
     config = Saboteur::Config.new({ "whole_file" => ["ok\n::error::injected=1", "x##[warning]y"] }, root: @root)
     selection = described_class.new(config, diagnostics)

@@ -267,7 +267,7 @@ module Saboteur
         return subjects if reasons.empty?
 
         constant_warned_files << canonical
-        path = file.delete_prefix("#{@root}/")
+        path = Text.display_safe(file.delete_prefix("#{@root}/"))
         listed = reasons.first(2).join(", ")
         listed += ", and #{reasons.size - 2} more" if reasons.size > 2
         @diagnostics.warn("#{path}: list the constant in c.whole_file to replay it anyway, or move the " \
@@ -311,7 +311,7 @@ module Saboteur
       end
 
       def warn_unsupported_constant(found)
-        path = found.file.delete_prefix("#{@root}/")
+        path = Text.display_safe(found.file.delete_prefix("#{@root}/"))
         @diagnostics.warn("--since: changed constant #{found.id} in #{path} is not mutated: #{found.reason}. " \
                           "Only hash and array literal entries are mutated.")
       end
