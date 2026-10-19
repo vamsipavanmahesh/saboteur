@@ -281,13 +281,27 @@ module Saboteur
 
       # The top-level groups with examples to run, in the world's order. With
       # files, only the groups a spec file in that list defines (a part of a
-      # partitioned coverage build, #741).
+      # partitioned coverage build, #741). Both sides are compared as real
+      # paths. An empty list is refused and so is a listed file that defines
+      # no group: a part that silently runs nothing would leave its tests
+      # out of the map.
       def runnable_groups(files)
         groups = world.ordered_example_groups.select { |group| group.descendant_filtered_examples.any? }
         return groups unless files
+        raise ArgumentError, "files must name at least one spec file" if files.empty?
 
-        wanted = files.to_set { |file| File.expand_path(file) }
-        groups.select { |group| wanted.include?(File.expand_path(group.metadata[:file_path])) }
+        wanted = files.to_set { |file| File.realpath(file) }
+        chosen = groups.select { |group| wanted.include?(real_path(group.metadata[:file_path])) }
+        missing = wanted - chosen.to_set { |group| real_path(group.metadata[:file_path]) }
+        raise ArgumentError, "no example group in: #{missing.sort.join(', ')}" unless missing.empty?
+
+        chosen
+      end
+
+      def real_path(path)
+        File.realpath(path)
+      rescue SystemCallError
+        File.expand_path(path)
       end
 
       # Progress and failure detail for a phase log. Every 25 finished
