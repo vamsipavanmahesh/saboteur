@@ -148,10 +148,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk_heredoc_eval",
              reason: "equivalent for the current consumers only: subjects take file, source and offsets from ctx[:file] and the failure path returns silently; the dropped filepath does change AST metadata (a def with __FILE__ reads differently), which no current lib consumer reads"
 
-  i.mutation "37df0d8bc4fe17cb",
-             subject: "Saboteur::Config#validate_score_gates!",
-             reason: "equivalent: the each result is discarded (the next statement is an assignment), and map runs the " \
-                     "same block with the same next and raise"
 
   i.mutation "bafd61e973bfc9a9",
              subject: "Saboteur::CLI::Presets#preset",
@@ -185,17 +181,8 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Scheduler#unchanged_runner",
              reason: "the 0.0 runtime of a check that never forked is discarded: as_unverified keeps the kill's own runtime"
 
-  i.mutation "4c76f1fb164340ce",
-             subject: "Saboteur::Engine::VerdictCheck#check_sequences",
-             reason: "equivalent: the block's side effects populate the accumulators and the enumerator's return value is unused, so each and map agree"
 
-  i.mutation "acc82bd84e367b90",
-             subject: "Saboteur::Engine::VerdictCheck#check_claims",
-             reason: "equivalent: the block's side effects populate the accumulators and the enumerator's return value is unused, so each and map agree"
 
-  i.mutation "d5337bfe1d6b9951",
-             subject: "Saboteur::Reporter::Terminal#list",
-             reason: "equivalent: the block's puts side effects are the whole behavior and the return value is unused, so each and map agree"
 
   i.mutation "ada60709111b1e56",
              subject: "Saboteur::Reporter::Diff#operations",
@@ -245,9 +232,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Reporter::Diff#hunks",
              reason: "equivalent: ranges arrive sorted, so the new end is never below the previous range end"
 
-  i.mutation "14689cacf3add21b",
-             subject: "Saboteur::Reporter::Terminal#kill_causes",
-             reason: "equivalent: only killed results carry a kill_cause, so status == :killed || kill_cause selects the same results"
 
   i.mutation "1c63f9e764f00ada",
              subject: "Saboteur::Engine::Scheduler.prioritize",
@@ -297,12 +281,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Selection::GitDiff#unquote",
              reason: "equivalent: .b only retags the string and the force_encoding right after overwrites the tag; bytes never change"
 
-  i.mutation "168aa39476e05d6b",
-             subject: "Saboteur::Selection::UntrackedChanges#union",
-             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
-  i.mutation "0483ba48e0fe025b",
-             subject: "Saboteur::Selection::UntrackedChanges#union",
-             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
 
   i.mutation "40c51d744af42a0e",
              subject: "Saboteur::Selection::UntrackedChanges#count_lines",
@@ -316,17 +294,8 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::DiffScope#distance_for",
              reason: "equivalent: at last == changed.begin the subtraction is 0, exactly the overlap arm's answer, so < and <= agree everywhere"
 
-  i.mutation "bde3ce6eba713256",
-             subject: "Saboteur::Engine::SubjectSelection#find",
-             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
 
-  i.mutation "2a03e98d1de4dcfb",
-             subject: "Saboteur::Engine::SubjectSelection#by_pattern",
-             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
 
-  i.mutation "33b888a35f749d05",
-             subject: "Saboteur::Engine::TestGuess#call_all",
-             reason: "equivalent: the block's return value is unused, so each and map run the same side effects"
 
   i.mutation "460c99badd064fe9",
              subject: "Saboteur::Frameworks::Rails#sqlite_absolute",
@@ -424,13 +393,7 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Engine::Canary#walk_files",
              reason: "equivalent: the reject operands are pure predicates, so | returns the same boolean as ||"
 
-  i.mutation "2689f9db0bec4712",
-             subject: "Saboteur::Engine::Distribution#decode",
-             reason: "equivalent: encode always writes rejected_kill, so the fetch default never fires for same-version workers"
 
-  i.mutation "e26320eab32dc139",
-             subject: "Saboteur::Engine::Distribution#decode",
-             reason: "equivalent: encode always writes rejected_kill, so fetch with and without the default reads the same present key"
 
   i.mutation "efe71ae606835faa",
              subject: "Saboteur::MutationSource::HazardGuard#hazard_spans",
@@ -456,16 +419,7 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent: Prism's sibling locations are disjoint, so at most one child contains the edit; returning its nil immediately is the same as finishing the loop with nil"
 
-  i.mutation "c52104bcd93c6fc2",
-             subject: "Saboteur::Selection::CoverageMap#tests_for_branches",
-             reason: "equivalent: branch spans always have four coordinates, so span[2, 3] and span[2, 2] both return the final two coordinates"
-  i.mutation "df73cda19a6c56f3",
-             subject: "Saboteur::Engine::Scheduler#uncoverable",
-             reason: "equivalent: unloadable receives exactly one candidate here, so first and last return the same result"
 
-  i.mutation "eb6af4aef069613b",
-             subject: "Saboteur::Engine::Scheduler#uncoverable",
-             reason: "equivalent: skip_all receives exactly one candidate here, so first and last return the same result"
 
   i.mutation "560fd49376706c7c",
              subject: "Saboteur::Config#validate_fail_fast!",
@@ -499,9 +453,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::OperandReplacement#replace_operands",
              reason: "equivalent: splatting the ArgumentsNode wraps it as one element (it has no to_a), and its slice yields the sole argument's source for the one-argument infix calls binary? admits"
 
-  i.mutation "fb3d8d74cffbaf81",
-             subject: "Saboteur::MutationSource::OperatorVisit#visit",
-             reason: "equivalent: the statement walk runs in statement position, so the collected array from map is discarded exactly like the each return"
 
   i.mutation "423d477387f24abf",
              subject: "Saboteur::MutationSource::OperatorVisit#visit",
@@ -511,20 +462,8 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#pattern_coverage_lines",
              reason: "equivalent on current Prism, where Node#start_line exists: the location hop stays because Prism 1.2, the gemspec minimum, has no Node#start_line"
 
-  i.mutation "981ed4f132e27c49",
-             subject: "Saboteur::CrashReport#write_log",
-             reason: "equivalent: write_log returns via an explicit return inside the block or nil after it; " \
-                     "the block's write/rescue side effects are the whole behavior and the enumerator's return value is never used"
 
-  i.mutation "57afcef173eb2eee",
-             subject: "Saboteur::Config#coerce!",
-             reason: "equivalent: the block's @values[key] assignment is the whole behavior and the enumerator's " \
-                     "return is unused: coerce! ends with the test_selection assignment"
 
-  i.mutation "23716ea3873be11e",
-             subject: "Saboteur::Reporter::Terminal#errors",
-             reason: "equivalent: the block's @out.puts side effects are the whole behavior and the enumerator's " \
-                     "return value is unused"
 
   i.mutation "996853fcc7690d62",
              subject: "Saboteur::Engine::Scheduler#call",
@@ -563,9 +502,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::ConstantReads#mentions?",
              reason: "equivalent: a wrongly-true mention only leads to a parse that finds no occurrence of the constant and records nothing, as the skip does"
 
-  i.mutation "45d8896875d52512",
-             subject: "Saboteur::ConstantSubjectFinder#reject_duplicates",
-             reason: "equivalent: the block's writes counting side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
 
   i.mutation "7f9c62be259a51ad",
              subject: "Saboteur::ConstantSubjectFinder#reject_duplicates",
@@ -587,17 +523,8 @@ Saboteur.ignore do |i|
              subject: "Saboteur::ConstantSubjectFinder#literal_value",
              reason: "equivalent: the extra step ends with value nil, and nil fails the HashNode/ArrayNode check just like the bare freeze call the loop would stop at"
 
-  i.mutation "296e509071af2397",
-             subject: "Saboteur::ConstantSubjectFinder#walk_factory",
-             reason: "equivalent: the block's walk side effects populate out and the enumerator's return value is unused, so each and map agree"
 
-  i.mutation "2ab9b5df9bbd2436",
-             subject: "Saboteur::Engine::SubjectSelection#constant_subjects",
-             reason: "equivalent: the block's subjects.concat side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
 
-  i.mutation "145023bdef6a8b5d",
-             subject: "Saboteur::Engine::SubjectSelection#constant_subjects",
-             reason: "equivalent: the block's warning side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
 
   i.mutation "aca095f3c907a02e",
              subject: "Saboteur::Engine::SubjectSelection#attach_consumers",
@@ -607,9 +534,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::MutationSource::ConstantLiterals#initialize",
              reason: "equivalent: the Base initializer is stateless, so skipping it changes nothing"
 
-  i.mutation "5c1090492053dc7a",
-             subject: "Saboteur::MutationSource::ElementRemoval#visit",
-             reason: "equivalent: the block's recording side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
 
   i.mutation "e796c70885a9e545",
              subject: "Saboteur::MutationSource::ElementRemoval#visit",
@@ -658,10 +582,6 @@ Saboteur.ignore do |i|
              reason: "equivalent: the block's vet_statement side effects are the whole behavior and the enumerator's return value is unused, so each and map agree"
   # Over-matching a duplicate only demotes both writes, and a local assigned
   # in any branch is nil in the others: owner reads nil either way.
-  i.mutation "c239b7bcac4b5ae4",
-             subject: "Saboteur::ConstantSubjectFinder#record_unsupported",
-             reason: "equivalent: owner is assigned in the if branch, so Ruby defines it as nil on the else path; the " \
-                     "explicit owner = nil is documentation"
   # A vetted require takes exactly one argument, so first and last are the
   # same element whenever the length check passes; otherwise the
   # conjunction short-circuits before either is read.
@@ -764,9 +684,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk_children",
              reason: "equivalent: each vs map on a side-effect-only walk loop; the collected array is discarded"
 
-  i.mutation "21bc3e08c57297ab",
-             subject: "Saboteur::RefinementActivations.collect",
-             reason: "equivalent: Prism::Node#start_offset delegates to location.start_offset, so the chain cut is identical (live-probed on a `using M` call node)"
 
   i.mutation "ef239b357ad7b089",
              subject: "Saboteur::RefinementActivations::Site#covers?",
@@ -796,9 +713,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::SubjectFinder#walk",
              reason: "equivalent: each vs map on a side-effect-only fallback walk loop; the collected array is discarded"
 
-  i.mutation "b0aae921a2cfa19d",
-             subject: "Saboteur::CLI#use_explicit_sources",
-             reason: "equivalent: each and map both run the raising block over every test path; the collected array is unused"
 
   i.mutation "fd1253fb224794ff",
              subject: "Saboteur::Engine::Scheduler#reordered",
@@ -922,9 +836,6 @@ Saboteur.ignore do |i|
   i.mutation "15307bd521a10280",
              subject: "Saboteur::Subject#contains_edit?",
              reason: "equivalent: prism nodes delegate end_offset to their location"
-  i.mutation "d9aeb909564db3e1",
-             subject: "Saboteur::Engine::SubjectSelection#by_pattern",
-             reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
 
   i.mutation "d689ef2e6305183f",
              subject: "Saboteur::SubjectFinder#owner_path",
