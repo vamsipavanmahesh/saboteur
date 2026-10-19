@@ -96,7 +96,9 @@ inputs:
     required: false
     default: "10"
   github-token:
-    description: Token the review comments are posted with.
+    description: >-
+      Token the review comments are posted with, and the base commit is fetched
+      with when the checkout did not keep credentials (needs contents: read).
     required: false
     default: ${{ github.token }}
   bot-login:
@@ -177,6 +179,18 @@ runs:
         key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
         restore-keys: |
           saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
+    # The token is for this step alone: it exits before any test of the pull
+    # request runs, so a checkout with persist-credentials: false still gets
+    # its base commit, and the token is never in the environment of the tests.
+    - name: Fetch the pull request base
+      if: inputs.baseline == '' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+      continue-on-error: true
+      shell: bash
+      env:
+        SABOTEUR_FETCH_TOKEN: ${{ inputs.github-token }}
+        SABOTEUR_EVENT_NAME: ${{ github.event_name }}
+        SABOTEUR_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.inputs.base_sha }}
+      run: bash "${{ github.action_path }}/action/fetch-base"
     - name: Mutate the changed methods
       if: inputs.baseline == ''
       id: run
