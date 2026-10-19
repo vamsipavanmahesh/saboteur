@@ -2,7 +2,8 @@
 
 The shortest path from install to a survivor you have dealt with. Commands
 assume a Bundler project; outside one, `gem install saboteur` gives the same
-executable. Ruby 3.3+ on Linux or macOS, RSpec only.
+executable, which you run as plain `saboteur run` without `bundle exec`. Ruby
+3.3+ on Linux or macOS, RSpec only.
 
 ## 1. Install
 
