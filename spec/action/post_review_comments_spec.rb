@@ -123,6 +123,39 @@ RSpec.describe "action/post-review-comments" do
     expect(writes.map { |args| args[2] }).to eq(["POST"])
   end
 
+  it "compares the bot login without regard to case" do
+    mixed = { "login" => "Saboteur-App", "type" => "User" }
+    serve(comments_path, [{ "id" => 1, "user" => mixed, "body" => "#{marker.marker('aabbccdd11223344')}\nx" },
+                          { "id" => 2, "user" => mixed, "body" => "#{marker.marker('aabbccdd11223399')}\nx" }])
+
+    out, = run_script(write_report([survivor("aabbccdd11223344")]), SABOTEUR_BOT_LOGIN: "saboteur-app")
+
+    expect(out).to include("0 posted, 1 removed")
+    expect(writes).to eq([["api", "-X", "DELETE", "repos/o/r/pulls/comments/2"]])
+  end
+
+  it "falls back to github-actions[bot] when SABOTEUR_BOT_LOGIN is empty or blank" do
+    serve(comments_path, [{ "id" => 2, "user" => bot, "body" => "#{marker.marker('aabbccdd11223399')}\nx" },
+                          { "id" => 3, "user" => { "login" => "", "type" => "Bot" },
+                            "body" => "#{marker.marker('aabbccdd11223398')}\nx" }])
+
+    ["", "  "].each do |value|
+      FileUtils.rm_f(calls)
+      run_script(write_report([survivor("aabbccdd11223344")]), SABOTEUR_BOT_LOGIN: value)
+      expect(writes.map { |args| args[3] }).to include("repos/o/r/pulls/comments/2"), "login=#{value.inspect}"
+      expect(writes.map { |args| args[3] }).not_to include("repos/o/r/pulls/comments/3")
+    end
+  end
+
+  it "trims whitespace around the bot login, and ignores comments with no login" do
+    serve(comments_path, [{ "id" => 1, "user" => nil, "body" => "#{marker.marker('aabbccdd11223344')}\nx" },
+                          { "id" => 2, "user" => bot, "body" => "#{marker.marker('aabbccdd11223399')}\nx" }])
+
+    run_script(write_report([survivor("aabbccdd11223344")]), SABOTEUR_BOT_LOGIN: " github-actions[bot] ")
+
+    expect(writes.map { |args| args[2] }).to eq(%w[DELETE POST])
+  end
+
   it "removes nothing unless saboteur.complete is exactly true, but keeps posting" do
     serve(comments_path, [{ "id" => 2, "user" => bot, "body" => "#{marker.marker('aabbccdd11223399')}\nx" }])
 

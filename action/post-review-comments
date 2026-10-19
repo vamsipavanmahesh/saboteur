@@ -16,7 +16,8 @@
 #   GITHUB_REPOSITORY        owner/name of the base repository
 #   SABOTEUR_MAX_COMMENTS    comment cap (default 10)
 #   SABOTEUR_RUN_URL         link for the "more survivors" summary
-#   SABOTEUR_BOT_LOGIN       author of the comments this script owns (default github-actions[bot])
+#   SABOTEUR_BOT_LOGIN       author of the comments this script owns (default github-actions[bot];
+#                            empty means the default; compared without regard to case)
 #   SABOTEUR_GH              the GitHub CLI to call (default gh); GH_TOKEN is its credential
 require "json"
 require "open3"
@@ -49,10 +50,19 @@ def pages(path)
   end
 end
 
-# Only comments written by the account the token posts as (logins are unique,
-# so another user quoting a marker never counts).
+DEFAULT_BOT_LOGIN = "github-actions[bot]"
+
+# The account the token posts as; an empty setting means the default.
+def bot_login(env)
+  login = env["SABOTEUR_BOT_LOGIN"].to_s.strip
+  login.empty? ? DEFAULT_BOT_LOGIN : login
+end
+
+# Only comments written by the account the token posts as (logins are unique
+# and GitHub compares them without regard to case, so another user quoting a
+# marker never counts).
 def bot_owned(rows, login)
-  rows.select { |row| row.dig("user", "login") == login }
+  rows.select { |row| row.dig("user", "login").to_s.casecmp?(login) }
 end
 
 def post(repo, number, sha, comment)
@@ -106,7 +116,7 @@ def run(env)
   report = eligible_report(env) or return
   repo = env.fetch("GITHUB_REPOSITORY")
   number = Integer(env.fetch("SABOTEUR_PR_NUMBER"))
-  login = env.fetch("SABOTEUR_BOT_LOGIN", "github-actions[bot]")
+  login = bot_login(env)
   existing = bot_owned(pages("repos/#{repo}/pulls/#{number}/comments"), login)
   plan = ReviewComments.plan(report.dig("saboteur", "findings"), existing: existing,
                                                                  limit: env.fetch("SABOTEUR_MAX_COMMENTS", "10"),
