@@ -492,4 +492,138 @@ RSpec.describe Saboteur::Execution::Supervisor do
       expect(dead_within?(child, 4)).to be(true)
     end
   end
+
+  describe "#run_many (#741)" do
+    it "returns every child's result in index order and tells each child its index" do
+      results = supervisor.run_many(3, timeout: 10) { |writer, index| writer.write("part #{index}") }
+
+      expect(results.map(&:payload)).to eq(["part 0", "part 1", "part 2"])
+      expect(results.map { |result| result.exit_status.exitstatus }).to eq([0, 0, 0])
+      expect(results.map(&:stopped_by)).to eq([nil, nil, nil])
+    end
+
+    it "supervises the children at the same time, not one after another" do
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      supervisor.run_many(3, timeout: 10) do |writer, index|
+        sleep 1
+        writer.write(index.to_s)
+      end
+
+      expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 2.5
+    end
+
+    it "gives each child its own marker and keeps siblings' payloads apart" do
+      results = supervisor.run_many(3, timeout: 10) do |writer, _index|
+        writer.write(ENV.fetch(described_class::TREE_ENV).split(":").last)
+      end
+
+      expect(results.map(&:payload).uniq.size).to eq(3)
+    end
+
+    it "stops only the child that exceeds its deadline" do
+      results = supervisor.run_many(2, timeout: 1) do |writer, index|
+        index.zero? ? sleep(30) : writer.write("done")
+      end
+
+      expect(results.map(&:stopped_by)).to eq([:timeout, nil])
+      expect(results.last.payload).to eq("done")
+      expect(described_class.live).to be_empty
+    end
+
+    it "calls on_tick only from the calling thread" do
+      threads = []
+      supervisor.run_many(2, timeout: 10, on_tick: -> { threads << Thread.current }) do |writer, _index|
+        sleep 0.3
+        writer.write("ok")
+      end
+
+      expect(threads).not_to be_empty
+      expect(threads.uniq).to eq([Thread.current])
+    end
+
+    it "stops every child at once when on_tick raises, well before their deadline" do
+      ticks = 0
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      on_tick = -> { raise "tick failed" if (ticks += 1) > 20 }
+
+      expect do
+        supervisor.run_many(2, timeout: 12, on_tick: on_tick) do |_writer, index|
+          File.write(pid_file("many#{index}"), Process.pid.to_s)
+          sleep 30
+        end
+      end.to raise_error(RuntimeError, "tick failed")
+
+      expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 5
+      expect(dead_within?(read_pid("many0"), 5)).to be(true)
+      expect(dead_within?(read_pid("many1"), 5)).to be(true)
+      expect(described_class.live).to be_empty
+    end
+
+    it "kills the children already forked when a later fork fails, and keeps the original error" do
+      calls = 0
+      copy = supervisor.method(:dup)
+      allow(supervisor).to receive(:dup) do
+        if (calls += 1) == 3
+          sleep 0.5 # let the first two children write their pid files
+          raise IOError, "fork failed"
+        end
+
+        copy.call
+      end
+      allow_any_instance_of(described_class).to receive(:contain).and_raise("cleanup failed")
+
+      expect do
+        supervisor.run_many(3, timeout: 30) do |_writer, index|
+          File.write(pid_file("fork#{index}"), Process.pid.to_s)
+          sleep 30
+        end
+      end.to raise_error(IOError, "fork failed")
+
+      expect(dead_within?(read_pid("fork0"), 5)).to be(true)
+      expect(dead_within?(read_pid("fork1"), 5)).to be(true)
+    end
+
+    it "runs a single child" do
+      results = supervisor.run_many(1, timeout: 5) { |writer, index| writer.write("only #{index}") }
+
+      expect(results.map(&:payload)).to eq(["only 0"])
+    end
+
+    # The stub keeps the watcher from reaping, so the safety-net `after`
+    # above kills the sleeping children through their pid files.
+    it "re-raises a watcher's failure after every watcher has finished" do
+      allow_any_instance_of(described_class).to receive(:contain).and_raise("watch failed")
+
+      expect do
+        supervisor.run_many(2, timeout: 10) do |_writer, index|
+          File.write(pid_file("watch#{index}"), Process.pid.to_s)
+          sleep 30
+        end
+      end.to raise_error(RuntimeError, "watch failed")
+    end
+
+    it "surfaces a failure to start a watcher as itself" do
+      parent = Process.pid
+      allow(Thread).to receive(:new).and_wrap_original do |original, *args, &block|
+        next original.call(*args, &block) unless Process.pid == parent
+
+        sleep 0.5 # let the child write its pid file
+        raise ThreadError, "no thread"
+      end
+
+      expect do
+        supervisor.run_many(1, timeout: 10) do |_writer, _index|
+          File.write(pid_file("nothread"), Process.pid.to_s)
+          sleep 30
+        end
+      end.to raise_error(ThreadError, "no thread")
+
+      expect(dead_within?(read_pid("nothread"), 5)).to be(true)
+    end
+
+    it "refuses a count below 1" do
+      expect { supervisor.run_many(0, timeout: 5) { nil } }
+        .to raise_error(ArgumentError, "count must be at least 1, got 0")
+    end
+  end
 end
