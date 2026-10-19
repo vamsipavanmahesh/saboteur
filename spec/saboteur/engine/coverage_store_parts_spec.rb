@@ -228,7 +228,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "in parts" do
       recorder = instance_double(Saboteur::Selection::Recorder, start: nil)
       allow(recorder).to receive(:result).and_return(part_map("t1"))
       allow(Saboteur::Selection::Recorder).to receive(:new).and_return(recorder)
-      expect(integration).to receive(:run_all).with(recorder, files: %w[/s/b_spec.rb]).and_return(true)
+      expect(integration).to receive(:run_all).with(recorder, files: %w[/s/b_spec.rb], seed: 1).and_return(true)
       part_store = store
       allow($stdout).to receive(:reopen)
       allow($stderr).to receive(:reopen)
@@ -239,6 +239,25 @@ RSpec.describe Saboteur::Engine::CoverageStore, "in parts" do
 
       expect($stdout).to have_received(:reopen).with(log, "w")
       expect(File.directory?(File.dirname(log))).to be(true)
+    end
+  end
+
+  describe "recording with a given seed" do
+    it "seeds Kernel with it and names it when the suite fails" do
+      recorder = instance_double(Saboteur::Selection::Recorder, start: nil)
+      allow(Saboteur::Selection::Recorder).to receive(:new).and_return(recorder)
+      allow(integration).to receive(:run_all).and_return(false)
+      seeded = store
+      allow($stdout).to receive(:reopen)
+      allow($stderr).to receive(:reopen)
+      allow(seeded).to receive(:exit!)
+      allow(Kernel).to receive(:srand)
+      writer = StringIO.new
+
+      seeded.send(:record, writer, [source], only: %w[/s/b_spec.rb], seed: 77)
+
+      expect(Kernel).to have_received(:srand).with(77)
+      expect(writer.string).to include("Fix the suite, then run again with seed 77.")
     end
   end
 

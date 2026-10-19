@@ -64,7 +64,7 @@ module Saboteur
       # recorder.test_finished(id) after each one. Used to build the coverage map.
       # files, when given, limits the run to the tests defined in those spec
       # files (one part of a partitioned build, #741); nil runs everything.
-      def run_all(_recorder, files: nil)
+      def run_all(_recorder, files: nil, seed: nil)
         raise NotImplementedError
       end
 

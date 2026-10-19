@@ -30,7 +30,7 @@ module Saboteur
       # with no test behind it must read as no evidence, not as covered.
       def without(hits, dropped)
         hits.each_with_object({}) do |(file, by_line), acc|
-          kept = by_line.transform_values { |ids| ids - dropped.to_a }
+          kept = by_line.transform_values { |ids| ids.reject { |id| dropped.include?(id) } }
           kept.reject! { |_, ids| ids.empty? }
           acc[file] = kept unless kept.empty?
         end
