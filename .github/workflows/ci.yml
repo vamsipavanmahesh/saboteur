@@ -280,6 +280,8 @@ jobs:
           path: |
             .saboteur/report.json
             .saboteur/*.log
+          # upload-artifact skips hidden paths by default, and .saboteur is one.
+          include-hidden-files: true
 
   # Ignore-hygiene audit (#703): a digest a pull request adds to
   # config/saboteur_ignore.rb must arise live on its head; a dropped
