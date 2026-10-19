@@ -45,6 +45,23 @@ inputs:
       survivor comparison.
     required: false
     default: ""
+  max-timeouts:
+    description: >-
+      Fail the saboteur run when more than this many mutants end as a timeout:
+      a count ("3") or a percentage of the executed mutants ("5%"). Passed as
+      --max-timeouts. Empty means no gate. Like a survivor, a failed gate only
+      fails the step with fail-on-survivors "true".
+    required: false
+    default: ""
+  max-errors:
+    description: >-
+      Fail the saboteur run when more than this many mutants end as an error:
+      a count ("3") or a percentage of the executed mutants ("5%"). Passed as
+      --max-errors. Empty means no gate. With a value set, errored mutants
+      within the limit no longer fail an incomplete run under
+      fail-on-survivors "true".
+    required: false
+    default: ""
   cache:
     description: >-
       "true" or "false" (anything else fails the step). "false" skips restoring
@@ -145,6 +162,8 @@ runs:
         SABOTEUR_COMMAND: ${{ inputs.command }}
         SABOTEUR_ARGUMENTS: ${{ inputs.arguments }}
         SABOTEUR_FAIL_ON_SURVIVORS: ${{ inputs.fail-on-survivors }}
+        SABOTEUR_MAX_TIMEOUTS: ${{ inputs.max-timeouts }}
+        SABOTEUR_MAX_ERRORS: ${{ inputs.max-errors }}
         SABOTEUR_REPORT_PATH: ${{ inputs.report-path }}
         SABOTEUR_CACHE: ${{ inputs.cache }}
         SABOTEUR_ARTIFACT_NAME: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}
