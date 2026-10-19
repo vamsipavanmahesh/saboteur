@@ -406,6 +406,10 @@ harness problem or a runaway mutant cannot raise the score silently.
   one - `--no-cache` only rebuilds the coverage map and still reuses the
   old verdict. Run without `--incremental` now and then anyway (and in CI
   on the main branch).
+  Verdicts are also saved about every 30 seconds during the run, through a
+  temp file renamed into place, so a run killed mid-phase keeps what it
+  finished (#471). Those mid-run saves are best effort (a failed one is
+  retried a save interval later); the final save still raises.
 - Order: tests that killed earlier mutants of the same subject first, then
   fastest first (suite order breaks ties). With fail-fast, a mutant is killed
   by its cheapest killing test. The verdict check (section 8) re-runs the

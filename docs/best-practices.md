@@ -53,6 +53,13 @@ the mutant, its covering tests and their files, the lockfile and the config
 are unchanged. It cannot see a change in another file that the subject uses.
 Use it for local iteration, and run without it on main now and then.
 
+`--incremental` also saves verdicts while the run is going (about every 30
+seconds), not only at the end. If a long run is killed by a timeout or an
+out-of-memory kill, the next run with `--incremental` picks up the verdicts
+that were already saved. These mid-run saves are best effort: if one fails,
+for example on a full disk, the run keeps going and tries again later. The
+save at the end of the run still fails loudly.
+
 ## The GitHub Action
 
 [`docs/github-action.md`](github-action.md) is the reference. The short
