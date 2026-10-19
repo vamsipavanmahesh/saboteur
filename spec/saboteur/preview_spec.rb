@@ -229,19 +229,22 @@ RSpec.describe Saboteur::Preview do
     end
   end
 
-  it "gives no estimate when durations are infinite or their total overflows" do
+  it "gives no estimate when a duration is infinite or the total overflows" do
     settings = config(operators: ["arithmetic"])
     FileUtils.mkdir_p(File.join(root, ".saboteur"))
     identity = Saboteur::Engine::RunFingerprint.new(config: settings).snapshot.digest
     map = File.join(root, ".saboteur", "big.json")
     format = Saboteur::Selection::CoverageMap::FORMAT
-    %w[1e999 1e308].each do |duration|
+    # An infinite duration is rejected when the map loads; a finite one that only
+    # overflows the total still loads and is refused by the estimate.
+    { "1e999" => "no estimate: run once to build the coverage map",
+      "1e308" => "no estimate: cached test durations are incomplete" }.each do |duration, message|
       File.write(map, %({"format":#{format.to_json},"tests":["t"],"lines":{#{target.file.to_json}:{"3":[0]}},) +
                       %("durations":[#{duration}]}))
       File.write(File.join(root, ".saboteur", "preview.json"), JSON.generate(path: map, fingerprint: identity))
       out.truncate(0)
       preview(settings).call
-      expect(out.string).to include("Total: 2 mutants", "no estimate: cached test durations are incomplete")
+      expect(out.string).to include("Total: 2 mutants", message)
       expect(out.string).not_to include("Estimated baseline", "Infinity")
     end
   end

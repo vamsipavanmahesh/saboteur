@@ -245,6 +245,7 @@ module Saboteur
         raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
         raise Error unless strings?(data["tests"])
         raise Error unless data["durations"].nil? || numbers?(data["durations"])
+        raise Error unless data["build_seconds"].nil? || finite?(data["build_seconds"])
         raise Error unless data["loaded_files"].nil? || strings?(data["loaded_files"])
 
         from_data(data)
@@ -256,7 +257,11 @@ module Saboteur
 
       # Durations hold nil for a test that was not timed.
       def self.numbers?(list)
-        list.is_a?(Array) && list.all? { |value| value.nil? || value.is_a?(Numeric) }
+        list.is_a?(Array) && list.all? { |value| value.nil? || finite?(value) }
+      end
+
+      def self.finite?(value)
+        value.is_a?(Numeric) && value.finite?
       end
 
       def self.from_data(data)
