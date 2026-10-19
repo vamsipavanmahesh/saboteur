@@ -60,9 +60,11 @@ module Saboteur
 
         note = miss_note(files)
         @diagnostics.inform(note.message(scoped: !@config["tests"].empty?)) if @config["cache"]
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         map = refuse_empty_map(build(files).with_preloaded(preloaded), files, preloaded)
+        build_seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
         map.save(path)
-        shadow(files, map, note) if shadow?
+        shadow(files, map, note, build_seconds) if shadow?
         note.save
         File.write(File.join(@config.path("cache_dir"), "preview.json"),
                    JSON.generate(path: path, fingerprint: RunFingerprint.new(config: @config).snapshot.digest))

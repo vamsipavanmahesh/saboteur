@@ -19,18 +19,25 @@ module Saboteur
       end
 
       # Never stops a run: the full map is already built and is the one used.
-      # Writes shadow-<map key>.json beside the map and warns on a mismatch.
-      def shadow(files, full_map, note)
+      # Writes shadow-<map key>.json beside the map, with the seconds the full
+      # build and the partial rerun took, and warns on a mismatch.
+      def shadow(files, full_map, note, build_seconds)
         cache = @config.path("cache_dir")
         base = CoverageInputsSnapshot.latest(cache, @root)
         base_map = base && Selection::CoverageMap.load(CoverageInputsSnapshot.map_path(cache, base["map_key"]))
         return unless base_map
 
+        rerun_seconds = nil
         report = ShadowRun.call(base: base, base_map: base_map, current: note.current, full_map: full_map,
                                 invalidation: shadow_invalidation(base_map, files), fallback_files: files,
                                 rerun: lambda { |specs, seed|
-                                  shadow_rerun(files, specs, seed)
+                                  from = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+                                  shadow_rerun(files, specs, seed).tap do
+                                    rerun_seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - from
+                                  end
                                 }, clean: method(:shadow_clean))
+        report = report.merge("full_build_seconds" => build_seconds.round(2),
+                              "rerun_seconds" => rerun_seconds&.round(2))
         save_shadow_report(cache, report, cache_key(files))
       rescue StandardError => e
         @diagnostics.warn("partial coverage shadow run failed (the full map is used): #{shadow_clean(e.message)}")
@@ -38,7 +45,8 @@ module Saboteur
 
       def shadow_invalidation(base_map, files)
         PartialInvalidation.new(map: base_map, root: @root, included: files.map(&method(:relative)),
-                                spec_files: @integration.test_files.map(&method(:relative)))
+                                spec_files: @integration.test_files.map(&method(:relative)),
+                                status_file: @integration.status_file?(@root))
       end
 
       def relative(file)

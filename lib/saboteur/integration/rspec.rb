@@ -112,6 +112,14 @@ module Saboteur
               .map { |example| TestCase.new(id: example.id, file: example.metadata[:rerun_file_path]) }
       end
 
+      # Whether RSpec picks examples from its generated status file
+      # (spec/examples.txt) for --only-failures or --next-failure. RSpec's own
+      # parser answers, so abbreviations, SPEC_OPTS, .rspec, .rspec-local,
+      # ~/.rspec, the XDG options file and --options FILE all count.
+      def status_file?(root)
+        from_directory(root) { ::RSpec::Core::ConfigurationOptions.new(rspec_args).options[:only_failures] ? true : false }
+      end
+
       def test_files
         world.example_groups.map { |group| File.expand_path(group.metadata[:file_path]) }.uniq
       end
