@@ -400,7 +400,7 @@ module Saboteur
         names = Text.name_list(unmatched.map { |file| file.delete_prefix("#{@root}/") })
         note = constant_note(unmatched)
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
-                          "the changed lines, so nothing is mutated from them: #{names}. " \
+                          "the changed lines, so nothing is mutated from them: #{names}\n  " \
                           "#{subjectless_hint(unmatched)}#{note}")
       end
 
@@ -411,7 +411,7 @@ module Saboteur
         constants = unmatched.count { |file| constant_warned_files.include?(file) }
         return "" if constants.zero?
 
-        " #{constants} of these #{constants == 1 ? 'file has' : 'files have'} changes inside " \
+        "\n  #{constants} of these #{constants == 1 ? 'file has' : 'files have'} changes inside " \
           "a constant literal that is not mutated (the constant warnings above name them)."
       end
 
