@@ -76,6 +76,7 @@
   the design notes behind those operator families.
 - [Minitest](minitest.md) - why saboteur is RSpec-only, and what an adapter would take.
 - [Design](design.md) - how the engine works.
+- [Message style](message-style.md) - how warnings and notes are written: action first, then cause.
 - [Prior art](prior-art.md) - the public research the design builds on.
 - [Project status](status.md) - release, issues and roadmap pointers.
 
