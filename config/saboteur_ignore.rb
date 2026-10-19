@@ -22,6 +22,19 @@ Saboteur.ignore do |i|
              reason: "equivalent: same opts.on shape-classification swap on --test - hand-applied " \
                      "mutant leaves doctor --help byte-identical and 237 doctor/cli examples green"
 
+  # execution_options.rb add_reuse_options: swapping the flag and description strings of
+  # --incremental / --resume DIR. OptionParser#on classifies them by shape, so `run --help`
+  # stays byte-identical and option parsing and the cli specs stay green.
+  i.mutation "cf71877ec03b88cc",
+             subject: "Saboteur::CLI::ExecutionOptions#add_reuse_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap on --incremental leaves run --help byte-identical " \
+                     "and run_option_modules_spec (25 examples) green"
+  i.mutation "def69c8ca8b265f3",
+             subject: "Saboteur::CLI::ExecutionOptions#add_reuse_options",
+             reason: "equivalent: same opts.on shape-classification swap on --resume DIR - " \
+                     "hand-applied mutant leaves run --help byte-identical and parsing unchanged"
+
   # deep_source.rb:43 > -> >= - max is monotone, so the equal case reassigns the same value.
   # Strictly equivalent; hand-probed specs green and depth() identical across a battery.
   i.mutation "e6d7d3cf383401ec",
