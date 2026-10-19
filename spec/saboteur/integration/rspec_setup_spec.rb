@@ -39,6 +39,11 @@ RSpec.describe Saboteur::Integration::RSpec, "Coverage double-start hint (#645)"
     allow(runner).to receive(:setup) do |_err, out|
       load_lines.each { |line| out.puts line }
     end
+    # #756: with the runner stubbed benign, setup reaches
+    # `configuration.order = "rand:1"` on the global ::RSpec.configuration
+    # before the quit path raises; unstubbed, that rewrites the live suite's
+    # seed and the run's closing banner reports "Randomized with seed 1".
+    allow(RSpec.configuration).to receive(:order=)
     integration = described_class.new(Saboteur::Config.new({}, root: Dir.pwd))
     world = Struct.new(:wants_to_quit).new(true)
     allow(integration).to receive(:world).and_return(world)
