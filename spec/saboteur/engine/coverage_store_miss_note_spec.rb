@@ -60,6 +60,17 @@ RSpec.describe Saboteur::Engine::CoverageStore, "cache-miss note (#46)" do
     expect(names.grep(%r{\Aspec/\.cache/})).to eq([])
   end
 
+  it "leaves RSpec's generated spec/examples.txt out of the snapshot, so rewriting it is no change (#46)" do
+    File.write(File.join(@root, "spec", "examples.txt"), "run 1\n") if FileUtils.mkdir_p(File.join(@root, "spec"))
+    File.write(File.join(@root, "spec", "examples_helper.txt"), "kept\n")
+    store, = noisy_store
+    store.fetch([file])
+
+    names = Saboteur::Engine::CoverageInputsSnapshot.latest(File.join(@root, ".saboteur"), @root).fetch("files").keys
+    expect(names).to include("spec/examples_helper.txt")
+    expect(names).not_to include("spec/examples.txt")
+  end
+
   it "lists a symlink or a FIFO under spec/ without ever reading it, so the pair can never be reused partially (#46)" do
     FileUtils.mkdir_p(File.join(@root, "spec", "fixtures"))
     File.symlink("/dev/zero", File.join(@root, "spec", "fixtures", "link"))

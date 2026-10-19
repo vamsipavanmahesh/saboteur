@@ -16,6 +16,9 @@ module Saboteur
       CACHE_INPUTS = %w[integration require rspec_args rails tests].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
+      # RSpec rewrites this on every run (example_status_persistence_file_path),
+      # so hashing it would make every second run look edited.
+      GENERATED_OUTPUT = "spec/examples.txt"
       # A snapshot entry that is never a file, so a snapshot holding it is never
       # reused partially. It stands for a test file outside the project root,
       # whose own inputs the snapshot cannot see.
@@ -113,18 +116,21 @@ module Saboteur
 
       # What the inputs snapshot hashes: the cache key's files plus every file
       # under spec/ and under the suite's own test directories, fixtures and
-      # config included. A partial rebuild (#46) must see a change to anything
-      # a test can read, not only to what the key covers. Symlinks and other
-      # special entries are listed but never read (see
-      # CoverageInputsSnapshot.file_digest). The cache dir is left out so the
-      # pair never hashes itself.
+      # config included, except the generated spec/examples.txt. A partial
+      # rebuild (#46) must see a change to anything a test can read, not only
+      # to what the key covers. Symlinks and other special entries are listed
+      # but never read (see CoverageInputsSnapshot.file_digest). The cache dir
+      # is left out so the pair never hashes itself.
       def snapshot_files(files)
         cache = File.join(File.expand_path(@config.path("cache_dir")), "")
         dirs, outside = test_dirs
         tree = dirs.flat_map do |dir|
           Dir.glob("**/*", File::FNM_DOTMATCH, base: File.join(@root, dir)).map { |name| File.join(@root, dir, name) }
         end
-        tree = tree.reject { |file| real_directory?(file) || File.expand_path(file).start_with?(cache) }
+        generated = File.join(@root, GENERATED_OUTPUT)
+        tree = tree.reject do |file|
+          file == generated || real_directory?(file) || File.expand_path(file).start_with?(cache)
+        end
         marker = outside ? [OUTSIDE_TESTS] : []
         [key_files(files), tree, marker].flatten.sort
       end
