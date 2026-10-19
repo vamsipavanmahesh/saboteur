@@ -18,6 +18,7 @@ module Saboteur
     # to every test in the file of the next test that starts. Each test's
     # duration is recorded so selected tests can run fastest first.
     class CoverageMap
+      MAX_BYTES = 64 * 1024 * 1024
       FORMAT = 11
 
       RAN_AT_LOAD = "ran at load: the code ran while the app loaded; a forked test cannot observe a change here"
@@ -240,9 +241,15 @@ module Saboteur
 
       def self.from_json(json)
         data = JSON.parse(json)
+        raise Error unless data.is_a?(Hash)
         raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
+        raise Error unless strings?(data["tests"])
 
         from_data(data)
+      end
+
+      def self.strings?(list)
+        list.is_a?(Array) && list.all?(String)
       end
 
       def self.from_data(data)
@@ -314,10 +321,25 @@ module Saboteur
         end | files
       end
 
+      # A cached map is untrusted input (a restored cache can be planted):
+      # read only as a regular file, never a symlink or FIFO, under a size
+      # cap; anything else is a miss (#427).
       def self.load(path)
-        from_json(Text.utf8_strict(File.read(path))) if File.file?(path)
-      rescue JSON::ParserError, Error
+        from_json(Text.utf8_strict(slurp(path)))
+      rescue JSON::ParserError, Error, SystemCallError, EncodingError, ArgumentError, TypeError, NoMethodError,
+             IndexError
         nil
+      end
+
+      def self.slurp(path)
+        File.open(path, File::RDONLY | File::NONBLOCK | File::NOFOLLOW) do |io|
+          raise Error unless io.stat.file?
+
+          text = io.read(MAX_BYTES)
+          raise Error unless io.eof?
+
+          text
+        end
       end
 
       def save(path)
