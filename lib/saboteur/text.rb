@@ -13,8 +13,9 @@ module Saboteur
 
     # A list for a warning or note: the first five items, then "and N more".
     # One rule for every message that names files, subjects or specs (#332).
+    # Items are repo-controlled text, so each is display_safe (#834).
     def name_list(items, limit: 5)
-      shown = items.first(limit).join(", ")
+      shown = items.first(limit).map { |item| display_safe(item.to_s) }.join(", ")
       rest = items.size - limit
       rest.positive? ? "#{shown} and #{rest} more" : shown
     end
