@@ -1468,4 +1468,11 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "530028e5c8380483",
              subject: "Saboteur::Execution::WorkerPool#kill_hard",
              reason: "equivalent: the return value of the targets loop is unused by kill_hard's only caller, so each and map signal the same pids"
+  i.mutation "cf0d84a92313d8ca",
+             subject: "Saboteur::CLI::RunValidation#reject_test_selection_conflicts",
+             reason: "equivalent: options[:tests] is nil or a non-empty list of path strings, all truthy, so any? and all? agree"
+
+  i.mutation "8b0ce18b479016a8",
+             subject: "Saboteur::CLI::RunValidation#reject_test_selection_conflicts",
+             reason: "equivalent: options[:tests] is nil or a non-empty list of path strings, all truthy, so any? and all? agree"
 end
