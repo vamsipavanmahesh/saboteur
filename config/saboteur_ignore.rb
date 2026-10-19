@@ -1478,4 +1478,7 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "ced7e6d7fb9a28bb",
              subject: "Saboteur::CLI::ExplicitSources#require_existing_test",
              reason: "equivalent: the pattern is anchored by \\z, so group+ and group* differ only by an empty match at the end of the path, which strips nothing"
+  i.mutation "446090f73943b800",
+             subject: "Saboteur::CLI::DirtyTreeNotice#warn_dirty_tree",
+             reason: "equivalent: Hash#except removes the same keys whatever their order, so swapping :include and :exclude changes nothing"
 end
