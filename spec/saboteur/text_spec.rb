@@ -28,6 +28,11 @@ RSpec.describe Saboteur::Text do
     it "returns an empty string for no items" do
       expect(described_class.name_list([])).to eq("")
     end
+
+    it "escapes items that read as CI workflow commands (#834)" do
+      expect(described_class.name_list(["ok\n::error::x.rb", "b##[warning]c.rb"]))
+        .to eq("ok\\x0a::error::x.rb, b##\\x5bwarning]c.rb")
+    end
   end
 
   describe ".display_safe" do

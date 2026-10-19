@@ -1237,6 +1237,16 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
   # Every unmatched pattern gets its own warning, and the pass returns the
   # pattern list itself (#635, survivor: each -> map).
+  it "escapes file names in the no-covering-subjects umbrella warning (#834)" do
+    file = commit_base("evil\n::error::injected.rb", "FileUtils.rm_rf(\"/tmp/x\")\nPROBE = { a: 1 }.freeze\n")
+    File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
+
+    select([file], since: "HEAD")
+    text = diagnostics.warnings.join("\n")
+    expect(text).not_to match(/^\s*::error::/)
+    expect(text).not_to include("##[")
+  end
+
   it "escapes a load-hazard file name that reads as a CI workflow command (#834)" do
     file = commit_base("evil\n::error::injected.rb", "FileUtils.rm_rf(\"/tmp/x\")\nPROBE = { a: 1 }.freeze\n")
     File.write(file, File.read(file).sub("a: 1", "a: 1,\n  b: 2"))
