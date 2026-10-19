@@ -237,7 +237,7 @@ jobs:
     # dispatch (the pull_request trigger is gone) but not on main pushes.
     if: github.event_name == 'workflow_dispatch'
     # The long pole of a pull request run at ~6 minutes: 4x8 halves it, and
-    # --jobs 4 matches the 4 vCPUs.
+    # --jobs 4 and --coverage-parts 4 match the 4 vCPUs (#741).
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
     timeout-minutes: 30
     permissions:
@@ -268,7 +268,7 @@ jobs:
         uses: ./
         with:
           command: bundle exec exe/saboteur
-          arguments: --baseline-passes 1 --jobs 4
+          arguments: --baseline-passes 1 --jobs 4 --coverage-parts 4
           fail-on-survivors: "true"
       - name: Keep the report
         if: always()
