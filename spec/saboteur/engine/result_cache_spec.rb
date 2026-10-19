@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "timeout"
 require "tmpdir"
 
 RSpec.describe Saboteur::Engine::ResultCache do
@@ -595,6 +596,120 @@ RSpec.describe Saboteur::Engine::ResultCache do
 
       expect(File).to have_received(:rename).with("#{path}.#{Process.pid}.tmp", path)
       expect(Dir.children(File.dirname(path))).to eq(["results.json"])
+    end
+  end
+
+  describe "reading an untrusted results file (#471)" do
+    def lookups
+      cache.lookup(killed.subject, killed.mutation, tests)
+    end
+
+    def plant(content)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.binwrite(path, content)
+    end
+
+    def within_timeout(&)
+      Timeout.timeout(2, &)
+    end
+
+    it "keeps the verdicts of a well-formed file" do
+      stored
+      expect(within_timeout { lookups }).to include(status: :killed)
+    end
+
+    it "ignores a symlink to a valid results file" do
+      stored
+      real = "#{path}.real"
+      File.rename(path, real)
+      File.symlink(real, path)
+      expect(within_timeout { lookups }).to be_nil
+    end
+
+    it "does not open a symlink even when lstat reports a regular file" do
+      stored
+      real = "#{path}.real"
+      File.rename(path, real)
+      File.symlink(real, path)
+      allow(File).to receive(:lstat).and_call_original
+      allow(File).to receive(:lstat).with(path).and_return(File.stat(real))
+      expect(within_timeout { lookups }).to be_nil
+    end
+
+    it "ignores a symlink to /dev/zero" do
+      FileUtils.mkdir_p(File.dirname(path))
+      File.symlink("/dev/zero", path)
+      expect(within_timeout { lookups }).to be_nil
+    end
+
+    it "ignores a FIFO without hanging" do
+      FileUtils.mkdir_p(File.dirname(path))
+      File.mkfifo(path)
+      expect(within_timeout { lookups }).to be_nil
+    end
+
+    it "does not read a FIFO that holds a valid file" do
+      stored
+      body = File.read(path)
+      File.delete(path)
+      File.mkfifo(path)
+      File.open(path, File::RDWR) do |writer|
+        writer.write(body)
+        expect(within_timeout { lookups }).to be_nil
+      end
+    end
+
+    it "opens a FIFO without blocking even when lstat reports a regular file" do
+      FileUtils.mkdir_p(File.dirname(path))
+      File.mkfifo(path)
+      allow(File).to receive(:lstat).and_call_original
+      allow(File).to receive(:lstat).with(path).and_return(File.stat(__FILE__))
+      expect(within_timeout { lookups }).to be_nil
+    end
+
+    it "ignores a file over the size cap and reads one exactly at it" do
+      stored
+      size = File.size(path)
+      stub_const("#{described_class}::MAX_BYTES", size - 1)
+      expect(within_timeout { lookups }).to be_nil
+      stub_const("#{described_class}::MAX_BYTES", size)
+      expect(within_timeout { lookups }).to include(status: :killed)
+    end
+
+    it "ignores a file whose valid JSON is followed by more bytes than the cap" do
+      stored
+      body = File.read(path)
+      File.write(path, body + (" " * 50))
+      stub_const("#{described_class}::MAX_BYTES", body.bytesize)
+      expect(within_timeout { lookups }).to be_nil
+    end
+
+    {
+      "a non-Hash entry" => 1,
+      "an entry without a stored status" => { "status" => "error" },
+      "an entry with a non-String status" => { "status" => nil }
+    }.each do |label, bad|
+      it "drops the whole file when one entry is #{label}" do
+        stored
+        data = JSON.parse(File.read(path))
+        data["entries"]["bad"] = bad
+        File.write(path, JSON.generate(data))
+        expect(within_timeout { lookups }).to be_nil
+      end
+    end
+
+    {
+      "null entries" => '{"format":1,"entries":null}',
+      "array entries" => '{"format":1,"entries":[1,2]}',
+      "a non-object file" => "[1]",
+      "invalid UTF-8" => "\xFF\xFE".b,
+      "another format" => '{"format":2,"entries":{}}'
+    }.each do |label, content|
+      it "ignores #{label}" do
+        plant(content)
+        expect(within_timeout { lookups }).to be_nil
+        expect { cache.record(killed) }.not_to raise_error
+      end
     end
   end
 end

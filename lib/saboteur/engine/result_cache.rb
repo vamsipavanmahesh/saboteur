@@ -25,6 +25,7 @@ module Saboteur
     # stale.
     class ResultCache
       FORMAT = 1
+      MAX_BYTES = 64 * 1024 * 1024
       STORED = %i[killed survived timeout].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       # Dependency declarations themselves, so the no-lockfile library
@@ -118,11 +119,33 @@ module Saboteur
                            .join("\0")
       end
 
+      # The file is untrusted input (a restored cache, a --resume directory):
+      # read only as a regular file, never a symlink or FIFO, under a size
+      # cap, and kept only when entries is a Hash of Hashes.
       def load
-        data = JSON.parse(Text.utf8_strict(File.read(@path)))
-        data["format"] == FORMAT ? data["entries"] : {}
-      rescue SystemCallError, JSON::ParserError
+        return {} unless File.lstat(@path).file?
+
+        text = slurp
+        return {} unless text
+
+        data = JSON.parse(Text.utf8_strict(text))
+        entries = data["entries"] if data.is_a?(Hash) && data["format"] == FORMAT
+        well_formed?(entries) ? entries : {}
+      rescue SystemCallError, JSON::ParserError, ArgumentError, EncodingError
         {}
+      end
+
+      def slurp
+        File.open(@path, File::RDONLY | File::NONBLOCK | File::NOFOLLOW) do |io|
+          text = io.read(MAX_BYTES)
+          text if io.eof?
+        end
+      end
+
+      def well_formed?(entries)
+        entries.is_a?(Hash) && entries.values.all? do |entry|
+          entry.is_a?(Hash) && STORED.map(&:to_s).include?(entry["status"])
+        end
       end
 
       def key(subject, mutation)
