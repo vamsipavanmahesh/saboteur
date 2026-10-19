@@ -3,6 +3,25 @@
 
 # Survivors accepted with a reason. Each digest is printed next to its survivor.
 Saboteur.ignore do |i|
+  # doctor_command.rb:12/14/15 opts.on flag<->help argument_swaps - OptionParser#on
+  # classifies its string arguments by shape (a leading "-" makes a flag, anything
+  # else a description), not by position, so the swap builds the identical parser
+  # entry. Hand-probed: all three swaps applied together leave `doctor --help`
+  # byte-identical and doctor_command + doctor + cli specs green (237 examples).
+  i.mutation "455660d7ea53007b",
+             subject: "Saboteur::CLI::DoctorCommand#doctor_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not " \
+                     "position - hand-applied swap leaves doctor --help byte-identical and 237 " \
+                     "doctor/cli examples green"
+  i.mutation "2084048de77c796f",
+             subject: "Saboteur::CLI::DoctorCommand#doctor_parser",
+             reason: "equivalent: same opts.on shape-classification swap on --suite - hand-applied " \
+                     "mutant leaves doctor --help byte-identical and 237 doctor/cli examples green"
+  i.mutation "5dd192fa4a2df7db",
+             subject: "Saboteur::CLI::DoctorCommand#doctor_parser",
+             reason: "equivalent: same opts.on shape-classification swap on --test - hand-applied " \
+                     "mutant leaves doctor --help byte-identical and 237 doctor/cli examples green"
+
   # deep_source.rb:43 > -> >= - max is monotone, so the equal case reassigns the same value.
   # Strictly equivalent; hand-probed specs green and depth() identical across a battery.
   i.mutation "e6d7d3cf383401ec",

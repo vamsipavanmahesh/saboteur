@@ -23,6 +23,7 @@ require_relative "cli/execution_options"
 require_relative "cli/matrix_option"
 require_relative "cli/output_options"
 require_relative "cli/explicit_file_options"
+require_relative "cli/doctor_command"
 
 module Saboteur
   class CLI
@@ -40,6 +41,7 @@ module Saboteur
     include MatrixOption
     include OutputOptions
     include ExplicitFileOptions
+    include DoctorCommand
     include HelpOptions
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
@@ -104,23 +106,9 @@ module Saboteur
       end
     end
 
-    def doctor_parser
-      OptionParser.new do |opts|
-        opts.banner = "Usage: saboteur doctor [--config PATH] [--seed N] [--suite] [--test PATH]"
-        opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |value| set(:config, value) }
-        opts.on("--seed N", Integer, "Seed for the two baseline runs (default 1)") { |value| set(:seed, value) }
-        opts.on("--suite", "Also run the unchanged suite twice (slow on a large suite)") { set(:suite, true) }
-        opts.on("--test PATH", "Spec file or directory for the suite runs; repeatable. Implies --suite") do |value|
-          (options[:tests] ||= []) << value
-        end
-      end
-    end
-
     private
 
     def run_command = help_requested? ? show_help("run") : run
-
-    def doctor_command = help_requested? ? show_help("doctor") : doctor
 
     def history_entry(command) = help_requested? ? show_help(command) : history_command(command)
 
@@ -235,21 +223,6 @@ module Saboteur
         "#{shown} (#{label})"
       end
       @out.puts "\nReports: #{names.join(', ')}"
-    end
-
-    def doctor
-      doctor_parser.parse!(@argv)
-      raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
-
-      options[:tests]&.each { |test| require_existing_test(test) }
-      Doctor.new(config, out: @out, suite: options[:suite] || options.key?(:tests)).call
-      EXIT_OK
-    rescue ConfigError => e
-      @err.puts("saboteur: #{e.message}")
-      EXIT_USAGE
-    rescue Error => e
-      @err.puts("saboteur: #{e.message}")
-      EXIT_TOOL
     end
 
     # Agent mode: stdout carries exactly one JSON payload. The target's own output (boot
