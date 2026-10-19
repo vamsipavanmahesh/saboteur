@@ -275,7 +275,11 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: saboteur-report
-          path: .saboteur/report.json
+          # The per-part coverage build and baseline logs carry the failing
+          # example when the suite breaks before any mutant runs (#801).
+          path: |
+            .saboteur/report.json
+            .saboteur/*.log
 
   # Ignore-hygiene audit (#703): a digest a pull request adds to
   # config/saboteur_ignore.rb must arise live on its head; a dropped
