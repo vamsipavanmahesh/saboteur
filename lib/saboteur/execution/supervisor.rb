@@ -259,12 +259,30 @@ module Saboteur
         # only ours to claim if we see it alive: stop it first.
         exit_status, supervisor_killed = freeze_child(pid) if grace_expired
         # Notes name the leftovers before the kill erases their command lines (#486).
-        leftover_pids, notes = tree.kill_all_except(pid)
+        # A blind process table must not skip containment: when the snapshot
+        # raises through kill_all_except (both backends down), reap still
+        # SIGKILLs and reaps the root and reap_group its group - only the
+        # table-driven orphan sweep is lost, and the entry must still leave
+        # the live registry (#762).
+        # Containment first, honesty after: a blind scan never becomes a
+        # clean Result - the guards reading leftover_pids would treat [] as
+        # no leak while setsid grandchildren survive (#762).
+        scan_error = nil
+        begin
+          leftover_pids, notes = tree.kill_all_except(pid)
+        rescue SystemCallError, Fiddle::DLError => e
+          scan_error = e
+          leftover_pids = []
+          notes = ["leftover scan skipped: #{e.class}: #{e.message}"]
+        end
         exit_status ||= reap(pid)
-        self.class.live.delete(pid)
         reap_adopted(leftover_pids)
         reap_group(pid)
+        raise scan_error if scan_error
+
         [exit_status, supervisor_killed, leftover_pids, notes]
+      ensure
+        self.class.live.delete(pid)
       end
 
       # After EOF, waits for the child to exit by itself while still checking
