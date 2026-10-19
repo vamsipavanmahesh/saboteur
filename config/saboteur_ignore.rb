@@ -1437,4 +1437,8 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Selection::Recorder#record_branches",
              reason: "equivalent: the return value of the arm loop is the return value of the branch loop's " \
                      "block, which each discards, so each and map yield the same spans"
+  i.mutation "2fcca6d71828298a",
+             subject: "Saboteur::Reporter::ReviewComments.place",
+             reason: "equivalent: posts only grows by one per pass and the loop stops when it reaches room, " \
+                     "so posts.size is never above room and >= and == stop at the same iteration"
 end
