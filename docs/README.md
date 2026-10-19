@@ -36,6 +36,7 @@
 - [Survivor ranking](survivor-ranking.md) - the review order of findings.
 - [Recipes](recipes/README.md) - hooks for common test tools.
 - [Real-run feedback](real-run-feedback.md) - the template for reporting a run.
+- [Config keys, defaults and the first run](config-keys.md) - every config key, who changes it, and what a first run needs.
 
 ## Operators
 
