@@ -85,10 +85,9 @@ module Saboteur
       def mostly_errored?(report)
         return false unless report.majority_errored?
 
-        executed = report.executed
-        errors = executed.count { |result| result.status == :error }
-        @err.puts("saboteur: #{errors} of #{executed.size} mutants errored, so the run tested almost nothing; " \
-                  "fix the errors and run again")
+        errored = report.executed.select { |result| result.status == :error }
+        @err.puts("saboteur: fix the errors and run again\n  #{errored.size} of #{report.executed.size} " \
+                  "mutants errored, so the run tested almost nothing#{ErrorCause.line(errored)}")
         true
       end
 
@@ -158,10 +157,10 @@ module Saboteur
       def incomplete_under_threshold?(report)
         return false if config["threshold"].nil?
 
-        count = report.counts.values_at(*(gates.judges_errors? ? %i[resource_limit] : %i[error resource_limit])).sum
-        @err.puts("saboteur: #{count} mutant(s) errored or hit a resource limit, so the score is incomplete") if
-          count.positive?
-        count.positive?
+        statuses = gates.judges_errors? ? %i[resource_limit] : %i[error resource_limit]
+        problem = report.results.select { |result| statuses.include?(result.status) }
+        @err.puts(ErrorCause.incomplete(problem)) if problem.any?
+        problem.any?
       end
     end
   end
