@@ -60,7 +60,7 @@ first-run rows and point here for the rest.
 | `incremental` | `false` | Local iteration | Default; run without it on main now and then |
 | `cache` | `true` | A suspect cached run | Default |
 | `cache_dir` | `".saboteur"` | Non-standard cache locations | Default |
-| `partial_coverage` | `"off"` | Experimental: `"shadow"` also rebuilds the map partially after a cache miss and writes a comparison report; the full map is still the one used | Default |
+| `partial_coverage` | `"off"` | Experimental: `"shadow"` also rebuilds the map partially after a cache miss and writes a comparison report; the full map is still the one used; never reused when RSpec selects examples from `spec/examples.txt` (`--only-failures`, `--next-failure`, however RSpec was given them) | Default |
 | `fingerprint_extra` | `[]` | Fixtures the map fingerprint cannot see | Default |
 
 ## Safety

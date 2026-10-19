@@ -262,4 +262,22 @@ RSpec.describe Saboteur::Engine::PartialInvalidation do
       it("goes full through the symlinked spelling") { expect(stale("lib/a.rb" => "9" * 64)).to eq(:full) }
     end
   end
+
+  describe "when RSpec selects examples from spec/examples.txt" do
+    let(:edited) { base.merge("files" => files.merge("spec/x_spec.rb" => "9" * 64)) }
+
+    def with_status_file(flag)
+      described_class.new(map: map, root: root, included: %w[lib/a.rb lib/b.rb],
+                          spec_files: %w[spec/x_spec.rb spec/y_spec.rb spec/z_spec.rb spec/w_spec.rb],
+                          status_file: flag)
+    end
+
+    it "reuses the map otherwise" do
+      expect(with_status_file(false).stale_specs(base, edited)).to eq(["spec/x_spec.rb"])
+    end
+
+    it "is :full" do
+      expect(with_status_file(true).stale_specs(base, edited)).to eq(:full)
+    end
+  end
 end

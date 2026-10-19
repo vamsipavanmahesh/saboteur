@@ -26,7 +26,8 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
   let(:x_id) { "./spec/x_spec.rb[1:1]" }
   let(:y_id) { "./spec/y_spec.rb[1:1]" }
   let(:integration) do
-    instance_double(Saboteur::Integration::RSpec, test_files: [x_file, File.join(@root, "spec", "y_spec.rb")])
+    instance_double(Saboteur::Integration::RSpec, test_files: [x_file, File.join(@root, "spec", "y_spec.rb")],
+                                                  status_file?: false)
   end
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
   let(:map) do
@@ -62,8 +63,8 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
     Dir[File.join(@root, ".saboteur", "shadow-*.json")].map { |path| JSON.parse(File.read(path)) }
   end
 
-  def first_run
-    store(partial_coverage: "shadow", seed: 5).fetch([file])
+  def first_run(**settings)
+    store(partial_coverage: "shadow", seed: 5, **settings).fetch([file])
     File.write(x_file, "2\n")
   end
 
@@ -154,6 +155,24 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
     store(partial_coverage: "shadow").fetch([file])
 
     expect(reports.first).to include("full_build_seconds" => 3.13, "rerun_seconds" => nil)
+  end
+
+  it "reuses the map for ordinary RSpec arguments and option files" do
+    File.write(File.join(@root, ".rspec"), "--format progress\n")
+    first_run(rspec_args: ["--order", "defined"])
+    allow(supervisor).to receive(:run).and_return(child_result(rerun_map))
+    store(partial_coverage: "shadow", rspec_args: ["--order", "defined"]).fetch([file])
+
+    expect(reports.first).to include("result" => "match")
+  end
+
+  it "skips, and runs nothing, when the framework selects examples from its status file" do
+    first_run
+    allow(integration).to receive(:status_file?).with(@root).and_return(true)
+    expect(supervisor).not_to receive(:run)
+    store(partial_coverage: "shadow").fetch([file])
+
+    expect(reports.first).to include("result" => "skipped")
   end
 
   it "writes the report privately, through a fresh temporary name" do

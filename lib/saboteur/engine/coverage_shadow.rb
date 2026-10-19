@@ -45,7 +45,8 @@ module Saboteur
 
       def shadow_invalidation(base_map, files)
         PartialInvalidation.new(map: base_map, root: @root, included: files.map(&method(:relative)),
-                                spec_files: @integration.test_files.map(&method(:relative)))
+                                spec_files: @integration.test_files.map(&method(:relative)),
+                                status_file: @integration.status_file?(@root))
       end
 
       def relative(file)

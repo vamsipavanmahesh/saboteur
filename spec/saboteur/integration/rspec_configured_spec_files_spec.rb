@@ -89,3 +89,62 @@ RSpec.describe Saboteur::Integration::RSpec, "#configured_spec_files" do
     expect(listed.map(&:encoding).uniq).to eq([Encoding::UTF_8])
   end
 end
+
+# Whether RSpec reads examples from spec/examples.txt, by RSpec's own option
+# sources (#46).
+RSpec.describe Saboteur::Integration::RSpec, "#status_file?" do
+  around do |example|
+    Dir.mktmpdir do |dir|
+      @root = File.realpath(dir)
+      FileUtils.mkdir_p(File.join(@root, "home"))
+      saved = ENV.values_at("HOME", "SPEC_OPTS", "XDG_CONFIG_HOME")
+      ENV["HOME"] = File.join(@root, "home")
+      ENV.delete("SPEC_OPTS")
+      ENV.delete("XDG_CONFIG_HOME")
+      begin
+        example.run
+      ensure
+        ENV["HOME"], ENV["SPEC_OPTS"], ENV["XDG_CONFIG_HOME"] = saved
+      end
+    end
+  end
+
+  def status_file?(**values)
+    config = Saboteur::Config.new(values.transform_keys(&:to_s), root: @root)
+    described_class.new(config).status_file?(@root)
+  end
+
+  it "is false for ordinary options" do
+    File.write(File.join(@root, ".rspec"), "--format progress\n")
+
+    expect(status_file?(rspec_args: ["--order", "defined"])).to be(false)
+  end
+
+  %w[--only-failures --next-failure --only-fail --next-fail --only].each do |flag|
+    it "is true for the configured #{flag}" do
+      expect(status_file?(rspec_args: [flag])).to be(true)
+    end
+  end
+
+  it "is true for SPEC_OPTS" do
+    ENV["SPEC_OPTS"] = "--only-failures"
+
+    expect(status_file?).to be(true)
+  end
+
+  [[".rspec", "--format progress\n--only-failures\n"], [".rspec-local", "--next-failure\n"],
+   ["home/.rspec", "--only-failures\n"], ["home/.config/rspec/options", "--next-failure\n"]].each do |name, text|
+    it "is true for #{name}" do
+      FileUtils.mkdir_p(File.dirname(File.join(@root, name)))
+      File.write(File.join(@root, name), text)
+
+      expect(status_file?).to be(true)
+    end
+  end
+
+  it "is true for --options FILE" do
+    File.write(File.join(@root, "mine"), "--only-failures\n")
+
+    expect(status_file?(rspec_args: ["--options", "mine"])).to be(true)
+  end
+end

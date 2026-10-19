@@ -83,6 +83,12 @@ module Saboteur
         run(all_tests.map(&:id))
       end
 
+      # Whether the framework picks tests from a generated status file that no
+      # inputs snapshot covers.
+      def status_file?(_root)
+        false
+      end
+
       # Files whose content decides which tests exist (for the cache key).
       def test_files
         []

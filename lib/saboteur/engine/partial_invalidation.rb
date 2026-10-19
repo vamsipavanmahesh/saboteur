@@ -25,12 +25,15 @@ module Saboteur
 
       # included: relative paths of the included source files.
       # spec_files: relative paths of the suite's spec files.
+      # status_file: whether RSpec picks examples from its generated status
+      # file (--only-failures, --next-failure), which no snapshot covers.
       # RSpec ids name their file: "./spec/a_spec.rb[1:2]" is spec/a_spec.rb.
       def self.spec_of(id)
         id.split("[").first.delete_prefix("./")
       end
 
-      def initialize(map:, root:, included:, spec_files:)
+      def initialize(map:, root:, included:, spec_files:, status_file: false)
+        @status_file = status_file
         @map = map
         @root = Selection::CoverageMap.canonical(root)
         @included = included
@@ -38,6 +41,7 @@ module Saboteur
       end
 
       def stale_specs(base, current)
+        return FULL if @status_file
         return FULL unless SAME.all? { |key| base[key] == current[key] }
 
         changed = changed_files([base, current].map { |snapshot| snapshot["files"] })
