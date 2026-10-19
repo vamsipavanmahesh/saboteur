@@ -197,9 +197,26 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       end
     end
 
-    it "does not treat a name that merely starts with logger, or an unrelated receiver, as arid" do
+    it "treats a logger at the end of a receiver chain as arid (#665)" do
+      ["Sentry.sdk_logger.warn(a)", "app.sdk_logger.error(a)",
+       "other.logger.info(a)", "foo.bar.logger.debug(a)"].each do |call|
+        expect(texts("    #{call}", "body_nil")).to be_empty, call
+      end
+    end
+
+    it "does not treat a name that merely contains logger, or a non-level call on one, as arid" do
       expect(texts("    @loggers.each(&:flush)", "body_nil")).to eq(["nil"])
-      expect(texts("    other.logger.info(a)", "body_nil")).to eq(["nil"])
+      expect(texts("    catalogger.warnings(a)", "body_nil")).to eq(["nil"])
+    end
+
+    # The instrument rule still holds for the chain: the CALL is noise but
+    # its block is real work, so the lazy log message inside still mutates
+    # and its survivors get the arid LABEL from the enclosing call (#665).
+    it "still mutates the block body of a chained logger call" do
+      expect(texts("    Sentry.sdk_logger.warn(a) do\n      b || c\n    end", "boolean_logic"))
+        .to eq(["Sentry.sdk_logger.warn(a) do\n      b\n    end",
+                "Sentry.sdk_logger.warn(a) do\n      c\n    end",
+                "Sentry.sdk_logger.warn(a) do\n      true\n    end"])
     end
 
     it "wires the builtin arid list into pair removal" do

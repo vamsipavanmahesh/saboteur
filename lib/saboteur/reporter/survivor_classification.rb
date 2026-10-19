@@ -76,12 +76,39 @@ module Saboteur
         # arid. The operator never decides: removing a logging statement is
         # arid whatever removed it.
         def arid?(result, patterns)
+          regexps = patterns.map { |pattern| Regexp.new(pattern) }
+          tree = Prism.parse(result.subject.file_source)
           result.mutation.edits.all? do |edit|
             lines = edited_lines(result.subject, edit)
-            lines.any? && lines.all? do |line|
-              patterns.any? { |pattern| line.strip.match?(Regexp.new(pattern)) }
-            end
+            next true if lines.any? && lines.all? { |line| regexps.any? { |regexp| line.strip.match?(regexp) } }
+
+            inside_arid_call?(tree, edit, regexps)
           end
+        end
+
+        # Line text misses edits that sit INSIDE an arid call: the lazy log
+        # message in a `warn do ... end` block starts with the string, not
+        # the logger, so block-form logging never read as arid (#665). Walk
+        # the tree instead: an edit the smallest enclosing call swallows is
+        # arid when that call matches a pattern. An edit too big for one
+        # call (a call plus following code) stays unlabeled.
+        def inside_arid_call?(tree, edit, regexps)
+          return false unless tree.success?
+
+          call = enclosing_call(tree.value, edit.start_byte, edit.end_byte)
+          !call.nil? && regexps.any? { |regexp| regexp.match?(call.slice) }
+        end
+
+        def enclosing_call(node, from, to)
+          return nil unless node.start_offset <= from && to <= node.end_offset
+
+          node.child_nodes.each do |child|
+            next unless child
+
+            found = enclosing_call(child, from, to)
+            return found if found
+          end
+          node.is_a?(Prism::CallNode) ? node : nil
         end
 
         # Edit offsets are BYTES, so the line lookup runs on the binary
