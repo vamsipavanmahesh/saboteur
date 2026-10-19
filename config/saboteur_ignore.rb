@@ -1491,4 +1491,16 @@ i.mutation "fdc4600f4e8e8625",
                      "hand-applied mutant leaves all 24 run_option_modules " \
                      "examples green"
 
+  # agent_provenance.rb:54 - any? vs all? is equivalent here: @sources is nil or a
+  # non-empty array of path strings (use_explicit_sources returns before assigning
+  # when argv is empty), and every element is truthy, so any? and all? agree on
+  # every reachable value. Hand-applied mutant: all 12 agent_provenance examples
+  # green on b-334-provenance 93dd7ccd.
+  i.mutation "bca4f4f255fa33d1",
+             subject: "Saboteur::CLI::AgentProvenance#agent_mode",
+             reason: "equivalent: @sources is nil or a non-empty array of path " \
+                     "strings - use_explicit_sources returns before assigning when " \
+                     "argv is empty - and every element is truthy, so any? and all? " \
+                     "agree on every reachable value - hand-applied mutant leaves " \
+                     "all 12 agent_provenance examples green"
 end
