@@ -32,7 +32,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     config = Saboteur::Config.new({}, root: @root)
     described_class.new(config, diags).select([file])
     expect(Saboteur::InlineSuppression).to have_received(:new).with(file, "def nope(\n")
-    expect(diags.warnings).to include(a_string_matching(/broken\.rb does not parse: \S/))
+    expect(diags.warnings).to include(a_string_matching(/fix the syntax in broken\.rb: does not parse \(\S/))
   end
 
   it "finds every def in the files" do
@@ -409,8 +409,9 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
   it "warns about a --subject pattern that matches no subject and reports the matched count" do
     select([write("cart.rb", source)], subjects: ["Shop::Cart", "Cart*"])
-    expect(diagnostics.warnings).to eq(["--subject Cart* matches no subject (patterns are names like " \
-                                        "Klass, Klass#meth or Klass.meth, not globs)",
+    expect(diagnostics.warnings).to eq(['fix the --subject pattern "Cart*": it matches no subject ' \
+                                        "(patterns are names like Klass, Klass#meth or Klass.meth, " \
+                                        "not globs)",
                                         "1 of 2 --subject patterns matched"])
   end
 
@@ -437,7 +438,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     file = write("state.rb", "class State\n  attr_reader :name\n  def label = 1\nend\n")
     select([file], subjects: ["State#label", "State#na"])
     expect(diagnostics.warnings)
-      .to include(a_string_starting_with("--subject State#na matches no subject"))
+      .to include(a_string_starting_with('fix the --subject pattern "State#na": it matches no subject'))
   end
 
   # The count is a subtraction, not a restatement of the miss count: with
@@ -675,7 +676,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
   it "warns about files that do not parse and skips them" do
     expect(select([write("broken.rb", "class X\n  def (\nend\n")])).to be_empty
-    expect(diagnostics.warnings.first).to start_with("broken.rb does not parse")
+    expect(diagnostics.warnings.first).to start_with("fix the syntax in broken.rb: does not parse")
     expect(diagnostics.discovery_failures.map(&:to_h)).to eq([
                                                                { file: File.join(@root, "broken.rb"),
                                                                  reason: "invalid_file_syntax" }

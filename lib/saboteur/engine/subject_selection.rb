@@ -134,7 +134,8 @@ module Saboteur
             else
               @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax")
               parsed.errors.first(1).each do |message|
-                @diagnostics.warn("#{file.delete_prefix("#{@root}/")} does not parse: #{message}")
+                @diagnostics.warn("fix the syntax in #{file.delete_prefix("#{@root}/")}: does not parse " \
+                                  "(#{message})")
               end
             end
           end
@@ -179,7 +180,7 @@ module Saboteur
         macro = attribute_macro_for(pattern)
         return "--subject #{pattern} is defined by #{macro} and has no body to mutate" if macro
 
-        "--subject #{pattern} matches no subject (patterns are names like " \
+        "fix the --subject pattern \"#{pattern}\": it matches no subject (patterns are names like " \
           "Klass, Klass#meth or Klass.meth, not globs)"
       end
 
