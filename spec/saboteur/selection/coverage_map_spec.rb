@@ -400,6 +400,41 @@ RSpec.describe Saboteur::Selection::CoverageMap do
                                                        [15, 10, 15, 27] => [] })
     end
 
+    it "filters a branch's arm spans once, however many reads see it" do
+      branch = [:if, 0, 3, 4, 3, 20]
+      arms = { [:then, 1, 3, 8, 3, 10] => 1, [:else, 2, 3, 12, 3, 14] => 0 }
+      results.push(*Array.new(4) { { file => { lines: [], branches: { branch => arms } } } })
+      allow(recorder).to receive(:contains?).and_call_original
+      2.times do |index|
+        recorder.test_started("t#{index}", "/spec/a_spec.rb")
+        recorder.test_finished("t#{index}")
+      end
+      expect(recorder).to have_received(:contains?).twice
+      expect(recorder.result.branches.fetch(file).keys).to contain_exactly([3, 8, 3, 10], [3, 12, 3, 14])
+    end
+
+    it "keeps each branch's arms apart when one file has several branches" do
+      first = [:if, 0, 3, 4, 3, 20]
+      second = [:if, 3, 5, 4, 5, 20]
+      results.push({}, { file => { lines: [], branches: { first => { [:then, 1, 3, 8, 3, 10] => 1 },
+                                                          second => { [:then, 4, 5, 8, 5, 10] => 1 } } } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.branches).to eq(file => { [3, 8, 3, 10] => ["t1"], [5, 8, 5, 10] => ["t1"] })
+    end
+
+    it "keeps each file's arms apart when two files share a branch key" do
+      other = "#{file}.other"
+      recorder = Saboteur::Selection::Recorder.new([file, other])
+      branch = [:if, 0, 3, 4, 3, 20]
+      arm = [:then, 1, 3, 8, 3, 10]
+      results.push({}, { file => { lines: [], branches: { branch => { arm => 1 } } },
+                         other => { lines: [], branches: { branch => { arm => 0 } } } })
+      recorder.test_started("t1", "/spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.branches).to eq(file => { [3, 8, 3, 10] => ["t1"] }, other => { [3, 8, 3, 10] => [] })
+    end
+
     it "contains? compares span endpoints lexically" do
       contains = ->(outer, inner) { recorder.send(:contains?, outer, inner) }
       # Same start line: the column decides which span starts first.

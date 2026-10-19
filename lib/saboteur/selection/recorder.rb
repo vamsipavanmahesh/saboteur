@@ -12,6 +12,7 @@ module Saboteur
       def initialize(files)
         @files = Set.new(files.map { |file| CoverageMap.canonical(file) })
         @canonical = Hash.new { |hash, path| hash[path] = CoverageMap.canonical(path) }
+        @arm_spans = {}
         @lines = hit_table
         @methods = hit_table
         @branches = hit_table
@@ -64,21 +65,33 @@ module Saboteur
         end
       end
 
+      # The arm spans of a branch never change, so the filtering below runs
+      # once per branch. Every read walks every branch of every recorded
+      # file, and redoing the sibling check each time cost far more than
+      # the Coverage read itself (#655).
       def record_branches(file, data)
-        data.fetch(:branches, {}).each do |(_kind, _id, *parent_span), arms|
-          spans = arms.map { |(_arm_kind, _arm_id, *span), _count| span }
-          arms.each do |(_arm_kind, _arm_id, *span), count|
-            next if span == parent_span
-            # Ruby spans a `when X` arm with a bare `nil` body from the
-            # `when` to the case's end, containing the sibling arms.
-            # Sibling arms are disjoint by definition, so a containing span
-            # is bogus; recording it would let it intersect and narrow
-            # selection for edits inside the siblings it swallows.
-            next if spans.any? { |other| span != other && contains?(span, other) }
-
-            @branches[file][span] # Keep zero-hit arms as evidence, not as covered code.
-            yield span if count.positive?
+        data.fetch(:branches, {}).each do |key, arms|
+          (@arm_spans[[file, key]] ||= recordable_arms(file, arms, key)).each do |arm, span|
+            yield span if arms.fetch(arm).positive?
           end
+        end
+      end
+
+      def recordable_arms(file, arms, key)
+        _kind, _id, *parent_span = key
+        spans = arms.keys.map { |(_arm_kind, _arm_id, *span)| span }
+        arms.keys.filter_map do |arm|
+          _arm_kind, _arm_id, *span = arm
+          next if span == parent_span
+          # Ruby spans a `when X` arm with a bare `nil` body from the
+          # `when` to the case's end, containing the sibling arms.
+          # Sibling arms are disjoint by definition, so a containing span
+          # is bogus; recording it would let it intersect and narrow
+          # selection for edits inside the siblings it swallows.
+          next if spans.any? { |other| span != other && contains?(span, other) }
+
+          @branches[file][span] # Keep zero-hit arms as evidence, not as covered code.
+          [arm, span]
         end
       end
 
