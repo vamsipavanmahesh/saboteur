@@ -441,6 +441,26 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       end
     end
 
+    {
+      "a String build_seconds" => '{"format":11,"tests":["t"],"build_seconds":"x","lines":{}}',
+      "an array build_seconds" => '{"format":11,"tests":["t"],"build_seconds":[1],"lines":{}}',
+      "an infinite build_seconds" => '{"format":11,"tests":["t"],"build_seconds":1e999,"lines":{}}',
+      "an infinite duration" => '{"format":11,"tests":["t"],"durations":[1e999],"lines":{}}',
+      "a NaN duration" => '{"format":11,"tests":["t"],"durations":[NaN],"lines":{}}'
+    }.each do |label, content|
+      it "treats #{label} as a miss" do
+        File.write(path, content)
+        expect(within_timeout { described_class.load(path) }).to be_nil
+      end
+    end
+
+    it "accepts a numeric or null build_seconds" do
+      expect(described_class.from_json('{"format":11,"tests":["t"],"build_seconds":1.5,"lines":{}}').build_seconds)
+        .to eq(1.5)
+      expect(described_class.from_json('{"format":11,"tests":["t"],"build_seconds":null,"lines":{}}').build_seconds)
+        .to be_nil
+    end
+
     it "accepts null or absent durations and loaded_files, and numeric durations" do
       base = '"format":11,"tests":["t"],"lines":{}'
       timed = described_class.from_json(%({#{base},"durations":[0.5],"loaded_files":["/a.rb"]}))
