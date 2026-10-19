@@ -1441,4 +1441,12 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Reporter::ReviewComments.place",
              reason: "equivalent: posts only grows by one per pass and the loop stops when it reaches room, " \
                      "so posts.size is never above room and >= and == stop at the same iteration"
+
+  i.mutation "87fc46488069845b",
+             subject: "Saboteur::MethodCalls#enable",
+             reason: "equivalent: TracePoint#enable on an already enabled tracepoint is a no-op, so skipping the enabled? check never changes the state"
+
+  i.mutation "897010b2f5594c0c",
+             subject: "Saboteur::MethodCalls#disable",
+             reason: "equivalent: TracePoint#disable on a disabled tracepoint is a no-op, so always disabling never changes the state"
 end
