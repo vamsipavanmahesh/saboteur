@@ -311,6 +311,28 @@ RSpec.describe "Saboteur::Preview json inventory" do
     expect(payload["mutants"].map { |entry| entry["digest"] }).to match_array(expected)
   end
 
+  it "records no omission and no skips when the count lands exactly on the method cap" do
+    # Kills the list.size > limit -> >= survivor (befe17aff3756612): at
+    # list.size == limit the guard must not fire, so not even a count-0
+    # omission is recorded.
+    full = Saboteur::Engine::Candidates.new([Saboteur::MutationSource::Builtin.new],
+                                            Saboteur::Engine::Diagnostics.new(StringIO.new)).for(target).size
+    json = json_preview(config(max_mutants_per_method: full))
+    json.call
+    expect(payload["totals"]["dropped_by_max_mutants_per_method"]).to eq(0)
+    expect(payload["skipped"]).to eq([])
+    expect(json.instance_variable_get(:@diagnostics).omissions).to eq([])
+  end
+
+  it "records no per-mutant skips in text mode when the cap drops mutants" do
+    # Kills the record_skip ... if @json -> unconditional survivor
+    # (333431ce20d3af65): text mode has no inventory, so no skip entries.
+    text = Saboteur::Preview.new(config(max_mutants_per_method: 1), out: out, err: StringIO.new)
+    text.call
+    expect(out.string).to include("Total: 1 mutants;")
+    expect(text.instance_variable_get(:@skipped)).to eq([])
+  end
+
   it "lists mutants dropped by the per-method cap with their digests and reason" do
     json_preview(config(max_mutants_per_method: 1)).call
     expect(payload["totals"]).to include("mutants" => 1)
