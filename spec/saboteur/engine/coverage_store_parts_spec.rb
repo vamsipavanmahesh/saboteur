@@ -110,6 +110,109 @@ RSpec.describe Saboteur::Engine::CoverageStore, "in parts" do
       .to raise_error(Saboteur::BudgetPhaseTimeout, /admitted 1800.0s of the 3600.0s phase timeout/)
   end
 
+  describe "saving finished parts (#427)" do
+    def saved_parts
+      Dir.glob(File.join(@root, ".saboteur", "coverage-*-part-*.json")).map { |file| File.basename(file) }
+    end
+
+    it "saves each finished part under the cache key, beside the whole map" do
+      counts
+      allow(supervisor).to receive(:run_many).and_return([result(part_map("t1", "t3")), result(part_map("t2"))])
+
+      store.fetch([source])
+
+      expect(saved_parts.map { |name| name[/part-\d-of-\d/] }).to eq(%w[part-1-of-2 part-2-of-2])
+      whole = Dir.glob(File.join(@root, ".saboteur", "coverage-*.json")).map { |file| File.basename(file, ".json") }
+                 .reject { |name| name.include?("-part-") }
+      expect(whole.size).to eq(1)
+      expect(saved_parts).to all(start_with("#{whole.first}-part-"))
+      expect(Saboteur::Selection::CoverageMap.load(File.join(@root, ".saboteur", saved_parts.first)).tests)
+        .to eq(%w[t1 t3])
+    end
+
+    it "keeps the finished part when a sibling part failed" do
+      counts
+      allow(supervisor).to receive(:run_many)
+        .and_return([result(part_map("t1", "t3")), result(nil, stopped_by: :timeout)])
+
+      expect { store.fetch([source]) }.to raise_error(Saboteur::Error, /part 2 of 2/)
+      expect(saved_parts.size).to eq(1)
+      expect(saved_parts.first).to include("part-1-of-2")
+    end
+
+    it "keeps the finished part when the budget stopped another one" do
+      counts
+      allow(supervisor).to receive(:run_many)
+        .and_return([result(nil, stopped_by: :timeout), result(part_map("t2"))])
+
+      expect { store(timeout_cap: ->(timeout) { timeout / 2 }).fetch([source]) }
+        .to raise_error(Saboteur::BudgetPhaseTimeout)
+      expect(saved_parts.size).to eq(1)
+      expect(saved_parts.first).to include("part-2-of-2")
+    end
+
+    it "saves no part that recorded no tests" do
+      counts
+      allow(supervisor).to receive(:run_many).and_return([result(part_map("t1", "t3")), result(part_map)])
+
+      expect { store.fetch([source]) }.to raise_error(Saboteur::Error, /recorded no tests/)
+      expect(saved_parts.size).to eq(1)
+    end
+
+    it "saves no part that has coverage lines but no tests" do
+      counts
+      testless = Saboteur::Selection::CoverageMap.new(lines: { source => { 1 => [] } }, tests: [])
+      allow(supervisor).to receive(:run_many).and_return([result(part_map("t1", "t3")), result(testless)])
+
+      expect { store.fetch([source]) }.to raise_error(Saboteur::Error, /recorded no tests/)
+      expect(saved_parts.size).to eq(1)
+    end
+
+    it "still reports the sibling failure, and saves the other parts, when a save fails" do
+      counts
+      three = %w[/s/a_spec.rb /s/b_spec.rb /s/c_spec.rb]
+      allow(integration).to receive(:example_count).with(files: [three[0]]).and_return(1)
+      allow(integration).to receive(:example_count).with(files: [three[1]]).and_return(1)
+      allow(integration).to receive(:example_count).with(files: [three[2]]).and_return(1)
+      allow(supervisor).to receive(:run_many)
+        .and_return([result(part_map("t1")), result(part_map("t2")), result(nil, stopped_by: :timeout)])
+      calls = 0
+      allow_any_instance_of(Saboteur::Selection::CoverageMap).to receive(:save).and_wrap_original do |original, *args|
+        calls += 1
+        raise Errno::ENOSPC if calls == 1
+
+        original.call(*args)
+      end
+
+      expect { store(parts: 3).fetch([source]) }
+        .to raise_error(Saboteur::Error, /part 3 of 3: coverage map build stopped: /)
+      expect(saved_parts.size).to eq(1)
+      expect(saved_parts.first).to include("part-2-of-3")
+    end
+
+    it "still raises the budget stop when a save fails" do
+      counts
+      allow(supervisor).to receive(:run_many)
+        .and_return([result(nil, stopped_by: :timeout), result(part_map("t2"))])
+      allow_any_instance_of(Saboteur::Selection::CoverageMap).to receive(:save).and_raise(Errno::EROFS)
+
+      expect { store(timeout_cap: ->(timeout) { timeout / 2 }).fetch([source]) }
+        .to raise_error(Saboteur::BudgetPhaseTimeout)
+    end
+
+    it "saves no part when the cache is off" do
+      counts
+      allow(supervisor).to receive(:run_many).and_return([result(part_map("t1", "t3")), result(part_map("t2"))])
+      config = Saboteur::Config.new({ "cache" => false }, root: @root)
+
+      described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                          supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(output),
+                          parts: 2).fetch([source])
+
+      expect(saved_parts).to be_empty
+    end
+  end
+
   it "keeps a part that recorded tests but no line hits" do
     counts
     dark = Saboteur::Selection::CoverageMap.new(lines: {}, tests: %w[t1 t3])

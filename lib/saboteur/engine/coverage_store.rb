@@ -211,25 +211,43 @@ module Saboteur
           own_test_env(index)
           record(writer, files, only: parts[index], log: part_log_path(index))
         end
-        combine_parts(part_maps(results, admitted, parts.size), total)
+        combine_parts(part_maps(results, admitted, parts.size, files), total)
       end
 
       # Every part that failed is reported, each with its own output, so one
       # run shows all the failures instead of the first. A budget stop still
-      # raises at once: it says nothing about the suite.
-      def part_maps(results, admitted, count)
+      # raises at once: it says nothing about the suite. A part that did
+      # finish is saved either way, so the work is not lost (#427).
+      def part_maps(results, admitted, count, files)
         failures = []
+        budget_stop = nil
         maps = results.each_with_index.map do |result, index|
-          map_from(result, admitted, log: part_log_path(index))
-        rescue BudgetPhaseTimeout
-          raise
+          map_from(result, admitted, log: part_log_path(index)).tap { |map| save_part(map, files, index, count) }
+        rescue BudgetPhaseTimeout => e
+          budget_stop = e
+          nil
         rescue Error => e
           failures << "part #{index + 1} of #{count}: #{e.message}"
           nil
         end
+        raise budget_stop if budget_stop
         raise Error, failures.join("\n") unless failures.empty?
 
         maps.each_with_index { |map, index| part_map(map, index, count) }
+      end
+
+      # One finished part's map, beside the cache of the whole map and under
+      # the same key, so it is valid for exactly the inputs that cache is.
+      def part_path(files, index, count)
+        File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}-part-#{index + 1}-of-#{count}.json")
+      end
+
+      # Best effort, like the verdict checkpoint: a full disk or a read-only
+      # cache dir must not hide the failure this build is about to report.
+      def save_part(map, files, index, count)
+        map.save(part_path(files, index, count)) if @config["cache"] && !map.tests.empty?
+      rescue SystemCallError
+        nil
       end
 
       # A part child gets its own TEST_ENV_NUMBER, as a WorkerPool worker
