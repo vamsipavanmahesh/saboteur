@@ -6,6 +6,17 @@ RSpec.describe Saboteur::Execution::GemfilePathSources do
     File.write(File.join(dir, "Gemfile"), body)
   end
 
+  # The escaped grandchild is orphaned with the resolver, so it is not ours to
+  # wait on; TERM by pid is the whole cleanup, and a subreaper reaps it.
+  def reap_grandchild(pidfile)
+    return unless File.exist?(pidfile)
+
+    pid = File.read(pidfile).to_i
+    Process.kill("TERM", pid) if pid.positive?
+  rescue Errno::ESRCH
+    nil
+  end
+
   it "is empty without a Gemfile and never shells out" do
     Dir.mktmpdir do |dir|
       expect(described_class).not_to receive(:run_resolver)
@@ -118,24 +129,35 @@ RSpec.describe Saboteur::Execution::GemfilePathSources do
 
   it "does not block on the pipes of a grandchild that left the process group (#722)" do
     Dir.mktmpdir do |dir|
-      write_gemfile(dir, "spawn(RbConfig.ruby, \"-e\", \"Process.setsid; sleep 30\")\nsleep 30\n")
+      pidfile = File.join(dir, "grandchild.pid")
+      write_gemfile(dir, "File.write(\"#{pidfile}\", spawn(RbConfig.ruby, \"-e\", \"Process.setsid; sleep 30\"))\n" \
+                         "sleep 30\n")
 
-      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      expect { described_class.resolve(dir, timeout: 1) }
-        .to raise_error(Saboteur::ConfigError, /timed out/)
-      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-      expect(elapsed).to be < 15
+      begin
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        expect { described_class.resolve(dir, timeout: 1) }
+          .to raise_error(Saboteur::ConfigError, /timed out/)
+        elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+        expect(elapsed).to be < 15
+      ensure
+        reap_grandchild(pidfile)
+      end
     end
   end
 
   it "refuses a clean-exiting resolver whose grandchild holds the pipes open (#722)" do
     Dir.mktmpdir do |dir|
-      write_gemfile(dir, "spawn(RbConfig.ruby, \"-e\", \"Process.setsid; sleep 25\")\n")
+      pidfile = File.join(dir, "grandchild.pid")
+      write_gemfile(dir, "File.write(\"#{pidfile}\", spawn(RbConfig.ruby, \"-e\", \"Process.setsid; sleep 25\"))\n")
 
-      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      expect { described_class.resolve(dir) }
-        .to raise_error(Saboteur::ConfigError, /pipes open/)
-      expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 15
+      begin
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        expect { described_class.resolve(dir) }
+          .to raise_error(Saboteur::ConfigError, /pipes open/)
+        expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 15
+      ensure
+        reap_grandchild(pidfile)
+      end
     end
   end
 
