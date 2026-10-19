@@ -379,7 +379,7 @@ RSpec.describe Saboteur::Engine::CoverageStore do
 
     expect { store.fetch(files) }.to raise_error(
       Saboteur::Error,
-      "a.rb, b.rb, c.rb, d.rb, e.rb, ... loaded before saboteur started coverage (a require ran before " \
+      "a.rb, b.rb, c.rb, d.rb, e.rb and 1 more loaded before saboteur started coverage (a require ran before " \
       "the executable's Coverage.start - commonly the gemspec requiring the library while bundler/setup " \
       "evaluates it, or RUBYOPT -r), so no test can ever cover them. Let the test suite load these " \
       "files; a gemspec should require only its version file."

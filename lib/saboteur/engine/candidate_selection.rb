@@ -68,9 +68,8 @@ module Saboteur
         return line unless reason == "no coverage"
 
         loaded = @map.tests.map { |id| id.split("[").first.delete_prefix("./") }.uniq.sort
-        more = loaded.size > 5 ? ", ..." : ""
-        names = loaded.empty? ? "none" : loaded.first(5).join(", ")
-        "#{line} - loaded specs: #{names}#{more}; " \
+        names = loaded.empty? ? "none" : Text.name_list(loaded)
+        "#{line} - loaded specs: #{names}; " \
           "other spec files may cover it, pass --test to load them"
       end
 

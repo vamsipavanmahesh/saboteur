@@ -52,7 +52,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
     expect(described_class.new(config, diags).select(files)).to eq([])
     expect(io.string).to include("6 subject(s) skipped: intentionally untested in config/saboteur_custom_map.rb: " \
-                                 "M1.m, M2.m, M3.m, M4.m, M5.m, ...")
+                                 "M1.m, M2.m, M3.m, M4.m, M5.m and 1 more")
     expect(io.string).not_to include("M6.m")
   end
 
@@ -255,8 +255,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
     config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["**/*.rb"] }, root: @root)
     described_class.new(config, diagnostics).select(files)
     warning = diagnostics.warnings.find { |w| w.include?("code embedded in a string") }
-    expect(warning).to match(/mutated from them: a0\.rb, a1\.rb, a2\.rb, a3\.rb, a4\.rb, \.\.\./)
-    expect(warning).to match(/In a0\.rb, a1\.rb, a2\.rb, a3\.rb, a4\.rb, \.\.\. /)
+    expect(warning).to match(/mutated from them: a0\.rb, a1\.rb, a2\.rb, a3\.rb, a4\.rb and 1 more/)
+    expect(warning).to match(/In a0\.rb, a1\.rb, a2\.rb, a3\.rb, a4\.rb and 1 more, the changed lines/)
     expect(warning).to include("class_eval/module_eval", "not mutation subjects")
     expect(warning).not_to include("a5.rb")
   end
@@ -581,7 +581,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
 
       expect(select([file], since: "HEAD")).to be_empty
       expect(err.string).to include("6 changed subjects were deleted, nothing to mutate: " \
-                                    "Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5, ...")
+                                    "Cart#m1, Cart#m2, Cart#m3, Cart#m4, Cart#m5 and 1 more")
     end
 
     it "names every skipped method up to five" do
@@ -766,7 +766,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings.size).to eq(1)
       warning = diagnostics.warnings.first
       expect(warning).to include("--since: 6 changed Ruby file(s) are covered by c.include")
-      expect(warning).to include("from them: f1.rb, f2.rb, f3.rb, f4.rb, f5.rb, ...")
+      expect(warning).to include("from them: f1.rb, f2.rb, f3.rb, f4.rb, f5.rb and 1 more")
       expect(warning).not_to include("f6.rb")
     end
 
@@ -885,7 +885,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection do
       expect(diagnostics.warnings.size).to eq(1)
       warning = diagnostics.warnings.first
       expect(warning).to include("--since: 6 changed Ruby file(s) have no subjects")
-      expect(warning).to include("from them: f1.rb, f2.rb, f3.rb, f4.rb, f5.rb, ...")
+      expect(warning).to include("from them: f1.rb, f2.rb, f3.rb, f4.rb, f5.rb and 1 more")
       expect(warning).not_to include("f6.rb")
     end
 

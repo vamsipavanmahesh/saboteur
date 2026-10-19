@@ -205,7 +205,7 @@ RSpec.describe Saboteur::Engine::CandidateSelection do
     selection.for(subject_under_test, scope: scope)
     expect(diagnostics.warnings).to include(
       "K#m (#{subject_under_test.file}:2): skipped (no coverage); its change is not verified by this run - " \
-      "loaded specs: spec/m1_spec.rb, spec/m2_spec.rb, spec/m3_spec.rb, spec/m4_spec.rb, spec/m5_spec.rb, ...; " \
+      "loaded specs: spec/m1_spec.rb, spec/m2_spec.rb, spec/m3_spec.rb, spec/m4_spec.rb, spec/m5_spec.rb and 1 more; " \
       "other spec files may cover it, pass --test to load them"
     )
   end

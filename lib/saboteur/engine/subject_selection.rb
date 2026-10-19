@@ -395,11 +395,10 @@ module Saboteur
         unmatched = (@changed_lines.keys.select { |file| file.end_with?(".rb") } & included) - matched
         return if unmatched.empty?
 
-        names = unmatched.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
-        more = unmatched.size > 5 ? ", ..." : ""
+        names = Text.name_list(unmatched.map { |file| file.delete_prefix("#{@root}/") })
         note = constant_note(unmatched)
         @diagnostics.warn("--since: #{unmatched.size} changed Ruby file(s) have no subjects covering " \
-                          "the changed lines, so nothing is mutated from them: #{names}#{more}. " \
+                          "the changed lines, so nothing is mutated from them: #{names}. " \
                           "#{subjectless_hint(unmatched)}#{note}")
       end
 
@@ -423,9 +422,8 @@ module Saboteur
         embedded = unmatched.select { |file| changed_lines_inside_heredoc?(file) }
         return "The file may not parse, or every change may sit outside a method." if embedded.empty?
 
-        names = embedded.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
-        more = embedded.size > 5 ? ", ..." : ""
-        "In #{names}#{more} the changed lines are code embedded in a string (a heredoc, often the " \
+        names = Text.name_list(embedded.map { |file| file.delete_prefix("#{@root}/") })
+        "In #{names}, the changed lines are code embedded in a string (a heredoc, often the " \
           "argument to class_eval/module_eval or a template constant); methods defined by evaluating " \
           "strings are not mutation subjects, so this run cannot see that behavior."
       end
@@ -443,10 +441,9 @@ module Saboteur
         hits = excluded_territory & (@changed_lines.keys + untracked)
         return if hits.empty?
 
-        names = hits.sort.first(5).map { |file| file.delete_prefix("#{@root}/") }.join(", ")
-        more = hits.size > 5 ? ", ..." : ""
+        names = Text.name_list(hits.sort.map { |file| file.delete_prefix("#{@root}/") })
         @diagnostics.warn("--since: #{hits.size} changed Ruby file(s) are covered by c.include but removed by " \
-                          "c.exclude, so nothing is mutated from them: #{names}#{more}. Narrow or remove the " \
+                          "c.exclude, so nothing is mutated from them: #{names}. Narrow or remove the " \
                           "c.exclude entry, or pass the file as a positional source operand (configured " \
                           "excludes are then ignored).")
       end
@@ -473,10 +470,9 @@ module Saboteur
         end
         return subjects if dropped.empty?
 
-        names = dropped.first(5).map(&:id).join(", ")
-        more = dropped.size > 5 ? ", ..." : ""
+        names = Text.name_list(dropped)
         @diagnostics.inform("#{dropped.size} subject(s) skipped: intentionally untested in " \
-                            "config/saboteur_custom_map.rb: #{names}#{more}")
+                            "config/saboteur_custom_map.rb: #{names}")
         kept
       end
 
@@ -501,19 +497,17 @@ module Saboteur
       def report_deleted(deleted)
         return if deleted.empty?
 
-        names = deleted.first(5).map(&:id).join(", ")
-        more = deleted.size > 5 ? ", ..." : ""
+        names = Text.name_list(deleted)
         verb = deleted.one? ? "subject was" : "subjects were"
-        @diagnostics.inform("#{deleted.size} changed #{verb} deleted, nothing to mutate: #{names}#{more}")
+        @diagnostics.inform("#{deleted.size} changed #{verb} deleted, nothing to mutate: #{names}")
       end
 
       def report_unchanged_syntax(subjects)
         return if subjects.empty?
 
-        names = subjects.first(5).map(&:id).join(", ")
-        more = subjects.size > 5 ? ", ..." : ""
+        names = Text.name_list(subjects)
         @diagnostics.inform("#{subjects.size} changed subject(s) differ only in comments or formatting, " \
-                            "so they are skipped: #{names}#{more}")
+                            "so they are skipped: #{names}")
       end
 
       def canonical_path(file)
