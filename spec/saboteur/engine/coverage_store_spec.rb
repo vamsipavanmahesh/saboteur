@@ -617,6 +617,28 @@ RSpec.describe Saboteur::Engine::CoverageStore, "suite return validation" do
   end
 end
 
+RSpec.describe Saboteur::Engine::CoverageStore, "seeding the recording" do
+  it "seeds Kernel with the configured seed, so the recording suite shuffles like the run" do
+    Dir.mktmpdir do |root|
+      config = Saboteur::Config.new({ "seed" => 5 }, root: root)
+      integration = instance_double(Saboteur::Integration::RSpec, run_all: true, test_files: [])
+      recorder = instance_double(Saboteur::Selection::Recorder, start: nil)
+      allow(Saboteur::Selection::Recorder).to receive(:new).and_return(recorder)
+      store = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                  supervisor: nil, diagnostics: nil)
+      allow($stdout).to receive(:reopen)
+      allow($stderr).to receive(:reopen)
+      allow(store).to receive(:exit!)
+      allow(store).to receive(:write_map)
+      allow(Kernel).to receive(:srand)
+
+      store.send(:record, StringIO.new, ["/root/lib/a.rb"])
+
+      expect(Kernel).to have_received(:srand).with(5)
+    end
+  end
+end
+
 RSpec.describe Saboteur::Engine::CoverageStore, "successful recording" do
   it "records every Ruby source the child loaded, canonical and UTF-8 strict (#353)" do
     Dir.mktmpdir do |root|
