@@ -40,10 +40,8 @@ module Saboteur
 
       found = (appraisals ? ["Appraisals"] : []) +
               gemfiles.map { |f| sanitize(f.sub("#{File.expand_path(root)}/", "")) }
-      listed = found.first(5)
-      listed << "+#{found.size - 5} more" if found.size > 5
       where = setting.empty? ? "is not set" : "points outside gemfiles/ (#{sanitize(setting)})"
-      "Appraisal gemfiles found (#{listed.join(', ')}) but BUNDLE_GEMFILE #{where}: run " \
+      "Appraisal gemfiles found (#{Text.name_list(found)}) but BUNDLE_GEMFILE #{where}: run " \
         "`BUNDLE_GEMFILE=gemfiles/<name>.gemfile bundle exec saboteur run` or " \
         "`bundle exec appraisal <name> saboteur run`"
     end
