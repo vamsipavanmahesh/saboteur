@@ -161,6 +161,127 @@ RSpec.describe Saboteur::Execution::GemfilePathSources do
     end
   end
 
+  it "names the pinned BUNDLE_GEMFILE and the missing path when it does not exist (#644)" do
+    Dir.mktmpdir do |dir|
+      expect { described_class.resolve(dir, gemfile: "gemfiles/ci.rb") }
+        .to raise_error(Saboteur::ConfigError,
+                        "the test command pins BUNDLE_GEMFILE (gemfiles/ci.rb) but " \
+                        "#{File.join(dir, 'gemfiles', 'ci.rb')} does not exist")
+    end
+  end
+
+  it "states the resolver failure with its exit status when it printed nothing (#722)" do
+    Dir.mktmpdir do |dir|
+      write_gemfile(dir, "exit! 3\n")
+      expect { described_class.resolve(dir) }
+        .to raise_error(Saboteur::ConfigError,
+                        "could not parse the Gemfile's path: sources (resolver exited 3); " \
+                        "external test commands need the Gemfile to resolve")
+    end
+  end
+
+  describe "await_resolver (#722)" do
+    def fake_wait
+      instance_double(Process::Waiter, value: :status)
+    end
+
+    it "gives each pipe reader the full 2-second grace before refusing held pipes" do
+      slow = instance_double(Thread)
+      done = instance_double(Thread)
+      allow(described_class).to receive(:pipe_reader).and_return(slow, done)
+      allow(described_class).to receive(:resolver_timed_out?).and_return(false)
+      allow(slow).to receive(:join).with(2).and_return(nil)
+      allow(done).to receive(:join).with(2).and_return(done)
+      allow(slow).to receive(:alive?).and_return(true)
+      allow(done).to receive(:alive?).and_return(false)
+      allow(slow).to receive(:kill)
+
+      expect { described_class.await_resolver(nil, nil, fake_wait, 15) }
+        .to raise_error(Saboteur::ConfigError,
+                        "could not parse the Gemfile's path: sources (a resolver-spawned process still holds " \
+                        "its pipes open); external test commands need the Gemfile to resolve")
+      expect(slow).to have_received(:join).with(2)
+    end
+
+    it "refuses when only one of the two readers finishes" do
+      slow = instance_double(Thread)
+      done = instance_double(Thread)
+      allow(described_class).to receive(:pipe_reader).and_return(slow, done)
+      allow(described_class).to receive(:resolver_timed_out?).and_return(false)
+      allow(slow).to receive(:join).with(2).and_return(nil)
+      allow(done).to receive(:join).with(2).and_return(done)
+      allow(slow).to receive(:alive?).and_return(false)
+      allow(done).to receive(:alive?).and_return(false)
+
+      expect { described_class.await_resolver(nil, nil, fake_wait, 15) }
+        .to raise_error(Saboteur::ConfigError, /pipes open/)
+    end
+
+    it "kills a reader that is still alive after the grace, and only that one" do
+      slow = instance_double(Thread)
+      done = instance_double(Thread)
+      allow(described_class).to receive(:pipe_reader).and_return(slow, done)
+      allow(described_class).to receive(:resolver_timed_out?).and_return(false)
+      allow(slow).to receive(:join).with(2).and_return(nil)
+      allow(done).to receive(:join).with(2).and_return(done)
+      allow(slow).to receive(:alive?).and_return(true)
+      allow(done).to receive(:alive?).and_return(false)
+      allow(slow).to receive(:kill)
+      allow(done).to receive(:kill)
+
+      expect { described_class.await_resolver(nil, nil, fake_wait, 15) }
+        .to raise_error(Saboteur::ConfigError, /pipes open/)
+      expect(slow).to have_received(:kill)
+      expect(done).not_to have_received(:kill)
+    end
+
+    it "states the timeout refusal with the full message" do
+      reader = instance_double(Thread, join: nil, alive?: false)
+      allow(described_class).to receive(:pipe_reader).and_return(reader)
+      allow(described_class).to receive(:resolver_timed_out?).and_return(true)
+
+      expect { described_class.await_resolver(nil, nil, fake_wait, 7) }
+        .to raise_error(Saboteur::ConfigError,
+                        "could not parse the Gemfile's path: sources (resolver timed out after 7 s); " \
+                        "external test commands need the Gemfile to resolve")
+    end
+
+    it "returns the drained output once both readers finish" do
+      reader = instance_double(Thread, alive?: false)
+      allow(described_class).to receive(:pipe_reader).and_return(reader)
+      allow(described_class).to receive(:resolver_timed_out?).and_return(false)
+      allow(reader).to receive(:join).with(2).and_return(reader)
+
+      expect(described_class.await_resolver(nil, nil, fake_wait, 15)).to eq(["", "", :status])
+    end
+  end
+
+  describe "resolver_timed_out? (#722)" do
+    it "polls the waiter in 0.05-second slices and answers exactly false on a clean exit" do
+      wait = instance_double(Process::Waiter)
+      allow(wait).to receive(:join).and_return(wait)
+
+      expect(described_class.resolver_timed_out?(wait, 15)).to be(false)
+      expect(wait).to have_received(:join).with(0.05)
+    end
+  end
+
+  describe "pipe_reader (#644)" do
+    it "drains the pipe in 65_536-byte chunks into the buffer" do
+      io = instance_double(IO)
+      calls = 0
+      allow(io).to receive(:readpartial) do |_size|
+        calls += 1
+        calls == 1 ? "chunk" : raise(IOError)
+      end
+
+      buffer = +""
+      described_class.pipe_reader(io, buffer).join(2)
+      expect(buffer).to eq("chunk")
+      expect(io).to have_received(:readpartial).with(65_536).twice
+    end
+  end
+
   it "kills the resolver's whole process group on timeout, not only the ruby pid" do
     Dir.mktmpdir do |dir|
       flag = File.join(dir, "grandchild-lived")
