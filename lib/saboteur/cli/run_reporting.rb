@@ -126,7 +126,7 @@ module Saboteur
         return unless path
 
         tree = WorkingTree.new(config.root, ignored: config.ignored_tree_paths).state
-        scope = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir")
+        scope = config.selection_settings.except(*Config::OUTPUT_KEYS)
         # Recording is an auxiliary artifact: when the file cannot be
         # written - read-only tree inside a sandboxed child (#296) - warn
         # and let the run exit by its results instead of failing as a tool

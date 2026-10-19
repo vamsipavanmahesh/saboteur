@@ -18,6 +18,10 @@ module Saboteur
     LEGACY_IGNORE_FILE = ".saboteur-ignore.yml"
     IGNORE_FILE = "config/saboteur_ignore.rb"
 
+    # Settings that say where saboteur writes, never what it mutates: left
+    # out of the run fingerprint, baseline evidence and score-history scope.
+    OUTPUT_KEYS = %w[cache_dir json_report html_report score_history resume].freeze
+
     DEFAULTS = {
       "integration" => "rspec",
       "require" => [],
@@ -222,9 +226,9 @@ module Saboteur
     # Paths of saboteur's own output, relative to the root, that do not count as source changes.
     def output_paths
       prefix = File.join(File.realpath(root), "")
-      %w[cache_dir json_report html_report score_history resume].filter_map { |key| path(key) }
-                                                                .select { |file| file.start_with?(prefix) }
-                                                                .map { |file| file.delete_prefix(prefix) }
+      OUTPUT_KEYS.filter_map { |key| path(key) }
+                 .select { |file| file.start_with?(prefix) }
+                 .map { |file| file.delete_prefix(prefix) }
     end
 
     # Tool-owned paths, relative to the root, that never count as

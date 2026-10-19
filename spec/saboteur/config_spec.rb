@@ -592,3 +592,18 @@ RSpec.describe Saboteur::Config, "resume (#471)" do
     expect(described_class.new({ "resume" => "state" })["resume"]).to eq("state")
   end
 end
+
+RSpec.describe Saboteur::Config, "OUTPUT_KEYS (#471)" do
+  it "is the one list of output settings, each a real setting" do
+    expect(described_class::OUTPUT_KEYS)
+      .to eq(%w[cache_dir json_report html_report score_history resume])
+    expect(described_class::OUTPUT_KEYS - described_class::DEFAULTS.keys).to be_empty
+  end
+
+  it "is the list the fingerprint, baseline evidence and output paths use" do
+    expect(Saboteur::Engine::RunFingerprint::LOCATION_SETTINGS).to equal(described_class::OUTPUT_KEYS)
+    expect(Saboteur::Baseline::RunEvidence::OUTPUT_SETTINGS).to equal(described_class::OUTPUT_KEYS)
+    config = described_class.new({ "resume" => "state", "score_history" => "h.jsonl" }, root: Dir.pwd)
+    expect(config.output_paths).to include("state", "h.jsonl", ".saboteur")
+  end
+end
