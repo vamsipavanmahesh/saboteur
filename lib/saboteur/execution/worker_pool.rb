@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "English"
 require "json"
 require_relative "../text"
 require_relative "peak_memory"
@@ -91,6 +92,7 @@ module Saboteur
       end
 
       def distribute(items, order, &work)
+        @sweep_error = nil
         results = Array.new(items.size)
         queue = order.dup
         workers = []
@@ -100,6 +102,11 @@ module Saboteur
         results
       ensure
         workers&.each { |worker| stop(worker) }
+        # Containment first, honesty after (#762): every worker's stop ran
+        # above, so a blind-table sweep no longer aborts the registry; but a
+        # skipped orphan sweep must not read as a clean run either. The
+        # run's own error wins when one is already propagating.
+        raise @sweep_error if @sweep_error && $ERROR_INFO.nil?
       end
 
       # Waits up to a second for results, then checks for workers that died
@@ -331,6 +338,27 @@ module Saboteur
         { "error" => "#{e.class}: #{e.message}" }
       end
 
+      # A blind process table (both backends down, as in #762) loses the
+      # table-driven orphan sweep, but it must not skip ending the worker
+      # itself - wait2 has no timeout, so kill_all was the only thing
+      # stopping a wedged one. Kill its group and pid directly, remember the
+      # error for distribute to raise once every worker is stopped, and never
+      # let the sweep abort the remaining stops.
+      def sweep(tree, worker)
+        tree&.kill_all
+      rescue SystemCallError, Fiddle::DLError => e
+        @sweep_error ||= e
+        kill_hard(worker.pid)
+      end
+
+      def kill_hard(pid)
+        [-pid, pid].each do |target|
+          Process.kill("KILL", target)
+        rescue Errno::ESRCH, Errno::EPERM
+          nil
+        end
+      end
+
       # Closing the command pipe ends the worker's loop; anything it left
       # running is killed with its tree.
       def stop(worker)
@@ -338,7 +366,7 @@ module Saboteur
         tree = Supervisor.live.delete(worker.pid)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 5
         sleep 0.01 until reaped?(worker) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
-        tree&.kill_all
+        sweep(tree, worker)
         worker.status ||= Process.wait2(worker.pid).last unless reaped?(worker)
         drain(worker, {})
         worker.results.close unless worker.results.closed?

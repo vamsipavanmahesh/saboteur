@@ -13,6 +13,11 @@ RSpec.describe Saboteur::Execution::Supervisor do
 
   # Safety net: if a containment regression lets a process survive, kill it
   # here so the failure stays a failure and not a leak.
+  # A leftover live entry is a containment leak: name the example that left it.
+  after do
+    expect(described_class.live).to be_empty
+  end
+
   after do
     Dir[File.join(dir, "*.pid")].flat_map { |file| File.read(file).split(",") }.each do |pid|
       Process.kill("KILL", pid.to_i)
