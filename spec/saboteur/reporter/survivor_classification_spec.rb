@@ -102,6 +102,157 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to eq("arid")
   end
 
+  # The sentry-ruby line-60 case: the edit sits inside a NESTED call
+  # (job.source_location&.join) within the logger block. The smallest
+  # enclosing call is the nested one, so the label must walk out to the
+  # logger call (#665).
+  it "labels a safe-navigation edit inside a nested call in a logger block as arid (#665)" do
+    message = "\"at \#{job.source_location&.join(\":\")}\""
+    source = <<~RUBY
+      class A
+        def watch(job)
+          Sentry.sdk_logger.warn(Sentry::LOGGER_PROGNAME) do
+            #{message}
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: "&.", to: ".", covered_by: [])
+    expect(described_class.label(result)).to eq("arid")
+  end
+
+  it "labels an argument removal inside a nested call in a logger block as arid (#665)" do
+    message = "\"at \#{job.source_location&.join(\":\")}\""
+    source = <<~RUBY
+      class A
+        def watch(job)
+          Sentry.sdk_logger.warn(Sentry::LOGGER_PROGNAME) do
+            #{message}
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: '":"', to: "", covered_by: [])
+    expect(described_class.label(result)).to eq("arid")
+  end
+
+  # The whole-slice match let a logger SIBLING inside a block swallow an
+  # unrelated edit: the outer items.each slice contains ".instrument", so
+  # the paid? edit read as arid (#665 security probe). Only the call's
+  # head - receiver, operator, message - may match.
+  it "does not label an edit arid for a logger sibling inside the same block (#665)" do
+    source = <<~RUBY
+      class A
+        def charge_all(items)
+          items.each do |x|
+            tracer.instrument(x)
+            charge!(x) if x.paid?
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  # Each boundary term of call_head's || chain decides a shape the others
+  # miss; a pattern in the arguments must never reach the head (#665).
+  it "stops the head at the opening paren when the arguments mention a logger (#665)" do
+    source = <<~RUBY
+      class A
+        def charge_all(items)
+          notify("tracer.instrument span") do |x|
+            charge!(x) if x.paid?
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  it "stops the head at the first argument of a multi-argument call without parens (#665)" do
+    source = <<~RUBY
+      class A
+        def charge_all(items)
+          notify "tracer.instrument span", items do |x|
+            charge!(x) if x.paid?
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  it "stops the head at the first argument when the call has no parens (#665)" do
+    source = <<~RUBY
+      class A
+        def charge_all(items)
+          notify_result "tracer.instrument span" do |x|
+            charge!(x) if x.paid?
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  # operand_replacement on the head length must not let the whole slice
+  # back in: the pattern sits inside the arguments, before the file
+  # offset the mutant would cut at (#665).
+  it "never matches arguments that sit within the mutant's cut (#665)" do
+    source = <<~RUBY
+      class A
+        def charge_all(items)
+          result = wrap_call(tracer.instrument, items) do |x|
+            charge!(x) if x.paid?
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: "paid?", to: "!paid?", covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  # call_head's contract, pinned directly: the boundary terms decide which
+  # call shapes stop where (#665).
+  it "cuts the head at the opening paren (#665)" do
+    call = Prism.parse("notify(x) do\ny\nend\n").value.statements.body.first
+    expect(described_class.send(:call_head, call)).to eq("notify")
+  end
+
+  it "cuts the head at the first argument without parens (#665)" do
+    call = Prism.parse("notify x, y do\nz\nend\n").value.statements.body.first
+    expect(described_class.send(:call_head, call)).to eq("notify")
+  end
+
+  it "cuts the head at a bare block keyword (#665)" do
+    call = Prism.parse("warn do\nx\nend\n").value.statements.body.first
+    expect(described_class.send(:call_head, call)).to eq("warn")
+  end
+
+  it "keeps the whole slice for an argument-free call (#665)" do
+    call = Prism.parse("foo.bar\n").value.statements.body.first
+    expect(described_class.send(:call_head, call)).to eq("foo.bar")
+  end
+
+  it "does not label a nested-call edit arid when the outer call is not arid (#665)" do
+    message = "\"at \#{job.source_location&.join(\":\")}\""
+    source = <<~RUBY
+      class A
+        def watch(job)
+          transform(job) do
+            #{message}
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: "&.", to: ".", covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
   it "does not label an edit inside a non-arid call's block as arid" do
     message = "\"skip \#{job}\""
     source = <<~RUBY
@@ -125,21 +276,23 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.send(:inside_arid_call?, tree, edit, [/\Aputs/])).to be(false)
   end
 
-  # The containment guard in enclosing_call, both sides: an edit that
+  # The containment guard in enclosing_calls, both sides: an edit that
   # reaches outside the call is not swallowed by it.
   it "refuses an edit that starts before the call (#665)" do
     call = Prism.parse("alpha\nbeta(gamma)\n").value.statements.body[1]
-    expect(described_class.send(:enclosing_call, call, 0, 8)).to be_nil
+    expect(described_class.send(:enclosing_calls, call, 0, 8)).to eq([])
   end
 
   it "refuses an edit that ends after the call (#665)" do
     call = Prism.parse("beta(gamma)\nomega\n").value.statements.body[0]
-    expect(described_class.send(:enclosing_call, call, 1, 15)).to be_nil
+    expect(described_class.send(:enclosing_calls, call, 1, 15)).to eq([])
   end
 
-  it "returns the call when the edit sits inside it (#665)" do
-    call = Prism.parse("beta(gamma)\n").value.statements.body[0]
-    expect(described_class.send(:enclosing_call, call, 1, 7)).to eq(call)
+  it "collects every call swallowing the edit, outermost first (#665)" do
+    program = Prism.parse("alpha(beta(gamma))\n").value
+    outer = program.statements.body[0]
+    inner = outer.arguments.arguments[0]
+    expect(described_class.send(:enclosing_calls, program, 6, 10)).to eq([outer, inner])
   end
 
   it "labels an edit arid when every line it touches is arid" do

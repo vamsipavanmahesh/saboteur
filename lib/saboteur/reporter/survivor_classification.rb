@@ -89,26 +89,37 @@ module Saboteur
         # Line text misses edits that sit INSIDE an arid call: the lazy log
         # message in a `warn do ... end` block starts with the string, not
         # the logger, so block-form logging never read as arid (#665). Walk
-        # the tree instead: an edit the smallest enclosing call swallows is
-        # arid when that call matches a pattern. An edit too big for one
-        # call (a call plus following code) stays unlabeled.
+        # the tree instead: an edit is arid when ANY call swallowing it
+        # matches a pattern. The edit may sit inside a nested call in the
+        # message (the `&.` in `job.source_location&.join` inside the warn
+        # block), and the logger call further out still decides. An edit
+        # too big for the arid call (the call plus following code) stays
+        # unlabeled.
         def inside_arid_call?(tree, edit, regexps)
           return false unless tree.success?
 
-          call = enclosing_call(tree.value, edit.start_byte, edit.end_byte)
-          !call.nil? && regexps.any? { |regexp| regexp.match?(call.slice) }
+          enclosing_calls(tree.value, edit.start_byte, edit.end_byte).any? do |call|
+            regexps.any? { |regexp| regexp.match?(call_head(call)) }
+          end
         end
 
-        def enclosing_call(node, from, to)
-          return nil unless node.start_offset <= from && to <= node.end_offset
+        # The call's identity - receiver, operator and message, without its
+        # arguments or block. Matching the whole slice lets an arid-looking
+        # SIBLING statement inside the block body swallow an unrelated edit
+        # (a tracer.instrument next to the edit marks everything in the
+        # block arid, #665 security probe).
+        def call_head(call)
+          boundary = (call.opening_loc || call.arguments&.arguments&.first || call.block)&.start_offset
+          call.slice[0, (boundary || call.end_offset) - call.start_offset].rstrip
+        end
 
-          node.child_nodes.each do |child|
-            next unless child
+        # Every CallNode swallowing [from, to], outermost first.
+        def enclosing_calls(node, from, to, found = [])
+          return found unless node.start_offset <= from && to <= node.end_offset
 
-            found = enclosing_call(child, from, to)
-            return found if found
-          end
-          node.is_a?(Prism::CallNode) ? node : nil
+          found << node if node.is_a?(Prism::CallNode)
+          node.child_nodes.each { |child| enclosing_calls(child, from, to, found) if child }
+          found
         end
 
         # Edit offsets are BYTES, so the line lookup runs on the binary
