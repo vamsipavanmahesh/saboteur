@@ -134,6 +134,12 @@ RSpec.describe Saboteur::Selection::CoverageMap do
 
       expect { described_class.combine([first, second]) }
         .to raise_error(ArgumentError, "coverage maps share test ids: t1, t9")
+
+      many_left = described_class.new(lines: {}, tests: %w[t8 t4 t2 t6 t1])
+      many_right = described_class.new(lines: {}, tests: %w[t6 t1 t4 t2 t3])
+
+      expect { described_class.combine([many_left, many_right]) }
+        .to raise_error(ArgumentError, "coverage maps share test ids: t1, t2, t4")
     end
   end
 
