@@ -249,26 +249,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Reporter::Terminal#kill_causes",
              reason: "equivalent: only killed results carry a kill_cause, so status == :killed || kill_cause selects the same results"
 
-  i.mutation "908a7d9f7906bc19",
-             subject: "Saboteur::Reporter::Terminal#shown",
-             reason: "equivalent: the hidden count is only printed when positive, and -1 is not"
-
-  i.mutation "ac98a6c895a3e3b8",
-             subject: "Saboteur::Reporter::Terminal#shown",
-             reason: "equivalent: the sort key keeps the same order (ignored after live, coarse before fine)"
-
-  i.mutation "87077462eb4bee86",
-             subject: "Saboteur::Reporter::Terminal#shown",
-             reason: "equivalent: the sort key keeps the same order (ignored after live, coarse before fine)"
-
-  i.mutation "c1a541ae7499c128",
-             subject: "Saboteur::Reporter::Terminal#shown",
-             reason: "equivalent: the sort key keeps the same order (ignored after live, coarse before fine)"
-
-  i.mutation "73b795bf8d86fda1",
-             subject: "Saboteur::Reporter::Terminal#shown",
-             reason: "equivalent: the sort key keeps the same order (ignored after live, coarse before fine)"
-
   i.mutation "1c63f9e764f00ada",
              subject: "Saboteur::Engine::Scheduler.prioritize",
              reason: "equivalent: the default only shifts every never-killer by the same amount, so the order is the same"
@@ -824,14 +804,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::RefinementActivations.mark",
              reason: "equivalent: each vs map on a side-effect-only skip-marking loop; the collected array is discarded (live-probed)"
 
-  i.mutation "825bc1faf1060c3d",
-             subject: "Saboteur::RefinementActivations.descend",
-             reason: "equivalent: each vs map on a side-effect-only collect recursion; the collected array is discarded (live-probed)"
-
-  i.mutation "2b5152178ac3cd0b",
-             subject: "Saboteur::RefinementActivations.descend",
-             reason: "equivalent: each vs map on a side-effect-only collect recursion; the collected array is discarded (live-probed)"
-
   i.mutation "d2d2cb9da8ecc4bc",
              subject: "Saboteur::SubjectFinder#walk_call",
              reason: "equivalent: sig_span: nil restates the keyword default in Subject#initialize (subject.rb:42-43); live-probed: the pair removal survives the subject and subject_finder specs"
@@ -966,14 +938,6 @@ Saboteur.ignore do |i|
   i.mutation "15307bd521a10280",
              subject: "Saboteur::Subject#contains_edit?",
              reason: "equivalent: prism nodes delegate end_offset to their location"
-  i.mutation "71ae32342742aec3",
-             subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
-             reason: "equivalent: for a string node, node.start_line and node.opening_loc.start_line are the same line"
-
-  i.mutation "517bdd5e24a7af96",
-             subject: "Saboteur::Engine::SubjectSelection#heredoc_spans",
-             reason: "equivalent: each and map iterate the same children; the recursion uses spans, not the return value"
-
   i.mutation "d9aeb909564db3e1",
              subject: "Saboteur::Engine::SubjectSelection#by_pattern",
              reason: "equivalent: the warn loop's collected array is discarded, so each and map run the same side effects"
