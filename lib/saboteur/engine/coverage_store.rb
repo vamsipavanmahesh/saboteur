@@ -101,7 +101,7 @@ module Saboteur
                        "Run through the saboteur executable and disable SimpleCov for the run."
         end
 
-        parts = suite_parts
+        parts = usage_checked { suite_parts }
         return build_parts(files, parts) if parts.size > 1
 
         scope = @config["tests"].empty? ? "the whole suite" : "the selected specs"
@@ -132,17 +132,32 @@ module Saboteur
       # the suite's examples before the run and the combined map holds
       # exactly its tests after it, and refuses a part that recorded no test.
       def build_parts(files, parts)
-        total = check_parts_cover_suite(parts)
+        total = usage_checked { check_parts_cover_suite(parts) }
         @diagnostics.inform("building coverage map (runs the suite once, in #{parts.size} parallel parts)")
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("building coverage map")
         admitted = build_timeout
         results = @supervisor.run_many(parts.size, timeout: admitted, on_tick: heartbeat.method(:tick),
                                                    label: "coverage child died during the map build") do |writer, index|
+          own_test_env(index)
           record(writer, files, only: parts[index], log: part_log_path(index))
         end
         maps = results.each_with_index.map { |result, index| part_map(map_from(result, admitted), index, parts.size) }
         combine_parts(maps, total)
+      end
+
+      # A part child gets its own TEST_ENV_NUMBER, as a WorkerPool worker
+      # does, so suites that key databases, ports or tmp dirs on it do not
+      # collide between parts (part 0 keeps the empty value).
+      def own_test_env(index)
+        ENV["TEST_ENV_NUMBER"] = index.zero? ? "" : (index + 1).to_s
+      end
+
+      # A bad file list is the caller's mistake: a usage error, not a crash.
+      def usage_checked
+        yield
+      rescue ArgumentError => e
+        raise ConfigError, e.message
       end
 
       def check_parts_cover_suite(parts)

@@ -101,7 +101,9 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     map = Saboteur::Selection::CoverageMap.new(lines: {}, tests: [])
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
     expect(Saboteur::Engine::CoverageStore).to receive(:new) do |config:, integration:, hooks:, load_lines:,
-                                                              load_methods:, supervisor:, diagnostics:, timeout_cap:|
+                                                              load_methods:, supervisor:, diagnostics:,
+                                                              timeout_cap:, parts:|
+      expect(parts).to eq(1)
       expect(config).to equal(engine.config)
       expect(integration.test_files).to eq([])
       expect(hooks).to equal(engine.hooks)
@@ -116,6 +118,14 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     allow(engine).to receive(:candidate_lists).and_return([[]])
     expect(engine.call.results).to eq([])
   end
+  it "hands the configured coverage_parts to the coverage store (#741)" do
+    parted = described_class.new(Saboteur::Config.new({ "all" => true, "coverage_parts" => 3 }, root: root),
+                                 err: StringIO.new)
+    expect(Saboteur::Engine::CoverageStore).to receive(:new).with(hash_including(parts: 3))
+
+    parted.send(:coverage_store, instance_double(Saboteur::Integration::RSpec), {})
+  end
+
   it "passes the boot load methods through mutate to the coverage store" do
     target = subjects_in("class WiringMethodsTarget\n  def value\n    1\n  end\nend\n").first
     integration = instance_double(Saboteur::Integration::RSpec, test_files: [], all_tests: [])
