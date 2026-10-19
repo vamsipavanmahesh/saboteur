@@ -47,7 +47,7 @@ module Saboteur
             sleep 0.01
           end
         rescue Exception # rubocop:disable Lint/RescueException
-          kill_started(started)
+          kill_started(started, watchers)
           raise
         ensure
           watchers.each(&:join)
@@ -76,8 +76,12 @@ module Saboteur
         raise e
       end
 
-      def kill_started(started)
-        started.each do |part, pid, _reader, _began|
+      # Only a child whose watcher is still running can still be ours: once
+      # its watcher has reaped it, its pid may belong to another process.
+      def kill_started(started, watchers = nil)
+        started.each_with_index do |(part, pid, _reader, _began), index|
+          next if watchers && !watchers[index].alive?
+
           part.send(:signal, "KILL", -pid)
           part.send(:signal, "KILL", pid)
         end

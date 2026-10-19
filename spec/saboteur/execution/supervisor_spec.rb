@@ -541,6 +541,65 @@ RSpec.describe Saboteur::Execution::Supervisor do
       expect(threads.uniq).to eq([Thread.current])
     end
 
+    it "kills a child's group when the process table is blind and on_tick raises" do
+      real_snapshot = Saboteur::Execution::ProcessTable.method(:snapshot)
+      allow(Saboteur::Execution::ProcessTable).to receive(:snapshot) do
+        raise Errno::EIO, "ps failed" if File.exist?(pid_file("grand")) && File.size?(pid_file("grand"))
+
+        real_snapshot.call
+      end
+      ticks = 0
+      on_tick = -> { raise "tick failed" if File.size?(pid_file("grand")) && (ticks += 1) > 3 }
+
+      expect do
+        supervisor.run_many(1, timeout: 30, on_tick: on_tick) do |_writer, _index|
+          File.write(pid_file("grand"), Process.spawn("sleep", "30").to_s)
+          sleep 30
+        end
+      end.to raise_error(RuntimeError, "tick failed")
+
+      expect(dead_within?(read_pid("grand"), 5)).to be(true)
+    end
+
+    it "does not signal a child whose watcher has already finished (its pid may be reused)" do
+      finished = double("finished part")
+      running = double("running part")
+      allow(running).to receive(:signal)
+      expect(finished).not_to receive(:signal)
+      started = [[finished, 10, nil, 0], [running, 11, nil, 0]]
+
+      supervisor.send(:kill_started, started,
+                      [instance_double(Thread, alive?: false), instance_double(Thread, alive?: true)])
+
+      expect(running).to have_received(:signal).with("KILL", -11)
+      expect(running).to have_received(:signal).with("KILL", 11)
+    end
+
+    it "reaps, not only kills, the children already forked when a later fork fails" do
+      calls = 0
+      copy = supervisor.method(:dup)
+      allow(supervisor).to receive(:dup) do
+        if (calls += 1) == 3
+          sleep 0.5 # let the first two children write their pid files
+          raise IOError, "fork failed"
+        end
+
+        copy.call
+      end
+
+      expect do
+        supervisor.run_many(3, timeout: 30) do |_writer, index|
+          File.write(pid_file("reap#{index}"), Process.pid.to_s)
+          sleep 30
+        end
+      end.to raise_error(IOError, "fork failed")
+
+      %w[reap0 reap1].each do |name|
+        expect { Process.waitpid(read_pid(name), Process::WNOHANG) }.to raise_error(Errno::ECHILD)
+      end
+      expect(described_class.live).to be_empty
+    end
+
     it "stops every child at once when on_tick raises, well before their deadline" do
       ticks = 0
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
