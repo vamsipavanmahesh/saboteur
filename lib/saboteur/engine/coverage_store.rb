@@ -14,6 +14,10 @@ module Saboteur
       CACHE_INPUTS = %w[integration require rspec_args rails tests].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
+      # What a failed child's log shows in the error: its last lines, bounded.
+      TAIL_LINES = 60
+      TAIL_BYTES = 65_536
+      TAIL_LINE_WIDTH = 300
 
       def initialize(config:, integration:, hooks:, supervisor:, diagnostics:, load_lines: {}, load_methods: {},
                      timeout_cap: nil, parts: 1)
@@ -142,8 +146,25 @@ module Saboteur
           own_test_env(index)
           record(writer, files, only: parts[index], log: part_log_path(index))
         end
-        maps = results.each_with_index.map { |result, index| part_map(map_from(result, admitted), index, parts.size) }
-        combine_parts(maps, total)
+        combine_parts(part_maps(results, admitted, parts.size), total)
+      end
+
+      # Every part that failed is reported, each with its own output, so one
+      # run shows all the failures instead of the first. A budget stop still
+      # raises at once: it says nothing about the suite.
+      def part_maps(results, admitted, count)
+        failures = []
+        maps = results.each_with_index.map do |result, index|
+          map_from(result, admitted, log: part_log_path(index))
+        rescue BudgetPhaseTimeout
+          raise
+        rescue Error => e
+          failures << "part #{index + 1} of #{count}: #{e.message}"
+          nil
+        end
+        raise Error, failures.join("\n") unless failures.empty?
+
+        maps.each_with_index { |map, index| part_map(map, index, count) }
       end
 
       # A part child gets its own TEST_ENV_NUMBER, as a WorkerPool worker
@@ -187,13 +208,16 @@ module Saboteur
         File.join(@config.path("cache_dir"), "coverage-build-#{index + 1}.log")
       end
 
-      def map_from(result, admitted = @config["coverage_timeout"])
+      def map_from(result, admitted = @config["coverage_timeout"], log: log_path)
         raise_budget_stop(admitted) if budget_stopped?(result, admitted)
         raise Error, "coverage map build stopped: #{result.detail}" if result.stopped_by
-        raise Error, "coverage map build failed: #{died(result.exit_status)}" if result.payload.empty?
+        if result.payload.empty?
+          raise Error,
+                "coverage map build failed: #{died(result.exit_status, log)}#{output_tail(log)}"
+        end
 
         data = JSON.parse(result.payload)
-        raise Error, "coverage map build failed: #{data['error']}" if data["error"]
+        raise Error, "coverage map build failed: #{child_error(data['error'])}#{output_tail(log)}" if data["error"]
 
         with_parent_load_lines(Selection::CoverageMap.from_json(result.payload))
       end
@@ -270,11 +294,59 @@ module Saboteur
         " (Bootsnap's compile cache is the default Rails case)" if defined?(::Bootsnap)
       end
 
-      def died(status)
+      def died(status, log)
         how = if status&.signaled? then "was killed by signal #{Signal.signame(status.termsig)}"
               else "exited with status #{status&.exitstatus}"
               end
-        "the suite #{how} before reporting; its output is in #{log_path.delete_prefix("#{@root}/")}"
+        "the suite #{how} before reporting; its output is in #{log.delete_prefix("#{@root}/")}"
+      end
+
+      # The end of a failed child's log, where rspec prints its failures, so a
+      # CI run shows why without the cache directory. The suite's own output
+      # and nothing else. Every line is cleaned by plain_line and starts with
+      # "| ", so it is never the start of a workflow command.
+      def output_tail(log)
+        size = File.size(log)
+        cut = size > TAIL_BYTES
+        text = File.open(log) do |file|
+          file.seek(size - TAIL_BYTES) if cut
+          file.read
+        end
+        lines = Text.utf8(text).lines
+        lines.shift if cut
+        lines = lines.last(TAIL_LINES).map { |line| tail_line(line) }
+        return "" if lines.empty?
+
+        "\n  the last #{lines.size} lines of #{log.delete_prefix("#{@root}/")}:\n#{lines.join("\n")}"
+      rescue SystemCallError
+        ""
+      end
+
+      def tail_line(line)
+        "| #{plain_line(line)}"
+      end
+
+      # One line of a child's text, safe to print: colors stripped, control
+      # characters escaped, cut to a readable width, and the two things
+      # GitHub Actions reads as a workflow command broken where they stand: a
+      # "::" that starts the line after any leading whitespace (the runner
+      # trims all Unicode spaces first) and a "##[" anywhere in it. Other
+      # colons and brackets, as in "Saboteur::Error", are left alone.
+      def plain_line(line)
+        text = line.chomp.gsub(/\e\[[0-9;]*[A-Za-z]/, "").gsub(/[\x00-\x1f\x7f\u0080-\u009f]/) do |char|
+          format("\\x%02x", char.ord)
+        end
+        text = text.gsub("##[", "##\\x5b").sub(/\A[[:space:]]*\K:(?=:)/) { "\\x3a" }
+        text.size > TAIL_LINE_WIDTH ? "#{text[0, TAIL_LINE_WIDTH]}..." : text
+      end
+
+      # The error a child wrote into its report. It is the child's text, which
+      # can carry anything the suite printed or raised, so it gets the log's
+      # treatment: the first line follows the message, every later line starts
+      # with "| ", and plain_line has cleaned them all.
+      def child_error(error)
+        first, *rest = Text.utf8(error.to_s).lines
+        [plain_line(first.to_s), *rest.first(TAIL_LINES).map { |line| tail_line(line) }].join("\n")
       end
 
       def log_path
