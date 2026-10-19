@@ -328,6 +328,42 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     end
   end
 
+  describe "#save temp file (#471)" do
+    around { |example| Dir.mktmpdir { |dir| (@dir = dir) && example.run } }
+
+    it "never follows a link planted at the temp name, and leaves nothing behind" do
+      path = File.join(@dir, "map.json")
+      victim = File.join(@dir, "victim")
+      File.write(victim, "keep")
+      allow(SecureRandom).to receive(:hex).with(8).and_return("feedface")
+      File.symlink(victim, "#{path}.feedface.tmp")
+
+      expect { map.save(path) }.to raise_error(Errno::EEXIST)
+      expect(File.read(victim)).to eq("keep")
+      expect(File.exist?(path)).to be(false)
+      expect(Dir.children(@dir)).to eq(["victim"])
+    end
+
+    it "writes through a private 0600 temp file" do
+      path = File.join(@dir, "map.json")
+      modes = []
+      allow(File).to receive(:rename).and_wrap_original do |original, from, to|
+        modes << (File.stat(from).mode & 0o777)
+        original.call(from, to)
+      end
+      map.save(path)
+      expect(modes).to eq([0o600])
+      expect(Dir.children(@dir)).to eq(["map.json"])
+    end
+
+    it "removes the temp file when the rename fails, then re-raises" do
+      path = File.join(@dir, "map.json")
+      allow(File).to receive(:rename).and_raise(Errno::EIO)
+      expect { map.save(path) }.to raise_error(Errno::EIO)
+      expect(Dir.children(@dir)).to be_empty
+    end
+  end
+
   describe ".cache_key" do
     it "treats a missing file as an input of its own" do
       Dir.mktmpdir do |dir|

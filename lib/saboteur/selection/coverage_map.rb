@@ -5,6 +5,7 @@ require "coverage"
 require "digest"
 require "fileutils"
 require "json"
+require "securerandom"
 require_relative "../text"
 
 module Saboteur
@@ -321,9 +322,12 @@ module Saboteur
 
       def save(path)
         FileUtils.mkdir_p(File.dirname(path))
-        tmp = "#{path}.#{Process.pid}.tmp"
-        File.write(tmp, to_json)
+        tmp = "#{path}.#{SecureRandom.hex(8)}.tmp"
+        # "wx": a planted file or symlink at the temp name is never followed.
+        File.open(tmp, "wx", 0o600) { |out| out.write(to_json) }
         File.rename(tmp, path)
+      ensure
+        FileUtils.rm_f(tmp) if tmp
       end
 
       # One map from shard maps built over a partition of the suite's spec
