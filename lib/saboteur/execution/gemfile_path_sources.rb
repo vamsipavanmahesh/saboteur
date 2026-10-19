@@ -115,27 +115,51 @@ module Saboteur
 
       # Drains both pipes while waiting: a child that fills a pipe buffer
       # (~64 KB) blocks on write and never exits, which would read as a
-      # fake timeout (#644).
+      # fake timeout (#644). The readers accumulate partial chunks, so a
+      # still-open pipe (a spawned grandchild that left the process group
+      # holds the write end) can be abandoned after a short grace instead
+      # of blocking on EOF - on the timeout path the captured output is
+      # discarded, and on a clean exit incomplete output cannot be
+      # trusted, so the run refuses either way (#722).
       def await_resolver(stdout, stderr, wait, timeout)
-        out_reader = Thread.new { stdout.read }
-        err_reader = Thread.new { stderr.read }
+        out_buffer = +""
+        err_buffer = +""
+        readers = [pipe_reader(stdout, out_buffer), pipe_reader(stderr, err_buffer)]
+        timed_out = resolver_timed_out?(wait, timeout)
+        readers_done = readers.all? { |reader| reader.join(2) }
+        readers.each { |reader| reader.kill if reader.alive? }
+        if timed_out
+          raise ConfigError, "could not parse the Gemfile's path: sources (resolver timed out after #{timeout} s); " \
+                             "external test commands need the Gemfile to resolve"
+        end
+        unless readers_done
+          raise ConfigError, "could not parse the Gemfile's path: sources (a resolver-spawned process still holds " \
+                             "its pipes open); external test commands need the Gemfile to resolve"
+        end
+
+        [out_buffer, err_buffer, wait.value]
+      end
+
+      # true when the resolver missed its deadline and its whole process
+      # group was KILLed.
+      def resolver_timed_out?(wait, timeout)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
-        timed_out = false
         until wait.join(0.05)
           next unless Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
 
           Process.kill("KILL", -wait.pid)
           wait.join
-          timed_out = true
-          break
+          return true
         end
-        out = out_reader.value
-        err = err_reader.value
-        if timed_out
-          raise ConfigError, "could not parse the Gemfile's path: sources (resolver timed out after #{timeout} s); " \
-                             "external test commands need the Gemfile to resolve"
+        false
+      end
+
+      def pipe_reader(io, buffer)
+        Thread.new do
+          loop { buffer << io.readpartial(65_536) }
+        rescue IOError # EOFError < IOError
+          buffer
         end
-        [out, err, wait.value]
       end
     end
   end
