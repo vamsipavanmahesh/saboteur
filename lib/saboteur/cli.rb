@@ -27,6 +27,7 @@ require_relative "cli/doctor_command"
 require_relative "cli/agent_provenance"
 require_relative "cli/preview_command"
 require_relative "cli/help_command"
+require_relative "cli/run_validation"
 
 module Saboteur
   class CLI
@@ -49,6 +50,7 @@ module Saboteur
     include HelpOptions
     include PreviewCommand
     include HelpCommand
+    include RunValidation
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -163,48 +165,6 @@ module Saboteur
     def warn_dirty_tree
       warning = @sources ? Config.load(path: options[:config], overrides: overrides.except(:include, :exclude)) : config
       DirtyTreeWarning.for(warning, config_path: options[:config])&.then { |text| @err.puts(text) }
-    end
-
-    # Contradictory selection flags are a usage error before any file or
-    # repository check: --test wins over inference by precedence, but only
-    # one of them may be named. Config-file combinations are not errors:
-    # --test wins there, so generated commands stay valid over any config.
-    def reject_test_selection_conflicts
-      raise UsageError, "--all cannot be combined with --test" if options[:all] && options[:tests]&.any?
-
-      reject_test_command_conflicts
-      raise UsageError, "--all cannot be combined with --guess-tests" if options[:all] && options[:guess_tests]
-      return unless options[:guess_tests] && options[:tests]&.any?
-
-      raise UsageError, "--guess-tests cannot be combined with --test"
-    end
-
-    # --test-command replaces the whole in-process test machinery: test
-    # selection, coverage, parallelism and the sandbox do not apply.
-    def reject_test_command_conflicts
-      return unless options[:test_command]
-
-      # options[:tests] is nil or a non-empty list, so truthiness is the check.
-      raise UsageError, "--test-command cannot be combined with --test" if options[:tests]
-      raise UsageError, "--test-command cannot be combined with --incremental" if options[:incremental]
-    end
-
-    # Usage errors found before the target boots.
-    def validate_run_options
-      reject_format_conflicts
-      validate_shard_options
-      Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
-    end
-
-    # Agent mode allows no score gates (one strict exit 0); the json inventory is --dry-run planning only.
-    def reject_format_conflicts
-      if agent? && (config["threshold"] || gates.any?)
-        raise UsageError, "#{config['threshold'] ? '--threshold' : gates.agent_option_name} " \
-                          "cannot be combined with --agent"
-      end
-      return unless @format == "json" && !options[:dry_run]
-
-      raise UsageError, "--format json is the --dry-run mutant inventory; a run summary is --format agent"
     end
 
     # One line naming the reports written, paths relative to the root when
