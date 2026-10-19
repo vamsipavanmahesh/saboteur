@@ -1428,4 +1428,13 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::IgnoreList::Collector#mutation",
              reason: "equivalent: caller_locations(1) starts at the same frame, so its first element is " \
                      "the same as caller_locations(1, 1).first"
+
+  i.mutation "33d90de31c1d4d8e",
+             subject: "Saboteur::Selection::Recorder#record_branches",
+             reason: "equivalent: each_hit calls record_branches for its yields and discards the return value, " \
+                     "so each and map visit the same branches and yield the same spans"
+  i.mutation "c2417f318e67f647",
+             subject: "Saboteur::Selection::Recorder#record_branches",
+             reason: "equivalent: the return value of the arm loop is the return value of the branch loop's " \
+                     "block, which each discards, so each and map yield the same spans"
 end
