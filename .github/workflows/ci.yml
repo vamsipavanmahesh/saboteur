@@ -72,16 +72,19 @@ jobs:
         # end when "ruby" floats to 4.1; the panel gate treats these legs as
         # advisory (policy.json advisoryJobs), so they never block a merge.
         ruby: ["3.3", "3.4", "4.0", "ruby"] # "ruby" = latest stable
-        # The full suite runs as 3 round-robin file shards per Ruby leg so
+        # The full suite runs as 4 round-robin file shards per Ruby leg so
         # each parallel job stays short instead of one long leg per version.
-        shard: [1, 2, 3]
+        # The shard total lives in the matrix so the script argument cannot
+        # drift from the shard list.
+        shard: [1, 2, 3, 4]
+        total: [4]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - run: script/rspec-shard ${{ matrix.shard }} 3
+      - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }}
 
   # macOS legs run on GitHub-hosted macos-latest (arm64, free for public
   # repositories). The legs still run only for main pushes and for
@@ -106,7 +109,7 @@ jobs:
       fail-fast: false
       # (No spaces after the JSON colons: a colon+space would break the YAML
       # plain scalar. The matrix itself is normal JSON.)
-      matrix: ${{ github.event_name == 'workflow_dispatch' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3]}') }}
+      matrix: ${{ github.event_name == 'workflow_dispatch' && fromJSON('{"ruby":["ruby"],"shard":[1,2,3,4,5],"total":[5]}') || fromJSON('{"ruby":["3.3","3.4","ruby"],"shard":[1,2,3],"total":[3]}') }}
     steps:
       # The head_repo input is only a skip-early hint. Before anything is
       # checked out, prove from the API that this dispatch covers one of
@@ -137,7 +140,7 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - run: script/rspec-shard ${{ matrix.shard }} 3
+      - run: script/rspec-shard ${{ matrix.shard }} ${{ matrix.total }}
       - name: Clean up after a non-ephemeral runner
         if: always()
         run: |

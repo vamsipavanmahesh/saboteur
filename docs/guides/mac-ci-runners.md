@@ -28,7 +28,8 @@ kept the check names unchanged for exactly this reason (#354).
 
 Each leg checks out the PR head or pushed commit, installs Ruby with
 `ruby/setup-ruby` (`bundler-cache: true`, so gems cache between runs) and
-runs `script/rspec-shard <n> 3`.
+runs `script/rspec-shard <n> <total>`: 5 shards on a PR dispatch (one Ruby),
+3 on a main push (three Rubies).
 
 ## Fork pull requests never touch the pool
 
