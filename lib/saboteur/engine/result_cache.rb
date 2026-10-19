@@ -34,9 +34,15 @@ module Saboteur
 
       SOURCE_EXCLUDES = %w[.git vendor node_modules].freeze
 
+      # Seconds between checkpoint saves while verdicts arrive, so a run
+      # killed mid-phase (OOM, CI timeout, SIGKILL) keeps what it finished
+      # (#471).
+      SAVE_INTERVAL = 30
+
       # suite_digest: SuiteFiles#digest, so an edit to a spec helper or
       # support file invalidates every verdict.
-      def initialize(path:, root:, inputs:, suite_digest: "", coverage: nil, fallback_files: [])
+      def initialize(path:, root:, inputs:, suite_digest: "", coverage: nil, fallback_files: [],
+                     save_interval: SAVE_INTERVAL, clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) })
         @path = path
         @root = root
         @inputs = inputs
@@ -47,6 +53,9 @@ module Saboteur
         @fallback_files = fallback_files.map { |file| File.expand_path(file, root) }.sort
         @entries = load
         @file_digests = {}
+        @save_interval = save_interval
+        @clock = clock
+        @last_saved = clock.call
       end
 
       # The stored verdict as a hash (status, reason, killed_by, kill_cause,
@@ -67,14 +76,37 @@ module Saboteur
           "reason" => result.reason, "killed_by" => result.killed_by, "kill_cause" => result.kill_cause,
           "runtime" => result.runtime
         }
+        checkpoint if @clock.call - @last_saved >= @save_interval
       end
 
+      # Written to a temp file and renamed, so a kill mid-write leaves the
+      # previous complete file, never a truncated one. A failed write or
+      # rename removes the temp file and raises.
       def save
         FileUtils.mkdir_p(File.dirname(@path))
-        File.write(@path, JSON.generate(format: FORMAT, entries: @entries))
+        temp = "#{@path}.#{Process.pid}.tmp"
+        begin
+          File.write(temp, JSON.generate(format: FORMAT, entries: @entries))
+          File.rename(temp, @path)
+        rescue StandardError
+          FileUtils.rm_f(temp)
+          raise
+        end
+        @last_saved = @clock.call
       end
 
       private
+
+      # A mid-run save is a safety net, so it is best effort: a full disk or
+      # an unwritable directory must not abort a run that is still producing
+      # verdicts. The wait restarts either way, so a broken disk is tried
+      # once per interval, not once per verdict. The final save is not
+      # swallowed (Engine calls #save).
+      def checkpoint
+        save
+      rescue SystemCallError
+        @last_saved = @clock.call
+      end
 
       # The current project source files, relative and sorted. A file added
       # after the map was built changes the set and invalidates every stored

@@ -469,4 +469,132 @@ RSpec.describe Saboteur::Engine::ResultCache do
       expect(again.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
     end
   end
+
+  describe "checkpoint saves (#471)" do
+    let(:now) { [100.0] }
+    let!(:ticking) do
+      described_class.new(path: path, root: @root, inputs: "config-1", save_interval: 30, clock: -> { now[0] })
+    end
+
+    def on_disk?
+      File.exist?(path)
+    end
+
+    it "does not write before the interval has elapsed" do
+      now[0] = 129.9
+      ticking.record(killed)
+
+      expect(on_disk?).to be(false)
+    end
+
+    it "writes once the interval has elapsed exactly" do
+      now[0] = 130.0
+      ticking.record(killed)
+
+      expect(cache.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+    end
+
+    it "writes when well past the interval, not only on the exact tick" do
+      now[0] = 145.0
+      ticking.record(killed)
+
+      expect(on_disk?).to be(true)
+    end
+
+    it "swallows only filesystem errors in a checkpoint: a bug still surfaces" do
+      allow(JSON).to receive(:generate).and_raise(TypeError, "bug")
+      now[0] = 130.0
+
+      expect { ticking.record(killed) }.to raise_error(TypeError, "bug")
+    end
+
+    it "restarts the interval after a checkpoint" do
+      now[0] = 130.0
+      ticking.record(killed)
+      File.delete(path)
+      now[0] = 159.9
+      ticking.record(killed)
+
+      expect(on_disk?).to be(false)
+    end
+
+    it "restarts the interval after an explicit save" do
+      now[0] = 120.0
+      ticking.save
+      File.delete(path)
+      now[0] = 149.9
+      ticking.record(killed)
+
+      expect(on_disk?).to be(false)
+    end
+
+    it "keeps the last complete file and leaves no temp file when the rename fails, then re-raises" do
+      stored
+      allow(File).to receive(:rename).and_raise(Errno::EIO)
+
+      expect { cache.tap { |store| store.record(killed) }.save }.to raise_error(Errno::EIO)
+      expect(Dir.children(File.dirname(path))).to eq(["results.json"])
+      expect(cache.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+    end
+
+    it "removes the temp file when the write itself fails, then re-raises" do
+      stored
+      allow(File).to receive(:write).and_wrap_original do |original, target, *rest|
+        original.call(target, "partial")
+        raise Errno::ENOSPC if target.to_s.end_with?(".tmp")
+
+        original.call(target, *rest)
+      end
+
+      expect { cache.tap { |store| store.record(killed) }.save }.to raise_error(Errno::ENOSPC)
+      expect(Dir.children(File.dirname(path))).to eq(["results.json"])
+    end
+
+    it "does not abort a run when a checkpoint save fails, and tries again one interval later" do
+      allow(File).to receive(:rename).and_raise(Errno::ENOSPC)
+      now[0] = 130.0
+
+      expect { ticking.record(killed) }.not_to raise_error
+      expect(Dir.children(File.dirname(path))).to eq([])
+      expect(File).to have_received(:rename).once
+      now[0] = 159.9
+      ticking.record(killed)
+      expect(File).to have_received(:rename).once
+      now[0] = 160.0
+      ticking.record(killed)
+      expect(File).to have_received(:rename).twice
+    end
+
+    it "still raises from the final save when the disk is failing" do
+      allow(File).to receive(:rename).and_raise(Errno::ENOSPC)
+      ticking.record(killed)
+
+      expect { ticking.save }.to raise_error(Errno::ENOSPC)
+    end
+
+    it "checkpoints on its own after 30 seconds with the default interval" do
+      clock = [10.0]
+      defaulted = described_class.new(path: path, root: @root, inputs: "config-1", clock: -> { clock[0] })
+      clock[0] = 39.9
+      defaulted.record(killed)
+      expect(File.exist?(path)).to be(false)
+
+      clock[0] = 40.0
+      defaulted.record(killed)
+      expect(File.exist?(path)).to be(true)
+    end
+
+    it "pins the default checkpoint interval at 30 seconds" do
+      expect(described_class::SAVE_INTERVAL).to eq(30)
+    end
+
+    it "writes through a temp file renamed into place" do
+      ticking.record(killed)
+      allow(File).to receive(:rename).and_call_original
+      ticking.save
+
+      expect(File).to have_received(:rename).with("#{path}.#{Process.pid}.tmp", path)
+      expect(Dir.children(File.dirname(path))).to eq(["results.json"])
+    end
+  end
 end
