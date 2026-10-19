@@ -308,7 +308,7 @@ for (const fault of ['newRun', 'newAttemptGreen', 'jobFailed', 'jobReplaced', 'n
     assert.equal(api.statuses.at(-1).state, 'failure');
   });
 }
-for (const path of ['action.yml', 'action/run-saboteur', 'integration', '.saboteur.yml']) {
+for (const path of ['action.yml', 'action/run-saboteur', 'action/fetch-base', 'action/post-review-comments', 'integration', '.saboteur.yml']) {
   test(`CI oracle protected: ${path}`, async () => {
     assert(policy.protectedFiles.includes(path));
     const api = fakeAPI(), call = api.call.bind(api);
