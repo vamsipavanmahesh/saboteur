@@ -158,7 +158,10 @@ RSpec.describe Saboteur::Engine, "sandbox hook" do
     warnings = engine.instance_variable_get(:@diagnostics).warnings
     # exactly one: the data grant contains the data/nested grant, and no other pair
     expect(warnings.size).to eq(1)
-    expect(warnings.first).to include("the narrower grant is redundant")
+    action, cause = warnings.first.split("\n  ", 2)
+    expect(action).to match(%r{\Adrop the redundant sandbox grant \S+/data/nested\z})
+    expect(cause).to match(%r{\Asandbox grant \S+/data contains the granted dir \S+/data/nested; the narrower grant})
+    expect(cause).to end_with("; the narrower grant is redundant")
   end
 
   it "does not warn for user grants that contain neither the root nor another grant" do
