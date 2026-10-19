@@ -311,6 +311,60 @@ module Saboteur
         File.rename(tmp, path)
       end
 
+      # One map from shard maps built over a partition of the suite's spec
+      # files (#741). Test ids are file-anchored, so disjoint shards never
+      # repeat one - a repeated id means the partition was not disjoint and
+      # the merge would silently double-count. Per-test structures merge;
+      # line, method and branch evidence unions; load-time and preloaded
+      # evidence unions (every shard boots the same app); build_seconds
+      # sums the shards' effort, staying nil when no shard recorded one.
+      def self.combine(maps)
+        raise ArgumentError, "no coverage maps to combine" if maps.empty?
+        return maps.first if maps.size == 1
+
+        new(lines: combine_hits(maps.map(&:lines)), methods: combine_hits(maps.map(&:methods)),
+            branches: combine_hits(maps.map(&:branches)), tests: combine_tests(maps),
+            durations: maps.reduce({}) { |acc, map| acc.merge(map.durations) },
+            load_lines: combine_lists(maps.map(&:load_lines)),
+            load_methods: combine_lists(maps.map(&:load_methods)),
+            loaded_files: maps.flat_map(&:loaded_files).uniq,
+            preloaded: maps.flat_map { |map| map.preloaded.to_a },
+            build_seconds: maps.map(&:build_seconds).compact.reduce(:+))
+      end
+
+      # Disjoint shards never repeat a file-anchored test id; a repeat
+      # means the partition was not disjoint and the merge would
+      # double-count.
+      def self.combine_tests(maps)
+        tests = maps.flat_map(&:tests)
+        duplicates = tests.tally.select { |_id, count| count > 1 }.keys
+        unless duplicates.empty?
+          raise ArgumentError, "coverage maps share test ids: #{duplicates.sort.first(3).join(', ')}"
+        end
+
+        tests
+      end
+      private_class_method :combine_tests
+
+      # {file => {line-or-span => ids}} deep-unioned per key.
+      def self.combine_hits(hits_list)
+        hits_list.each_with_object({}) do |hits, acc|
+          hits.each do |file, by_line|
+            target = (acc[file] ||= {})
+            by_line.each { |line, ids| target[line] = (target[line] || []) | ids }
+          end
+        end
+      end
+      private_class_method :combine_hits
+
+      # {file => [lines]} unioned per file, sorted.
+      def self.combine_lists(lists)
+        lists.each_with_object({}) do |list, acc|
+          list.each { |file, lines| acc[file] = ((acc[file] || []) | lines).sort }
+        end
+      end
+      private_class_method :combine_lists
+
       private
 
       def encode_branches(index)

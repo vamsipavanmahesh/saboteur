@@ -55,6 +55,76 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     expect(one_line.boot_once?(subject_under_test)).to be(true)
   end
 
+  describe ".combine" do
+    it "reads two disjoint shard maps as one build (#741)" do
+      left = described_class.new(lines: { file => { 3 => %w[t1], 4 => %w[t2] } }, tests: %w[t1 t2],
+                                 durations: { "t1" => 0.4, "t2" => 0.1 }, load_lines: { file => [3, 2] },
+                                 loaded_files: [file], build_seconds: 3)
+      right = described_class.new(lines: { file => { 3 => %w[t3], 5 => %w[t4] } }, tests: %w[t3 t4],
+                                  durations: { "t3" => 0.3, "t4" => 0.2 }, load_lines: { file => [4] },
+                                  loaded_files: [file], build_seconds: 5)
+      combined = described_class.combine([left, right])
+
+      expect(combined.tests).to eq(%w[t1 t2 t3 t4])
+      expect(combined.tests_for_lines(file, [3])).to eq(%w[t3 t1])
+      expect(combined.tests_for(subject_under_test)).to eq(%w[t2 t4 t3 t1])
+      expect(combined.recorded_runtime(%w[t1 t4])).to be_within(1e-9).of(0.6)
+      expect(combined.files_for(%w[t4 t1])).to eq([file])
+      expect(combined.load_lines).to eq(file => [2, 3, 4])
+      expect(combined.loaded_files).to eq([file])
+      expect(combined.build_seconds).to eq(8)
+    end
+
+    it "unions method, branch and load-method evidence across shards (#741)" do
+      left = described_class.new(lines: {}, tests: %w[t1], methods: { file => { 2 => %w[t1] } },
+                                 branches: { file => { [3, 0, 4, 0] => %w[t1] } },
+                                 load_methods: { file => [2] }, preloaded: [file])
+      right = described_class.new(lines: {}, tests: %w[t2], methods: { file => { 2 => %w[t2], 6 => %w[t2] } },
+                                  branches: { file => { [3, 0, 4, 0] => %w[t2] } },
+                                  load_methods: { file => [6] })
+      combined = described_class.combine([left, right])
+
+      expect(combined.methods).to eq(file => { 2 => %w[t1 t2], 6 => %w[t2] })
+      expect(combined.branches).to eq(file => { [3, 0, 4, 0] => %w[t1 t2] })
+      expect(combined.load_methods).to eq(file => [2, 6])
+      expect(combined.preloaded).to contain_exactly(described_class.canonical(file))
+    end
+
+    it "round-trips a combined map through JSON without losing evidence (#741)" do
+      left = described_class.new(lines: { file => { 3 => %w[t1] } }, tests: %w[t1],
+                                 durations: { "t1" => 0.5 }, branches: { file => { [3, 0, 4, 0] => %w[t1] } })
+      right = described_class.new(lines: { file => { 3 => %w[t2] } }, tests: %w[t2],
+                                  durations: { "t2" => 0.25 })
+      combined = described_class.from_json(described_class.combine([left, right]).to_json)
+
+      expect(combined.tests).to eq(%w[t1 t2])
+      expect(combined.tests_for_lines(file, [3])).to eq(%w[t2 t1])
+      expect(combined.recorded_runtime(%w[t1 t2])).to eq(0.75)
+    end
+
+    it "keeps a nil build_seconds only when no shard recorded one (#741)" do
+      timed = described_class.new(lines: {}, tests: %w[t1], build_seconds: 4)
+      plain = described_class.new(lines: {}, tests: %w[t2])
+
+      expect(described_class.combine([timed, plain]).build_seconds).to eq(4)
+      expect(described_class.combine([plain, described_class.new(lines: {}, tests: %w[t3])]).build_seconds).to be_nil
+    end
+
+    it "returns the single map for a one-shard build and refuses an empty build (#741)" do
+      map = described_class.new(lines: {}, tests: %w[t1])
+
+      expect(described_class.combine([map])).to equal(map)
+      expect { described_class.combine([]) }.to raise_error(ArgumentError, /no coverage maps/)
+    end
+
+    it "refuses shards that repeat a test id: the partition is not disjoint (#741)" do
+      left = described_class.new(lines: {}, tests: %w[t1 t2])
+      right = described_class.new(lines: {}, tests: %w[t2 t3])
+
+      expect { described_class.combine([left, right]) }.to raise_error(ArgumentError, /share test ids: t2/)
+    end
+  end
+
   it "returns the tests that executed any body line, in suite order, without duplicates" do
     expect(map.tests_for(subject_under_test)).to eq(%w[t1 t2 t3])
   end
