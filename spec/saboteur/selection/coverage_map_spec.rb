@@ -427,6 +427,29 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       expect { described_class.from_json('{"format":11,"tests":["a",1]}') }.to raise_error(Saboteur::Error)
     end
 
+    {
+      "durations that are a String" => '{"format":11,"tests":["t"],"durations":"x","lines":{}}',
+      "a duration that is a String" => '{"format":11,"tests":["t"],"durations":["x"],"lines":{}}',
+      "one numeric and one non-numeric duration" => '{"format":11,"tests":["a","b"],"durations":[1,"x"],"lines":{}}',
+      "loaded_files that are a String" =>
+        '{"format":11,"tests":["t"],"durations":[null],"lines":{},"loaded_files":"x"}',
+      "a loaded file that is an Integer" =>
+        '{"format":11,"tests":["t"],"durations":[null],"lines":{},"loaded_files":["/a.rb",1]}'
+    }.each do |label, content|
+      it "raises a map error for #{label}" do
+        expect { described_class.from_json(content) }.to raise_error(Saboteur::Error)
+      end
+    end
+
+    it "accepts null or absent durations and loaded_files, and numeric durations" do
+      base = '"format":11,"tests":["t"],"lines":{}'
+      timed = described_class.from_json(%({#{base},"durations":[0.5],"loaded_files":["/a.rb"]}))
+      expect(timed.durations).to eq("t" => 0.5)
+      untimed = described_class.from_json(%({#{base},"durations":null,"loaded_files":null}))
+      expect(untimed.tests).to eq(%w[t])
+      expect(described_class.from_json(%({#{base}})).tests).to eq(%w[t])
+    end
+
     it "treats an empty file as a miss" do
       File.write(path, "")
       expect(within_timeout { described_class.load(path) }).to be_nil

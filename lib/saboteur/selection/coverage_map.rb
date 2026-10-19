@@ -244,12 +244,19 @@ module Saboteur
         raise Error unless data.is_a?(Hash)
         raise Error, "coverage map format #{data['format']} is not #{FORMAT}" unless data["format"] == FORMAT
         raise Error unless strings?(data["tests"])
+        raise Error unless data["durations"].nil? || numbers?(data["durations"])
+        raise Error unless data["loaded_files"].nil? || strings?(data["loaded_files"])
 
         from_data(data)
       end
 
       def self.strings?(list)
         list.is_a?(Array) && list.all?(String)
+      end
+
+      # Durations hold nil for a test that was not timed.
+      def self.numbers?(list)
+        list.is_a?(Array) && list.all? { |value| value.nil? || value.is_a?(Numeric) }
       end
 
       def self.from_data(data)
@@ -259,7 +266,7 @@ module Saboteur
             by_line.to_h { |line, indexes| [line.to_i, indexes.map { |i| tests.fetch(i) }] }
           end
         end
-        durations = tests.zip(data["durations"]).to_h.compact
+        durations = tests.zip(data["durations"] || []).to_h.compact
         new(lines: decode.call(data["lines"]), tests: tests, build_seconds: data["build_seconds"],
             durations: durations, methods: decode.call(data["methods"] || {}),
             load_lines: int_lists(data, "load_lines"), load_methods: int_lists(data, "load_methods"),
