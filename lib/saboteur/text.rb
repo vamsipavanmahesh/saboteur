@@ -33,7 +33,7 @@ module Saboteur
     # work on the exact bytes git reported; only rendering (regexes over
     # arbitrary content, JSON, terminal output) needs #utf8.
     def utf8_identity(string)
-      string.dup.force_encoding(Encoding::UTF_8)
+      string.dup.force_encoding("UTF-8")
     end
 
     # Lossless + strict: retag without scrubbing, then reject bytes
