@@ -19,6 +19,10 @@ require_relative "cli/selection_options"
 require_relative "cli/presets"
 require_relative "cli/help_options"
 require_relative "cli/history_command"
+require_relative "cli/execution_options"
+require_relative "cli/matrix_option"
+require_relative "cli/output_options"
+require_relative "cli/explicit_file_options"
 
 module Saboteur
   class CLI
@@ -32,6 +36,10 @@ module Saboteur
     include SelectionOptions
     include Presets
     include HistoryCommand
+    include ExecutionOptions
+    include MatrixOption
+    include OutputOptions
+    include ExplicitFileOptions
     include HelpOptions
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
@@ -349,66 +357,6 @@ module Saboteur
 
       Preview.new(config, out: @out, err: @err, format: @format).call
       EXIT_OK
-    end
-
-    def define_execution_options(opts)
-      opts.on("--timeout-factor N", Float, "Multiple of baseline runtime (default 3)") { |v| set(:timeout_factor, v) }
-      opts.on("--jobs N", Integer, "Concurrent workers (default 1)") { |v| set(:jobs, v) }
-      add_run_budget_options(opts)
-      opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |v| set(:config, v) }
-      opts.on("--integration NAME", "Test adapter (rspec)") { |v| set(:integration, v) }
-      opts.on("--reeval STRATEGY", Execution::Reevaluator::STRATEGIES, "class_eval or nesting") { |v| set(:reeval, v) }
-      opts.on("--no-cache", "Rebuild the coverage map") { set(:cache, false) }
-      opts.on("--allow-hazardous", "Also run mutants inside destructive calls (rm_rf, system, ...)") do
-        set(:allow_hazardous, true)
-      end
-      opts.on("--fail-fast", "Stop after the first subject with a survivor (needs --jobs 1)") { set(:fail_fast, true) }
-      opts.on("--incremental", "Reuse earlier verdicts whose inputs did not change") { set(:incremental, true) }
-      opts.on("--allow-focus", "Run even when a focus filter (fit, fdescribe, :focus) narrows the suite") do
-        set(:allow_focus, true)
-      end
-      opts.on("--all", "Run the whole configured test suite instead of inferring the specs named after the " \
-                       "mutated files") { set(:all, true) }
-      opts.on("--test-command CMD", "Run CMD per mutant in the project root; exit 0 means the mutant survived. " \
-                                    "For apps that cannot load in this Ruby; much slower, serial, no coverage") do |v|
-        set(:test_command, v)
-      end
-      opts.on("--[no-]guess-tests", "Deprecated alias: inferred specs are already the default; " \
-                                    "--no-guess-tests warns and is ignored - use --all for the whole suite") do |v|
-        set(:guess_tests, v)
-      end
-    end
-
-    def define_matrix_option(opts)
-      opts.on("--matrix", "Run every covering test per mutant and list blind and redundant tests") do
-        set(:matrix, true)
-      end
-    end
-
-    def define_output_options(opts)
-      opts.on("--score-history PATH", "Append score history JSONL (opt-in)") { |v| set(:score_history, v) }
-      opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
-      opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
-      opts.on("--format FORMAT", %w[text agent json], "text, agent or json (--dry-run inventory)") { |v| @format = v }
-      opts.on("--agent", "Same as --format agent") { @format = "agent" }
-      opts.on("--verbose", "Text report: also print score split, timings and kill causes;",
-              "a crash prints its backtrace") do
-        @verbose = true
-        set(:verbose, true)
-      end
-      opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
-        @color = v ? :always : :never
-      end
-    end
-
-    def define_explicit_file_options(opts)
-      opts.on("--test PATH", "Spec file or directory to run; repeatable. Replaces the configured spec paths") do |v|
-        (options[:tests] ||= []) << v
-      end
-      opts.on("--threshold PERCENT", Float, "Exit 1 when the score is below PERCENT (0-100)") do |v|
-        set(:threshold, v)
-      end
-      Gates.define_options(opts) { |key, value| set(key, value) }
     end
 
     def add_subject(expr) = (options[:subjects] ||= []) << expr
