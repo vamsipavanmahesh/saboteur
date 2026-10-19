@@ -60,6 +60,8 @@
     ".saboteur-ignore.yml",
     "action.yml",
     "action/run-saboteur",
+    "action/fetch-base",
+    "action/post-review-comments",
     "integration",
     ".saboteur.yml"
   ],
