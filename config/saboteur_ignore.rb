@@ -1475,4 +1475,7 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "8b0ce18b479016a8",
              subject: "Saboteur::CLI::RunValidation#reject_test_selection_conflicts",
              reason: "equivalent: options[:tests] is nil or a non-empty list of path strings, all truthy, so any? and all? agree"
+  i.mutation "ced7e6d7fb9a28bb",
+             subject: "Saboteur::CLI::ExplicitSources#require_existing_test",
+             reason: "equivalent: the pattern is anchored by \\z, so group+ and group* differ only by an empty match at the end of the path, which strips nothing"
 end
