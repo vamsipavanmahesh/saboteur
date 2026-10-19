@@ -12,6 +12,7 @@ module Saboteur
     # supervised child and saved.
     class CoverageStore
       include CoverageShadow
+      include CoverageParts
 
       CACHE_INPUTS = %w[integration require rspec_args rails tests].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
@@ -201,27 +202,57 @@ module Saboteur
       # the suite's examples before the run and the combined map holds
       # exactly its tests after it, and refuses a part that recorded no test.
       def build_parts(files, parts)
-        total = usage_checked { check_parts_cover_suite(parts) }
-        @diagnostics.inform("building coverage map (runs the suite once, in #{parts.size} parallel parts)")
+        total, counts = usage_checked { check_parts_cover_suite(parts) }
+        saved = saved_parts(files, parts.size, counts)
+        todo = saved.each_index.select { |index| saved[index].nil? }
+        @diagnostics.inform(parts_note(parts.size, todo.size))
+        built = todo.empty? ? [] : run_parts(files, parts, todo)
+        todo.zip(built) { |index, map| saved[index] = map }
+        map = combine_saved(saved, total, files, parts.size)
+        forget_parts(files, parts.size)
+        map
+      end
+
+      # Parts that cannot be combined are dropped, not kept: a bad saved
+      # part would otherwise fail every later run the same way.
+      def combine_saved(maps, total, files, count)
+        combine_parts(maps, total)
+      rescue ArgumentError => e
+        forget_parts(files, count)
+        raise Error, "the saved coverage parts do not combine (#{e.message}); they were removed, run again"
+      end
+
+      def parts_note(count, missing)
+        return "building coverage map (reusing all #{count} saved parts)" if missing.zero?
+
+        reused = count - missing
+        suffix = reused.zero? ? "" : ", reusing #{reused} saved"
+        "building coverage map (runs the suite once, in #{count} parallel parts#{suffix})"
+      end
+
+      # Runs only the parts in todo, as several children at once.
+      def run_parts(files, parts, todo)
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("building coverage map")
         admitted = build_timeout
-        results = @supervisor.run_many(parts.size, timeout: admitted, on_tick: heartbeat.method(:tick),
-                                                   label: "coverage child died during the map build") do |writer, index|
+        results = @supervisor.run_many(todo.size, timeout: admitted, on_tick: heartbeat.method(:tick),
+                                                  label: "coverage child died during the map build") do |writer, slot|
+          index = todo[slot]
           own_test_env(index)
           record(writer, files, only: parts[index], log: part_log_path(index))
         end
-        combine_parts(part_maps(results, admitted, parts.size, files), total)
+        part_maps(results, admitted, parts.size, files, todo)
       end
 
       # Every part that failed is reported, each with its own output, so one
       # run shows all the failures instead of the first. A budget stop still
       # raises at once: it says nothing about the suite. A part that did
       # finish is saved either way, so the work is not lost (#427).
-      def part_maps(results, admitted, count, files)
+      def part_maps(results, admitted, count, files, todo)
         failures = []
         budget_stop = nil
-        maps = results.each_with_index.map do |result, index|
+        maps = results.each_with_index.map do |result, slot|
+          index = todo[slot]
           map_from(result, admitted, log: part_log_path(index)).tap { |map| save_part(map, files, index, count) }
         rescue BudgetPhaseTimeout => e
           budget_stop = e
@@ -233,21 +264,7 @@ module Saboteur
         raise budget_stop if budget_stop
         raise Error, failures.join("\n") unless failures.empty?
 
-        maps.each_with_index { |map, index| part_map(map, index, count) }
-      end
-
-      # One finished part's map, beside the cache of the whole map and under
-      # the same key, so it is valid for exactly the inputs that cache is.
-      def part_path(files, index, count)
-        File.join(@config.path("cache_dir"), "coverage-#{cache_key(files)}-part-#{index + 1}-of-#{count}.json")
-      end
-
-      # Best effort, like the verdict checkpoint: a full disk or a read-only
-      # cache dir must not hide the failure this build is about to report.
-      def save_part(map, files, index, count)
-        map.save(part_path(files, index, count)) if @config["cache"] && !map.tests.empty?
-      rescue SystemCallError
-        nil
+        maps.each_with_index { |map, slot| part_map(map, todo[slot], count) }
       end
 
       # A part child gets its own TEST_ENV_NUMBER, as a WorkerPool worker
@@ -267,7 +284,7 @@ module Saboteur
       def check_parts_cover_suite(parts)
         total = @integration.example_count
         counts = parts.map { |part| @integration.example_count(files: part) }
-        return total if counts.sum == total
+        return [total, counts] if counts.sum == total
 
         raise Error, "the coverage parts hold #{counts.sum} examples but the suite has #{total}; " \
                      "refusing to build a map from a partition that does not cover the suite"
