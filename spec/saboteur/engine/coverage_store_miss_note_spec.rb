@@ -41,6 +41,24 @@ RSpec.describe Saboteur::Engine::CoverageStore, "cache-miss note (#46)" do
     expect(second_err.string).to include("changed since the last map: 1 edited (a.rb);")
   end
 
+  it "hashes every file under spec/ in the snapshot, fixtures included, but never the cache dir (#46)" do
+    FileUtils.mkdir_p(File.join(@root, "spec", "fixtures", "deep"))
+    File.write(File.join(@root, "spec", "fixtures", "deep", "data.yml"), "a: 1\n")
+    File.write(File.join(@root, "spec", ".hidden.txt"), "h\n")
+    FileUtils.mkdir_p(File.join(@root, "spec", ".cache"))
+    FileUtils.mkdir_p(File.join(@root, "spec", ".cache-two"))
+    File.write(File.join(@root, "spec", ".cache-two", "sibling.txt"), "s\n")
+    File.write(File.join(@root, "spec", ".cache", "stray.json"), "{}")
+    store, = noisy_store(cache_dir: "spec/.cache")
+    store.fetch([file])
+
+    snapshot = Saboteur::Engine::CoverageInputsSnapshot.latest(File.join(@root, "spec", ".cache"), @root)
+    names = snapshot.fetch("files").keys
+    expect(names).to include("spec/fixtures/deep/data.yml", "spec/.hidden.txt", "spec/.cache-two/sibling.txt")
+    expect(names).not_to include("spec/fixtures", "spec/fixtures/deep")
+    expect(names.grep(%r{\Aspec/\.cache/})).to eq([])
+  end
+
   it "stays silent on a cache hit" do
     first, = noisy_store
     first.fetch([file])
