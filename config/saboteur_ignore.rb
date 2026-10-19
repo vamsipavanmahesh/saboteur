@@ -1340,4 +1340,41 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: `token == \"-e\"` -> false reduces the disjunction to " \
                      "start_with?(\"-e\"), which covers the equality case - same tokens " \
                      "rejected"
+
+  # external_runner.rb:258 - the absolute original is interpolated into the copy root via
+  # File.join; File.join(root, "/engines/x") and File.join(root, "engines/x") are the same
+  # path, and expanded always sits under the root here, so delete_prefix without the slash
+  # leaves a leading / that File.join treats identically. Hand-applied mutant: all 67
+  # external_runner examples green on merged main 28162ddb.
+  i.mutation "1e1a7126fb3759c3",
+             subject: "Saboteur::Execution::ExternalRunner#rebase_path_sources",
+             reason: "equivalent: dropping the slash from delete_prefix leaves a leading / " \
+                     "on expanded, and File.join(@copy_root, '/engines/x') is the same path " \
+                     "as File.join(@copy_root, 'engines/x') - hand-applied mutant leaves " \
+                     "all 67 external_runner examples green"
+
+  # external_runner.rb:288 - the "" entry the filter drops can never arise: the ternary
+  # already maps expanded == @root to ".", and a realpath'd expanded never equals "/" with
+  # the trailing slash. Hand-applied mutant: all 67 external_runner examples green on
+  # merged main 28162ddb.
+  i.mutation "67f751c4a3f3eec7",
+             subject: "Saboteur::Execution::ExternalRunner#rewrite_lockfile_source",
+             reason: "equivalent: the \"\" entry the filter drops can never arise - the " \
+                     "ternary already maps expanded == @root to \".\", and a realpath'd " \
+                     "expanded never equals \"/\" with the trailing slash - hand-applied " \
+                     "mutant leaves all 67 external_runner examples green"
+
+  # external_runner.rb:288 - dropping the - [""] filter cannot change the scan: "" never
+  # arises (see 67f751c4). A root source spelled "." does duplicate the "." entry, but the
+  # surviving .uniq removes it, and even without dedup a duplicated regex alternation
+  # matches the same strings. Hand-applied mutant: all 67 external_runner examples green
+  # on merged main 28162ddb.
+  i.mutation "8d4064cbcc14c141",
+             subject: "Saboteur::Execution::ExternalRunner#rewrite_lockfile_source",
+             reason: "equivalent: dropping the - [\"\"] filter cannot change the scan - " \
+                     "\"\" never arises (the ternary maps expanded == @root to \".\"); " \
+                     "a root source spelled \".\" can duplicate the \".\" entry, but the " \
+                     "surviving .uniq removes it, and even without dedup a duplicated " \
+                     "regex alternation matches the same strings - hand-applied mutant " \
+                     "leaves all 67 external_runner examples green"
 end
