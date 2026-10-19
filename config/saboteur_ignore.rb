@@ -1476,4 +1476,8 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "af6eb7e89ce485cc",
              subject: "Saboteur::Selection::Recorder#each_hit",
              reason: "equivalent: the return value of the per-line yield loop is unused, so each and map yield the same hits"
+
+  i.mutation "530028e5c8380483",
+             subject: "Saboteur::Execution::WorkerPool#kill_hard",
+             reason: "equivalent: the return value of the targets loop is unused by kill_hard's only caller, so each and map signal the same pids"
 end
