@@ -110,6 +110,13 @@ RSpec.describe Saboteur::Engine::Scheduler, "flow" do
     expect(diagnostics.warnings.grep(/body_nil \h{16}: killed 1 process/).size).to eq(1)
   end
 
+  it "carries the runner's runtime and message onto the mutant's result" do
+    answers["body_nil"] = outcome(:survived, runtime: 0.7, message: "kept")
+    results = scheduler.call(subject_under_test, candidates)
+    result = results.find { |candidate| candidate.mutation.operator == "body_nil" }
+    expect([result.runtime, result.reason]).to eq([0.7, "kept"])
+  end
+
   it "prints one progress mark per executed mutant" do
     results = scheduler.call(subject_under_test, candidates)
     expect(err.string.length).to eq(results.size)

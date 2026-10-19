@@ -59,6 +59,16 @@ RSpec.describe Saboteur::Engine::VerdictCheck, "with several killers" do
     expect(sequences).to eq([%w[t1 t2]])
   end
 
+  it "re-runs a kill that names no failing test on all its covering tests, with the baseline timeout" do
+    calls = []
+    run = lambda do |tests, timeout|
+      calls << [tests, timeout]
+      Saboteur::Execution::Runner::Outcome.new(status: :survived, runtime: 0.1)
+    end
+    described_class.new(run_unchanged: run, baseline_timeout: 7).call([result(killed_by: [])])
+    expect(calls).to eq([[%w[t1 t2 t3], 7]])
+  end
+
   # The budget can stop a check before it forks or cut its admission short;
   # the run_unchanged side reports that as :unverified. That is not a
   # rejection: the check never got its answer (#296).

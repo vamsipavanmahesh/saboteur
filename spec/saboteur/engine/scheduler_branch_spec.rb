@@ -31,10 +31,26 @@ RSpec.describe Saboteur::Engine::Scheduler, "branch filtering" do
   end
 
   it "reports a branch-specific skip without running an untaken arm" do
-    result = scheduler.send(:execute, plan, mutation("20"), target.source)
+    untaken = mutation("20")
+    result = scheduler.send(:execute, plan, untaken, target.source)
     expect(result.status).to eq(:skipped)
     expect(result.reason).to eq("no coverage (branch not taken)")
     expect(result.covered_by).to eq([])
+    expect(result.mutation).to be(untaken)
+    expect(result.mutated_source).to eq(target.source)
+  end
+
+  it "gives an uncovered edit with no arm evidence the plain no-coverage reason" do
+    map.lines[target.file].clear
+    result = scheduler.send(:uncoverable, plan, mutation("x ?"), target.source)
+    expect(result.status).to eq(:skipped)
+    expect(result.reason).to eq("no coverage")
+  end
+
+  it "keeps the plain no-coverage reason when the arm was taken but no line evidence exists" do
+    map.lines[target.file].clear
+    result = scheduler.send(:uncoverable, plan, mutation("10"), target.source)
+    expect(result.reason).to eq("no coverage")
   end
   it "keeps load-only evidence ahead of an untaken example branch" do
     map.load_lines[target.file] = [3]

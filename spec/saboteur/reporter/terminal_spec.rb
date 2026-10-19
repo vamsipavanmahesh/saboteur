@@ -370,6 +370,11 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).not_to include("inferred specs: running only")
   end
 
+  it "counts only killed results that carry a kill cause" do
+    text = verbose_render(report_of(result_for(:killed), result_for(:survived, kill_cause: "assertion")))
+    expect(text).not_to include("kills:")
+  end
+
   it "splits kills into assertion kills and crash kills, by operator" do
     text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion"),
                                     result_for(:killed, replacement: "<", kill_cause: "NoMethodError"),

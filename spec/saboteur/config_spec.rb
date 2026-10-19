@@ -201,6 +201,16 @@ RSpec.describe Saboteur::Config do
     expect(described_class.new({ "operators" => ["range"] }, root: @root)["operators"]).to eq(["range"])
   end
 
+  it "keeps the underlying problem in the invalid-value error" do
+    expect { described_class.new({ "jobs" => "many" }, root: @root) }
+      .to raise_error(Saboteur::ConfigError, /\Ainvalid config value: .*many/)
+  end
+
+  it "turns every list entry into a string" do
+    config = described_class.new({ "rspec_args" => [:fail_fast, 7] }, root: @root)
+    expect(config["rspec_args"]).to eq(%w[fail_fast 7])
+  end
+
   it "rejects a threshold that is not a number" do
     expect { described_class.new({ "threshold" => "high" }, root: @root) }
       .to raise_error(Saboteur::ConfigError, /invalid config value/)
