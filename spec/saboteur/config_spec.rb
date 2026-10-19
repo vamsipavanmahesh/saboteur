@@ -607,3 +607,14 @@ RSpec.describe Saboteur::Config, "OUTPUT_KEYS (#471)" do
     expect(config.output_paths).to include("state", "h.jsonl", ".saboteur")
   end
 end
+
+RSpec.describe "files that read Config::OUTPUT_KEYS at load (#471)" do
+  %w[saboteur/engine/run_fingerprint saboteur/baseline/run_evidence].each do |feature|
+    it "loads #{feature} on its own" do
+      lib = File.expand_path("../../lib", __dir__)
+      output = IO.popen([RbConfig.ruby, "-I", lib, "-e", "require #{feature.inspect}; print :loaded",
+                         { err: %i[child out] }], &:read)
+      expect(output).to eq("loaded")
+    end
+  end
+end

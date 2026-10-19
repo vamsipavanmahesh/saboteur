@@ -3,6 +3,7 @@
 
 require_relative "identity"
 require_relative "completeness"
+require_relative "../config"
 require_relative "../engine/run_fingerprint"
 
 module Saboteur
