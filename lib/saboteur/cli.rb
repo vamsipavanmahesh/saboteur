@@ -25,6 +25,8 @@ require_relative "cli/output_options"
 require_relative "cli/explicit_file_options"
 require_relative "cli/doctor_command"
 require_relative "cli/agent_provenance"
+require_relative "cli/preview_command"
+require_relative "cli/help_command"
 
 module Saboteur
   class CLI
@@ -45,6 +47,8 @@ module Saboteur
     include DoctorCommand
     include AgentProvenance
     include HelpOptions
+    include PreviewCommand
+    include HelpCommand
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -113,17 +117,6 @@ module Saboteur
     def run_command = help_requested? ? show_help("run") : run
 
     def history_entry(command) = help_requested? ? show_help(command) : history_command(command)
-
-    def help_requested? = @argv.intersect?(%w[--help -h])
-
-    def show_help(command_name)
-      help = Help.new(option_lines: option_lines)
-      text = command_name ? help.command(command_name) : help.overview
-      return @out.puts(text) || EXIT_OK if text
-
-      @err.puts("unknown command: #{command_name}. Commands: #{help.command_names.join(', ')}")
-      EXIT_USAGE
-    end
 
     def usage_error(message = nil)
       @err.puts(message) if message
@@ -275,19 +268,6 @@ module Saboteur
     end
 
     def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
-
-    def preview
-      raise UsageError, "--dry-run and --list-operators print text, not --agent JSON; use --format json" if agent?
-      raise UsageError, "--id replays one mutant: not with --dry-run or --list-operators" if options[:id]
-
-      if options[:list_operators]
-        MutationSource::OperatorRegistry.list(@out, names: config["operators"], excluded: config["exclude_operators"])
-        return EXIT_OK
-      end
-
-      Preview.new(config, out: @out, err: @err, format: @format).call
-      EXIT_OK
-    end
 
     def add_subject(expr) = (options[:subjects] ||= []) << expr
 

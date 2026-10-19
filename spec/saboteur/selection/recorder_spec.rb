@@ -8,20 +8,31 @@ RSpec.describe Saboteur::Selection::Recorder do
     expect(map.build_seconds).to eq(0.1)
   end
 
-  it "treats a method whose path cannot be canonicalized as unwanted instead of raising into the program" do
-    # Ruby 3.3 refuses to define a method under a NUL-byte file name, so the
-    # canonicalizer's ArgumentError is raised by a stub on the real seam.
-    recorder = described_class.new([__FILE__])
-    allow(Saboteur::Selection::CoverageMap).to receive(:canonical).and_call_original
-    allow(Saboteur::Selection::CoverageMap).to receive(:canonical).with(__FILE__).and_raise(ArgumentError)
-    calls = recorder.instance_variable_get(:@calls)
+  # The tracer sees every Ruby call in the process while enabled, including
+  # calls from another thread or a trap handler. Nothing in the recorder's
+  # path may take a lock (an rspec-mocks stub does, and raises ThreadError in
+  # a trap handler), so these two specs use the real canonicalizer (#807).
+  it "treats a path the canonicalizer refuses as unwanted instead of raising into the program" do
+    wanted = described_class.new([__FILE__]).instance_variable_get(:@calls).instance_variable_get(:@wanted)
+    expect(wanted["a\0b"]).to be(false)
+    expect(wanted[__FILE__]).to be(true)
+  end
+
+  it "records a call made from a trap handler while the tracer is enabled" do
+    calls = described_class.new([__FILE__]).instance_variable_get(:@calls)
     target = Class.new { def zz = 1 }.new
+    handled = false
+    previous = Signal.trap("USR1") do
+      target.zz
+      handled = true
+    end
     calls.enable
-    result = target.zz
+    Process.kill("USR1", Process.pid)
+    sleep 0.01 until handled
     calls.pause
-    expect(result).to eq(1)
-    expect(calls.drain).to eq({})
+    expect(calls.drain.fetch(File.realpath(__FILE__)).map(&:last)).to eq([:zz])
   ensure
     calls&.pause
+    Signal.trap("USR1", previous) if previous
   end
 end
