@@ -143,9 +143,15 @@ module Saboteur
       end
 
       def well_formed?(entries)
-        entries.is_a?(Hash) && entries.values.all? do |entry|
-          entry.is_a?(Hash) && STORED.map(&:to_s).include?(entry["status"])
-        end
+        entries.is_a?(Hash) && entries.values.all? { |entry| entry.is_a?(Hash) && typed?(entry) }
+      end
+
+      # The fields the reports read, typed so a crafted entry cannot crash
+      # them.
+      def typed?(entry)
+        STORED.map(&:to_s).include?(entry["status"]) && (entry["runtime"].nil? || entry["runtime"].is_a?(Numeric)) &&
+          %w[reason kill_cause].all? { |key| entry[key].nil? || entry[key].is_a?(String) } &&
+          entry["killed_by"].is_a?(Array) && entry["killed_by"].all?(String)
       end
 
       def key(subject, mutation)
