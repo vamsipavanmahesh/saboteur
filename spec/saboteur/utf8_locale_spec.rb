@@ -66,7 +66,7 @@ RSpec.describe "non-UTF-8 locale boundaries" do
   it "loads a result cache with non-ASCII keys under a US-ASCII locale" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "results.json")
-      entries = { "héllo.rb#greet 0123456789abcdef" => { "status" => "killed" } }
+      entries = { "héllo.rb#greet 0123456789abcdef" => { "status" => "killed", "killed_by" => [] } }
       File.write(path, JSON.generate(format: Saboteur::Engine::ResultCache::FORMAT, entries: entries))
       loaded = with_default_external(Encoding::US_ASCII) do
         Saboteur::Engine::ResultCache.new(path: path, root: dir, inputs: "config-1")

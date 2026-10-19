@@ -676,6 +676,22 @@ RSpec.describe Saboteur::Engine::ResultCache do
       expect(within_timeout { lookups }).to include(status: :killed)
     end
 
+    it "keeps an entry whose optional fields are nil or numeric" do
+      stored
+      data = JSON.parse(File.read(path))
+      data["entries"].each_value { |entry| entry.merge!("runtime" => 1, "reason" => nil, "kill_cause" => nil) }
+      File.write(path, JSON.generate(data))
+      expect(within_timeout { lookups }).to include(status: :killed)
+    end
+
+    it "keeps an entry with a nil runtime and a killer list" do
+      stored
+      data = JSON.parse(File.read(path))
+      data["entries"].each_value { |entry| entry.merge!("runtime" => nil, "killed_by" => ["a_spec.rb"]) }
+      File.write(path, JSON.generate(data))
+      expect(within_timeout { lookups }).to include(status: :killed)
+    end
+
     it "ignores a file whose valid JSON is followed by more bytes than the cap" do
       stored
       body = File.read(path)
@@ -686,8 +702,15 @@ RSpec.describe Saboteur::Engine::ResultCache do
 
     {
       "a non-Hash entry" => 1,
-      "an entry without a stored status" => { "status" => "error" },
-      "an entry with a non-String status" => { "status" => nil }
+      "an entry without a stored status" => { "status" => "error", "killed_by" => [] },
+      "an entry with an unknown status" => { "status" => "bogus", "killed_by" => [], "runtime" => nil },
+      "an entry with a non-String status" => { "status" => nil, "killed_by" => [] },
+      "an entry with a String runtime" => { "status" => "killed", "killed_by" => [], "runtime" => "fast" },
+      "an entry with a Hash reason" => { "status" => "killed", "killed_by" => [], "reason" => {} },
+      "an entry with an Integer kill_cause" => { "status" => "killed", "killed_by" => [], "kill_cause" => 3 },
+      "an entry without killed_by" => { "status" => "killed" },
+      "an entry with a non-String killer" => { "status" => "killed", "killed_by" => [1] },
+      "an entry with one String and one non-String killer" => { "status" => "killed", "killed_by" => ["a_spec.rb", 1] }
     }.each do |label, bad|
       it "drops the whole file when one entry is #{label}" do
         stored
