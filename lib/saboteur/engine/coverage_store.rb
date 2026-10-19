@@ -49,8 +49,11 @@ module Saboteur
         cached = cached_map(files)
         return refuse_empty_map(cached.with_preloaded(preloaded), files, preloaded) if cached
 
+        note = miss_note(files)
+        @diagnostics.inform(note.message(scoped: !@config["tests"].empty?)) if @config["cache"]
         map = refuse_empty_map(build(files).with_preloaded(preloaded), files, preloaded)
         map.save(path)
+        note.save
         File.write(File.join(@config.path("cache_dir"), "preview.json"),
                    JSON.generate(path: path, fingerprint: RunFingerprint.new(config: @config).snapshot.digest))
         map
@@ -84,9 +87,21 @@ module Saboteur
       end
 
       def cache_key(files)
-        inputs = JSON.generate(CACHE_INPUTS.to_h { |key| [key, @config[key]] })
-        all = files + @integration.test_files + SuiteFiles.new(@config).files + lockfiles
-        Selection::CoverageMap.cache_key(files: all.uniq, extra: inputs)
+        Selection::CoverageMap.cache_key(files: key_files(files), extra: key_inputs)
+      end
+
+      def key_inputs
+        JSON.generate(CACHE_INPUTS.to_h { |key| [key, @config[key]] })
+      end
+
+      def key_files(files)
+        (files + @integration.test_files + SuiteFiles.new(@config).files + lockfiles).uniq
+      end
+
+      def miss_note(files)
+        CoverageMissNote.new(cache_dir: @config.path("cache_dir"), root: @root, files: key_files(files).sort,
+                             settings: [Saboteur::VERSION, key_inputs],
+                             clean: ->(path) { plain_line(Text.utf8(path.to_s)) })
       end
 
       def lockfiles
