@@ -6,10 +6,34 @@ require "tmpdir"
 
 require "timeout"
 
+# Journals every pool worker registration with the example that made it, so
+# the live-registry guard can name a leftover's owner, not just its shape.
+module WorkerPoolRegistrationTracer
+  @registrations = {}
+
+  class << self
+    attr_reader :registrations
+  end
+
+  def start(*)
+    super.tap do |worker|
+      WorkerPoolRegistrationTracer.registrations[worker.pid] = RSpec.current_example&.full_description
+    end
+  end
+end
+Saboteur::Execution::WorkerPool.prepend(WorkerPoolRegistrationTracer)
+
 RSpec.describe Saboteur::Execution::WorkerPool do
   # A leftover live entry is a pool leak: name the example that left it.
   after do
-    expect(Saboteur::Execution::Supervisor.live).to be_empty
+    leftovers = Saboteur::Execution::Supervisor.live
+    expect(leftovers).to be_empty, lambda {
+      details = leftovers.map do |pid, tree|
+        owner = WorkerPoolRegistrationTracer.registrations.fetch(pid, "unknown")
+        "#{pid} => #{tree.inspect} (registered by: #{owner})"
+      end
+      "Supervisor.live leaked: #{details.join(', ')}"
+    }
   end
 
   def monotonic
@@ -57,6 +81,21 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     results = pool.map([1, 2, 3]) { |n| { "square" => n * n } }
     expect(results.map { |r| r["square"] }).to eq([1, 4, 9])
     expect(arrivals.sort).to eq([[0, 1], [1, 4], [2, 9]])
+  end
+
+  # The first worker to report trips the callback; a slower worker's
+  # buffered result must not let the same callback abort the cleanup:
+  # stop's drain re-invoking on_result would skip every later stop and leak
+  # the entry (the CI Supervisor.live flake).
+  it "keeps stopping workers when a stop-time drain re-runs the raising arrival callback" do
+    pool = described_class.new(jobs: 2, on_result: ->(_item, _row) { raise Saboteur::CanaryTripped, "trip" })
+    expect do
+      pool.map([0.3, 0]) do |seconds|
+        sleep seconds
+        {}
+      end
+    end.to raise_error(Saboteur::CanaryTripped, "trip")
+    expect(Saboteur::Execution::Supervisor.live).to be_empty
   end
 
   it "stops handing out work when the arrival callback raises" do
@@ -279,6 +318,38 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect(wedged).to be_positive
     expect { Process.kill(0, wedged) }.to raise_error(Errno::ESRCH)
     expect(Saboteur::Execution::Supervisor.live).to be_empty
+  ensure
+    FileUtils.remove_entry(dir)
+  end
+
+  # The raised flag's error side: when the run itself fails, its error
+  # propagates and the remembered sweep error stays silent. Stubbing collect
+  # raises before any stop ran, so only the flag can keep the blind sweep's
+  # Errno::EIO from masking the run's real failure.
+  it "lets the run's own error propagate over a remembered sweep error" do
+    allow(Saboteur::Execution::ProcessTable).to receive(:snapshot).and_raise(Errno::EIO, "table blind")
+    pool = described_class.new(jobs: 2)
+    allow(pool).to receive(:collect).and_raise("boom")
+    expect { pool.map([1, 2]) { |n| { "n" => n } } }.to raise_error("boom")
+    expect(Saboteur::Execution::Supervisor.live).to be_empty
+  end
+
+  # A worker that already exited must not get the direct kill: its pid can
+  # already have been recycled by an unrelated process. Its group is still
+  # signalled - a pgid cannot be recycled while any member lives, and the
+  # group kill is what ends orphaned grandchildren when the table is blind.
+  it "skips the direct kill but still signals the group when the worker already exited" do
+    dir = Dir.mktmpdir
+    on_start = ->(number) { File.write(File.join(dir, "worker-#{number}.pid"), Process.pid) }
+    allow(Saboteur::Execution::ProcessTable).to receive(:snapshot).and_raise(Errno::EIO, "table blind")
+    allow(Process).to receive(:kill).and_call_original
+    pool = described_class.new(jobs: 2, on_start: on_start)
+    expect { pool.map([1, 2]) { |n| { "n" => n } } }.to raise_error(Errno::EIO, /table blind/)
+    [0, 1].each do |number|
+      pid = File.read(File.join(dir, "worker-#{number}.pid")).to_i
+      expect(Process).not_to have_received(:kill).with("KILL", pid)
+      expect(Process).to have_received(:kill).with("KILL", -pid)
+    end
   ensure
     FileUtils.remove_entry(dir)
   end
