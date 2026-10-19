@@ -11,7 +11,7 @@
 # (one line, invalid bytes scrubbed, bounded length) still exits 3.
 begin
   require "coverage"
-  Coverage.setup(lines: true, methods: true, branches: true) if Coverage.state == :idle
+  Coverage.setup(lines: true, branches: true) if Coverage.state == :idle
 
   require "saboteur/crash_report"
 rescue LoadError, StandardError => e
@@ -27,7 +27,11 @@ end
 # ones. The engine suspends counting right after boot and reads the
 # counters as the map's load lines (a forked child would not inherit them).
 begin
-  Coverage.resume if ARGV.first == "run" && Coverage.state == :suspended
+  if ARGV.first == "run" && Coverage.state == :suspended
+    require "saboteur/method_calls"
+    Saboteur::MethodCalls.boot
+    Coverage.resume
+  end
 
   require "saboteur/cli"
 

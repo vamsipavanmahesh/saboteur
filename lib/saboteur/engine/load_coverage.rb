@@ -19,16 +19,36 @@ module Saboteur
         return [{}, {}] unless Coverage.state == :suspended
 
         wanted = files.to_set { |file| Selection::CoverageMap.canonical(file) }
+        calls = boot_calls(wanted)
         CoverageReads.result(stop: false, clear: false)
                      .each_with_object([{}, {}]) do |(path, data), (lines_h, methods_h)|
           file = Selection::CoverageMap.canonical(path)
           next unless wanted.include?(file)
 
-          lines = data[:lines].each_with_index.filter_map { |count, index| index + 1 if count&.positive? }
-          lines -= uncalled_shared_lines(data)
+          called = calls.fetch(file, Set.new)
+          lines = ran_lines(file, data, called)
           lines_h[file] = lines unless lines.empty?
-          defs = data.fetch(:methods, {}).filter_map { |(_owner, _name, first, *), count| first if count.positive? }
-          methods_h[file] = defs.uniq.sort unless defs.empty?
+          defs = called.map(&:first).uniq.sort
+          methods_h[file] = defs unless defs.empty?
+        end
+      end
+
+      def self.ran_lines(file, data, called)
+        lines = data[:lines].each_with_index.filter_map { |count, index| index + 1 if count&.positive? }
+        lines - uncalled_shared_lines(file, called)
+      end
+
+      # The def calls the executable's tracer saw while the app loaded,
+      # file => Set of [line, name]. Coverage's methods report is off (its
+      # per-read cost is what made the coverage map slow, #655).
+      def self.boot_calls(wanted)
+        tracer = MethodCalls.booted
+        return {} unless tracer
+
+        tracer.disable
+        tracer.drain.each_with_object({}) do |(path, hits), by_file|
+          file = Selection::CoverageMap.canonical(path)
+          (by_file[file] ||= Set.new).merge(hits) if wanted.include?(file)
         end
       end
 
@@ -53,10 +73,36 @@ module Saboteur
       # A one-line or endless definition executes its def line even when its
       # body is never called. If any sibling on that physical line is uncalled,
       # discard its ambiguous line evidence rather than crediting every body.
-      def self.uncalled_shared_lines(data)
-        shared = data.fetch(:methods, {}).select { |(_owner, _name, first, _column, last, *), _| first == last }
-        calls = shared.group_by { |(_owner, _name, first, *), _count| first }
-        calls.filter_map { |line, entries| line if entries.any? { |_key, count| count.zero? } }
+      def self.uncalled_shared_lines(file, called)
+        defs = one_line_defs(file)
+        defs.group_by(&:first).filter_map do |line, entries|
+          line if entries.any? { |entry| !called.include?(entry) }
+        end
+      end
+
+      DEFINERS = %i[define_method define_singleton_method].freeze
+
+      # [line, name] for every def, or define_method with a block, that starts
+      # and ends on one physical line. Coverage's methods report lists both.
+      def self.one_line_defs(file)
+        found = []
+        walk = lambda do |node|
+          name = definition_name(node)
+          found << [node.location.start_line, name] if name && node.location.start_line == node.location.end_line
+          node.compact_child_nodes.each(&walk)
+        end
+        walk.call(Prism.parse_file(file).value)
+        found
+      rescue SystemCallError
+        []
+      end
+
+      def self.definition_name(node)
+        return node.name if node.is_a?(Prism::DefNode)
+        return unless node.is_a?(Prism::CallNode) && DEFINERS.include?(node.name) && node.block.is_a?(Prism::BlockNode)
+
+        first = Array(node.arguments&.arguments).first
+        first.unescaped.to_sym if first.is_a?(Prism::SymbolNode)
       end
     end
   end

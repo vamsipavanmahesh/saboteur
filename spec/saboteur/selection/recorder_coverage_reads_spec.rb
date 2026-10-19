@@ -9,8 +9,8 @@ RSpec.describe Saboteur::Selection::Recorder, "coverage reads (#564)" do
   let(:recorder) { described_class.new([__FILE__]) }
   let(:type_error) { TypeError.new("can't convert Foo to Integer (Foo#hash gives String)") }
 
-  def snapshot(lines: [nil, 1, 0, 2], methods: { [Object, :m, 3, 0, 5, 3] => 1 }, path: __FILE__)
-    { path => { lines: lines, methods: methods, branches: {} } }
+  def snapshot(lines: [nil, 1, 0, 2], path: __FILE__)
+    { path => { lines: lines, branches: {} } }
   end
 
   describe "#start" do
@@ -47,6 +47,10 @@ RSpec.describe Saboteur::Selection::Recorder, "coverage reads (#564)" do
     end
 
     it "attributes the hit lines and the called method to the finished test" do
+      calls = instance_double(Saboteur::MethodCalls, enable: nil, resume: nil)
+      allow(calls).to receive(:pause).and_return(calls)
+      allow(calls).to receive(:drain).and_return({ __FILE__ => Set[[3, :m]] }, {})
+      allow(Saboteur::MethodCalls).to receive(:new).and_return(calls)
       recorder.test_started("t1", "spec/a_spec.rb")
       recorder.test_finished("t1")
       map = recorder.result
@@ -71,16 +75,11 @@ RSpec.describe Saboteur::Selection::Recorder, "coverage reads (#564)" do
       expect(arms.fetch([7, 4, 7, 8]).to_a).to eq([])
     end
 
-    it "records no method that was never called, and tolerates a report without methods" do
-      allow(Coverage).to receive(:result).with(stop: false, clear: true)
-                                         .and_return(snapshot(methods: { [Object, :m, 3, 0, 5, 3] => 0 }))
-      recorder.test_started("t1", "spec/a_spec.rb")
-      recorder.test_finished("t1")
-      expect(recorder.result.methods).to be_empty
-
+    it "tolerates a coverage report without methods" do
       allow(Coverage).to receive(:result).with(stop: false, clear: true)
                                          .and_return({ __FILE__ => { lines: [nil, 1] } })
       expect { recorder.test_started("t2", "spec/a_spec.rb") }.not_to raise_error
+      expect(recorder.result.methods).to be_empty
     end
 
     it "ignores files outside the recorded set" do

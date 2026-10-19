@@ -433,6 +433,9 @@ module Saboteur
 
     def suspend_coverage(files)
       (@coverage_guard = CoverageGuard.new(@diagnostics)).suspend
+      # Coverage stops counting here, so the call tracer stops with it
+      # instead of crediting the calls the engine itself makes afterwards.
+      MethodCalls.booted&.pause
       LoadCoverage.capture(files)
     end
 
