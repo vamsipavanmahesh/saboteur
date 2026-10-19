@@ -52,6 +52,12 @@ module Saboteur
         ordered(stale.uniq).then { |specs| heavy?(specs) ? FULL : specs }
       end
 
+      # The part of the recorded spec time these files hold, 0 when none was recorded.
+      def share(specs)
+        total = weights.values.sum
+        total.zero? ? 0.0 : specs.sum { |file| weights.fetch(file, 0) }.fdiv(total)
+      end
+
       private
 
       # nil when a file was added, removed or unreadable on either side.
@@ -92,10 +98,13 @@ module Saboteur
 
       # Stale share of the recorded time, by spec file, never above THRESHOLD.
       def heavy?(specs)
-        weights = @map.tests.group_by { |id| spec_of(id) }
-                      .transform_values { |ids| ids.sum { |id| @map.durations.fetch(id, 0) } }
         total = weights.values.sum
-        total.zero? || specs.sum { |file| weights.fetch(file, 0) } > total * THRESHOLD
+        total.zero? || share(specs) > THRESHOLD
+      end
+
+      def weights
+        @map.tests.group_by { |id| spec_of(id) }
+            .transform_values { |ids| ids.sum { |id| @map.durations.fetch(id, 0) } }
       end
     end
   end

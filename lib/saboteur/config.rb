@@ -69,6 +69,9 @@ module Saboteur
       "subjects" => [],
       "since" => nil,
       "cache" => true,
+      # Experimental (#46): "shadow" also builds a partial coverage map after a
+      # cache miss and compares it with the full map, which the run still uses.
+      "partial_coverage" => "off",
       "incremental" => false,
       "shard" => nil,
       "allow_focus" => false,
@@ -263,8 +266,15 @@ module Saboteur
       LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
       NILABLE_FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) unless @values[key].nil? }
       @values["test_selection"] = @values["test_selection"].to_s
+      @values["partial_coverage"] = @values["partial_coverage"].to_s
     rescue ArgumentError, TypeError => e
       raise ConfigError, "invalid config value: #{e.message}"
+    end
+
+    def validate_partial_coverage!
+      return if %w[off shadow].include?(self["partial_coverage"])
+
+      raise ConfigError, "partial_coverage must be one of: off, shadow"
     end
 
     def validate_mutant_limit!
@@ -400,6 +410,7 @@ module Saboteur
         raise ConfigError, "flaky_check must be one of: off, survivors, decisive"
       end
 
+      validate_partial_coverage!
       validate_mutant_limit!
       validate_threshold!
       validate_modes!

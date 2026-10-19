@@ -551,4 +551,16 @@ RSpec.describe Saboteur::Config, "matrix" do
     expect { described_class.new({ "matrix" => true, "incremental" => true }) }
       .to raise_error(Saboteur::ConfigError, /matrix cannot be combined with incremental/)
   end
+
+  describe "partial_coverage (#46)" do
+    it "is off by default and accepts shadow as a string or a symbol" do
+      expect(described_class.new({})["partial_coverage"]).to eq("off")
+      expect(described_class.new({ "partial_coverage" => :shadow })["partial_coverage"]).to eq("shadow")
+    end
+
+    it "rejects anything else, naming the choices" do
+      expect { described_class.new({ "partial_coverage" => "on" }) }
+        .to raise_error(Saboteur::ConfigError, "partial_coverage must be one of: off, shadow")
+    end
+  end
 end

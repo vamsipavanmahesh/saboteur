@@ -11,6 +11,8 @@ module Saboteur
     # unchanged, otherwise built by running the whole suite once in a
     # supervised child and saved.
     class CoverageStore
+      include CoverageShadow
+
       CACHE_INPUTS = %w[integration require rspec_args rails tests].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
@@ -57,6 +59,7 @@ module Saboteur
         @diagnostics.inform(note.message(scoped: !@config["tests"].empty?)) if @config["cache"]
         map = refuse_empty_map(build(files).with_preloaded(preloaded), files, preloaded)
         map.save(path)
+        shadow(files, map, note) if shadow?
         note.save
         File.write(File.join(@config.path("cache_dir"), "preview.json"),
                    JSON.generate(path: path, fingerprint: RunFingerprint.new(config: @config).snapshot.digest))
@@ -409,7 +412,7 @@ module Saboteur
 
       # Runs in the supervised child. The suite's output goes to a log, so a
       # child that dies without reporting can still be diagnosed.
-      def record(writer, files, only: nil, log: log_path)
+      def record(writer, files, only: nil, log: log_path, seed: @config["seed"])
         FileUtils.mkdir_p(File.dirname(log))
         $stdout.reopen(log, "w")
         $stdout.sync = true
@@ -421,11 +424,11 @@ module Saboteur
         # read (#319).
         recorder = Selection::Recorder.new(files + @integration.test_files)
         recorder.start
-        Kernel.srand(@config["seed"])
-        passed = only ? @integration.run_all(recorder, files: only) : @integration.run_all(recorder)
+        Kernel.srand(seed)
+        passed = only ? @integration.run_all(recorder, files: only, seed: seed) : @integration.run_all(recorder)
         if passed == false
           raise Error, "the unchanged suite failed while building coverage. Fix the suite, then run again " \
-                       "with seed #{@config['seed']}."
+                       "with seed #{seed}."
         end
         write_map(writer, recorder, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
       rescue Exception => e # rubocop:disable Lint/RescueException

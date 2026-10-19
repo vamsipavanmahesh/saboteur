@@ -101,3 +101,36 @@ RSpec.describe Saboteur::Integration::RSpec, "#run_all with files" do
     expect(integration.run_all(recorder, files: %w[spec/a_spec.rb])).to be(true)
   end
 end
+
+# run_all(seed:) replays a recorded seed so a partial rerun orders examples
+# the way the full build did (#46).
+RSpec.describe Saboteur::Integration::RSpec, "#run_all seed" do
+  let(:integration) { described_class.new(Saboteur::Config.new({ "seed" => 7 }, root: Dir.pwd)) }
+  let(:configuration) { instance_double(RSpec::Core::Configuration, :order= => nil, :fail_fast= => nil) }
+
+  before do
+    allow(integration).to receive_messages(configuration: configuration, execute: nil)
+  end
+
+  it "orders by the given seed" do
+    integration.run_all(nil, seed: 42)
+
+    expect(configuration).to have_received(:order=).with("rand:42")
+  end
+
+  it "falls back to the configured seed" do
+    integration.run_all(nil)
+
+    expect(configuration).to have_received(:order=).with("rand:7")
+  end
+
+  it "falls back to seed 1 when the config holds none" do
+    bare = Class.new { def fetch(_key, default = nil) = default }.new
+    plain = described_class.new(bare)
+    allow(plain).to receive_messages(configuration: configuration, execute: nil)
+
+    plain.run_all(nil)
+
+    expect(configuration).to have_received(:order=).with("rand:1")
+  end
+end

@@ -35,6 +35,9 @@ module Saboteur
                                                 seed: seed)
       end
 
+      # The inputs snapshot of the run about to build its map.
+      attr_reader :current
+
       def message(scoped:)
         head = "coverage cache miss: #{reason}; the map build runs "
         scoped ? "#{head}the selected specs once" : "#{head}the whole suite once#{HINT}"

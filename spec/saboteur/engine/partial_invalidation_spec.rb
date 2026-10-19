@@ -219,6 +219,14 @@ RSpec.describe Saboteur::Engine::PartialInvalidation do
       expect(stale("spec/x_spec.rb" => "9" * 64)).to eq(%w[spec/x_spec.rb])
     end
 
+    it "gives the stale share of the recorded time, 0 when none was recorded" do
+      durations.replace("./spec/x_spec.rb[1:1]" => 3, "./spec/y_spec.rb[1:1]" => 1)
+      expect(invalidation.share(%w[spec/x_spec.rb])).to eq(0.75)
+      expect(invalidation.share([])).to eq(0.0)
+      durations.clear
+      expect(invalidation.share(%w[spec/x_spec.rb])).to eq(0.0)
+    end
+
     it "goes full when no duration was recorded" do
       durations.clear
       expect(stale("spec/x_spec.rb" => "9" * 64)).to eq(:full)
