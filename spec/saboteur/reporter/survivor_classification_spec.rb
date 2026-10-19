@@ -64,10 +64,82 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to be_nil
   end
 
-  it "does not label an edit arid when it only starts on a logging line" do
+  # Removing a logging statement is arid whatever removed it: line text
+  # only catches the first line, so the enclosing call decides (#665).
+  it "labels an edit that removes a whole multi-line logging call as arid" do
     result = survivor_for("class A\n  def tell(msg)\n    logger.info(\n      msg)\n  end\nend\n",
                           from: "logger.info(\n      msg)", to: "nil", covered_by: [])
+    expect(described_class.label(result)).to eq("arid")
+  end
+
+  it "does not label an edit arid when it spans a logging call and following code" do
+    result = survivor_for("class A\n  def tell(msg)\n    logger.info(msg)\n    msg\n  end\nend\n",
+                          from: "logger.info(msg)\n    msg", to: "nil", covered_by: [])
     expect(described_class.label(result)).to be_nil
+  end
+
+  it "labels a chained logger call as arid (#665)" do
+    result = survivor_for("class A\n  def tell\n    Sentry.sdk_logger.error(\"x\")\n  end\nend\n",
+                          from: "Sentry.sdk_logger.error(\"x\")", to: "nil", covered_by: [])
+    expect(described_class.label(result)).to eq("arid")
+  end
+
+  # The sentry-ruby case: the lazy message inside a warn do..end block
+  # starts with the string, not the logger, so only the enclosing call
+  # reads as arid.
+  it "labels an edit inside a chained logger's block as arid, from the enclosing call (#665)" do
+    message = "\"skip \#{job}\""
+    source = <<~RUBY
+      class A
+        def watch(job)
+          Sentry.sdk_logger.warn(Sentry::LOGGER_PROGNAME) do
+            #{message}
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: message, to: '"skip"')
+    expect(described_class.label(result)).to eq("arid")
+  end
+
+  it "does not label an edit inside a non-arid call's block as arid" do
+    message = "\"skip \#{job}\""
+    source = <<~RUBY
+      class A
+        def watch(job)
+          transform(job) do
+            #{message}
+          end
+        end
+      end
+    RUBY
+    result = survivor_for(source, from: message, to: '"skip"', covered_by: [])
+    expect(described_class.label(result)).to be_nil
+  end
+
+  # A file the parser cannot read must not classify from a broken tree.
+  it "treats an edit in an unparseable file as not arid (#665)" do
+    tree = Prism.parse("puts x\ndef broken(\n")
+    expect(tree.success?).to be(false)
+    edit = Saboteur::MutationSource::Edit.new(file: "x.rb", start_byte: 0, end_byte: 3, replacement: "")
+    expect(described_class.send(:inside_arid_call?, tree, edit, [/\Aputs/])).to be(false)
+  end
+
+  # The containment guard in enclosing_call, both sides: an edit that
+  # reaches outside the call is not swallowed by it.
+  it "refuses an edit that starts before the call (#665)" do
+    call = Prism.parse("alpha\nbeta(gamma)\n").value.statements.body[1]
+    expect(described_class.send(:enclosing_call, call, 0, 8)).to be_nil
+  end
+
+  it "refuses an edit that ends after the call (#665)" do
+    call = Prism.parse("beta(gamma)\nomega\n").value.statements.body[0]
+    expect(described_class.send(:enclosing_call, call, 1, 15)).to be_nil
+  end
+
+  it "returns the call when the edit sits inside it (#665)" do
+    call = Prism.parse("beta(gamma)\n").value.statements.body[0]
+    expect(described_class.send(:enclosing_call, call, 1, 7)).to eq(call)
   end
 
   it "labels an edit arid when every line it touches is arid" do

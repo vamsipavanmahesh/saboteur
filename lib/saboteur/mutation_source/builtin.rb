@@ -28,6 +28,11 @@ module Saboteur
       DEFAULT_ARID = [
         '\A(puts|pp|p|print|warn)\b',
         '\A(@|self\.|::)?(Rails\.)?logger\b',
+        # A logger at the end of a receiver chain: Sentry.sdk_logger.warn
+        # (#665). The match is case-sensitive, so SDK_LOGGER stays
+        # ordinary. The segment must END in logger, so
+        # @loggers.each and catalogger.warnings still mutate.
+        '\A(\w+\.)*\w*logger\.(debug|info|warn|error|fatal)\b',
         '\A(::)?(StatsD|Statsd|Datadog|NewRelic)\b',
         '\.instrument\b'
       ].freeze
