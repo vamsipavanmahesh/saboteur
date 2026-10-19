@@ -793,14 +793,6 @@ Saboteur.ignore do |i|
              subject: "Saboteur::Subject#initialize",
              reason: "equivalent: prism nodes delegate end_offset to their location, so node.end_offset is node.location.end_offset"
 
-  i.mutation "585dc5cf9f2b2453",
-             subject: "Saboteur::Subject#initialize",
-             reason: "equivalent: prism nodes delegate start_line to their location, so node.start_line is node.location.start_line"
-
-  i.mutation "94d0fb5458708c8f",
-             subject: "Saboteur::Subject#initialize",
-             reason: "equivalent: prism nodes delegate end_line to their location, so node.end_line is node.location.end_line"
-
   i.mutation "eb627023b070245d",
              subject: "Saboteur::Subject#initialize",
              reason: "equivalent: an unread ivar is nil, so dropping @skip_reason = nil leaves the same default"
@@ -816,10 +808,6 @@ Saboteur.ignore do |i|
   i.mutation "e7a053a591c446e5",
              subject: "Saboteur::Subject#surrounding_text",
              reason: "equivalent: force_encoding mutates in place, so each returns the same two already-forced strings map would collect"
-
-  i.mutation "9aac96519cbf11fa",
-             subject: "Saboteur::Subject#coverage_lines_for",
-             reason: "equivalent: prism nodes delegate start_line to their location, so statement.start_line is statement.location.start_line"
 
   i.mutation "06dab602bbc57fd1",
              subject: "Saboteur::Subject#coverage_lines_for",
