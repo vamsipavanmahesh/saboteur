@@ -15,7 +15,11 @@ RSpec.describe Saboteur::Execution::Supervisor do
   # here so the failure stays a failure and not a leak.
   # A leftover live entry is a containment leak: name the example that left it.
   after do
-    expect(described_class.live).to be_empty
+    leftovers = described_class.live
+    expect(leftovers).to be_empty, lambda {
+      details = leftovers.map { |pid, tree| "#{pid} => #{tree.inspect}" }
+      "Supervisor.live leaked: #{details.join(', ')}"
+    }
   end
 
   after do

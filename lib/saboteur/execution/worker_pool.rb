@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
-require "English"
 require "json"
 require_relative "../text"
 require_relative "peak_memory"
@@ -93,12 +92,16 @@ module Saboteur
 
       def distribute(items, order, &work)
         @sweep_error = nil
+        # Explicit instead of $ERROR_INFO: the sweep error is raised only
+        # when the run itself completed without an error to propagate.
+        raised = true
         results = Array.new(items.size)
         queue = order.dup
         workers = []
         [@jobs, items.size].min.times { |number| workers << start(number, items, workers, &work) }
         workers.each { |worker| assign(worker, queue) }
         collect(workers, queue, results, items, &work) until workers.empty?
+        raised = false
         results
       ensure
         workers&.each { |worker| stop(worker) }
@@ -106,7 +109,7 @@ module Saboteur
         # above, so a blind-table sweep no longer aborts the registry; but a
         # skipped orphan sweep must not read as a clean run either. The
         # run's own error wins when one is already propagating.
-        raise @sweep_error if @sweep_error && $ERROR_INFO.nil?
+        raise @sweep_error if @sweep_error && !raised
       end
 
       # Waits up to a second for results, then checks for workers that died
@@ -181,11 +184,18 @@ module Saboteur
 
       # Reads what a dead worker left in its pipe: a last result, or why it
       # crashed.
-      def drain(worker, results)
+      # report: false while stopping - the run is unwinding, and re-invoking
+      # the arrival callback from cleanup would let its raise abort the
+      # remaining stops and leak their live entries (the CI flake).
+      def drain(worker, results, report: true)
         pending = worker.results.read_nonblock(1 << 20, exception: false)
         return unless pending.is_a?(String)
 
-        pending.each_line { |line| take_and_report(worker, line, results) if line.end_with?("\n") }
+        pending.each_line do |line|
+          next unless line.end_with?("\n")
+
+          report ? take_and_report(worker, line, results) : take(worker, line, results)
+        end
       rescue IOError
         nil
       end
@@ -348,11 +358,17 @@ module Saboteur
         tree&.kill_all
       rescue SystemCallError, Fiddle::DLError => e
         @sweep_error ||= e
-        kill_hard(worker.pid)
+        # The group kill also ends orphaned grandchildren and is always
+        # safe: a process group id cannot be recycled while any member
+        # lives. The direct kill is only for a wedged worker: once reaped,
+        # its pid can already belong to an unrelated process.
+        kill_hard(worker.pid, direct: !reaped?(worker))
       end
 
-      def kill_hard(pid)
-        [-pid, pid].each do |target|
+      def kill_hard(pid, direct:)
+        targets = [-pid]
+        targets << pid if direct
+        targets.each do |target|
           Process.kill("KILL", target)
         rescue Errno::ESRCH, Errno::EPERM
           nil
@@ -368,7 +384,7 @@ module Saboteur
         sleep 0.01 until reaped?(worker) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
         sweep(tree, worker)
         worker.status ||= Process.wait2(worker.pid).last unless reaped?(worker)
-        drain(worker, {})
+        drain(worker, {}, report: false)
         worker.results.close unless worker.results.closed?
       rescue Errno::ECHILD
         nil
