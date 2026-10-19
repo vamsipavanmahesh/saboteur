@@ -477,8 +477,8 @@ RSpec.describe Saboteur::Engine::TestGuess do
     result = described_class.new(config, diagnostics: diagnostics).call
 
     expect(diagnostics).to have_received(:warn).with(
-      "custom map entry for lib/extra/widget.rb names spec(s) " \
-      "spec/extra/widget_spec.rb, spec/other/widget_spec.rb, which match no file"
+      "fix the custom map entry for lib/extra/widget.rb: spec(s) " \
+      "spec/extra/widget_spec.rb, spec/other/widget_spec.rb match no file"
     )
     expect(result.unmatched).to eq(["lib/extra/widget.rb"])
   end
@@ -502,8 +502,59 @@ RSpec.describe Saboteur::Engine::TestGuess do
 
     expect(result.specs).to eq(["spec/extra/widget_spec.rb"])
     expect(diagnostics).to have_received(:warn).with(
-      "custom map entry for lib/extra/widget.rb names spec(s) spec/wrong/widget_spec.rb, which match no file"
+      "fix the custom map entry for lib/extra/widget.rb: spec(s) spec/wrong/widget_spec.rb match no file"
     )
+  end
+
+  # Message style (#332): a long list is cut to the first five names and a
+  # count of the rest, so the warning stays scannable.
+  it "names at most five stale specs and counts the rest" do
+    entries = (1..7).map { |n| "spec/wrong/widget_#{n}_spec.rb" }
+    write("config/saboteur_custom_map.rb",
+          "SABOTEUR_CUSTOM_MAP = { \"lib/extra/widget.rb\" => #{entries.inspect} }.freeze\n")
+    write("lib/extra/widget.rb", base_source)
+    git("add", ".")
+    git("commit", "-q", "-m", "map")
+    write("lib/extra/widget.rb", changed_source)
+    diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+    allow(diagnostics).to receive(:warn)
+    config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+    described_class.new(config, diagnostics: diagnostics).call
+
+    expect(diagnostics).to have_received(:warn).with(
+      "fix the custom map entry for lib/extra/widget.rb: spec(s) " \
+      "spec/wrong/widget_1_spec.rb, spec/wrong/widget_2_spec.rb, spec/wrong/widget_3_spec.rb, " \
+      "spec/wrong/widget_4_spec.rb, spec/wrong/widget_5_spec.rb, and 2 more match no file"
+    )
+  end
+
+  # The cap's boundary (#799 dogfood): five names exactly is not cut, six
+  # counts one more, and the count is names minus five.
+  [
+    [5, "spec/wrong/widget_1_spec.rb, spec/wrong/widget_2_spec.rb, spec/wrong/widget_3_spec.rb, " \
+        "spec/wrong/widget_4_spec.rb, spec/wrong/widget_5_spec.rb"],
+    [6, "spec/wrong/widget_1_spec.rb, spec/wrong/widget_2_spec.rb, spec/wrong/widget_3_spec.rb, " \
+        "spec/wrong/widget_4_spec.rb, spec/wrong/widget_5_spec.rb, and 1 more"],
+    [8, "spec/wrong/widget_1_spec.rb, spec/wrong/widget_2_spec.rb, spec/wrong/widget_3_spec.rb, " \
+        "spec/wrong/widget_4_spec.rb, spec/wrong/widget_5_spec.rb, and 3 more"]
+  ].each do |count, list|
+    it "shows #{count} stale specs as \"#{list}\"" do
+      entries = (1..count).map { |n| "spec/wrong/widget_#{n}_spec.rb" }
+      write("config/saboteur_custom_map.rb",
+            "SABOTEUR_CUSTOM_MAP = { \"lib/extra/widget.rb\" => #{entries.inspect} }.freeze\n")
+      write("lib/extra/widget.rb", base_source)
+      git("add", ".")
+      git("commit", "-q", "-m", "map")
+      write("lib/extra/widget.rb", changed_source)
+      diagnostics = instance_double(Saboteur::Engine::Diagnostics)
+      allow(diagnostics).to receive(:warn)
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+      described_class.new(config, diagnostics: diagnostics).call
+
+      expect(diagnostics).to have_received(:warn).with(
+        "fix the custom map entry for lib/extra/widget.rb: spec(s) #{list} match no file"
+      )
+    end
   end
 
   # A changed spec is not a changed source file: it needs no spec of its
