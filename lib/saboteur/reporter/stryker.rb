@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "json"
+require_relative "agent_incomplete"
 
 module Saboteur
   module Reporter
@@ -46,7 +47,7 @@ module Saboteur
       # saboteur-namespaced keys beyond Stryker's schema: findings and
       # scores, then the optional policy, shard, exit-cause and memory keys.
       def self.saboteur_enrichment(report, exit_cause, score_gates = nil)
-        { findings: Findings.build(report), scores: scores(report),
+        { findings: Findings.build(report), complete: Agent::Incomplete.complete?(report), scores: scores(report),
           inlineSuppressions: inline_audit(report) }
           .merge(operatorPolicy: report.operator_policy).merge(shard(report))
           .merge(exit_cause ? { exitCause: exit_cause } : {})

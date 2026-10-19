@@ -81,6 +81,7 @@ RSpec.describe Saboteur::Reporter::Stryker do
     shard = Saboteur::Engine::Shard.parse("2/4")
     allow(shard).to receive(:to_h).and_return(index: 2, of: 4, selected: 3, planned: 10,
                                               inventoryDigest: "a" * 64, partial: true)
+    allow(shard).to receive_messages(planned_count: 10, selected_count: 3)
     allow(report).to receive(:shard).and_return(shard)
     document = JSON.parse(JSON.generate(described_class.build(report)))
     expect(document["schemaVersion"]).to eq("2")
