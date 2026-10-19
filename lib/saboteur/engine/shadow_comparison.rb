@@ -23,25 +23,66 @@ module Saboteur
 
       module_function
 
-      # { match: bool, total: Integer, differences: [{kind:, name:}] } with
-      # at most MAX_DIFFERENCES entries, sorted by kind and name.
+      # { result: :match | :superset | :mismatch, match: bool, total: Integer, extra: Integer,
+      #   differences: [{kind:, name:}] } with at most MAX_DIFFERENCES entries,
+      # sorted by kind and name.
+      #
+      # :superset means the partial map credits tests the full map does not,
+      # and never lacks a credit the full map has. This is for the shadow
+      # report only: an extra credit on a line the full map calls uncovered
+      # would turn "no test covers this" into "covered", so extras must be
+      # handled before a partial map is ever used. Anything else that differs is :mismatch. extra counts
+      # the extra credits (one per file, line and test) in lines, methods
+      # and branches; the dependency sets they imply are not counted again.
       def call(partial, full, fallback_files: [])
         maps = [partial, full]
         found = evidence_differences(maps) + dependency_differences(maps, fallback_files)
-        { match: found.empty?, total: found.size,
-          differences: found.sort_by { |item| [item[:kind], item[:name]] }.first(MAX_DIFFERENCES) }
+        extra = found.select { |item| KINDS.map(&:to_s).include?(item[:kind]) }.sum { |item| item[:extra] }
+        result = if found.empty? then :match
+                 elsif found.any? { |item| item[:missing] } then :mismatch
+                 else :superset
+                 end
+        shown = found.sort_by { |item| [item[:kind], item[:name]] }.first(MAX_DIFFERENCES)
+        { result: result, match: result == :match, total: found.size, extra: extra,
+          differences: shown.map { |item| item.slice(:kind, :name) } }
       end
 
       def evidence_differences(maps)
         partial, full = maps
         found = []
-        found << { kind: "tests", name: "the set of test ids" } unless partial.tests.sort == full.tests.sort
+        unless partial.tests.sort == full.tests.sort
+          found << { kind: "tests", name: "the set of test ids", missing: true }
+        end
         KINDS.each { |kind| found.concat(hit_differences(kind.to_s, hits(partial, kind), hits(full, kind))) }
-        found.concat(hit_differences("load", load_hits(partial), load_hits(full)))
+        found.concat(exact_differences("load", load_hits(partial), load_hits(full)))
       end
 
+      # Per name: the credits only the partial map has (extra) and the ones
+      # only the full map has (missing).
       def hit_differences(kind, left, right)
-        (left.keys | right.keys).reject { |name| left[name] == right[name] }.map { |name| { kind: kind, name: name } }
+        (left.keys | right.keys).filter_map do |name|
+          extra, missing = credits(left[name] || {}, right[name] || {})
+          next if extra.zero? && !missing
+
+          { kind: kind, name: name, extra: extra, missing: missing }
+        end
+      end
+
+      def credits(left, right)
+        extra = 0
+        missing = false
+        (left.keys | right.keys).each do |line|
+          mine = left[line] || []
+          theirs = right[line] || []
+          extra += (mine - theirs).size
+          missing ||= (theirs - mine).any?
+        end
+        [extra, missing]
+      end
+
+      def exact_differences(kind, left, right)
+        (left.keys | right.keys).reject { |name| left[name] == right[name] }
+                                .map { |name| { kind: kind, name: name, missing: true } }
       end
 
       # {file => {line-or-span => sorted ids}} without empty entries.
@@ -58,19 +99,19 @@ module Saboteur
         end
       end
 
+      # The files every verdict depends on must match exactly. What each
+      # test depends on follows from its line and method credits, which are
+      # compared above, so it is not compared again.
       def dependency_differences(maps, fallback_files)
         partial, full = maps
         left = dependencies(partial, fallback_files)
         right = dependencies(full, fallback_files)
-        (left.keys | right.keys).reject { |name| left[name] == right[name] }.map { |name| { kind: "deps", name: name } }
+        left.keys.reject { |name| left[name] == right[name] }.map { |name| { kind: "deps", name: name, missing: true } }
       end
 
-      # What ResultCache#dependencies reads for each test, plus the files
-      # every verdict depends on, keyed by test id (the others by name).
       def dependencies(map, fallback_files)
-        per_test = map.invert_coverage.transform_values { |files| files.uniq.sort }
         unobserved = (fallback_files | map.loaded_files).select { |file| map.empty_for?([file]) }.sort
-        per_test.merge("(boot files)" => map.boot_files, "(unobserved files)" => unobserved)
+        { "(boot files)" => map.boot_files, "(unobserved files)" => unobserved }
       end
     end
   end

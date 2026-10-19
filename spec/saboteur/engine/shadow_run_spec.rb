@@ -38,6 +38,13 @@ RSpec.describe Saboteur::Engine::ShadowRun do
                               "threshold" => 0.5, "total" => 0, "differences" => [], "base_map" => "k" * 64)
   end
 
+  it "reports a superset, with its extra credits, when the rerun only credits more tests" do
+    more = map(lines: { "/p/a.rb" => { 1 => [x_id, y_id] } }, tests: [x_id])
+    report = run(rerun: ->(_specs, _seed) { more })
+    expect(report).to include("result" => "superset")
+    expect(report["extra_credits"]).to be > 0
+  end
+
   it "reports a mismatch with its differences, cleaned" do
     wrong = map(lines: { "/p/a.rb" => { 2 => [x_id] } }, tests: [x_id])
     report = run(rerun: ->(_specs, _seed) { wrong })
