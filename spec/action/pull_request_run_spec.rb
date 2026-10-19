@@ -520,6 +520,64 @@ RSpec.describe "action/run-saboteur" do
     end
   end
 
+  describe "timeout and error gates" do
+    it "passes no gate flag when the inputs are empty" do
+      run_action({ "SABOTEUR_MAX_TIMEOUTS" => "", "SABOTEUR_MAX_ERRORS" => "" })
+      expect(invocation).not_to include("--max-")
+    end
+
+    it "passes the limits to saboteur after the extra arguments and before --since" do
+      run_action({ "SABOTEUR_ARGUMENTS" => "--jobs 2", "SABOTEUR_MAX_TIMEOUTS" => "3", "SABOTEUR_MAX_ERRORS" => "5%" })
+      expect(invocation).to start_with("run --jobs 2 --max-timeouts 3 --max-errors 5% --since #{@base_sha}")
+    end
+
+    it "accepts a limit of exactly 100% and a zero-padded count" do
+      _, status = run_action({ "SABOTEUR_MAX_ERRORS" => "100%", "SABOTEUR_MAX_TIMEOUTS" => "007" })
+      expect(status).to eq(0)
+    end
+
+    ["abc", "-1", "1.5", "5%%", "101%", "3 4", "%"].each do |value|
+      it "refuses the max-timeouts value #{value.inspect} before running saboteur" do
+        output, status = run_action({ "SABOTEUR_MAX_TIMEOUTS" => value })
+        expect(status).to eq(2)
+        expect(output).to include("max-timeouts must be a count")
+        expect(File.exist?(invocation_log)).to be(false)
+      end
+    end
+
+    it "names max-errors when that limit is malformed" do
+      output, status = run_action({ "SABOTEUR_MAX_ERRORS" => "many" })
+      expect(status).to eq(2)
+      expect(output).to include("max-errors must be a count")
+    end
+
+    it "calls a failed gate a gate failure when no mutant survived" do
+      output, status = run_action({ "SABOTEUR_MAX_TIMEOUTS" => "0" }, exit_status: 1, report: %w[Killed Timeout])
+      expect(status).to eq(0)
+      expect(output).to include("so a gate failed")
+      expect(output).not_to include("0 mutants survived")
+    end
+
+    it "fails the step on a failed gate when enforcing" do
+      _, status = run_action({ "SABOTEUR_MAX_TIMEOUTS" => "0", "SABOTEUR_FAIL_ON_SURVIVORS" => "true" },
+                             exit_status: 1, report: %w[Killed Timeout])
+      expect(status).to eq(1)
+    end
+
+    it "keeps errors within max-errors from failing an incomplete run" do
+      output, status = run_action({ "SABOTEUR_MAX_ERRORS" => "2", "SABOTEUR_FAIL_ON_SURVIVORS" => "true" },
+                                  report: %w[Killed RuntimeError])
+      expect(status).to eq(0)
+      expect(output).to include("errored or hit a resource limit")
+      expect(outputs).to include("incomplete" => "true")
+    end
+
+    it "still fails an incomplete run when max-errors is not set" do
+      _, status = run_action({ "SABOTEUR_FAIL_ON_SURVIVORS" => "true" }, report: %w[Killed RuntimeError])
+      expect(status).to eq(3)
+    end
+  end
+
   describe "caching" do
     it "does not pass --no-cache by default" do
       run_action

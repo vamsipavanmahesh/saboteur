@@ -75,6 +75,8 @@ summary lists them apart with the reason from the ignore list.
 | `command` | `bundle exec saboteur` | How to start saboteur. |
 | `arguments` | empty | Extra saboteur arguments, such as `--jobs 2`. Split on whitespace; shell quoting is not supported, so a value with a space cannot be passed. `--since` and `--json` belong to the action and are rejected here, including shortened forms like `--js`, and a bare `--` is rejected. |
 | `fail-on-survivors` | `false` | `true` or `false`; any other value fails the step. `true` fails the step when a mutant survives, and also when the run is incomplete (see below). |
+| `max-timeouts` | empty | Passed as `--max-timeouts`: a count (`3`) or a percentage of the executed mutants (`5%`, at most 100). saboteur exits 1 when more mutants end as a timeout. Anything else fails the step with exit 2. Empty sets no gate. |
+| `max-errors` | empty | Passed as `--max-errors`, same shape. With a value set, errored mutants within the limit no longer fail an incomplete run under `fail-on-survivors: "true"`. |
 | `cache` | `true` | `true` or `false`; any other value fails the step. `false` skips restoring the cached coverage map and also passes `--no-cache` to saboteur, so the map is rebuilt. |
 | `report-path` | `.saboteur/report.json` | Where the JSON report is written. Letters, digits, `.`, `_`, `/` and `-` only, and it may not start with `-`. |
 | `artifact-name` | `saboteur-report-<job>-<matrix leg>` | Name of the uploaded JSON report artifact. Set it when one job uses this action more than once: upload-artifact rejects a second upload under one name. |
@@ -98,6 +100,7 @@ The action runs only on `pull_request` events. On any other event, such as
   mistaken for this run's result. The step fails with exit code 3. A report
   with no files is valid: it means nothing was mutated.
 - Survivors, only with `fail-on-survivors: "true"`.
+- A failed gate (`max-timeouts`, `max-errors` or a `--threshold` in `arguments`), which is saboteur exit 1, only with `fail-on-survivors: "true"`.
 - An incomplete run, only with `fail-on-survivors: "true"`. A run is
   incomplete when some mutants errored or hit a resource limit. Those mutants
   are not scored. In advisory mode the step stays green and the summary and

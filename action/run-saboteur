@@ -11,6 +11,8 @@
 #   SABOTEUR_COMMAND            how to start saboteur, for example "bundle exec saboteur"
 #   SABOTEUR_ARGUMENTS          extra saboteur arguments, split on whitespace (no shell quoting)
 #   SABOTEUR_FAIL_ON_SURVIVORS  "true" or "false"; "true" also fails on an incomplete run
+#   SABOTEUR_MAX_TIMEOUTS       optional --max-timeouts limit: a count ("3") or a percentage ("5%")
+#   SABOTEUR_MAX_ERRORS         optional --max-errors limit, same shape
 #   SABOTEUR_REPORT_PATH        where saboteur writes its JSON report
 #   SABOTEUR_CACHE              "true" or "false"; "false" also passes --no-cache to saboteur
 # Exit codes of saboteur: 0 clean, 1 survivors, 2 usage error, 3 tool error.
@@ -24,6 +26,8 @@ pull_ref="${GITHUB_REF:-}"
 command_line="${SABOTEUR_COMMAND:-bundle exec saboteur}"
 extra_arguments="${SABOTEUR_ARGUMENTS:-}"
 fail_on_survivors="${SABOTEUR_FAIL_ON_SURVIVORS:-false}"
+max_timeouts="${SABOTEUR_MAX_TIMEOUTS:-}"
+max_errors="${SABOTEUR_MAX_ERRORS:-}"
 report_path="${SABOTEUR_REPORT_PATH:-.saboteur/report.json}"
 use_cache="${SABOTEUR_CACHE:-true}"
 github_output="${GITHUB_OUTPUT:-/dev/null}"
@@ -113,6 +117,18 @@ case "$use_cache" in
   *) stop_with_error "saboteur: cache must be exactly \"true\" or \"false\", not \"$use_cache\"." ;;
 esac
 
+# A gate limit is a count or a percentage of at most 100, as saboteur reads it.
+valid_gate_limit() {
+  [[ "$1" =~ ^[0-9]+%?$ ]] || return 1
+  [[ "$1" != *% ]] || [ "$((10#${1%\%}))" -le 100 ]
+}
+
+for gate_input in max-timeouts:"$max_timeouts" max-errors:"$max_errors"; do
+  if [ -n "${gate_input#*:}" ] && ! valid_gate_limit "${gate_input#*:}"; then
+    stop_with_error "saboteur: ${gate_input%%:*} must be a count (3) or a percentage of at most 100 (5%), not \"${gate_input#*:}\"."
+  fi
+done
+
 if ! [[ "$base_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
   stop_with_error "saboteur: the event did not provide a valid 40-character base SHA. Do not override the base commit."
 fi
@@ -196,8 +212,13 @@ fi
 cache_arguments=()
 [ "$use_cache" = "false" ] && cache_arguments=(--no-cache)
 
+# The gate inputs come after "arguments", so they win over the same flag there.
+gate_arguments=()
+[ -n "$max_timeouts" ] && gate_arguments+=(--max-timeouts "$max_timeouts")
+[ -n "$max_errors" ] && gate_arguments+=(--max-errors "$max_errors")
+
 log_file="$(mktemp)"
-"${command_words[@]}" run ${cache_arguments[@]+"${cache_arguments[@]}"} ${argument_words[@]+"${argument_words[@]}"} --since "$base_sha" --json "$report_path" 2>&1 | tee "$log_file"
+"${command_words[@]}" run ${cache_arguments[@]+"${cache_arguments[@]}"} ${argument_words[@]+"${argument_words[@]}"} ${gate_arguments[@]+"${gate_arguments[@]}"} --since "$base_sha" --json "$report_path" 2>&1 | tee "$log_file"
 saboteur_status="${PIPESTATUS[0]}"
 
 killed=0 timed_out=0 survivors=0 accepted=0 errors=0 uncovered=0 score="n/a" report_valid=false
@@ -443,10 +464,15 @@ case "$saboteur_status" in
   0 | 1)
     if [ "$incomplete" = "true" ]; then
       echo "::warning::saboteur: $errors mutants errored or hit a resource limit. The score does not cover them."
-      [ "$fail_on_survivors" = "true" ] && exit 3
+      # With max-errors set, saboteur already judged the errors: exit 0 means they are within the limit.
+      [ "$fail_on_survivors" = "true" ] && [ -z "$max_errors" ] && exit 3
     fi
     if [ "$saboteur_status" = "1" ]; then
-      echo "::warning::saboteur: $survivors mutants survived. Add a test that fails for each one, or list it in config/saboteur_ignore.rb with a reason."
+      if [ "$survivors" -gt 0 ]; then
+        echo "::warning::saboteur: $survivors mutants survived. Add a test that fails for each one, or list it in config/saboteur_ignore.rb with a reason."
+      else
+        echo "::warning::saboteur: exit 1 with no surviving mutants, so a gate failed (--threshold, --max-timeouts or --max-errors). Read the gate line in the output above."
+      fi
       [ "$fail_on_survivors" = "true" ] && exit 1
     fi
     exit 0
