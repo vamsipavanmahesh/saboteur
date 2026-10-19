@@ -14,6 +14,10 @@ module Saboteur
       CACHE_INPUTS = %w[integration require rspec_args rails tests].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
+      # A snapshot entry that is never a file, so a snapshot holding it is never
+      # reused partially. It stands for a test file outside the project root,
+      # whose own inputs the snapshot cannot see.
+      OUTSIDE_TESTS = "(test file outside the project root)"
       # What a failed child's log shows in the error: its last lines, bounded.
       TAIL_LINES = 60
       TAIL_BYTES = 65_536
@@ -100,18 +104,43 @@ module Saboteur
 
       def miss_note(files)
         CoverageMissNote.new(cache_dir: @config.path("cache_dir"), root: @root, files: snapshot_files(files),
-                             settings: key_inputs, map_key: cache_key(files),
+                             settings: key_inputs, map_key: cache_key(files), seed: @config["seed"],
                              clean: ->(path) { plain_line(Text.utf8(path.to_s)) })
       end
 
       # What the inputs snapshot hashes: the cache key's files plus every file
-      # under spec/, fixtures and config included. A partial rebuild (#46)
-      # must see a change to anything a test can read, not only to what the
-      # key covers. The cache dir is left out so the pair never hashes itself.
+      # under spec/ and under the suite's own test directories, fixtures and
+      # config included. A partial rebuild (#46) must see a change to anything
+      # a test can read, not only to what the key covers. Symlinks and other
+      # special entries are listed but never read (see
+      # CoverageInputsSnapshot.file_digest). The cache dir is left out so the
+      # pair never hashes itself.
       def snapshot_files(files)
         cache = File.join(File.expand_path(@config.path("cache_dir")), "")
-        tree = Dir.glob("spec/**/*", File::FNM_DOTMATCH, base: @root).map { |name| File.join(@root, name) }
-        (key_files(files) | tree.select { |file| File.file?(file) && !File.expand_path(file).start_with?(cache) }).sort
+        dirs, outside = test_dirs
+        tree = dirs.flat_map do |dir|
+          Dir.glob("**/*", File::FNM_DOTMATCH, base: File.join(@root, dir)).map { |name| File.join(@root, dir, name) }
+        end
+        tree = tree.reject { |file| real_directory?(file) || File.expand_path(file).start_with?(cache) }
+        marker = outside ? [OUTSIDE_TESTS] : []
+        [key_files(files), tree, marker].flatten.sort
+      end
+
+      # spec/ always, plus the first directory of every configured test file
+      # (a suite under test/ or elsewhere keeps its fixtures beside it), and
+      # whether a test file lies outside the project root. Both sides are
+      # compared as real paths, so a symlinked root still matches.
+      def test_dirs
+        prefix = "#{Selection::CoverageMap.canonical(@root)}/"
+        inside, outside = @integration.test_files.map { |file| Selection::CoverageMap.canonical(file) }
+                                      .partition { |file| file.start_with?(prefix) }
+        [["spec"] + inside.map { |file| file.delete_prefix(prefix).split("/").first }, !outside.empty?]
+      end
+
+      def real_directory?(file)
+        File.lstat(file).directory?
+      rescue SystemCallError
+        true
       end
 
       def lockfiles

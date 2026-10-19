@@ -20,7 +20,7 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
 
   def stored(files: [File.join(@root, "a.rb")])
     File.write(described_class.map_path(@cache, key), "{}")
-    data = described_class.build(root: @root, files: files, settings: "s", map_key: key)
+    data = described_class.build(root: @root, files: files, settings: "s", map_key: key, seed: 1)
     described_class.write(@cache, data)
     data
   end
@@ -44,7 +44,8 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
     stored
     data = latest
 
-    expect(data.keys.sort).to eq(%w[files format map_digest map_key root runtime settings])
+    expect(data.keys.sort).to eq(%w[files format map_digest map_key root runtime seed settings])
+    expect(data["seed"]).to eq(1)
     expect(data["files"].keys).to eq(["a.rb"])
     expect(data["files"]["a.rb"]).to eq(Digest::SHA256.hexdigest("1\n"))
     expect(data["map_digest"]).to eq(Digest::SHA256.hexdigest("{}"))
@@ -75,14 +76,14 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
   it "records a FIFO input as false instead of blocking on it" do
     fifo = File.join(@root, "pipe.rb")
     File.mkfifo(fifo)
-    data = promptly { described_class.build(root: @root, files: [fifo], settings: "s", map_key: key) }
+    data = promptly { described_class.build(root: @root, files: [fifo], settings: "s", map_key: key, seed: 1) }
 
     expect(data["files"]).to eq("pipe.rb" => false)
   end
 
   it "writes no snapshot, and does not block, when the map file is a FIFO" do
     File.mkfifo(described_class.map_path(@cache, key))
-    data = described_class.build(root: @root, files: [], settings: "s", map_key: key)
+    data = described_class.build(root: @root, files: [], settings: "s", map_key: key, seed: 1)
     promptly { described_class.write(@cache, data) }
 
     expect(File.exist?(target)).to be(false)
@@ -90,7 +91,7 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
 
   it "removes the temp file when the write is interrupted, and lets the interrupt through" do
     File.write(described_class.map_path(@cache, key), "{}")
-    data = described_class.build(root: @root, files: [], settings: "s", map_key: key)
+    data = described_class.build(root: @root, files: [], settings: "s", map_key: key, seed: 1)
     allow(File).to receive(:rename).and_raise(Interrupt)
 
     expect { described_class.write(@cache, data) }.to raise_error(Interrupt)
@@ -121,7 +122,7 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
   end
 
   it "builds every key, with the map digest left for the write" do
-    data = described_class.build(root: @root, files: [], settings: "s", map_key: key)
+    data = described_class.build(root: @root, files: [], settings: "s", map_key: key, seed: 1)
 
     expect(data.keys.sort).to eq(described_class::KEYS)
     expect(data["map_digest"]).to be_nil
@@ -172,8 +173,27 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
     end
 
     it "has another format number" do
-      tampered { |data| data["format"] = 2 }
+      tampered { |data| data["format"] = 1 }
       expect(latest).to be_nil
+    end
+
+    it "has no seed" do
+      tampered { |data| data.delete("seed") }
+      expect(latest).to be_nil
+    end
+
+    [-1, 2**32, "1", 1.5, true, nil].each do |seed|
+      it "has the seed #{seed.inspect}, which is not an integer from 0 to 2**32 - 1" do
+        tampered { |data| data["seed"] = seed }
+        expect(latest).to be_nil
+      end
+    end
+
+    [0, (2**32) - 1].each do |seed|
+      it "has the seed #{seed}, an accepted bound" do
+        tampered { |data| data["seed"] = seed }
+        expect(latest["seed"]).to eq(seed)
+      end
     end
 
     %w[map_key map_digest root runtime settings].each do |field|
@@ -313,7 +333,8 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
     newer = "f" * 64
     [older, newer].each do |map_key|
       File.write(described_class.map_path(@cache, map_key), "{}")
-      described_class.write(@cache, described_class.build(root: @root, files: [], settings: "s", map_key: map_key))
+      described_class.write(@cache,
+                            described_class.build(root: @root, files: [], settings: "s", map_key: map_key, seed: 1))
     end
     File.utime(Time.at(1_000), Time.at(1_000), described_class.path(@cache, older))
     File.utime(Time.at(2_000), Time.at(2_000), described_class.path(@cache, newer))
@@ -322,7 +343,7 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
   end
 
   it "writes nothing when the map it names is not on disk" do
-    data = described_class.build(root: @root, files: [], settings: "s", map_key: key)
+    data = described_class.build(root: @root, files: [], settings: "s", map_key: key, seed: 1)
     described_class.write(@cache, data)
 
     expect(Dir.children(@cache)).to eq([])

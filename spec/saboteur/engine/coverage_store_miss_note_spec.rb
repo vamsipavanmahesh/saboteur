@@ -3,6 +3,7 @@
 
 require "stringio"
 require "fileutils"
+require "timeout"
 require "tmpdir"
 
 RSpec.describe Saboteur::Engine::CoverageStore, "cache-miss note (#46)" do
@@ -57,6 +58,67 @@ RSpec.describe Saboteur::Engine::CoverageStore, "cache-miss note (#46)" do
     expect(names).to include("spec/fixtures/deep/data.yml", "spec/.hidden.txt", "spec/.cache-two/sibling.txt")
     expect(names).not_to include("spec/fixtures", "spec/fixtures/deep")
     expect(names.grep(%r{\Aspec/\.cache/})).to eq([])
+  end
+
+  it "lists a symlink or a FIFO under spec/ without ever reading it, so the pair can never be reused partially (#46)" do
+    FileUtils.mkdir_p(File.join(@root, "spec", "fixtures"))
+    File.symlink("/dev/zero", File.join(@root, "spec", "fixtures", "link"))
+    File.symlink("/etc", File.join(@root, "spec", "fixtures", "dirlink"))
+    system("mkfifo", File.join(@root, "spec", "fixtures", "pipe"), exception: true)
+    store, = noisy_store
+    Timeout.timeout(5) { store.fetch([file]) }
+
+    files = Saboteur::Engine::CoverageInputsSnapshot.latest(File.join(@root, ".saboteur"), @root).fetch("files")
+    expect(files.slice("spec/fixtures/link", "spec/fixtures/dirlink", "spec/fixtures/pipe").values).to eq([false] * 3)
+  end
+
+  it "records the seed the map is built with, and hashes the suite's own test directory, not only spec/ (#46)" do
+    FileUtils.mkdir_p(File.join(@root, "test", "fixtures"))
+    File.write(File.join(@root, "test", "fixtures", "d.yml"), "a: 1\n")
+    FileUtils.mkdir_p(File.join(@root, "te[s]t*"))
+    File.write(File.join(@root, "te[s]t*", "b_test.rb"), "1\n")
+    File.write(File.join(@root, "te[s]t*", "rows.json"), "[]\n")
+    FileUtils.mkdir_p(File.join(@root, "tesst"))
+    File.write(File.join(@root, "tesst", "other.json"), "[]\n")
+    FileUtils.mkdir_p(File.join(@root, "test", "data"))
+    File.write(File.join(@root, "test", "data", "rows.json"), "[]\n")
+    File.write(File.join(@root, "test", "a_test.rb"), "1\n")
+    File.write(File.join(@root, "top_spec.rb"), "1\n")
+    File.write(File.join(@root, "stray.txt"), "not a test input\n")
+    allow(integration).to receive(:test_files).and_return(
+      [File.join(@root, "test", "a_test.rb"), File.join(@root, "top_spec.rb"), "/elsewhere/x_spec.rb",
+       File.join(@root, "te[s]t*", "b_test.rb")]
+    )
+    store, = noisy_store(seed: 7)
+    store.fetch([file])
+
+    snapshot = Saboteur::Engine::CoverageInputsSnapshot.latest(File.join(@root, ".saboteur"), @root)
+    expect(snapshot["seed"]).to eq(7)
+    expect(snapshot["files"].keys).to include("test/data/rows.json", "test/a_test.rb", "top_spec.rb")
+    expect(snapshot["files"].keys).to include("te[s]t*/rows.json")
+    expect(snapshot["files"].keys).not_to include("test/fixtures", "stray.txt", "tesst/other.json")
+    expect(snapshot["files"].keys.grep(%r{\A/})).to eq(["/elsewhere/x_spec.rb"])
+    expect(snapshot["files"].fetch("(test file outside the project root)")).to be(false)
+  end
+
+  it "hashes the test directory of a test file spelled through a symlinked root (#46)" do
+    FileUtils.mkdir_p(File.join(@root, "test", "data"))
+    File.write(File.join(@root, "test", "data", "rows.json"), "[]\n")
+    File.write(File.join(@root, "test", "a_test.rb"), "1\n")
+    link = "#{@root}-link"
+    File.symlink(@root, link)
+    allow(integration).to receive(:test_files).and_return([File.join(link, "test", "a_test.rb")])
+    config = Saboteur::Config.new({}, root: link)
+    linked = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                 supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(StringIO.new))
+    allow(linked).to receive(:build).and_return(map)
+    linked.fetch([file])
+
+    names = Saboteur::Engine::CoverageInputsSnapshot.latest(File.join(@root, ".saboteur"), @root).fetch("files").keys
+    expect(names).to include("test/data/rows.json")
+    expect(names).not_to include("(test file outside the project root)")
+  ensure
+    FileUtils.rm_f(link) if link
   end
 
   it "stays silent on a cache hit" do

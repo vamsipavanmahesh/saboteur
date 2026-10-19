@@ -25,12 +25,14 @@ module Saboteur
 
       # settings: whatever else is part of the cache key (config inputs, version).
       # map_key: the key the map about to be built is saved under.
+      # seed: the seed that build runs the specs with.
       # clean: turns one path into a line-safe string.
-      def initialize(cache_dir:, root:, files:, settings:, map_key:, clean:)
+      def initialize(cache_dir:, root:, files:, settings:, map_key:, seed:, clean:)
         @cache_dir = cache_dir
         @root = root
         @clean = clean
-        @current = CoverageInputsSnapshot.build(root: root, files: files, settings: settings, map_key: map_key)
+        @current = CoverageInputsSnapshot.build(root: root, files: files, settings: settings, map_key: map_key,
+                                                seed: seed)
       end
 
       def message(scoped:)

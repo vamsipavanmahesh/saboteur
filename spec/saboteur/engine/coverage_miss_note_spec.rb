@@ -22,7 +22,7 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
 
   def note(names, settings: "s1", clean: :itself.to_proc, key: "b" * 64)
     described_class.new(cache_dir: cache_dir, root: @root, files: names.map { |name| File.join(@root, name) },
-                        settings: settings, map_key: key, clean: clean)
+                        settings: settings, map_key: key, seed: 1, clean: clean)
   end
 
   # An earlier map under map_key, with its snapshot written the way the store does.
@@ -173,7 +173,7 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
     seed(%w[a.rb])
     File.write(File.join(@root, "a.rb"), "2\n")
     names = described_class.new(cache_dir: cache_dir, root: @root, files: [File.join(@root, "a.rb"), outside],
-                                settings: "s1", map_key: "b" * 64, clean: :itself.to_proc)
+                                settings: "s1", map_key: "b" * 64, seed: 1, clean: :itself.to_proc)
 
     expect(names.message(scoped: false)).to include("1 edited, 1 added (#{outside}, a.rb);")
   ensure
