@@ -290,7 +290,7 @@ jobs:
   ignore-audit:
     if: github.event_name == 'workflow_dispatch'
     runs-on: nscloud-ubuntu-24.04-amd64-4x8
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: read
       # The binding proof reads the pull request's head, base and head repo.
