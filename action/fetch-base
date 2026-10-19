@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Fetches the pull request's exact base commit and enough history to find the
+# merge base, authenticated with the workflow token, for a checkout made with
+# persist-credentials: false (#786). Best effort: it never fails the job, and
+# action/run-saboteur still checks everything and reports what is missing.
+#
+# This is a step of its own so the token lives only in this process, which has
+# exited before any test of the pull request runs. It is never written to a
+# file or to git's config, and never passed on a command line: git reads it
+# from the environment of each fetch alone.
+#
+#   SABOTEUR_FETCH_TOKEN     the github-token input; empty fetches without a header
+#   SABOTEUR_BASE_SHA        exact base commit from the event
+#   SABOTEUR_EVENT_NAME      pull_request or workflow_dispatch
+#   GITHUB_REF               refs/pull/<number>/merge on pull_request
+#   GITHUB_SERVER_URL        host the header is limited to (default https://github.com)
+set -uo pipefail
+
+token="${SABOTEUR_FETCH_TOKEN:-}"
+unset SABOTEUR_FETCH_TOKEN
+base_sha="${SABOTEUR_BASE_SHA:-}"
+event_name="${SABOTEUR_EVENT_NAME:-}"
+pull_ref="${GITHUB_REF:-}"
+server_url="${GITHUB_SERVER_URL:-}"
+server_url="${server_url:-https://github.com}"
+
+[[ "$base_sha" =~ ^[0-9a-fA-F]{40}$ ]] || exit 0
+if [ "$event_name" = "pull_request" ]; then
+  [[ "$pull_ref" =~ ^refs/pull/[0-9]+/merge$ ]] || exit 0
+fi
+
+# The empty value first clears a header an earlier checkout step persisted for
+# the same host, so GitHub never gets two Authorization headers.
+authenticated_fetch() {
+  if [ -z "$token" ]; then
+    git fetch "$@"
+    return
+  fi
+  local key="http.${server_url%/}/.extraheader" header
+  header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$token" | base64 | tr -d '\n')"
+  GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0="$key" GIT_CONFIG_VALUE_0="" \
+    GIT_CONFIG_KEY_1="$key" GIT_CONFIG_VALUE_1="$header" git fetch "$@"
+}
+
+if ! git cat-file -e "$base_sha^{commit}" 2>/dev/null; then
+  authenticated_fetch --no-tags --depth=1 origin "$base_sha" || exit 0
+fi
+
+if [ "$event_name" = "pull_request" ]; then
+  attempt=0
+  until git merge-base "$base_sha" HEAD >/dev/null 2>&1; do
+    [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ] || exit 0
+    [ "$attempt" -lt 20 ] || exit 0
+    authenticated_fetch --no-tags --deepen=100 origin "$pull_ref" || exit 0
+    attempt=$((attempt + 1))
+  done
+fi
+exit 0
