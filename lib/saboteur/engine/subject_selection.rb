@@ -269,10 +269,10 @@ module Saboteur
         path = file.delete_prefix("#{@root}/")
         listed = reasons.first(2).join(", ")
         listed += ", and #{reasons.size - 2} more" if reasons.size > 2
-        @diagnostics.warn("--since: constant subject(s) in #{path} are not mutated: the file runs code at " \
-                          "load (#{listed}) that every constant mutant would run again, and saboteur " \
-                          "cannot vet what re-running it does. List the constant in c.whole_file to " \
-                          "replay the file anyway, or move the literal into its own file. " \
+        @diagnostics.warn("#{path}: list the constant in c.whole_file to replay it anyway, or move the " \
+                          "literal into its own file\n  --since: constant subject(s) in this file are not " \
+                          "mutated: it runs code at load (#{listed}) that every constant mutant would run " \
+                          "again, and saboteur cannot vet what re-running it does. " \
                           "#{whole_file_id_hint(rest)}")
         opted_in
       end
@@ -304,8 +304,8 @@ module Saboteur
         @config["whole_file"].each do |pattern|
           next if subjects.any? { |subject| File.fnmatch?(pattern.to_s, subject.id) }
 
-          @diagnostics.warn("--since: whole_file pattern \"#{pattern}\" matches no discovered " \
-                            "subject in this run; subject ids look like RULES, A::B::C or A::B#m")
+          @diagnostics.warn("fix the whole_file entry \"#{pattern}\": it matches no discovered subject in " \
+                            "this run (subject ids look like RULES, A::B::C or A::B#m)")
         end
       end
 
@@ -443,10 +443,10 @@ module Saboteur
         return if hits.empty?
 
         names = Text.name_list(hits.sort.map { |file| file.delete_prefix("#{@root}/") })
-        @diagnostics.warn("--since: #{hits.size} changed Ruby file(s) are covered by c.include but removed by " \
-                          "c.exclude, so nothing is mutated from them: #{names}. Narrow or remove the " \
-                          "c.exclude entry, or pass the file as a positional source operand (configured " \
-                          "excludes are then ignored).")
+        @diagnostics.warn("narrow or remove the c.exclude entry, or pass the file as a positional source " \
+                          "operand: #{hits.size} changed Ruby file(s) are covered by c.include but removed " \
+                          "by c.exclude\n  --since: nothing is mutated from them: #{names} (configured " \
+                          "excludes are then ignored)")
       end
 
       # Ruby files an include pattern and an exclude pattern both match,
