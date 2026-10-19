@@ -24,14 +24,15 @@ module Saboteur
     # The pair is written map first, snapshot last, through a temp file and a
     # rename, so a snapshot never names a map that is not on disk.
     module CoverageInputsSnapshot
-      FORMAT = 1
+      FORMAT = 2
       PREFIX = "inputs-"
       MAX_BYTES = 8 * 1024 * 1024
       MAX_FILES = 100_000
       MAX_PATH = 4096
       MAX_CANDIDATES = 20
       HEX = /\A[0-9a-f]{64}\z/
-      KEYS = %w[files format map_digest map_key root runtime settings].freeze
+      MAX_SEED = (2**32) - 1
+      KEYS = %w[files format map_digest map_key root runtime seed settings].freeze
 
       module_function
 
@@ -43,10 +44,11 @@ module Saboteur
         File.join(cache_dir, "coverage-#{map_key}.json")
       end
 
-      # The snapshot of the inputs now; map_digest is filled in by #write.
-      def build(root:, files:, settings:, map_key:)
+      # The snapshot of the inputs now; map_digest is filled in by #write. The
+      # seed is the one the map's spec run used: a partial rerun must reuse it.
+      def build(root:, files:, settings:, map_key:, seed:)
         { "format" => FORMAT, "map_key" => map_key, "map_digest" => nil, "root" => digest_of(root),
-          "runtime" => runtime_digest, "settings" => digest_of(settings.to_s),
+          "runtime" => runtime_digest, "seed" => seed, "settings" => digest_of(settings.to_s),
           "files" => files.to_h { |file| [relative(root, file), file_digest(file)] } }
       end
 
@@ -99,6 +101,7 @@ module Saboteur
       def valid?(data, file, cache_dir, root)
         return false unless data.is_a?(Hash) && data.keys.sort == KEYS && data["format"] == FORMAT
         return false unless %w[runtime settings map_digest].all? { |key| hex?(data[key]) }
+        return false unless data["seed"].is_a?(Integer) && data["seed"].between?(0, MAX_SEED)
         return false unless data["root"] == digest_of(root)
         # The key becomes a path only after this: a name with a separator can never equal a basename.
         return false unless File.basename(file) == "#{PREFIX}#{data['map_key']}.json"
@@ -126,8 +129,10 @@ module Saboteur
         file.delete_prefix("#{root}/")
       end
 
+      # Only a regular file is read: a symlink, FIFO or device is false, the
+      # same as a missing file, so it never reads outside the tree or blocks.
       def file_digest(file)
-        File.file?(file) && Digest::SHA256.file(file).hexdigest
+        File.lstat(file).file? && Digest::SHA256.file(file).hexdigest
       rescue SystemCallError
         false
       end

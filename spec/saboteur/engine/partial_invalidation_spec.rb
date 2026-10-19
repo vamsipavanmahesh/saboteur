@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "tmpdir"
+require "fileutils"
+
 RSpec.describe Saboteur::Engine::PartialInvalidation do
   let(:root) { "/proj" }
   let(:a_src) { "/proj/lib/a.rb" }
@@ -65,6 +68,15 @@ RSpec.describe Saboteur::Engine::PartialInvalidation do
     expect(stale("spec/fixtures/data.yml" => "9" * 64)).to eq(:full)
   end
 
+  it "goes full when a fixture beside a test directory other than spec/ changed" do
+    snap = { "files" => { "test/fixtures/d.yml" => "1" * 64, "test/a_test.rb" => "2" * 64 } }
+    inv = described_class.new(map: map, root: root, included: [], spec_files: %w[test/a_test.rb])
+    full = base.merge(snap)
+    expect(inv.stale_specs(full,
+                           full.merge("files" => { "test/fixtures/d.yml" => "9" * 64, "test/a_test.rb" => "2" * 64 })))
+      .to eq(:full)
+  end
+
   it "goes full when a shared support file changed" do
     expect(stale("spec/spec_helper.rb" => "9" * 64)).to eq(:full)
   end
@@ -77,14 +89,28 @@ RSpec.describe Saboteur::Engine::PartialInvalidation do
   end
 
   it "goes full when a changed source file is not in the include set" do
-    inv = described_class.new(map: map, root: root, included: %w[lib/b.rb], spec_files: %w[spec/x_spec.rb])
+    inv = described_class.new(map: map, root: root, included: %w[lib/b.rb],
+                              spec_files: %w[spec/x_spec.rb spec/z_spec.rb])
     expect(inv.stale_specs(base, current("lib/a.rb" => "9" * 64))).to eq(:full)
+  end
+
+  context "when a covering test id does not name a spec file of the suite" do
+    let(:lines) { { a_src => { 1 => %w[./spec/z_spec.rb[1:1] shared_examples:42] } } }
+
+    it("goes full") { expect(stale("lib/a.rb" => "9" * 64)).to eq(:full) }
   end
 
   context "when the changed source ran while the app loaded" do
     let(:extra) { { load_lines: { a_src => [1] } } }
 
     it("goes full") { expect(stale("lib/a.rb" => "9" * 64)).to eq(:full) }
+  end
+
+  context "when the changed source has line entries but no test behind any of them" do
+    let(:lines) { { a_src => { 1 => [], 2 => [] } } }
+    let(:extra) { { methods: { a_src => { 1 => [] } } } }
+
+    it("has no evidence, so goes full") { expect(stale("lib/a.rb" => "9" * 64)).to eq(:full) }
   end
 
   context "when the changed source has an empty load-lines entry" do
@@ -196,6 +222,36 @@ RSpec.describe Saboteur::Engine::PartialInvalidation do
     it "goes full when no duration was recorded" do
       durations.clear
       expect(stale("spec/x_spec.rb" => "9" * 64)).to eq(:full)
+    end
+  end
+
+  context "when the project root is spelled through a symlink" do
+    around do |example|
+      Dir.mktmpdir do |dir|
+        @real = File.realpath(dir)
+        FileUtils.mkdir_p(File.join(@real, "lib"))
+        File.write(File.join(@real, "lib", "a.rb"), "1\n")
+        File.symlink(@real, File.join(@real, "..", "link-#{File.basename(@real)}"))
+        @link = File.join(File.dirname(@real), "link-#{File.basename(@real)}")
+        example.run
+      ensure
+        FileUtils.rm_f(@link) if @link
+      end
+    end
+
+    let(:invalidation) do
+      described_class.new(map: map, root: @link, included: %w[lib/a.rb], spec_files: %w[spec/x_spec.rb spec/z_spec.rb])
+    end
+    let(:a_src) { File.join(@real, "lib", "a.rb") }
+
+    it "matches the map's real paths" do
+      expect(stale("lib/a.rb" => "9" * 64)).to eq(%w[spec/z_spec.rb spec/x_spec.rb])
+    end
+
+    context "when the file was loaded before coverage started" do
+      let(:extra) { { preloaded: [File.join(@real, "lib", "a.rb")] } }
+
+      it("goes full through the symlinked spelling") { expect(stale("lib/a.rb" => "9" * 64)).to eq(:full) }
     end
   end
 end

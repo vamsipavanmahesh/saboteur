@@ -25,9 +25,14 @@ module Saboteur
 
       # included: relative paths of the included source files.
       # spec_files: relative paths of the suite's spec files.
+      # RSpec ids name their file: "./spec/a_spec.rb[1:2]" is spec/a_spec.rb.
+      def self.spec_of(id)
+        id.split("[").first.delete_prefix("./")
+      end
+
       def initialize(map:, root:, included:, spec_files:)
         @map = map
-        @root = root
+        @root = Selection::CoverageMap.canonical(root)
         @included = included
         @spec_files = spec_files
       end
@@ -62,13 +67,13 @@ module Saboteur
         return [file] if @spec_files.include?(file)
         return nil unless @included.include?(file) && evidence?(File.join(@root, file))
 
-        touching(File.join(@root, file))
+        touching(File.join(@root, file)).then { |specs| specs if specs.all? { |spec| @spec_files.include?(spec) } }
       end
 
       def evidence?(path)
-        [@map.lines, @map.methods].any? { |hits| hits[path]&.any? } &&
+        [@map.lines, @map.methods].any? { |hits| (hits[path] || {}).values.any?(&:any?) } &&
           [@map.load_lines, @map.load_methods].none? { |hits| hits[path]&.any? } &&
-          !@map.preloaded.include?(path)
+          !@map.preloaded?(path)
       end
 
       def touching(path)
@@ -77,7 +82,7 @@ module Saboteur
       end
 
       def spec_of(id)
-        id.split("[").first.delete_prefix("./")
+        self.class.spec_of(id)
       end
 
       def ordered(stale)
