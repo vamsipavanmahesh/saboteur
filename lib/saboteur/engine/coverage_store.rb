@@ -99,9 +99,19 @@ module Saboteur
       end
 
       def miss_note(files)
-        CoverageMissNote.new(cache_dir: @config.path("cache_dir"), root: @root, files: key_files(files).sort,
+        CoverageMissNote.new(cache_dir: @config.path("cache_dir"), root: @root, files: snapshot_files(files),
                              settings: key_inputs, map_key: cache_key(files),
                              clean: ->(path) { plain_line(Text.utf8(path.to_s)) })
+      end
+
+      # What the inputs snapshot hashes: the cache key's files plus every file
+      # under spec/, fixtures and config included. A partial rebuild (#46)
+      # must see a change to anything a test can read, not only to what the
+      # key covers. The cache dir is left out so the pair never hashes itself.
+      def snapshot_files(files)
+        cache = File.join(File.expand_path(@config.path("cache_dir")), "")
+        tree = Dir.glob("spec/**/*", File::FNM_DOTMATCH, base: @root).map { |name| File.join(@root, name) }
+        (key_files(files) | tree.select { |file| File.file?(file) && !File.expand_path(file).start_with?(cache) }).sort
       end
 
       def lockfiles
