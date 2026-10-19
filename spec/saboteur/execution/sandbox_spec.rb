@@ -195,7 +195,12 @@ RSpec.describe Saboteur::Execution::Sandbox do
     # Every fd the suite holds before the example opens its fixtures: stdio and
     # rspec's own report file (--out). The sweep must not close those. The
     # listing's own dir handle is dropped: its number is reused by fixtures.
-    let!(:suite_fds) { Dir.open("/proc/self/fd") { |dir| dir.children.map(&:to_i) - [dir.fileno] } }
+    # /proc/self/fd is Linux-only (the examples skip elsewhere), so macOS gets [].
+    let!(:suite_fds) do
+      next [] unless described_class.linux?
+
+      Dir.open("/proc/self/fd") { |dir| dir.children.map(&:to_i) - [dir.fileno] }
+    end
 
     it "closes inherited writable regular files outside the granted dirs before restricting" do
       skip "needs /proc/self/fd" unless described_class.linux?
