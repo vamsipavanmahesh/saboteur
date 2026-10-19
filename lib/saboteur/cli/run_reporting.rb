@@ -82,7 +82,8 @@ module Saboteur
         path = config.path("json_report")
         return unless path
 
-        Reporter::Stryker.new(path).call(report, exit_cause: cause)
+        Reporter::Stryker.new(path).call(report, exit_cause: cause,
+                                                 score_gates: gates.score_gate_breakdowns(report))
         path
       rescue SystemCallError, IOError => e
         if config.explicit?("json_report")

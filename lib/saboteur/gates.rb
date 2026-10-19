@@ -60,59 +60,152 @@ module Saboteur
       !@limits.fetch("max_errors").nil?
     end
 
-    # Prints each failed gate to err and remembers the first one's cause for the JSON report.
-    def failed?(report, err)
-      vacuous_gates(report).each { |note| err.puts("saboteur: #{note}") }
+    # Prints the gate notes and each failed gate to err. The first
+    # violation's cause is recorded for the JSON report unless the caller
+    # already has a cause that must win (record_cause: false).
+    def failed?(report, err, record_cause: true)
+      overlap_notes(report).each { |note| err.puts("saboteur: #{note}") }
       found = violations(report)
       found.each { |violation| err.puts("saboteur: #{violation.message}") }
-      @cause = found.first&.cause
-      !@cause.nil?
+      @cause = found.first&.cause if record_cause
+      found.any?
     end
 
     def violations(report)
       SETTINGS.filter_map do |key, (status, cause, flag)|
         limit = @limits.fetch(key)
+        next if limit.nil?
+
         count = report.counts.fetch(status)
-        next if limit.nil? || !over?(count, limit, report.executed.size)
+        next unless over?(count, limit, report.executed.size)
 
         Violation.new(cause: cause, message: "#{count} #{status} mutants, above #{flag} #{limit}")
       end + score_gate_violations(report)
     end
 
+    # A machine-readable summary per score gate for the JSON report: the
+    # floor, the mutants scoring under it, its score and pass/fail state,
+    # the failing subjects and the matched files. nil without score gates.
+    def score_gate_breakdowns(report)
+      return if @score_gates.empty?
+
+      assignment = gate_assignment(report)
+      @score_gates.each_with_index.map do |gate, index|
+        scored = assignment.fetch(index)
+        verdict = gate_verdict(gate, scored)
+        { pattern: gate["pattern"], minScore: gate["min_score"], mutants: scored.size, tested: verdict[:tested],
+          score: verdict[:score]&.round(1), passed: verdict[:passed],
+          failingSubjects: failing_subjects(scored), files: gate_files(scored, report) }
+      end
+    end
+
     private
 
-    # Per-path gates (#473): each gate scores the results whose subject file
-    # (root-relative) matches its pattern, with the run's own Score formula,
-    # and fails under its floor.
+    # Per-path gates (#473): each gate scores the results assigned to it by
+    # gate_matching, with the run's own Score formula, and fails under its
+    # floor. The failure line names the matched files (at most three, then
+    # a count) and the failing subject count.
     def score_gate_violations(report)
-      @score_gates.filter_map do |gate|
-        scored = score_gate_subset(gate, report)
-        breakdown = Score.of(scored)
-        next if breakdown.tested.zero?
+      assignment = gate_assignment(report)
+      @score_gates.each_with_index.filter_map do |gate, index|
+        scored = assignment.fetch(index)
+        verdict = gate_verdict(gate, scored)
+        next if verdict[:passed]
 
-        score = breakdown.value * 100
-        next if score >= gate["min_score"]
-
-        Violation.new(cause: "scoreGate",
-                      message: "score gate #{gate['pattern']}: score #{format('%.1f', score)} below " \
-                               "#{gate['min_score']} (#{scored.size} mutants under it)")
+        files = gate_files(scored, report)
+        listed = files.first(3).join(", ")
+        listed += ", +#{files.size - 3} more" if files.size > 3
+        message = "score gate #{gate['pattern']}: score #{format('%.1f', verdict[:score])} "
+        message += "below #{gate['min_score']} (#{scored.size} mutant(s) under it, "
+        message += "#{failing_subjects(scored)} failing subject(s), #{files.size} matched file(s): #{listed})"
+        Violation.new(cause: "scoreGate", message:)
       end
     end
 
-    # A gate with nothing executed under it passes vacuously and says so.
-    def vacuous_gates(report)
-      @score_gates.filter_map do |gate|
-        breakdown = Score.of(score_gate_subset(gate, report))
-        "score gate #{gate['pattern']}: nothing executed under it, passing vacuously" if breakdown.tested.zero?
+    # A gate that lost subjects to a more specific gate says so once per
+    # subject, even on a passing run. Only a gate that matched nothing at
+    # all is vacuous; a fully shadowed gate reads as overlapped instead.
+    def overlap_notes(report)
+      matched, assignment = gate_matching(report)
+      @score_gates.each_with_index.filter_map do |gate, index|
+        lost = (matched[index] - assignment.fetch(index)).map(&:subject).uniq.size
+        if lost.positive?
+          next "score gate #{gate['pattern']}: #{lost} subject(s) also match a more specific gate and score there"
+        end
+
+        next if Score.of(assignment.fetch(index)).tested.positive?
+
+        # A gate that matched mutants but tested none of them (errors,
+        # timeouts, skips) passes just as vacuously as one that matched
+        # nothing; say so either way, unless a more specific gate shadows it.
+        if matched[index].empty?
+          "score gate #{gate['pattern']}: nothing executed under it, passing vacuously"
+        else
+          "score gate #{gate['pattern']}: no mutant(s) tested under it, passing vacuously"
+        end
       end
     end
 
-    def score_gate_subset(gate, report)
+    # One verdict per gate, shared by the console violation and the JSON
+    # breakdown: both judge the unrounded score, so a 79.96 against an 80
+    # floor fails in both places. The one-decimal score in the JSON is
+    # display-only. A gate with nothing tested passes vacuously, score nil.
+    def gate_verdict(gate, scored)
+      breakdown = Score.of(scored)
+      return { tested: 0, passed: true } if breakdown.tested.zero?
+
+      raw = breakdown.value * 100
+      { tested: breakdown.tested, score: raw, passed: raw >= gate["min_score"] }
+    end
+
+    # Each result scores under the single most specific matching gate: more
+    # literal (non-glob) pattern characters win, ties keep the earlier config
+    # entry (min_by returns the first minimum), so overlapping floors never
+    # double-count a mutant. Returns the per-gate matched and assigned lists.
+    def gate_matching(report)
+      matched = @score_gates.map { [] }
+      assignment = @score_gates.map { [] }
+      if @score_gates.any?
+        each_relative_result(report).each do |relative, result|
+          candidates = @score_gates.each_with_index.select { |gate, _index| gate_matches?(gate, relative) }
+          candidates.each { |candidate| matched[candidate[1]] << result }
+          winner = candidates.min_by { |gate, _index| -specificity(gate["pattern"]) }
+          assignment[winner[1]] << result if winner
+        end
+      end
+      [matched, assignment]
+    end
+
+    def gate_assignment(report)
+      gate_matching(report)[1]
+    end
+
+    # [relative path, result] pairs; the caller consumes the array, so the
+    # build cannot be swapped for a side-effect-only walk.
+    def each_relative_result(report)
       prefix = File.join(File.realpath(report.root), "")
-      report.results.select do |result|
-        relative = result.subject.file.delete_prefix(prefix)
-        File.fnmatch?(gate["pattern"], relative, File::FNM_PATHNAME | File::FNM_EXTGLOB)
-      end
+      report.results.map { |result| [result.subject.file.delete_prefix(prefix), result] }
+    end
+
+    def gate_matches?(gate, relative)
+      File.fnmatch?(gate["pattern"], relative, File::FNM_PATHNAME | File::FNM_EXTGLOB)
+    end
+
+    # Literal characters pin a gate to its files; glob metacharacters do
+    # not, and a {a,b} brace group counts once rather than per alternative,
+    # so the exact lib/saboteur/gates.rb outranks lib/saboteur/{gates,config}.rb.
+    def specificity(pattern)
+      pattern.gsub(/\{[^{}]*\}/, "x").gsub(/[*?\[\]\\]/, "").length
+    end
+
+    def gate_files(scored, report)
+      prefix = File.join(File.realpath(report.root), "")
+      scored.map { |result| result.subject.file.delete_prefix(prefix) }.uniq.sort
+    end
+
+    # A subject fails a gate when at least one of its mutants survived.
+    def failing_subjects(scored)
+      scored.select { |result| result.status == :survived }.map(&:subject).uniq.size
     end
 
     def over?(count, limit, executed)

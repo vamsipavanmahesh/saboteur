@@ -271,6 +271,18 @@ RSpec.describe Saboteur::Reporter::Stryker do
       )
     end
 
+    it "records the per-gate breakdown when the CLI supplies one (#473)" do
+      breakdown = [{ pattern: "app/payments/**/*", minScore: 95, mutants: 2, tested: 2, score: 50.0,
+                     passed: false, failingSubjects: 1, files: ["app/payments/charge.rb"] }]
+      document = JSON.parse(JSON.generate(described_class.build(report, score_gates: breakdown)))
+      expect(document.fetch("saboteur").fetch("scoreGates")).to eq(JSON.parse(JSON.generate(breakdown)))
+    end
+
+    it "omits the per-gate breakdown when no score gates are configured" do
+      document = JSON.parse(JSON.generate(described_class.build(report)))
+      expect(document.fetch("saboteur")).not_to have_key("scoreGates")
+    end
+
     it "passes the CLI's exit cause through the instance call into the written file" do
       Dir.mktmpdir do |dir|
         path = File.join(dir, "out", "report.json")

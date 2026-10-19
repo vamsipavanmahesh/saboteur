@@ -14,11 +14,9 @@ module Saboteur
       end
 
       # The crash log lives with the other run state. A broken config (or a
-      # nil cache_dir) must not swallow the crash report itself, so fall
-      # back to no log.
+      # nil cache_dir) must not swallow the crash report itself: no log.
       def crash_log_path
-        dir = config.path("cache_dir")
-        dir && File.join(dir, CrashReport::LOG_NAME)
+        config.path("cache_dir")&.then { |dir| File.join(dir, CrashReport::LOG_NAME) }
       rescue StandardError
         nil
       end
@@ -34,7 +32,8 @@ module Saboteur
 
         return EXIT_TOOL if incomplete_under_threshold?(report)
 
-        failed_quality_gate?(report) || gates.failed?(report, @err) ? EXIT_SURVIVORS : EXIT_OK
+        quality_failed = failed_quality_gate?(report)
+        gates.failed?(report, @err, record_cause: !quality_failed) || quality_failed ? EXIT_SURVIVORS : EXIT_OK
       end
 
       # A spent --max-duration budget exits 4 on its own, before the gates:
