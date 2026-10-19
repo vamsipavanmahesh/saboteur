@@ -98,6 +98,28 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
     expect(Dir.children(@cache)).to eq(["coverage-#{key}.json"])
   end
 
+  it "writes through a private 0600 temp file and never follows a planted link at its name (#471)" do
+    File.write(described_class.map_path(@cache, key), "{}")
+    data = described_class.build(root: @root, files: [], settings: "s", map_key: key, seed: 1)
+    victim = File.join(@root, "victim")
+    File.write(victim, "keep")
+    allow(SecureRandom).to receive(:hex).with(8).and_return("feedface")
+    File.symlink(victim, "#{target}.feedface.tmp")
+
+    described_class.write(@cache, data)
+    expect(File.read(victim)).to eq("keep")
+    expect(File.exist?(target)).to be(false)
+
+    FileUtils.rm_f("#{target}.feedface.tmp")
+    modes = []
+    allow(File).to receive(:rename).and_wrap_original do |original, from, to|
+      modes << (File.stat(from).mode & 0o777)
+      original.call(from, to)
+    end
+    described_class.write(@cache, data)
+    expect(modes).to eq([0o600])
+  end
+
   it "opens without following links or blocking, and reads at most the cap plus one byte" do
     stored
     opened = []

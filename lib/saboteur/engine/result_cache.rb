@@ -4,6 +4,7 @@
 require "digest"
 require "fileutils"
 require "json"
+require "securerandom"
 require_relative "../text"
 
 module Saboteur
@@ -85,9 +86,10 @@ module Saboteur
       # rename removes the temp file and raises.
       def save
         FileUtils.mkdir_p(File.dirname(@path))
-        temp = "#{@path}.#{Process.pid}.tmp"
+        temp = "#{@path}.#{SecureRandom.hex(8)}.tmp"
         begin
-          File.write(temp, JSON.generate(format: FORMAT, entries: @entries))
+          # "wx": a planted file or symlink at the temp name is never followed.
+          File.open(temp, "wx", 0o600) { |out| out.write(JSON.generate(format: FORMAT, entries: @entries)) }
           File.rename(temp, @path)
         rescue StandardError
           FileUtils.rm_f(temp)

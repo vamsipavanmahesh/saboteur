@@ -540,15 +540,35 @@ RSpec.describe Saboteur::Engine::ResultCache do
 
     it "removes the temp file when the write itself fails, then re-raises" do
       stored
-      allow(File).to receive(:write).and_wrap_original do |original, target, *rest|
-        original.call(target, "partial")
-        raise Errno::ENOSPC if target.to_s.end_with?(".tmp")
+      allow(File).to receive(:open).and_wrap_original do |original, target, *rest, &block|
+        next original.call(target, *rest, &block) unless target.to_s.end_with?(".tmp")
 
-        original.call(target, *rest)
+        original.call(target, *rest) { |io| io.write("partial") }
+        raise Errno::ENOSPC
       end
 
       expect { cache.tap { |store| store.record(killed) }.save }.to raise_error(Errno::ENOSPC)
       expect(Dir.children(File.dirname(path))).to eq(["results.json"])
+    end
+
+    it "writes through a private 0600 temp file and never follows a planted link at its name (#471)" do
+      stored
+      victim = File.join(@root, "victim")
+      File.write(victim, "keep")
+      allow(SecureRandom).to receive(:hex).with(8).and_return("feedface")
+      File.symlink(victim, "#{path}.feedface.tmp")
+
+      expect { cache.tap { |store| store.record(killed) }.save }.to raise_error(Errno::EEXIST)
+      expect(File.read(victim)).to eq("keep")
+
+      FileUtils.rm_f("#{path}.feedface.tmp")
+      modes = []
+      allow(File).to receive(:rename).and_wrap_original do |original, from, to|
+        modes << (File.stat(from).mode & 0o777)
+        original.call(from, to)
+      end
+      cache.tap { |store| store.record(killed) }.save
+      expect(modes).to eq([0o600])
     end
 
     it "does not abort a run when a checkpoint save fails, and tries again one interval later" do
@@ -594,7 +614,7 @@ RSpec.describe Saboteur::Engine::ResultCache do
       allow(File).to receive(:rename).and_call_original
       ticking.save
 
-      expect(File).to have_received(:rename).with("#{path}.#{Process.pid}.tmp", path)
+      expect(File).to have_received(:rename).with(a_string_matching(/\A#{Regexp.escape(path)}\.\h{16}\.tmp\z/), path)
       expect(Dir.children(File.dirname(path))).to eq(["results.json"])
     end
   end

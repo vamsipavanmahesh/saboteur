@@ -212,7 +212,8 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
       allow(File).to receive(:rename).and_call_original
       note(["a.rb"], key: map_key).save
 
-      expect(File).to have_received(:rename).with("#{snapshot}.#{Process.pid}.tmp", snapshot)
+      expect(File).to have_received(:rename)
+        .with(a_string_matching(/\A#{Regexp.escape(snapshot)}\.\h{16}\.tmp\z/), snapshot)
       expect(Dir.children(cache_dir).sort).to eq(["coverage-#{map_key}.json", "inputs-#{map_key}.json"])
     end
 
@@ -220,8 +221,8 @@ RSpec.describe Saboteur::Engine::CoverageMissNote do
       write("a.rb")
       FileUtils.mkdir_p(cache_dir)
       File.write(File.join(cache_dir, "coverage-#{map_key}.json"), "{}")
-      allow(File).to receive(:write).and_call_original
-      allow(File).to receive(:write).with(/\.tmp\z/, anything).and_raise(Errno::ENOSPC)
+      allow(File).to receive(:open).and_call_original
+      allow(File).to receive(:open).with(/\.tmp\z/, "wx", 0o600).and_raise(Errno::ENOSPC)
 
       expect { note(["a.rb"], key: map_key).save }.not_to raise_error
       expect(File.exist?(snapshot)).to be(false)

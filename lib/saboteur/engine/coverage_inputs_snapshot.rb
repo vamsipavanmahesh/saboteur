@@ -4,6 +4,7 @@
 require "digest"
 require "fileutils"
 require "json"
+require "securerandom"
 require_relative "../text"
 
 module Saboteur
@@ -63,9 +64,9 @@ module Saboteur
         map_digest = file_digest(map_path(cache_dir, data["map_key"]))
         return unless map_digest
 
-        temp = "#{target}.#{Process.pid}.tmp"
+        temp = "#{target}.#{SecureRandom.hex(8)}.tmp"
         begin
-          File.write(temp, JSON.generate(data.merge("map_digest" => map_digest)))
+          File.open(temp, "wx", 0o600) { |out| out.write(JSON.generate(data.merge("map_digest" => map_digest))) }
           File.rename(temp, target)
         ensure
           FileUtils.rm_f(temp)
