@@ -7,6 +7,11 @@ require "tmpdir"
 require "timeout"
 
 RSpec.describe Saboteur::Execution::WorkerPool do
+  # A leftover live entry is a pool leak: name the example that left it.
+  after do
+    expect(Saboteur::Execution::Supervisor.live).to be_empty
+  end
+
   def monotonic
     Process.clock_gettime(Process::CLOCK_MONOTONIC)
   end
@@ -239,6 +244,50 @@ RSpec.describe Saboteur::Execution::WorkerPool do
     expect(seen.map { |r| r["inherited"] }).to eq([false, false])
   ensure
     Saboteur::Execution::Supervisor.live.delete(999_999)
+  end
+
+  # Fault injection for the CI live-registry leak: when the process table is
+  # blind (both backends down, as in #762), stop's kill_all raises. That raise
+  # must not escape stop: it would abort distribute's ensure loop mid-way,
+  # leaving every later worker registered in Supervisor.live, and it would
+  # mask the run's real error with the sweep's.
+  it "unregisters every worker and keeps the real error when a cleanup sweep hits a blind table" do
+    allow(Saboteur::Execution::ProcessTable).to receive(:snapshot).and_raise(Errno::EIO, "table blind")
+    pool = described_class.new(jobs: 2, on_result: ->(_item, _row) { raise "report io failed" })
+    expect { pool.map(%w[a b]) { |item| { "ok" => item } } }.to raise_error("report io failed")
+    expect(Saboteur::Execution::Supervisor.live).to be_empty
+  end
+
+  # A wedged worker must still die when the orphan sweep is blind: stop's
+  # wait2 has no timeout, so kill_all was the only thing ending it. The
+  # direct kill keeps stop inside its deadline, and the run's own error
+  # still wins over the sweep's.
+  it "kills a wedged worker directly when the sweep goes blind, inside the deadline" do
+    dir = Dir.mktmpdir
+    on_start = ->(number) { File.write(File.join(dir, "worker-#{number}.pid"), Process.pid) }
+    allow(Saboteur::Execution::ProcessTable).to receive(:snapshot).and_raise(Errno::EIO, "table blind")
+    pool = described_class.new(jobs: 2, on_start: on_start, on_result: ->(_item, _row) { raise "report io failed" })
+    started = monotonic
+    expect do
+      pool.map(%w[fast slow]) do |item|
+        sleep 60 if item == "slow"
+        { "ok" => item }
+      end
+    end.to raise_error("report io failed")
+    expect(monotonic - started).to be < 20
+    wedged = File.read(File.join(dir, "worker-1.pid")).to_i
+    expect(wedged).to be_positive
+    expect { Process.kill(0, wedged) }.to raise_error(Errno::ESRCH)
+    expect(Saboteur::Execution::Supervisor.live).to be_empty
+  ensure
+    FileUtils.remove_entry(dir)
+  end
+
+  # A blind sweep on an otherwise clean map loses orphaned grandchildren:
+  # the run must say so instead of reading clean (#762 fail-closed).
+  it "surfaces a blind-sweep error after an otherwise clean map" do
+    allow(Saboteur::Execution::ProcessTable).to receive(:snapshot).and_raise(Errno::EIO, "table blind")
+    expect { described_class.new(jobs: 2).map([1, 2]) { |n| { "n" => n } } }.to raise_error(Errno::EIO, /table blind/)
   end
 
   it "turns an unreadable result into an error for that item" do
