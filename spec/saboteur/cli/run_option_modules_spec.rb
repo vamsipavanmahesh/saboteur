@@ -67,3 +67,93 @@ RSpec.describe "run option modules (#334)" do
     expect(positions).to eq(positions.sort)
   end
 end
+
+# Parsing pins: every extracted flag keeps its name, declared arity and exact
+# effect on the options hash, so argument_removal/argument_swap mutants inside
+# the opts.on blocks cannot survive (#334, #754 pattern).
+RSpec.describe "run option modules parsing (#334)" do
+  def parse_run(*argv)
+    cli = Saboteur::CLI.new(["run"])
+    cli.parser.parse!(argv)
+    cli
+  end
+
+  it "sets no run options by default" do
+    expect(parse_run.options).to eq({})
+  end
+
+  it "parses the execution flags with their declared arity" do
+    cli = parse_run("--timeout-factor", "2.5", "--jobs", "4", "--config", "cfg.yml",
+                    "--integration", "rspec", "--reeval", "nesting")
+    expect(cli.options).to eq(timeout_factor: 2.5, jobs: 4, config: "cfg.yml",
+                              integration: "rspec", reeval: "nesting")
+  end
+
+  it "parses the toggle flags to their exact booleans" do
+    cli = parse_run("--no-cache", "--allow-hazardous", "--fail-fast", "--incremental",
+                    "--allow-focus", "--all")
+    expect(cli.options).to eq(cache: false, allow_hazardous: true, fail_fast: true,
+                              incremental: true, allow_focus: true, all: true)
+  end
+
+  it "parses --test-command and --[no-]guess-tests" do
+    expect(parse_run("--test-command", "bin/test").options).to eq(test_command: "bin/test")
+    expect(parse_run("--guess-tests").options).to eq(guess_tests: true)
+    expect(parse_run("--no-guess-tests").options).to eq(guess_tests: false)
+  end
+
+  it "collects repeated --test paths and parses --threshold as a Float" do
+    expect(parse_run("--test", "a_spec.rb", "--test", "b_spec.rb").options)
+      .to eq(tests: ["a_spec.rb", "b_spec.rb"])
+    expect(parse_run("--threshold", "75.5").options).to eq(threshold: 75.5)
+  end
+
+  it "keeps the score-gate flags wired through Gates.define_options" do
+    expect(parse_run("--max-timeouts", "3").options).to eq(max_timeouts: "3")
+    expect(parse_run("--max-errors", "5%").options).to eq(max_errors: "5%")
+  end
+
+  it "accepts exactly the two --reeval strategies" do
+    %w[class_eval nesting].each do |strategy|
+      expect(parse_run("--reeval", strategy).options).to eq(reeval: strategy)
+    end
+    expect { parse_run("--reeval", "bogus") }.to raise_error(OptionParser::ParseError)
+  end
+
+  it "parses --matrix" do
+    expect(parse_run("--matrix").options).to eq(matrix: true)
+  end
+
+  it "parses the report destination flags" do
+    cli = parse_run("--score-history", "h.jsonl", "--json", "r.json", "--html", "r.html")
+    expect(cli.options).to eq(score_history: "h.jsonl", json_report: "r.json", html_report: "r.html")
+  end
+
+  it "accepts exactly the three --format values" do
+    %w[text agent json].each do |fmt|
+      expect(parse_run("--format", fmt).instance_variable_get(:@format)).to eq(fmt)
+    end
+    expect { parse_run("--format", "yaml") }.to raise_error(OptionParser::ParseError)
+  end
+
+  it "parses --agent as --format agent" do
+    expect(parse_run("--agent").instance_variable_get(:@format)).to eq("agent")
+  end
+
+  it "parses --verbose into both the ivar and the option" do
+    cli = parse_run("--verbose")
+    expect(cli.instance_variable_get(:@verbose)).to be(true)
+    expect(cli.options).to eq(verbose: true)
+  end
+
+  it "parses --[no-]color into the color mode" do
+    expect(parse_run("--color").instance_variable_get(:@color)).to eq(:always)
+    expect(parse_run("--no-color").instance_variable_get(:@color)).to eq(:never)
+  end
+
+  it "keeps the --verbose crash-backtrace help line" do
+    out = StringIO.new
+    Saboteur::CLI.new(["run", "--help"], out:, err: StringIO.new).call
+    expect(out.string).to include("a crash prints its backtrace")
+  end
+end
