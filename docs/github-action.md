@@ -169,11 +169,10 @@ How it behaves:
 - It comments only on `pull_request` runs from the same repository. A fork's
   token is read-only, so the step prints a notice and does nothing. The step
   never fails the job: a refused or failed GitHub call becomes a warning.
-- The line a comment sits on is the first changed line of the mutated code in
-  the commit the job checked out, which for `pull_request` is GitHub's merge
-  commit. The comment is attached to the pull request's head commit. If the base
-  branch changed the same file after the pull request branched, those two can
-  differ, so check the annotation or the report when a comment looks off.
+- A comment sits on the first changed line of the mutated code, moved back to
+  the pull request's head commit when the base branch changed the file after the
+  pull request branched. A mutant whose line cannot be placed with certainty gets
+  no comment and is counted in the "more surviving mutants" summary.
 
 ## Failing on new survivors with a baseline
 

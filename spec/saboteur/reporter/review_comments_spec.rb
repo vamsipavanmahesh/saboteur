@@ -175,6 +175,35 @@ RSpec.describe Saboteur::Reporter::ReviewComments do
       expect(described_class.summary_comment?(nil)).to be(false)
     end
 
+    it "puts each comment on the line locate returns, and counts the findings it cannot place" do
+      found = %w[01 02 03].map { |n| finding("aabbccdd112233#{n}", line: n.to_i) }
+      locate = ->(one) { one["digest"].end_with?("02") ? nil : one["changedLines"].first + 100 }
+      plan = described_class.plan(findings(*found), locate: locate, limit: 5)
+
+      expect(plan.post.map { |c| [c[:digest][-2..], c[:line]] }).to eq([["01", 101], ["03", 103]])
+      expect(plan.summary).to eq("#{described_class::SUMMARY_MARKER}\n1 more surviving mutant not shown as comments.")
+    end
+
+    it "lets the next finding take the room of one locate refuses" do
+      found = %w[01 02].map { |n| finding("aabbccdd112233#{n}") }
+      plan = described_class.plan(found.then { |list| findings(*list) }, limit: 1,
+                                                                         locate: lambda { |one|
+                                                                           one["digest"].end_with?("01") ? nil : 9
+                                                                         })
+
+      expect(plan.post.map { |c| c[:digest][-2..] }).to eq(%w[02])
+      expect(plan.summary).to include("1 more surviving mutant not")
+    end
+
+    it "ignores a located line that is not a positive integer" do
+      [nil, 0, -2, "5", 5.0].each do |line|
+        plan = described_class.plan(findings(finding("aabbccdd11223344")), locate: ->(_one) { line })
+
+        expect(plan.post).to eq([])
+        expect(plan.summary).to include("1 more surviving mutant")
+      end
+    end
+
     it "accepts the limit as a string" do
       expect(described_class.plan(findings(finding("aabbccdd11223344")), limit: "1").post.size).to eq(1)
     end

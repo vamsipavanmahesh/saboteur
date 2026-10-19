@@ -65,6 +65,59 @@ def bot_owned(rows, login)
   rows.select { |row| row.dig("user", "login").to_s.casecmp?(login) }
 end
 
+def git(*)
+  out, status = Open3.capture2("git", "--literal-pathspecs", *, err: File::NULL)
+  status.success? ? out : nil
+end
+
+# The checkout is GitHub's merge commit for a pull request, but comments attach
+# to the pull request's head commit, so a line number has to be carried from
+# one to the other (#785). :same when the checkout is the head commit, :merge
+# when it merges it, nil when it is neither.
+def checkout_kind(head_sha)
+  return :same if git("rev-parse", "HEAD").to_s.strip == head_sha
+
+  parents = git("rev-list", "--parents", "-n", "1", "HEAD").to_s.split
+  :merge if parents.size == 3 && parents[2] == head_sha
+end
+
+HUNK = /^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/
+
+# The head-commit line of a merge-commit line: moved by the changes above it
+# that the base branch made, nil when the base changed the line itself.
+def shifted_line(path, line, head_sha)
+  diff = git("diff", "-U0", "--no-color", "--no-ext-diff", "--no-renames", head_sha, "HEAD", "--", path) or return
+  shift = diff.scan(HUNK).sum do |old_count, new_start, new_count|
+    new_start = new_start.to_i
+    old_count = (old_count || 1).to_i
+    new_count = (new_count || 1).to_i
+    return nil if new_count.positive? && line.between?(new_start, new_start + new_count - 1)
+
+    before = new_count.zero? ? new_start < line : new_start + new_count - 1 < line
+    before ? old_count - new_count : 0
+  end
+  line + shift
+end
+
+def line_text(rev, path, line)
+  git("show", "#{rev}:#{path}")&.lines&.at(line - 1)
+end
+
+# Where a comment for merge-commit line goes in the head commit, or nil when it
+# cannot be placed with certainty: the base changed the line, the checkout is
+# not the head or a merge of it, or the two commits disagree about the text.
+def head_line(path, line, head_sha)
+  return unless path.is_a?(String) && line.is_a?(Integer) && line.positive?
+
+  case checkout_kind(head_sha)
+  when :same then line
+  when :merge
+    mapped = shifted_line(path, line, head_sha)
+    text = line_text("HEAD", path, line)
+    mapped if mapped&.positive? && text && text == line_text(head_sha, path, mapped)
+  end
+end
+
 def post(repo, number, sha, comment)
   line = comment[:line]
   return warn_step("skipped a comment with no usable line") unless line.is_a?(Integer) && line.positive?
@@ -112,6 +165,10 @@ def apply(plan, env)
   end
 end
 
+def locator(head_sha)
+  ->(finding) { head_line(finding["path"], Array(finding["changedLines"]).first, head_sha) }
+end
+
 def run(env)
   report = eligible_report(env) or return
   repo = env.fetch("GITHUB_REPOSITORY")
@@ -121,7 +178,8 @@ def run(env)
   plan = ReviewComments.plan(report.dig("saboteur", "findings"), existing: existing,
                                                                  limit: env.fetch("SABOTEUR_MAX_COMMENTS", "10"),
                                                                  run_url: env["SABOTEUR_RUN_URL"],
-                                                                 complete: complete?(report))
+                                                                 complete: complete?(report),
+                                                                 locate: locator(env.fetch("SABOTEUR_HEAD_SHA")))
   apply(plan, env)
   sync_summary(repo, number, plan.summary, login, complete?(report))
   puts "saboteur review comments: #{plan.post.size} posted, #{plan.delete.size} removed"

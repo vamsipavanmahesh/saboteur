@@ -38,6 +38,53 @@ RSpec.describe "action/post-review-comments" do
     FileUtils.chmod(0o755, gh)
   end
 
+  let(:repo_dir) { File.join(dir, "checkout") }
+  let(:git_env) do
+    { "GIT_AUTHOR_NAME" => "t", "GIT_AUTHOR_EMAIL" => "t@example.com",
+      "GIT_COMMITTER_NAME" => "t", "GIT_COMMITTER_EMAIL" => "t@example.com" }
+  end
+
+  def git(*args)
+    out, status = Open3.capture2e(git_env, "git", *args, chdir: repo_dir)
+    raise out unless status.success?
+
+    out.strip
+  end
+
+  def commit_file(path, text)
+    FileUtils.mkdir_p(File.dirname(File.join(repo_dir, path)))
+    File.write(File.join(repo_dir, path), text)
+    git("add", ".")
+    git("commit", "-q", "-m", "change")
+    git("rev-parse", "HEAD")
+  end
+
+  def numbered(count)
+    (1..count).map { |n| "line #{n}\n" }.join
+  end
+
+  # A pull request head and a moved base, merged the way GitHub's merge ref is.
+  # Leaves the checkout on the merge commit and returns the head commit.
+  def merge_checkout(head_text:, base_text:, evil: nil)
+    FileUtils.mkdir_p(repo_dir)
+    git("init", "-q", "-b", "main")
+    root = commit_file("lib/a.rb", numbered(10))
+    git("checkout", "-q", "-b", "pr")
+    head = commit_file("lib/a.rb", head_text)
+    git("checkout", "-q", "-b", "merge", root)
+    commit_file("lib/a.rb", base_text)
+    git("merge", "-q", "--no-edit", "--no-commit", "pr")
+    path = File.join(repo_dir, "lib/a.rb")
+    File.write(path, evil.call(File.read(path))) if evil
+    git("add", ".")
+    git("commit", "-q", "-m", "merge")
+    head
+  end
+
+  def posted_lines
+    writes.map { |args| args.find { |arg| arg.start_with?("line=") } }
+  end
+
   def survivor(digest, line: 5, **extra)
     { "digest" => digest, "path" => "lib/a.rb", "operator" => "comparison", "original" => "a > b",
       "replacement" => "a >= b", "changedLines" => [line] }.merge(extra.transform_keys(&:to_s))
@@ -57,11 +104,20 @@ RSpec.describe "action/post-review-comments" do
 
   def run_script(report, **env)
     all = { "SABOTEUR_REPORT_PATH" => report, "SABOTEUR_EVENT_NAME" => "pull_request",
-            "SABOTEUR_PR_NUMBER" => "7", "SABOTEUR_HEAD_SHA" => "abc123",
+            "SABOTEUR_PR_NUMBER" => "7",
             "SABOTEUR_HEAD_REPO" => "o/r", "GITHUB_REPOSITORY" => "o/r",
             "SABOTEUR_GH" => File.join(dir, "gh") }.merge(env.transform_keys(&:to_s))
-    out, status = Open3.capture2e(all, RbConfig.ruby, script)
+    all["SABOTEUR_HEAD_SHA"] = checkout_head unless env.key?(:SABOTEUR_HEAD_SHA) || env.key?("SABOTEUR_HEAD_SHA")
+    out, status = Open3.capture2e(all, RbConfig.ruby, script, chdir: File.directory?(repo_dir) ? repo_dir : dir)
     [out, status]
+  end
+
+  def checkout_head
+    return git("rev-parse", "HEAD") if File.directory?(File.join(repo_dir, ".git"))
+
+    FileUtils.mkdir_p(repo_dir)
+    git("init", "-q", "-b", "main")
+    commit_file("lib/a.rb", numbered(20))
   end
 
   def api_calls
@@ -87,7 +143,8 @@ RSpec.describe "action/post-review-comments" do
     expect(out).to include("1 posted, 0 removed")
     post = writes.first
     expect(post.values_at(1, 2)).to eq(["-X", "POST"])
-    expect(post).to include("repos/o/r/pulls/7/comments", "commit_id=abc123", "path=lib/a.rb", "line=9", "side=RIGHT")
+    expect(post).to include("repos/o/r/pulls/7/comments", "commit_id=#{checkout_head}", "path=lib/a.rb", "line=9",
+                            "side=RIGHT")
     expect(post.find { |arg| arg.start_with?("body=") }).to include("saboteur:digest=aabbccdd11223344")
   end
 
@@ -285,5 +342,92 @@ RSpec.describe "action/post-review-comments" do
     expect(status).to be_success
     expect(out).to include("::warning::saboteur review comments: RuntimeError")
     expect(writes).to eq([])
+  end
+
+  describe "line numbers on a merge checkout" do
+    def edit(text, number, to)
+      text.sub("line #{number}\n", to)
+    end
+
+    def run_merged(head_text, base_text, line, evil: nil)
+      head = merge_checkout(head_text: head_text, base_text: base_text, evil: evil)
+      run_script(write_report([survivor("aabbccdd11223344", line: line)]), SABOTEUR_HEAD_SHA: head)
+    end
+
+    it "moves a line back to the head commit when the base added lines above it" do
+      out, = run_merged(edit(numbered(10), 7, "changed 7\n"), "base 1\nbase 2\n#{numbered(10)}", 9)
+
+      expect(out).to include("1 posted")
+      expect(posted_lines).to eq(["line=7"])
+    end
+
+    it "moves a line back when the base removed lines above it" do
+      out, = run_merged(edit(numbered(10), 9, "changed 9\n"), numbered(10).sub("line 2\nline 3\n", ""), 7)
+
+      expect(out).to include("1 posted")
+      expect(posted_lines).to eq(["line=9"])
+    end
+
+    it "moves the line right after an insertion, and not the line right before a deletion" do
+      head_text = edit(numbered(10), 9, "changed 9\n")
+      run_merged(head_text, "base 1\nbase 2\n#{numbered(10)}", 3)
+      expect(posted_lines).to eq(["line=1"])
+
+      FileUtils.remove_entry(repo_dir)
+      FileUtils.rm_f(calls)
+      run_merged(head_text, numbered(10).sub("line 4\nline 5\n", ""), 3)
+      expect(posted_lines).to eq(["line=3"])
+    end
+
+    it "does not shift a line for a base change of a single line above it" do
+      out, = run_merged(edit(numbered(10), 9, "changed 9\n"), edit(numbered(10), 2, "base 2\n"), 5)
+
+      expect(out).to include("1 posted")
+      expect(posted_lines).to eq(["line=5"])
+    end
+
+    it "posts nothing when the checkout merges more than the head commit" do
+      head = merge_checkout(head_text: edit(numbered(10), 9, "changed 9\n"),
+                            base_text: edit(numbered(10), 2, "base 2\n"))
+      git("checkout", "-q", "-b", "other", "main")
+      other = commit_file("lib/other.rb", "x\n")
+      git("checkout", "-q", "main")
+      commit_file("lib/main.rb", "y\n")
+      git("merge", "-q", "--no-edit", "pr", other)
+      out, = run_script(write_report([survivor("aabbccdd11223344", line: 5)]), SABOTEUR_HEAD_SHA: head)
+
+      expect(out).to include("0 posted")
+    end
+
+    it "keeps the line when the base only changed lines below it" do
+      out, = run_merged(edit(numbered(10), 3, "changed 3\n"), edit(numbered(10), 10, "base 10\n"), 3)
+
+      expect(out).to include("1 posted")
+      expect(posted_lines).to eq(["line=3"])
+    end
+
+    it "posts nothing and counts the finding when the base changed that line" do
+      out, = run_merged(edit(numbered(10), 9, "changed 9\n"), edit(numbered(10), 2, "base 2\n"), 2)
+
+      expect(out).to include("0 posted")
+      expect(writes.map { |args| args[2] }).to eq(["POST"])
+      expect(writes.first.find { |arg| arg.start_with?("body=") }).to include("1 more surviving mutant")
+    end
+
+    it "posts nothing for a checkout that is neither the head nor a merge of it" do
+      checkout_head
+      out, = run_script(write_report([survivor("aabbccdd11223344", line: 5)]), SABOTEUR_HEAD_SHA: "f" * 40)
+
+      expect(out).to include("0 posted")
+      expect(posted_lines.compact).to eq([])
+    end
+
+    it "posts nothing when the merge commit itself rewrote the line" do
+      out, = run_merged(edit(numbered(10), 9, "changed 9\n"), "base 1\n#{numbered(10)}", 5,
+                        evil: ->(text) { edit(text, 4, "resolved by hand\n") })
+
+      expect(out).to include("0 posted")
+      expect(posted_lines.compact).to eq([])
+    end
   end
 end
