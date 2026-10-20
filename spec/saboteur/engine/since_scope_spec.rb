@@ -67,11 +67,11 @@ RSpec.describe Saboteur::Engine, "test selection" do
   end
 
   def guess(specs:, unmatched:, changed:, subjectless: [], changed_specs: [], skipped_specs: {}, out_of_scope: [],
-            excluded: [], no_suite: nil)
+            excluded: [], no_suite: nil, referenced: {})
     hints = unmatched.to_h { |file| [file, "spec/#{File.basename(file, '.rb')}_spec.rb"] }
     result = Saboteur::Engine::TestGuess::Result.new(specs:, unmatched:, subjectless:, changed:, hints:,
                                                      changed_specs:, skipped_specs:, out_of_scope:, excluded:,
-                                                     no_suite:)
+                                                     no_suite:, referenced:)
     allow(Saboteur::Engine::TestGuess).to receive(:new).and_return(instance_double(Saboteur::Engine::TestGuess,
                                                                                    call: result, call_for: result))
   end
@@ -179,6 +179,16 @@ RSpec.describe Saboteur::Engine, "test selection" do
   end
 
   describe "inferred specs (the default)" do
+    it "carries the files chosen by reference from the guess into the report" do
+      chosen = { "lib/a.rb" => %w[spec/features/a_spec.rb] }
+      guess(specs: %w[spec/features/a_spec.rb], unmatched: [], changed: 1, referenced: chosen)
+      expect(run_engine("since" => "origin/main").referenced).to eq(chosen)
+    end
+
+    it "reports no referenced files when the run chose no specs from a guess" do
+      expect(run_engine("since" => "origin/main", "all" => true).referenced).to eq({})
+    end
+
     it "names the specs changed in the diff and the ones it deleted (#307)" do
       guess(specs: %w[spec/a_spec.rb spec/requests/a_spec.rb], unmatched: [], changed: 1,
             changed_specs: %w[spec/requests/a_spec.rb],

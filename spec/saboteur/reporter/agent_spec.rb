@@ -387,6 +387,22 @@ RSpec.describe Saboteur::Reporter::Agent do
                                   "--seed 7 -- lib/a.rb")
     end
 
+    it "lists the files chosen by reference: their count, the first three, each clipped" do
+      referenced = (1..5).to_h { |n| ["lib/#{n}#{'x' * 200}.rb", ["spec/s#{n}_spec.rb"]] }
+      payload = payload_for(report_of(result_for(:survived)), provenance: provenance_with(referenced: referenced))
+      listed = payload.dig(:provenance, :selection, :referenced)
+
+      expect(listed[:count]).to eq(5)
+      expect(listed[:first].map { |file| file[0, 5] }).to eq(%w[lib/1 lib/2 lib/3])
+      expect(listed[:first].map(&:size)).to all(eq(123))
+    end
+
+    it "lists no referenced files by default" do
+      payload = payload_for(report_of(result_for(:survived)))
+
+      expect(payload.dig(:provenance, :selection, :referenced)).to eq(count: 0, first: [])
+    end
+
     it "leaves out a command that would be longer than the limit and says so" do
       steps = next_commands(ref: "r" * 5_000)
       expect(steps).to include(rerun: nil, replay: nil)

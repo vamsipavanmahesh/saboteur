@@ -171,7 +171,7 @@ module Saboteur
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
                  operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
                  test_command: config["test_command"],
-                 shard: @shard, memory: @memory_report)
+                 shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {})
     end
 
     def complete_evidence(results, subjects)

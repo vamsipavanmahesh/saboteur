@@ -75,13 +75,17 @@ module Saboteur
               mode: provenance.mode, selection: selection_hash(provenance) }
           end
 
+          # referenced: files that got their specs by constant reference or
+          # require, not by name; a survivor there is read with that in mind.
           def selection_hash(provenance)
-            %i[subjects tests sources].to_h do |key|
-              list = provenance.public_send(key)
-              [key, { count: list.size, first: list.first(3).map { |entry| clip_value(entry, 120) } }]
-            end.merge(config: clip_value(provenance.config_path, 120), digest: provenance.digest,
-                      settings: provenance.settings.transform_values { |value| clip_value(value, 120) })
+            %i[subjects tests sources].to_h { |key| [key, listing(provenance.public_send(key))] }
+                                      .merge(referenced: listing(provenance.referenced.keys),
+                                             config: clip_value(provenance.config_path, 120),
+                                             digest: provenance.digest,
+                                             settings: provenance.settings.transform_values { |v| clip_value(v, 120) })
           end
+
+          def listing(list) = { count: list.size, first: list.first(3).map { |entry| clip_value(entry, 120) } }
 
           def findings(report, shown, snippet_limit)
             all = Findings.build(report)

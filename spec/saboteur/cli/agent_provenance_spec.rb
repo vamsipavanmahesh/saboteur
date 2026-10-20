@@ -84,7 +84,7 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
 
   it "fills every provenance field from the run, guessed tests winning over config tests" do
     command = run_with("Saboteur.configure { |c| c.tests = %w[from_config.rb] }")
-    report = double(seed: 7)
+    report = double(seed: 7, referenced: {})
     tree = instance_double("tree", head: "abc", label: "dirty", changed_files: %w[a.rb])
     engine = instance_double(Saboteur::Engine, guessed_tests: %w[from_engine.rb])
     prov = command.send(:agent_provenance, report, tree, engine)
@@ -98,10 +98,19 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
 
   it "falls back to the configured tests when no tests were guessed" do
     command = run_with("Saboteur.configure { |c| c.tests = %w[from_config.rb] }")
-    report = double(seed: 7)
+    report = double(seed: 7, referenced: {})
     tree = instance_double("tree", head: "abc", label: "dirty", changed_files: %w[a.rb])
     engine = instance_double(Saboteur::Engine, guessed_tests: nil)
     expect(command.send(:agent_provenance, report, tree, engine).tests).to eq(%w[from_config.rb])
+  end
+
+  it "carries the files chosen by reference from the report" do
+    command = run_with(empty_config)
+    report = double(seed: 7, referenced: { "lib/a.rb" => ["spec/x_spec.rb"] })
+    tree = double(head: "abc", label: "dirty", changed_files: [])
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+
+    expect(command.send(:agent_provenance, report, tree, engine).referenced).to eq("lib/a.rb" => ["spec/x_spec.rb"])
   end
 
   it "labels the mode from positional sources" do
@@ -124,7 +133,7 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
 
   it "carries the positional sources into the provenance record" do
     command = run_with(empty_config, "lib/foo.rb")
-    report = double(seed: 7)
+    report = double(seed: 7, referenced: {})
     tree = double(head: "abc", label: "dirty", changed_files: %w[a.rb])
     engine = instance_double(Saboteur::Engine, guessed_tests: nil)
     prov = command.send(:agent_provenance, report, tree, engine)

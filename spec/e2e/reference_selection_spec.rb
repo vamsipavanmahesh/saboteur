@@ -29,6 +29,20 @@ RSpec.describe "spec selection by constant reference", :e2e do
   it "carries the note in the agent payload too" do
     run = saboteur(project_with_reader, "lib/dry/inflector/acronyms.rb", "--agent")
 
-    expect(JSON.parse(run.out).fetch("warnings").join).to include("selected by constant reference or require")
+    payload = JSON.parse(run.out)
+    expect(payload.fetch("warnings").join).to include("selected by constant reference or require")
+  end
+
+  it "names the files chosen by reference in the agent selection record" do
+    run = saboteur(project_with_reader, "lib/dry/inflector/acronyms.rb", "--agent")
+
+    selection = JSON.parse(run.out).dig("provenance", "selection")
+    expect(selection.fetch("referenced")).to eq("count" => 1, "first" => ["lib/dry/inflector/acronyms.rb"])
+  end
+
+  it "records no referenced files when every file had a spec by name" do
+    run = saboteur(copy_fixture("inference_miss"), "--agent", "--test", "spec/unit/inflector/acronyms_spec.rb")
+
+    expect(JSON.parse(run.out).dig("provenance", "selection", "referenced")).to eq("count" => 0, "first" => [])
   end
 end
