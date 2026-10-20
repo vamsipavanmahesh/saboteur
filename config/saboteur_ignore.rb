@@ -1721,4 +1721,23 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "aca43ebc0c2b0b21",
              subject: "Saboteur::BaselineHealth#exit_detail",
              reason: "equivalent: exit_detail is only interpolated into the baseline failure message, and nil interpolates as the empty string"
+
+  i.mutation "a88dc20d74ab536f",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
+  i.mutation "9516052cab9409d5",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
+  i.mutation "6c28bf0f380a0c44",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
+  i.mutation "87ef9ef4ee7c0fb3",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
+  i.mutation "355e476e76941ff6",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
+  i.mutation "043ca90766f31ed6",
+             subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
 end
