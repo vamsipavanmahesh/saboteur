@@ -43,4 +43,92 @@ RSpec.describe Saboteur::CLI::ExplicitSources do
       expect { check("a_spec.rb[]") }.to raise_error(Saboteur::CLI::UsageError, "test file not found: a_spec.rb[]")
     end
   end
+
+  # Behavior pins (#841): the dogfood run selects this spec by name, so the
+  # operand methods are called here.
+  describe "source operands" do
+    let(:usage) { Saboteur::CLI::UsageError }
+
+    def cli(*argv) = Saboteur::CLI.new(argv)
+
+    around do |example|
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p("lib/sub")
+          FileUtils.touch(["lib/a.rb", "lib/sub/b.rb", "lib/notes.txt", "a_spec.rb", "lib/we[ir]d{1}*.rb"])
+          example.run
+        end
+      end
+    end
+
+    describe "#source_pattern" do
+      it "turns a directory into a recursive Ruby glob, with or without a trailing slash" do
+        expect(cli.send(:source_pattern, "lib")).to eq("lib/**/*.rb")
+        expect(cli.send(:source_pattern, "lib/")).to eq("lib/**/*.rb")
+      end
+
+      it "matches a named file only by itself" do
+        expect(cli.send(:source_pattern, "lib/a.rb")).to eq("lib/a.rb")
+        expect(cli.send(:source_pattern, "lib/we[ir]d{1}*.rb")).to eq("lib/we\\[ir\\]d\\{1\\}\\*.rb")
+      end
+
+      it "refuses a file that is not Ruby" do
+        expect { cli.send(:source_pattern, "lib/notes.txt") }
+          .to raise_error(usage, "source is not a Ruby file: lib/notes.txt")
+      end
+
+      it "refuses a path that does not exist" do
+        expect { cli.send(:source_pattern, "lib/missing.rb") }
+          .to raise_error(usage, "source file not found: lib/missing.rb")
+        expect { cli.send(:source_pattern, "missing.txt") }
+          .to raise_error(usage, "source file not found: missing.txt")
+      end
+    end
+
+    describe "#glob_escape" do
+      it "escapes every glob metacharacter and leaves other text alone" do
+        expect(cli.send(:glob_escape, "a\\b*c?d[e]f{g}h-i/j.rb")).to eq("a\\\\b\\*c\\?d\\[e\\]f\\{g\\}h-i/j.rb")
+      end
+    end
+
+    describe "#use_explicit_sources" do
+      it "replaces include and exclude with the operands and remembers them" do
+        run = cli("lib/a.rb", "lib")
+        run.send(:options).merge!(exclude: ["x"])
+
+        run.send(:use_explicit_sources)
+
+        expect(run.send(:options)).to include(include: ["lib/a.rb", "lib/**/*.rb"], exclude: [])
+        expect(run.instance_variable_get(:@sources)).to eq(["lib/a.rb", "lib"])
+      end
+
+      it "leaves the configured scope alone when no operand is named" do
+        run = cli
+        run.send(:options).merge!(tests: ["a_spec.rb"])
+
+        run.send(:use_explicit_sources)
+
+        expect(run.send(:options)).to eq(tests: ["a_spec.rb"])
+        expect(run.instance_variable_get(:@sources)).to be_nil
+      end
+
+      it "requires every --test file to exist, before looking at the operands" do
+        run = cli("lib/a.rb")
+        run.send(:options).merge!(tests: ["a_spec.rb", "gone_spec.rb:3"])
+
+        expect { run.send(:use_explicit_sources) }.to raise_error(usage, "test file not found: gone_spec.rb:3")
+        expect(run.send(:options)).not_to have_key(:include)
+      end
+
+      it "refuses a spec file given as a source operand" do
+        expect { cli("lib/a.rb", "a_spec.rb").send(:use_explicit_sources) }
+          .to raise_error(Saboteur::ConfigError, /spec files are not mutated.*a_spec\.rb/)
+      end
+
+      it "refuses an operand that does not exist" do
+        expect { cli("lib/missing.rb").send(:use_explicit_sources) }
+          .to raise_error(usage, "source file not found: lib/missing.rb")
+      end
+    end
+  end
 end
