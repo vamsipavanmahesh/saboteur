@@ -32,6 +32,7 @@ require_relative "cli/run_validation"
 require_relative "cli/explicit_sources"
 require_relative "cli/run_output"
 require_relative "cli/dirty_tree_notice"
+require_relative "cli/run_command"
 
 module Saboteur
   class CLI
@@ -58,6 +59,7 @@ module Saboteur
     include ExplicitSources
     include RunOutput
     include DirtyTreeNotice
+    include RunCommand
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -123,8 +125,6 @@ module Saboteur
 
     private
 
-    def run_command = help_requested? ? show_help("run") : run
-
     def history_entry(command) = help_requested? ? show_help(command) : history_command(command)
 
     def usage_error(message = nil)
@@ -141,25 +141,6 @@ module Saboteur
     def agent_failure(message, exit_code)
       @out.print(Reporter::Agent.render(Reporter::Agent.failure(message, exit_code))) if agent?
       exit_code
-    end
-
-    def run
-      parser.parse!(@argv)
-      reject_test_selection_conflicts
-      use_explicit_sources
-      validate_run_options
-      warn_dirty_tree
-
-      config.deprecation_warnings.each { |warning| @err.puts("saboteur: #{warning}") }
-
-      return preview if options[:list_operators] || options[:dry_run]
-
-      refuse_empty_source_set
-      execute_run
-    rescue ConfigError => e
-      report_failure(e, EXIT_USAGE)
-    rescue Error => e
-      report_failure(e, EXIT_TOOL)
     end
 
     # Error messages interpolate repository-controlled names, so each line is
