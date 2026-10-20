@@ -102,15 +102,18 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
     end
   end
 
+  # The probe lives in a temp project, never the repo's own lib/: other specs
+  # (and parallel coverage parts) glob the real lib/ and would see it.
   it "watches loaded files reached through a symlinked root (#353)" do
-    run = engine
-    root = run.instance_variable_get(:@root)
-    probe = File.join(root, "lib", "symlink_probe_353.rb")
-    File.write(probe, "# probe
-")
     Dir.mktmpdir do |dir|
+      root = File.realpath(dir)
+      FileUtils.mkdir_p(File.join(root, "lib"))
+      probe = File.join(root, "lib", "symlink_probe_353.rb")
+      File.write(probe, "# probe\n")
       link = File.join(dir, "link")
       File.symlink(root, link)
+      run = described_class.new(Saboteur::Config.new({ "incremental" => true, "all" => true }, root: root),
+                                err: StringIO.new)
       through_link = File.join(link, "lib", "symlink_probe_353.rb")
       $LOADED_FEATURES << through_link
       begin
@@ -119,8 +122,6 @@ RSpec.describe Saboteur::Engine, "replay wiring" do
         $LOADED_FEATURES.delete(through_link)
       end
     end
-  ensure
-    FileUtils.rm_f(probe)
   end
 
   # The root itself can arrive in a spelling its realpath does not share
