@@ -12,6 +12,33 @@ RSpec.describe Saboteur::Help do
   let(:help) { described_class.new(option_lines: cli.option_lines) }
   let(:overview) { help.overview }
 
+  describe "exact layout" do
+    let(:commands) { described_class::COMMANDS }
+    let(:name_width) { commands.map { |command| command.name.length }.max }
+
+    it "opens with the title and closes with the documentation link on their own lines" do
+      expect(overview).to start_with("saboteur #{Saboteur::VERSION} - #{described_class::PURPOSE}\n\nUSAGE\n")
+      expect(overview).to end_with("\n\nDocumentation: #{described_class::DOCUMENTATION}\n")
+    end
+
+    it "pads every command name to the longest one and ends the section with a blank line" do
+      rows = commands.map { |command| "  #{command.name.ljust(name_width)}  #{command.summary}" }
+      expect(overview).to include("\nCOMMANDS\n#{rows.join("\n")}\n\nOPTIONS (saboteur run)\n")
+    end
+
+    it "pads every file path to the longest one, one row per line, before the documentation link" do
+      width = described_class::FILES.map { |path, _| path.length }.max
+      rows = described_class::FILES.map { |path, meaning| "  #{path.ljust(width)}  #{meaning}" }
+      expect(overview).to include("\nFILES\n#{rows.join("\n")}\n\nDocumentation: ")
+    end
+
+    it "separates the config intro, the settings and the files section with newlines" do
+      intro = "Every setting with its default value, as a Ruby assignment. Unknown settings are an error."
+      rows = Saboteur::Config::DEFAULTS.map { |key, value| "  c.#{key} = #{value.inspect}" }
+      expect(overview).to include("\nCONFIG FILE (config/saboteur.rb)\n#{intro}\n#{rows.join("\n")}\n\nFILES\n")
+    end
+  end
+
   it "has the sections an agent looks for, in a fixed order" do
     headers = overview.lines.grep(/\A[A-Z][A-Z ]+( \(.*\))?\n\z/).map(&:strip)
     expect(headers).to eq(["USAGE", "COMMANDS", "OPTIONS (saboteur run)", "OPTIONS (saboteur pr)",
