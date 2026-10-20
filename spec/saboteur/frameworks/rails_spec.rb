@@ -289,6 +289,15 @@ RSpec.describe Saboteur::Frameworks::Rails, skip: sqlite3_missing do
       end
     end
 
+    it "closes the sqlite handle after the block, also when the block raises" do
+      database = double("database", close: nil)
+      allow(SQLite3::Database).to receive(:new).and_return(database)
+      expect(rails.send(:with_sqlite, "x.db") { :yielded }).to eq(:yielded)
+      expect(database).to have_received(:close).once
+      expect { rails.send(:with_sqlite, "x.db") { raise "boom" } }.to raise_error("boom")
+      expect(database).to have_received(:close).twice
+    end
+
     # Without finish the backup handle is never released; pin that the
     # copy ends through it.
     it "finishes the backup after stepping every page" do

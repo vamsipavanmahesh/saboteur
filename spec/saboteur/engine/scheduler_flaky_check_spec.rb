@@ -41,6 +41,16 @@ RSpec.describe Saboteur::Engine::Scheduler, "flaky check (#476)" do
     end
   end
 
+  it "stops confirming a truncation once the check ends, also when the check raises" do
+    plan = double("plan", subject: subject_under_test)
+    target = scheduler("off")
+    target.send(:checked, plan, [], truncated: true)
+    expect(target.instance_variable_get(:@confirming_truncation)).to be(false)
+    allow(Saboteur::Engine::VerdictCheck).to receive(:new).and_raise("boom")
+    expect { target.send(:checked, plan, [], truncated: true) }.to raise_error("boom")
+    expect(target.instance_variable_get(:@confirming_truncation)).to be(false)
+  end
+
   it "is off by default: a survivor gets no confirmation run" do
     mutants = candidates.for(subject_under_test)
     calls = schedule(Array.new(mutants.size) { outcome(:survived) }, mode: "off")
