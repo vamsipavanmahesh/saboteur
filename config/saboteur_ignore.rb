@@ -1995,4 +1995,67 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: the line is reached only after the return unless edits.size == 1, so " \
                      "edits.first and edits.last are the same edit - hand-applied mutant leaves " \
                      "reporter specs green"
+
+  # engine/bytecode_equivalence.rb, diagnostics.rb and sandbox_policy.rb. Hand-applied together:
+  # spec/saboteur/engine stays green (1755 examples).
+  i.mutation "b775b9b2e058b4a9",
+             subject: "Saboteur::Engine::BytecodeEquivalence#equivalent?",
+             reason: "equivalent: exact? answers the same with its two sides swapped, since every " \
+                     "branch tests the class of one side against the other and eql? is symmetric - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "50b1a7631fd4ea4b",
+             subject: "Saboteur::Engine::BytecodeEquivalence#exact?",
+             reason: "equivalent: exact? answers the same with its two sides swapped, since every " \
+                     "branch tests the class of one side against the other and eql? is symmetric - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "a648f8079d776bf3",
+             subject: "Saboteur::Engine::BytecodeEquivalence#exact?",
+             reason: "equivalent: exact? answers the same with its two sides swapped, since every " \
+                     "branch tests the class of one side against the other and eql? is symmetric - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "2604081d86a74d6d",
+             subject: "Saboteur::Engine::BytecodeEquivalence#strip_positions",
+             reason: "equivalent: major, minor, format, name and type are the same for the original " \
+                     "and every mutant (one Ruby, one compile, and no operator renames or retypes a " \
+                     "method), so leaving one out of the fingerprint changes no comparison - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "0e710ac5f6f07f48",
+             subject: "Saboteur::Engine::BytecodeEquivalence#strip_positions",
+             reason: "equivalent: major, minor, format, name and type are the same for the original " \
+                     "and every mutant (one Ruby, one compile, and no operator renames or retypes a " \
+                     "method), so leaving one out of the fingerprint changes no comparison - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "1e0ddbdc8b0765c0",
+             subject: "Saboteur::Engine::BytecodeEquivalence#strip_positions",
+             reason: "equivalent: major, minor, format, name and type are the same for the original " \
+                     "and every mutant (one Ruby, one compile, and no operator renames or retypes a " \
+                     "method), so leaving one out of the fingerprint changes no comparison - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "b900a7a48b9e2861",
+             subject: "Saboteur::Engine::BytecodeEquivalence#strip_positions",
+             reason: "equivalent: major, minor, format, name and type are the same for the original " \
+                     "and every mutant (one Ruby, one compile, and no operator renames or retypes a " \
+                     "method), so leaving one out of the fingerprint changes no comparison - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "7e1131923f5b3e68",
+             subject: "Saboteur::Engine::BytecodeEquivalence#strip_positions",
+             reason: "equivalent: major, minor, format, name and type are the same for the original " \
+                     "and every mutant (one Ruby, one compile, and no operator renames or retypes a " \
+                     "method), so leaving one out of the fingerprint changes no comparison - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "dfd095dfa1de939c",
+             subject: "Saboteur::Engine::Diagnostics::ProgressHeartbeat#progress_note",
+             reason: "equivalent: the only call site interpolates the value into a string, where nil " \
+                     "renders as an empty string, so return nil instead of an empty string changes " \
+                     "no output - hand-applied mutant leaves engine specs green"
+  i.mutation "0357a8e512c4e7e4",
+             subject: "Saboteur::Engine::Diagnostics#eta_text",
+             reason: "equivalent: the only call site interpolates the value into a string, where nil " \
+                     "renders as an empty string, so return nil instead of an empty string changes " \
+                     "no output - hand-applied mutant leaves engine specs green"
+  i.mutation "727586f907bcd190",
+             subject: "Saboteur::Engine::SandboxPolicy#check_sandbox_write_set",
+             reason: "equivalent: the each over the user grants only warns and its value is " \
+                     "discarded by the last statement of a method whose result is not used, so map " \
+                     "builds an unused array - hand-applied mutant leaves engine specs green"
 end
