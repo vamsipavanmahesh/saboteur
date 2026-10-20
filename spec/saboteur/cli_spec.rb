@@ -1315,6 +1315,12 @@ RSpec.describe Saboteur::CLI, "details" do
     expect(Saboteur::Config.new(command.options.transform_keys(&:to_s))["allow_focus"]).to be(true)
   end
 
+  it "leaves the argument list its caller passed unconsumed" do
+    argv = %w[run --help]
+    Saboteur::CLI.new(argv, out: out, err: StringIO.new).call
+    expect(argv).to eq(%w[run --help])
+  end
+
   it "describes --exclude-operators in run help" do
     Saboteur::CLI.new(%w[run --help], out: out, err: StringIO.new).call
     expect(out.string).to include("--exclude-operators NAMES", "Exclude operator names from the selected set")

@@ -49,6 +49,12 @@ RSpec.describe Saboteur::Config do
     expect(described_class.load(root: @root).root).to eq(@root)
   end
 
+  it "hands out a copy of its values from to_h" do
+    config = described_class.load(root: @root)
+    config.to_h["jobs"] = 99
+    expect(config.to_h["jobs"]).to eq(1)
+  end
+
   it "uses defaults without a config file" do
     config = described_class.load(root: @root)
     expect(config.to_h.values_at("integration", "timeout_factor", "timeout_min", "jobs", "reeval"))
