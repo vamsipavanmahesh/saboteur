@@ -18,6 +18,7 @@ module Saboteur
       def report_unmapped(guess)
         @diagnostics.inform(guess.subjectless_message(since: config["since"])) if guess.subjectless.any?
         inform_skipped_specs(guess)
+        @diagnostics.announce(guess.referenced_message) if guess.referenced.any?
         stop_or_warn_unmapped(guess)
       end
 

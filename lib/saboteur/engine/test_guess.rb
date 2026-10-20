@@ -57,9 +57,10 @@ module Saboteur
       # in specs; skipped_specs: spec files the diff touches that cannot run,
       # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
-                           :skipped_specs, :out_of_scope, :excluded, :near, :no_suite, :without_map_entry) do
+                           :skipped_specs, :out_of_scope, :excluded, :near, :no_suite, :without_map_entry,
+                           :referenced) do
         def initialize(changed_specs: [], skipped_specs: {}, out_of_scope: [], excluded: [], near: {},
-                       no_suite: nil, without_map_entry: [], **fields)
+                       no_suite: nil, without_map_entry: [], referenced: {}, **fields)
           super
         end
 
@@ -96,6 +97,14 @@ module Saboteur
         end
 
         public
+
+        # The files that had no spec by name and got the specs that read
+        # their constants instead (#725 replaces the guess once a map exists).
+        def referenced_message
+          named = referenced.map { |file, specs| "#{file} (#{specs.join(', ')})" }
+          "inferred specs: selected by constant reference, not by name: #{named.join(', ')}; " \
+            "a spec that reaches the file another way is not found"
+        end
 
         # The spec files the diff touched that do not run, with the reasons.
         def skipped_message
@@ -275,18 +284,26 @@ module Saboteur
         inferred = guesses.values.grep(Array).flatten
         diff = diff_specs(inferred, guesses)
         unmatched -= covered_by_changed_specs(unmatched, diff[:run])
-        Result.new(specs: (inferred + diff[:run]).uniq.sort,
+        unmatched, referenced = split_referenced(unmatched)
+        Result.new(specs: (inferred + diff[:run] + referenced.values.flatten).uniq.sort,
+                   referenced: referenced,
                    unmatched: unmatched,
                    without_map_entry: without_map_entry(unmatched),
                    subjectless: subjectless,
                    changed: changed,
-                   hints: unmatched.to_h { |file| [file, expected_spec(file, diff[:skipped])] },
-                   near: unmatched.to_h { |file| [file, nearby_specs(file)] },
+                   **stop_details(unmatched, diff[:skipped]),
                    changed_specs: diff[:run],
                    skipped_specs: diff[:skipped],
                    out_of_scope: out_of_scope,
                    excluded: excluded,
                    no_suite: NoSuiteStop.layout(@root, unmatched, subject_run))
+      end
+
+      # What the stop names for each unmatched file: the spec it expected and
+      # the same-named specs elsewhere.
+      def stop_details(unmatched, skipped)
+        { hints: unmatched.to_h { |file| [file, expected_spec(file, skipped)] },
+          near: unmatched.to_h { |file| [file, nearby_specs(file)] } }
       end
 
       # Changed Ruby files the include scope hides (#483), relative to the
@@ -332,6 +349,22 @@ module Saboteur
         unmatched.select do |file|
           defined_constants(file).any? { |constant| ConstantReads.across(specs, constant).any? }
         end
+      end
+
+      # Cold start, no map: the specs that read a constant an unmatched file
+      # defines (#538 matching). Only files that would stop the run today; a
+      # same-basename spec elsewhere means the user has a spec in mind and
+      # the choice is ambiguous: that stop stays, it names the candidates (#658).
+      def split_referenced(unmatched)
+        referenced = reference_specs(unmatched)
+        [unmatched - referenced.keys, referenced]
+      end
+
+      def reference_specs(unmatched)
+        unmatched = unmatched.select { |file| nearby_specs(file).empty? }
+        return {} if unmatched.empty? || suite_files.nil?
+
+        ReferenceSpecs.new(@root, method(:defined_constants)).call(unmatched, suite_files.select { |path| spec?(path) })
       end
 
       # The constants a file defines: owners of its def subjects
