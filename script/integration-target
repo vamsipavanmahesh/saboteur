@@ -15,7 +15,9 @@
 # compared (script/integration-recorders). A target's patch (a file under
 # integration/patches) is applied to its checkout after the pinned commit is
 # checked out, and its env (a map in integration/targets.yml) is passed to
-# every command.
+# every command. gemfile names a Gemfile other than the checkout's own (an
+# Appraisal gemfile, say); the wrapper takes its file name, because some
+# suites (paper_trail) check BUNDLE_GEMFILE against it.
 #
 # WORKDIR/NAME is the script's own checkout: it is reset to the pinned commit
 # and cleaned (ignored files too) on every run, then written to by the
@@ -71,9 +73,9 @@ sh("git", "clean", "-fdxq", chdir: checkout)
 sh("git", "apply", File.join(ROOT, target["patch"]), chdir: checkout) if target["patch"]
 
 FileUtils.mkdir_p(bundle_dir)
-gemfile = File.join(bundle_dir, "Gemfile")
+gemfile = File.join(bundle_dir, File.basename(target.fetch("gemfile", "Gemfile")))
 File.write(gemfile, <<~RUBY)
-  eval_gemfile #{File.join(checkout, 'Gemfile').inspect}
+  eval_gemfile #{File.join(checkout, target.fetch('gemfile', 'Gemfile')).inspect}
   gem "saboteur", path: #{ROOT.inspect}
 RUBY
 
