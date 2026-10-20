@@ -21,6 +21,7 @@ require_relative "interpolation_removal"
 require_relative "jump_value"
 require_relative "regex_replacement"
 require_relative "rescue_removal"
+require_relative "when_removal"
 
 module Saboteur
   module MutationSource
@@ -76,7 +77,8 @@ module Saboteur
       DELEGATED = [
         FilterReplacement, LiteralReplacement, ArgumentRemoval, PairRemoval, ElementRemoval, ChainRemoval,
         EndpointReplacement, RangeReplacement, OperatorAssignment, ConditionNegation, MethodSwap,
-        OperandReplacement, InterpolationRemoval, RegexReplacement, ArgumentSwap, JumpValue, RescueRemoval
+        OperandReplacement, InterpolationRemoval, RegexReplacement, ArgumentSwap, JumpValue, RescueRemoval,
+        WhenRemoval
       ].freeze
 
       def initialize(arid: DEFAULT_ARID, operators: [], exclude_operators: [])
