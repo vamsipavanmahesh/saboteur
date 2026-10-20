@@ -1707,4 +1707,14 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "132600e011983d58",
              subject: "Saboteur::Reporter::TestMatrix#tally",
              reason: "equivalent: the key half of each @killed entry is never read (redundant? ignores it with _key), only the count of other killers is"
+
+  i.mutation "7761b06158843cf0",
+             subject: "Saboteur::ConfigFile#load",
+             reason: "equivalent: NoMethodError#name is always a Symbol and Symbol#end_with? exists, so dropping to_s leaves the check unchanged"
+  i.mutation "2d4981c342dfb549",
+             subject: "Saboteur::CustomMap#duplicate_keys",
+             reason: "equivalent: every counted key was incremented at least once from a default of 0, so count != 1 and count > 1 select the same keys"
+  i.mutation "96e60c0014af780d",
+             subject: "Saboteur::CustomMap#glob_entry",
+             reason: "equivalent: the check before it raises unless best.size is 1, so first and last are the same element"
 end
