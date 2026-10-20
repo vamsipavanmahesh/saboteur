@@ -20,100 +20,85 @@ RSpec.describe Saboteur::Execution::Sandbox do
   # The probe only runs on Linux (linux? gate); stub the platform so these
   # examples exercise it on macOS and BSD too (stub the predicate abi_version consults).
   context "probing the kernel as on Linux" do
+    let(:probe) { double("probe") }
+
     before do
       allow(described_class).to receive(:linux?).and_return(true)
-      # abi_version pre-builds the errno reader; stub it so these examples
-      # stay platform-independent (the real build needs a glibc symbol).
-      allow(described_class::LibC).to receive(:errno_location_fn).and_return(double("errno_location"))
+      # Stub the libc function so these examples stay platform-independent
+      # (the real build needs a glibc symbol).
+      allow(described_class::LibC).to receive(:probe_fn).and_return(probe)
+      reset_abi_memo
+    end
+
+    after { reset_abi_memo }
+
+    def fail_probe_with(errno)
+      allow(probe).to receive(:call).and_return(-1)
+      allow(Fiddle).to receive(:last_error).and_return(errno)
     end
 
     it "probes the kernel ABI with the create-ruleset version flag" do
-      syscall = double("syscall", call: 2)
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
-      allow(described_class).to receive(:last_errno).and_return(0)
-      reset_abi_memo
+      allow(probe).to receive(:call).and_return(2)
+      allow(Fiddle).to receive(:last_error).and_return(0)
       expect(described_class.abi_version).to eq(2)
-      expect(syscall).to have_received(:call).with(444, 0, 0, 1, 0)
-      reset_abi_memo
+      expect(probe).to have_received(:call).with(444, 0, 0, 1, 0).once
     end
 
     it "reports ABI 0 when the kernel has no Landlock (ENOSYS)" do
-      syscall = double("syscall", call: -1)
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
-      allow(described_class).to receive(:last_errno).and_return(Errno::ENOSYS::Errno)
-      reset_abi_memo
+      fail_probe_with(Errno::ENOSYS::Errno)
       expect(described_class.abi_version).to eq(0)
       expect(described_class.available?).to be(false)
-      # A real errno answers the probe: the retry is only for the clobbered
-      # (failure, errno 0) pair, so the kernel is asked exactly once.
-      expect(syscall).to have_received(:call).once
-      reset_abi_memo
+      expect(probe).to have_received(:call).once
     end
 
     it "reports ABI 0 when the kernel has Landlock disabled (EOPNOTSUPP)" do
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
-      allow(described_class).to receive(:last_errno).and_return(Errno::EOPNOTSUPP::Errno)
-      reset_abi_memo
+      fail_probe_with(Errno::EOPNOTSUPP::Errno)
       expect(described_class.abi_version).to eq(0)
-      reset_abi_memo
     end
 
-    it "fails closed when the probe errors for any other reason (EPERM under seccomp)" do
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(double("syscall", call: -1))
-      allow(described_class).to receive(:last_errno).and_return(Errno::EPERM::Errno)
-      reset_abi_memo
-      expect { described_class.abi_version }.to raise_error(SystemCallError, /landlock_create_ruleset probe/)
-      reset_abi_memo
+    it "fails closed on any other errno (EPERM under seccomp), naming the errno and the kernel" do
+      fail_probe_with(Errno::EPERM::Errno)
+      allow(File).to receive(:read).with("/proc/sys/kernel/osrelease").and_return("6.1.99-test\n")
+      expect { described_class.abi_version }
+        .to raise_error(Errno::EPERM, /landlock_create_ruleset probe \(kernel 6\.1\.99-test\)/)
     end
 
-    it "retries the probe once when a failure return pairs with errno 0 (a clobbered read)" do
-      # A failed syscall always sets errno, so (-1, 0) is never the kernel's
-      # real answer: something ran between the call and the read.
-      syscall = double("syscall", call: -1)
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
-      allow(described_class).to receive(:last_errno).and_return(0, Errno::EOPNOTSUPP::Errno)
-      reset_abi_memo
+    it "does not take EINVAL for an unsupported kernel: a valid version probe never gets it" do
+      fail_probe_with(Errno::EINVAL::Errno)
+      expect { described_class.abi_version }.to raise_error(Errno::EINVAL, /landlock_create_ruleset probe/)
+    end
+
+    it "says the kernel is unknown when its release cannot be read" do
+      fail_probe_with(Errno::EPERM::Errno)
+      allow(File).to receive(:read).with("/proc/sys/kernel/osrelease").and_raise(Errno::ENOENT)
+      expect { described_class.abi_version }.to raise_error(Errno::EPERM, /\(kernel unknown\)/)
+    end
+
+    it "takes errno from Fiddle's own record of the call, never a later __errno_location read" do
+      fail_probe_with(Errno::ENOSYS::Errno)
+      expect(described_class::LibC).not_to receive(:errno_location_fn)
+      expect(described_class).not_to receive(:last_errno)
       expect(described_class.abi_version).to eq(0)
-      expect(syscall).to have_received(:call).twice
-      reset_abi_memo
+    end
+  end
+
+  context "with the real probe function", if: RUBY_PLATFORM.include?("linux") do
+    it "holds the GVL for the call so Fiddle saves errno before any hand-off" do
+      expect(described_class::LibC.probe_fn.instance_variable_get(:@need_gvl)).to be(true)
     end
 
-    it "still fails closed when the retry also reads errno 0" do
-      syscall = double("syscall", call: -1)
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
-      allow(described_class).to receive(:last_errno).and_return(0)
+    it "emits no Ruby warning, which a suite that raises on warnings would turn into an error (#603)" do
       reset_abi_memo
-      expect { described_class.abi_version }.to raise_error(SystemCallError, /landlock_create_ruleset probe/)
-      expect(syscall).to have_received(:call).twice
-      reset_abi_memo
-    end
-
-    it "does not retry a consistent answer" do
-      syscall = double("syscall", call: 2)
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
-      allow(described_class).to receive(:last_errno).and_return(0)
-      reset_abi_memo
-      expect(described_class.abi_version).to eq(2)
-      expect(syscall).to have_received(:call).once
-      reset_abi_memo
-    end
-
-    it "builds the errno reader before the probe so its lazy dlopen cannot clobber errno" do
-      order = []
-      allow(described_class::LibC).to receive(:errno_location_fn) do
-        order << :errno_reader
-        double("errno_location")
+      verbose = $VERBOSE
+      $VERBOSE = false
+      expect(Warning).not_to receive(:warn)
+      begin
+        described_class.abi_version
+      rescue SystemCallError
+        nil # a seccomp-refusing runner still must not have warned
       end
-      syscall = double("syscall")
-      allow(syscall).to receive(:call) do
-        order << :syscall
-        2
-      end
-      allow(described_class::LibC).to receive(:syscall_fn).and_return(syscall)
-      allow(described_class).to receive(:last_errno).and_return(0)
-      reset_abi_memo
-      described_class.abi_version
-      expect(order).to eq(%i[errno_reader syscall])
+    ensure
+      $VERBOSE = verbose
       reset_abi_memo
     end
   end
@@ -172,7 +157,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
     # syscall number means something else entirely (on Darwin 444 is
     # change_fdguard_np), so probing there can never be treated as ENOSYS.
     allow(described_class).to receive(:linux?).and_return(false)
-    expect(described_class::LibC).not_to receive(:syscall_fn)
+    expect(described_class::LibC).not_to receive(:probe_fn)
     expect(described_class::LibC).not_to receive(:errno_location_fn)
     reset_abi_memo
     expect(described_class.abi_version).to eq(0)
@@ -432,7 +417,7 @@ RSpec.describe Saboteur::Execution::Sandbox do
 
     it "reports ABI 0 rather than crash when no libc can be found" do
       reset_abi_memo
-      allow(described_class::LibC).to receive(:syscall_fn).and_raise(Fiddle::DLError)
+      allow(described_class::LibC).to receive(:probe_fn).and_raise(Fiddle::DLError)
       expect(described_class.abi_version).to eq(0)
       expect(described_class.available?).to be(false)
       reset_abi_memo

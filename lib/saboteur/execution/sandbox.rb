@@ -62,17 +62,18 @@ module Saboteur
         @abi_version = probed_abi_version
       end
 
+      # Fiddle holds the GVL for the call (need_gvl: true) and saves errno in
+      # Fiddle.last_error in the same C function, right after ffi_call, so no
+      # Ruby code or GVL hand-off runs between the failed syscall and its
+      # errno. Without need_gvl, Fiddle releases the GVL for the call and reads
+      # errno only after reacquiring it, and the old second Fiddle call to
+      # __errno_location came later still: a stale errno could replace the
+      # real answer, first 0 (#350), then EINVAL, which the kernel never
+      # returns for a valid version probe (it answers EINVAL only for a
+      # non-NULL attr or a non-zero size).
       def probed_abi_version
-        # Build the errno reader BEFORE the probe: its lazy dlopen/dlsym run
-        # libc calls that can set errno, so building it between the probe and
-        # the read can replace the real answer with a stale 0.
-        LibC.errno_location_fn
-        version, errno = probe_once
-        # A failed syscall always sets errno, so (failure, errno 0) is never
-        # the kernel's real answer - the read was clobbered between the call
-        # and here. Probe once more, now with every Fiddle function warm.
-        version, errno = probe_once if !version.positive? && errno.zero?
-        probe_abi(version, errno)
+        version = LibC.probe_fn.call(SYS_CREATE_RULESET, 0, 0, CREATE_RULESET_VERSION, 0)
+        probe_abi(version, Fiddle.last_error)
       rescue Fiddle::DLError
         # No usable libc (an unusual musl/ldso layout): the sandbox cannot
         # be built here, so degrade to the unsandboxed note, not a crash.
@@ -83,17 +84,19 @@ module Saboteur
       # no Landlock to give: run unsandboxed, noted once. Anything else
       # (EPERM under a seccomp policy, ...) means the kernel is there but
       # refused - fail closed rather than run without the promised sandbox.
-      # One create-ruleset version probe with its errno read paired to it.
-      def probe_once
-        version = LibC.syscall_fn.call(SYS_CREATE_RULESET, 0, 0, CREATE_RULESET_VERSION, 0)
-        [version, last_errno]
-      end
-
+      # The message names the kernel so a run on an unexpected runner says
+      # what it ran on.
       def probe_abi(version, errno)
         return version if version.positive?
         return 0 if UNSUPPORTED_ERRNOS.include?(errno)
 
-        raise SystemCallError.new("landlock_create_ruleset probe", errno)
+        raise SystemCallError.new("landlock_create_ruleset probe (kernel #{kernel_release})", errno)
+      end
+
+      def kernel_release
+        File.read("/proc/sys/kernel/osrelease").strip
+      rescue SystemCallError
+        "unknown"
       end
 
       def available?
@@ -253,6 +256,16 @@ module Saboteur
           Fiddle.dlopen(name)
         rescue Fiddle::DLError
           nil
+        end
+
+        # The same syscall, built to run with the GVL held: see probed_abi_version.
+        def probe_fn
+          @probe_fn ||= Fiddle::Function.new(
+            handle["syscall"],
+            [Fiddle::TYPE_LONG, Fiddle::TYPE_LONG, Fiddle::TYPE_LONG, Fiddle::TYPE_LONG, Fiddle::TYPE_LONG],
+            Fiddle::TYPE_LONG,
+            need_gvl: true
+          )
         end
 
         def syscall_fn
