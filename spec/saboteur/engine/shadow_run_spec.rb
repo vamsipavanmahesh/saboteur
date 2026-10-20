@@ -76,4 +76,37 @@ RSpec.describe Saboteur::Engine::ShadowRun do
     expect(Saboteur::Engine::ShadowComparison).to have_received(:call)
       .with(anything, full_map, fallback_files: %w[/p/a.rb])
   end
+
+  # Code that runs once per process, such as a memoized singleton, is credited
+  # to whichever test reaches it first, so a rerun of only the stale specs can
+  # change who gets the credit (#46).
+  describe "a line that runs once per process" do
+    let(:base_map) do
+      map(lines: { "/p/a.rb" => { 1 => [lead] } }, tests: [x_id, y_id])
+    end
+
+    context "when the stale spec held the credit and no longer reaches the line" do
+      let(:lead) { x_id }
+      let(:full_map) { map(lines: { "/p/a.rb" => { 1 => [y_id] } }, tests: [x_id, y_id]) }
+      let(:fresh) { map(lines: {}, tests: [x_id]) }
+
+      it "is a mismatch: the next test to reach it would stay uncredited" do
+        report = run
+        expect(report).to include("result" => "mismatch", "extra_credits" => 0, "total" => 1)
+        expect(report["differences"]).to eq([{ "kind" => "<lines>", "name" => "</p/a.rb>" }])
+      end
+    end
+
+    context "when a stale spec now reaches a line another test held" do
+      let(:lead) { y_id }
+      let(:full_map) { base_map }
+      let(:fresh) { map(lines: { "/p/a.rb" => { 1 => [x_id] } }, tests: [x_id]) }
+
+      it "is a superset with the extra credit counted, never a match" do
+        report = run
+        expect(report).to include("result" => "superset", "extra_credits" => 1, "total" => 1)
+        expect(report["differences"]).to eq([{ "kind" => "<lines>", "name" => "</p/a.rb>" }])
+      end
+    end
+  end
 end
