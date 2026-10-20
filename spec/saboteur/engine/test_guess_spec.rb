@@ -1908,8 +1908,29 @@ RSpec.describe Saboteur::Engine::TestGuess do
               "RSpec.describe \"r\" do\n  it(\"x\") { JWT::Claims::DecodeVerifier }\nend\n")
       end
       commit_then_change(nil)
+      result = guess
 
-      expect(guess.unmatched).to eq([path])
+      expect(result.unmatched).to eq([path])
+      expect(result.unmatched_message).to include("(expected spec/jwt/claims/decode_verifier_spec.rb; " \
+                                                  "12 specs reference or require it, over the cap of 10)")
+    end
+
+    it "names the same-named specs before the reader count in one stop line" do
+      result = described_class::Result.new(specs: [], unmatched: ["lib/a.rb"], subjectless: [], changed: [],
+                                           hints: { "lib/a.rb" => "spec/a_spec.rb" },
+                                           near: { "lib/a.rb" => ["spec/unit/a_spec.rb"] },
+                                           crowded: { "lib/a.rb" => 11 })
+
+      expect(result.unmatched_message).to include(
+        "lib/a.rb (expected spec/a_spec.rb; found: spec/unit/a_spec.rb; " \
+        "11 specs reference or require it, over the cap of 10)"
+      )
+    end
+
+    it "says nothing about readers when none read the constant" do
+      commit_then_change("RSpec.describe \"auth\" do\n  it(\"x\") { JWT.decode }\nend\n")
+
+      expect(guess.unmatched_message).not_to include("reference or require it")
     end
 
     it "still stops when a same-named spec exists elsewhere: the choice is the user's (#658)" do

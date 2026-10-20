@@ -19,7 +19,7 @@ RSpec.describe Saboteur::Engine::ReferenceSpecs do
   end
 
   def readers(specs, constants: ["Widget"])
-    described_class.new(root, ->(_file) { constants.map { |name| constant(name) } }).call([file], specs)
+    described_class.new(root, ->(_file) { constants.map { |name| constant(name) } }).call([file], specs).chosen
   end
 
   it "returns the readers sorted, whatever order the suite lists them in" do
@@ -54,6 +54,8 @@ RSpec.describe Saboteur::Engine::ReferenceSpecs do
 
     expect(readers(names.first(described_class::CAP))).to eq(file => names.first(described_class::CAP))
     expect(readers(names)).to eq({})
+    found = described_class.new(root, ->(_file) { [constant("Widget")] }).call([file], names)
+    expect([found.chosen, found.crowded]).to eq([{}, file => names.size])
   end
 
   describe "specs that require the file" do
@@ -61,7 +63,7 @@ RSpec.describe Saboteur::Engine::ReferenceSpecs do
 
     def readers_for(source, text, path: "spec/features/a_spec.rb")
       write_spec(path, text)
-      described_class.new(root, ->(_file) { [] }).call([source], [path])
+      described_class.new(root, ->(_file) { [] }).call([source], [path]).chosen
     end
 
     def requirers(text, path: "spec/features/a_spec.rb")
