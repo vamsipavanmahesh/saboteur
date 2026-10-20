@@ -69,6 +69,11 @@ RSpec.describe Saboteur::Engine::Diagnostics do
       expect(diagnostics.progress_summary(2)).to end_with("eta 0m03s")
     end
 
+    it "rounds a fractional estimate down when it is under half a second" do
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(104.8)
+      expect(diagnostics.progress_summary(2)).to end_with("eta 0m02s")
+    end
+
     it "gives no estimate before the first mutant, at the total or past it" do
       expect(diagnostics.progress_summary(0)).to eq("0/3 (0%)")
       expect(diagnostics.progress_summary(3)).to eq("3/3 (100%)")
