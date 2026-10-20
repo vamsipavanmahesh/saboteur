@@ -1768,4 +1768,23 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "ad72dfe6d7b4d35e",
              subject: "Saboteur::MutationSource::ConstantLiterals#arid?",
              reason: "equivalent: safe_match? with swapped arguments calls String#match?(Regexp) instead of Regexp#match?(String); both raise the same errors on invalid or incompatible bytes and return the same result"
+
+  i.mutation "4eed6578e4dc99d6",
+             subject: "Saboteur::MutationSource::EndpointReplacement#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "7ce0ef427a9cac03",
+             subject: "Saboteur::MutationSource::FilterReplacement#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "25fa2e0c46682c27",
+             subject: "Saboteur::MutationSource::LiteralReplacement#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "60a0e1e2f5e556d0",
+             subject: "Saboteur::MutationSource::LiteralReplacement#add",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "447a3ed8248be3de",
+             subject: "Saboteur::MutationSource::LiteralReplacement#add",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "5bf452746c03bceb",
+             subject: "Saboteur::MutationSource::LiteralReplacement#replace_string",
+             reason: "equivalent: a string node's source begins with its opening delimiter, so a heredoc test on node.slice answers the same as one on node.opening_loc.slice"
 end
