@@ -2198,4 +2198,25 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: Hash#to_h with a one-parameter block yields the key first, so " \
                      "mapping SETTINGS directly builds the same limits as mapping SETTINGS.keys - " \
                      "hand-applied mutant leaves gates, cli and help specs green"
+
+  # execution/process_table.rb page_kb and reevaluator.rb resolve_path. Hand-applied together:
+  # spec/saboteur/execution stays green (507 examples, 1 pending).
+  i.mutation "508aa3f45dc18150",
+             subject: "Saboteur::Execution::ProcessTable::Linux#page_kb",
+             reason: "equivalent in a full saboteur run: crash_report.rb and external_runner.rb " \
+                     "require tmpdir, which loads Etc; without the require a missing Etc would be " \
+                     "rescued to the 4 KB fallback, so only a process loading process_table alone " \
+                     "on a larger page would differ - hand-applied mutant leaves the execution " \
+                     "specs green"
+  i.mutation "4339a0680625f987",
+             subject: "Saboteur::Execution::ProcessTable::Linux#page_kb",
+             reason: "equivalent for power-of-two page sizes up to 512 KB: integer division by " \
+                     "1023 gives the same kilobyte count as division by 1024 for 1, 2, 4, 8, 16, " \
+                     "32 and 64 KB pages and every size to 512 KB - hand-applied mutant leaves the " \
+                     "execution specs green"
+  i.mutation "19d4e9c1e0125d9c",
+             subject: "Saboteur::Execution::Reevaluator#resolve_path",
+             reason: "equivalent given Object.const_get behavior: const_get accepts a leading :: " \
+                     "and resolves from Object, so keeping the prefix returns the same constant as " \
+                     "stripping it - hand-applied mutant leaves the execution specs green"
 end
