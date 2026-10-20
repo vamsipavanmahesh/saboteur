@@ -153,7 +153,9 @@ module Saboteur
         end
       ensure
         @calls.resume
-        Coverage.resume if suspended
+        # A test may leave Coverage suspended (an in-process Engine#call
+        # does); the next test must still be measured.
+        Coverage.resume if Coverage.state == :suspended
       end
     end
   end
