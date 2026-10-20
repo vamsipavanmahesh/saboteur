@@ -562,14 +562,15 @@ RSpec.describe Saboteur::Config, "matrix" do
   end
 
   describe "partial_coverage (#46)" do
-    it "is off by default and accepts shadow as a string or a symbol" do
+    it "is off by default and accepts shadow and use as a string or a symbol" do
       expect(described_class.new({})["partial_coverage"]).to eq("off")
       expect(described_class.new({ "partial_coverage" => :shadow })["partial_coverage"]).to eq("shadow")
+      expect(described_class.new({ "partial_coverage" => :use })["partial_coverage"]).to eq("use")
     end
 
     it "rejects anything else, naming the choices" do
       expect { described_class.new({ "partial_coverage" => "on" }) }
-        .to raise_error(Saboteur::ConfigError, "partial_coverage must be one of: off, shadow")
+        .to raise_error(Saboteur::ConfigError, "partial_coverage must be one of: off, shadow, use")
     end
   end
 end
