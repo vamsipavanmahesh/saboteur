@@ -393,11 +393,10 @@ module Saboteur
 
       def preloaded_message(files)
         names = Text.name_list(files.map { |file| file.delete_prefix("#{@root}/") })
-        "#{names} loaded before saboteur started coverage (a require ran before the " \
-          "executable's Coverage.start - commonly the gemspec requiring the library while bundler/setup " \
-          "evaluates it, or RUBYOPT -r), so no test can ever cover #{files.size > 1 ? 'them' : 'it'}. " \
-          "Let the test suite load these " \
-          "files; a gemspec should require only its version file."
+        "#{names} can never be covered: loaded before saboteur started coverage\n  " \
+          "a require ran before the executable's Coverage.start, commonly the gemspec requiring the " \
+          "library while bundler/setup evaluates it, or RUBYOPT -r\n  " \
+          "Let the test suite load these files; a gemspec should require only its version file."
       end
 
       # Bootsnap is named only when it is loaded: blaming a library the app
