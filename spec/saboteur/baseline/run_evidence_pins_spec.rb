@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "fileutils"
 require "tmpdir"
 require "saboteur/baseline/run_evidence"
 
@@ -55,5 +56,17 @@ RSpec.describe Saboteur::Baseline::RunEvidence do
                                                          source: "builtin", operator: "op", reason: reason)
     end
     expect(finish(events: events).fetch("issues")).to eq(["generation:invalid_syntax:#{subject.id}:op"])
+  end
+
+  it "refuses a subject in a sibling directory whose name starts with the root's name" do
+    sibling = "#{@root}-other"
+    FileUtils.mkdir_p(sibling)
+    path = File.join(sibling, "probe.rb")
+    File.write(path, "class Probe; def value; 1; end; end")
+    outside = Saboteur::SubjectFinder.new.call(path).subjects.first
+    expect { evidence.plan([outside], [[]]) }
+      .to raise_error(Saboteur::ConfigError, "baseline subject outside project root")
+  ensure
+    FileUtils.rm_rf(sibling)
   end
 end
