@@ -96,3 +96,31 @@ human-essentials:
   schedule: nightly
   ruby: 3.4.3
   needs: Postgres (DATABASE_URL for the test database), RAILS_ENV=test
+# doorkeeper and paper_trail run their model specs in process against sqlite.
+# Each carries a patch (integration/patches) that skips SimpleCov under
+# saboteur and, for doorkeeper, puts the test database in a file the mutant
+# sandboxes share. script/integration-recorders runs them under both coverage
+# recorders and fails on any per-mutant verdict difference (#725).
+doorkeeper:
+  repo: https://github.com/doorkeeper-gem/doorkeeper.git
+  commit: c3df01d0651e06cf940865c5ba0752a6eb211cee
+  license: MIT
+  config: integration/configs/doorkeeper.rb
+  schedule: nightly
+  patch: integration/patches/doorkeeper.patch
+  env:
+    SAB_NO_SIMPLECOV: 1
+    SAB_DB: /tmp/saboteur-doorkeeper/test.sqlite3
+  # Three mixins, spec/models only, one job (shared sqlite file). No expect
+  # counts until a CI run measures them.
+paper_trail:
+  repo: https://github.com/paper-trail-gem/paper_trail.git
+  commit: 86ce1b83078ef8594cad8f62877ac37f3cb011cc
+  license: MIT
+  config: integration/configs/paper_trail.rb
+  schedule: nightly
+  gemfile: gemfiles/rails_7.2.gemfile
+  patch: integration/patches/paper_trail.patch
+  env:
+    SAB_NO_SIMPLECOV: 1
+  # No expect counts until a CI run measures them.
