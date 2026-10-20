@@ -77,11 +77,15 @@ output=$(git ls-files 'spec/**/*_spec.rb' ':(exclude)spec/fixtures/**' | sort | 
   }
 ')
 
-specs_count=$(printf '%s\n' "$output" | head -n 1)
+# No pipes here: under pipefail, `head -n 1` closing early kills the writer
+# with SIGPIPE (exit 141) and fails the whole script on a long spec list.
+specs_count=${output%%$'\n'*}
+rest=""
+if [[ $output == *$'\n'* ]]; then rest=${output#*$'\n'}; fi
 picked=()
 while IFS= read -r file; do
-  picked+=("$file")
-done < <(printf '%s\n' "$output" | tail -n +2 | sed '/^$/d')
+  if [ -n "$file" ]; then picked+=("$file"); fi
+done <<<"$rest"
 
 echo "shard ${index}/${total}: ${#picked[@]} of ${specs_count} spec files"
 exec bundle exec rspec "$@" ${picked[@]+"${picked[@]}"}

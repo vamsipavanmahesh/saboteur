@@ -109,6 +109,17 @@ RSpec.describe "script/rspec-shard" do
     expect(picked_by_shard(3)).to eq(round_robin(3))
   end
 
+  # `printf | head -n 1` under pipefail killed the script with SIGPIPE (exit
+  # 141) when head closed the pipe before printf finished writing; a list
+  # bigger than a pipe buffer makes that certain instead of a rare race.
+  it "deals a spec list larger than a pipe buffer" do
+    many = (1..2500).map { |n| format("spec/%<n>04d/#{'x' * 40}_spec.rb", n: n) }
+    build_repo(spec_files: many)
+    header, picked, = shard(1, 1)
+
+    expect([header, picked]).to eq(["shard 1/1: #{many.size} of #{many.size} spec files", many.sort])
+  end
+
   it "reproduces round-robin for an empty weights file too" do
     build_repo(weights: "")
 
