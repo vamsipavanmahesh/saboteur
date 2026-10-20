@@ -92,7 +92,8 @@ RSpec.describe Saboteur::Engine::ShadowRun do
 
       it "is a mismatch: the next test to reach it would stay uncredited" do
         report = run
-        expect(report).to include("result" => "mismatch", "extra_credits" => 0, "total" => 1)
+        expect(report).to include("result" => "mismatch", "extra_credits" => 0, "gained_credits" => 0,
+                                  "total" => 1)
         expect(report["differences"]).to eq([{ "kind" => "<lines>", "name" => "</p/a.rb>" }])
       end
     end
@@ -104,9 +105,17 @@ RSpec.describe Saboteur::Engine::ShadowRun do
 
       it "is a superset with the extra credit counted, never a match" do
         report = run
-        expect(report).to include("result" => "superset", "extra_credits" => 1, "total" => 1)
+        expect(report).to include("result" => "superset", "extra_credits" => 1, "gained_credits" => 0,
+                                  "total" => 1)
         expect(report["differences"]).to eq([{ "kind" => "<lines>", "name" => "</p/a.rb>" }])
       end
     end
+  end
+
+  it "reports a credit on a line the full map calls uncovered as a mismatch, counted as gained" do
+    uncovered = map(lines: { "/p/a.rb" => { 1 => [x_id] }, "/p/b.rb" => { 1 => [y_id] } }, tests: [x_id, y_id])
+    gained = map(lines: { "/p/a.rb" => { 1 => [x_id] }, "/p/c.rb" => { 1 => [x_id] } }, tests: [x_id])
+    report = run(full_map: uncovered, rerun: ->(_specs, _seed) { gained })
+    expect(report).to include("result" => "mismatch", "gained_credits" => 1)
   end
 end

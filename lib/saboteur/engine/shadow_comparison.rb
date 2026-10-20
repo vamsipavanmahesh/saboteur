@@ -24,26 +24,29 @@ module Saboteur
       module_function
 
       # { result: :match | :superset | :mismatch, match: bool, total: Integer, extra: Integer,
+      #   gained: Integer,
       #   differences: [{kind:, name:}] } with at most MAX_DIFFERENCES entries,
       # sorted by kind and name.
       #
       # :superset means the partial map credits tests the full map does not,
-      # and never lacks a credit the full map has. This is for the shadow
-      # report only: an extra credit on a line the full map calls uncovered
-      # would turn "no test covers this" into "covered", so extras must be
-      # handled before a partial map is ever used. Anything else that differs is :mismatch. extra counts
-      # the extra credits (one per file, line and test) in lines, methods
-      # and branches; the dependency sets they imply are not counted again.
+      # on lines the full map also credits, and never lacks a credit the
+      # full map has. Anything else that differs is :mismatch, including an
+      # extra credit on a line the full map calls uncovered: it would turn
+      # "no test covers this" into "covered". Those are counted apart, in
+      # gained. extra counts the other extra credits (one per file, line and
+      # test) in lines, methods and branches.
       def call(partial, full, fallback_files: [])
         maps = [partial, full]
         found = evidence_differences(maps) + dependency_differences(maps, fallback_files)
-        extra = found.select { |item| KINDS.map(&:to_s).include?(item[:kind]) }.sum { |item| item[:extra] }
+        counted = found.select { |item| KINDS.map(&:to_s).include?(item[:kind]) }
+        extra = counted.sum { |item| item[:extra] }
+        gained = counted.sum { |item| item[:gained] }
         result = if found.empty? then :match
-                 elsif found.any? { |item| item[:missing] } then :mismatch
+                 elsif gained.positive? || found.any? { |item| item[:missing] } then :mismatch
                  else :superset
                  end
         shown = found.sort_by { |item| [item[:kind], item[:name]] }.first(MAX_DIFFERENCES)
-        { result: result, match: result == :match, total: found.size, extra: extra,
+        { result: result, match: result == :match, total: found.size, extra: extra, gained: gained,
           differences: shown.map { |item| item.slice(:kind, :name) } }
       end
 
@@ -61,23 +64,23 @@ module Saboteur
       # only the full map has (missing).
       def hit_differences(kind, left, right)
         (left.keys | right.keys).filter_map do |name|
-          extra, missing = credits(left[name] || {}, right[name] || {})
-          next if extra.zero? && !missing
+          extra, gained, missing = credits(left[name] || {}, right[name] || {})
+          next if extra.zero? && gained.zero? && !missing
 
-          { kind: kind, name: name, extra: extra, missing: missing }
+          { kind: kind, name: name, extra: extra, gained: gained, missing: missing }
         end
       end
 
       def credits(left, right)
-        extra = 0
+        extra = gained = 0
         missing = false
         (left.keys | right.keys).each do |line|
           mine = left[line] || []
           theirs = right[line] || []
-          extra += (mine - theirs).size
+          (theirs.empty? ? gained += mine.size : extra += (mine - theirs).size)
           missing ||= (theirs - mine).any?
         end
-        [extra, missing]
+        [extra, gained, missing]
       end
 
       def exact_differences(kind, left, right)
