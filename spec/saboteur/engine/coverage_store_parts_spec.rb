@@ -115,19 +115,26 @@ RSpec.describe Saboteur::Engine::CoverageStore, "in parts" do
       Dir.glob(File.join(@root, ".saboteur", "coverage-*-part-*.json")).map { |file| File.basename(file) }
     end
 
-    it "saves each finished part under the cache key, beside the whole map" do
+    it "forgets the saved parts once the whole map is built" do
       counts
       allow(supervisor).to receive(:run_many).and_return([result(part_map("t1", "t3")), result(part_map("t2"))])
 
       store.fetch([source])
 
-      expect(saved_parts.map { |name| name[/part-\d-of-\d/] }).to eq(%w[part-1-of-2 part-2-of-2])
+      expect(saved_parts).to be_empty
+    end
+
+    it "names a saved part after the whole map it belongs to" do
+      counts
+      allow(supervisor).to receive(:run_many)
+        .and_return([result(part_map("t1", "t3")), result(nil, stopped_by: :timeout)])
+      expect { store.fetch([source]) }.to raise_error(Saboteur::Error)
+      names = saved_parts
+      allow(supervisor).to receive(:run_many).and_return([result(part_map("t2"))])
+      store.fetch([source])
       whole = Dir.glob(File.join(@root, ".saboteur", "coverage-*.json")).map { |file| File.basename(file, ".json") }
-                 .reject { |name| name.include?("-part-") }
-      expect(whole.size).to eq(1)
-      expect(saved_parts).to all(start_with("#{whole.first}-part-"))
-      expect(Saboteur::Selection::CoverageMap.load(File.join(@root, ".saboteur", saved_parts.first)).tests)
-        .to eq(%w[t1 t3])
+      expect(names.size).to eq(1)
+      expect(names.first).to eq("#{whole.first}-part-1-of-2.json")
     end
 
     it "keeps the finished part when a sibling part failed" do
@@ -149,6 +156,156 @@ RSpec.describe Saboteur::Engine::CoverageStore, "in parts" do
         .to raise_error(Saboteur::BudgetPhaseTimeout)
       expect(saved_parts.size).to eq(1)
       expect(saved_parts.first).to include("part-2-of-2")
+    end
+
+    describe "reusing the saved parts" do
+      def stop_second_part
+        counts
+        allow(supervisor).to receive(:run_many)
+          .and_return([result(part_map("t1", "t3")), result(nil, stopped_by: :timeout)])
+        expect { store.fetch([source]) }.to raise_error(Saboteur::Error)
+      end
+
+      it "builds only the part that is missing, in its own slot, and combines in part order" do
+        stop_second_part
+        parted = store
+        allow(parted).to receive(:record)
+        allow(supervisor).to receive(:run_many) do |count, **_options, &block|
+          expect(count).to eq(1)
+          block.call(:writer, 0)
+          [result(part_map("t2"))]
+        end
+
+        map = parted.fetch([source])
+
+        expect(map.tests).to eq(%w[t1 t3 t2])
+        expect(parted).to have_received(:record)
+          .with(:writer, [source], only: %w[/s/b_spec.rb], log: File.join(@root, ".saboteur", "coverage-build-2.log"))
+        expect(output.string).to include("in 2 parallel parts, reusing 1 saved)")
+        expect(saved_parts).to be_empty
+      end
+
+      it "reuses all saved parts without running a child" do
+        counts
+        allow(supervisor).to receive(:run_many)
+          .and_return([result(part_map("t1", "t3")), result(nil, stopped_by: :timeout)])
+        expect { store.fetch([source]) }.to raise_error(Saboteur::Error)
+        second = File.join(@root, ".saboteur", saved_parts.first.sub("part-1", "part-2"))
+        File.write(second, part_map("t2").to_json)
+        expect(supervisor).not_to receive(:run_many)
+
+        map = store.fetch([source])
+
+        expect(map.tests).to eq(%w[t1 t3 t2])
+        expect(output.string).to include("reusing all 2 saved parts")
+      end
+
+      it "drops saved parts that share a test id instead of failing every later run" do
+        counts
+        allow(supervisor).to receive(:run_many)
+          .and_return([result(part_map("t1", "t3")), result(nil, stopped_by: :timeout)])
+        expect { store.fetch([source]) }.to raise_error(Saboteur::Error)
+        first = File.join(@root, ".saboteur", saved_parts.first)
+        File.write(first.sub("part-1", "part-2"), part_map("t1").to_json)
+        allow(integration).to receive(:example_count).with(files: %w[/s/b_spec.rb]).and_return(1)
+        expect(supervisor).not_to receive(:run_many)
+
+        message = "saved coverage parts do not combine (coverage maps share test ids: t1); they were removed, run again"
+        expect { store.fetch([source]) }.to raise_error(Saboteur::Error, /#{Regexp.escape(message)}/)
+        expect(saved_parts).to be_empty
+      end
+
+      describe "with the first of three parts saved" do
+        before do
+          allow(integration).to receive(:example_count).with(no_args).and_return(3)
+          %w[a b c].each do |name|
+            allow(integration).to receive(:example_count).with(files: ["/s/#{name}_spec.rb"]).and_return(1)
+          end
+          allow(supervisor).to receive(:run_many)
+            .and_return([result(part_map("t1")), result(nil, stopped_by: :timeout), result(nil, stopped_by: :timeout)])
+          expect { store(parts: 3).fetch([source]) }.to raise_error(Saboteur::Error)
+        end
+
+        def saved_tests(index)
+          path = File.join(@root, ".saboteur", saved_parts.find { |name| name.include?("part-#{index}-of-3") })
+          Saboteur::Selection::CoverageMap.load(path).tests
+        end
+
+        it "saves each rebuilt part under its own slot" do
+          allow(supervisor).to receive(:run_many)
+            .with(2, any_args).and_return([result(part_map("t2")), result(nil, stopped_by: :timeout)])
+
+          expect { store(parts: 3).fetch([source]) }.to raise_error(Saboteur::Error)
+
+          expect([saved_tests(1), saved_tests(2)]).to eq([%w[t1], %w[t2]])
+        end
+
+        it "names the part that recorded no tests by its own number" do
+          allow(supervisor).to receive(:run_many)
+            .with(2, any_args).and_return([result(part_map("t2")), result(part_map)])
+
+          expect { store(parts: 3).fetch([source]) }.to raise_error(
+            Saboteur::Error, "coverage part 3 of 3 recorded no tests; refusing to build a partial map"
+          )
+        end
+      end
+
+      it "rebuilds a saved part that holds more tests than its part has examples" do
+        stop_second_part
+        File.write(File.join(@root, ".saboteur", saved_parts.first), part_map("t1", "t3", "t4").to_json)
+        allow(supervisor).to receive(:run_many) do |count, **|
+          expect(count).to eq(2)
+          [result(part_map("t1", "t3")), result(part_map("t2"))]
+        end
+
+        expect(store.fetch([source]).tests).to eq(%w[t1 t3 t2])
+      end
+
+      it "rebuilds a saved part whose examples no longer match its part" do
+        stop_second_part
+        allow(integration).to receive(:example_count).with(files: %w[/s/a_spec.rb /s/c_spec.rb]).and_return(3)
+        allow(integration).to receive(:example_count).with(no_args).and_return(4)
+        allow(supervisor).to receive(:run_many) do |count, **|
+          [result(part_map("t1", "t3", "t4")), result(part_map("t2"))].first(count)
+        end
+
+        expect(store.fetch([source]).tests).to eq(%w[t1 t3 t4 t2])
+      end
+
+      it "rebuilds a saved part that is corrupt" do
+        stop_second_part
+        File.write(File.join(@root, ".saboteur", saved_parts.first), "{not json")
+        allow(supervisor).to receive(:run_many) do |count, **|
+          expect(count).to eq(2)
+          [result(part_map("t1", "t3")), result(part_map("t2"))]
+        end
+
+        expect(store.fetch([source]).tests).to eq(%w[t1 t3 t2])
+      end
+
+      it "does not reuse a saved part when the cache is off" do
+        stop_second_part
+        config = Saboteur::Config.new({ "cache" => false }, root: @root)
+        allow(supervisor).to receive(:run_many) do |count, **|
+          expect(count).to eq(2)
+          [result(part_map("t1", "t3")), result(part_map("t2"))]
+        end
+
+        map = described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                                  supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(output),
+                                  parts: 2).fetch([source])
+
+        expect(map.tests).to eq(%w[t1 t3 t2])
+      end
+
+      it "leaves the whole build to succeed when a saved part cannot be removed" do
+        stop_second_part
+        allow(FileUtils).to receive(:rm_f).and_call_original
+        allow(FileUtils).to receive(:rm_f).with(a_string_matching(/-part-1-of-2\.json\z/)).and_raise(Errno::EACCES)
+        allow(supervisor).to receive(:run_many).and_return([result(part_map("t2"))])
+
+        expect(store.fetch([source]).tests).to eq(%w[t1 t3 t2])
+      end
     end
 
     it "saves no part that recorded no tests" do
@@ -202,12 +359,15 @@ RSpec.describe Saboteur::Engine::CoverageStore, "in parts" do
 
     it "saves no part when the cache is off" do
       counts
-      allow(supervisor).to receive(:run_many).and_return([result(part_map("t1", "t3")), result(part_map("t2"))])
+      allow(supervisor).to receive(:run_many)
+        .and_return([result(part_map("t1", "t3")), result(nil, stopped_by: :timeout)])
       config = Saboteur::Config.new({ "cache" => false }, root: @root)
 
-      described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
-                          supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(output),
-                          parts: 2).fetch([source])
+      expect do
+        described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
+                            supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(output),
+                            parts: 2).fetch([source])
+      end.to raise_error(Saboteur::Error)
 
       expect(saved_parts).to be_empty
     end
@@ -543,7 +703,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "in parts" do
     describe "the error the child reported" do
       def build_error(message)
         counts
-        allow(supervisor).to receive(:run_many).and_return([failed(message), result(part_map("t2"))])
+        allow(supervisor).to receive(:run_many) { |count, **| [failed(message), result(part_map("t2"))].first(count) }
         store.fetch([source])
       rescue Saboteur::Error => e
         e.message
