@@ -36,6 +36,17 @@ RSpec.describe Saboteur::Report do
     expect(report.discovery_failures).to be_frozen
   end
 
+  it "keeps and freezes its own copy of the omissions, suppressions and memory" do
+    omissions = [+"a"]
+    suppressions = [+"b"]
+    memory = { workers: [] }
+    report = Saboteur::Report.new(results: [result_for(:killed)], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), omissions:,
+                                  inline_suppressions: suppressions, memory:)
+    expect([omissions, suppressions, memory].map(&:frozen?)).to eq([false, false, false])
+    expect([report.omissions, report.inline_suppressions, report.memory]).to all(be_frozen)
+  end
+
   it "counts every status separately" do
     expect(report.counts).to eq(killed: 2, survived: 1, timeout: 1, resource_limit: 0, error: 1,
                                 skipped: 1, ran_at_load: 0, unreachable: 0, unverified: 0)

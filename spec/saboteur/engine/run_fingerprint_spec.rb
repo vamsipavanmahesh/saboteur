@@ -25,6 +25,13 @@ RSpec.describe Saboteur::Engine::RunFingerprint do
     expect(fingerprint.verify(snapshot).unchanged).to be(true)
   end
 
+  it "freezes copies of restored issues, not the caller's strings" do
+    issues = [+"a", +"b"]
+    restored = described_class.restore_issues(issues)
+    expect(issues.map(&:frozen?)).to eq([false, false])
+    expect(restored).to all(be_frozen)
+  end
+
   it "skips excluded directories instead of fingerprinting them" do
     FileUtils.mkdir_p(File.join(@root, "vendor"))
     File.write(File.join(@root, "vendor", "junk.rb"), "1\n")
