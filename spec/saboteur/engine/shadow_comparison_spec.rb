@@ -12,7 +12,7 @@ RSpec.describe Saboteur::Engine::ShadowComparison do
   end
 
   it "matches identical maps" do
-    expect(compare(map)).to eq(result: :match, match: true, total: 0, extra: 0, differences: [])
+    expect(compare(map)).to eq(result: :match, match: true, total: 0, extra: 0, gained: 0, differences: [])
   end
 
   it "ignores durations, build time, id order and entries with no test" do
@@ -30,23 +30,41 @@ RSpec.describe Saboteur::Engine::ShadowComparison do
   describe "when the partial map only credits more tests" do
     let(:full) { map(lines: { "/a.rb" => { 1 => %w[t1] } }) }
 
-    it "is a superset, and counts each extra credit" do
-      result = compare(map(lines: { "/a.rb" => { 1 => %w[t1 t2], 2 => %w[t1] } }), full)
-      expect(result).to include(result: :superset, match: false, total: 1, extra: 2)
+    it "is a superset, and counts each extra credit on a line the full map also credits" do
+      result = compare(map(lines: { "/a.rb" => { 1 => %w[t1 t2 t3] } }, tests: %w[t1 t2 t3]),
+                       map(lines: full.lines, tests: %w[t1 t2 t3]))
+      expect(result).to include(result: :superset, match: false, total: 1, extra: 2, gained: 0)
       expect(result[:differences]).to eq([{ kind: "lines", name: "/a.rb" }])
-      expect(result.keys).to eq(%i[result match total extra differences])
+      expect(result.keys).to eq(%i[result match total extra gained differences])
     end
 
-    it "is a superset for a test that touches an extra file, and counts it" do
+    it "is a mismatch for a credit on a line the full map calls uncovered, counted apart" do
+      result = compare(map(lines: { "/a.rb" => { 1 => %w[t1], 2 => %w[t1 t2] } }), full)
+      expect(result).to include(result: :mismatch, total: 1, extra: 0, gained: 2)
+    end
+
+    it "is a mismatch for a credit in a file the full map has no credit in" do
       partial = map(lines: { "/a.rb" => { 1 => %w[t1] }, "/b.rb" => { 1 => %w[t1] } })
       result = compare(partial, full)
-      expect(result).to include(result: :superset, extra: 1, total: 1)
+      expect(result).to include(result: :mismatch, extra: 0, gained: 1, total: 1)
       expect(result[:differences]).to eq([{ kind: "lines", name: "/b.rb" }])
     end
 
     it "is a mismatch when it also lacks a credit the full map has" do
-      result = compare(map(lines: { "/a.rb" => { 1 => %w[t2], 2 => %w[t1] } }), full)
-      expect(result).to include(result: :mismatch, extra: 2)
+      result = compare(map(lines: { "/a.rb" => { 1 => %w[t2] } }), full)
+      expect(result).to include(result: :mismatch, extra: 1, gained: 0)
+    end
+
+    it "is a mismatch when one file only gained credits and another lost one" do
+      both = { "/a.rb" => { 1 => %w[t1] }, "/b.rb" => { 1 => %w[t1] } }
+      result = compare(map(lines: { "/a.rb" => { 1 => %w[t1 t2] } }), map(lines: both))
+      expect(result).to include(result: :mismatch, extra: 1, gained: 0, total: 2)
+    end
+
+    it "counts gained credits in methods and branches the same way" do
+      result = compare(map(methods: { "/a.rb" => { 1 => %w[t1] } }, branches: { "/a.rb" => { "s" => %w[t1 t2] } }),
+                       map(branches: { "/a.rb" => { "s" => %w[t1] } }))
+      expect(result).to include(result: :mismatch, extra: 1, gained: 1, total: 2)
     end
 
     it "lists differences sorted by kind then name, with exactly kind and name" do
@@ -59,7 +77,7 @@ RSpec.describe Saboteur::Engine::ShadowComparison do
 
     it "is a mismatch when a whole line is missing" do
       result = compare(map(lines: { "/a.rb" => {} }), full)
-      expect(result).to include(result: :mismatch, extra: 0)
+      expect(result).to include(result: :mismatch, extra: 0, gained: 0)
     end
 
     it "is a mismatch when the load-time lines differ, even only by extra ones" do
