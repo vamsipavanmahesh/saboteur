@@ -1449,6 +1449,12 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "184db463a4589ad6",
              subject: "Saboteur::Selection::TraceRecorder#each_hit",
              reason: "equivalent: the yielded hits are the whole behavior and the enumerator's return value is unused, so each and map agree"
+  i.mutation "9ced3f133c6fd805",
+             subject: "Saboteur::Selection::TraceRecorder#flush_branches",
+             reason: "equivalent: the block only appends to a set, and the enumerator's return value is unused, so each and map agree"
+  i.mutation "e7601d71a11e749e",
+             subject: "Saboteur::Selection::TraceRecorder#flush_branches",
+             reason: "equivalent: the block only appends to a set, and the enumerator's return value is unused, so each and map agree"
 
   i.mutation "87fc46488069845b",
              subject: "Saboteur::MethodCalls#enable",
