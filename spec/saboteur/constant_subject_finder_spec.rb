@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "tmpdir"
+require "timeout"
 
 RSpec.describe Saboteur::ConstantSubjectFinder do
   around do |example|
@@ -567,5 +568,24 @@ RSpec.describe Saboteur::ConstantSubjectFinder, "class << self owners (#380)" do
   end
   it "refuses a file nested deeper than the walker can safely recurse (#719)" do
     expect { find("#{'a(' * 1500}1#{')' * 1500}\n") }.to raise_error(Saboteur::DeepSourceError, /sample\.rb/)
+  end
+
+  describe "Unsupported#overlaps_lines?" do
+    let(:unsupported) { find("A = 1\nB = compute(\n  1,\n  2\n)\n").unsupported.find { |entry| entry.name == :B } }
+
+    it "matches an array of lines when any line falls inside the node, using both ends" do
+      expect(unsupported.node.location.start_line).to eq(2)
+      expect(unsupported.node.location.end_line).to eq(5)
+      expect(unsupported.overlaps_lines?([3])).to be(true)
+      expect(unsupported.overlaps_lines?([2])).to be(true)
+      expect(unsupported.overlaps_lines?([5])).to be(true)
+      expect(unsupported.overlaps_lines?([1, 6])).to be(false)
+    end
+
+    it "compares a range by its ends without walking it" do
+      far = (1_000_000_000..10_000_000_000)
+      expect(Timeout.timeout(2) { unsupported.overlaps_lines?(far) }).to be(false)
+      expect(unsupported.overlaps_lines?(3..4)).to be(true)
+    end
   end
 end
