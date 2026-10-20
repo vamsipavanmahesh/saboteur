@@ -363,6 +363,12 @@ RSpec.describe Saboteur::Reporter::Terminal do
                             "ignored: equivalent: ages are integers")
   end
 
+  it "starts no CI workflow command from repository text the report prints (#834)" do
+    text = render(report_of(result_for(:killed), warnings: ["x\n::error::injected", "see ##[error]y"]))
+    expect(text).to include("warning: x\n\\x3a:error::injected", "warning: see ##\\x5berror]y")
+    expect(text).not_to match(/^::error/)
+  end
+
   it "does not reprint live-announced warnings, but keeps the rest (#605)" do
     text = render(report_of(result_for(:killed), warnings: ["stale entry", "inferred specs: running only x"],
                                                  live_announced: ["inferred specs: running only x"]))
