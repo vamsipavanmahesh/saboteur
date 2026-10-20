@@ -1856,4 +1856,33 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "d392826fe7cd709a",
              subject: "Saboteur::Baseline::Command#baseline_parser",
              reason: "equivalent: OptionParser#on tells a flag from its description by shape (a leading dash), not by position, so swapping the two string arguments builds the same switch; all five swaps applied together leave baseline --help byte-identical and the baseline and cli specs green (368 examples)"
+
+  # rails.rb: each -> map on three loops whose block value is thrown away (prepare_workers
+  # copies, disconnect, restore_memory_databases) and the unused covered_by keyword of scheduler skip_all.
+  # Hand-applied together: frameworks and engine specs stay green (1825 and 1738 examples).
+  i.mutation "0c9d10255de51547",
+             subject: "Saboteur::Frameworks::Rails#prepare_workers",
+             reason: "equivalent: the per-worker copy loop is a statement whose value is discarded, so " \
+                     "map builds an array nobody reads - hand-applied mutant leaves frameworks and " \
+                     "engine specs green"
+  i.mutation "b0ce543c8313b41e",
+             subject: "Saboteur::Frameworks::Rails#disconnect",
+             reason: "equivalent: no caller uses the value of disconnect (every call is a statement or a " \
+                     "hook whose result Hooks#run drops), so map instead of each only allocates - " \
+                     "hand-applied mutant leaves frameworks and engine specs green"
+  i.mutation "cfa542d70c64f441",
+             subject: "Saboteur::Frameworks::Rails#restore_memory_databases",
+             reason: "equivalent: callers (start_worker, reconnect) ignore the return value, so map " \
+                     "instead of each only allocates - hand-applied mutant leaves frameworks and " \
+                     "engine specs green"
+  i.mutation "bd23029449e69912",
+             subject: "Saboteur::Engine::Scheduler.prioritize",
+             reason: "equivalent where sort_by Array-key sort is stable (no tie reordering found on ruby " \
+                     "3.4.6 Linux x86_64 in 230k random inputs); the index states the contract and is " \
+                     "pinned by scheduler_prioritize_ties_spec; macOS unverified"
+  i.mutation "11af31c81d6c7e6a",
+             subject: "Saboteur::Engine::Scheduler#skip_all",
+             reason: "equivalent: no caller passes covered_by, and MutantResult defaults covered_by to " \
+                     "the same empty array, so dropping the keyword changes nothing - hand-applied " \
+                     "mutant leaves engine specs green"
 end
