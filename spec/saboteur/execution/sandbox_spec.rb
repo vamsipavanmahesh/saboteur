@@ -193,13 +193,54 @@ RSpec.describe Saboteur::Execution::Sandbox do
 
   describe "InheritedFds sweeping" do
     # Every fd the suite holds before the example opens its fixtures: stdio and
-    # rspec's own report file (--out). The sweep must not close those. The
-    # listing's own dir handle is dropped: its number is reused by fixtures.
-    # /proc/self/fd is Linux-only (the examples skip elsewhere), so macOS gets [].
-    let!(:suite_fds) do
-      next [] unless described_class.linux?
+    # rspec's own report file (--out), with the file each one points at. The
+    # sweep must not close those. The listing's own dir handle is dropped: its
+    # number is reused by fixtures. /proc/self/fd is Linux-only (the examples
+    # skip elsewhere), so macOS gets {}.
+    let!(:suite_fd_targets) do
+      next {} unless described_class.linux?
 
-      Dir.open("/proc/self/fd") { |dir| dir.children.map(&:to_i) - [dir.fileno] }
+      Dir.open("/proc/self/fd") do |dir|
+        (dir.children.map(&:to_i) - [dir.fileno]).filter_map do |fd|
+          [fd, File.readlink("/proc/self/fd/#{fd}")]
+        rescue SystemCallError
+          nil
+        end.to_h
+      end
+    end
+
+    # The snapshot's numbers that still name the same file. A leaked IO from an
+    # earlier example is in the snapshot and a GC finalizer can close it before
+    # this example opens its fixture; open(2) then hands the fixture that same
+    # number, and keeping it would exempt the fixture from the sweep (#862).
+    def still_open(targets)
+      targets.select do |fd, target|
+        File.readlink("/proc/self/fd/#{fd}") == target
+      rescue SystemCallError
+        false
+      end.keys
+    end
+
+    def suite_fds = still_open(suite_fd_targets)
+
+    it "does not keep a number that was closed and reused after the snapshot (#862)" do
+      skip "needs /proc/self/fd" unless described_class.linux?
+      Dir.mktmpdir("saboteur-reuse-") do |root|
+        stale = File.open(File.join(root, "stale"), "w") # rubocop:disable Style/FileOpen
+        number = stale.fileno
+        targets = suite_fd_targets.merge(number => File.readlink("/proc/self/fd/#{number}"))
+        stale.close # what a GC finalizer does to a leaked IO
+        path = File.join(root, "project.rb")
+        File.write(path, "x")
+        io = File.open(path, "r+") # rubocop:disable Style/FileOpen
+        expect(io.fileno).to eq(number)
+        expect(still_open(targets)).not_to include(io.fileno)
+        described_class::InheritedFds.close_writable_files([], still_open(targets))
+        expect(attempt do
+          io.write("y")
+          io.flush
+        end).to eq("denied")
+      end
     end
 
     it "closes inherited writable regular files outside the granted dirs before restricting" do
