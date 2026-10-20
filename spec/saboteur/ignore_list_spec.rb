@@ -293,4 +293,13 @@ RSpec.describe Saboteur::IgnoreList do
     reasons = described_class.load(config).entries.map(&:reason)
     expect(reasons).to all(match(/\S\z/))
   end
+
+  it "drops its collector after a load, whether the file loads or raises" do
+    with_file(entry_for("abc123")) { |path| described_class.load(path) }
+    expect(described_class.instance_variable_get(:@collector)).to be_nil
+    with_file("raise 'boom'\n") do |path|
+      expect { described_class.load(path) }.to raise_error(RuntimeError, "boom")
+    end
+    expect(described_class.instance_variable_get(:@collector)).to be_nil
+  end
 end

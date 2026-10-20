@@ -52,6 +52,22 @@ RSpec.describe Saboteur::Engine::Boot do
       end
     end
 
+    it "clears the current hooks after loading, also when a hooks file raises" do
+      Dir.mktmpdir do |dir|
+        root = File.realpath(dir)
+        File.write(File.join(root, "ok.rb"),
+                   "File.write(File.join(__dir__, 'seen'), Saboteur.current_hooks.object_id)\n")
+        File.write(File.join(root, "bad.rb"), "raise 'boom'\n")
+        hooks = Saboteur::Hooks.new
+        described_class.new(Saboteur::Config.new({ "hooks" => ["./ok.rb"] }, root: root), hooks).send(:load_hooks)
+        expect(File.read(File.join(root, "seen"))).to eq(hooks.object_id.to_s)
+        expect(Saboteur.current_hooks).to be_nil
+        failing = described_class.new(Saboteur::Config.new({ "hooks" => ["./bad.rb"] }, root: root), hooks)
+        expect { failing.send(:load_hooks) }.to raise_error("boom")
+        expect(Saboteur.current_hooks).to be_nil
+      end
+    end
+
     it "loads the exact extensionless file when both it and its .rb exist" do
       Dir.mktmpdir do |dir|
         root = File.realpath(dir)

@@ -197,4 +197,12 @@ RSpec.describe Saboteur::ConfigFile do
     settings.score_gate("lib/**/*", min_score: 80)
     expect(settings.values["score_gates"].map { |gate| gate["pattern"] }).to eq(%w[app/**/* lib/**/*])
   end
+
+  it "drops its collected settings after a load, whether the file loads or raises" do
+    described_class.load(write_config("Saboteur.configure { |c| c.jobs = 2 }\n"))
+    expect(described_class.instance_variable_get(:@settings)).to be_nil
+    expect { described_class.load(write_config("Saboteur.configure { |c| c.jobs = 2 }\nraise 'boom'\n")) }
+      .to raise_error(RuntimeError, "boom")
+    expect(described_class.instance_variable_get(:@settings)).to be_nil
+  end
 end

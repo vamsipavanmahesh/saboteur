@@ -502,4 +502,14 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(removals("sig { returns(T.nilable(Integer)) }", "    store(a)\n    log(a)").size).to eq(2)
     end
   end
+
+  it "forgets the subject it walked once it is done, also when the walk raises" do
+    source = described_class.new
+    subject = subjects_in("class K\n  def m(x)\n    x + 1\n  end\nend\n").first
+    source.mutations_for(subject)
+    expect(source.instance_variable_get(:@subject)).to be_nil
+    allow(source).to receive(:visit).and_raise("boom")
+    expect { source.mutations_for(subject) }.to raise_error("boom")
+    expect(source.instance_variable_get(:@subject)).to be_nil
+  end
 end

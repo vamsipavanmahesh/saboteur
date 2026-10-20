@@ -175,4 +175,17 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
   it "keeps a mutant that holds NaN, which equals nothing" do
     expect(filter.equivalent?("def m\n  0.0 / 0.0\nend", "def m\n  1.0\nend")).to be(false)
   end
+
+  it "puts $VERBOSE back after the check, as it was, also when the check raises" do
+    verbose = $VERBOSE
+    [true, false].each do |value|
+      $VERBOSE = value
+      filter.equivalent?(original, original)
+      expect($VERBOSE).to be(value)
+      expect { filter.send(:warnings_silenced) { raise "boom" } }.to raise_error("boom")
+      expect($VERBOSE).to be(value)
+    end
+  ensure
+    $VERBOSE = verbose
+  end
 end
