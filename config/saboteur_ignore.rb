@@ -1682,4 +1682,29 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "9ffd99d047288e4e",
              subject: "Saboteur::CLI::ExitStatus#incomplete_under_threshold?",
              reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
+
+  i.mutation "0d3de3d9184ab3e2",
+             subject: "Saboteur::Reporter::SurvivorList#file_section",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "5ab5816644b5e787",
+             subject: "Saboteur::Reporter::SurvivorList#lines",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "7d08af5770919b37",
+             subject: "Saboteur::Reporter::SurvivorList#lines",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "d71f80b2e8128408",
+             subject: "Saboteur::Reporter::SurvivorList#evidence_group",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "f6fb40a288aa372f",
+             subject: "Saboteur::Reporter::SurvivorList#source_line",
+             reason: "equivalent: the line number comes from a mutation of the same file source, so the index is always in range and String#to_s is the identity"
+  i.mutation "45c7748dd7e0fe4a",
+             subject: "Saboteur::Reporter::Replay#call",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "5723271d6c56ed70",
+             subject: "Saboteur::Reporter::TestMatrix#tally",
+             reason: "equivalent: the key half of each @killed entry is never read (redundant? ignores it with _key), only the count of other killers is"
+  i.mutation "132600e011983d58",
+             subject: "Saboteur::Reporter::TestMatrix#tally",
+             reason: "equivalent: the key half of each @killed entry is never read (redundant? ignores it with _key), only the count of other killers is"
 end
