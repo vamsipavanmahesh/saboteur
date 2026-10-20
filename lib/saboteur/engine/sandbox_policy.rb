@@ -154,8 +154,9 @@ module Saboteur
           (all_dirs - [dir]).each do |other|
             next unless path_contains?(dir, other)
 
-            @diagnostics.warn("drop the redundant sandbox grant #{other}\n  " \
-                              "sandbox grant #{dir} contains the granted dir #{other}; " \
+            safe_other = Text.display_safe(other)
+            @diagnostics.warn("drop the redundant sandbox grant #{safe_other}\n  " \
+                              "sandbox grant #{Text.display_safe(dir)} contains the granted dir #{safe_other}; " \
                               "the narrower grant is redundant")
           end
         end

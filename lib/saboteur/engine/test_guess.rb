@@ -507,9 +507,9 @@ module Saboteur
         expanded = expanded.select { |path| File.file?(File.join(@root, path)) }
         return expanded unless expanded.empty?
 
-        shown = specs.first(5).join(", ")
+        shown = specs.first(5).map { |spec| Text.display_safe(spec) }.join(", ")
         shown += ", and #{specs.size - 5} more" if specs.size > 5
-        @diagnostics&.warn("fix the custom map entry for #{file}: spec(s) #{shown} match no file")
+        @diagnostics&.warn("fix the custom map entry for #{Text.display_safe(file)}: spec(s) #{shown} match no file")
         nil
       end
 
