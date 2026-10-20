@@ -1,0 +1,117 @@
+#!/usr/bin/env ruby
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+# Real-bug corpus (#652). For each entry of bench/corpus/corpus.yml: rewind a
+# public project to the parent of a real bug-fix commit, check the bug is real
+# (the fix's specs pass at the parent, and the fix's spec files fail there),
+# run saboteur on the lib files the fix touched, and say whether a mutant that
+# no test detected sits on or near the fixed lines.
+#
+#   script/bench-corpus NAME|all [WORKDIR]
+#
+# Writes WORKDIR/corpus-results.json and corpus-results.md. A fix whose
+# baseline is red or whose spec does not fail at the parent is reported as
+# "skipped" with the reason: it is not a catch and not a miss.
+
+require "English"
+require "fileutils"
+require "json"
+require "open3"
+require "shellwords"
+require "tmpdir"
+require "yaml"
+
+require_relative "bench_corpus"
+
+ROOT = File.expand_path("..", __dir__)
+CORPUS = YAML.safe_load_file(File.join(ROOT, "bench", "corpus", "corpus.yml"))
+
+def sh(*cmd, dir: nil, check: true)
+  env = cmd.first.is_a?(Hash) ? cmd.shift : {}
+  warn "+ #{cmd.shelljoin}"
+  out, status = Open3.capture2e(env, *cmd, chdir: dir || ".")
+  abort "command failed: #{cmd.shelljoin}\n#{out.lines.last(15).join}" if check && !status.success?
+  [out, status.success?]
+end
+
+def prepare(name, entry, workdir)
+  checkout = File.join(workdir, name)
+  unless File.directory?(File.join(checkout, ".git"))
+    sh("git", "clone", "-q", "--filter=blob:none", entry.fetch("repo"), checkout)
+  end
+  fix = sh("git", "rev-parse", entry.fetch("fix"), dir: checkout).first.strip
+  sh("git", "checkout", "-q", "--detach", "#{fix}^", dir: checkout)
+  [checkout, fix]
+end
+
+def rig_gemfile(checkout, entry, workdir, name)
+  dir = File.join(workdir, "#{name}-bundle")
+  FileUtils.mkdir_p(dir)
+  extra = entry.fetch("extra_gems", []).map { |gem| "gem #{gem.dump}\n" }.join
+  path = File.join(dir, "Gemfile")
+  File.write(path, "eval_gemfile #{File.join(checkout, 'Gemfile').inspect}\n" \
+                   "gem \"saboteur\", path: #{ROOT.inspect}\n#{extra}")
+  env = { "BUNDLE_GEMFILE" => path, "BUNDLE_FROZEN" => "false" }
+  # Dependencies are resolved fresh (the project's Gemfile.lock is not used):
+  # versions can differ from the fix's era, so a verdict may drift from the
+  # recorded one.
+  sh(env, "bundle", "install", "--quiet")
+  env
+end
+
+# The fix's own spec files, run against the parent's code, must fail.
+def fix_specs_pass?(env, checkout, fix, specs)
+  sh("git", "checkout", "-q", fix, "--", *specs, dir: checkout)
+  passes = sh(env, "bundle", "exec", "rspec", *specs, dir: checkout, check: false).last
+  sh("git", "reset", "-q", "--hard", "#{fix}^", dir: checkout)
+  passes
+end
+
+def measure(name, entry, workdir)
+  checkout, fix = prepare(name, entry, workdir)
+  diff = sh("git", "diff", "-U0", "#{fix}^", fix, "--", "lib", "spec", dir: checkout).first
+  ranges = BenchCorpus.hunks(diff)
+  libs = ranges.keys.grep(%r{\Alib/})
+  specs = ranges.keys.grep(%r{\Aspec/})
+  return { skipped: "fix has no lib or spec files" } if libs.empty? || specs.empty?
+
+  env = rig_gemfile(checkout, entry, workdir, name)
+  existing = specs.select { |spec| File.exist?(File.join(checkout, spec)) }
+  _out, green = sh(env, "bundle", "exec", "rspec", *existing, dir: checkout, check: false)
+  return { skipped: "baseline red at the parent" } unless existing.empty? || green
+
+  return { skipped: "fix specs pass at the parent (bug not reproduced)" } if fix_specs_pass?(env, checkout, fix, specs)
+
+  report = File.join(workdir, "#{name}.json")
+  FileUtils.rm_f(report)
+  args = ["bundle", "exec", "saboteur", "run", *libs, *specs.flat_map { |spec| ["--test", spec] },
+          "--jobs", "4", "--json", report]
+  sh(env, *args, dir: checkout, check: false)
+  return { skipped: "saboteur wrote no report" } unless File.exist?(report)
+
+  score(JSON.parse(File.read(report, encoding: "UTF-8")), libs, ranges)
+end
+
+def score(document, libs, ranges)
+  files = document.fetch("files")
+  per_file = libs.to_h { |lib| [lib, BenchCorpus.classify(files.dig(lib, "mutants") || [], ranges[lib])] }
+  mutants = libs.sum { |lib| (files.dig(lib, "mutants") || []).size }
+  open = libs.sum { |lib| (files.dig(lib, "mutants") || []).count { |m| BenchCorpus::NOT_DETECTED.include?(m["status"]) } }
+  { verdict: BenchCorpus.verdict(per_file).to_s, per_file: per_file, mutants: mutants, open: open }
+end
+
+names = ARGV[0] == "all" ? CORPUS.keys : [ARGV.fetch(0) { abort "usage: script/bench-corpus NAME|all [WORKDIR]" }]
+workdir = File.expand_path(ARGV[1] || Dir.mktmpdir("saboteur-corpus-"))
+FileUtils.mkdir_p(workdir)
+results = names.map do |name|
+  entry = CORPUS.fetch(name) { abort "unknown project #{name.inspect}; known: #{CORPUS.keys.join(', ')}" }
+  { name: name, fix: entry.fetch("fix"), expected: entry.fetch("expected") }.merge(measure(name, entry, workdir))
+end
+File.write(File.join(workdir, "corpus-results.json"), JSON.pretty_generate(results))
+measured = results.reject { |row| row[:skipped] }
+skipped = results.select { |row| row[:skipped] }.map { |row| "\nSkipped #{row[:name]}: #{row[:skipped]}" }.join
+File.write(File.join(workdir, "corpus-results.md"), "#{BenchCorpus.table(measured)}#{skipped}\n")
+puts File.read(File.join(workdir, "corpus-results.md"))
+changed = measured.reject { |row| row[:verdict] == row[:expected] }
+warn "differs from the recorded verdict: #{changed.map { |row| row[:name] }.join(', ')}" if changed.any?
