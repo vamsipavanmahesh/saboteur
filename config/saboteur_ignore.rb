@@ -2407,4 +2407,8 @@ i.mutation "fdc4600f4e8e8625",
       subject: "Saboteur::Reporter::Agent.minimal",
       reason: "The snippet limit only clips the shown findings, and minimal shows none (shown is " \
               "0), so the first and last limit give the same payload."
+  i.mutation "7fbe28b6d558f860",
+      subject: "Saboteur::Selection::CoverageMap#ran_at_load?",
+      reason: "Returning nil instead of false when the file has no load-time lines changes nothing: " \
+              "every caller only tests the result for truthiness."
 end
