@@ -84,7 +84,8 @@ module Saboteur
     # (#574); the location disambiguates a skipped subject from a real one
     # sharing its id (#627).
     def skipped_gate_sentence(reason, root)
-      "saboteur: #{id} (#{location(root)}) was skipped (#{reason}), so the change under test was not verified"
+      "saboteur: #{Text.display_safe(id)} (#{Text.display_safe(location(root))}) was skipped (#{reason}), " \
+        "so the change under test was not verified"
     end
 
     # The node whose children are the method's statements: the block body

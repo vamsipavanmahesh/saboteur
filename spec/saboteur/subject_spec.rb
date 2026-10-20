@@ -481,4 +481,11 @@ RSpec.describe Saboteur::Subject do
       end
     end
   end
+
+  it "escapes a file name with a newline in the skipped-subject gate sentence (#834)" do
+    hostile = subjects_in(source, name: "x\n::error::y.rb").first
+    line = hostile.skipped_gate_sentence("no coverage", File.dirname(hostile.file))
+    expect(line.lines.map(&:lstrip).grep(/\A(::|##\[)/)).to be_empty
+    expect(line).to include("x\\x0a::error::y.rb:")
+  end
 end

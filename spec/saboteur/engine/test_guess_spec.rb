@@ -1951,4 +1951,24 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(result.specs).to eq(["spec/jwt/claims/decode_verifier_spec.rb"])
     end
   end
+
+  describe "names that carry a newline in the stop and warning messages (#834)" do
+    let(:evil) { "lib/x\n::error::y.rb" }
+    let(:result) do
+      described_class::Result.new(
+        specs: [], unmatched: [evil], subjectless: [evil], changed: [evil], excluded: [evil], out_of_scope: [evil],
+        hints: { evil => "spec/x\n::error::y_spec.rb" }, changed_specs: ["spec/c\n::error::s_spec.rb"],
+        skipped_specs: { "spec/k\n::error::s_spec.rb" => "gone" }, near: { evil => ["spec/n\n##[error]s_spec.rb"] },
+        without_map_entry: [evil]
+      )
+    end
+
+    it "starts no line of any message with a CI workflow command" do
+      messages = [result.unmatched_message, result.unmatched_warning(evil), result.skipped_message,
+                  result.subjectless_message(since: false), result.excluded_message, result.out_of_scope_message]
+      lines = messages.flat_map(&:lines).map(&:lstrip)
+      expect(lines.grep(/\A(::|##\[)/)).to be_empty
+      expect(messages.join).to include("lib/x\\x0a::error::y.rb")
+    end
+  end
 end

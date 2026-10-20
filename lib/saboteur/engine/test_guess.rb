@@ -75,12 +75,12 @@ module Saboteur
           end
 
           pairs = unmatched.map { |file| pair_description(file) }
-          changed = changed_specs.any? ? " Specs the diff adds or changes: #{changed_specs.join(', ')}." : ""
+          changed = changed_specs.any? ? " Specs the diff adds or changes: #{names(changed_specs)}." : ""
           # The map is the documented escape hatch for layouts the
           # convention cannot guess - named only for files no entry covers;
           # a file whose own entry broke heard that in the warning (#640).
           mapped = without_map_entry.any? &&
-                   " If the layout defeats the naming convention, map #{without_map_entry.join(', ')} by hand in " \
+                   " If the layout defeats the naming convention, map #{names(without_map_entry)} by hand in " \
                    "config/saboteur_custom_map.rb: no entry covers it."
           "no spec found for #{pairs.join(', ')}, so nothing ran.#{changed} Re-run the same command with " \
             "one --test per existing spec path, or append --all to use the whole suite without " \
@@ -92,10 +92,14 @@ module Saboteur
         def pair_description(file)
           expected = hints.fetch(file)
           gone = skipped_specs[expected] == DELETED ? ", deleted in the diff" : ""
-          found = near.fetch(file, []).any? ? "; found: #{near.fetch(file).join(', ')}" : ""
+          found = near.fetch(file, []).any? ? "; found: #{names(near.fetch(file))}" : ""
           crowd = (count = crowded[file]) ? "; #{ReferenceSpecs.crowd_note(count)}" : ""
-          "#{file} (expected #{expected}#{gone}#{found}#{crowd})"
+          "#{Text.display_safe(file)} (expected #{Text.display_safe(expected)}#{gone}#{found}#{crowd})"
         end
+
+        # Repo-controlled names reach CI logs, so each is escaped before it
+        # joins a message (#834): a file name may hold a newline.
+        def names(list) = list.map { |name| Text.display_safe(name) }.join(", ")
 
         public
 
@@ -105,14 +109,14 @@ module Saboteur
 
         # The spec files the diff touched that do not run, with the reasons.
         def skipped_message
-          named = skipped_specs.map { |path, reason| "#{path} (#{reason})" }
+          named = skipped_specs.map { |path, reason| "#{Text.display_safe(path)} (#{reason})" }
           "inferred specs: not running spec files changed in the diff: #{named.join(', ')}"
         end
 
         # Why the subjectless files needed no spec.
         def subjectless_message(since:)
           detail = since ? "no changed mutation subjects" : "no mutation subjects"
-          "inferred specs: no spec is required for #{subjectless.join(', ')}: they have #{detail}"
+          "inferred specs: no spec is required for #{names(subjectless)}: they have #{detail}"
         end
 
         # The per-file warning when the run proceeds with the mapped
@@ -129,7 +133,7 @@ module Saboteur
         # scope hid. Append-only recovery, like unmatched_message: extend include, or
         # name the specs with --test.
         def out_of_scope_message
-          named = out_of_scope.first(10).join(", ")
+          named = names(out_of_scope.first(10))
           more = out_of_scope.size - 10
           named += " and #{more} more" if more.positive?
           "no changed source file lies inside the include scope, so nothing ran. " \
@@ -152,7 +156,7 @@ module Saboteur
 
         # Why the custom-map-excluded files needed no spec (#369).
         def excluded_message
-          "inferred specs: no spec is required for #{excluded.join(', ')}: " \
+          "inferred specs: no spec is required for #{names(excluded)}: " \
             "intentionally untested in config/saboteur_custom_map.rb"
         end
 
