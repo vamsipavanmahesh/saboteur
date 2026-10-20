@@ -24,6 +24,7 @@ module Saboteur
         "negation_removal" => "Remove a logical negation",
         "literal_number" => "Change a numeric literal",
         "or_assign" => "Replace ||= with assignment",
+        "and_assign" => "Replace &&= with assignment",
         "safe_navigation" => "Replace safe navigation with a regular call",
         "statement_removal" => "Replace a statement with nil",
         "filter_replacement" => "Swap select and reject",

@@ -40,6 +40,7 @@
 
 ## Operators
 
+- [and_assign](operators/and_assign.md)
 - [argument_removal](operators/argument_removal.md)
 - [arithmetic](operators/arithmetic.md)
 - [body_false](operators/body_false.md)

@@ -17,6 +17,7 @@ module Saboteur
         "negation_removal" => "!x -> x",
         "literal_number" => "1 -> 0",
         "or_assign" => "x ||= 1 -> x = 1",
+        "and_assign" => "x &&= y -> x = y",
         "safe_navigation" => "x&.name -> x.name",
         "statement_removal" => "check; value -> nil; value",
         "filter_replacement" => "xs.select { |x| x } -> xs.reject { |x| x }",
