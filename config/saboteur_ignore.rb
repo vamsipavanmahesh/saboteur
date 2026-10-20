@@ -1823,4 +1823,17 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "9d0ca3c99887dd7b",
              subject: "Saboteur::Engine::CoveragePartial#partial_map",
              reason: "equivalent: stale_specs treats its two snapshots alike - the SAME keys are compared for equality and changed_files needs equal file sets and skips unchanged files, and the result is re-sorted into run order - so swapping base and current gives the same stale list; the 600 coverage store, partial and invalidation specs stay green"
+
+  i.mutation "d1fed205e803f0bf",
+             subject: "Saboteur::Engine::CoverageStore#part_map",
+             reason: "equivalent: part_map is called only for its refusal and its return value is discarded, so returning nil instead of the map changes nothing"
+  i.mutation "139eb4967a73b69f",
+             subject: "Saboteur::Engine::CoverageStore#preloaded_message",
+             reason: "equivalent: the caller builds the message only when preloaded_empty.any?, so files holds at least one entry and size > 1 and size != 1 agree"
+  i.mutation "e1e8c2b9b39fdca7",
+             subject: "Saboteur::Engine::CoverageStore#output_tail",
+             reason: "equivalent: output_tail is only interpolated into the build-failure message, and nil interpolates as the empty string"
+  i.mutation "032f6f477ac64365",
+             subject: "Saboteur::Config#validate_operator_config!",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map compiles the same patterns and raises the same RegexpError"
 end
