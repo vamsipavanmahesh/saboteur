@@ -362,7 +362,7 @@ RSpec.describe Saboteur::Engine::CoverageStore do
                                 supervisor: supervisor, diagnostics: diagnostics)
 
     expect(store.fetch([file]).tests).to eq(["t1"])
-    expect(diagnostics.warnings.join).to include("a.rb loaded before saboteur started coverage")
+    expect(diagnostics.warnings.join).to include("a.rb can never be covered: loaded before saboteur started coverage")
     # The preloaded warning must be the only one: falling through to the
     # generic "selected specs may not exercise them" warning would blame a
     # setup defect on the --test narrowing (#688).
@@ -370,7 +370,7 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     expect(diagnostics.warnings.join).not_to include("the selected specs may not exercise them")
   end
 
-  it "names the first five preloaded files with a tail and the plural pronoun" do
+  it "names the first five preloaded files with a tail" do
     files = %w[a.rb b.rb c.rb d.rb e.rb f.rb].map { |name| File.join(@root, name).tap { |p| File.write(p, "1\n") } }
     empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
     allow(supervisor).to receive(:run).and_return(built_result(empty.to_json))
@@ -379,10 +379,10 @@ RSpec.describe Saboteur::Engine::CoverageStore do
 
     expect { store.fetch(files) }.to raise_error(
       Saboteur::Error,
-      "a.rb, b.rb, c.rb, d.rb, e.rb and 1 more loaded before saboteur started coverage (a require ran before " \
-      "the executable's Coverage.start - commonly the gemspec requiring the library while bundler/setup " \
-      "evaluates it, or RUBYOPT -r), so no test can ever cover them. Let the test suite load these " \
-      "files; a gemspec should require only its version file."
+      "a.rb, b.rb, c.rb, d.rb, e.rb and 1 more can never be covered: loaded before saboteur started coverage\n  " \
+      "a require ran before the executable's Coverage.start, commonly the gemspec requiring the " \
+      "library while bundler/setup evaluates it, or RUBYOPT -r\n  " \
+      "Let the test suite load these files; a gemspec should require only its version file."
     )
   end
 
@@ -395,30 +395,14 @@ RSpec.describe Saboteur::Engine::CoverageStore do
 
     expect { store.fetch(files) }.to raise_error(
       Saboteur::Error,
-      "a.rb, b.rb, c.rb, d.rb, e.rb loaded before saboteur started coverage (a require ran before the " \
-      "executable's Coverage.start - commonly the gemspec requiring the library while bundler/setup " \
-      "evaluates it, or RUBYOPT -r), so no test can ever cover them. Let the test suite load these " \
-      "files; a gemspec should require only its version file."
+      "a.rb, b.rb, c.rb, d.rb, e.rb can never be covered: loaded before saboteur started coverage\n  " \
+      "a require ran before the executable's Coverage.start, commonly the gemspec requiring the " \
+      "library while bundler/setup evaluates it, or RUBYOPT -r\n  " \
+      "Let the test suite load these files; a gemspec should require only its version file."
     )
   end
 
-  it "uses the plural pronoun for two preloaded files" do
-    files = %w[a.rb b.rb].map { |name| File.join(@root, name).tap { |p| File.write(p, "1\n") } }
-    empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
-    allow(supervisor).to receive(:run).and_return(built_result(empty.to_json))
-    allow(Coverage).to receive(:state).and_return(:suspended)
-    allow(Saboteur::Engine::LoadCoverage).to receive(:preloaded_uninstrumented).and_return(files)
-
-    expect { store.fetch(files) }.to raise_error(
-      Saboteur::Error,
-      "a.rb, b.rb loaded before saboteur started coverage (a require ran before the executable's " \
-      "Coverage.start - commonly the gemspec requiring the library while bundler/setup evaluates it, " \
-      "or RUBYOPT -r), so no test can ever cover them. Let the test suite load these files; a gemspec " \
-      "should require only its version file."
-    )
-  end
-
-  it "uses the singular pronoun for one preloaded file" do
+  it "names one preloaded file alone" do
     empty = Saboteur::Selection::CoverageMap.new(lines: {}, tests: ["t1"])
     allow(supervisor).to receive(:run).and_return(built_result(empty.to_json))
     allow(Coverage).to receive(:state).and_return(:suspended)
@@ -426,10 +410,10 @@ RSpec.describe Saboteur::Engine::CoverageStore do
 
     expect { store.fetch([file]) }.to raise_error(
       Saboteur::Error,
-      "a.rb loaded before saboteur started coverage (a require ran before the executable's " \
-      "Coverage.start - commonly the gemspec requiring the library while bundler/setup evaluates it, " \
-      "or RUBYOPT -r), so no test can ever cover it. Let the test suite load these files; a gemspec " \
-      "should require only its version file."
+      "a.rb can never be covered: loaded before saboteur started coverage\n  " \
+      "a require ran before the executable's Coverage.start, commonly the gemspec requiring the " \
+      "library while bundler/setup evaluates it, or RUBYOPT -r\n  " \
+      "Let the test suite load these files; a gemspec should require only its version file."
     )
   end
 
@@ -443,7 +427,10 @@ RSpec.describe Saboteur::Engine::CoverageStore do
     allow(Coverage).to receive(:state).and_return(:suspended)
     allow(Saboteur::Engine::LoadCoverage).to receive(:preloaded_uninstrumented).and_return([file])
 
-    expect { store.fetch([spelled]) }.to raise_error(Saboteur::Error, /a\.rb loaded before saboteur started coverage/)
+    expect do
+      store.fetch([spelled])
+    end.to raise_error(Saboteur::Error,
+                       /a\.rb can never be covered: loaded before saboteur started coverage/)
   end
 
   # Spec files sit in the recorder's map, so a suite that tests nothing in

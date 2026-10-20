@@ -1827,9 +1827,6 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "d1fed205e803f0bf",
              subject: "Saboteur::Engine::CoverageStore#part_map",
              reason: "equivalent: part_map is called only for its refusal and its return value is discarded, so returning nil instead of the map changes nothing"
-  i.mutation "139eb4967a73b69f",
-             subject: "Saboteur::Engine::CoverageStore#preloaded_message",
-             reason: "equivalent: the caller builds the message only when preloaded_empty.any?, so files holds at least one entry and size > 1 and size != 1 agree"
   i.mutation "e1e8c2b9b39fdca7",
              subject: "Saboteur::Engine::CoverageStore#output_tail",
              reason: "equivalent: output_tail is only interpolated into the build-failure message, and nil interpolates as the empty string"
