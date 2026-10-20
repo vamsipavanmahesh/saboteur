@@ -24,6 +24,7 @@ module Saboteur
                            "shorter chain is equivalent across the intended inputs (for example a duplicated " \
                            "column), simplify the code or ignore the mutant",
         "endpoint_replacement" => "try a collection with 2 or more elements, to tell first from last",
+        "jump_value" => "try asserting the value this early exit returns",
         "filter_replacement" => "try items that match and items that do not, to tell select from reject"
       }.freeze
 

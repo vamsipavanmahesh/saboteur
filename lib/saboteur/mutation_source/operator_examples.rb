@@ -35,6 +35,7 @@ module Saboteur
         "method_swap" => "xs.min -> xs.max",
         "operand_replacement" => "a + b -> a",
         "interpolation_removal" => "\"hi \#{name}\" -> \"hi \"",
+        "jump_value" => "return total -> return nil",
         "regex_replacement" => "/\\A\\d+\\z/ -> /\\d+\\z/"
       }.freeze
     end
