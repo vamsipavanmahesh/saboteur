@@ -33,6 +33,7 @@ require_relative "cli/explicit_sources"
 require_relative "cli/run_output"
 require_relative "cli/dirty_tree_notice"
 require_relative "cli/run_command"
+require_relative "cli/failure_output"
 
 module Saboteur
   class CLI
@@ -60,6 +61,7 @@ module Saboteur
     include RunOutput
     include DirtyTreeNotice
     include RunCommand
+    include FailureOutput
 
     USAGE = "Usage: saboteur run [SOURCE...] [--test TEST...] [--all] [--threshold PERCENT] [--since REF] " \
             "[--subject 'Klass#meth'] [--timeout-factor N] [--jobs N] [--seed N] [--id DIGEST]
@@ -127,30 +129,7 @@ module Saboteur
 
     def history_entry(command) = help_requested? ? show_help(command) : history_command(command)
 
-    def usage_error(message = nil)
-      @err.puts(message) if message
-      @err.puts(USAGE)
-      agent_failure(message || USAGE, EXIT_USAGE)
-    end
-
-    def agent? = @format == "agent"
-
     def agent_requested? = self.class.agent_requested?(@argv)
-
-    # In agent mode the failure is also on stdout, where the agent reads its answer.
-    def agent_failure(message, exit_code)
-      @out.print(Reporter::Agent.render(Reporter::Agent.failure(message, exit_code))) if agent?
-      exit_code
-    end
-
-    # Error messages interpolate repository-controlled names, so each line is
-    # made safe before it is printed (a newline then "::error::" in a file
-    # name must not become a workflow command in the CI log).
-    def report_failure(error, exit_code)
-      message = Text.display_safe_lines(error.message)
-      @err.puts("saboteur: #{message}")
-      agent_failure(message, exit_code)
-    end
 
     def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)
 
