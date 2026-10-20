@@ -1942,4 +1942,30 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: ranges are built in ascending order, so the end of the first hunk is " \
                      "never above the new range end and max of the two is always the new end - " \
                      "hand-applied mutant leaves reporter specs green"
+
+  # engine/unchanged_syntax.rb digest and base_subjects, engine/candidates.rb ordering.
+  # Hand-applied together: spec/saboteur/engine and selection stay green (2054 examples).
+  i.mutation "a9717e10a506fb98",
+             subject: "Saboteur::Engine::UnchangedSyntax.digest",
+             reason: "equivalent: Prism nodes answer start_line as an alias of location.start_line, so " \
+                     "dropping the location hop reads the same number - hand-applied mutant leaves " \
+                     "engine specs green"
+  i.mutation "1819a12ad9036608",
+             subject: "Saboteur::Engine::UnchangedSyntax.digest",
+             reason: "equivalent: a digest is compared with the digest of the same field of the same node " \
+                     "type, so a one-line __LINE__ entry versus a type and line pair cannot collide " \
+                     "with any other digest shape - hand-applied mutant leaves engine specs green"
+  i.mutation "1dc5da070e97252d",
+             subject: "Saboteur::Engine::UnchangedSyntax#base_subjects",
+             reason: "equivalent: keeping the leading slash makes git show read base:.//path, and git " \
+                     "resolves that to the same blob as base:./path (same bytes, checked in a scratch " \
+                     "repo) - hand-applied mutant leaves engine specs green"
+  i.mutation "a29b96b44beaa753",
+             subject: "Saboteur::Engine::Candidates#for",
+             reason: "equivalent: the key only separates coarse from the rest, so 2 instead of 1 for a " \
+                     "non-coarse mutation sorts the same way - hand-applied mutant leaves engine specs green"
+  i.mutation "3dedd031b468a504",
+             subject: "Saboteur::Engine::Candidates#for",
+             reason: "equivalent where the Array-key sort_by keeps ties in order (no tie reorder found " \
+                     "on ruby 3.4.6 Linux, macOS unverified); the index states the contract"
 end
