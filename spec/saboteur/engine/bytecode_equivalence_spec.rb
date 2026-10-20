@@ -101,6 +101,21 @@ RSpec.describe Saboteur::Engine::BytecodeEquivalence do
       .with(anything, "saboteur/bytecode-equivalence", nil, 1, { frozen_string_literal: true }).twice
   end
 
+  it "recompiles the original when only the frozen_string_literal setting changes" do
+    allow(RubyVM::InstructionSequence).to receive(:compile).and_call_original
+    text = "def m\n  \"a\"\nend"
+
+    filter.equivalent?(text, text, frozen_string_literal: false)
+    filter.equivalent?(text, text, frozen_string_literal: true)
+
+    expect(RubyVM::InstructionSequence).to have_received(:compile).exactly(4).times
+  end
+
+  it "tells apart methods whose parameters differ but whose locals and body match" do
+    expect(filter.equivalent?("def m(a)\nend", "def m(*a)\nend")).to be(false)
+    expect(filter.equivalent?("def m(a)\nend", "def m(a)\n\nend")).to be(true)
+  end
+
   it "never equates an Integer with a Float" do
     expect(filter.equivalent?("def m\n  2\nend", "def m\n  2.0\nend")).to be(false)
     expect(filter.equivalent?("def m\n  [2]\nend", "def m\n  [2.0]\nend")).to be(false)
