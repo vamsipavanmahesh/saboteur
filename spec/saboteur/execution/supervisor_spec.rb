@@ -275,6 +275,36 @@ RSpec.describe Saboteur::Execution::Supervisor do
     expect(described_class.live).to be_empty
   end
 
+  # The group kill is what ends a grandchild when the release-time scan is
+  # blind: the table-driven sweep is lost, the child's own group is not. Each
+  # error class the backends raise (a failed ps, a libproc load failure) must
+  # take the same containment path, and the scan error must still surface.
+  [Errno::EIO, Fiddle::DLError].each do |error|
+    it "kills the child's group and surfaces the scan error when the release scan raises #{error} (#762)" do
+      real_snapshot = Saboteur::Execution::ProcessTable.method(:snapshot)
+      blind_reads = 0
+      allow(Saboteur::Execution::ProcessTable).to receive(:snapshot) do
+        if caller_locations(1, 30).any? { |loc| loc.base_label == "kill_all_except" }
+          blind_reads += 1
+          raise error, "table blind"
+        end
+
+        real_snapshot.call
+      end
+
+      expect do
+        supervisor.run(timeout: 30) do |writer|
+          File.write(pid_file("grand"), Process.spawn("sleep", "30").to_s)
+          writer.write("done")
+        end
+      end.to raise_error(error, /table blind/)
+
+      expect(blind_reads).to be_positive
+      expect(dead_within?(read_pid("grand"), 5)).to be(true)
+      expect(described_class.live).to be_empty
+    end
+  end
+
   it "records a child exception on stderr before exiting, so an empty result has a cause (#255)" do
     expect do
       supervisor.run(timeout: 5) { |_writer| raise "boom in child" }
@@ -548,8 +578,12 @@ RSpec.describe Saboteur::Execution::Supervisor do
       # hit the stub first on a loaded runner.
       real_snapshot = Saboteur::Execution::ProcessTable.method(:snapshot)
       tick_raised = false
+      blind_reads = 0
       allow(Saboteur::Execution::ProcessTable).to receive(:snapshot) do
-        raise Errno::EIO, "ps failed" if tick_raised
+        if tick_raised
+          blind_reads += 1
+          raise Errno::EIO, "ps failed"
+        end
 
         real_snapshot.call
       end
@@ -568,6 +602,9 @@ RSpec.describe Saboteur::Execution::Supervisor do
         end
       end.to raise_error(RuntimeError, "tick failed")
 
+      # The table really was blind while the child was contained: without
+      # this, a stub that never fires would leave the example green.
+      expect(blind_reads).to be_positive
       expect(dead_within?(read_pid("grand"), 5)).to be(true)
     end
 
