@@ -20,6 +20,7 @@ require_relative "operand_replacement"
 require_relative "interpolation_removal"
 require_relative "jump_value"
 require_relative "regex_replacement"
+require_relative "rescue_removal"
 
 module Saboteur
   module MutationSource
@@ -92,6 +93,7 @@ module Saboteur
         @interpolation_removal = InterpolationRemoval.new(arid: arid)
         @jump_value = JumpValue.new(arid: arid)
         @regex_replacement = RegexReplacement.new(arid: arid)
+        @rescue_removal = RescueRemoval.new(arid: arid)
       end
 
       def name
@@ -117,7 +119,8 @@ module Saboteur
          @chain_removal,
          @endpoint_replacement, @range_replacement, @operator_assignment, @condition_negation,
          @method_swap, @operand_replacement, @interpolation_removal, @regex_replacement, @argument_swap,
-         @jump_value]
+         @jump_value,
+         @rescue_removal]
       end
 
       private
