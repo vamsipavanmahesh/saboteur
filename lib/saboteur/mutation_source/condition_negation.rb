@@ -2,12 +2,13 @@
 # frozen_string_literal: true
 
 require_relative "base"
+require_relative "operator_visit"
 
 module Saboteur
   module MutationSource
     # Negates the predicate, retaining its evaluation and branch structure.
     class ConditionNegation < Base
-      SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
+      include OperatorVisit
 
       def initialize(arid: []) # rubocop:disable Lint/MissingSuper
         @arid = arid.map { |pattern| Regexp.new(pattern) }
@@ -17,20 +18,10 @@ module Saboteur
         "condition_negation"
       end
 
-      def mutations_for(subject)
-        found = []
-        visit(subject.body_node, subject, found)
-        found
-      end
-
       private
 
-      def visit(node, subject, found)
-        return if node.nil? || SCOPE_NODES.any? { |scope| node.is_a?(scope) }
-        return if @arid.any? { |pattern| pattern.match?(node.slice) }
-
+      def mutate_node(node, subject, found)
         negate(node.predicate, subject, found) if node.is_a?(Prism::IfNode) || node.is_a?(Prism::UnlessNode)
-        node.compact_child_nodes.each { |child| visit(child, subject, found) }
       end
 
       def negate(predicate, subject, found)
