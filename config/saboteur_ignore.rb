@@ -1916,4 +1916,17 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Execution::ProcessTree#stop_until_stable",
              reason: "equivalent: the stopped hash is only read with key?, so the stored value true or " \
                      "false is never looked at - hand-applied mutant leaves execution specs green"
+
+  # shadow_comparison.rb hits: the per-line id sort and the empty-file guard. Hand-applied
+  # together: spec/saboteur/engine stays green (1738 examples).
+  i.mutation "7fb5bcfe29ad2a88",
+             subject: "Saboteur::Engine::ShadowComparison#hits",
+             reason: "equivalent: credits compares ids by array subtraction, size and emptiness, none of " \
+                     "which depends on id order, so dropping the sort changes no difference found - " \
+                     "hand-applied mutant leaves engine specs green"
+  i.mutation "e56448a0de36136d",
+             subject: "Saboteur::Engine::ShadowComparison#hits",
+             reason: "equivalent: hit_differences reads a missing file as an empty hash, and credits of " \
+                     "two empty hashes is zero, so an empty entry and no entry give the same result - " \
+                     "hand-applied mutant leaves engine specs green"
 end
