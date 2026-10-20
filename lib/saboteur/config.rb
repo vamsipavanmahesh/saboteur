@@ -76,6 +76,9 @@ module Saboteur
       # Experimental (#46): "shadow" also builds a partial coverage map after a
       # cache miss and compares it with the full map, which the run still uses.
       "partial_coverage" => "off",
+      # coverage (default) reads Coverage around every test; trace gets lines and
+      # methods from a TracePoint and reads branches once per spec file (#725).
+      "coverage_recorder" => "coverage",
       "incremental" => false,
       "resume" => nil,
       "shard" => nil,
@@ -105,6 +108,7 @@ module Saboteur
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes
                       coverage_parts].freeze
     FLOAT_KEYS = %w[timeout_factor timeout_min baseline_timeout coverage_timeout].freeze
+    STRING_KEYS = %w[test_selection partial_coverage coverage_recorder].freeze
     NILABLE_FLOAT_KEYS = %w[threshold max_duration].freeze
     THRESHOLD_RANGE = (0.0..100.0)
 
@@ -269,8 +273,7 @@ module Saboteur
       FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) }
       LIST_KEYS.each { |key| @values[key] = Array(@values[key]).map(&:to_s) }
       NILABLE_FLOAT_KEYS.each { |key| @values[key] = Float(@values[key]) unless @values[key].nil? }
-      @values["test_selection"] = @values["test_selection"].to_s
-      @values["partial_coverage"] = @values["partial_coverage"].to_s
+      STRING_KEYS.each { |key| @values[key] = @values[key].to_s }
     rescue ArgumentError, TypeError => e
       raise ConfigError, "invalid config value: #{e.message}"
     end
@@ -279,6 +282,17 @@ module Saboteur
       return if %w[off shadow].include?(self["partial_coverage"])
 
       raise ConfigError, "partial_coverage must be one of: off, shadow"
+    end
+
+    def validate_coverage_settings!
+      validate_partial_coverage!
+      validate_coverage_recorder!
+    end
+
+    def validate_coverage_recorder!
+      return if %w[coverage trace].include?(self["coverage_recorder"])
+
+      raise ConfigError, "coverage_recorder must be one of: coverage, trace"
     end
 
     def validate_mutant_limit!
@@ -426,7 +440,7 @@ module Saboteur
         raise ConfigError, "flaky_check must be one of: off, survivors, decisive"
       end
 
-      validate_partial_coverage!
+      validate_coverage_settings!
       validate_mutant_limit!
       validate_threshold!
       validate_modes!

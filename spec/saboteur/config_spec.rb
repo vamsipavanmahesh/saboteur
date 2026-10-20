@@ -552,6 +552,15 @@ RSpec.describe Saboteur::Config, "matrix" do
       .to raise_error(Saboteur::ConfigError, /matrix cannot be combined with incremental/)
   end
 
+  describe "coverage_recorder (#725)" do
+    it "defaults to coverage, coerces a symbol and refuses anything else" do
+      expect(described_class.new({})["coverage_recorder"]).to eq("coverage")
+      expect(described_class.new({ "coverage_recorder" => :trace })["coverage_recorder"]).to eq("trace")
+      expect { described_class.new({ "coverage_recorder" => "tracepoint" }) }
+        .to raise_error(Saboteur::ConfigError, "coverage_recorder must be one of: coverage, trace")
+    end
+  end
+
   describe "partial_coverage (#46)" do
     it "is off by default and accepts shadow as a string or a symbol" do
       expect(described_class.new({})["partial_coverage"]).to eq("off")
