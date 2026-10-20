@@ -2179,4 +2179,23 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: Dir.children on /proc never lists an empty name, so letting the " \
                      "pid pattern match zero digits admits no extra entry - hand-applied mutant " \
                      "leaves the execution specs green"
+
+  # gates.rb define_options and initialize. Hand-applied together: gates, cli and help specs
+  # stay green (310 examples).
+  i.mutation "172fa2587c30352e",
+             subject: "Saboteur::Gates.define_options",
+             reason: "equivalent: the each runs for the parser.on side effects and its only caller " \
+                     "does not use the return value, so map builds an unused array - hand-applied " \
+                     "mutant leaves gates, cli and help specs green"
+  i.mutation "1a85e197156f5af9",
+             subject: "Saboteur::Gates.define_options",
+             reason: "equivalent: OptionParser#on tells a switch from its description by shape (a " \
+                     "leading dash), not by position, so swapping the two strings builds the same " \
+                     "switch and a byte-identical help line - hand-applied mutant leaves gates, " \
+                     "cli and help specs green"
+  i.mutation "88e5b32592d1582e",
+             subject: "Saboteur::Gates#initialize",
+             reason: "equivalent: Hash#to_h with a one-parameter block yields the key first, so " \
+                     "mapping SETTINGS directly builds the same limits as mapping SETTINGS.keys - " \
+                     "hand-applied mutant leaves gates, cli and help specs green"
 end
