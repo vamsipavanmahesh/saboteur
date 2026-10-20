@@ -1929,4 +1929,17 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: hit_differences reads a missing file as an empty hash, and credits of " \
                      "two empty hashes is zero, so an empty entry and no entry give the same result - " \
                      "hand-applied mutant leaves engine specs green"
+
+  # reporter/diff.rb operations and hunks. Hand-applied together: the reporter specs stay
+  # green (591 examples).
+  i.mutation "e7b25b4905f420a9",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: j starts at 0 and only grows while it is below b.size, so it never " \
+                     "exceeds b.size and j == b.size means the same as j >= b.size - hand-applied " \
+                     "mutant leaves reporter specs green"
+  i.mutation "1964873e679f491e",
+             subject: "Saboteur::Reporter::Diff#hunks",
+             reason: "equivalent: ranges are built in ascending order, so the end of the first hunk is " \
+                     "never above the new range end and max of the two is always the new end - " \
+                     "hand-applied mutant leaves reporter specs green"
 end
