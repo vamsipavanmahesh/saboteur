@@ -2165,4 +2165,18 @@ i.mutation "fdc4600f4e8e8625",
                      "an empty part gives the same path, so the same links are tested - " \
                      "hand-applied mutant leaves the engine, integration and focus e2e specs green"
 
+
+  # execution/process_table.rb. Hand-applied together: spec/saboteur/execution stays green
+  # (500 examples, 1 pending).
+  i.mutation "be375b2b723b6afc",
+             subject: "Saboteur::Execution::ProcessTable::Linux#entry_for",
+             reason: "equivalent: the character after the closing paren of a stat line is always a " \
+                     "space, so starting the field split one character earlier only adds a leading " \
+                     "space, which split drops - hand-applied mutant leaves the execution specs " \
+                     "green"
+  i.mutation "27fc64f6fcd489bd",
+             subject: "Saboteur::Execution::ProcessTable::Linux#snapshot",
+             reason: "equivalent: Dir.children on /proc never lists an empty name, so letting the " \
+                     "pid pattern match zero digits admits no extra entry - hand-applied mutant " \
+                     "leaves the execution specs green"
 end
