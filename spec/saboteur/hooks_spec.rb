@@ -65,4 +65,22 @@ RSpec.describe Saboteur::Hooks do
       expect(hooks.around(:mut) { 42 }).to eq(42)
     end
   end
+
+  describe "messages and chaining" do
+    it "accepts a String hook name and returns the registry so calls chain" do
+      calls = []
+      expect(hooks.register("after_fork") { calls << :ran }).to be(hooks)
+      hooks.run("after_fork")
+      expect(calls).to eq([:ran])
+    end
+
+    it "names the hook in the unknown and missing-callable messages" do
+      expect { hooks.register(:before_lunch) { nil } }.to raise_error(ArgumentError, "unknown hook: before_lunch")
+      expect { hooks.register(:after_boot) }.to raise_error(ArgumentError, "hook after_boot needs a callable")
+    end
+
+    it "names the around_mutant hook in the message for run" do
+      expect { hooks.run(:around_mutant) }.to raise_error(ArgumentError, "use #around for around_mutant")
+    end
+  end
 end
