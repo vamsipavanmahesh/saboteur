@@ -1968,4 +1968,31 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Engine::Candidates#for",
              reason: "equivalent where the Array-key sort_by keeps ties in order (no tie reorder found " \
                      "on ruby 3.4.6 Linux, macOS unverified); the index states the contract"
+
+  # reporter/html.rb. Hand-applied together: spec/saboteur/reporter stays green (592 examples).
+  i.mutation "e733f226babab2ef",
+             subject: "Saboteur::Reporter::Html#call",
+             reason: "equivalent: the class build is new(nil).build and the instance build reads no " \
+                     "instance state, so calling build on self renders the same page - hand-applied " \
+                     "mutant leaves reporter specs green"
+  i.mutation "d2f58b902fe91c80",
+             subject: "Saboteur::Reporter::Html#inline_suppressions",
+             reason: "equivalent: the only call site is the heredoc interpolation, where nil renders as " \
+                     "an empty string, so return nil instead of an empty string changes no output - " \
+                     "hand-applied mutant leaves reporter specs green"
+  i.mutation "df4997b189549108",
+             subject: "Saboteur::Reporter::Html#warnings",
+             reason: "equivalent: the only call site is the heredoc interpolation, where nil renders as " \
+                     "an empty string, so return nil instead of an empty string changes no output - " \
+                     "hand-applied mutant leaves reporter specs green"
+  i.mutation "9939ed43ddb96b76",
+             subject: "Saboteur::Reporter::Html#skipped_subjects",
+             reason: "equivalent: the only call site is the heredoc interpolation, where nil renders as " \
+                     "an empty string, so return nil instead of an empty string changes no output - " \
+                     "hand-applied mutant leaves reporter specs green"
+  i.mutation "61f9e7ec38ec9d4e",
+             subject: "Saboteur::Reporter::Html#change",
+             reason: "equivalent: the line is reached only after the return unless edits.size == 1, so " \
+                     "edits.first and edits.last are the same edit - hand-applied mutant leaves " \
+                     "reporter specs green"
 end
