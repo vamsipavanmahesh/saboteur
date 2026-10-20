@@ -1971,4 +1971,58 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(messages.join).to include("lib/x\\x0a::error::y.rb")
     end
   end
+
+  describe "Result messages" do
+    def result_with(**fields)
+      described_class::Result.new(specs: [], unmatched: [], subjectless: [], changed: 0, hints: {}, **fields)
+    end
+
+    it "joins the skipped specs with a comma and a space" do
+      result = result_with(skipped_specs: { "spec/a_spec.rb" => "gone", "spec/b_spec.rb" => "empty" })
+
+      expect(result.skipped_message).to eq(
+        "inferred specs: not running spec files changed in the diff: " \
+        "spec/a_spec.rb (gone), spec/b_spec.rb (empty)"
+      )
+    end
+
+    it "names the subjectless files and says why, with and without --since" do
+      result = result_with(subjectless: %w[lib/a.rb lib/b.rb])
+      lead = "inferred specs: no spec is required for lib/a.rb, lib/b.rb: they have "
+
+      expect(result.subjectless_message(since: true)).to eq("#{lead}no changed mutation subjects")
+      expect(result.subjectless_message(since: false)).to eq("#{lead}no mutation subjects")
+    end
+
+    it "joins the specs changed in the diff with a comma and a space" do
+      result = result_with(specs: %w[spec/a_spec.rb spec/b_spec.rb], changed_specs: %w[spec/a_spec.rb spec/b_spec.rb])
+
+      expect(result.scope_message(since: true)).to start_with(
+        "inferred specs: running only spec/a_spec.rb, spec/b_spec.rb " \
+        "(changed in the diff: spec/a_spec.rb, spec/b_spec.rb). "
+      )
+    end
+  end
+
+  describe "guessing for named subjects under --since" do
+    it "keeps a file whose class is named by a pattern that is a prefix of its subject ids" do
+      write("lib/a.rb", changed_source)
+      config = Saboteur::Config.new({ "since" => "HEAD", "include" => ["lib/**/*.rb"] }, root: dir)
+
+      expect(described_class.new(config).call_for(["lib/a.rb"], ["Widget"]).specs).to eq(["spec/a_spec.rb"])
+    end
+  end
+
+  describe "candidates for a file under app/" do
+    it "also tries the full path as a spec directory, spec/app/models/x_spec.rb" do
+      write("app/models/x.rb", changed_source)
+      write("spec/app/models/x_spec.rb")
+      write("spec/other/models/x_spec.rb")
+      git("add", ".")
+      git("commit", "-q", "-m", "x")
+      write("app/models/x.rb", base_source)
+
+      expect(guess(include: ["app/**/*.rb"]).specs).to eq(["spec/app/models/x_spec.rb"])
+    end
+  end
 end
