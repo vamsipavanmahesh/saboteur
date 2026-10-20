@@ -24,7 +24,7 @@ module Saboteur
                       mutate(subjects, files, integration, scope, ignore_list,
                              load_lines:, load_methods:)
                     end
-          @diagnostics.warnings.concat(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
+          @diagnostics.add_warnings(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
           build_report(results, subjects, scope, started)
         ensure
           # Cleanup runs however the call ends - a partway boot failure, no
@@ -54,7 +54,7 @@ module Saboteur
         files = config.included_files
         subjects, scope = select_subjects(files)
         results = subjects.empty? ? [] : mutate_external(subjects, scope, ignore_list)
-        @diagnostics.warnings.concat(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
+        @diagnostics.add_warnings(ignore_list.apply(results, unscoped_digests: @unscoped_digests))
         build_report(results, subjects, scope, started)
       end
 

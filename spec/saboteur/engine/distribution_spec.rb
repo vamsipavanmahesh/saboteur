@@ -387,6 +387,13 @@ RSpec.describe Saboteur::Engine::Distribution do
       .to raise_error(Saboteur::Error, "the child log /x/r.log vanished mid-run")
   end
 
+  it "escapes the warnings a worker row carries into the diagnostics (#834)" do
+    distribution = described_class.new(jobs: 2, scheduler: ->(_subject, _list) { [] }, diagnostics:, cache: nil)
+    allow(distribution).to receive(:decode).and_return([])
+    distribution.send(:rebuild, { "warnings" => ["x\n::error::injected"] }, fixture_subject, [])
+    expect(diagnostics.warnings).to eq(["x\n\\x3a:error::injected"])
+  end
+
   it "warns and returns error results when a worker row carries an error" do
     subject = fixture_subject
     mutation = fixture_mutation(subject)

@@ -91,8 +91,19 @@ module Saboteur
         @erb_template_note_emitted = false
       end
 
+      # Every warning passes through here once: repository-controlled text
+      # (file names, patterns, thread names, error text) cannot start a CI
+      # workflow command on a line of its own, whichever site built it
+      # (#834). Already escaped text is unchanged.
       def warn(message)
-        @warnings << message
+        @warnings << Text.display_safe_lines(message)
+      end
+
+      # Warnings built elsewhere (the ignore file's, the custom map's, a
+      # child's): each goes through #warn, so none skips the escaping.
+      def add_warnings(messages)
+        messages.each { |message| warn(message) }
+        nil
       end
 
       # ERB generator templates (Rails generators carry `.rb` files with ERB
@@ -149,7 +160,7 @@ module Saboteur
       end
 
       def inform(message)
-        @err.puts("saboteur: #{message}")
+        @err.puts("saboteur: #{Text.display_safe_lines(message)}")
       end
 
       # --verbose: one line per finished subject with its result marks, so a
@@ -168,9 +179,10 @@ module Saboteur
       # stays in report.warnings: JSON, HTML and agent consumers discard
       # stderr and must still see it.
       def announce(message)
-        warn(message)
-        inform(message)
-        @live_announced << message
+        safe = Text.display_safe_lines(message)
+        warn(safe)
+        inform(safe)
+        @live_announced << safe
       end
 
       # A heartbeat for a long phase: the supervisor's wait loop calls tick

@@ -196,7 +196,7 @@ module Saboteur
           return failed(row["error"], subject, list)
         end
 
-        @diagnostics.warnings.concat(row["warnings"])
+        @diagnostics.add_warnings(row["warnings"])
         decode(row, subject, list).each { |result| @cache&.record(result) unless result.reused? }
       end
 
