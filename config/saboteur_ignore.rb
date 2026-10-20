@@ -1787,4 +1787,17 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "5bf452746c03bceb",
              subject: "Saboteur::MutationSource::LiteralReplacement#replace_string",
              reason: "equivalent: a string node's source begins with its opening delimiter, so a heredoc test on node.slice answers the same as one on node.opening_loc.slice"
+
+  i.mutation "971ae38c93e2a3b8",
+             subject: "Saboteur::Doctor#check_boot_files",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
+  i.mutation "550c0ce0b18291c5",
+             subject: "Saboteur::Doctor#check_boot_files",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
+  i.mutation "1e13e965a48d47ba",
+             subject: "Saboteur::Doctor#check_ignore_subjects",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
+  i.mutation "bf6a300278565a5d",
+             subject: "Saboteur::MutationSource::OperatorAssignment#visit",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
 end
