@@ -130,7 +130,7 @@ RSpec.describe Saboteur::Engine::Scheduler, "load-time statuses" do
     expect(results.map(&:status)).to eq(%i[unreachable unreachable])
     expect(results.last.reason).to eq(message)
     expect(runner).to have_received(:run).twice
-    expect(diagnostics.warnings).to eq(["UnreachTarget#m: #{message}", "UnreachTarget#m: #{message}"])
+    expect(diagnostics.warnings).to eq(["UnreachTarget#m: a mutant never ran and is not scored\n  #{message}"] * 2)
   end
 
   it "re-evaluates the sig together with the def for sorbet-wrapped methods" do

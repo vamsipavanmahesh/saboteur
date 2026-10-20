@@ -145,7 +145,7 @@ module Saboteur
 
         [mutation, text]
       rescue ArgumentError => e
-        @diagnostics.warn("#{subject.id}: dropped #{mutation.source} mutation: #{e.message}")
+        @diagnostics.warn("#{subject.id}: dropped #{mutation.source} mutation\n  #{e.message}")
         record_drop(subject, mutation, "invalid_edit")
       end
 

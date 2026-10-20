@@ -337,7 +337,7 @@ module Saboteur
       # Each mutant is checked separately: changing a body can change which
       # definition a test reaches, so one unreachable verdict cannot skip later work.
       def note_unreachable(plan, outcome)
-        @diagnostics.warn("#{plan.subject.id}: #{outcome.message}")
+        @diagnostics.warn("#{plan.subject.id}: a mutant never ran and is not scored\n  #{outcome.message}")
       end
 
       # The text a known def-time wrapper needs re-evaluated with the def.
