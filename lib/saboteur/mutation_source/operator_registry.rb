@@ -42,6 +42,7 @@ module Saboteur
         "jump_value" => "Replace the value of return, next or break with nil",
         "rescue_removal" => "Remove an exception handler so the error propagates",
         "when_removal" => "Remove one when branch of a case",
+        "unary_removal" => "Drop a unary minus or bitwise complement",
         "regex_replacement" => "Drop a regex anchor or swap a regex quantifier"
       }.freeze
       POLICY_VERSION = 3

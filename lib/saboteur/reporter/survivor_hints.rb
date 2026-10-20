@@ -27,6 +27,7 @@ module Saboteur
         "jump_value" => "try asserting the value this early exit returns",
         "rescue_removal" => "try an example where the guarded code raises, and assert what the handler returns",
         "when_removal" => "try a value that only this when branch matches, and assert its result",
+        "unary_removal" => "try a value where the sign or complement changes the result",
         "filter_replacement" => "try items that match and items that do not, to tell select from reject"
       }.freeze
 

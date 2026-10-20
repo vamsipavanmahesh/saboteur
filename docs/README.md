@@ -73,6 +73,7 @@
 - [safe_navigation](operators/safe_navigation.md)
 - [statement_removal](operators/statement_removal.md)
 - [when_removal](operators/when_removal.md)
+- [unary_removal](operators/unary_removal.md)
 
 ## Decisions and background
 
