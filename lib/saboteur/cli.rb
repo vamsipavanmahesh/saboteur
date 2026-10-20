@@ -157,11 +157,18 @@ module Saboteur
       refuse_empty_source_set
       execute_run
     rescue ConfigError => e
-      @err.puts("saboteur: #{e.message}")
-      agent_failure(e.message, EXIT_USAGE)
+      report_failure(e, EXIT_USAGE)
     rescue Error => e
-      @err.puts("saboteur: #{e.message}")
-      agent_failure(e.message, EXIT_TOOL)
+      report_failure(e, EXIT_TOOL)
+    end
+
+    # Error messages interpolate repository-controlled names, so each line is
+    # made safe before it is printed (a newline then "::error::" in a file
+    # name must not become a workflow command in the CI log).
+    def report_failure(error, exit_code)
+      message = Text.display_safe_lines(error.message)
+      @err.puts("saboteur: #{message}")
+      agent_failure(message, exit_code)
     end
 
     def overrides = options.except(:config, :id, :suite, :list_operators, :dry_run)

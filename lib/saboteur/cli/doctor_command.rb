@@ -30,10 +30,10 @@ module Saboteur
         Doctor.new(config, out: @out, suite: options[:suite] || options.key?(:tests)).call
         EXIT_OK
       rescue ConfigError => e
-        @err.puts("saboteur: #{e.message}")
+        @err.puts("saboteur: #{Text.display_safe_lines(e.message)}")
         EXIT_USAGE
       rescue Error => e
-        @err.puts("saboteur: #{e.message}")
+        @err.puts("saboteur: #{Text.display_safe_lines(e.message)}")
         EXIT_TOOL
       end
     end
