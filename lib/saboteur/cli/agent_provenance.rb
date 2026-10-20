@@ -16,7 +16,8 @@ module Saboteur
           subjects: Array(config["subjects"]), tests: Array(engine.guessed_tests || config["tests"]),
           sources: @sources || [],
           config_path: options[:config], digest: options[:id], cache: config["cache"],
-          incremental: config["incremental"], settings: agent_settings, typed_settings: typed_settings
+          incremental: config["incremental"], settings: agent_settings, typed_settings: typed_settings,
+          referenced: report.referenced
         )
       end
 

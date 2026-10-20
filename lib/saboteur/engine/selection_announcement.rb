@@ -52,6 +52,7 @@ module Saboteur
         # opt-out and would warn.
         @config = config.with({ "tests" => guess.specs }, except: ["guess_tests"])
         @guessed_tests = guess.specs
+        @guessed_referenced = guess.referenced
         guess.scope_message(since: config["since"])
       end
     end

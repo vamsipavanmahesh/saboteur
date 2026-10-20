@@ -37,8 +37,8 @@ module Saboteur
       # config-file value) from one the config itself supplies.
       Provenance = Data.define(:ref, :seed, :head, :working_tree, :changed_files, :mode, :json_report, :subjects,
                                :tests, :sources, :config_path, :digest, :cache, :incremental, :settings,
-                               :typed_settings) do
-        def initialize(typed_settings: [], **fields)
+                               :typed_settings, :referenced) do
+        def initialize(typed_settings: [], referenced: {}, **fields)
           super
         end
       end
