@@ -63,9 +63,7 @@ module Saboteur
             status.to_s.gsub(/_(\w)/) { Regexp.last_match(1).upcase }.to_sym
           end
 
-          def score(report)
-            report.score&.round(4)
-          end
+          def score(report) = report.score&.round(4)
 
           # Display values are clipped; the commands under next use the exact values or are left out.
           def provenance_hash(provenance)
@@ -89,22 +87,26 @@ module Saboteur
 
           def findings(report, shown, snippet_limit)
             all = Findings.build(report)
+            by_reference = report.referenced.keys
             live = report.unignored_survivors.size
             {
-              survivors: live, shown: shown_findings(all[:survivors], shown, snippet_limit),
+              survivors: live, shown: shown_findings(all[:survivors], shown, snippet_limit, by_reference),
               omitted: live - [shown, all[:survivors].size].min,
               accepted: report.survivors.size - live, ordering: all[:ordering],
               hintCaveat: SurvivorHints::CAVEAT
             }
           end
 
-          def shown_findings(listed, shown, snippet_limit)
+          # specsByReference: the file's specs were found by constant reference
+          # or require, so a survivor there may only mean the spec is elsewhere.
+          def shown_findings(listed, shown, snippet_limit, by_reference)
             listed.first(shown).map do |finding|
               finding.slice(:digest, :line, :endLine, :operator, :coarse, :classification)
                      .merge(path: clip_value(finding[:path], 200), subject: clip_value(finding[:subject], 200),
                             original: clip(finding[:original], snippet_limit),
                             replacement: clip(finding[:replacement], snippet_limit))
                      .merge(finding_hints(finding))
+                     .merge(by_reference.include?(finding[:path]) ? { specsByReference: true } : {})
             end
           end
 

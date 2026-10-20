@@ -397,6 +397,16 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(listed[:first].map(&:size)).to all(eq(123))
     end
 
+    it "flags a survivor in a file whose specs were chosen by reference" do
+      survivor = result_for(:survived)
+      flagged = payload_for(report_of(survivor, referenced: { "person.rb" => ["spec/p_spec.rb"] }))
+      other = payload_for(report_of(survivor, referenced: { "other.rb" => ["spec/o_spec.rb"] }))
+
+      expect(flagged[:findings][:shown].first).to include(specsByReference: true)
+      expect(other[:findings][:shown].first).not_to have_key(:specsByReference)
+      expect(payload_for(report_of(survivor))[:findings][:shown].first).not_to have_key(:specsByReference)
+    end
+
     it "lists no referenced files by default" do
       payload = payload_for(report_of(result_for(:survived)))
 

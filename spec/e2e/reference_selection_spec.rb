@@ -40,6 +40,17 @@ RSpec.describe "spec selection by constant reference", :e2e do
     expect(selection.fetch("referenced")).to eq("count" => 1, "first" => ["lib/dry/inflector/acronyms.rb"])
   end
 
+  it "flags the survivors of a file chosen by reference" do
+    dir = project_with_reader
+    reader = File.join(dir, "spec", "features", "knows_acronyms_spec.rb")
+    File.write(reader, File.read(reader).sub(/\s+expect\(described_class.acronym\?\("plain"\)\).*$/, ""))
+    run = saboteur(dir, "lib/dry/inflector/acronyms.rb", "--agent")
+
+    shown = JSON.parse(run.out).dig("findings", "shown")
+    expect(shown).not_to be_empty
+    expect(shown.map { |finding| finding["specsByReference"] }).to all(be(true))
+  end
+
   it "records no referenced files when every file had a spec by name" do
     run = saboteur(copy_fixture("inference_miss"), "--agent", "--test", "spec/unit/inflector/acronyms_spec.rb")
 
