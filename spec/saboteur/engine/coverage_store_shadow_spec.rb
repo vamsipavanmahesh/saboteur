@@ -119,9 +119,9 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
     expect(result.lines[file]).to eq(1 => [x_id, y_id])
     expect(reports.first["result"]).to eq("mismatch")
     message = diagnostics.warnings.join
-    expect(message).to match(Regexp.new(["\\Apartial coverage shadow run: the partial map differs ",
-                                         "from the full map in 2 place\\(s\\), first lines ",
-                                         Regexp.escape(file), "; this run used the full map\\. ",
+    expect(message).to match(Regexp.new(["\\Apartial coverage shadow run: this run used the full map\\n  ",
+                                         "the partial map differs from the full map in 2 place\\(s\\), first lines ",
+                                         Regexp.escape(file), "\\n  ",
                                          "Report: \\S+shadow-\\w+\\.json\\z"].join))
   end
 
@@ -191,7 +191,8 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
     result = store(partial_coverage: "shadow").fetch([file])
 
     expect(result.tests).to eq([x_id, y_id])
-    expect(diagnostics.warnings.join).to include("shadow run failed (the full map is used): child gone")
+    expect(diagnostics.warnings.join).to include("partial coverage shadow run failed, so the full map is used\n  " \
+                                                 "child gone")
   end
 
   it "stays off for a scoped build" do
@@ -294,7 +295,7 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
       allow(supervisor).to receive(:run).and_raise(Saboteur::Error, hostile)
       store(partial_coverage: "shadow").fetch([file])
 
-      expect(diagnostics.warnings.last).to end_with("(the full map is used): #{clean}")
+      expect(diagnostics.warnings.last).to end_with("so the full map is used\n  #{clean}")
     end
   end
 end

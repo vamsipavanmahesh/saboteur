@@ -192,7 +192,7 @@ module Saboteur
 
       def rebuild(row, subject, list)
         if row["error"]
-          @diagnostics.warn("#{subject.id}: #{row['error']}")
+          @diagnostics.warn("#{subject.id}: its mutants are reported as errors\n  #{row['error']}")
           return failed(row["error"], subject, list)
         end
 
