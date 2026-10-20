@@ -1717,4 +1717,8 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "96e60c0014af780d",
              subject: "Saboteur::CustomMap#glob_entry",
              reason: "equivalent: the check before it raises unless best.size is 1, so first and last are the same element"
+
+  i.mutation "aca43ebc0c2b0b21",
+             subject: "Saboteur::BaselineHealth#exit_detail",
+             reason: "equivalent: exit_detail is only interpolated into the baseline failure message, and nil interpolates as the empty string"
 end
