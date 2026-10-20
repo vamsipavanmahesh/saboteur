@@ -65,6 +65,12 @@ RSpec.describe Saboteur::Baseline::Comparison do
     expect(result.categories).to be_empty
   end
 
+  it "does not append its own issue to the issues list it was given" do
+    issues = []
+    compare(compatibility: { "scope" => "other" }, issues: issues)
+    expect(issues).to be_empty
+  end
+
   it "orders findings by file, subject and ID and never treats ignore reasons as acceptance" do
     candidates = [{ "id" => "z", "status" => "survived", "identity" => [1, "b.rb", "A#m"], "ignored" => "yes" },
                   { "id" => "v", "status" => "survived", "identity" => [1, "a.rb", "B#m"] },

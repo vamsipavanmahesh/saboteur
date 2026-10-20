@@ -102,6 +102,13 @@ RSpec.describe Saboteur::CLI::ExplicitSources do
         expect(run.instance_variable_get(:@sources)).to eq(["lib/a.rb", "lib"])
       end
 
+      it "keeps its own copy of the operands when the argument list is emptied later" do
+        run = cli("lib/a.rb")
+        run.send(:use_explicit_sources)
+        run.instance_variable_get(:@argv).clear
+        expect(run.instance_variable_get(:@sources)).to eq(["lib/a.rb"])
+      end
+
       it "leaves the configured scope alone when no operand is named" do
         run = cli
         run.send(:options).merge!(tests: ["a_spec.rb"])
