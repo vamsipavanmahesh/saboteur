@@ -20,7 +20,9 @@ args = ARGV.dup
 name, workdir = args.first(2)
 abort "usage: script/integration-recorders NAME WORKDIR [--reeval STRATEGY] [-- extra saboteur args]" unless workdir
 rest = args.drop(2)
-strategy = (index = rest.index("--reeval")) ? rest[index + 1] : "nesting"
+index = rest.index("--reeval")
+abort "--reeval needs a strategy" if index && (rest[index + 1].nil? || rest[index + 1] == "--")
+strategy = index ? rest[index + 1] : "nesting"
 
 RECORDERS.each do |recorder|
   command = [File.join(ROOT, "script", "integration-target"), name, workdir, "--recorder", recorder, *rest]
@@ -30,6 +32,8 @@ end
 
 reports = RECORDERS.map { |recorder| File.join(File.expand_path(workdir), "#{name}-#{strategy}-#{recorder}.json") }
 verdicts = reports.map { |report| IntegrationTarget.verdicts(report) }
+problem = IntegrationTarget.recorder_problem(*verdicts)
+abort "#{name}: #{problem}" if problem
 differences = IntegrationTarget.verdict_differences(*verdicts)
 if differences.any?
   shown = differences.first(20).map { |id, left, right| "#{id}: coverage #{left.inspect}, trace #{right.inspect}" }

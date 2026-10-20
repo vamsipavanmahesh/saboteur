@@ -114,4 +114,39 @@ RSpec.describe IntegrationTarget do
         .to contain_exactly(%w[b2 Survived Killed], ["c3", "Killed", nil], ["d4", nil, "Survived"])
     end
   end
+
+  describe "refusing what cannot be compared or reset" do
+    it "treats two empty reports as a problem, not as identical verdicts" do
+      expect(described_class.recorder_problem({}, {})).to eq("a recorder run produced no mutants")
+      expect(described_class.recorder_problem({ "a1" => "Killed" }, {})).to eq("a recorder run produced no mutants")
+      expect(described_class.recorder_problem({}, { "a1" => "Killed" })).to eq("a recorder run produced no mutants")
+      expect(described_class.recorder_problem({ "a1" => "Killed" }, { "a1" => "Killed" })).to be_nil
+    end
+
+    it "lets the script reset a missing or empty directory" do
+      Dir.mktmpdir do |dir|
+        expect(described_class.checkout_problem(File.join(dir, "missing"))).to be_nil
+        expect(described_class.checkout_problem(dir)).to be_nil
+      end
+    end
+
+    it "refuses a clone or a directory the script did not create" do
+      Dir.mktmpdir do |dir|
+        Dir.mkdir(File.join(dir, ".git"))
+        expect(described_class.checkout_problem(dir)).to include("was not created by this script")
+      end
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "mine.txt"), "x")
+        expect(described_class.checkout_problem(dir)).to include("Remove it or pass another WORKDIR")
+      end
+    end
+
+    it "accepts a checkout the script claimed" do
+      Dir.mktmpdir do |dir|
+        Dir.mkdir(File.join(dir, ".git"))
+        described_class.claim_checkout(dir)
+        expect(described_class.checkout_problem(dir)).to be_nil
+      end
+    end
+  end
 end

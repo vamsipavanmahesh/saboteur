@@ -17,9 +17,12 @@
 # checked out, and its env (a map in integration/targets.yml) is passed to
 # every command.
 #
-# The target's checkout is only written to by its own test suite and by
-# saboteur's .saboteur/ cache. The combined Gemfile, its lockfile and the
-# JSON report live in WORKDIR, outside the checkout.
+# WORKDIR/NAME is the script's own checkout: it is reset to the pinned commit
+# and cleaned (ignored files too) on every run, then written to by the
+# patch, the target's own test suite and saboteur's .saboteur/ cache. The
+# script refuses a WORKDIR/NAME it did not create (it marks the checkout
+# under .git) unless that directory is missing or empty. The combined
+# Gemfile, its lockfile and the JSON report live in WORKDIR, outside it.
 
 require "English"
 require "fileutils"
@@ -35,6 +38,7 @@ ROOT = File.expand_path("..", __dir__)
 args = ARGV.dup
 extra = (index = args.index("--")) ? args.slice!(index..)[1..] : []
 check = !args.delete("--check").nil?
+abort "--reeval needs a strategy" if args.index("--reeval") == args.size - 1
 strategy = (index = args.index("--reeval")) ? args.slice!(index, 2).last : "nesting"
 recorder = (index = args.index("--recorder")) ? args.slice!(index, 2).last : nil
 RECORDERS = %w[coverage trace].freeze
@@ -52,9 +56,13 @@ def sh(*cmd, **)
   system(*cmd, **) or abort "command failed: #{cmd.shelljoin}"
 end
 
+# The checkout is reset and cleaned below, so only one this script created (or an empty directory) qualifies.
+problem = IntegrationTarget.checkout_problem(checkout)
+abort problem if problem
 unless File.directory?(File.join(checkout, ".git"))
   FileUtils.mkdir_p(checkout)
   sh("git", "init", "-q", chdir: checkout)
+  IntegrationTarget.claim_checkout(checkout)
   sh("git", "fetch", "-q", "--depth", "1", target.fetch("repo"), target.fetch("commit"), chdir: checkout)
 end
 # --force and clean (ignored files too) drop the patch of an earlier run before it is applied again.
@@ -69,8 +77,9 @@ File.write(gemfile, <<~RUBY)
   gem "saboteur", path: #{ROOT.inspect}
 RUBY
 
-env = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_WITHOUT" => target.fetch("bundle_without", "") }
-env.merge!(target.fetch("env", {}).transform_values(&:to_s))
+# The target's own env goes first: it must not override the Gemfile and groups this script sets.
+env = target.fetch("env", {}).transform_values(&:to_s)
+env.merge!("BUNDLE_GEMFILE" => gemfile, "BUNDLE_WITHOUT" => target.fetch("bundle_without", ""))
 env["SABOTEUR_COVERAGE_RECORDER"] = recorder if recorder
 sh(env, "bundle", "install", "--quiet")
 config = File.join(ROOT, target.fetch("config"))

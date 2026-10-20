@@ -10,6 +10,10 @@ module IntegrationTarget
   STATUS = { "Killed" => "killed", "Survived" => "survived", "Timeout" => "timeout",
              "RuntimeError" => "error", "NoCoverage" => "skipped", "Ignored" => "skipped" }.freeze
 
+  # Written under .git by the script that created a checkout, so a clone the
+  # user made themselves is never forced, cleaned or patched.
+  CHECKOUT_MARKER = "saboteur-integration-target"
+
   module_function
 
   def counts(report_path)
@@ -51,6 +55,26 @@ module IntegrationTarget
     (left.keys | right.keys).filter_map do |id|
       [id, left[id], right[id]] unless left[id] == right[id]
     end
+  end
+
+  # Why two recorder runs cannot be compared, or nil. Two empty reports have
+  # no differing verdicts, which must not read as agreement.
+  def recorder_problem(left, right)
+    "a recorder run produced no mutants" if left.empty? || right.empty?
+  end
+
+  # Why a checkout may not be reset, or nil: only a missing or empty directory
+  # or one this script created (see claim_checkout) is ours to overwrite.
+  def checkout_problem(checkout)
+    return nil if !File.exist?(checkout) || Dir.empty?(checkout)
+    return nil if File.exist?(File.join(checkout, ".git", CHECKOUT_MARKER))
+
+    "#{checkout} exists and was not created by this script; it would be reset and cleaned. " \
+      "Remove it or pass another WORKDIR"
+  end
+
+  def claim_checkout(checkout)
+    File.write(File.join(checkout, ".git", CHECKOUT_MARKER), "")
   end
 
   def mutants(document)
