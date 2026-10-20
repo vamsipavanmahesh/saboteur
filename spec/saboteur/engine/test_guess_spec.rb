@@ -46,6 +46,11 @@ RSpec.describe Saboteur::Engine::TestGuess do
       .to eq(["rack/methods"])
   end
 
+  it "calls a spec that vanished before it was read not a regular file" do
+    guesser = described_class.new(Saboteur::Config.new({}, root: dir))
+    expect(guesser.send(:unrunnable_reason, "spec/vanished_spec.rb")).to eq("not a regular file")
+  end
+
   # A Minitest project has no spec/ directory (or no *_spec.rb in it), so a
   # full run matches every source file to nothing: the stop must be one line
   # naming the real problem (#606, sibling of the missing-rspec-core refusal
@@ -914,6 +919,7 @@ RSpec.describe Saboteur::Engine::TestGuess do
           "2.times { JWT::Claims::DecodeVerifier.new.call }\n  end\nend\n")
     result = guess
     expect(result.unmatched).to eq([])
+    expect(result.referenced).to eq({})
     expect(result.specs).to include("spec/jwt/claims_spec.rb")
   end
 
@@ -942,8 +948,10 @@ RSpec.describe Saboteur::Engine::TestGuess do
     write("spec/shop_spec.rb", "RSpec.describe \"rules\" do\n  it { RULES }\n  it { RULES }\nend\n")
     result = guess
     expect(result.unmatched).to eq([])
+    expect(result.referenced).to eq({})
     expect(result.specs).to include("spec/shop_spec.rb")
   end
+
   it "covers a top-level constant read inside a nested spec scope (#538)" do
     write("lib/rules.rb", "RULES = [1]\nclass Rules\n  def use\n    RULES.sum\n  end\nend\n")
     spec = "module Shop\n  RSpec.describe \"rules\" do\n    it { RULES }\n%s  end\nend\n"

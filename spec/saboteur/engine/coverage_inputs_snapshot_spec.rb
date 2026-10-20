@@ -160,6 +160,14 @@ RSpec.describe Saboteur::Engine::CoverageInputsSnapshot do
     expect(latest).not_to be_nil
   end
 
+  it "skips a dangling link at a snapshot name instead of failing" do
+    stored
+    File.utime(Time.now - 100, Time.now - 100, target)
+    File.symlink(File.join(@root, "nowhere.json"), described_class.path(@cache, "e" * 64))
+
+    expect(latest["map_key"]).to eq(key)
+  end
+
   it "reads nothing when the cache directory has no snapshots" do
     expect(latest).to be_nil
   end
