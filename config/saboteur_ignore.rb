@@ -2058,4 +2058,45 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: the each over the user grants only warns and its value is " \
                      "discarded by the last statement of a method whose result is not used, so map " \
                      "builds an unused array - hand-applied mutant leaves engine specs green"
+
+  # subject_selection.rb, coverage_inputs_snapshot.rb and test_guess.rb: nil where false or an
+  # empty string was returned. Hand-applied together: spec/saboteur/engine stays green (1755 examples).
+  i.mutation "12f6ab4d4a0f722b",
+             subject: "Saboteur::Engine::SubjectSelection#constant_note",
+             reason: "equivalent: the only caller interpolates the value into a warning string, " \
+                     "where nil renders as an empty string, so return nil instead of an empty " \
+                     "string changes no output - hand-applied mutant leaves engine specs green"
+  i.mutation "511d9206d2d3caf9",
+             subject: "Saboteur::Engine::CoverageInputsSnapshot#valid?",
+             reason: "equivalent: valid? has one caller, which only tests the result for " \
+                     "truthiness, and nil is as falsy as false - hand-applied mutant leaves engine " \
+                     "specs green"
+  i.mutation "7c236fdabbd5aa88",
+             subject: "Saboteur::Engine::CoverageInputsSnapshot#valid?",
+             reason: "equivalent: valid? has one caller, which only tests the result for " \
+                     "truthiness, and nil is as falsy as false - hand-applied mutant leaves engine " \
+                     "specs green"
+  i.mutation "3fa6b0e0e72748d7",
+             subject: "Saboteur::Engine::CoverageInputsSnapshot#valid?",
+             reason: "equivalent: valid? has one caller, which only tests the result for " \
+                     "truthiness, and nil is as falsy as false - hand-applied mutant leaves engine " \
+                     "specs green"
+  i.mutation "55b2be4c53c6f2cb",
+             subject: "Saboteur::Engine::CoverageInputsSnapshot#valid?",
+             reason: "equivalent: valid? has one caller, which only tests the result for " \
+                     "truthiness, and nil is as falsy as false - hand-applied mutant leaves engine " \
+                     "specs green"
+  i.mutation "8211fb12d7a3e3a3",
+             subject: "Saboteur::Engine::CoverageInputsSnapshot#valid?",
+             reason: "equivalent: valid? has one caller, which only tests the result for " \
+                     "truthiness, and nil is as falsy as false - hand-applied mutant leaves engine " \
+                     "specs green"
+  i.mutation "f391e781f6b530a2",
+             subject: "Saboteur::Engine::TestGuess#effective_subject_files",
+             reason: "equivalent: select keeps a file only for a truthy block value, and nil is as " \
+                     "falsy as false - hand-applied mutant leaves engine specs green"
+  i.mutation "a79b7ddcc3900311",
+             subject: "Saboteur::Engine::TestGuess#subjectless_files",
+             reason: "equivalent: reject drops a file only for a truthy block value, and nil is as " \
+                     "falsy as false - hand-applied mutant leaves engine specs green"
 end
