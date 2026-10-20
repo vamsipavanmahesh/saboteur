@@ -2219,4 +2219,132 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent given Object.const_get behavior: const_get accepts a leading :: " \
                      "and resolves from Object, so keeping the prefix returns the same constant as " \
                      "stripping it - hand-applied mutant leaves the execution specs green"
+  # execution/reevaluator.rb. Hand-applied (one variant per line): the reevaluator specs and the
+  # execution specs stay green (556 examples).
+  i.mutation "1cc23f3a89fbfff9",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: for a singleton def or a Class owner the later checks fail " \
+                     "anyway, because the owner's own instance and singleton copies do not share " \
+                     "one source location, so the guard and its early return value (nil or false " \
+                     "are both falsy at the one caller) change no result - hand-applied mutant " \
+                     "leaves the reevaluator pin specs and the execution specs green"
+  i.mutation "aa848f36f91e6887",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: for a singleton def or a Class owner the later checks fail " \
+                     "anyway, because the owner's own instance and singleton copies do not share " \
+                     "one source location, so the guard and its early return value (nil or false " \
+                     "are both falsy at the one caller) change no result - hand-applied mutant " \
+                     "leaves the reevaluator pin specs and the execution specs green"
+  i.mutation "fe861541e692b38e",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: for a singleton def or a Class owner the later checks fail " \
+                     "anyway, because the owner's own instance and singleton copies do not share " \
+                     "one source location, so the guard and its early return value (nil or false " \
+                     "are both falsy at the one caller) change no result - hand-applied mutant " \
+                     "leaves the reevaluator pin specs and the execution specs green"
+  i.mutation "64df90c70044ef90",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: for a singleton def or a Class owner the later checks fail " \
+                     "anyway, because the owner's own instance and singleton copies do not share " \
+                     "one source location, so the guard and its early return value (nil or false " \
+                     "are both falsy at the one caller) change no result - hand-applied mutant " \
+                     "leaves the reevaluator pin specs and the execution specs green"
+  i.mutation "209f623772d003c7",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: the inherit flag of private_method_defined? and a nil instead of " \
+                     "false return change no result, since a method inherited from an ancestor " \
+                     "cannot share its source location with the owner's singleton copy and the " \
+                     "caller only tests truthiness - hand-applied mutant leaves the reevaluator " \
+                     "pin specs and the execution specs green"
+  i.mutation "2392970126da3a9a",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: the inherit flag of private_method_defined? and a nil instead of " \
+                     "false return change no result, since a method inherited from an ancestor " \
+                     "cannot share its source location with the owner's singleton copy and the " \
+                     "caller only tests truthiness - hand-applied mutant leaves the reevaluator " \
+                     "pin specs and the execution specs green"
+  i.mutation "f6b914ccfc734e5b",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: the inherit flag of private_method_defined? and a nil instead of " \
+                     "false return change no result, since a method inherited from an ancestor " \
+                     "cannot share its source location with the owner's singleton copy and the " \
+                     "caller only tests truthiness - hand-applied mutant leaves the reevaluator " \
+                     "pin specs and the execution specs green"
+  i.mutation "4545040b39a91e40",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: the inherit flag of method_defined? on the singleton class and a " \
+                     "nil instead of false return change no result, since an inherited singleton " \
+                     "method cannot share its source location with the owner's instance method and " \
+                     "the caller only tests truthiness - hand-applied mutant leaves the " \
+                     "reevaluator pin specs and the execution specs green"
+  i.mutation "bbd7cd189eb9e010",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: the inherit flag of method_defined? on the singleton class and a " \
+                     "nil instead of false return change no result, since an inherited singleton " \
+                     "method cannot share its source location with the owner's instance method and " \
+                     "the caller only tests truthiness - hand-applied mutant leaves the " \
+                     "reevaluator pin specs and the execution specs green"
+  i.mutation "ecdb50612ca010bd",
+             subject: "Saboteur::Execution::Reevaluator#module_function?",
+             reason: "equivalent: the inherit flag of method_defined? on the singleton class and a " \
+                     "nil instead of false return change no result, since an inherited singleton " \
+                     "method cannot share its source location with the owner's instance method and " \
+                     "the caller only tests truthiness - hand-applied mutant leaves the " \
+                     "reevaluator pin specs and the execution specs green"
+  i.mutation "ff5de612348efb90",
+             subject: "Saboteur::Execution::Reevaluator#eval_whole_file",
+             reason: "equivalent: Kernel#eval and Binding#eval default the line number to 1, so " \
+                     "leaving out the explicit 1 evaluates the file from the same first line - " \
+                     "hand-applied mutant leaves the reevaluator pin specs and the execution specs " \
+                     "green"
+  i.mutation "214d3eabce9ba105",
+             subject: "Saboteur::Execution::Reevaluator#aliases_of",
+             reason: "equivalent: aliases_of keeps only methods whose original name and source " \
+                     "location equal the current definition, and an inherited method cannot share " \
+                     "the target's source location, so the inherit arguments change which names " \
+                     "are scanned but not which aliases are found - hand-applied mutant leaves the " \
+                     "reevaluator pin specs and the execution specs green"
+  i.mutation "7e6ddb2d8f27efa8",
+             subject: "Saboteur::Execution::Reevaluator#aliases_of",
+             reason: "equivalent: aliases_of keeps only methods whose original name and source " \
+                     "location equal the current definition, and an inherited method cannot share " \
+                     "the target's source location, so the inherit arguments change which names " \
+                     "are scanned but not which aliases are found - hand-applied mutant leaves the " \
+                     "reevaluator pin specs and the execution specs green"
+  i.mutation "8229ed61b29cb71b",
+             subject: "Saboteur::Execution::Reevaluator#aliases_of",
+             reason: "equivalent: aliases_of keeps only methods whose original name and source " \
+                     "location equal the current definition, and an inherited method cannot share " \
+                     "the target's source location, so the inherit arguments change which names " \
+                     "are scanned but not which aliases are found - hand-applied mutant leaves the " \
+                     "reevaluator pin specs and the execution specs green"
+  i.mutation "b52d9f0dd4ebe6b6",
+             subject: "Saboteur::Execution::Reevaluator#aliases_of",
+             reason: "equivalent: aliases_of keeps only methods whose original name and source " \
+                     "location equal the current definition, and an inherited method cannot share " \
+                     "the target's source location, so the inherit arguments change which names " \
+                     "are scanned but not which aliases are found - hand-applied mutant leaves the " \
+                     "reevaluator pin specs and the execution specs green"
+  i.mutation "4d6c9191d8c0556e",
+             subject: "Saboteur::Execution::Reevaluator#repoint",
+             reason: "equivalent: the each runs for its alias_method and visibility side effects " \
+                     "and no caller uses its value, so map builds an unused array - hand-applied " \
+                     "mutant leaves the reevaluator pin specs and the execution specs green"
+  i.mutation "b2a997da0b33ca97",
+             subject: "Saboteur::Execution::Reevaluator#restore",
+             reason: "equivalent: sending a visibility of public to the target is a no-op, so " \
+                     "changing or dropping the != :public test only adds a public re-send - " \
+                     "hand-applied mutant leaves the reevaluator pin specs and the execution specs " \
+                     "green"
+  i.mutation "b8ecc89615c8af41",
+             subject: "Saboteur::Execution::Reevaluator#restore",
+             reason: "equivalent: sending a visibility of public to the target is a no-op, so " \
+                     "changing or dropping the != :public test only adds a public re-send - " \
+                     "hand-applied mutant leaves the reevaluator pin specs and the execution specs " \
+                     "green"
+  i.mutation "ba5814fcfe397a75",
+             subject: "Saboteur::Execution::Reevaluator#restore",
+             reason: "equivalent: sending a visibility of public to the target is a no-op, so " \
+                     "always taking the branch only adds a public re-send - hand-applied mutant " \
+                     "leaves the reevaluator pin specs and the execution specs green"
 end
