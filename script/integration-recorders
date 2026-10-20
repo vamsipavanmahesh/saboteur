@@ -1,0 +1,39 @@
+#!/usr/bin/env ruby
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+# Runs one integration target with the Coverage recorder and again with the
+# TracePoint recorder (coverage_recorder, #725) and fails on any mutant whose
+# verdict differs between the two.
+#
+#   script/integration-recorders NAME WORKDIR [--reeval STRATEGY] [-- extra saboteur args]
+
+require "English"
+require "shellwords"
+
+require_relative "integration_target"
+
+ROOT = File.expand_path("..", __dir__)
+RECORDERS = %w[coverage trace].freeze
+
+args = ARGV.dup
+name, workdir = args.first(2)
+abort "usage: script/integration-recorders NAME WORKDIR [--reeval STRATEGY] [-- extra saboteur args]" unless workdir
+rest = args.drop(2)
+strategy = (index = rest.index("--reeval")) ? rest[index + 1] : "nesting"
+
+RECORDERS.each do |recorder|
+  command = [File.join(ROOT, "script", "integration-target"), name, workdir, "--recorder", recorder, *rest]
+  warn "+ #{command.shelljoin}"
+  system(*command) or abort "#{name}: the #{recorder} run failed"
+end
+
+reports = RECORDERS.map { |recorder| File.join(File.expand_path(workdir), "#{name}-#{strategy}-#{recorder}.json") }
+verdicts = reports.map { |report| IntegrationTarget.verdicts(report) }
+differences = IntegrationTarget.verdict_differences(*verdicts)
+if differences.any?
+  shown = differences.first(20).map { |id, left, right| "#{id}: coverage #{left.inspect}, trace #{right.inspect}" }
+  abort "#{name}: #{differences.size} of #{verdicts.map(&:size).max} mutants differ between recorders\n" \
+        "#{shown.join("\n")}"
+end
+puts "#{name} (#{strategy}): #{verdicts.first.size} mutants, identical verdicts under both recorders"

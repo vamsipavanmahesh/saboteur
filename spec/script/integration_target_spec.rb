@@ -92,4 +92,26 @@ RSpec.describe IntegrationTarget do
     File.write(path, "not json")
     expect(described_class.accept_error_majority?(3, 0.6, path)).to be(false)
   end
+
+  describe "comparing two runs" do
+    def run_report(pairs)
+      report_file(pairs.map { |id, status| { "id" => id, "status" => status } }, exit_cause: nil)
+    end
+
+    it "reads each mutant's verdict by id" do
+      report = run_report("a1" => "Killed", "b2" => "Survived")
+      expect(described_class.verdicts(report)).to eq("a1" => "Killed", "b2" => "Survived")
+    end
+
+    it "reports no difference for identical verdicts" do
+      expect(described_class.verdict_differences({ "a1" => "Killed" }, { "a1" => "Killed" })).to eq([])
+    end
+
+    it "reports a changed verdict and a mutant only one run produced" do
+      left = { "a1" => "Killed", "b2" => "Survived", "c3" => "Killed" }
+      right = { "a1" => "Killed", "b2" => "Killed", "d4" => "Survived" }
+      expect(described_class.verdict_differences(left, right))
+        .to contain_exactly(%w[b2 Survived Killed], ["c3", "Killed", nil], ["d4", nil, "Survived"])
+    end
+  end
 end

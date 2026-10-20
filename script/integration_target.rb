@@ -38,6 +38,21 @@ module IntegrationTarget
     false
   end
 
+  # id => status of every mutant, for comparing two runs of one target.
+  def verdicts(report_path)
+    mutants(JSON.parse(File.read(report_path, encoding: "UTF-8"))).to_h do |mutant|
+      [mutant.fetch("id"), mutant.fetch("status")]
+    end
+  end
+
+  # [id, status in a, status in b] for every mutant whose verdict differs or
+  # that only one run produced.
+  def verdict_differences(left, right)
+    (left.keys | right.keys).filter_map do |id|
+      [id, left[id], right[id]] unless left[id] == right[id]
+    end
+  end
+
   def mutants(document)
     document.fetch("files").values.flat_map { |file| file.fetch("mutants") }
   end

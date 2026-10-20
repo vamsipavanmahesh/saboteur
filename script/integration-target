@@ -5,10 +5,17 @@
 # Clones a pinned public project from integration/targets.yml and runs
 # saboteur against it with that project's own Gemfile plus saboteur.
 #
-#   script/integration-target NAME [WORKDIR] [--reeval STRATEGY] [--check] [-- extra saboteur args]
+#   script/integration-target NAME [WORKDIR] [--reeval STRATEGY] [--recorder NAME] [--check] [-- extra saboteur args]
 #
 # --check compares the number of mutants per status with the snapshot in
 # integration/targets.yml and fails on any difference.
+#
+# --recorder is handed to the target's config as SABOTEUR_COVERAGE_RECORDER
+# (coverage or trace) and tags the report file, so two recorders can be
+# compared (script/integration-recorders). A target's patch (a file under
+# integration/patches) is applied to its checkout after the pinned commit is
+# checked out, and its env (a map in integration/targets.yml) is passed to
+# every command.
 #
 # The target's checkout is only written to by its own test suite and by
 # saboteur's .saboteur/ cache. The combined Gemfile, its lockfile and the
@@ -29,6 +36,9 @@ args = ARGV.dup
 extra = (index = args.index("--")) ? args.slice!(index..)[1..] : []
 check = !args.delete("--check").nil?
 strategy = (index = args.index("--reeval")) ? args.slice!(index, 2).last : "nesting"
+recorder = (index = args.index("--recorder")) ? args.slice!(index, 2).last : nil
+RECORDERS = %w[coverage trace].freeze
+abort "unknown recorder #{recorder.inspect}; known: #{RECORDERS.join(',')}" if recorder && !RECORDERS.include?(recorder)
 name, workdir = args
 targets = YAML.safe_load_file(File.join(ROOT, "integration", "targets.yml"))
 target = targets.fetch(name) { abort "unknown target #{name.inspect}; known: #{targets.keys.join(', ')}" }
@@ -47,7 +57,10 @@ unless File.directory?(File.join(checkout, ".git"))
   sh("git", "init", "-q", chdir: checkout)
   sh("git", "fetch", "-q", "--depth", "1", target.fetch("repo"), target.fetch("commit"), chdir: checkout)
 end
-sh("git", "checkout", "-q", "--detach", target.fetch("commit"), chdir: checkout)
+# --force and clean (ignored files too) drop the patch of an earlier run before it is applied again.
+sh("git", "checkout", "-q", "--force", "--detach", target.fetch("commit"), chdir: checkout)
+sh("git", "clean", "-fdxq", chdir: checkout)
+sh("git", "apply", File.join(ROOT, target["patch"]), chdir: checkout) if target["patch"]
 
 FileUtils.mkdir_p(bundle_dir)
 gemfile = File.join(bundle_dir, "Gemfile")
@@ -57,9 +70,11 @@ File.write(gemfile, <<~RUBY)
 RUBY
 
 env = { "BUNDLE_GEMFILE" => gemfile, "BUNDLE_WITHOUT" => target.fetch("bundle_without", "") }
+env.merge!(target.fetch("env", {}).transform_values(&:to_s))
+env["SABOTEUR_COVERAGE_RECORDER"] = recorder if recorder
 sh(env, "bundle", "install", "--quiet")
 config = File.join(ROOT, target.fetch("config"))
-report = File.join(workdir, "#{name}-#{strategy}.json")
+report = File.join(workdir, "#{[name, strategy, recorder].compact.join('-')}.json")
 # A report from an earlier run must never speak for this one.
 FileUtils.rm_f(report)
 system(env, "bundle", "exec", "saboteur", "run", "--config", config, "--reeval", strategy, "--json", report,
