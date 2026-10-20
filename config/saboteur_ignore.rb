@@ -1895,4 +1895,25 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: with digits present the greedy group captures the same number, and " \
                      "with none it captures an empty string whose to_i is 0, the same as the nil of " \
                      "no match - hand-applied mutant leaves reporter specs green"
+
+  # process_tree.rb grow and stop_until_stable. Hand-applied together: the execution specs,
+  # pins included, stay green.
+  i.mutation "ed033b0fc0fb0d34",
+             subject: "Saboteur::Execution::ProcessTree#grow",
+             reason: "equivalent: the select block returns nil instead of false for a known or own pid, " \
+                     "and select treats both as falsy - hand-applied mutant leaves execution specs green"
+  i.mutation "88a882714af2499c",
+             subject: "Saboteur::Execution::ProcessTree#grow",
+             reason: "equivalent: the each over the added entries only fills @known and its value is " \
+                     "discarded, so map builds an unused array - hand-applied mutant leaves execution " \
+                     "specs green"
+  i.mutation "b30d25855f36a75e",
+             subject: "Saboteur::Execution::ProcessTree#stop_until_stable",
+             reason: "equivalent: the each over the fresh entries is the last statement of a times block " \
+                     "whose value is discarded, so map builds an unused array - hand-applied mutant " \
+                     "leaves execution specs green"
+  i.mutation "261e4e0570d18a62",
+             subject: "Saboteur::Execution::ProcessTree#stop_until_stable",
+             reason: "equivalent: the stopped hash is only read with key?, so the stored value true or " \
+                     "false is never looked at - hand-applied mutant leaves execution specs green"
 end
