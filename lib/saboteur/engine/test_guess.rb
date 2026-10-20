@@ -58,9 +58,9 @@ module Saboteur
       # each with the reason.
       Result = Data.define(:specs, :unmatched, :subjectless, :changed, :hints, :changed_specs,
                            :skipped_specs, :out_of_scope, :excluded, :near, :no_suite, :without_map_entry,
-                           :referenced) do
+                           :referenced, :crowded) do
         def initialize(changed_specs: [], skipped_specs: {}, out_of_scope: [], excluded: [], near: {},
-                       no_suite: nil, without_map_entry: [], referenced: {}, **fields)
+                       no_suite: nil, without_map_entry: [], referenced: {}, crowded: {}, **fields)
           super
         end
 
@@ -93,18 +93,15 @@ module Saboteur
           expected = hints.fetch(file)
           gone = skipped_specs[expected] == DELETED ? ", deleted in the diff" : ""
           found = near.fetch(file, []).any? ? "; found: #{near.fetch(file).join(', ')}" : ""
-          "#{file} (expected #{expected}#{gone}#{found})"
+          crowd = (count = crowded[file]) ? "; #{ReferenceSpecs.crowd_note(count)}" : ""
+          "#{file} (expected #{expected}#{gone}#{found}#{crowd})"
         end
 
         public
 
         # The files that had no spec by name and got the specs that read
         # their constants instead (#725 replaces the guess once a map exists).
-        def referenced_message
-          named = referenced.map { |file, specs| "#{file} (#{specs.join(', ')})" }
-          "inferred specs: selected by constant reference or require, not by name: #{named.join(', ')}; " \
-            "a spec that reaches the file another way is not found"
-        end
+        def referenced_message = ReferenceSpecs.note(referenced)
 
         # The spec files the diff touched that do not run, with the reasons.
         def skipped_message
@@ -303,7 +300,7 @@ module Saboteur
       # the same-named specs elsewhere.
       def stop_details(unmatched, skipped)
         { hints: unmatched.to_h { |file| [file, expected_spec(file, skipped)] },
-          near: unmatched.to_h { |file| [file, nearby_specs(file)] } }
+          near: unmatched.to_h { |file| [file, nearby_specs(file)] }, crowded: @crowded }
       end
 
       # Changed Ruby files the include scope hides (#483), relative to the
@@ -361,10 +358,14 @@ module Saboteur
       end
 
       def reference_specs(unmatched)
+        @crowded = {}
         unmatched = unmatched.select { |file| nearby_specs(file).empty? }
         return {} if unmatched.empty? || suite_files.nil?
 
-        ReferenceSpecs.new(@root, method(:defined_constants)).call(unmatched, suite_files.select { |path| spec?(path) })
+        specs = suite_files.select { |path| spec?(path) }
+        found = ReferenceSpecs.new(@root, method(:defined_constants)).call(unmatched, specs)
+        @crowded = found.crowded
+        found.chosen
       end
 
       # The constants a file defines: owners of its def subjects

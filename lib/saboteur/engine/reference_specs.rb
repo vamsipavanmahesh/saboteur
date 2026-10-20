@@ -19,13 +19,27 @@ module Saboteur
         @constants = constants
       end
 
+      # chosen: file => sorted root-relative spec paths; crowded: file => how
+      # many specs read it, for the files over the cap (no choice was made).
+      Found = Data.define(:chosen, :crowded)
+
+      # The announcement for the files that got specs by reference.
+      def self.note(referenced)
+        named = referenced.map { |file, specs| "#{file} (#{specs.join(', ')})" }
+        "inferred specs: selected by constant reference or require, not by name: #{named.join(', ')}; " \
+          "a spec that reaches the file another way is not found"
+      end
+
+      def self.crowd_note(count) = "#{count} specs reference or require it, over the cap of #{CAP}"
+
       # files: root-relative source files; spec_paths: root-relative spec
-      # files of the suite. Returns file => sorted root-relative spec paths.
+      # files of the suite.
       def call(files, spec_paths)
         absolute = spec_paths.map { |path| File.join(@root, path) }
         absolute.select! { |path| File.file?(path) && !File.symlink?(path) }
-        files.to_h { |file| [file, readers_of(file, absolute)] }
-             .select { |_, readers| readers.any? && readers.size <= CAP }
+        found = files.to_h { |file| [file, readers_of(file, absolute)] }.reject { |_, readers| readers.empty? }
+        crowded, chosen = found.partition { |_, readers| readers.size > CAP }.map(&:to_h)
+        Found.new(chosen: chosen, crowded: crowded.transform_values(&:size))
       end
 
       private
