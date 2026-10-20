@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "safe_out"
 require_relative "next_steps"
 require_relative "survivor_ranking"
 require_relative "palette"
@@ -18,11 +19,11 @@ module Saboteur
       MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
 
       def initialize(out, verbose: false, color: :auto, replay_command: nil)
-        @out = out
+        @out = SafeOut.new(out)
         @verbose = verbose
         @palette = Palette.for(out, mode: color)
-        @score_table = ScoreTable.new(out, @palette)
-        @next_steps = NextSteps.new(out, @palette, replay_command: replay_command)
+        @score_table = ScoreTable.new(@out, @palette)
+        @next_steps = NextSteps.new(@out, @palette, replay_command: replay_command)
       end
 
       def call(report)
