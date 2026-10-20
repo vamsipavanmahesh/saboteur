@@ -406,7 +406,8 @@ RSpec.describe Saboteur::Engine::Distribution do
     results = distribution.run([subject], [[[mutation, "text"]]])
     expect(results.map(&:status)).to eq([:error])
     expect(results.first.reason).to include("worker exploded")
-    expect(diagnostics.warnings.join).to include("K#m: RuntimeError: worker exploded")
+    expect(diagnostics.warnings.join).to include("K#m: its mutants are reported as errors\n  " \
+                                                 "RuntimeError: worker exploded")
     expect(arrived).to eq([["K#m", [:error], ["RuntimeError: worker exploded"]]])
   end
 

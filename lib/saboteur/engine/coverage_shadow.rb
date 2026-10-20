@@ -40,7 +40,7 @@ module Saboteur
                               "rerun_seconds" => rerun_seconds&.round(2))
         save_shadow_report(cache, report, cache_key(files))
       rescue StandardError => e
-        @diagnostics.warn("partial coverage shadow run failed (the full map is used): #{shadow_clean(e.message)}")
+        @diagnostics.warn("partial coverage shadow run failed, so the full map is used\n  #{shadow_clean(e.message)}")
       end
 
       def shadow_invalidation(base_map, files)
@@ -79,9 +79,9 @@ module Saboteur
 
       def warn_mismatch(report, target)
         first = report["differences"].first
-        @diagnostics.warn("partial coverage shadow run: the partial map differs from the full map in " \
-                          "#{report['total']} place(s), first #{first['kind']} #{first['name']}; this run used the " \
-                          "full map. Report: #{shadow_clean(target)}")
+        @diagnostics.warn("partial coverage shadow run: this run used the full map\n  " \
+                          "the partial map differs from the full map in #{report['total']} place(s), " \
+                          "first #{first['kind']} #{first['name']}\n  Report: #{shadow_clean(target)}")
       end
 
       def shadow_clean(value)

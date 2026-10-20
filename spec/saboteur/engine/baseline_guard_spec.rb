@@ -191,17 +191,17 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
   end
 
   it "prints the full warning verbatim, share and remedies included (#637)" do
-    expected = "projected baseline+coverage ~15s barely fits --max-duration 16s; " \
-               "mutants would get ~1s. Raise --max-duration, pass fewer --baseline-passes, " \
-               "or narrow the scope"
+    expected = "raise --max-duration, pass fewer --baseline-passes, or narrow the scope\n  " \
+               "projected baseline+coverage ~15s barely fits --max-duration 16s; " \
+               "mutants would get ~1s"
     expect(guard_with_budget(16.0).join).to include(expected)
   end
 
   it "names every remedy in the warning, verbatim (#637)" do
-    expect(guard_with_budget(16.0).first).to eq("projected baseline+coverage ~15s barely fits " \
-                                                "--max-duration 16s; mutants would get ~1s. " \
-                                                "Raise --max-duration, pass fewer " \
-                                                "--baseline-passes, or narrow the scope")
+    expect(guard_with_budget(16.0).first).to eq("raise --max-duration, pass fewer --baseline-passes, " \
+                                                "or narrow the scope\n  " \
+                                                "projected baseline+coverage ~15s barely fits " \
+                                                "--max-duration 16s; mutants would get ~1s")
   end
 
   it "prices the projection the same when the coverage build is not pending (#637)" do

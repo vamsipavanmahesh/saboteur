@@ -131,10 +131,10 @@ module Saboteur
         return if mutants_get >= pass_elapsed
 
         verdict = mutants_get <= 0 ? "exceeds" : "barely fits"
-        @diagnostics.warn("projected baseline+coverage ~#{projected.round}s #{verdict} " \
+        @diagnostics.warn("raise --max-duration, pass fewer --baseline-passes, or narrow the scope\n  " \
+                          "projected baseline+coverage ~#{projected.round}s #{verdict} " \
                           "--max-duration #{budget.round}s; mutants would get " \
-                          "~#{format('%g', [mutants_get, 0].max.round(1))}s. Raise --max-duration, pass fewer " \
-                          "--baseline-passes, or narrow the scope")
+                          "~#{format('%g', [mutants_get, 0].max.round(1))}s")
       end
 
       # An admitted pass still gets only the time left in the run budget:
