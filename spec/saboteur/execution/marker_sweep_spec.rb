@@ -58,4 +58,70 @@ RSpec.describe Saboteur::Execution::MarkerSweep do
     @pids = [pid, grandchild]
     expect(described_class.marked_pids(marker, env_var)).to include(grandchild)
   end
+
+  describe "against a stubbed /proc" do
+    let(:comm_name) { "#{Saboteur::Execution::Supervisor::COMM_PREFIX}#{marker}" }
+    let(:comms) { {} }
+    let(:environs) { {} }
+    let(:names) { [] }
+
+    before do
+      allow(Dir).to receive(:children).and_call_original
+      allow(Dir).to receive(:children).with("/proc") { names }
+      allow(File).to receive(:read).and_call_original
+      allow(File).to receive(:read).with(%r{\A/proc/\d+/comm\z}) do |path|
+        comms.fetch(path[/\d+/].to_i) { raise Errno::ENOENT, path }
+      end
+      allow(File).to receive(:binread).and_call_original
+      allow(File).to receive(:binread).with(%r{\A/proc/\d+/environ\z}) do |path|
+        environs.fetch(path[/\d+/].to_i) { raise Errno::ENOENT, path }
+      end
+    end
+
+    it "says whether /proc/self/environ exists, for exactly that path" do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with("/proc/self/environ").and_return(true)
+      expect(described_class.available?).to be(true)
+      allow(File).to receive(:exist?).with("/proc/self/environ").and_return(false)
+      expect(described_class.available?).to be(false)
+    end
+
+    it "keeps only all-digit entries, whole, and never the sweeping process itself" do
+      own = Process.pid
+      names.replace(["self", "12abc", "abc12", "", "7", own.to_s])
+      [0, 12, 7, own].each { |pid| comms[pid] = comm_name }
+      expect(described_class.marked_pids(marker, env_var)).to eq([7])
+    end
+
+    it "skips a process that exits mid-sweep and keeps the others" do
+      names.replace(%w[21 22])
+      comms[22] = comm_name
+      expect(described_class.marked_pids(marker, env_var)).to eq([22])
+    end
+
+    it "reads the marker from the variable named env_var, not from a longer name sharing its prefix" do
+      names.replace(["31"])
+      comms[31] = "other"
+      environs[31] = "#{env_var}_LONG=zzz\0#{env_var}=#{marker}\0"
+      expect(described_class.marked_pids(marker, env_var)).to eq([31])
+    end
+
+    it "matches the marker as a whole entry of the colon list, never as a substring" do
+      names.replace(%w[41 42 43])
+      comms.merge!(41 => "x", 42 => "x", 43 => "x")
+      environs[41] = "#{env_var}=a:x#{marker}x\0"
+      environs[42] = "#{env_var}=#{marker}:b\0"
+      environs[43] = "PATH=/bin\0"
+      expect(described_class.marked_pids(marker, env_var)).to eq([42])
+    end
+
+    it "answers false, not nil, for a process without the variable or the marker" do
+      environs[51] = "PATH=/bin\0"
+      environs[52] = "#{env_var}=other\0"
+      expect(described_class.environ_marked?(51, "#{env_var}=", marker)).to be(false)
+      expect(described_class.environ_marked?(52, "#{env_var}=", marker)).to be(false)
+      environs[53] = "#{env_var}=#{marker}\0"
+      expect(described_class.environ_marked?(53, "#{env_var}=", marker)).to be(true)
+    end
+  end
 end
