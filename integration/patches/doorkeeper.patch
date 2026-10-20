@@ -1,0 +1,32 @@
+diff --git a/spec/dummy/config/database.yml b/spec/dummy/config/database.yml
+index 8e3a5290..15913365 100644
+--- a/spec/dummy/config/database.yml
++++ b/spec/dummy/config/database.yml
+@@ -6,7 +6,7 @@ development:
+ 
+ test:
+   adapter: sqlite3
+-  database: ":memory:"
++  database: <%= ENV.fetch("SAB_DB", ":memory:") %>
+   timeout: 500
+ 
+ production:
+diff --git a/spec/spec_helper.rb b/spec/spec_helper.rb
+index 4a51fc64..47953e54 100644
+--- a/spec/spec_helper.rb
++++ b/spec/spec_helper.rb
+@@ -1,5 +1,6 @@
+ # frozen_string_literal: true
+ 
++unless ENV["SAB_NO_SIMPLECOV"]
+ require "simplecov"
+ 
+ SimpleCov.start("rails") do
+@@ -11,6 +12,7 @@ SimpleCov.start("rails") do
+   # reported as covered.
+   add_filter("/lib/doorkeeper/version.rb")
+ end
++end
+ 
+ ENV["RAILS_ENV"] ||= "test"
+ 

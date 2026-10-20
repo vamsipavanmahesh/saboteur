@@ -1,0 +1,43 @@
+diff --git a/paper_trail.gemspec b/paper_trail.gemspec
+index 3f64519..f3b507c 100644
+--- a/paper_trail.gemspec
++++ b/paper_trail.gemspec
+@@ -97,7 +97,5 @@ has been destroyed.
+   # Currently, all versions of rails we test against are consistent. In the past,
+   # when we tested against rails 4.2, we had to specify database adapters in
+   # `Appraisals`.
+-  s.add_development_dependency "mysql2", "~> 0.5.3"
+-  s.add_development_dependency "pg", "~> 1.2"
+   s.add_development_dependency "sqlite3", ">= 1.4"
+ end
+diff --git a/spec/dummy_app/config/database.yml b/spec/dummy_app/config/database.yml
+new file mode 100644
+index 0000000..30984f8
+--- /dev/null
++++ b/spec/dummy_app/config/database.yml
+@@ -0,0 +1,7 @@
++# SQLite version 3.x
++#   gem install sqlite3-ruby (not necessary on OS X Leopard)
++test: &test
++  adapter: sqlite3
++  pool: 5
++  timeout: 5000
++  database: db/test.sqlite3
+diff --git a/spec/spec_helper.rb b/spec/spec_helper.rb
+index 9bca1d3..c040858 100644
+--- a/spec/spec_helper.rb
++++ b/spec/spec_helper.rb
+@@ -3,11 +3,13 @@
+ ENV["RAILS_ENV"] ||= "test"
+ ENV["DB"] ||= "sqlite"
+ 
++unless ENV["SAB_NO_SIMPLECOV"]
+ require "simplecov"
+ SimpleCov.start do
+   add_filter %w[Appraisals Gemfile Rakefile doc gemfiles spec]
+ end
+ SimpleCov.minimum_coverage(ENV["DB"] == "postgres" ? 96.71 : 92.4)
++end
+ 
+ require "byebug"
+ require_relative "support/pt_arel_helpers"
