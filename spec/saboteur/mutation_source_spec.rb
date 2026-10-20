@@ -66,7 +66,15 @@ RSpec.describe Saboteur::MutationSource do
 
   describe "Base" do
     it "requires subclasses to implement #mutations_for" do
-      expect { described_class::Base.new.mutations_for(nil) }.to raise_error(NotImplementedError)
+      expect { described_class::Base.new.mutations_for(nil) }
+        .to raise_error(NotImplementedError, "Saboteur::MutationSource::Base must implement #mutations_for")
+    end
+
+    it "names a source by its class" do
+      klass = Class.new(described_class::Base)
+      stub_const("Saboteur::MutationSource::Proposer", klass)
+      expect(klass.new.name).to eq("Saboteur::MutationSource::Proposer")
+      expect(klass.new.name).to be_a(String)
     end
   end
 end

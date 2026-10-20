@@ -30,6 +30,13 @@ RSpec.describe Saboteur::MutationSource::OperatorRegistry do
     expect(described_class.suggestion("zzzzzz")).to eq("")
   end
 
+  it "suggests only for the first unknown name and points to --list-operators" do
+    expect { described_class.resolve(%w[zzzzzz comparisn]) }
+      .to raise_error(Saboteur::ConfigError, /unknown operators: zzzzzz, comparisn\. Valid names: .*all\.  See --list/)
+    expect { described_class.resolve(%w[comparisn zzzzzz]) }
+      .to raise_error(Saboteur::ConfigError, /\. Did you mean comparison\? See --list-operators\.\z/)
+  end
+
   it "lists each operator as on or off with its description and example" do
     out = StringIO.new
     described_class.list(out, names: %w[range], excluded: [])
