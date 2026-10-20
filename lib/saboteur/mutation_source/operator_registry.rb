@@ -39,6 +39,7 @@ module Saboteur
         "method_swap" => "Swap a method with its semantic opposite",
         "operand_replacement" => "Replace a binary operation with one operand",
         "interpolation_removal" => "Remove part of an interpolated string",
+        "jump_value" => "Replace the value of return, next or break with nil",
         "regex_replacement" => "Drop a regex anchor or swap a regex quantifier"
       }.freeze
       POLICY_VERSION = 3

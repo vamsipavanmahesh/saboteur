@@ -278,7 +278,7 @@ RSpec.describe Saboteur::MutationSource::Builtin do
     end
 
     it "registers every single-purpose source in the delegated walk" do
-      expect(described_class.new.send(:delegated).size).to eq(15)
+      expect(described_class.new.send(:delegated).size).to eq(16)
     end
 
     it "wires custom arid patterns into pair removal" do
@@ -286,6 +286,13 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       subject = subjects_in("class K\n  def m(a)\n    track(event: a)\n    a\n  end\nend\n").first
       ops = mutated_texts(subject, source:).map(&:first)
       expect(ops).not_to include("pair_removal")
+    end
+
+    it "wires custom arid patterns into jump value" do
+      source = described_class.new(arid: ['\Areturn a\b'])
+      subject = subjects_in("class K\n  def m(a)\n    return a if a\n    a\n  end\nend\n").first
+      expect(mutated_texts(subject, source:).map(&:first)).not_to include("jump_value")
+      expect(texts("    return a if b", "jump_value")).to eq(["return nil if b"])
     end
 
     it "composes chain removal into the builtin set" do

@@ -57,6 +57,7 @@
 - [endpoint_replacement](operators/endpoint_replacement.md)
 - [filter_replacement](operators/filter_replacement.md)
 - [interpolation_removal](operators/interpolation_removal.md)
+- [jump_value](operators/jump_value.md)
 - [literal_boolean](operators/literal_boolean.md)
 - [literal_number](operators/literal_number.md)
 - [literal_string](operators/literal_string.md)
