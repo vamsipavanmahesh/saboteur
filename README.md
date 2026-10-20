@@ -127,6 +127,16 @@ the macro itself `ran at load` instead of letting its mutants survive.
   before a kill is rejected, so its mutants are still scored.
 - **Reports for people and tools.** Terminal, HTML, a Stryker-compatible
   JSON report, and a stable agent JSON API with a deprecation policy.
+  The GitHub Action posts surviving mutants as review comments on the
+  diff lines of the pull request.
+- **Resumable runs.** `--resume DIR` keeps verdicts across runs and
+  `--incremental` checkpoints them while the run is going, so a stopped
+  run picks up where it left off.
+- **Faster coverage builds.** `c.coverage_parts` builds the coverage map
+  in parallel parts, `partial_coverage = "use"` rebuilds only the stale
+  spec files and merges them into the saved map, and
+  `c.coverage_recorder = "trace"` builds the map with a TracePoint
+  recorder.
 - **A plan before the run.** `saboteur run --dry-run --format json` prints
   the versioned [mutant inventory](docs/dry-run-json.md) - every planned
   mutant with its stable digest and edits - without booting the suite.

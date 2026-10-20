@@ -6,6 +6,106 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-20
+
+### Added
+
+- Five new mutation operators: `and_assign` drops the guard on `&&=`
+  (#873), `jump_value` replaces unchecked early-exit values (#875),
+  `rescue_removal` removes exception handlers no test reaches (#877),
+  `when_removal` removes case branches no test takes (#887), and
+  `unary_removal` removes signs and complements no test sees (#890).
+- `--resume DIR` keeps verdicts in a directory across runs, with a
+  manifest check on the directory (#840, #831), and `--incremental`
+  checkpoints verdicts while the run is going (#820, documented in #822).
+- Partial and parallel coverage: `c.coverage_parts` deals the suite into
+  parts built in parallel (#741: #769, #772, #774, #776), keeps each
+  finished part when a build stops (#860), and reuses the saved parts
+  when a parallel build is rerun (#862). The partial map merge and an
+  opt-in shadow run compare a partial rebuild against the full map
+  (#829, #832), and `partial_coverage = "use"` skips the full build when
+  only spec files or covered sources changed, rerunning just the stale
+  spec files and merging them into the earlier map (#918).
+- TracePoint coverage recorders: `MethodCalls` records Ruby method
+  entries (#794, #795), a line-hits recorder reads branches once per
+  spec file (#894, #897), and `c.coverage_recorder = "trace"` picks the
+  TracePoint build (#898).
+- Constant-reference spec selection: a spec that requires a spec-less
+  file counts as its reference reader (#876, #879), a stop that keeps a
+  hub file's cap says how many specs reference it (#881), and the agent
+  JSON provenance reports and flags findings whose specs were chosen by
+  reference (#884, #885).
+- The GitHub Action posts surviving mutants as pull-request review
+  comments on the lines the PR head has (#788, #789, #793), matches the
+  review comment bot login without regard to case (#791), documents the
+  review comment inputs (#790), and exposes max-timeouts and max-errors
+  as inputs (#246, #767).
+- Integration targets: a target can name its own gemfile (#900), carry
+  patch, env and recorder options (#899), and run setup commands and add
+  gems (#910). doorkeeper, paper_trail, cancancan and lobsters join the
+  recorder-parity targets (#901, #908, #912).
+- The JSON report adds per-gate score breakdowns (#473, #766) and a
+  `saboteur.complete` field (#784).
+- A real-bug corpus runner with a manual CI workflow, and the s-z and
+  i-r corpus slices (#652: #915, #916).
+- A coverage cache miss says why it missed and what changed (#812), and
+  spec shards balance by recorded per-example run time (#747, #748).
+- Warnings across the survivor, sandbox grant, shadow, worker, budget
+  and `--since`/`--subject` messages lead with the outcome and name the
+  remedy, per the documented message style (#332 series, #796).
+
+### Fixed
+
+- `--since` ignores a line whose only change is its trailing comment
+  (#892, fixed in #921).
+- `script/rspec-shard` no longer dies of SIGPIPE on a long spec list
+  (#878).
+- `or_assign` no longer mutates constant targets inside a def (#874).
+- A test that suspends Coverage no longer breaks the map build; Coverage
+  resumes after it (#869).
+- Worker pool cleanup no longer leaks live entries or masks errors, and
+  keeps unregistering workers when the orphan sweep goes blind (#762:
+  #770, #771); containment and the live registry survive a blind process
+  table (#762: #764).
+- A timed-out Gemfile resolver no longer blocks on escaped-grandchild
+  pipes, and the resolver-pipe specs reap escaped grandchildren (#734,
+  #750). A `path:` source equal to the project root rebases onto the
+  copy root (#729), external test-command `path:` sources are refused or
+  rebased (#644, #721), and the BUNDLE_GEMFILE pin gaps close with
+  lockfile-mismatch refusals (#732).
+- A cached coverage map is read as untrusted input: its field types,
+  durations and loaded files are checked, non-finite values are
+  rejected, and the inputs snapshot binds to the map and the runtime
+  (#853, #854, #859, #825). Stored verdicts are type-checked before
+  reuse (#842).
+- Cache files and the coverage map write through an exclusive private
+  temp file (#846, #850).
+- Registry DSL blocks in Ohai/Puppet style promote their defs to
+  subjects (#700, #727).
+- The baseline checks the unchanged suite in the coverage build's parts
+  instead of a separate pass (#930).
+
+### Security
+
+- CI workflow-command injection is closed at every sink: the unmatched
+  whole_file pattern (#856), repo-controlled file names in the
+  constant-safety warnings (#857), name_list items (#858),
+  repo-controlled names in the syntax, custom map and sandbox grant
+  warnings (#870), every Diagnostics warning line (#871), the terminal
+  report at one choke point (#872), the stop and gate messages (#919),
+  and the CLI error sinks (#917, fixed in #920).
+- The review comment planner is hardened against untrusted input (#783),
+  and the Action fetches the pull request base with the token in a step
+  of its own, with the token-handling scripts pinned (#797, #798).
+
+### Documentation
+
+- The getting-started guide shows a gem-installed run (#815), the
+  config-key table documents every key and the Rails config points at it
+  (#809), the Action guide documents a per-path score gate (#817),
+  `--incremental` verdict saving is documented (#822), and the warning
+  and note style convention is written down (#796).
+
 ## [0.8.1] - 2026-10-18
 
 ### Added
