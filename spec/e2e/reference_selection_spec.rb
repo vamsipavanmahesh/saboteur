@@ -21,14 +21,14 @@ RSpec.describe "spec selection by constant reference", :e2e do
     run = saboteur(project_with_reader, "lib/dry/inflector/acronyms.rb")
 
     expect(run.status).to eq(0), run.err
-    note = run.json.fetch("warnings").find { |warning| warning.include?("selected by constant reference") }
+    note = run.json.fetch("warnings").find { |warning| warning.include?("selected by constant reference or require") }
     expect(note).to include("lib/dry/inflector/acronyms.rb", "spec/features/knows_acronyms_spec.rb")
-    expect(run.err).to include("selected by constant reference")
+    expect(run.err).to include("selected by constant reference or require")
   end
 
   it "carries the note in the agent payload too" do
     run = saboteur(project_with_reader, "lib/dry/inflector/acronyms.rb", "--agent")
 
-    expect(JSON.parse(run.out).fetch("warnings").join).to include("selected by constant reference")
+    expect(JSON.parse(run.out).fetch("warnings").join).to include("selected by constant reference or require")
   end
 end
