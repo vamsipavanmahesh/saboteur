@@ -2400,4 +2400,11 @@ i.mutation "fdc4600f4e8e8625",
       subject: "Saboteur::MutationSource::Builtin#numeric_operands?",
       reason: "Only infix operator calls reach this check, and they have exactly one " \
               "argument, so the first and last argument are the same node."
+
+  # reporter/agent.rb. Replayed by id with the agent reporter, cli and crash
+  # report specs (survived) and hand-applied with 882 green examples.
+  i.mutation "49ed6811d9d64e9c",
+      subject: "Saboteur::Reporter::Agent.minimal",
+      reason: "The snippet limit only clips the shown findings, and minimal shows none (shown is " \
+              "0), so the first and last limit give the same payload."
 end
