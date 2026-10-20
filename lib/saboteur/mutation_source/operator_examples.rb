@@ -37,6 +37,7 @@ module Saboteur
         "interpolation_removal" => "\"hi \#{name}\" -> \"hi \"",
         "jump_value" => "return total -> return nil",
         "rescue_removal" => "begin; x; rescue; y; end -> begin; x; end",
+        "ensure_removal" => "begin; x; ensure; y; end -> begin; x; end",
         "when_removal" => "case x; when 1 then a; when 2 then b; end -> case x; when 2 then b; end",
         "unary_removal" => "-x -> x",
         "regex_replacement" => "/\\A\\d+\\z/ -> /\\d+\\z/"
