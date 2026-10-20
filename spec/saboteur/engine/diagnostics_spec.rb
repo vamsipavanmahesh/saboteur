@@ -51,6 +51,34 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     diagnostics.finish_progress
   end
 
+  describe "progress summary with a known total" do
+    before do
+      allow(Process).to receive(:clock_gettime).and_call_original
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0, 106.0)
+      diagnostics.start_progress(3)
+    end
+
+    after { diagnostics.finish_progress }
+
+    it "floors the percentage and pads the estimate's seconds to two digits" do
+      expect(diagnostics.progress_summary(2)).to eq("2/3 (66%) eta 0m03s")
+    end
+
+    it "gives no estimate before the first mutant, at the total or past it" do
+      expect(diagnostics.progress_summary(0)).to eq("0/3 (0%)")
+      expect(diagnostics.progress_summary(3)).to eq("3/3 (100%)")
+      expect(diagnostics.progress_summary(4)).to eq("4/3 (133%)")
+    end
+  end
+
+  it "flushes after every mark once the progress file exists" do
+    diagnostics.start_progress(10)
+    allow(err).to receive(:flush).and_call_original
+    diagnostics.progress(instance_double(Saboteur::MutantResult, status: :killed))
+    expect(err).to have_received(:flush).once
+    diagnostics.finish_progress
+  end
+
   it "ends a CI progress line with the count, percentage and estimate every 50 mutants" do
     allow(Process).to receive(:clock_gettime).and_call_original
     allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0, 110.0)
