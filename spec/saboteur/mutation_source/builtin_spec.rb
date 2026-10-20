@@ -334,6 +334,39 @@ RSpec.describe Saboteur::MutationSource::Builtin do
     end
   end
 
+  describe "guarded assignment" do
+    it "turns &&= into = for every kind of target" do
+      expect(texts("    x &&= a", "and_assign")).to eq(["x = a"])
+      expect(texts("    @x &&= a", "and_assign")).to eq(["@x = a"])
+      expect(texts("    @@x &&= a", "and_assign")).to eq(["@@x = a"])
+      expect(texts("    $x &&= a", "and_assign")).to eq(["$x = a"])
+      expect(texts("    h[a] &&= b", "and_assign")).to eq(["h[a] = b"])
+      expect(texts("    a.b &&= c", "and_assign")).to eq(["a.b = c"])
+    end
+
+    it "leaves constant targets alone inside a def: X = a is a syntax error there" do
+      expect(texts("    X &&= a", "and_assign")).to eq([])
+      expect(texts("    A::B &&= a", "and_assign")).to eq([])
+      expect(Prism.parse("def m\n  X = a\nend").errors).not_to be_empty
+    end
+
+    it "mutates constant targets in a define_method body, where X = a is legal" do
+      source = "class K\n  define_method(:m) do |a|\n    X &&= a\n    A::B &&= a\n  end\nend\n"
+      subject = subjects_in(source).first
+      mutated = mutated_texts(subject).filter_map { |operator, text| text if operator == "and_assign" }
+      expect(mutated.size).to eq(2)
+      expect(mutated[0]).to include("X = a").and include("A::B &&= a")
+      expect(mutated[1]).to include("X &&= a").and include("A::B = a")
+      expect(Prism.parse(mutated[0]).errors).to be_empty
+      expect(Prism.parse(mutated[1]).errors).to be_empty
+    end
+
+    it "does not touch ||= or +=, which have their own operators" do
+      expect(texts("    @x ||= a", "and_assign")).to eq([])
+      expect(texts("    @x += a", "and_assign")).to eq([])
+    end
+  end
+
   it "never produces a mutation identical to the original, for many shapes" do
     bodies = ["    return if true\n    x = 0\n    y = 0.0\n    z = nil\n    a&.b\n    c.d", "    raise", "    nil",
               "    while true\n      a\n    end\n    b"]

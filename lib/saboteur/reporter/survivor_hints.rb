@@ -15,6 +15,7 @@ module Saboteur
         "literal_boolean" => "try an example that depends on this true/false value",
         "literal_string" => "try asserting on this text",
         "statement_removal" => "try asserting the effect of this statement",
+        "and_assign" => "try an example where the variable is nil or false (&&= vs =)",
         "or_assign" => "try an example where the variable is already set (||= vs =)",
         "safe_navigation" => "try an example where the receiver is nil",
         "argument_removal" => "try have_received(...).with(...), or assert a result that depends on this argument",
