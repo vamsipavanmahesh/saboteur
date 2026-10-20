@@ -1575,4 +1575,62 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "25a71c13d6e0de59",
              subject: "Saboteur::Reporter::Diff#hunks",
              reason: "equivalent: ranges arrive sorted, so `to` is never below the previous range end and [to].max equals the max"
+
+  i.mutation "834259d03f636504",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "4fdacc67fb85cf7f",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "03f7ea8cbca5301a",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "95852308b46e49b7",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "8c6e874916dae275",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "0ff3020f3d37db9c",
+             subject: "Saboteur::CLI::HistoryCommand#badge_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
+  i.mutation "d64f9f495a2fe0a4",
+             subject: "Saboteur::CLI::HistoryCommand#badge_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
+  i.mutation "b02794b33ea444c9",
+             subject: "Saboteur::CLI::HistoryCommand#badge_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
+  i.mutation "049dedea1dbe78d8",
+             subject: "Saboteur::CLI::HistoryCommand#trend_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
+  i.mutation "4ceb50817c7c9491",
+             subject: "Saboteur::CLI::HistoryCommand#latest_pair",
+             reason: "equivalent: HistoryReader.comparable? is symmetric in its two records (== on shared keys, both incomplete lists empty, a non-nil policy equal to the other), so swapping them gives the same answer"
+  i.mutation "7ac81b045ff23089",
+             subject: "Saboteur::Reporter::ScoreHistory#change",
+             reason: "equivalent: comparable_policy? is symmetric in previous and current (version == and a non-nil policy equal to the other), so swapping them gives the same answer"
+  i.mutation "399d420e5ffb2bc4",
+             subject: "Saboteur::Reporter::Stryker.file_entry",
+             reason: "equivalent: results are grouped by subject.file, so every result in the group shares one file_source and first and last read the same string"
+  i.mutation "e3995f96c7522bc6",
+             subject: "Saboteur::Reporter::TestMatrix#tally",
+             reason: "equivalent: the each block only mutates @killed and its return value is discarded by tally and its caller"
+  i.mutation "16ffc746e0d4332e",
+             subject: "Saboteur::Reporter::MutationText#join",
+             reason: "equivalent: the picked value is a String for every real edit (byteslice of an in-range span or a non-nil replacement), so String#to_s is the identity"
+  i.mutation "cb43bd9a02fb8183",
+             subject: "Saboteur::Baseline::Acceptance#validate_binding",
+             reason: "equivalent: the each block only mutates the records in place and its return value is discarded"
+  i.mutation "f6842ad8620f21c6",
+             subject: "Saboteur::Baseline::Acceptance#safe_path",
+             reason: "equivalent: File.identical? compares two paths symmetrically"
+  i.mutation "1fed1cf42b3cac19",
+             subject: "Saboteur::Baseline::Evidence#validate_generation",
+             reason: "equivalent: the each block only validates or raises and validate_generation's return value is discarded by its caller"
+  i.mutation "58e02a540021e547",
+             subject: "Saboteur::Baseline::Manifest#validate_edits",
+             reason: "equivalent: the each block only validates or raises and validate_edits's return value is discarded by its caller"
+  i.mutation "ea38bb064aa5fd6d",
+             subject: "Saboteur::Baseline::Workflow#guard_artifacts",
+             reason: "equivalent: the each block only checks or raises and guard_artifacts's return value is discarded by propose and its sibling caller"
 end
