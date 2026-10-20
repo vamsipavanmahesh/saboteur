@@ -37,6 +37,11 @@ RSpec.describe Saboteur::Engine::DataInputs do
     expect(described_class.files(@root, extra: ["data/*.csv"])).to eq([File.join(@root, "data/seed.csv")])
   end
 
+  it "finds dotfiles that a wildcard extra glob names" do
+    write("data/.seed.csv")
+    expect(described_class.files(@root, extra: ["data/*.csv"])).to eq([File.join(@root, "data/.seed.csv")])
+  end
+
   it "returns files only, never directories" do
     FileUtils.mkdir_p(File.join(@root, "spec/fixtures/empty_dir"))
     expect(described_class.files(@root)).to eq([])
@@ -54,6 +59,10 @@ RSpec.describe Saboteur::Engine::DataInputs do
       # even though its text matches a glob once the root prefix is skipped.
       expect(described_class.match?(@root, "db/structure.sql")).to be(false)
       expect(described_class.match?(@root, "#{@root}-other/db/structure.sql")).to be(false)
+      # A glob that would match the bare path must not let a path outside root through.
+      expect(described_class.match?(@root, "/elsewhere/data.sql", extra: ["**/*.sql"])).to be(false)
+      expect(described_class.match?(@root, "#{@root}-other/data.sql", extra: ["**/*.sql"])).to be(false)
+      expect(described_class.match?(@root, File.join(@root, "x/data.sql"), extra: ["**/*.sql"])).to be(true)
     end
   end
 end

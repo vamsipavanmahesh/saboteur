@@ -24,6 +24,19 @@ RSpec.describe Saboteur::Engine, "threads alive at fork time" do
     expect(warnings.last).not_to include("left behind")
   end
 
+  it "words the whole warning: count, each thread with its explanation, and the left-behind caveat" do
+    reaper = instance_double(Thread, name: "AR Pool Reaper", backtrace: ["pool.rb:1"])
+    other = instance_double(Thread, name: "flusher", backtrace: ["flush.rb:2"])
+    allow(Thread).to receive(:list).and_return([Thread.current, reaper, other])
+    Saboteur::Engine::ThreadWarnings.warn(engine.instance_variable_get(:@diagnostics))
+    explanation = Saboteur::Engine::ThreadWarnings::KNOWN_FORK_THREADS.fetch("AR Pool Reaper")
+    expect(warnings.last).to eq(
+      "2 other thread(s) alive at fork time; they do not run in children: AR Pool Reaper (#{explanation}), " \
+      "flusher; a thread that does not run in a child cannot do background work a mutant's test may " \
+      "rely on (a pool reaper, a flusher), so results can differ when one is left behind"
+    )
+  end
+
   it "names an unnamed thread by the first frame of its backtrace" do
     thread = Thread.new { sleep }
     Thread.pass until thread.backtrace&.any?
