@@ -1511,4 +1511,68 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "446090f73943b800",
              subject: "Saboteur::CLI::DirtyTreeNotice#warn_dirty_tree",
              reason: "equivalent: Hash#except removes the same keys whatever their order, so swapping :include and :exclude changes nothing"
+
+  i.mutation "af8158ff67b81e2a",
+             subject: "Saboteur::Reporter::ReviewComments.plan",
+             reason: "equivalent: a negative room and a room of 0 both post nothing, since place stops as soon as posts.size >= room"
+  i.mutation "c96ad351c9e3a9ce",
+             subject: "Saboteur::Reporter::ReviewComments.plan",
+             reason: "equivalent: a negative room and a room of 0 both post nothing, since place stops as soon as posts.size >= room"
+  i.mutation "fc08382c0d183aab",
+             subject: "Saboteur::Execution::Wrapper.around",
+             reason: "equivalent: the whole Sorbet signature lookup sits behind rescue StandardError -> nil, so a failure in this expression falls back to the same nil"
+  i.mutation "5c9718db7ac0073c",
+             subject: "Saboteur::Execution::Wrapper.around",
+             reason: "equivalent: the whole Sorbet signature lookup sits behind rescue StandardError -> nil, so a failure in this expression falls back to the same nil"
+  i.mutation "9135d36247576ac6",
+             subject: "Saboteur::Execution::Wrapper.around",
+             reason: "equivalent: the whole Sorbet signature lookup sits behind rescue StandardError -> nil, so a failure in this expression falls back to the same nil"
+  i.mutation "e5144ba60f006991",
+             subject: "Saboteur::Execution::Wrapper.around",
+             reason: "equivalent: the whole Sorbet signature lookup sits behind rescue StandardError -> nil, so a failure in this expression falls back to the same nil"
+  i.mutation "443af6bddb55ae6f",
+             subject: "Saboteur::Execution::Wrapper.original_def",
+             reason: "equivalent: the whole Sorbet signature lookup sits behind rescue StandardError -> nil, so a failure in this expression falls back to the same nil"
+  i.mutation "8ba064ebf6ea937f",
+             subject: "Saboteur::Execution::Wrapper.original_def",
+             reason: "equivalent: the whole Sorbet signature lookup sits behind rescue StandardError -> nil, so a failure in this expression falls back to the same nil"
+  i.mutation "cb8c2d77571a92b6",
+             subject: "Saboteur::Execution::GemfilePathSources#canonical_path",
+             reason: "equivalent: the loop only ends with current existing (its root or . always does), so the File.exist? ternary always takes the realpath branch"
+  i.mutation "569da12d66c97fdc",
+             subject: "Saboteur::Execution::GemfilePathSources#resolver_timed_out?",
+             reason: "equivalent: the monotonic clock reading equals the deadline only for an instant, so >= and > differ by one tick of a poll loop"
+  i.mutation "a10aa86957b3d76a",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: i never exceeds a.size and j never exceeds b.size (each only advances behind its own bound check), and diff lines are Strings, so `<` and `!=` agree at every reachable index"
+  i.mutation "9d2965d40e8c59a2",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: i never exceeds a.size and j never exceeds b.size (each only advances behind its own bound check), and diff lines are Strings, so `<` and `!=` agree at every reachable index"
+  i.mutation "6ce2a872cadabfd1",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: i never exceeds a.size and j never exceeds b.size (each only advances behind its own bound check), and diff lines are Strings, so `<` and `!=` agree at every reachable index"
+  i.mutation "bbd55a67d49899b2",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: i never exceeds a.size and j never exceeds b.size (each only advances behind its own bound check), and diff lines are Strings, so `<` and `!=` agree at every reachable index"
+  i.mutation "54bca055a81f715a",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: i never exceeds a.size and j never exceeds b.size (each only advances behind its own bound check), and diff lines are Strings, so `<` and `!=` agree at every reachable index"
+  i.mutation "0b069928bd9541ab",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: i never exceeds a.size and j never exceeds b.size (each only advances behind its own bound check), and diff lines are Strings, so an out-of-range side reads nil and a[i] == b[j] is false there, so the dropped bound check changes nothing"
+  i.mutation "2847ea5f9b4b2964",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: i never exceeds a.size and j never exceeds b.size (each only advances behind its own bound check), and diff lines are Strings, so an out-of-range side reads nil and a[i] == b[j] is false there, so the dropped bound check changes nothing"
+  i.mutation "ae45ddbec4dc8886",
+             subject: "Saboteur::Reporter::Diff#operations",
+             reason: "equivalent: i never exceeds a.size and j never exceeds b.size (each only advances behind its own bound check), and diff lines are Strings, so an out-of-range side reads nil and a[i] == b[j] is false there, so the dropped bound check changes nothing"
+  i.mutation "3c67e4c10a73ffab",
+             subject: "Saboteur::Reporter::Diff#hunks",
+             reason: "equivalent: a range end past the last op is clipped by ops[from..to], and every later range starts at or before the last op so it still merges"
+  i.mutation "85951f7294c27dca",
+             subject: "Saboteur::Reporter::Diff#hunks",
+             reason: "equivalent: a range end past the last op is clipped by ops[from..to], and every later range starts at or before the last op so it still merges"
+  i.mutation "25a71c13d6e0de59",
+             subject: "Saboteur::Reporter::Diff#hunks",
+             reason: "equivalent: ranges arrive sorted, so `to` is never below the previous range end and [to].max equals the max"
 end
