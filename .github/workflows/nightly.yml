@@ -14,3 +14,23 @@ jobs:
     timeout-minutes: 60
     steps:
       - run: echo "Pinned large Rails app run lands in Phase 4."
+
+  # Each target runs under the Coverage recorder and the TracePoint recorder
+  # (#725); the job fails if any mutant's verdict differs between the two.
+  # --jobs 1 comes from the target's config: the specs share one sqlite file.
+  recorder-parity:
+    name: recorders (${{ matrix.target }})
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [doorkeeper, paper_trail]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+      - run: script/integration-recorders "${{ matrix.target }}" "$RUNNER_TEMP/targets"
