@@ -42,6 +42,7 @@ RSpec.describe Saboteur::Selection::Recorder, "coverage reads (#564)" do
     before do
       allow(Coverage).to receive(:result).with(stop: false, clear: true).and_return(snapshot)
       allow(Coverage).to receive(:running?).and_return(true)
+      allow(Coverage).to receive(:state).and_return(:suspended)
       allow(Coverage).to receive(:suspend)
       allow(Coverage).to receive(:resume)
     end
@@ -91,6 +92,7 @@ RSpec.describe Saboteur::Selection::Recorder, "coverage reads (#564)" do
 
     it "does not suspend or resume when Coverage is not running" do
       allow(Coverage).to receive(:running?).and_return(false)
+      allow(Coverage).to receive(:state).and_return(:running)
       recorder.test_started("t1", "spec/a_spec.rb")
       expect(Coverage).not_to have_received(:suspend)
       expect(Coverage).not_to have_received(:resume)
@@ -103,6 +105,7 @@ RSpec.describe Saboteur::Selection::Recorder, "coverage reads (#564)" do
     end
 
     it "refuses with the TypeError diagnostic from a hook, and resumes nothing it never suspended" do
+      allow(Coverage).to receive(:state).and_return(:running)
       allow(Coverage).to receive(:result).and_raise(type_error)
       expect { recorder.test_started("t1", "spec/a_spec.rb") }
         .to raise_error(Saboteur::Error, /Coverage\.result raised TypeError/)

@@ -559,6 +559,7 @@ RSpec.describe Saboteur::Selection::CoverageMap do
       fake_coverage = Module.new
       fake_coverage.define_singleton_method(:result) { |**| {} }
       fake_coverage.define_singleton_method(:running?) { false }
+      fake_coverage.define_singleton_method(:state) { :idle }
       fake_coverage.define_singleton_method(:suspend) { nil }
       fake_coverage.define_singleton_method(:resume) { nil }
       stub_const("Coverage", fake_coverage)
@@ -712,6 +713,7 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     it "suspends coverage while it processes a delta, so its own work is never attributed to a test" do
       allow(Coverage).to receive(:running?).and_return(true)
       allow(Coverage).to receive(:suspend)
+      allow(Coverage).to receive(:state).and_return(:suspended)
       allow(Coverage).to receive(:resume)
       results.push({}, { file => { lines: [nil, nil, 1] } })
       recorder.test_started("t1", "/spec/a_spec.rb")
