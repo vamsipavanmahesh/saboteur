@@ -75,6 +75,7 @@ module Saboteur
       "cache" => true,
       # Experimental (#46): "shadow" also builds a partial coverage map after a
       # cache miss and compares it with the full map, which the run still uses.
+      # "use" uses the partial map when it is safe and builds the full map otherwise.
       "partial_coverage" => "off",
       # coverage (default) reads Coverage around every test; trace gets lines and
       # methods from a TracePoint and reads branches once per spec file (#725).
@@ -279,9 +280,9 @@ module Saboteur
     end
 
     def validate_partial_coverage!
-      return if %w[off shadow].include?(self["partial_coverage"])
+      return if %w[off shadow use].include?(self["partial_coverage"])
 
-      raise ConfigError, "partial_coverage must be one of: off, shadow"
+      raise ConfigError, "partial_coverage must be one of: off, shadow, use"
     end
 
     def validate_coverage_settings!

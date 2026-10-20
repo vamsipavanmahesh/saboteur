@@ -12,6 +12,7 @@ module Saboteur
     # supervised child and saved.
     class CoverageStore
       include CoverageShadow
+      include CoveragePartial
       include CoverageParts
 
       CACHE_INPUTS = %w[integration require rspec_args rails tests coverage_recorder].freeze
@@ -62,7 +63,7 @@ module Saboteur
         note = miss_note(files)
         @diagnostics.inform(note.message(scoped: !@config["tests"].empty?)) if @config["cache"]
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        map = refuse_empty_map(build(files).with_preloaded(preloaded), files, preloaded)
+        map = fresh_map(files, note, preloaded)
         build_seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
         map.save(path)
         shadow(files, map, note, build_seconds) if shadow?
@@ -73,6 +74,12 @@ module Saboteur
       end
 
       private
+
+      # The partial map when it is on and safe, else the full build.
+      def fresh_map(files, note, preloaded)
+        (partial_map(files, note, preloaded) if partial_use?) ||
+          refuse_empty_map(build(files).with_preloaded(preloaded), files, preloaded)
+      end
 
       def write_map(writer, recorder, build_seconds)
         writer.write(recorder.result(build_seconds: build_seconds, loaded_files: loaded_project_files).to_json)

@@ -1819,4 +1819,8 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "cf88d02f3de9135e",
              subject: "Saboteur::MutationSource::RegexReplacement#plain_quantifier?",
              reason: "equivalent: plain_quantifier? is only used as the last operand of an && inside an if modifier, where nil and false both skip the yield"
+
+  i.mutation "9d0ca3c99887dd7b",
+             subject: "Saboteur::Engine::CoveragePartial#partial_map",
+             reason: "equivalent: stale_specs treats its two snapshots alike - the SAME keys are compared for equality and changed_files needs equal file sets and skips unchanged files, and the result is re-sorted into run order - so swapping base and current gives the same stale list; the 600 coverage store, partial and invalidation specs stay green"
 end

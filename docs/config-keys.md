@@ -61,7 +61,7 @@ first-run rows and point here for the rest.
 | `resume` | `nil` | Keep verdicts in a directory across runs (`--resume DIR`); anyone who can write it can forge verdicts, so restore it only from a trusted-branch cache, never from fork PRs | Default |
 | `cache` | `true` | A suspect cached run | Default |
 | `cache_dir` | `".saboteur"` | Non-standard cache locations | Default |
-| `partial_coverage` | `"off"` | Experimental: `"shadow"` also rebuilds the map partially after a cache miss and writes a comparison report; the full map is still the one used; never reused when RSpec selects examples from `spec/examples.txt` (`--only-failures`, `--next-failure`, however RSpec was given them) | Default |
+| `partial_coverage` | `"off"` | Experimental: `"shadow"` also rebuilds the map partially after a cache miss and writes a comparison report; the full map is still the one used. `"use"` skips the full build when only spec files or covered source files changed since the last map: it reruns just the stale spec files and merges them into the earlier map, and builds the full map for any other change, any error or an empty result. Only for whole-suite builds (no `--test`, cache on). Never reused when RSpec selects examples from `spec/examples.txt` (`--only-failures`, `--next-failure`, however RSpec was given them) | Default |
 | `coverage_recorder` | `"coverage"` | Experimental: `"trace"` builds the per-test map with a TracePoint for lines and methods and one Coverage read per spec file for branches; the build is faster, and a branch can be credited to a few more tests than ran it, so selection only widens | Default |
 | `fingerprint_extra` | `[]` | Fixtures the map fingerprint cannot see | Default |
 
