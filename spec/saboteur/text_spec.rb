@@ -35,6 +35,38 @@ RSpec.describe Saboteur::Text do
     end
   end
 
+  describe ".display_safe_lines" do
+    it "keeps the message's own line breaks and breaks a command on any line" do
+      expect(described_class.display_safe_lines("fix it\n  detail\n::error::injected"))
+        .to eq("fix it\n  detail\n\\x3a:error::injected")
+    end
+
+    it "escapes other control characters and an Azure command on any line" do
+      expect(described_class.display_safe_lines("a\r\e[2Jb\nsee ##[error]x"))
+        .to eq("a\\x0d\\x1b[2Jb\nsee ##\\x5berror]x")
+    end
+
+    it "keeps a trailing newline and is unchanged by a second pass" do
+      once = described_class.display_safe_lines("x\n::error::y\n")
+      expect(once).to end_with("\n")
+      expect(described_class.display_safe_lines(once)).to eq(once)
+    end
+
+    it "keeps blank lines and leading newlines" do
+      expect(described_class.display_safe_lines("\n\na\n\n::error::b\n\n"))
+        .to eq("\n\na\n\n\\x3a:error::b\n\n")
+    end
+
+    it "escapes a carriage return before a line break" do
+      expect(described_class.display_safe_lines("a\r\n::error::b")).to eq("a\\x0d\n\\x3a:error::b")
+    end
+
+    it "leaves a clean multi-line message alone" do
+      message = "run it\n  Saboteur::Error: cause [1]"
+      expect(described_class.display_safe_lines(message)).to eq(message)
+    end
+  end
+
   describe ".display_safe" do
     it "breaks a GitHub workflow command at the start of the text (#834)" do
       expect(described_class.display_safe("::error::boom=1")).to eq("\\x3a:error::boom=1")

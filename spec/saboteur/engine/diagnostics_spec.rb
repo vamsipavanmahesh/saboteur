@@ -13,6 +13,40 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     expect([diagnostics.warnings, diagnostics.invalid_mutations]).to eq([["one"], 2])
   end
 
+  it "starts no CI workflow command from hostile text in a warning (#834)" do
+    diagnostics.warn("x\n::error::injected")
+    diagnostics.warn("see ##[error]y")
+    expect(diagnostics.warnings).to eq(["x\n\\x3a:error::injected", "see ##\\x5berror]y"])
+  end
+
+  it "keeps a warning's own detail lines" do
+    diagnostics.warn("fix it\n  the cause")
+    expect(diagnostics.warnings).to eq(["fix it\n  the cause"])
+  end
+
+  it "does not escape twice text a site already made safe (#834)" do
+    once = Saboteur::Text.display_safe("x\n::error::injected")
+    diagnostics.warn("fix #{once}")
+    expect(diagnostics.warnings).to eq(["fix x\\x0a::error::injected"])
+  end
+
+  it "escapes a noted message on stderr, including the announced one" do
+    diagnostics.inform("note\n::warning::injected")
+    diagnostics.announce("a\n::error::b")
+    expect(err.string).to eq("saboteur: note\n\\x3a:warning::injected\nsaboteur: a\n\\x3a:error::b\n")
+    expect(diagnostics.warnings).to eq(["a\n\\x3a:error::b"])
+  end
+
+  it "escapes warnings added in a batch, such as the ignore file's or a child's (#834)" do
+    expect(diagnostics.add_warnings(["stale key a\n::error::x", "fine"])).to be_nil
+    expect(diagnostics.warnings).to eq(["stale key a\n\\x3a:error::x", "fine"])
+  end
+
+  it "records the announced message as the same text it stored, so it prints once (#605)" do
+    diagnostics.announce("a\n::error::b")
+    expect(diagnostics.live_announced).to eq(diagnostics.warnings)
+  end
+
   it "prints one mark per executed mutant" do
     %i[killed survived timeout error].each { |status| diagnostics.progress(instance_double(Saboteur::MutantResult, status:)) }
     expect(err.string).to eq(".STE")

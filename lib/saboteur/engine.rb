@@ -89,7 +89,7 @@ module Saboteur
       raise ConfigError, e.message
     end
 
-    def warn_custom_map = @diagnostics.warnings.concat(custom_map_warnings(load_custom_map))
+    def warn_custom_map = @diagnostics.add_warnings(custom_map_warnings(load_custom_map))
 
     # Stale entries and duplicate literals never fail a run; they warn so the
     # map does not rot silently. doctor fails on stale keys.

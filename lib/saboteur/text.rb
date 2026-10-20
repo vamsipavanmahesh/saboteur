@@ -33,6 +33,15 @@ module Saboteur
       escaped.gsub("##[", "##\\x5b").sub(/\A[[:space:]]*\K:(?=:)/) { "\\x3a" }
     end
 
+    # display_safe for a message that is meant to span lines (an action line,
+    # then indented detail lines). Each line is made safe on its own, so a
+    # line of repository text that starts "::error::" after an injected
+    # newline loses its colon, while the message's own line breaks stay.
+    # Idempotent: escaping an already escaped message changes nothing.
+    def display_safe_lines(text)
+      utf8(text).lines.map { |line| display_safe(line.delete_suffix("\n")) + (line.end_with?("\n") ? "\n" : "") }.join
+    end
+
     # Lossy: bytes that are not valid UTF-8 become the replacement
     # character. For log and message display only - never feed the result
     # back into filesystem, cache or protocol identity: scrubbing rewrites
