@@ -137,3 +137,23 @@ cancancan:
   env:
     DB: sqlite
   # No expect counts until a CI run measures them.
+# lobsters: UNVERIFIED LOCALLY. Needs Ruby 4.0 (its .ruby-version) and sqlite.
+# The ruby: key below is informational only: the script does not select a
+# Ruby, the CI job installs it. extra_gems adds fiddle (a bundled gem on Ruby
+# 4) to the generated Gemfile so saboteur can load it. There are no expect
+# counts until a first run measures them. Setup copies the sample database
+# config and prepares the test databases.
+lobsters:
+  repo: https://github.com/lobsters/lobsters.git
+  commit: 0d162b9cb010b5e3a54e2b3bfd3e80460254856d
+  license: BSD-3-Clause
+  config: integration/configs/lobsters.rb
+  schedule: nightly
+  ruby: 4.0.0
+  extra_gems:
+    - fiddle 1.1.8
+  env:
+    RAILS_ENV: test
+  setup:
+    - cp config/database.yml.sample config/database.yml
+    - bin/rails db:prepare
