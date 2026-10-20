@@ -1836,4 +1836,24 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "032f6f477ac64365",
              subject: "Saboteur::Config#validate_operator_config!",
              reason: "equivalent: the each result is discarded (the method's value is never read), so map compiles the same patterns and raises the same RegexpError"
+
+  i.mutation "8686a6d87dccf107",
+             subject: "Saboteur::Baseline::Command#baseline_parser",
+             reason: "equivalent: OptionParser#on tells a flag from its description by shape (a leading dash), not by position, so swapping the two string arguments builds the same switch; all five swaps applied together leave baseline --help byte-identical and the baseline and cli specs green (368 examples)"
+
+  i.mutation "c30cbc5e1e04084e",
+             subject: "Saboteur::Baseline::Command#baseline_parser",
+             reason: "equivalent: OptionParser#on tells a flag from its description by shape (a leading dash), not by position, so swapping the two string arguments builds the same switch; all five swaps applied together leave baseline --help byte-identical and the baseline and cli specs green (368 examples)"
+
+  i.mutation "de60a0cab57b71bd",
+             subject: "Saboteur::Baseline::Command#baseline_parser",
+             reason: "equivalent: OptionParser#on tells a flag from its description by shape (a leading dash), not by position, so swapping the two string arguments builds the same switch; all five swaps applied together leave baseline --help byte-identical and the baseline and cli specs green (368 examples)"
+
+  i.mutation "02a6322f29c7e609",
+             subject: "Saboteur::Baseline::Command#baseline_parser",
+             reason: "equivalent: OptionParser#on tells a flag from its description by shape (a leading dash), not by position, so swapping the two string arguments builds the same switch; all five swaps applied together leave baseline --help byte-identical and the baseline and cli specs green (368 examples)"
+
+  i.mutation "d392826fe7cd709a",
+             subject: "Saboteur::Baseline::Command#baseline_parser",
+             reason: "equivalent: OptionParser#on tells a flag from its description by shape (a leading dash), not by position, so swapping the two string arguments builds the same switch; all five swaps applied together leave baseline --help byte-identical and the baseline and cli specs green (368 examples)"
 end
