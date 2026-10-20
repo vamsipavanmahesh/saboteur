@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: MIT
+# frozen_string_literal: true
+
+RSpec.describe Saboteur::CLI::RunCommand do
+  def cli(*argv) = Saboteur::CLI.new(["run", *argv], out: StringIO.new, err: err)
+
+  let(:err) { StringIO.new }
+
+  it "is mixed into Saboteur::CLI like the other extracted commands (#334)" do
+    expect(Saboteur::CLI.ancestors).to include(described_class)
+  end
+
+  it "owns the run command, moved out of CLI itself" do
+    owned = %i[run_command run]
+    expect(described_class.private_instance_methods(false)).to include(*owned)
+    expect(Saboteur::CLI.private_instance_methods(false)).not_to include(*owned)
+  end
+
+  %w[--help -h].each do |flag|
+    it "shows exactly the run help for #{flag} instead of running" do
+      out = StringIO.new
+      run = Saboteur::CLI.new(["run", flag], out:, err:)
+      expected = Saboteur::Help.new(option_lines: run.send(:option_lines)).command("run")
+      code = begin
+        run.call
+      rescue SystemExit
+        flunk "the option parser took #{flag} and exited instead of showing the run help"
+      end
+      expect(code).to eq(0)
+      expect(out.string).to eq("#{expected.chomp}\n")
+    end
+  end
+
+  it "exits 2 and names a configuration error" do
+    Dir.mktmpdir do |dir|
+      config = File.join(dir, "saboteur.rb")
+      File.write(config, "Saboteur.configure { |c| c.jobs = 0 }")
+      code = cli("--config", config).call
+      expect(code).to eq(2)
+      expect(err.string).to start_with("saboteur: ")
+    end
+  end
+
+  it "exits 3 and names a tool error raised while the run executes" do
+    run = cli("--all")
+    allow(run).to receive(:refuse_empty_source_set)
+    allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "boom")
+    expect(run.call).to eq(3)
+    expect(err.string).to end_with("saboteur: boom\n")
+  end
+
+  it "prints each deprecation warning once, behind the saboteur prefix" do
+    run = cli("--no-guess-tests")
+    allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+    allow(run).to receive(:refuse_empty_source_set)
+    run.call
+    expect(err.string.lines.grep(/deprecated/)).to match([/\Asaboteur: guess_tests = false is deprecated: /])
+  end
+end
