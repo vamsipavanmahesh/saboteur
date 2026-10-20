@@ -542,14 +542,24 @@ RSpec.describe Saboteur::Execution::Supervisor do
     end
 
     it "kills a child's group when the process table is blind and on_tick raises" do
+      # The table goes blind only once on_tick has raised, so the failure
+      # that reaches containment is always the tick's, never the stub's: a
+      # wall-clock condition (the pid file exists) let the 0.5 s usage poll
+      # hit the stub first on a loaded runner.
       real_snapshot = Saboteur::Execution::ProcessTable.method(:snapshot)
+      tick_raised = false
       allow(Saboteur::Execution::ProcessTable).to receive(:snapshot) do
-        raise Errno::EIO, "ps failed" if File.exist?(pid_file("grand")) && File.size?(pid_file("grand"))
+        raise Errno::EIO, "ps failed" if tick_raised
 
         real_snapshot.call
       end
       ticks = 0
-      on_tick = -> { raise "tick failed" if File.size?(pid_file("grand")) && (ticks += 1) > 3 }
+      on_tick = lambda do
+        next unless File.size?(pid_file("grand")) && (ticks += 1) > 3
+
+        tick_raised = true
+        raise "tick failed"
+      end
 
       expect do
         supervisor.run_many(1, timeout: 30, on_tick: on_tick) do |_writer, _index|
