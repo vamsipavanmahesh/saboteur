@@ -40,3 +40,153 @@ mail:
   repo: https://github.com/mikel/mail.git
   fix: d1d65b370b109b98e673a934e8b70a0c1f58cc59
   expected: catch_exact
+
+# Slices s-z and i-r from the v1 run on #652 (saboteur 53343c79). Verdicts are the
+# recorded ones; i18n-tasks dffd911 generated 0 mutants (all subjects had no coverage).
+savon-669c51c:
+  repo: https://github.com/savonrb/savon.git
+  fix: 669c51c516726aa91f1059ffd600d8d00a35383c
+  expected: catch_exact
+savon-729e058:
+  repo: https://github.com/savonrb/savon.git
+  fix: 729e05896063e3faae5bdb897ff6f3846ca80000
+  expected: catch_exact
+slack-ruby-client-063028b:
+  repo: https://github.com/slack-ruby/slack-ruby-client.git
+  fix: 063028bc4641c7885fd3c6913454c70639eab7a9
+  expected: catch_exact
+slack-ruby-client-dabb9e5:
+  repo: https://github.com/slack-ruby/slack-ruby-client.git
+  fix: dabb9e56e05eac96cc62cf60f63c6ccecb2fd827
+  expected: catch_exact
+tmuxinator-53881e4:
+  repo: https://github.com/tmuxinator/tmuxinator.git
+  fix: 53881e42f2f33fbf1eda32d71191d4a6eaf3dba0
+  expected: miss
+  note: the fix adds a flag inside a shell-command string; no operator adds tokens (#653)
+tmuxinator-d220ee2:
+  repo: https://github.com/tmuxinator/tmuxinator.git
+  fix: d220ee2a104d105102fafa921ce7a41e4f9ec37e
+  expected: catch_near
+twilio-ruby-cec034b:
+  repo: https://github.com/twilio/twilio-ruby.git
+  fix: cec034b1c62add2ef0caff36d1038d96bd1f1f58
+  expected: catch_exact
+unicode-display_width-dc64170:
+  repo: https://github.com/janlelis/unicode-display_width.git
+  fix: dc64170c3b89cc95b0254af97aaeec9c92dd52a8
+  expected: miss
+  note: the fix adds a branch to a Regexp.union; no operator adds regex branches (#653)
+yard-42642ab:
+  repo: https://github.com/lsegal/yard.git
+  fix: 42642ab723cdd3ea47edc663088104335c32b392
+  expected: catch_exact
+yard-8ce8d4e:
+  repo: https://github.com/lsegal/yard.git
+  fix: 8ce8d4e30ab0ad73b7c073a2c95f9f0e60418b02
+  expected: catch_exact
+yard-f8067f9:
+  repo: https://github.com/lsegal/yard.git
+  fix: f8067f950d09344d927998b75f06b22008004dba
+  expected: miss
+  note: the bug fires through register()'s side effect on o.scope; single-site mutation does not model it (#653)
+LicenseFinder-3ae4986:
+  repo: https://github.com/pivotal/LicenseFinder.git
+  fix: 3ae49861dbfaf0bbd023d68dabad067f32775f48
+  expected: catch_exact
+i18n-tasks-dffd911:
+  repo: https://github.com/glebm/i18n-tasks.git
+  fix: dffd911391cc366779a6c0b119d927a8dfd41be7
+  expected: no_mutants
+meta-tags-426cab1:
+  repo: https://github.com/kpumuk/meta-tags.git
+  fix: 426cab1cccfe6b8b8dfa9b233b27961439f94a94
+  expected: catch_exact
+meta-tags-5d7b024:
+  repo: https://github.com/kpumuk/meta-tags.git
+  fix: 5d7b0243bd28cd795c1b3a2998e9f7758a79ca29
+  expected: catch_exact
+meta-tags-7e53dfe:
+  repo: https://github.com/kpumuk/meta-tags.git
+  fix: 7e53dfe61a61d73a9f6d705e9afd0bd386fd3ec9
+  expected: catch_near
+parallel_tests-2cdd8e1:
+  repo: https://github.com/grosser/parallel_tests.git
+  fix: 2cdd8e1dba38d0eb4304430e9e6d748ef8947712
+  expected: catch_exact
+pdf-core-90c9fce:
+  repo: https://github.com/prawnpdf/pdf-core.git
+  fix: 90c9fcea547c3ec15cec60e8634ec3a6dda736b7
+  expected: catch_exact
+pdf-reader-65623e7:
+  repo: https://github.com/yob/pdf-reader.git
+  fix: 65623e79b117fee4327080ce6f959c4c383286a0
+  expected: catch_exact
+prawn-2a10105:
+  repo: https://github.com/prawnpdf/prawn.git
+  fix: 2a1010575b4fa224d57daf4a1d5e4bc4b9f78329
+  expected: catch_near
+prawn-svg-05d0f96:
+  repo: https://github.com/mogest/prawn-svg.git
+  fix: 05d0f964d6dbd32fceadb922878f78439c1b14ed
+  expected: miss
+prawn-svg-25fe93f:
+  repo: https://github.com/mogest/prawn-svg.git
+  fix: 25fe93fa21c27354ee8e3882ec4da8181a48210e
+  expected: catch_exact
+prawn-svg-8eba9da:
+  repo: https://github.com/mogest/prawn-svg.git
+  fix: 8eba9da56beec78e0cfbe5dc0033434c171124d9
+  expected: catch_exact
+prawn-svg-be5cdde:
+  repo: https://github.com/mogest/prawn-svg.git
+  fix: be5cdde3381c242e1d93afb0731bda384ea9bf3b
+  expected: catch_exact
+prawn-svg-c1a4202:
+  repo: https://github.com/mogest/prawn-svg.git
+  fix: c1a4202348af4364336dddc5c70d2672aaebee79
+  expected: catch_exact
+pry-ae4e480:
+  repo: https://github.com/pry/pry.git
+  fix: ae4e480fb3fc74418bab43275e4cdd8c56573498
+  expected: miss
+rails_best_practices-e2f2aae:
+  repo: https://github.com/flyerhzm/rails_best_practices.git
+  fix: e2f2aae12deeb6993ac507d6897d58e3841eed79
+  expected: miss
+regexp_parser-04d49cb:
+  repo: https://github.com/ammar/regexp_parser.git
+  fix: 04d49cb33907de8f3b78abc10e227fa4ac463e9d
+  expected: catch_exact
+retriable-1e7d1f4:
+  repo: https://github.com/kamui/retriable.git
+  fix: 1e7d1f44877e4d2b3ff84f1161bb5b8e10fded1d
+  expected: miss
+retriable-3955c92:
+  repo: https://github.com/kamui/retriable.git
+  fix: 3955c92782e109ec96fffc5df9d7516ca4999179
+  expected: catch_exact
+retriable-3d387d7:
+  repo: https://github.com/kamui/retriable.git
+  fix: 3d387d7c7df05b195a5130a7489fa5da2912adb1
+  expected: catch_exact
+roo-06eff9c:
+  repo: https://github.com/roo-rb/roo.git
+  fix: 06eff9ca56be701882e2bcec7dc97b6b4929d68b
+  expected: catch_exact
+rubocop-ast-048eb8d:
+  repo: https://github.com/rubocop/rubocop-ast.git
+  fix: 048eb8dbf34d3cb131a3b842956820eb9ca5d89a
+  expected: miss
+rubocop-ast-07f53b0:
+  repo: https://github.com/rubocop/rubocop-ast.git
+  fix: 07f53b0f7c0ed2c5cd4ecb998b324e7e70e9c46d
+  expected: catch_exact
+rubocop-ast-934fc2c:
+  repo: https://github.com/rubocop/rubocop-ast.git
+  fix: 934fc2cb2e6edf86e43f2293802fbc14eded064b
+  expected: catch_exact
+rubocop-ast-aea6f62:
+  repo: https://github.com/rubocop/rubocop-ast.git
+  fix: aea6f62b383ed4371472adead94220baa50e9cd5
+  expected: catch_near
