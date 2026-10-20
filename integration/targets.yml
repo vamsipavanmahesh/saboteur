@@ -124,3 +124,16 @@ paper_trail:
   env:
     SAB_NO_SIMPLECOV: 1
   # No expect counts until a CI run measures them.
+# cancancan: the whole suite (712 examples) is the parity scope. The patch drops
+# pg from its Appraisal gemfile (no libpq needed; the specs run on sqlite).
+cancancan:
+  repo: https://github.com/CanCanCommunity/cancancan.git
+  commit: 4362b39b04e6840c8edbd2cb4de16b2d77b19c3c
+  license: MIT
+  config: integration/configs/cancancan.rb
+  schedule: nightly
+  gemfile: gemfiles/activerecord_7.2.0.gemfile
+  patch: integration/patches/cancancan.patch
+  env:
+    DB: sqlite
+  # No expect counts until a CI run measures them.
