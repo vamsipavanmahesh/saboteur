@@ -1354,7 +1354,7 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant safety and observab
 
     expect(select([file, copy], since: "HEAD")).to be_empty
     expect(diagnostics.warnings.join).to include("--since: changed constant RULES in rules.rb is not " \
-                                                 "mutated: its only",
+                                                 "mutated\n  its only",
                                                  "capture the value at load time",
                                                  "observe a change to it")
   end
@@ -1559,8 +1559,8 @@ RSpec.describe Saboteur::Engine::SubjectSelection, "constant selection edges (#3
     File.write(file, "RULES = build_more_rules\n")
 
     expect(select([file], since: "HEAD")).to be_empty
-    expect(diagnostics.warnings.first).to include("changed constant RULES in rules.rb is not mutated",
-                                                  ". Only hash and array literal entries are mutated")
+    expect(diagnostics.warnings.first).to include("changed constant RULES in rules.rb is not mutated\n  ",
+                                                  "; only hash and array literal entries are mutated")
   end
 
   it "splits constant-literal files out of the umbrella no-subjects warning (#537)" do
