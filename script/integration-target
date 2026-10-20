@@ -15,7 +15,10 @@
 # compared (script/integration-recorders). A target's patch (a file under
 # integration/patches) is applied to its checkout after the pinned commit is
 # checked out, and its env (a map in integration/targets.yml) is passed to
-# every command. gemfile names a Gemfile other than the checkout's own (an
+# every command. setup lists shell commands run in the checkout after bundle
+# install. extra_gems lists gems ("name" or "name version") added to the
+# generated Gemfile (on Ruby 4 fiddle, which saboteur needs, is a bundled gem
+# and a target's own Gemfile may not list it). gemfile names a Gemfile other than the checkout's own (an
 # Appraisal gemfile, say); the wrapper takes its file name, because some
 # suites (paper_trail) check BUNDLE_GEMFILE against it.
 #
@@ -77,6 +80,7 @@ gemfile = File.join(bundle_dir, File.basename(target.fetch("gemfile", "Gemfile")
 File.write(gemfile, <<~RUBY)
   eval_gemfile #{File.join(checkout, target.fetch('gemfile', 'Gemfile')).inspect}
   gem "saboteur", path: #{ROOT.inspect}
+  #{target.fetch('extra_gems', []).map { |entry| "gem #{entry.split.map(&:inspect).join(', ')}" }.join("\n  ")}
 RUBY
 
 # The target's own env goes first: it must not override the Gemfile and groups this script sets.
@@ -84,6 +88,9 @@ env = target.fetch("env", {}).transform_values(&:to_s)
 env.merge!("BUNDLE_GEMFILE" => gemfile, "BUNDLE_WITHOUT" => target.fetch("bundle_without", ""))
 env["SABOTEUR_COVERAGE_RECORDER"] = recorder if recorder
 sh(env, "bundle", "install", "--quiet")
+# setup: commands that prepare the checkout (database, config copies), run once
+# per run under the target's bundle and env.
+target.fetch("setup", []).each { |command| sh(env, "bundle", "exec", "sh", "-c", command, chdir: checkout) }
 config = File.join(ROOT, target.fetch("config"))
 report = File.join(workdir, "#{[name, strategy, recorder].compact.join('-')}.json")
 # A report from an earlier run must never speak for this one.
