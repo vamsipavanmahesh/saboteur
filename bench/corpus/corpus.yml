@@ -1,0 +1,42 @@
+# Real-bug corpus (#652). Each entry is a real bug-fix commit in a public
+# Ruby project. script/bench-corpus rewinds to the fix's parent, runs
+# saboteur on the lib files the fix touched with the spec files it touched,
+# and checks whether a mutant that is not detected sits on or near the fixed
+# lines. `expected` is the verdict measured in the v1 run (saboteur 53343c79,
+# comment on #652); a different result is reported, not hidden.
+# Run one:  script/bench-corpus NAME [WORKDIR]     all: script/bench-corpus all [WORKDIR]
+jwt:
+  repo: https://github.com/jwt/ruby-jwt.git
+  fix: 24ec3d8c3c985fb418ee7da4b09c7461f058f0ef
+  expected: catch_exact
+faraday:
+  repo: https://github.com/lostisland/faraday.git
+  fix: edd8cc513d407951be712b555f7d859f06326335
+  expected: catch_near
+pundit:
+  repo: https://github.com/varvet/pundit.git
+  fix: 6e8a7f6be1e3415b5d3b2a574526c1e5e1643fa3
+  expected: catch_exact
+grape:
+  repo: https://github.com/ruby-grape/grape.git
+  fix: d978262e1d4f6f31186ff610c7cd8823b130cbf4
+  expected: miss
+  note: case/when === versus is_a? delegation; no operator expresses it (#653)
+  extra_gems: [grape-entity]
+rubocop-rspec:
+  repo: https://github.com/rubocop/rubocop-rspec.git
+  fix: 401ce268a18386629a03e349829e63ce09e11e6c
+  expected: miss
+  note: two cops autocorrecting together; a single-file mutation cannot express it (#653)
+flipper:
+  repo: https://github.com/flippercloud/flipper.git
+  fix: 5e2a46ac7a417369eeb5573f092ded4b542a10dd
+  expected: catch_exact
+httparty:
+  repo: https://github.com/jnunemaker/httparty.git
+  fix: 4dc89beb4a2cd30eba18fb65d5248e2d9908d187
+  expected: catch_exact
+mail:
+  repo: https://github.com/mikel/mail.git
+  fix: d1d65b370b109b98e673a934e8b70a0c1f58cc59
+  expected: catch_exact

@@ -1,0 +1,38 @@
+name: Real-bug corpus
+
+# Manual only (#652): rewinds public projects to the parent of a real bug fix
+# and checks whether saboteur points at the fixed lines. Not part of any
+# required check; results are uploaded as an artifact for a human to read.
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Corpus entry name from bench/corpus/corpus.yml, or all
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  corpus:
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+      - name: Run the corpus
+        env:
+          PROJECT: ${{ inputs.project }}
+        run: script/bench-corpus "$PROJECT" "$RUNNER_TEMP/corpus"
+      - name: Show the table
+        if: always()
+        run: cat "$RUNNER_TEMP/corpus/corpus-results.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: corpus-results
+          path: ${{ runner.temp }}/corpus/corpus-results.*
