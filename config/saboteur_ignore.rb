@@ -2407,4 +2407,17 @@ i.mutation "fdc4600f4e8e8625",
       subject: "Saboteur::Reporter::Agent.minimal",
       reason: "The snippet limit only clips the shown findings, and minimal shows none (shown is " \
               "0), so the first and last limit give the same payload."
+  i.mutation "7fbe28b6d558f860",
+      subject: "Saboteur::Selection::CoverageMap#ran_at_load?",
+      reason: "Returning nil instead of false when the file has no load-time lines changes nothing: " \
+              "every caller only tests the result for truthiness."
+  i.mutation "198dcfdb9dc2c4f4",
+      subject: "Saboteur::Selection::CoverageMap#ran_before_tests?",
+      reason: "Returning nil instead of false when a test covers the arm (the guard is " \
+              "`return false unless ids.empty?`) is read only through `!` in the branch filter, " \
+              "so nil and false give the same answer."
+  i.mutation "1a570c8ed00f4f86",
+      subject: "Saboteur::Selection::LayoutOnlyLines#same_tokens?",
+      reason: "Returning nil instead of false when the line's tokens contain a line keyword and " \
+              "its base line differs is read only by `reject`, which tests truthiness."
 end
