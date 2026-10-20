@@ -72,28 +72,18 @@ module Saboteur
                          Prism::ConstantPathAndWriteNode => "and_assign" }.freeze
       CATCH_ALL = %w[StandardError ::StandardError Exception ::Exception].freeze
       SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
+      # The single-purpose sources, in the order they run after the shared walk.
+      DELEGATED = [
+        FilterReplacement, LiteralReplacement, ArgumentRemoval, PairRemoval, ElementRemoval, ChainRemoval,
+        EndpointReplacement, RangeReplacement, OperatorAssignment, ConditionNegation, MethodSwap,
+        OperandReplacement, InterpolationRemoval, RegexReplacement, ArgumentSwap, JumpValue, RescueRemoval
+      ].freeze
 
       def initialize(arid: DEFAULT_ARID, operators: [], exclude_operators: [])
         super()
         @operators = OperatorRegistry.select(operators, exclude_operators)
         @arid = arid.map { |pattern| pattern.is_a?(Regexp) ? pattern : Regexp.new(pattern) }
-        @filter_replacement = FilterReplacement.new(arid: arid)
-        @literal_replacement = LiteralReplacement.new(arid: arid)
-        @argument_removal = ArgumentRemoval.new(arid: arid)
-        @argument_swap = ArgumentSwap.new(arid: arid)
-        @pair_removal = PairRemoval.new(arid: arid)
-        @element_removal = ElementRemoval.new(arid: arid)
-        @chain_removal = ChainRemoval.new(arid: arid)
-        @endpoint_replacement = EndpointReplacement.new(arid: arid)
-        @range_replacement = RangeReplacement.new(arid: arid)
-        @operator_assignment = OperatorAssignment.new(arid: arid)
-        @condition_negation = ConditionNegation.new(arid: arid)
-        @method_swap = MethodSwap.new(arid: arid)
-        @operand_replacement = OperandReplacement.new(arid: arid)
-        @interpolation_removal = InterpolationRemoval.new(arid: arid)
-        @jump_value = JumpValue.new(arid: arid)
-        @regex_replacement = RegexReplacement.new(arid: arid)
-        @rescue_removal = RescueRemoval.new(arid: arid)
+        @delegated = DELEGATED.map { |source| source.new(arid: arid) }
       end
 
       def name
@@ -114,14 +104,7 @@ module Saboteur
 
       # The single-purpose sources run after the shared walk, in registration
       # order; each filters its own operator through the same policy below.
-      def delegated
-        [@filter_replacement, @literal_replacement, @argument_removal, @pair_removal, @element_removal,
-         @chain_removal,
-         @endpoint_replacement, @range_replacement, @operator_assignment, @condition_negation,
-         @method_swap, @operand_replacement, @interpolation_removal, @regex_replacement, @argument_swap,
-         @jump_value,
-         @rescue_removal]
-      end
+      attr_reader :delegated
 
       private
 
