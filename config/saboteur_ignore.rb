@@ -1633,4 +1633,53 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "ea38bb064aa5fd6d",
              subject: "Saboteur::Baseline::Workflow#guard_artifacts",
              reason: "equivalent: the each block only checks or raises and guard_artifacts's return value is discarded by propose and its sibling caller"
+
+  i.mutation "ba5855123c3dddaf",
+             subject: "Saboteur::Reporter::Terminal#inline_suppressions",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "33d41097d8a2dbd9",
+             subject: "Saboteur::Reporter::Terminal#skipped_subjects",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "fd5cf2309d9efb13",
+             subject: "Saboteur::Reporter::Terminal#outside_the_score",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "5e1367e5c42a42b1",
+             subject: "Saboteur::Reporter::Terminal#print_error_lines",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "43191bfa350b8348",
+             subject: "Saboteur::Reporter::Terminal#score_split",
+             reason: "equivalent: the only callers interpolate the result into a string, and nil interpolates as the empty string"
+  i.mutation "0baf9534c7bf1640",
+             subject: "Saboteur::Reporter::Terminal#crash_classes",
+             reason: "equivalent: the only callers interpolate the result into a string, and nil interpolates as the empty string"
+  i.mutation "c1ee768f65ebf04c",
+             subject: "Saboteur::Baseline::Identity#edits",
+             reason: "equivalent: String#b only retags the encoding, and unpack1(\"H*\") reads the raw bytes either way, so the hex is unchanged"
+  i.mutation "edbd47b43c106121",
+             subject: "Saboteur::Baseline::Identity#edits",
+             reason: "equivalent: String#b only retags the encoding, and unpack1(\"H*\") reads the raw bytes either way, so the hex is unchanged"
+  i.mutation "bb7b34ae173b0630",
+             subject: "Saboteur::Baseline::Completeness#validate_results",
+             reason: "equivalent: the each block only appends to issues and its return value is discarded"
+  i.mutation "570cc90a42c23a68",
+             subject: "Saboteur::Selection::DependencyShield#reject_trees",
+             reason: "equivalent: Array#reject keeps an element only on a falsy block value, so next nil and next false agree"
+  i.mutation "8bbfe884410b5836",
+             subject: "Saboteur::CLI::RunBudgetOptions#add_run_budget_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - `run --help` is byte-identical and the cli specs stay green"
+  i.mutation "16382227e120f03b",
+             subject: "Saboteur::CLI::RunBudgetOptions#add_run_budget_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - `run --help` is byte-identical and the cli specs stay green"
+  i.mutation "86ba0c49da5c4d32",
+             subject: "Saboteur::CLI::ExitStatus#untested_partial?",
+             reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
+  i.mutation "30dce853088c94af",
+             subject: "Saboteur::CLI::ExitStatus#unverifiable_scope?",
+             reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
+  i.mutation "57408b208d9e9bc5",
+             subject: "Saboteur::CLI::ExitStatus#mostly_errored?",
+             reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
+  i.mutation "9ffd99d047288e4e",
+             subject: "Saboteur::CLI::ExitStatus#incomplete_under_threshold?",
+             reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
 end
