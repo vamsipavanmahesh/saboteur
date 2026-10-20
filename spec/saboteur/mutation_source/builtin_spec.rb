@@ -332,6 +332,20 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    @x ||= a", "or_assign")).to eq(["@x = a"])
       expect(texts("    h[a] ||= b", "or_assign")).to eq(["h[a] = b"])
     end
+
+    it "leaves constant targets alone inside a def: X = a is a syntax error there" do
+      expect(texts("    X ||= a", "or_assign")).to eq([])
+      expect(texts("    A::B ||= a", "or_assign")).to eq([])
+    end
+
+    it "mutates constant targets in a define_method body, where X = a is legal" do
+      source = "class K\n  define_method(:m) do |a|\n    X ||= a\n    A::B ||= a\n  end\nend\n"
+      mutated = mutated_texts(subjects_in(source).first).filter_map { |operator, text| text if operator == "or_assign" }
+      expect(mutated.size).to eq(2)
+      expect(mutated[0]).to include("X = a").and include("A::B ||= a")
+      expect(mutated[1]).to include("X ||= a").and include("A::B = a")
+      expect(mutated.map { |text| Prism.parse(text).errors }).to all(be_empty)
+    end
   end
 
   describe "guarded assignment" do
