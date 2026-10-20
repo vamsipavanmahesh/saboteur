@@ -2347,4 +2347,57 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: sending a visibility of public to the target is a no-op, so " \
                      "always taking the branch only adds a public re-send - hand-applied mutant " \
                      "leaves the reevaluator pin specs and the execution specs green"
+
+  # mutation_source/builtin.rb. Replayed by id (survived, or no coverage for d25ab320)
+  # and hand-applied with green mutation_source specs.
+  i.mutation "592ebb9c7020c4a6",
+      subject: "Saboteur::MutationSource::Builtin#visit",
+      reason: "The each over child nodes only recurses for its side effects, and the return " \
+              "value of visit is never used, so map behaves the same."
+  i.mutation "77e91c08bd178586",
+      subject: "Saboteur::MutationSource::Builtin#visit_statements",
+      reason: "The each over statements only adds mutations as a side effect, and the return " \
+              "value of visit_statements is never used, so map behaves the same."
+  i.mutation "e75a28fb97c53522",
+      subject: "Saboteur::MutationSource::Builtin#mutate_condition",
+      reason: "The each over the literals only calls add for its side effect, and the return " \
+              "value of mutate_condition is never used, so map behaves the same."
+  i.mutation "a394a657450f3564",
+      subject: "Saboteur::MutationSource::Builtin#mutate_number",
+      reason: "The each over the candidates only calls add for its side effect, and the " \
+              "return value of mutate_number is never used, so map behaves the same."
+  i.mutation "946ec5983bee6b05",
+      subject: "Saboteur::MutationSource::Builtin#initialize",
+      reason: "The class inherits from Base, which defines no initialize, so super() only " \
+              "reaches Object#initialize and does nothing."
+  i.mutation "2fc4e04fad073911",
+      subject: "Saboteur::MutationSource::Builtin#initialize",
+      reason: "Regexp.new on a Regexp returns an equal regexp with the same source and " \
+              "options, so passing the pattern through changes no match."
+  i.mutation "0058d11ad0d6ba62",
+      subject: "Saboteur::MutationSource::Builtin#arid_statement?",
+      reason: "The only callers use the result for truthiness (next if, all?), so nil and " \
+              "false behave the same."
+  i.mutation "6f965b513aedd32f",
+      subject: "Saboteur::MutationSource::Builtin#arid_statement?",
+      reason: "The only callers use the result for truthiness (next if, all?), so nil and " \
+              "false behave the same."
+  i.mutation "bd987b6f95f80465",
+      subject: "Saboteur::MutationSource::Builtin#add",
+      reason: "Mutation defaults source to builtin, which is what Builtin#name returns, so " \
+              "leaving source out gives the same value."
+  i.mutation "3e8e7eac03be67f7",
+      subject: "Saboteur::MutationSource::Builtin#removable?",
+      reason: "A bare nil statement would be replaced by nil, and add returns early when the " \
+              "replacement equals the original slice, so keeping nil removable adds no " \
+              "mutation."
+  i.mutation "d25ab320f80cbf90",
+      subject: "Saboteur::MutationSource::Builtin#removable?",
+      reason: "A bare nil statement would be replaced by nil, and add returns early when the " \
+              "replacement equals the original slice, so returning true for nil adds no " \
+              "mutation."
+  i.mutation "21c2262af6e842f1",
+      subject: "Saboteur::MutationSource::Builtin#numeric_operands?",
+      reason: "Only infix operator calls reach this check, and they have exactly one " \
+              "argument, so the first and last argument are the same node."
 end
