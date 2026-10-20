@@ -102,7 +102,7 @@ module Saboteur
         # their constants instead (#725 replaces the guess once a map exists).
         def referenced_message
           named = referenced.map { |file, specs| "#{file} (#{specs.join(', ')})" }
-          "inferred specs: selected by constant reference, not by name: #{named.join(', ')}; " \
+          "inferred specs: selected by constant reference or require, not by name: #{named.join(', ')}; " \
             "a spec that reaches the file another way is not found"
         end
 

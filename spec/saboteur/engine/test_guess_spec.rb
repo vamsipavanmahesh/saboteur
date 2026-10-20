@@ -1841,7 +1841,7 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(result.unmatched).to eq([])
       expect(result.specs).to include("spec/features/auth_spec.rb")
       expect(result.referenced).to eq(path => ["spec/features/auth_spec.rb"])
-      expect(result.referenced_message).to include("selected by constant reference", path,
+      expect(result.referenced_message).to include("selected by constant reference or require", path,
                                                    "spec/features/auth_spec.rb")
     end
 
@@ -1851,7 +1851,7 @@ RSpec.describe Saboteur::Engine::TestGuess do
                                                          "lib/b.rb" => %w[spec/z_spec.rb spec/w_spec.rb] })
 
       expect(result.referenced_message).to eq(
-        "inferred specs: selected by constant reference, not by name: " \
+        "inferred specs: selected by constant reference or require, not by name: " \
         "lib/a.rb (spec/x_spec.rb, spec/y_spec.rb), lib/b.rb (spec/z_spec.rb, spec/w_spec.rb); " \
         "a spec that reaches the file another way is not found"
       )
@@ -1874,6 +1874,25 @@ RSpec.describe Saboteur::Engine::TestGuess do
 
         expect(instance.send(:reference_specs, [path])).to eq({})
       end
+    end
+
+    it "also takes a spec that requires the file by its load path, with no constant read" do
+      commit_then_change("require \"jwt/claims/decode_verifier\"\nRSpec.describe(\"a\") { it(\"x\") { JWT.decode } }\n")
+
+      expect(guess.referenced).to eq(path => ["spec/features/auth_spec.rb"])
+    end
+
+    it "also takes a spec that require_relatives the file" do
+      commit_then_change("require_relative \"../../lib/jwt/claims/decode_verifier\"\nRSpec.describe(\"a\") { 1 }\n")
+
+      expect(guess.referenced).to eq(path => ["spec/features/auth_spec.rb"])
+    end
+
+    it "does not take a spec whose require names only the same basename or resolves elsewhere" do
+      commit_then_change("require \"decode_verifier\"\nrequire_relative \"../lib/jwt/claims/decode_verifier\"\n" \
+                         "RSpec.describe(\"a\") { it(\"x\") { 1 } }\n")
+
+      expect(guess.unmatched).to eq([path])
     end
 
     it "still stops when no spec reads the constant" do
