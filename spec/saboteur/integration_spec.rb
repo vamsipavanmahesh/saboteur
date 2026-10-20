@@ -9,7 +9,8 @@ RSpec.describe Saboteur::Integration do
   end
 
   it "raises a saboteur error for an unknown adapter" do
-    expect { described_class.fetch(:cucumber) }.to raise_error(Saboteur::Error, /unknown integration/)
+    expect { described_class.fetch(:cucumber) }
+      .to raise_error(Saboteur::Error, "unknown integration: cucumber")
   end
 
   it "provides an additive baseline fallback for existing adapters" do
@@ -24,7 +25,17 @@ RSpec.describe Saboteur::Integration do
   it "refuses to run a part of the suite for an adapter that cannot split it" do
     adapter = described_class::Base.new({})
     expect { adapter.run_baseline(seed: 42, files: ["spec/a.rb"]) }
-      .to raise_error(NotImplementedError, /cannot run a part of the suite/)
+      .to raise_error(NotImplementedError, "Saboteur::Integration::Base cannot run a part of the suite " \
+                                           "(files: [\"spec/a.rb\"])")
+  end
+
+  it "seeds the random generator before the baseline fallback runs the suite" do
+    adapter = described_class::Base.new({})
+    drawn = nil
+    allow(adapter).to receive(:all_tests).and_return([])
+    allow(adapter).to receive(:run) { drawn = Kernel.rand }
+    adapter.run_baseline(seed: 42)
+    expect(drawn).to eq(Random.new(42).rand)
   end
 
   it "requires adapters to implement the contract" do
