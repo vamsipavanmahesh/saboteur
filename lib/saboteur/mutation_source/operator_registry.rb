@@ -28,6 +28,7 @@ module Saboteur
         "safe_navigation" => "Replace safe navigation with a regular call",
         "statement_removal" => "Replace a statement with nil",
         "filter_replacement" => "Swap select and reject",
+        "copy_replacement" => "Drop a dup or clone, or make deep_dup shallow",
         "literal_string" => "Empty a string literal",
         "literal_boolean" => "Swap a boolean literal",
         "argument_swap" => "Swap two positional call arguments",
