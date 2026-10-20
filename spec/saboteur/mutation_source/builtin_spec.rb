@@ -278,7 +278,15 @@ RSpec.describe Saboteur::MutationSource::Builtin do
     end
 
     it "registers every single-purpose source in the delegated walk" do
-      expect(described_class.new.send(:delegated).size).to eq(20)
+      expect(described_class.new.send(:delegated).size).to eq(21)
+    end
+
+    it "wires custom arid patterns into copy replacement" do
+      source = described_class.new(arid: ['\Atrack\b'])
+      subject = subjects_in("class K\n  def m(x)\n    track(x.dup)\n    use(x.dup)\n  end\nend\n").first
+      texts = mutated_texts(subject, source:).filter_map { |op, text| text if op == "copy_replacement" }
+      expect(texts.size).to eq(1)
+      expect(texts.first).to include("track(x.dup)", "use(x)")
     end
 
     it "wires custom arid patterns into pair removal" do

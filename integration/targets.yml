@@ -26,7 +26,9 @@ dry-inflector:
     # jump_value added 2 killed here (was killed 633).
     # when_removal added 3 killed here (was killed 635): when branches in
     # lib/dry/inflector.rb, all killed; no new survivors.
-    class_eval: { killed: 638, survived: 35, timeout: 0, error: 10, skipped: 0 }
+    # copy_replacement added 2 killed here (was killed 638): the `.dup` calls at
+    # lib/dry/inflector.rb:330 and lib/dry/inflector/rules.rb:23; no new survivors.
+    class_eval: { killed: 640, survived: 35, timeout: 0, error: 10, skipped: 0 }
     # nesting: re-measured after element_removal went default-on (#306):
     # +23 killed, +5 survived (was killed 587, survived 25). The survivors
     # are element_removal removals of uncountable/acronym entries the
@@ -36,7 +38,8 @@ dry-inflector:
     # 8dd60987d231253c) - the target's specs never assert that irregular pair.
     # jump_value added 2 killed here (was killed 642).
     # when_removal added 3 killed here (was killed 644).
-    nesting: { killed: 647, survived: 36, timeout: 0, error: 0, skipped: 0 }
+    # copy_replacement added 2 killed here (was killed 647), the same two `.dup` calls.
+    nesting: { killed: 649, survived: 36, timeout: 0, error: 0, skipped: 0 }
 tty-color:
   repo: https://github.com/piotrmurach/tty-color.git
   commit: e2410967c13e0d3e2297456db22495cb246b22f5

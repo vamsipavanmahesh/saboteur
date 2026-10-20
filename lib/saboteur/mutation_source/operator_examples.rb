@@ -20,6 +20,7 @@ module Saboteur
         "and_assign" => "x &&= y -> x = y",
         "safe_navigation" => "x&.name -> x.name",
         "statement_removal" => "check; value -> nil; value",
+        "copy_replacement" => "x.dup -> x",
         "filter_replacement" => "xs.select { |x| x } -> xs.reject { |x| x }",
         "literal_string" => "\"hello\" -> \"\"",
         "literal_boolean" => "true -> false",

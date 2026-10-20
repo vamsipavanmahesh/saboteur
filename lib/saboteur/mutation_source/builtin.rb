@@ -4,6 +4,7 @@
 require "prism"
 require_relative "base"
 require_relative "filter_replacement"
+require_relative "copy_replacement"
 require_relative "literal_replacement"
 require_relative "argument_removal"
 require_relative "argument_swap"
@@ -77,8 +78,8 @@ module Saboteur
       SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
       # The single-purpose sources, in the order they run after the shared walk.
       DELEGATED = [
-        FilterReplacement, LiteralReplacement, ArgumentRemoval, PairRemoval, ElementRemoval, ChainRemoval,
-        EndpointReplacement, RangeReplacement, OperatorAssignment, ConditionNegation, MethodSwap,
+        FilterReplacement, CopyReplacement, LiteralReplacement, ArgumentRemoval, PairRemoval, ElementRemoval,
+        ChainRemoval, EndpointReplacement, RangeReplacement, OperatorAssignment, ConditionNegation, MethodSwap,
         OperandReplacement, InterpolationRemoval, RegexReplacement, ArgumentSwap, JumpValue, RescueRemoval,
         EnsureRemoval, WhenRemoval, UnaryRemoval
       ].freeze
