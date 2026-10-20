@@ -1882,4 +1882,17 @@ i.mutation "fdc4600f4e8e8625",
              reason: "equivalent: no caller passes covered_by, and MutantResult defaults covered_by to " \
                      "the same empty array, so dropping the keyword changes nothing - hand-applied " \
                      "mutant leaves engine specs green"
+
+  # agent.rb Agent.fit and agent_incomplete.rb Incomplete.omitted_by_cap. Hand-applied
+  # together: the reporter specs stay green (591 examples).
+  i.mutation "a73bc5c9b5daadcb",
+             subject: "Saboteur::Reporter::Agent.fit",
+             reason: "equivalent: the snippet loop leaves only through the return inside its block, so " \
+                     "each versus map differs only by the array map would build when no return fires, " \
+                     "and fit then ignores that value - hand-applied mutant leaves reporter specs green"
+  i.mutation "2716ff28410c464b",
+             subject: "Saboteur::Reporter::Agent::Incomplete.omitted_by_cap",
+             reason: "equivalent: with digits present the greedy group captures the same number, and " \
+                     "with none it captures an empty string whose to_i is 0, the same as the nil of " \
+                     "no match - hand-applied mutant leaves reporter specs green"
 end
