@@ -59,6 +59,9 @@ RSpec.describe Saboteur::Engine::DataInputs do
       # even though its text matches a glob once the root prefix is skipped.
       expect(described_class.match?(@root, "db/structure.sql")).to be(false)
       expect(described_class.match?(@root, "#{@root}-other/db/structure.sql")).to be(false)
+      # Write protection covers hidden files: a dotfile fixture is still an input.
+      expect(described_class.match?(@root, File.join(@root, "spec/fixtures/.hidden.yml"))).to be(true)
+      expect(described_class.match?(@root, File.join(@root, "config/.database.yml"))).to be(true)
       # A glob that would match the bare path must not let a path outside root through.
       expect(described_class.match?(@root, "/elsewhere/data.sql", extra: ["**/*.sql"])).to be(false)
       expect(described_class.match?(@root, "#{@root}-other/data.sql", extra: ["**/*.sql"])).to be(false)
