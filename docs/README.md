@@ -72,6 +72,7 @@
 - [rescue_removal](operators/rescue_removal.md)
 - [safe_navigation](operators/safe_navigation.md)
 - [statement_removal](operators/statement_removal.md)
+- [when_removal](operators/when_removal.md)
 
 ## Decisions and background
 
