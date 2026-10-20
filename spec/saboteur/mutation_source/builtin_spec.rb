@@ -63,6 +63,11 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       end
     end
 
+    it "does not raise inside a body whose rescue lists a catch-all beside a specific error" do
+      subject = subjects_in("class K\n  def m\n    work\n  rescue ArgumentError, Exception\n    1\n  end\nend\n").first
+      expect(mutated_texts(subject).map(&:first)).not_to include("body_raise")
+    end
+
     it "still raises inside a body whose rescue catches only specific errors" do
       subject = subjects_in("class K\n  def m\n    work\n  rescue ArgumentError\n    1\n  end\nend\n").first
       expect(mutated_texts(subject).map(&:first)).to include("body_raise")
@@ -140,6 +145,7 @@ RSpec.describe Saboteur::MutationSource::Builtin do
       expect(texts("    while a\n      b\n    end", "condition_true")).to be_empty
       expect(texts("    while a\n      b\n    end", "condition_false")).to eq(["while false\n      b\n    end"])
       expect(texts("    until a\n      b\n    end", "condition_false")).to be_empty
+      expect(texts("    until a\n      b\n    end", "condition_true")).to eq(["until true\n      b\n    end"])
     end
   end
 
@@ -151,12 +157,14 @@ RSpec.describe Saboteur::MutationSource::Builtin do
 
     it "leaves string concatenation alone" do
       expect(texts('    "x" + b', "arithmetic")).to be_empty
+      expect(texts('    a + "x"', "arithmetic")).to be_empty
     end
 
     it "changes numeric literals to n+1, n-1 and 0" do
       expect(texts("    a + 5", "literal_number")).to eq(["a + 6", "a + 4", "a + 0"])
       expect(texts("    a + 1.5", "literal_number")).to eq(["a + 2.5", "a + 0.5", "a + 0.0"])
       expect(texts("    a + 0", "literal_number")).to eq(["a + 1", "a + (-1)"])
+      expect(texts("    a + 1", "literal_number")).to eq(["a + 2", "a + 0"])
     end
   end
 
