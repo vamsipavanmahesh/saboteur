@@ -2099,4 +2099,70 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Engine::TestGuess#subjectless_files",
              reason: "equivalent: reject drops a file only for a truthy block value, and nil is as " \
                      "falsy as false - hand-applied mutant leaves engine specs green"
+  # baseline_guard.rb, focus_guard.rb and run_fingerprint.rb. Hand-applied together:
+  # spec/saboteur/engine, integration and the focus e2e stay green (1849 examples).
+  i.mutation "aab1a6168e2d352b",
+             subject: "Saboteur::Engine::BaselineGuard#failure_excerpt",
+             reason: "equivalent: the only caller interpolates the value into a message, where nil " \
+                     "renders as an empty string, so return nil instead of an empty string changes " \
+                     "no output - hand-applied mutant leaves the engine, integration and focus e2e " \
+                     "specs green"
+  i.mutation "58d7f6872f31ebc9",
+             subject: "Saboteur::Integration::FocusGuard#check!",
+             reason: "equivalent: with no stray focus rule the examples without it are exactly the " \
+                     "running examples, so hidden_examples is empty and the next line returns " \
+                     "anyway; dropping the early return only does that work first - hand-applied " \
+                     "mutant leaves the engine, integration and focus e2e specs green"
+  i.mutation "058f10c3854616ea",
+             subject: "Saboteur::Engine::RunFingerprint#data_files",
+             reason: "equivalent: reject treats a nil block value like false, so next nil instead " \
+                     "of next false drops the same files - hand-applied mutant leaves the engine, " \
+                     "integration and focus e2e specs green"
+  i.mutation "eddcf38c00d91eac",
+             subject: "Saboteur::Engine::RunFingerprint#initialize",
+             reason: "equivalent: a missing required key reads as true through the fetch default, " \
+                     "so leaving required: true out of the entry changes nothing - hand-applied " \
+                     "mutant leaves the engine, integration and focus e2e specs green"
+  i.mutation "4c22d0151199fe3e",
+             subject: "Saboteur::Engine::RunFingerprint#cache_overlap_issues",
+             reason: "equivalent: the app dir is always listed with the other project dirs, so the " \
+                     "root entry in the protected list is redundant - hand-applied mutant leaves " \
+                     "the engine, integration and focus e2e specs green"
+  i.mutation "cd52180285b172aa",
+             subject: "Saboteur::Engine::RunFingerprint#cache_overlap_issues",
+             reason: "equivalent: the app dir is always listed with the other project dirs, so " \
+                     "repeating the dir list instead of the root only adds a duplicate entry - " \
+                     "hand-applied mutant leaves the engine, integration and focus e2e specs green"
+  i.mutation "468c6fb66066699c",
+             subject: "Saboteur::Engine::RunFingerprint#output_overlap_issues",
+             reason: "equivalent: the manifest names are expanded against the root by " \
+                     "canonical_path before use, so a relative name resolves to the same path - " \
+                     "hand-applied mutant leaves the engine, integration and focus e2e specs green"
+  i.mutation "eec46e4c45a11ac3",
+             subject: "Saboteur::Engine::RunFingerprint#output_overlap_issues",
+             reason: "equivalent: each hands back the relative manifest names, and canonical_path " \
+                     "expands them against the root as the joined names would be, so the path set " \
+                     "is the same - hand-applied mutant leaves the engine, integration and focus " \
+                     "e2e specs green"
+  i.mutation "b8d9aaf33594346f",
+             subject: "Saboteur::Engine::RunFingerprint#project_files",
+             reason: "equivalent: the inventory is sorted later, so the order Dir.children returns " \
+                     "does not reach the digest - hand-applied mutant leaves the engine, " \
+                     "integration and focus e2e specs green"
+  i.mutation "ed4ce33ba5a3e84a",
+             subject: "Saboteur::Engine::RunFingerprint.restore_snapshot",
+             reason: "equivalent: the fields hash already carries the issues key through the " \
+                     "splat, so passing issues again sets the same value - hand-applied mutant " \
+                     "leaves the engine, integration and focus e2e specs green"
+  i.mutation "cd1e1fdeae2cf4de",
+             subject: "Saboteur::Engine::RunFingerprint.validate_snapshot_fields",
+             reason: "equivalent: the each block runs for its raise and the value of the loop is " \
+                     "not used, so map builds an unused array - hand-applied mutant leaves the " \
+                     "engine, integration and focus e2e specs green"
+  i.mutation "f11999e0da4757f2",
+             subject: "Saboteur::Engine::RunFingerprint#symlinked?",
+             reason: "equivalent: keeping the leading slash adds one empty path part, and joining " \
+                     "an empty part gives the same path, so the same links are tested - " \
+                     "hand-applied mutant leaves the engine, integration and focus e2e specs green"
+
 end
