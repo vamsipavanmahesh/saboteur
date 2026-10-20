@@ -25,6 +25,7 @@ module Saboteur
                            "column), simplify the code or ignore the mutant",
         "endpoint_replacement" => "try a collection with 2 or more elements, to tell first from last",
         "jump_value" => "try asserting the value this early exit returns",
+        "rescue_removal" => "try an example where the guarded code raises, and assert what the handler returns",
         "filter_replacement" => "try items that match and items that do not, to tell select from reject"
       }.freeze
 

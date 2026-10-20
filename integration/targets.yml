@@ -50,7 +50,10 @@ tty-color:
     # skipped one is `return false if disabled?` in Support#support?
     # (support.rb:43), a branch the target's specs never take, the same line
     # literal_boolean already skips.
-    class_eval: { killed+error: 158, survived: 13, timeout: 0, skipped: 2 }
+    # rescue_removal added 1 mutant here, support.rb:110 (the `rescue LoadError`
+    # handler of from_curses), which errors under this strategy like its
+    # neighbours (was killed+error 158).
+    class_eval: { killed+error: 159, survived: 13, timeout: 0, skipped: 2 }
     # macOS literal expansion has not been measured, and no CI job runs
     # integration targets on macOS. Keep the historical (pre-guard) baseline
     # here until a macOS run supplies a replacement snapshot; Linux CI reads
@@ -66,7 +69,10 @@ tty-color:
       # default-on operators (was killed 130, survived 20).
       # jump_value added 5 killed + 1 skipped (was killed 144, skipped 1);
       # see the class_eval note above for the skipped one.
-      nesting: { killed: 149, survived: 22, skipped: 2 }
+      # rescue_removal added 1 killed (was 149): support.rb:110, the
+      # `rescue LoadError` handler of from_curses; its removal crashes with a
+      # LoadError the specs do not expect.
+      nesting: { killed: 150, survived: 22, skipped: 2 }
   # class_eval: spec/unit/mode_spec.rb[1:3] kills most Mode mutants with a
   # test that also fails with the method unchanged ("uninitialized constant
   # TTY::Color::Mode::NoValue"), so over half the mutants error on every

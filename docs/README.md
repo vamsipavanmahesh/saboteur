@@ -69,6 +69,7 @@
 - [pair_removal](operators/pair_removal.md)
 - [range](operators/range.md)
 - [regex_replacement](operators/regex_replacement.md)
+- [rescue_removal](operators/rescue_removal.md)
 - [safe_navigation](operators/safe_navigation.md)
 - [statement_removal](operators/statement_removal.md)
 

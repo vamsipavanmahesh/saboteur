@@ -36,6 +36,7 @@ module Saboteur
         "operand_replacement" => "a + b -> a",
         "interpolation_removal" => "\"hi \#{name}\" -> \"hi \"",
         "jump_value" => "return total -> return nil",
+        "rescue_removal" => "begin; x; rescue; y; end -> begin; x; end",
         "regex_replacement" => "/\\A\\d+\\z/ -> /\\d+\\z/"
       }.freeze
     end
