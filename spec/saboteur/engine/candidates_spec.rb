@@ -117,7 +117,7 @@ RSpec.describe Saboteur::Engine::Candidates do
       end
     end.new
     expect(candidates(outside)).to be_empty
-    expect(diagnostics.warnings.first).to include("outside")
+    expect(diagnostics.warnings.first).to match(/\AK#m: dropped \S+ mutation\n  .*outside/)
     expect(diagnostics.generation_events.map(&:reason)).to eq(["invalid_edit"])
   end
 
