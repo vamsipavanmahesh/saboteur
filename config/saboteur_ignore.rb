@@ -1800,4 +1800,23 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "bf6a300278565a5d",
              subject: "Saboteur::MutationSource::OperatorAssignment#visit",
              reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
+
+  i.mutation "a8c04c1601e63d4e",
+             subject: "Saboteur::MutationSource::PairRemoval#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map runs the same block calls"
+  i.mutation "dea2db8bfbb7a592",
+             subject: "Saboteur::MutationSource::PairRemoval#remove_keywords",
+             reason: "equivalent: the each result is discarded (remove_keywords' value is never read), so map runs the same block calls"
+  i.mutation "d3020e0b03d82ce7",
+             subject: "Saboteur::MutationSource::PairRemoval#ending_for",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "fcbf41d9b88105d2",
+             subject: "Saboteur::MutationSource::PairRemoval#ending_for",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "a90400c5118a2262",
+             subject: "Saboteur::MutationSource::RangeReplacement#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map runs the same block calls"
+  i.mutation "cf88d02f3de9135e",
+             subject: "Saboteur::MutationSource::RegexReplacement#plain_quantifier?",
+             reason: "equivalent: plain_quantifier? is only used as the last operand of an && inside an if modifier, where nil and false both skip the yield"
 end
