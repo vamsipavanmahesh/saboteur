@@ -22,6 +22,13 @@ RSpec.describe Saboteur::Selection::Recorder, "first loaders (#46)" do
     recorder.test_finished(id)
   end
 
+  it "hands each result its own copy of the first loaders" do
+    run_test("t1", "s1", a_file)
+    map = recorder.result
+    run_test("t2", "s1", b_file)
+    expect(map.first_loaders).to eq(a_file => "t1")
+  end
+
   it "records the first test in which a file showed a hit, and keeps it when later tests hit it too" do
     run_test("t1", "s1", a_file)
     run_test("t2", "s1", a_file, b_file)

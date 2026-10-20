@@ -143,6 +143,14 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(mutants.first["replacement"]).to eq("LT | AGE")
   end
 
+  it "reads the source through its own copy and leaves the subject's string encoding alone" do
+    result = result_for(:killed)
+    raw = result.subject.file_source.b
+    allow(result.subject).to receive(:file_source).and_return(raw)
+    described_class.build(report_of(result))
+    expect(raw.encoding).to eq(Encoding::BINARY)
+  end
+
   it "lists each test once under testFiles, grouped by spec file" do
     report = report_of(result_for(:killed, killed_by: ["./spec/a_spec.rb[1:1]"],
                                            covered_by: ["./spec/a_spec.rb[1:1]", "./spec/b_spec.rb[2]"]))

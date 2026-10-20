@@ -19,6 +19,16 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     expect(diagnostics.warnings).to eq(["x\n\\x3a:error::injected", "see ##\\x5berror]y"])
   end
 
+  it "freezes copies of the generation and omission names, not the caller's strings" do
+    file = +"a.rb"
+    id = +"A#m"
+    subject = instance_double(Saboteur::Subject, file: file, id: id)
+    diagnostics.record_generation(subject, source: "subject", reason: "empty_generation")
+    diagnostics.record_omission(subject, count: 2, limit: 1)
+    expect([file.frozen?, id.frozen?]).to eq([false, false])
+    expect([diagnostics.generation_events.first.file, diagnostics.omissions.first.subject]).to all(be_frozen)
+  end
+
   it "keeps a warning's own detail lines" do
     diagnostics.warn("fix it\n  the cause")
     expect(diagnostics.warnings).to eq(["fix it\n  the cause"])
