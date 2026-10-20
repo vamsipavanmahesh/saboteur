@@ -283,6 +283,39 @@ jobs:
           # upload-artifact skips hidden paths by default, and .saboteur is one.
           include-hidden-files: true
 
+  # Warms the coverage map for pull request dispatches. GitHub only lets a
+  # run restore caches saved on its own ref or on the default branch, so a
+  # map saved by a dispatch on a feature branch never reaches the next one.
+  # This job saves it on main; a dispatch's restore-keys then finds it and
+  # the map build can reuse part of it. The Gemfile.lock and config hashes
+  # match the action's key, so the two share entries. Free: it uses the same
+  # runner pool as the dogfood job, once per main push.
+  warm-map:
+    if: github.event_name == 'push'
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .saboteur/coverage-*.json
+            .saboteur/inputs-*.json
+          key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
+          restore-keys: |
+            saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
+      # Mutates the methods the last commit changed; the point is the map
+      # this run leaves in .saboteur. Survivors do not fail the warm-up.
+      - name: Build the coverage map
+        run: bundle exec exe/saboteur run --since HEAD~1 --baseline-passes 1 --jobs 4 --coverage-parts 4 || true
+
   # Ignore-hygiene audit (#703): a digest a pull request adds to
   # config/saboteur_ignore.rb must arise live on its head; a dropped
   # digest must be dead or killed by the suite. The de-ignore incident on
