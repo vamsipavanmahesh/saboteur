@@ -1456,6 +1456,10 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Selection::TraceRecorder#flush_branches",
              reason: "equivalent: the block only appends to a set, and the enumerator's return value is unused, so each and map agree"
 
+  i.mutation "10716a0670a966ba",
+             subject: "Saboteur::Config#coerce!",
+             reason: "equivalent: the loop only assigns into the values hash and its return value is unused, so each and map agree"
+
   i.mutation "87fc46488069845b",
              subject: "Saboteur::MethodCalls#enable",
              reason: "equivalent: TracePoint#enable on an already enabled tracepoint is a no-op, so skipping the enabled? check never changes the state"
