@@ -2473,4 +2473,35 @@ i.mutation "fdc4600f4e8e8625",
       reason: "equivalent: its only caller, walk_constant_assignment, tests it with " \
               "unless, so nil and false take the same branch"
 
+
+  i.mutation "996870a6910e3aa8",
+      subject: "Saboteur::ConstantSubjectFinder::Unsupported#overlaps_lines?",
+      reason: "equivalent: node.location.start_line and node.start_line are the same " \
+              "value, Prism::Node delegates to its location"
+
+  i.mutation "43fcfd0dcdf96fba",
+      subject: "Saboteur::ConstantSubjectFinder::Unsupported#overlaps_lines?",
+      reason: "equivalent: node.location.end_line and node.end_line are the same " \
+              "value, Prism::Node delegates to its location"
+
+  i.mutation "827e6ee80caf11ec",
+      subject: "Saboteur::ConstantSubjectFinder#factory_scope?",
+      reason: "equivalent: its only caller, walk_constant_assignment, tests it in an " \
+              "if, so nil and false take the same branch"
+
+  i.mutation "6c6b84a27b7bb8e6",
+      subject: "Saboteur::ConstantSubjectFinder#factory_scope?",
+      reason: "equivalent: its only caller, walk_constant_assignment, tests it in an " \
+              "if, so nil and false take the same branch"
+
+  i.mutation "6f7e6334b5c3918a",
+      subject: "Saboteur::InlineSuppression#parse",
+      reason: "equivalent: Prism::Comment#slice and comment.location.slice return " \
+              "the same text"
+
+  i.mutation "1d150c3ba6b0f757",
+      subject: "Saboteur::InlineSuppression#parse",
+      reason: "equivalent: an inline comment starts with the hash so the unanchored match hits the same " \
+              "place, and an embdoc comment starts with =begin, which the start_with? guard rejects either way"
+
 end
