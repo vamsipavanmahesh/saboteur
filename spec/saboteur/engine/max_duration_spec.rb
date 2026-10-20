@@ -314,7 +314,9 @@ RSpec.describe Saboteur::Engine::BaselineGuard, "phase timeout cap (#296)" do
   end
 
   let(:config) { Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 1 }, root: @root) }
-  let(:integration) { double("adapter", all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "spec/a.rb")]) }
+  let(:integration) do
+    double("adapter", test_files: [], all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "spec/a.rb")])
+  end
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
 
   it "raises BudgetPhaseTimeout when a budget-capped pass hits its shortened deadline (#296)" do
@@ -413,7 +415,9 @@ RSpec.describe Saboteur::Engine::BaselineGuard, "max-duration between passes (#2
   end
 
   let(:config) { Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 3 }, root: @root) }
-  let(:integration) { double("adapter", all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "spec/a.rb")]) }
+  let(:integration) do
+    double("adapter", test_files: [], all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "spec/a.rb")])
+  end
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
 
   def response

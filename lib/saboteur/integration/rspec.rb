@@ -149,11 +149,11 @@ module Saboteur
         execute(Listener.new(recorder), log_phase: true, files: files)
       end
 
-      def run_baseline(seed:)
+      def run_baseline(seed:, files: nil)
         configuration.order = "rand:#{seed}"
         configuration.fail_fast = false
         listener = Listener.new
-        passed = execute(listener, log_phase: true)
+        passed = execute(listener, log_phase: true, files: files)
         RunResult.new(passed: passed && listener.failed.empty?, failed_ids: listener.failed,
                       executed_ids: listener.executed, runtime: listener.runtime,
                       failure_classes: listener.failure_classes, failure_messages: listener.failure_messages,

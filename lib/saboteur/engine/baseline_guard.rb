@@ -5,6 +5,7 @@ require "json"
 require "fileutils"
 require_relative "../text"
 require_relative "../frameworks/sqlite_memory_database"
+require_relative "baseline_parts"
 
 module Saboteur
   class Engine
@@ -12,6 +13,8 @@ module Saboteur
     # or mutation source is used. This catches observed instability, not all
     # possible flaky behaviour.
     class BaselineGuard
+      include BaselineParts
+
       # How many unchanged-suite checks actually completed and validated:
       # the number of order comparisons a run can claim is one less.
       attr_reader :completed_passes
@@ -176,6 +179,9 @@ module Saboteur
       end
 
       def check(number)
+        parts = baseline_parts
+        return check_parts(number, parts) if parts.size > 1
+
         Execution::ForkReadiness.prepare_heap
         heartbeat = @diagnostics.progress_heartbeat("baseline check #{number}").watch(log_path(number))
         admitted = phase_timeout
@@ -183,6 +189,11 @@ module Saboteur
                                  label: "baseline child died during setup/run") do |writer|
           record(writer, number)
         end
+        settled(number, result, admitted)
+      end
+
+      def settled(number, result, admitted, part: nil)
+        @part = part
         refuse_budget_stop(number, admitted) if budget_stopped?(result, admitted)
         refuse(number, stopped_reason(result)) if result.stopped_by
         # Before the payload checks: a child killed by a signal (the OOM
@@ -221,15 +232,16 @@ module Saboteur
           data["executed"].is_a?(Array) && data["executed"].all?(String)
       end
 
-      def record(writer, number)
-        path = log_path(number)
+      def record(writer, number, files: nil, part: nil)
+        path = log_path(number, part)
         FileUtils.mkdir_p(File.dirname(path))
         $stdout.reopen(path, "w")
         $stdout.sync = true
         $stderr.reopen($stdout)
         @hooks.run(:after_fork)
         Kernel.srand(@config["seed"])
-        result = @integration.run_baseline(seed: @config["seed"])
+        seed = @config["seed"]
+        result = files ? @integration.run_baseline(seed: seed, files: files) : @integration.run_baseline(seed: seed)
         payload = { passed: result.passed, failed: result.failed_ids, executed: result.executed_ids }
         payload[:hint] = Frameworks::SqliteMemoryDatabase.fork_loss_hint unless result.passed
         writer.write(JSON.generate(payload))
@@ -304,8 +316,10 @@ module Saboteur
         data["hint"] ? "#{reason}. #{data['hint']}" : reason
       end
 
-      def log_path(number)
-        File.join(@config.path("cache_dir"), "baseline-#{number}.log")
+      # A split check keeps one log per part: baseline-1-part-2.log.
+      def log_path(number, part = @part)
+        name = part ? "baseline-#{number}-part-#{part + 1}.log" : "baseline-#{number}.log"
+        File.join(@config.path("cache_dir"), name)
       end
 
       # Leftover children are a pass-with-leaks verdict, not a suite
