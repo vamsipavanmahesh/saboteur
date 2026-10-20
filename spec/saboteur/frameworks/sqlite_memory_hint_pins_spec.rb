@@ -2,8 +2,8 @@
 # frozen_string_literal: true
 
 RSpec.describe Saboteur::Frameworks::SqliteMemoryDatabase do
-  def memory_pool(connection: nil, error: nil)
-    config = double("db config", adapter: "sqlite3", database: ":memory:")
+  def memory_pool(connection: nil, error: nil, adapter: "sqlite3", database: ":memory:")
+    config = double("db config", adapter: adapter, database: database)
     pool = double("pool", db_config: config)
     allow(pool).to receive(:with_connection) do |&block|
       raise error if error
@@ -54,6 +54,39 @@ RSpec.describe Saboteur::Frameworks::SqliteMemoryDatabase do
 
         expect(described_class.send(:empty_memory_database?, pool)).to be(true)
       end
+    end
+  end
+
+  describe ".empty_memory_database?" do
+    def empty?(**options)
+      pool = memory_pool(connection: connection_with([]), **options)
+      described_class.send(:empty_memory_database?, pool)
+    end
+
+    it "is true for an empty sqlite :memory: database" do
+      expect(empty?).to be(true)
+    end
+
+    it "reads the adapter and database through to_s" do
+      expect(empty?(adapter: :sqlite3, database: :":memory:")).to be(true)
+    end
+
+    it "is false for a sqlite file database" do
+      expect(empty?(database: "db/test.sqlite3")).to be(false)
+    end
+
+    it "is false for another adapter, even with :memory: as the database" do
+      expect(empty?(adapter: "postgresql")).to be(false)
+    end
+
+    it "is false when the adapter or the database is nil" do
+      expect([empty?(adapter: nil), empty?(database: nil)]).to eq([false, false])
+    end
+
+    it "is false when the pool cannot be queried" do
+      pool = memory_pool(error: StandardError.new("closed"))
+
+      expect(described_class.send(:empty_memory_database?, pool)).to be(false)
     end
   end
 end
