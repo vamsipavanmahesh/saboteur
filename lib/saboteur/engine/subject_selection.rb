@@ -134,8 +134,8 @@ module Saboteur
             else
               @diagnostics.record_discovery_failure(file, reason: "invalid_file_syntax")
               parsed.errors.first(1).each do |message|
-                @diagnostics.warn("fix the syntax in #{file.delete_prefix("#{@root}/")}: does not parse " \
-                                  "(#{message})")
+                @diagnostics.warn("fix the syntax in #{Text.display_safe(file.delete_prefix("#{@root}/"))}: " \
+                                  "does not parse (#{Text.display_safe(message)})")
               end
             end
           end
