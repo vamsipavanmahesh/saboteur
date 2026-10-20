@@ -1740,4 +1740,83 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "043ca90766f31ed6",
              subject: "Saboteur::CLI::SelectionOptions#define_selection_options",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `run --help` is byte-identical and the selection specs stay green"
+
+  i.mutation "d36f6a7ad221979b",
+             subject: "Saboteur::ConstantReads#bare_match?",
+             reason: "equivalent: bare_match? is only used as the last operand of an `if` condition, where nil and false both skip the branch"
+  i.mutation "87438bb22e48e90b",
+             subject: "Saboteur::MutationSource::ArgumentRemoval#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "744c19ae62b9fe30",
+             subject: "Saboteur::MutationSource::ChainRemoval#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "11212cb6092ecf1e",
+             subject: "Saboteur::MutationSource::ConditionNegation#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "cfb76cebff6a8978",
+             subject: "Saboteur::MutationSource::ArgumentRemoval#separator_for",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "693a8442b31c2809",
+             subject: "Saboteur::MutationSource::ArgumentRemoval#separator_for",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "aa024388f862e81e",
+             subject: "Saboteur::MutationSource::ArgumentRemoval#separator_for",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "c297dbddc09378c0",
+             subject: "Saboteur::MutationSource::ArgumentRemoval#heredoc?",
+             reason: "equivalent: a node whose source starts with << is a heredoc or begins with one, and the recursion into its children reaches the heredoc node, so the answer is the same"
+  i.mutation "ad72dfe6d7b4d35e",
+             subject: "Saboteur::MutationSource::ConstantLiterals#arid?",
+             reason: "equivalent: safe_match? with swapped arguments calls String#match?(Regexp) instead of Regexp#match?(String); both raise the same errors on invalid or incompatible bytes and return the same result"
+
+  i.mutation "4eed6578e4dc99d6",
+             subject: "Saboteur::MutationSource::EndpointReplacement#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "7ce0ef427a9cac03",
+             subject: "Saboteur::MutationSource::FilterReplacement#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "25fa2e0c46682c27",
+             subject: "Saboteur::MutationSource::LiteralReplacement#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map builds the same mutations through the same calls"
+  i.mutation "60a0e1e2f5e556d0",
+             subject: "Saboteur::MutationSource::LiteralReplacement#add",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "447a3ed8248be3de",
+             subject: "Saboteur::MutationSource::LiteralReplacement#add",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "5bf452746c03bceb",
+             subject: "Saboteur::MutationSource::LiteralReplacement#replace_string",
+             reason: "equivalent: a string node's source begins with its opening delimiter, so a heredoc test on node.slice answers the same as one on node.opening_loc.slice"
+
+  i.mutation "971ae38c93e2a3b8",
+             subject: "Saboteur::Doctor#check_boot_files",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
+  i.mutation "550c0ce0b18291c5",
+             subject: "Saboteur::Doctor#check_boot_files",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
+  i.mutation "1e13e965a48d47ba",
+             subject: "Saboteur::Doctor#check_ignore_subjects",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
+  i.mutation "bf6a300278565a5d",
+             subject: "Saboteur::MutationSource::OperatorAssignment#visit",
+             reason: "equivalent: the each result is discarded (the method's value is never read), so map runs the same block calls"
+
+  i.mutation "a8c04c1601e63d4e",
+             subject: "Saboteur::MutationSource::PairRemoval#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map runs the same block calls"
+  i.mutation "dea2db8bfbb7a592",
+             subject: "Saboteur::MutationSource::PairRemoval#remove_keywords",
+             reason: "equivalent: the each result is discarded (remove_keywords' value is never read), so map runs the same block calls"
+  i.mutation "d3020e0b03d82ce7",
+             subject: "Saboteur::MutationSource::PairRemoval#ending_for",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "fcbf41d9b88105d2",
+             subject: "Saboteur::MutationSource::PairRemoval#ending_for",
+             reason: "equivalent: Prism nodes expose start_offset and end_offset directly, equal to location.start_offset and location.end_offset"
+  i.mutation "a90400c5118a2262",
+             subject: "Saboteur::MutationSource::RangeReplacement#visit",
+             reason: "equivalent: the each result is discarded (visit's value is never read), so map runs the same block calls"
+  i.mutation "cf88d02f3de9135e",
+             subject: "Saboteur::MutationSource::RegexReplacement#plain_quantifier?",
+             reason: "equivalent: plain_quantifier? is only used as the last operand of an && inside an if modifier, where nil and false both skip the yield"
 end
