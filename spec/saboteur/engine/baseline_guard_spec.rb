@@ -794,6 +794,14 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     writer
   end
 
+  it "closes the writer after recording, also when the suite run raises" do
+    result = Saboteur::Integration::RunResult.new(passed: true, failed_ids: [], executed_ids: ["t1"], runtime: 0.1)
+    allow(integration).to receive(:run_baseline).with(seed: 42).and_return(result)
+    expect(record_into(StringIO.new, 1)).to be_closed
+    allow(integration).to receive(:run_baseline).with(seed: 42).and_raise("boom")
+    expect(record_into(StringIO.new, 2)).to be_closed
+  end
+
   it "records passed, failed and executed with no hint when the suite passes" do
     result = Saboteur::Integration::RunResult.new(passed: true, failed_ids: [], executed_ids: ["t1"], runtime: 0.1)
     allow(integration).to receive(:run_baseline).with(seed: 42).and_return(result)

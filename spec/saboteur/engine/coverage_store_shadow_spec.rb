@@ -298,4 +298,17 @@ RSpec.describe Saboteur::Engine::CoverageStore, "shadow run (#46)" do
       expect(diagnostics.warnings.last).to end_with("so the full map is used\n  #{clean}")
     end
   end
+
+  it "removes its temporary report when it cannot move it into place" do
+    first_run
+    allow(supervisor).to receive(:run).and_return(child_result(rerun_map))
+    allow(File).to receive(:rename).and_call_original
+    allow(File).to receive(:rename).with(%r{/shadow-\w+\.json\.\h+\.tmp\z}, anything).and_raise(Errno::EACCES)
+    begin
+      store(partial_coverage: "shadow").fetch([file])
+    rescue StandardError
+      nil
+    end
+    expect(Dir[File.join(@root, ".saboteur", "shadow-*.tmp")]).to eq([])
+  end
 end

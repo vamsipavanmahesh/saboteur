@@ -352,4 +352,27 @@ RSpec.describe "Engine external test-command pipeline" do
       expect(report.warnings.join).not_to include("mutation visibility check failed")
     end
   end
+
+  it "releases the disposable copy when the run ends, also when the neutral check raises" do
+    with_fixture do |root|
+      runners = []
+      allow(Saboteur::Execution::ExternalRunner).to receive(:new).and_wrap_original do |original, *args, **kwargs|
+        original.call(*args, **kwargs).tap { |runner| runners << runner }
+      end
+      Saboteur::Engine.new(Saboteur::Config.new({ "test_command" => "true" }, root: root)).call
+      expect(runners.last.instance_variable_get(:@copy_root)).to be_nil
+      allow(Saboteur::Execution::ExternalRunner).to receive(:new).and_wrap_original do |original, *args, **kwargs|
+        original.call(*args, **kwargs).tap do |runner|
+          runners << runner
+          allow(runner).to receive(:preflight!).and_wrap_original do |check, *a, **kw|
+            check.call(*a, **kw)
+            raise "boom"
+          end
+        end
+      end
+      expect { Saboteur::Engine.new(Saboteur::Config.new({ "test_command" => "true" }, root: root)).call }
+        .to raise_error("boom")
+      expect(runners.last.instance_variable_get(:@copy_root)).to be_nil
+    end
+  end
 end

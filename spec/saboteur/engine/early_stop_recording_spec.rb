@@ -26,4 +26,18 @@ RSpec.describe Saboteur::Engine::EarlyStopRecording do
     expect(stop.truncated).to eq([{ subject: person_subject.id, omitted: 2 }])
     expect(stop.unverified).to eq([person_subject.id])
   end
+
+  it "finishes the progress line after distribution, also when distribution raises" do
+    engine = Saboteur::Engine.new(Saboteur::Config.new({}), err: StringIO.new)
+    diagnostics = engine.instance_variable_get(:@diagnostics)
+    allow(diagnostics).to receive(:finish_progress).and_call_original
+    distribution = instance_double(Saboteur::Engine::Distribution, unreached: [], truncated: [], unverified: [],
+                                                                   memory_report: nil, run: [])
+    allow(Saboteur::Engine::Distribution).to receive(:new).and_return(distribution)
+    engine.send(:run_candidates, [person_subject], [[1]], nil, nil, nil)
+    expect(diagnostics).to have_received(:finish_progress).once
+    allow(distribution).to receive(:run).and_raise("boom")
+    expect { engine.send(:run_candidates, [person_subject], [[1]], nil, nil, nil) }.to raise_error("boom")
+    expect(diagnostics).to have_received(:finish_progress).twice
+  end
 end
