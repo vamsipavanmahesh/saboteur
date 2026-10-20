@@ -14,7 +14,7 @@ module Saboteur
       include CoverageShadow
       include CoverageParts
 
-      CACHE_INPUTS = %w[integration require rspec_args rails tests].freeze
+      CACHE_INPUTS = %w[integration require rspec_args rails tests coverage_recorder].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       LOG = "coverage-build.log"
       # RSpec rewrites this on every run (example_status_persistence_file_path),
@@ -105,6 +105,10 @@ module Saboteur
 
       def key_inputs
         JSON.generate(CACHE_INPUTS.to_h { |key| [key, @config[key]] })
+      end
+
+      def recorder_class
+        @config["coverage_recorder"] == "trace" ? Selection::TraceRecorder : Selection::Recorder
       end
 
       def key_files(files)
@@ -463,7 +467,7 @@ module Saboteur
         # The suite's own files are recorded too: a spec can read a
         # constant directly, and without its line hits no test maps to the
         # read (#319).
-        recorder = Selection::Recorder.new(files + @integration.test_files)
+        recorder = recorder_class.new(files + @integration.test_files)
         recorder.start
         Kernel.srand(seed)
         passed = only ? @integration.run_all(recorder, files: only, seed: seed) : @integration.run_all(recorder)

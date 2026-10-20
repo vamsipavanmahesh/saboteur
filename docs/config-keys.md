@@ -62,6 +62,7 @@ first-run rows and point here for the rest.
 | `cache` | `true` | A suspect cached run | Default |
 | `cache_dir` | `".saboteur"` | Non-standard cache locations | Default |
 | `partial_coverage` | `"off"` | Experimental: `"shadow"` also rebuilds the map partially after a cache miss and writes a comparison report; the full map is still the one used; never reused when RSpec selects examples from `spec/examples.txt` (`--only-failures`, `--next-failure`, however RSpec was given them) | Default |
+| `coverage_recorder` | `"coverage"` | Experimental: `"trace"` builds the per-test map with a TracePoint for lines and methods and one Coverage read per spec file for branches; the build is faster, and a branch can be credited to a few more tests than ran it, so selection only widens | Default |
 | `fingerprint_extra` | `[]` | Fixtures the map fingerprint cannot see | Default |
 
 ## Safety
