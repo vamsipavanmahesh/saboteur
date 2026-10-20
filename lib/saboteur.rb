@@ -45,6 +45,7 @@ end
 
 require_relative "saboteur/coverage_reads"
 require_relative "saboteur/method_calls"
+require_relative "saboteur/line_hits"
 require_relative "saboteur/hooks"
 require_relative "saboteur/mutation_source/base"
 require_relative "saboteur/mutation_source/builtin"
