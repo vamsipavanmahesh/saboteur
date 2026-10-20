@@ -59,14 +59,15 @@ module Saboteur
                      Prism::ArrayNode, Prism::HashNode, Prism::SymbolNode].freeze
       OR_WRITE = [Prism::LocalVariableOrWriteNode, Prism::InstanceVariableOrWriteNode,
                   Prism::ClassVariableOrWriteNode, Prism::GlobalVariableOrWriteNode,
-                  Prism::ConstantOrWriteNode, Prism::ConstantPathOrWriteNode,
                   Prism::CallOrWriteNode, Prism::IndexOrWriteNode].freeze
       AND_WRITE = [Prism::LocalVariableAndWriteNode, Prism::InstanceVariableAndWriteNode,
                    Prism::ClassVariableAndWriteNode, Prism::GlobalVariableAndWriteNode,
                    Prism::CallAndWriteNode, Prism::IndexAndWriteNode].freeze
       # Inside a def, X = a is a syntax error (dynamic constant assignment), so
-      # these targets only get the mutant for a define_method body, which is a block.
-      CONSTANT_AND_WRITE = [Prism::ConstantAndWriteNode, Prism::ConstantPathAndWriteNode].freeze
+      # constant targets only get the mutant for a define_method body, which is a block.
+      CONSTANT_WRITE = { Prism::ConstantOrWriteNode => "or_assign", Prism::ConstantPathOrWriteNode => "or_assign",
+                         Prism::ConstantAndWriteNode => "and_assign",
+                         Prism::ConstantPathAndWriteNode => "and_assign" }.freeze
       CATCH_ALL = %w[StandardError ::StandardError Exception ::Exception].freeze
       SCOPE_NODES = [Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode].freeze
 
@@ -192,12 +193,12 @@ module Saboteur
         when Prism::IntegerNode, Prism::FloatNode then mutate_number(node)
         when *OR_WRITE then add("or_assign", node.operator_loc, "=")
         when *AND_WRITE then add("and_assign", node.operator_loc, "=")
-        when *CONSTANT_AND_WRITE then add("and_assign", node.operator_loc, "=") if block_subject?
+        when *CONSTANT_WRITE.keys then mutate_constant_write(node)
         end
       end
 
-      def block_subject?
-        @subject.node.is_a?(Prism::CallNode)
+      def mutate_constant_write(node)
+        add(CONSTANT_WRITE.fetch(node.class), node.operator_loc, "=") if @subject.node.is_a?(Prism::CallNode)
       end
 
       def mutate_call(node)
