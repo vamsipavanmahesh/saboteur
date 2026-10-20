@@ -294,6 +294,11 @@ RSpec.describe Saboteur::Selection::GitDiff do
         expect(changed_after("x = a + b\ny = 1\n", "x = a   +  b\ny = 2\n")).to eq(Set[2])
       end
 
+      it "drops a line whose only change is its trailing note, but keeps one that gains a directive (#892)" do
+        expect(changed_after("x = 1\ny = 1\n", "x = 1 # note\ny = 2\n")).to eq(Set[2])
+        expect(changed_after("x = 1\n", "x = 1 # saboteur:disable-line reason=\"known\"\n")).to eq(Set[1])
+      end
+
       it "keeps a line where whitespace inside a string changed" do
         expect(changed_after("log(\"a b\")\n", "log(\"a  b\")\n")).to eq(Set[1])
       end
