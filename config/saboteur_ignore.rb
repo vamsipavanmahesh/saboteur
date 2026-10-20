@@ -1575,4 +1575,111 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "25a71c13d6e0de59",
              subject: "Saboteur::Reporter::Diff#hunks",
              reason: "equivalent: ranges arrive sorted, so `to` is never below the previous range end and [to].max equals the max"
+
+  i.mutation "834259d03f636504",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "4fdacc67fb85cf7f",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "03f7ea8cbca5301a",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "95852308b46e49b7",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "8c6e874916dae275",
+             subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
+  i.mutation "0ff3020f3d37db9c",
+             subject: "Saboteur::CLI::HistoryCommand#badge_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
+  i.mutation "d64f9f495a2fe0a4",
+             subject: "Saboteur::CLI::HistoryCommand#badge_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
+  i.mutation "b02794b33ea444c9",
+             subject: "Saboteur::CLI::HistoryCommand#badge_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
+  i.mutation "049dedea1dbe78d8",
+             subject: "Saboteur::CLI::HistoryCommand#trend_parser",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry and history_command_spec stays green"
+  i.mutation "4ceb50817c7c9491",
+             subject: "Saboteur::CLI::HistoryCommand#latest_pair",
+             reason: "equivalent: HistoryReader.comparable? is symmetric in its two records (== on shared keys, both incomplete lists empty, a non-nil policy equal to the other), so swapping them gives the same answer"
+  i.mutation "7ac81b045ff23089",
+             subject: "Saboteur::Reporter::ScoreHistory#change",
+             reason: "equivalent: comparable_policy? is symmetric in previous and current (version == and a non-nil policy equal to the other), so swapping them gives the same answer"
+  i.mutation "399d420e5ffb2bc4",
+             subject: "Saboteur::Reporter::Stryker.file_entry",
+             reason: "equivalent: results are grouped by subject.file, so every result in the group shares one file_source and first and last read the same string"
+  i.mutation "e3995f96c7522bc6",
+             subject: "Saboteur::Reporter::TestMatrix#tally",
+             reason: "equivalent: the each block only mutates @killed and its return value is discarded by tally and its caller"
+  i.mutation "16ffc746e0d4332e",
+             subject: "Saboteur::Reporter::MutationText#join",
+             reason: "equivalent: the picked value is a String for every real edit (byteslice of an in-range span or a non-nil replacement), so String#to_s is the identity"
+  i.mutation "cb43bd9a02fb8183",
+             subject: "Saboteur::Baseline::Acceptance#validate_binding",
+             reason: "equivalent: the each block only mutates the records in place and its return value is discarded"
+  i.mutation "f6842ad8620f21c6",
+             subject: "Saboteur::Baseline::Acceptance#safe_path",
+             reason: "equivalent: File.identical? compares two paths symmetrically"
+  i.mutation "1fed1cf42b3cac19",
+             subject: "Saboteur::Baseline::Evidence#validate_generation",
+             reason: "equivalent: the each block only validates or raises and validate_generation's return value is discarded by its caller"
+  i.mutation "58e02a540021e547",
+             subject: "Saboteur::Baseline::Manifest#validate_edits",
+             reason: "equivalent: the each block only validates or raises and validate_edits's return value is discarded by its caller"
+  i.mutation "ea38bb064aa5fd6d",
+             subject: "Saboteur::Baseline::Workflow#guard_artifacts",
+             reason: "equivalent: the each block only checks or raises and guard_artifacts's return value is discarded by propose and its sibling caller"
+
+  i.mutation "ba5855123c3dddaf",
+             subject: "Saboteur::Reporter::Terminal#inline_suppressions",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "33d41097d8a2dbd9",
+             subject: "Saboteur::Reporter::Terminal#skipped_subjects",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "fd5cf2309d9efb13",
+             subject: "Saboteur::Reporter::Terminal#outside_the_score",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "5e1367e5c42a42b1",
+             subject: "Saboteur::Reporter::Terminal#print_error_lines",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "43191bfa350b8348",
+             subject: "Saboteur::Reporter::Terminal#score_split",
+             reason: "equivalent: the only callers interpolate the result into a string, and nil interpolates as the empty string"
+  i.mutation "0baf9534c7bf1640",
+             subject: "Saboteur::Reporter::Terminal#crash_classes",
+             reason: "equivalent: the only callers interpolate the result into a string, and nil interpolates as the empty string"
+  i.mutation "c1ee768f65ebf04c",
+             subject: "Saboteur::Baseline::Identity#edits",
+             reason: "equivalent: String#b only retags the encoding, and unpack1(\"H*\") reads the raw bytes either way, so the hex is unchanged"
+  i.mutation "edbd47b43c106121",
+             subject: "Saboteur::Baseline::Identity#edits",
+             reason: "equivalent: String#b only retags the encoding, and unpack1(\"H*\") reads the raw bytes either way, so the hex is unchanged"
+  i.mutation "bb7b34ae173b0630",
+             subject: "Saboteur::Baseline::Completeness#validate_results",
+             reason: "equivalent: the each block only appends to issues and its return value is discarded"
+  i.mutation "570cc90a42c23a68",
+             subject: "Saboteur::Selection::DependencyShield#reject_trees",
+             reason: "equivalent: Array#reject keeps an element only on a falsy block value, so next nil and next false agree"
+  i.mutation "8bbfe884410b5836",
+             subject: "Saboteur::CLI::RunBudgetOptions#add_run_budget_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - `run --help` is byte-identical and the cli specs stay green"
+  i.mutation "16382227e120f03b",
+             subject: "Saboteur::CLI::RunBudgetOptions#add_run_budget_options",
+             reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - `run --help` is byte-identical and the cli specs stay green"
+  i.mutation "86ba0c49da5c4d32",
+             subject: "Saboteur::CLI::ExitStatus#untested_partial?",
+             reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
+  i.mutation "30dce853088c94af",
+             subject: "Saboteur::CLI::ExitStatus#unverifiable_scope?",
+             reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
+  i.mutation "57408b208d9e9bc5",
+             subject: "Saboteur::CLI::ExitStatus#mostly_errored?",
+             reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
+  i.mutation "9ffd99d047288e4e",
+             subject: "Saboteur::CLI::ExitStatus#incomplete_under_threshold?",
+             reason: "equivalent: the predicate is only used as `return EXIT_TOOL if predicate`, so nil and false both fall through"
 end
