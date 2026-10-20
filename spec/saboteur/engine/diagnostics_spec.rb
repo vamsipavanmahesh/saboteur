@@ -29,6 +29,37 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     expect([diagnostics.generation_events.first.file, diagnostics.omissions.first.subject]).to all(be_frozen)
   end
 
+  it "stores a generation event as frozen strings, turning a symbol source into its name" do
+    subject = instance_double(Saboteur::Subject, file: "a.rb", id: "A#m")
+    diagnostics.record_generation(subject, source: :builtin, operator: :comparison, reason: "empty_generation")
+    event = diagnostics.generation_events.first
+    expect(event.to_h.values).to eq(["a.rb", "A#m", "builtin", "comparison", "empty_generation"])
+    expect(event.to_h.values).to all(be_frozen)
+    diagnostics.record_generation(subject, source: "subject", reason: "empty_generation")
+    expect(diagnostics.generation_events.last.operator).to be_nil
+  end
+
+  it "flushes each plain progress mark before any progress file exists" do
+    allow(err).to receive(:flush).and_call_original
+    diagnostics.progress(instance_double(Saboteur::MutantResult, status: :killed))
+    expect(err).to have_received(:flush).once
+  end
+
+  it "reports the count over the total without a percentage while the total is zero" do
+    diagnostics.start_progress(0)
+    expect(diagnostics.progress_summary(3)).to eq("3/0")
+    diagnostics.finish_progress
+  end
+
+  it "ends a CI progress line with the count, percentage and estimate every 50 mutants" do
+    allow(Process).to receive(:clock_gettime).and_call_original
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0, 110.0)
+    diagnostics.start_progress(100)
+    50.times { diagnostics.progress(instance_double(Saboteur::MutantResult, status: :killed)) }
+    expect(err.string.lines.last).to eq("#{'.' * 50} 50/100 (50%) eta 0m10s\n")
+    diagnostics.finish_progress
+  end
+
   it "keeps a warning's own detail lines" do
     diagnostics.warn("fix it\n  the cause")
     expect(diagnostics.warnings).to eq(["fix it\n  the cause"])
@@ -172,6 +203,10 @@ RSpec.describe Saboteur::Engine::Diagnostics, "progress heartbeat with a watched
 
   it "prints only the elapsed time while the log has no count" do
     expect(beat(written: "starting\n")).to eq("saboteur: baseline check 1: 40 s elapsed\n")
+  end
+
+  it "prints only the elapsed time when the log is empty" do
+    expect(beat).to eq("saboteur: baseline check 1: 40 s elapsed\n")
   end
 
   it "prints only the elapsed time when the log does not exist yet" do
