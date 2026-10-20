@@ -100,6 +100,19 @@ RSpec.describe Saboteur::Integration::RSpec, "#run_all with files" do
 
     expect(integration.run_all(recorder, files: %w[spec/a_spec.rb])).to be(true)
   end
+
+  it "hands its files to the baseline run, so a part of a split baseline runs only them" do
+    configuration = instance_double(RSpec::Core::Configuration, "order=": nil, "fail_fast=": nil)
+    allow(integration).to receive(:configuration).and_return(configuration)
+    files = %w[spec/b_spec.rb]
+    expect(integration).to receive(:execute).with(anything, log_phase: true, files: files) do |listener, **|
+      listener.runtime = 1.0
+      true
+    end
+
+    integration.run_baseline(seed: 5, files: %w[spec/b_spec.rb])
+    expect(configuration).to have_received(:order=).with("rand:5")
+  end
 end
 
 # run_all(seed:) replays a recorded seed so a partial rerun orders examples

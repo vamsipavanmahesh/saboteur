@@ -21,6 +21,12 @@ RSpec.describe Saboteur::Integration do
     expect(adapter.run_baseline(seed: 42)).to equal(result)
   end
 
+  it "refuses to run a part of the suite for an adapter that cannot split it" do
+    adapter = described_class::Base.new({})
+    expect { adapter.run_baseline(seed: 42, files: ["spec/a.rb"]) }
+      .to raise_error(NotImplementedError, /cannot run a part of the suite/)
+  end
+
   it "requires adapters to implement the contract" do
     adapter = described_class::Base.new({})
     %i[setup all_tests].each { |m| expect { adapter.public_send(m) }.to raise_error(NotImplementedError) }

@@ -78,7 +78,9 @@ module Saboteur
       # Checks the unchanged suite in a fresh child. Existing adapters can
       # use their selected-test runner; adapters may override to retain full
       # suite ordering and report every executed test.
-      def run_baseline(seed:)
+      def run_baseline(seed:, files: nil)
+        raise NotImplementedError, "#{self.class} cannot run a part of the suite (files: #{files.inspect})" if files
+
         Kernel.srand(seed)
         run(all_tests.map(&:id))
       end

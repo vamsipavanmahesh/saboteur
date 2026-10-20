@@ -9,7 +9,7 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
   end
 
   let(:config) { Saboteur::Config.new({ "seed" => 42 }, root: @root) }
-  let(:integration) { double("adapter", all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "spec/a.rb")]) }
+  let(:integration) { double("adapter", test_files: [], all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "spec/a.rb")]) }
   let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
   let(:guard) do
     described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
@@ -835,7 +835,8 @@ RSpec.describe Saboteur::Engine::BaselineGuard, "mutation hook compatibility" do
     Dir.mktmpdir do |root|
       hooks = Saboteur::Hooks.new
       hooks.register(:before_fork, &:edits)
-      adapter = double("adapter", all_tests: [Saboteur::Integration::TestCase.new(id: "t1", file: "a.rb")])
+      tests = [Saboteur::Integration::TestCase.new(id: "t1", file: "a.rb")]
+      adapter = double("adapter", test_files: [], all_tests: tests)
       supervisor = instance_double(Saboteur::Execution::Supervisor)
       payload = JSON.generate(passed: true, failed: [], executed: ["t1"])
       outcome = Saboteur::Execution::Supervisor::Result.new(payload: payload, exit_status: nil, stopped_by: nil,
