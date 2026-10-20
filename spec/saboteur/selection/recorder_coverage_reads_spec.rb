@@ -76,6 +76,15 @@ RSpec.describe Saboteur::Selection::Recorder, "coverage reads (#564)" do
       expect(arms.fetch([7, 4, 7, 8]).to_a).to eq([])
     end
 
+    it "does not record an arm whose span is its branch's own span" do
+      branches = { [:if, 0, 5, 2, 8, 5] => { [:then, 1, 5, 2, 8, 5] => 1 } }
+      allow(Coverage).to receive(:result).with(stop: false, clear: true)
+                                         .and_return({ __FILE__ => { lines: [], methods: {}, branches: branches } })
+      recorder.test_started("t1", "spec/a_spec.rb")
+      recorder.test_finished("t1")
+      expect(recorder.result.branches.fetch(file, {})).not_to have_key([5, 2, 8, 5])
+    end
+
     it "tolerates a coverage report without methods" do
       allow(Coverage).to receive(:result).with(stop: false, clear: true)
                                          .and_return({ __FILE__ => { lines: [nil, 1] } })

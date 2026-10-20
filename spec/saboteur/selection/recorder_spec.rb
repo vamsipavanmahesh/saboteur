@@ -2,6 +2,17 @@
 # frozen_string_literal: true
 
 RSpec.describe Saboteur::Selection::Recorder do
+  it "records files under their canonical path" do
+    Dir.mktmpdir do |dir|
+      real = File.join(dir, "real.rb")
+      link = File.join(dir, "link.rb")
+      File.write(real, "")
+      File.symlink(real, link)
+      recorder = described_class.new([link])
+      expect(recorder.instance_variable_get(:@files)).to eq(Set.new([File.realpath(real)]))
+    end
+  end
+
   it "carries the child-loaded sources and the build time into the built map (#353)" do
     map = described_class.new([]).result(build_seconds: 0.1, loaded_files: ["/app/support/helper.rb"])
     expect(map.loaded_files).to eq(["/app/support/helper.rb"])

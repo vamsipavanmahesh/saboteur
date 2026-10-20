@@ -542,6 +542,23 @@ RSpec.describe Saboteur::Selection::CoverageMap do
     end
   end
 
+  describe ".cache_key framing" do
+    it "hashes the version, extra inputs and each sorted file with its content digest, NUL separated" do
+      Dir.mktmpdir do |dir|
+        a = File.join(dir, "a.rb")
+        b = File.join(dir, "b.rb")
+        gone = File.join(dir, "gone.rb")
+        File.write(a, "1")
+        File.write(b, "2")
+        expected = Digest::SHA256.new
+        expected << Saboteur::VERSION << "\0" << "x" << "\0"
+        [a, b].each { |file| expected << file << "\0" << Digest::SHA256.hexdigest(File.read(file)) << "\0" }
+        expected << gone << "\0" << "missing" << "\0"
+        expect(described_class.cache_key(files: [gone, b, a], extra: "x")).to eq(expected.hexdigest)
+      end
+    end
+  end
+
   describe "Recorder" do
     let(:recorder) { Saboteur::Selection::Recorder.new([file]) }
 
