@@ -211,6 +211,76 @@ RSpec.describe Saboteur::IgnoreList do
     end
   end
 
+  it "is empty without a path" do
+    expect(described_class.load(nil).entries).to eq([])
+  end
+
+  it "keeps only the first line of a load error, without its newline" do
+    with_file(%(raise LoadError, "first line\\nsecond line"\n)) do |path|
+      expect { described_class.load(path) }
+        .to raise_error(Saboteur::ConfigError) { |error| expect(error.message).to eq("#{path}: first line") }
+    end
+  end
+
+  it "copes with an empty load error message" do
+    with_file(%(raise LoadError, ""\n)) do |path|
+      expect { described_class.load(path) }
+        .to raise_error(Saboteur::ConfigError) { |error| expect(error.message).to eq("#{path}: ") }
+    end
+  end
+
+  it "reports a bare constant with the line in the ignore file and a boot hint" do
+    with_file("\nMissingIgnoreConstant\n") do |path|
+      expect { described_class.load(path) }.to raise_error(
+        Saboteur::ConfigError,
+        "#{path}:2: uninitialized constant MissingIgnoreConstant " \
+        "- this file loads before the app boots; use plain Ruby or ENV"
+      )
+    end
+  end
+
+  it "points a name error at the ignore file's line, not at the frame that raised it" do
+    stub_const("IgnoreListSpecRaiser", -> { raise NameError, "undefined name zz\nsecond line" })
+    with_file("\nIgnoreListSpecRaiser.call\n") do |path|
+      expect { described_class.load(path) }.to raise_error(
+        Saboteur::ConfigError,
+        "#{path}:2: undefined name zz - this file loads before the app boots; use plain Ruby or ENV"
+      )
+    end
+  end
+
+  it "gives a typo outside the collector the same treatment as a bare constant" do
+    with_file("\nnil.no_such_call\n") do |path|
+      expect { described_class.load(path) }.to raise_error(Saboteur::ConfigError, /\A#{path}:2: undefined method/)
+    end
+  end
+
+  it "points an unknown directive at the ignore file's line with the full hint" do
+    with_file("Saboteur.ignore do |i|\n  i.skip \"abc\"\nend\n") do |path|
+      expect { described_class.load(path) }.to raise_error(
+        Saboteur::ConfigError,
+        %(#{path}:2: unknown directive "skip" - declare entries with mutation "<digest>", subject:, reason:)
+      )
+    end
+  end
+
+  it "copes with an empty name error message" do
+    stub_const("IgnoreListSpecRaiser", -> { raise NameError, "" })
+    with_file("\nIgnoreListSpecRaiser.call\n") do |path|
+      expect { described_class.load(path) }.to raise_error(
+        Saboteur::ConfigError, "#{path}:2:  - this file loads before the app boots; use plain Ruby or ENV"
+      )
+    end
+  end
+
+  it "points an unknown directive raised elsewhere at the ignore file's line" do
+    stub_const("IgnoreListSpecRaiser", -> { described_class.current_collector.bogus })
+    with_file("\nIgnoreListSpecRaiser.call\n") do |path|
+      expect { described_class.load(path) }
+        .to raise_error(Saboteur::ConfigError, /\A#{path}:2: unknown directive "bogus"/)
+    end
+  end
+
   it "reports a syntax error with the file" do
     with_file("Saboteur.ignore do |i|\n") do |path|
       expect { described_class.load(path) }.to raise_error(Saboteur::Error, /saboteur_ignore\.rb/)
