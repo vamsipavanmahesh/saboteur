@@ -467,7 +467,7 @@ Saboteur.ignore do |i|
              reason: "equivalent: splatting the ArgumentsNode wraps it as one element (it has no to_a), and its slice yields the sole argument's source for the one-argument infix calls binary? admits"
 
 
-  i.mutation "423d477387f24abf",
+  i.mutation "ec4d19cb2b5113b8",
              subject: "Saboteur::MutationSource::OperatorVisit#visit",
              reason: "equivalent: the child walk runs in statement position, so the collected array from map is discarded exactly like the each return"
 
