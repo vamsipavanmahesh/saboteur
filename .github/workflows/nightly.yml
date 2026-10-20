@@ -34,3 +34,20 @@ jobs:
         with:
           ruby-version: "3.3"
       - run: script/integration-recorders "${{ matrix.target }}" "$RUNNER_TEMP/targets"
+
+  # lobsters needs Ruby 4.0 and was written without being run (see
+  # integration/targets.yml). It fails soft: a broken setup or a first-run
+  # mismatch is visible on the job but does not fail the nightly workflow.
+  recorder-parity-lobsters:
+    name: recorders (lobsters, unverified)
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "4.0"
+      - run: script/integration-recorders lobsters "$RUNNER_TEMP/targets"
