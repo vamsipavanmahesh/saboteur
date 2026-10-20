@@ -25,8 +25,10 @@ layout-only when `git diff -b` pairs it with a base line and Prism reads both
 as the same tokens, so whitespace inside a string, heredoc or regexp still
 counts as a change. The method's whole-body mutants still run. Plain `saboteur run` still mutates the whole
 configured project, but since 0.7.0 it infers the specs named after the
-mutated files and runs only those; a mutated file with no conventional spec
-stops the run (exit 2) with the ways out. A `--since` run keeps that stop
+mutated files and runs only those. A mutated file with no conventional spec
+borrows the specs that read the constants it defines (at most 10; the run
+says it chose them by constant reference, not by name). With none, too many,
+or a same-named spec elsewhere, the run stops (exit 2) with the ways out. A `--since` run keeps that stop
 only when a score gate (`--threshold` or a mutant-count gate) is set or no
 changed file maps to a spec: a gate judges the score, and a partial mapping
 would narrow what it covers. Without a gate, each unmapped changed file gets

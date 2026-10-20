@@ -190,7 +190,14 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       expect(JSON.generate(payload.fetch("next", {}))).not_to include("--guess-tests")
     end
 
+    # person_spec.rb reads People::Person, so a spec-less lib/people.rb would
+    # be chosen by constant reference; the stop needs a file nothing reads.
+    def without_reader
+      FileUtils.rm_f(File.join(dir, "spec", "person_spec.rb"))
+    end
+
     it "stops before boot when a changed file has no spec named after it" do
+      without_reader
       path = File.join(dir, "lib", "people.rb")
       File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
       run = saboteur(dir, "--since", "HEAD")
@@ -202,6 +209,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     end
 
     it "stops before boot for a spec-less file even without --since" do
+      without_reader
       run = saboteur(dir)
       expect(run.status).to eq(2)
       expect(run.err).to include("no spec found for lib/people.rb (expected spec/people_spec.rb), so nothing ran")
@@ -210,6 +218,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     end
 
     it "scopes --subject inference to the named subjects' files" do
+      without_reader
       run = saboteur(dir, "--subject", "Stage")
       expect(run.status).to be <= 1
       expect(run.err).to include("inferred specs: running only spec/stage_spec.rb")

@@ -1815,4 +1815,100 @@ RSpec.describe Saboteur::Engine::TestGuess do
       expect(message_for(13)).to eq(message_text("#{first_names(10)} and 3 more"))
     end
   end
+
+  # The cold-start fallback: a file with no conventional spec and no changed
+  # spec used to stop the run. A spec that reads the constant the file
+  # defines is a better guess than none, so it runs, and the run says so.
+  describe "constant-reference fallback" do
+    let(:verifier) do
+      "module JWT\n  module Claims\n    class DecodeVerifier\n      def call\n        %d\n      end\n    " \
+        "end\n  end\nend\n"
+    end
+    let(:path) { "lib/jwt/claims/decode_verifier.rb" }
+
+    def commit_then_change(spec_text, spec_path: "spec/features/auth_spec.rb")
+      write(path, format(verifier, 1))
+      write(spec_path, spec_text) if spec_text
+      git("add", ".")
+      git("commit", "-q", "-m", "base")
+      write(path, format(verifier, 2))
+    end
+
+    it "runs the specs that read the file's constant instead of stopping" do
+      commit_then_change("RSpec.describe \"auth\" do\n  it(\"x\") { JWT::Claims::DecodeVerifier.new.call }\nend\n")
+      result = guess
+
+      expect(result.unmatched).to eq([])
+      expect(result.specs).to include("spec/features/auth_spec.rb")
+      expect(result.referenced).to eq(path => ["spec/features/auth_spec.rb"])
+      expect(result.referenced_message).to include("selected by constant reference", path,
+                                                   "spec/features/auth_spec.rb")
+    end
+
+    it "lists every file with its specs in the note, in the stated shape" do
+      result = described_class::Result.new(specs: [], unmatched: [], subjectless: [], changed: [], hints: {},
+                                           referenced: { "lib/a.rb" => %w[spec/x_spec.rb spec/y_spec.rb],
+                                                         "lib/b.rb" => %w[spec/z_spec.rb spec/w_spec.rb] })
+
+      expect(result.referenced_message).to eq(
+        "inferred specs: selected by constant reference, not by name: " \
+        "lib/a.rb (spec/x_spec.rb, spec/y_spec.rb), lib/b.rb (spec/z_spec.rb, spec/w_spec.rb); " \
+        "a spec that reaches the file another way is not found"
+      )
+    end
+
+    describe "#reference_specs" do
+      let(:instance) do
+        described_class.new(Saboteur::Config.new({ "include" => ["lib/**/*.rb"] }, root: dir))
+      end
+
+      it "does not list the suite when no file is unmatched" do
+        expect(instance).not_to receive(:suite_files)
+
+        expect(instance.send(:reference_specs, [])).to eq({})
+      end
+
+      it "returns nothing when RSpec cannot list the suite" do
+        allow(instance).to receive(:suite_files).and_return(nil)
+        write(path, format(verifier, 1))
+
+        expect(instance.send(:reference_specs, [path])).to eq({})
+      end
+    end
+
+    it "still stops when no spec reads the constant" do
+      commit_then_change("RSpec.describe \"auth\" do\n  it(\"x\") { JWT.decode }\nend\n")
+
+      expect(guess.unmatched).to eq([path])
+      expect(guess.referenced).to eq({})
+    end
+
+    it "still stops for a hub constant read by more specs than the cap" do
+      12.times do |n|
+        write("spec/features/read#{n}_spec.rb",
+              "RSpec.describe \"r\" do\n  it(\"x\") { JWT::Claims::DecodeVerifier }\nend\n")
+      end
+      commit_then_change(nil)
+
+      expect(guess.unmatched).to eq([path])
+    end
+
+    it "still stops when a same-named spec exists elsewhere: the choice is the user's (#658)" do
+      commit_then_change("RSpec.describe \"auth\" do\n  it(\"x\") { JWT::Claims::DecodeVerifier }\nend\n")
+      write("spec/unit/jwt/decode_verifier_spec.rb")
+      git("add", ".")
+
+      expect(guess.unmatched).to eq([path])
+      expect(guess.referenced).to eq({})
+    end
+
+    it "leaves a file with a conventional spec alone" do
+      commit_then_change("RSpec.describe \"auth\" do\n  it(\"x\") { JWT::Claims::DecodeVerifier }\nend\n")
+      write("spec/jwt/claims/decode_verifier_spec.rb")
+      result = guess
+
+      expect(result.referenced).to eq({})
+      expect(result.specs).to eq(["spec/jwt/claims/decode_verifier_spec.rb"])
+    end
+  end
 end
