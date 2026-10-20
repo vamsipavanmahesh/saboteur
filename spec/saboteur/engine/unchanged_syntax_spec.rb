@@ -121,6 +121,17 @@ RSpec.describe Saboteur::Engine::UnchangedSyntax do
     expect(unchanged?(before.sub("a + 1", "a - 1"))).to be(false)
   end
 
+  it "is false when a boolean operator changes between && and ||" do
+    base = "class Cart\n  def total(a)\n    a && 1\n  end\nend\n"
+    expect(unchanged?(base.sub("&&", "||"), base_text: base)).to be(false)
+  end
+
+  it "is false when the line a __LINE__ stands for moves" do
+    base = "class Cart\n  def total(a)\n    a\n    __LINE__\n  end\nend\n"
+    expect(unchanged?(base.sub("    a\n", "    a\n\n"), base_text: base)).to be(false)
+    expect(unchanged?(base, base_text: base)).to be(true)
+  end
+
   it "is false when two statements are joined into one call" do
     expect(unchanged?(before.sub("x = a + 1\n    x", "x(a + 1)"))).to be(false)
   end
