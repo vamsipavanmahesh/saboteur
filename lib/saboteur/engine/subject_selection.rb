@@ -312,8 +312,8 @@ module Saboteur
 
       def warn_unsupported_constant(found)
         path = Text.display_safe(found.file.delete_prefix("#{@root}/"))
-        @diagnostics.warn("--since: changed constant #{found.id} in #{path} is not mutated: #{found.reason}. " \
-                          "Only hash and array literal entries are mutated.")
+        @diagnostics.warn("--since: changed constant #{found.id} in #{path} is not mutated\n  " \
+                          "#{found.reason}; only hash and array literal entries are mutated")
       end
 
       # The tests that can observe a constant mutant are the ones covering a
@@ -332,9 +332,9 @@ module Saboteur
           subject.consumer_defs = reads.transform_values(&:defs)
           if subject.consumer_lines.empty? && reads.any? { |_file, r| r.load.any? }
             path = subject.file.delete_prefix("#{@root}/")
-            @diagnostics.warn("--since: changed constant #{subject.id} in #{path} is not mutated: its only " \
-                              "reads capture the value at load time in another file, so no test can " \
-                              "observe a change to it.")
+            @diagnostics.warn("--since: changed constant #{subject.id} in #{path} is not mutated\n  " \
+                              "its only reads capture the value at load time in another file, so no test " \
+                              "can observe a change to it")
             next
           end
           subject
