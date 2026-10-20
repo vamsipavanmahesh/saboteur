@@ -173,9 +173,13 @@ runs:
       run: bash "${{ github.action_path }}/action/run-baseline-gate"
     - name: Restore the coverage map
       if: inputs.baseline == '' && inputs.cache == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
-        path: .saboteur/coverage-*.json
+        # The inputs snapshot rides with the map: a later run reads it to
+        # tell which files changed, and without it the map is never reused.
+        path: |
+          .saboteur/coverage-*.json
+          .saboteur/inputs-*.json
         key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
         restore-keys: |
           saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-
@@ -208,6 +212,17 @@ runs:
         SABOTEUR_CACHE: ${{ inputs.cache }}
         SABOTEUR_ARTIFACT_NAME: ${{ inputs.artifact-name || format('saboteur-report-{0}-{1}', github.job, strategy.job-index) }}
       run: bash "${{ github.action_path }}/action/run-saboteur"
+    # A run that fails on survivors still built a valid map, and a plain
+    # cache step would skip its post-save then (save-always on actions/cache
+    # is deprecated), so the save is its own step that runs always.
+    - name: Save the coverage map
+      if: always() && inputs.baseline == '' && inputs.cache == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: |
+          .saboteur/coverage-*.json
+          .saboteur/inputs-*.json
+        key: saboteur-${{ runner.os }}-${{ hashFiles('Gemfile.lock', 'config/saboteur.rb', 'config/saboteur_custom_map.rb', 'config/saboteur_ignore.rb') }}-${{ github.sha }}
     # Only a report this run produced and could trust is kept: an early
     # failure (bad inputs, missing base SHA, no jq) leaves report-valid unset,
     # so a stale file restored from a cache is never published. A survivor or
