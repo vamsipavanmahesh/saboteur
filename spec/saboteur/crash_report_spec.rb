@@ -31,7 +31,7 @@ RSpec.describe Saboteur::CrashReport do
     err.truncate(0)
     err.rewind
     report(error, color: :always)
-    expect(err.string).to include("\e[31mexit 70 - internal crash (a saboteur bug, never your code)\e[0m")
+    expect(err.string).to include("\e[31;1mexit 70 - internal crash (a saboteur bug, never your code)\e[0m")
 
     err.truncate(0)
     err.rewind
