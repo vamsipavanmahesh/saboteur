@@ -113,7 +113,8 @@ The action runs only on `pull_request` events. On any other event, such as
 ## Outputs
 
 `ran`, `exit-code`, `report-valid`, `score`, `killed`, `timeouts`, `survivors`,
-`accepted-survivors`, `errors`, `incomplete` and `report-path`.
+`accepted-survivors`, `errors`, `incomplete` and `report-path`. Baseline mode
+adds `baseline-state` and `baseline-score-drop` (see below).
 
 `score` is the covered score, as a percentage with one decimal:
 (killed + timeout) / (killed + timeout + survived), over mutants that ran. It

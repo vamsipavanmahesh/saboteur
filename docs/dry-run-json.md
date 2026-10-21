@@ -49,7 +49,7 @@ Each `skipped` entry carries a `reason`:
 - `max_mutants_per_method` - planned but over the per-method cap; the entry
   is a full mutant entry like those in `mutants`.
 - `inline_suppression: <directive reason>` - suppressed by a
-  `saboteur:disable` directive; the entry carries `digest`, `subject`,
+  `saboteur:disable-line` directive; the entry carries `digest`, `subject`,
   `operator`, `file` and `line`.
 - `hazardous` - refused by the hazard guard; the entry names only
   `subject`, `operator` and `file`.
