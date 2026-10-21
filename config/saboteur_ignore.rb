@@ -2570,4 +2570,32 @@ i.mutation "fdc4600f4e8e8625",
       reason: "omitted is at least 1 here, so omitted > 1 and omitted != 1 pick " \
               "the same plural suffix."
 
+  # integration/rspec.rb setup L27/L33: the literal fallbacks in
+  # config.fetch('seed', 1) and config.fetch("verbose", false) are unreachable -
+  # Config::DEFAULTS always supplies "seed" => 1 and "verbose" => false, so the
+  # fetch never falls back. Replayed by id (survived on the narrow and the wide
+  # base spec set) and each hand-applied mutant leaves the 109 integration
+  # examples green.
+  i.mutation "f934953633f024c8",
+      subject: "Saboteur::Integration::RSpec#setup",
+      reason: "Equivalent: Config::DEFAULTS supplies 'seed' => 1, so the changed fallback in " \
+              "config.fetch('seed', 1) is never used; hand-applied mutant leaves 109 " \
+              "integration examples green."
+  i.mutation "77329da0e4287e81",
+      subject: "Saboteur::Integration::RSpec#setup",
+      reason: "Equivalent: same unreachable seed fallback, mutated to 0; Config::DEFAULTS " \
+              "'seed' => 1 always wins and 109 integration examples stay green."
+  i.mutation "b81d038f7dcdc6ac",
+      subject: "Saboteur::Integration::RSpec#setup",
+      reason: "Equivalent: dropping the seed fallback still reads Config::DEFAULTS 'seed' => 1; " \
+              "hand-applied mutant leaves 109 integration examples green."
+  i.mutation "f61626e40af76c6c",
+      subject: "Saboteur::Integration::RSpec#setup",
+      reason: "Equivalent: Config::DEFAULTS supplies 'verbose' => false, so flipping the " \
+              "fallback to true is never used; hand-applied mutant leaves 109 integration " \
+              "examples green."
+  i.mutation "b376de8b8be740c7",
+      subject: "Saboteur::Integration::RSpec#setup",
+      reason: "Equivalent: dropping the verbose fallback still reads Config::DEFAULTS " \
+              "'verbose' => false; hand-applied mutant leaves 109 integration examples green."
 end
