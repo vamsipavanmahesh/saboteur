@@ -2598,4 +2598,26 @@ i.mutation "fdc4600f4e8e8625",
       subject: "Saboteur::Integration::RSpec#setup",
       reason: "Equivalent: dropping the verbose fallback still reads Config::DEFAULTS " \
               "'verbose' => false; hand-applied mutant leaves 109 integration examples green."
+
+  # integration/rspec.rb: the default-argument fallbacks of config.fetch for
+  # "rspec_args" and "tests" are unreachable (Config::DEFAULTS supplies both as
+  # []), and the configured default_path never reaches RSpec file selection:
+  # files_or_directories_to_run= only prepends default_path when $0 is rspec,
+  # and get_files_to_run falls back to Dir.getwd. Replayed by id (survived on
+  # the narrow and the wide base spec set); each hand-applied mutant leaves
+  # the 111 integration examples green.
+  i.mutation "b4f84646b4749adb",
+      subject: "Saboteur::Integration::RSpec#rspec_args",
+      reason: "Equivalent: Config::DEFAULTS supplies 'rspec_args' => [], so the dropped " \
+              "fallback is never used; hand-applied mutant leaves 111 integration examples green."
+  i.mutation "cf47b4f1229d0420",
+      subject: "Saboteur::Integration::RSpec#configuration_options",
+      reason: "Equivalent: Config::DEFAULTS supplies 'tests' => [], so the dropped fallback " \
+              "is never used; hand-applied mutant leaves 111 integration examples green."
+  i.mutation "27cf3a48e1dd51ec",
+      subject: "Saboteur::Integration::RSpec#configured_spec_files",
+      reason: "Equivalent: RSpec prepends default_path only when $0 is rspec and " \
+              "get_files_to_run falls back to Dir.getwd, so the configured default_path " \
+              "never changes files_to_run here; hand-applied mutant leaves 111 integration " \
+              "examples green."
 end
