@@ -47,7 +47,7 @@ module Saboteur
         shown.each_with_index { |group, index| block(report, group, index + 1, live.size) }
         accepted_section(report, accepted)
         hinted = @limit ? shown.flatten.select { |result| hint_for(result) } : live.select { |result| hint_for(result) }
-        @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if hinted.any?
+        @out.puts "\n#{@palette.paint(:dim, wrap(SurvivorHints::CAVEAT))}" if hinted.any?
       end
 
       private
@@ -67,6 +67,8 @@ module Saboteur
         path = relative(first.subject.file, report.root)
         @out.puts "\n#{@palette.paint(:head, "#{rank}. #{path}:#{line}")} #{first.subject.id} " \
                   "#{@palette.paint(:dim, label_suffix(first, rank, total))}".rstrip
+        reason = SurvivorHints.label_reason(@classifier.label(first))
+        @out.puts "  #{@palette.paint(:dim, reason)}" if reason
         fence(first, line)
         @out.puts "  #{@palette.paint(:dim, "why it matters: #{why(first.mutation.operator)}")}"
         changed_lines(report, path, first)
@@ -75,11 +77,24 @@ module Saboteur
         siblings(report, group)
       end
 
+      # Fixed furniture fits an 80-column log: word-wrap the caveat. The
+      # JSON agent format keeps SurvivorHints::CAVEAT as one line; only the
+      # terminal rendering wraps. Interpolated lines are exempt.
+      def wrap(text, width = 80)
+        text.split.each_with_object([+""]) do |word, lines|
+          if !lines.last.empty? && lines.last.length + word.length + 1 > width
+            lines << +word
+          else
+            lines.last << (lines.last.empty? ? word : " #{word}")
+          end
+        end.join("\n")
+      end
+
+      # Label and rank stay on the header line; the reason moves to its own
+      # dim line so the fixed text cannot push the header past 80 columns.
       def label_suffix(result, rank, total)
         label = @classifier.label(result)
-        parts = [label, "##{rank} of #{total}"].compact
-        reason = SurvivorHints.label_reason(label)
-        "[#{parts.join(" \u00B7 ")}#{": #{reason}" if reason}]"
+        "[#{[label, "##{rank} of #{total}"].compact.join(" \u00B7 ")}]"
       end
 
       # The enclosing def with the changed line as a -/+ pair; longer

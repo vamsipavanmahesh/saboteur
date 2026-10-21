@@ -90,7 +90,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
 
       Survivors (4) - changes your tests did not catch
 
-      1. widget.rb:6 Beta#four [missing_test · #1 of 4: the covering specs pass without pinning this change]
+      1. widget.rb:6 Beta#four [missing_test · #1 of 4]
+        the covering specs pass without pinning this change
       -   6 def four = 4 + 4
       +   6 def four = 4 - 4   arithmetic · 525a515e7cf66814
                          ^
@@ -98,7 +99,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
         covered by ./spec/widget_spec.rb[2:1] - ran, still passed
         → try asserting the exact computed number
 
-      2. widget.rb:10 Gamma#seven [missing_test · #2 of 4: the covering specs pass without pinning this change]
+      2. widget.rb:10 Gamma#seven [missing_test · #2 of 4]
+        the covering specs pass without pinning this change
       -  10 def seven = 7 + 7
       +  10 def seven = 7 - 7   arithmetic · 5ab92808752c1061
                           ^
@@ -106,7 +108,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
         covered by ./spec/widget_spec.rb[2:1] - ran, still passed
         → try asserting the exact computed number
 
-      3. widget.rb:14 Delta#ten [missing_test · #3 of 4: the covering specs pass without pinning this change]
+      3. widget.rb:14 Delta#ten [missing_test · #3 of 4]
+        the covering specs pass without pinning this change
       -  14 def ten = 10 + 10
       +  14 def ten = 10 - 10   arithmetic · 5504b9e836e5ded0
                          ^
@@ -114,8 +117,10 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
         covered by ./spec/widget_spec.rb[2:1] - ran, still passed
         → try asserting the exact computed number
 
-      Hints are suggestions, not diagnoses: a survivor can also be an equivalent mutant, or a change the selected tests cannot observe.
-      ... 1 more finding - saboteur survivors .saboteur/report.json, or re-run with --details
+      Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+      mutant, or a change the selected tests cannot observe.
+      ... 1 more finding - saboteur survivors .saboteur/report.json,
+      or re-run with --details
 
     TEXT
   end
@@ -124,7 +129,7 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
     text = render(four_survivors, palette: coloured)
     expect(text).to include("\e[1mSurvivors (4) - changes your tests did not catch\e[0m")
     expect(text).to include("\e[1m1. widget.rb:6\e[0m")
-    expect(text).to include("\e[2m... 1 more finding - saboteur survivors .saboteur/report.json, " \
+    expect(text).to include("\e[2m... 1 more finding - saboteur survivors .saboteur/report.json,\n" \
                             "or re-run with --details\e[0m")
   end
 
@@ -134,7 +139,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
     expect(text).to eq(<<~TEXT)
       Survivors (2) - changes your tests did not catch
 
-      1. widget.rb:6 Beta#four [missing_test · #1 of 2: the covering specs pass without pinning this change]
+      1. widget.rb:6 Beta#four [missing_test · #1 of 2]
+        the covering specs pass without pinning this change
       -   6 def four = 4 + 4
       +   6 def four = 4 - 4   arithmetic · 525a515e7cf66814
                          ^
@@ -142,7 +148,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
         covered by ./spec/widget_spec.rb[2:1] - ran, still passed
         → try asserting the exact computed number
 
-      2. widget.rb:2 Alpha#one [missing_test · #2 of 2: the covering specs pass without pinning this change]
+      2. widget.rb:2 Alpha#one [missing_test · #2 of 2]
+        the covering specs pass without pinning this change
       -   2 def one = 1 + 1
       +   2 def one = 1 - 1   arithmetic · 5644a11d15c37942
                         ^
@@ -151,7 +158,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
         +2 more covered, all passed
         → try asserting the exact computed number
 
-      Hints are suggestions, not diagnoses: a survivor can also be an equivalent mutant, or a change the selected tests cannot observe.
+      Hints are suggestions, not diagnoses: a survivor can also be an equivalent
+      mutant, or a change the selected tests cannot observe.
 
     TEXT
   end
@@ -224,7 +232,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "default findings wiring (D1)" do
     io = StringIO.new
     described_class.new(io).call(report)
     text = io.string
-    expect(text).to include("... 1 more finding - saboteur survivors .saboteur/report.json, " \
+    expect(text).to include("... 1 more finding - saboteur survivors .saboteur/report.json,\n" \
                             "or re-run with --details")
     expect(text).to include("#3 of 4")
     expect(text).not_to include("#4 of 4")

@@ -150,7 +150,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "replay one survivor: saboteur run --id aaaaaaaaaaaaaaaa --seed 7\n  " \
       "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
-      "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
+      "accept an equivalent one: add to your ignore file\n  (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
       "Saboteur.ignore do |i|\n    " \
       "i.mutation \"aaaaaaaaaaaaaaaa\", subject: \"Order#total\", reason: \"why it is equivalent\"\n  " \
       "end"
@@ -168,7 +168,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "replay one survivor: saboteur run --id bbbbbbbbbbbbbbbb --seed 7\n  " \
       "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
-      "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
+      "accept an equivalent one: add to your ignore file\n  (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
       "Saboteur.ignore do |i|\n    " \
       "i.mutation \"bbbbbbbbbbbbbbbb\", subject: \"Klass#meth\", reason: \"why it is equivalent\" " \
       "# TODO: capped findings omit this digest - fill in the subject\n  " \
@@ -187,7 +187,7 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
       "replay one survivor: saboteur run --id dddddddddddddddd --seed 7\n  " \
       "(add this run's own --config, --since, --subject, --test and source options)\n" \
       "\n" \
-      "accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
+      "accept an equivalent one: add to your ignore file\n  (c.ignore_file, default config/saboteur_ignore.rb):\n  " \
       "Saboteur.ignore do |i|\n    " \
       "i.mutation \"dddddddddddddddd\", subject: \"Zeta#one\", reason: \"why it is equivalent\"\n  " \
       "end"

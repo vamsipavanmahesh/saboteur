@@ -60,10 +60,11 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(render([operand])).to eq(<<~TEXT)
       Survivors (1) - changes your tests did not catch
 
-      1. calculator.rb:3 Calculator#compound [missing_test · #1 of 1: the covering specs pass without pinning this change]
+      1. calculator.rb:3 Calculator#compound [missing_test · #1 of 1]
+        the covering specs pass without pinning this change
           2 def compound(principal, rate, years)
       -   3     principal * (1 + rate)**years
-      +   3     principal * years   operand_replacement · #{operand.digest}
+      +   3     principal * years   operand_replacement · b0f52efa7fd8afaa
                             ^^^^^
           4   end
         why it matters: the result no longer depends on the replaced operand
@@ -231,7 +232,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
       text = render([result])
       expect(text).not_to include("→")
       expect(text).not_to include("Hints are suggestions")
-      expect(text).to include("[likely_equivalent · #1 of 1: compiles to the same instructions as the original]")
+      expect(text).to include("[likely_equivalent · #1 of 1]\n  compiles to the same instructions as the original")
     end
   end
 
