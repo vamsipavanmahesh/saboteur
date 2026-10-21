@@ -22,13 +22,22 @@ module Saboteur
 
       def doctor_command = help_requested? ? show_help("doctor") : doctor
 
+      # The environment is healthy only if a run would have something to
+      # mutate: the same empty source set `run` refuses (exit 2).
+      def doctor_verdict
+        return EXIT_OK unless config.included_files.empty?
+
+        @err.puts("saboteur: #{empty_source_set_message}")
+        EXIT_USAGE
+      end
+
       def doctor
         doctor_parser.parse!(@argv)
         raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
 
         options[:tests]&.each { |test| require_existing_test(test) }
         Doctor.new(config, out: @out, suite: options[:suite] || options.key?(:tests)).call
-        EXIT_OK
+        doctor_verdict
       rescue ConfigError => e
         @err.puts("saboteur: #{Text.display_safe_lines(e.message)}")
         EXIT_USAGE
