@@ -3,6 +3,8 @@
 
 require "shellwords"
 
+require_relative "../execution/external_runner"
+
 module Saboteur
   module Reporter
     module Agent
@@ -40,9 +42,14 @@ module Saboteur
 
           # Replay one survivor by digest in the same selection. capped: false
           # skips the protocol byte cap, for callers that print to a terminal.
-          def replay(provenance, digest, capped: true)
-            words = ["saboteur", "run", "--id", digest, *selection(provenance, replay: true), "--seed",
-                     provenance.seed.to_s]
+          # survivors: the run's survivor results, so the replay reruns only
+          # the specs covering this mutant rather than every file the run
+          # inferred (#1148). Unknown or pseudo coverage keeps the run's
+          # own selection.
+          def replay(provenance, digest, survivors: nil, capped: true)
+            covering = survivors&.find { |result| result.digest == digest }&.covered_by
+            words = ["saboteur", "run", "--id", digest, *selection(provenance, replay: true, covering: covering),
+                     "--seed", provenance.seed.to_s]
             finish(words, provenance, capped: capped)
           end
 
@@ -71,6 +78,20 @@ module Saboteur
             tests.flat_map { |test| ["--test", test] }
           end
 
+          # Coverage ids are rerun ids ("./spec/a_spec.rb[1:1]"); their file
+          # part is the replay's --test. A pseudo id from an external test
+          # command selects no file, so the run's own selection stands.
+          def covering_files(ids)
+            return if ids.nil? || ids.empty?
+
+            files = ids.filter_map do |id|
+              next if id == Execution::ExternalRunner::PSEUDO_TEST
+
+              id.split("[").first.delete_prefix("./")
+            end.uniq
+            files unless files.empty?
+          end
+
           # An empty list nobody typed came from the config file or its
           # default, which the command reads again, so its flag is left out
           # (#317). A typed empty list stays: it may clear a config value.
@@ -88,13 +109,14 @@ module Saboteur
 
           # Whole-suite scope is a bare --all, only when no tests resolved;
           # --all never combines with --test.
-          def selection(provenance, replay: false)
+          def selection(provenance, replay: false, covering: nil)
+            tests = covering_files(covering) || provenance.tests
             words = []
             words.push("--config", provenance.config_path) if provenance.config_path
             words.push("--since", provenance.ref) if provenance.ref
             provenance.subjects.each { |subject| words.push("--subject", subject) }
-            words << "--all" if provenance.settings[:all] && provenance.tests.empty?
-            words.push(*test_words(provenance.tests))
+            words << "--all" if provenance.settings[:all] && tests.empty?
+            words.push(*test_words(tests))
             words.concat(setting_words(provenance, replay: replay))
             words.concat(mode_words(provenance))
             words.push("--id", provenance.digest) if provenance.digest && !replay

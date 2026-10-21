@@ -137,6 +137,66 @@ RSpec.describe Saboteur::Reporter::Agent do
     expect(words).not_to include("--")
   end
 
+  # A replay reruns one mutant, so only the specs that cover it belong in
+  # the command; the run's full inferred list reruns files that never
+  # touch this code (#1148).
+  context "replay test selection (#1148)" do
+    def replay_words(source, survivors, digest: "abc")
+      Shellwords.split(described_class::Commands.replay(source, digest, survivors:, capped: false))
+    end
+
+    it "narrows the replay to the mutant's covering spec, not every inferred file" do
+      source = provenance_with(ref: nil, tests: %w[spec/a_spec.rb spec/fee_spec.rb spec/c_spec.rb], sources: [])
+      survivor = result_for(:survived, covered_by: ["./spec/fee_spec.rb[1:2]"])
+      words = replay_words(source, [survivor], digest: survivor.digest)
+      expect(words.each_cons(2).to_a).to include(["--test", "spec/fee_spec.rb"])
+      expect(words).not_to include("spec/a_spec.rb", "spec/c_spec.rb")
+    end
+
+    it "lists each covering file once, however many examples cover the mutant" do
+      source = provenance_with(ref: nil, tests: ["spec/a_spec.rb"], sources: [])
+      survivor = result_for(:survived, covered_by: ["./spec/fee_spec.rb[1:1]", "spec/fee_spec.rb[1:2]",
+                                                    "./spec/levy_spec.rb[1:1]"])
+      pairs = replay_words(source, [survivor], digest: survivor.digest).each_cons(2).to_a
+      expect(pairs.count { |pair| pair == ["--test", "spec/fee_spec.rb"] }).to eq(1)
+      expect(pairs).to include(["--test", "spec/levy_spec.rb"])
+    end
+
+    it "narrows a whole-suite replay to the covering spec instead of --all" do
+      source = provenance_with(ref: nil, settings: { all: true })
+      survivor = result_for(:survived, covered_by: ["./spec/fee_spec.rb[1:1]"])
+      words = replay_words(source, [survivor], digest: survivor.digest)
+      expect(words.each_cons(2).to_a).to include(["--test", "spec/fee_spec.rb"])
+      expect(words).not_to include("--all")
+    end
+
+    it "keeps the run's own selection when the survivor's coverage is unknown" do
+      source = provenance_with(ref: nil, tests: ["spec/a_spec.rb"], sources: [])
+      uncovered = result_for(:survived, covered_by: [])
+      [nil, [], [uncovered]].each do |survivors|
+        words = replay_words(source, survivors, digest: uncovered.digest)
+        expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
+      end
+    end
+
+    it "keeps the run's selection for the pseudo id of an external test command" do
+      source = provenance_with(ref: nil, tests: ["spec/a_spec.rb"], sources: [])
+      survivor = result_for(:survived, covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
+      words = replay_words(source, [survivor], digest: survivor.digest)
+      expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
+      expect(words).not_to include("(test command)")
+    end
+
+    it "narrows the summary's replay step to the survivor's covering spec" do
+      report = report_of(result_for(:survived, covered_by: ["./spec/fee_spec.rb[1:1]"]))
+      payload = payload_for(report, provenance: provenance_with(ref: nil, tests: %w[spec/a_spec.rb spec/fee_spec.rb],
+                                                                sources: []))
+      words = Shellwords.split(payload[:next][:replay])
+      expect(words.each_cons(2).to_a).to include(["--test", "spec/fee_spec.rb"])
+      expect(words).not_to include("spec/a_spec.rb")
+    end
+  end
+
   context "when every mutant was killed" do
     let(:payload) { payload_for(report_of(result_for(:killed))) }
 

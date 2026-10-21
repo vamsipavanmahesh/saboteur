@@ -27,6 +27,11 @@ Metrics/BlockLength:
 # split linear logic into fragments. Keep limits, at sizes that fit that work.
 Metrics/AbcSize:
   Max: 30
+# The replay command's covering-spec narrowing (#1148): agent_summary's
+# replay step and run_reporting's replay lambda carry the survivor's
+# covering specs, which takes the largest module to 103.
+Metrics/ModuleLength:
+  Max: 103
 Metrics/MethodLength:
   Max: 25
 Metrics/CyclomaticComplexity:
