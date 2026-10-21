@@ -2411,4 +2411,30 @@ i.mutation "fdc4600f4e8e8625",
       subject: "Saboteur::Selection::CoverageMap#ran_at_load?",
       reason: "Returning nil instead of false when the file has no load-time lines changes nothing: " \
               "every caller only tests the result for truthiness."
+
+  i.mutation "6c3afec3a0cc2e9f",
+      subject: "Saboteur::MutantResult#initialize",
+      reason: "equivalent: dropping the nil assignment leaves @ignored unset, and " \
+              "its attr_accessor reads nil either way"
+
+  i.mutation "9f8181342421ae56",
+      subject: "Saboteur::MutantResult#relative",
+      reason: "equivalent: the start_with? guard is redundant, delete_prefix returns " \
+              "the same string when the prefix is absent"
+
+  i.mutation "377c0c58c6ebdbf8",
+      subject: "Saboteur::MutantResult#relative",
+      reason: "equivalent: the start_with? guard is redundant, delete_prefix returns " \
+              "the same string when the prefix is absent"
+
+  i.mutation "c723040b7f052d92",
+      subject: "Saboteur::MutantResult#relative",
+      reason: "equivalent: the start_with? guard is redundant, delete_prefix returns " \
+              "the same string when the prefix is absent"
+
+  i.mutation "769eb626f6f7a771",
+      subject: "Saboteur::Replay#select",
+      reason: "equivalent: each and map differ only in the returned array, and the " \
+              "block's result is discarded"
+
 end
