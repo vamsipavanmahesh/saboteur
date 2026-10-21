@@ -21,6 +21,12 @@ RSpec.describe "baseline CLI pins" do
     end
   end
 
+  it "lists the --format description in the option help" do
+    help = Saboteur::CLI.new(["baseline"]).baseline_parser.help
+    expect(help).to include("--format FORMAT")
+    expect(help).to include("propose: terminal (default) or json")
+  end
+
   it "lists the full epsilon description in the option help" do
     help = Saboteur::CLI.new(["baseline"]).baseline_parser.help
     expect(help).to include("check: also fail when the score drops more than POINTS " \

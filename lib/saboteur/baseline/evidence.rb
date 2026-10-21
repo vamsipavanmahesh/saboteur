@@ -10,8 +10,8 @@ module Saboteur
     # Validates the producer document before it can enter the acceptance path.
     # A claimed complete flag alone is never evidence of complete execution.
     class Evidence
-      FIELDS = %w[compatibility snapshot subjects candidates planned complete issues generation_events
-                  omissions discovery_failures inline_suppressions].freeze
+      FIELDS = %w[compatibility snapshot subjects candidates planned complete proposable issues blockers gaps
+                  generation_events omissions discovery_failures inline_suppressions].freeze
       COMPATIBILITY = %w[generator runtime config scope].freeze
       PLAN_FIELDS = %w[id identity context].freeze
 
@@ -29,12 +29,19 @@ module Saboteur
         validate_plan
         # Manifest owns exact candidate, identity, subject and acceptance shapes.
         Manifest.new(manifest(reasons: "validation"))
+        blockers = @document.fetch("blockers")
+        gaps = @document.fetch("gaps")
+        unless @document.fetch("proposable") == blockers.empty? &&
+               (blockers + gaps).sort == @document.fetch("issues")
+          raise ConfigError, "baseline evidence: completeness tiers disagree"
+        end
       rescue ArgumentError, KeyError, TypeError, NoMethodError => e
         raise ConfigError, "baseline evidence: #{e.message}"
       end
 
       def manifest(reasons: "")
-        metadata = document.fetch("compatibility").merge(document.slice("snapshot", "subjects", "complete", "issues"))
+        metadata = document.fetch("compatibility").merge(document.slice("snapshot", "subjects", "complete",
+                                                                        "proposable", "issues"))
         accepted = document.fetch("candidates").select { |entry| entry.fetch("status") == "survived" }.map do |entry|
           entry.slice("id", "context").merge("reason" => reasons)
         end

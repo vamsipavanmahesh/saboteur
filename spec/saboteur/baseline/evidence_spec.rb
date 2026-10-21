@@ -196,7 +196,7 @@ RSpec.describe Saboteur::Baseline::Evidence do
     end
     snapshot = document["snapshot"].merge("digest" => "a" * 64)
     expect { described_class.new(document.merge("snapshot" => snapshot)) }.to raise_error(Saboteur::ConfigError)
-    expect { described_class.new(document.merge("complete" => false)) }
+    expect { described_class.new(document.merge("proposable" => false)) }
       .to raise_error(Saboteur::ConfigError, /incomplete/)
     expect { described_class.new(document.merge("extra" => true)) }
       .to raise_error(Saboteur::ConfigError, /baseline evidence fields/)

@@ -43,7 +43,8 @@ RSpec.describe Saboteur::Baseline::Workflow do
     proposal = File.join(@root, "proposal.json")
     destination = File.join(@root, "baseline.json")
     value = workflow.propose(proposal: proposal, destination: destination)
-    expect(value).to eq("state" => "proposal", "proposal" => proposal, "destination" => destination, "survivors" => 1)
+    expect(value).to eq("state" => "proposal", "proposal" => proposal, "destination" => destination,
+                        "survivors" => 1, "candidates" => 1)
     record = review(proposal)
     expect(record.fetch("execution")).to eq(JSON.parse(JSON.generate(document)))
     expect(workflow.accept(proposal: proposal, destination: destination))
@@ -91,7 +92,8 @@ RSpec.describe Saboteur::Baseline::Workflow do
     manifest = Saboteur::Baseline::Evidence.new(document).manifest(reasons: "known")
     path = File.join(@root, "baseline.json")
     File.write(path, JSON.generate(manifest))
-    incomplete = document.merge("complete" => false, "issues" => ["missing_result"])
+    incomplete = document.merge("complete" => false, "proposable" => false,
+                                "issues" => ["missing_result"], "blockers" => ["missing_result"])
     report = instance_double(Saboteur::Report, run_evidence: incomplete)
     allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
     payload = workflow.check(path: path)
@@ -211,7 +213,7 @@ RSpec.describe Saboteur::Baseline::Workflow do
   end
 
   it "does not publish a proposal from an incomplete run even with no survivors" do
-    report = instance_double(Saboteur::Report, run_evidence: document.merge("complete" => false, "candidates" => []))
+    report = instance_double(Saboteur::Report, run_evidence: document.merge("proposable" => false, "candidates" => []))
     allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
     expect { workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
       .to raise_error(Saboteur::Error, /complete execution/)
@@ -255,5 +257,31 @@ RSpec.describe Saboteur::Baseline::Workflow do
     expect(workflow.check(path: path).fetch("state")).to eq("clean")
     expect(Saboteur::Engine).to have_received(:new).with(config, err: $stderr, capture_evidence: true,
                                                                  evidence_files: [path])
+  end
+
+  it "publishes a proposal over soft gaps, listing them in the payload" do
+    gap = "subject_skipped:probe.rb:Probe#other:no_tests"
+    gapped = document.merge("complete" => false, "issues" => [gap], "gaps" => [gap], "blockers" => [])
+    report = instance_double(Saboteur::Report, run_evidence: gapped)
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    value = workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json"))
+    expect(value.fetch("state")).to eq("proposal")
+    expect(value.fetch("gaps")).to eq([gap])
+    record = JSON.parse(File.read(File.join(@root, "p.json")))
+    expect(record.fetch("document").fetch("metadata").fetch("proposable")).to be(true)
+    expect(record.fetch("document").fetch("metadata").fetch("issues")).to eq([gap])
+  end
+
+  it "checks a gapped-but-proposable run against a gapped baseline as clean" do
+    gap = "subject_skipped:probe.rb:Probe#other:no_tests"
+    gapped = document.merge("complete" => false, "issues" => [gap], "gaps" => [gap], "blockers" => [])
+    manifest = Saboteur::Baseline::Evidence.new(gapped).manifest(reasons: "known")
+    path = File.join(@root, "baseline.json")
+    File.write(path, JSON.generate(manifest))
+    report = instance_double(Saboteur::Report, run_evidence: gapped)
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    payload = workflow.check(path: path)
+    expect(payload.fetch("state")).to eq("clean")
+    expect(payload.fetch("exit_code")).to eq(0)
   end
 end

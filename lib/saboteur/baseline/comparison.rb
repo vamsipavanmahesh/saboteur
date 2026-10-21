@@ -62,7 +62,12 @@ module Saboteur
       end
 
       def outcome(current)
-        return "incomplete" unless current.fetch("complete") && issues.empty? && !current.fetch("candidates").empty?
+        # The proposability tier is the comparability gate: a run over soft
+        # gaps still speaks for the subjects it executed. Legacy documents
+        # without the split fall back to the strict flag and full issue list.
+        proposable = current.fetch("proposable") { current.fetch("complete") }
+        blockers = current.fetch("blockers") { current.fetch("issues") }
+        return "incomplete" unless proposable && blockers.empty? && !current.fetch("candidates").empty?
         return "incomplete" unless categories.fetch("errors").empty?
         return "review_required" if %w[new changed unmatched].any? { |name| !categories.fetch(name).empty? }
         return "review_required" if score&.fetch("exceeded")

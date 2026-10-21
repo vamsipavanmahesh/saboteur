@@ -56,4 +56,23 @@ RSpec.describe Saboteur::Baseline::Completeness do
     expect(value.issues).to eq(["duplicate_subjects", "generation:a", "generation:b"])
     expect(value.complete?).to be(false)
   end
+
+  it "splits issues into hard blockers and soft gaps, gating proposability on blockers only" do
+    value = described_class.new(planned: ["a"], results: [{ "id" => "a", "status" => "killed" }],
+                                subjects: ["s"], stable_suite: true, stable_inputs: true,
+                                skipped_subjects: ["probe.rb:Probe#other:no_tests"], omitted: ["probe.rb:2"],
+                                generation_issues: [])
+    expect(value).not_to be_complete
+    expect(value).to be_proposable
+    expect(value.gaps).to eq(["omitted:probe.rb:2", "subject_skipped:probe.rb:Probe#other:no_tests"])
+    expect(value.blockers).to eq([])
+
+    blocked = described_class.new(planned: ["a"], results: [{ "id" => "a", "status" => "killed" }],
+                                  subjects: ["s"], stable_suite: false, stable_inputs: true,
+                                  skipped_subjects: ["probe.rb:Probe#other:no_tests"], omitted: [],
+                                  generation_issues: [])
+    expect(blocked).not_to be_proposable
+    expect(blocked.blockers).to eq(["unchanged_suite_incomplete"])
+    expect(blocked.gaps).to eq(["subject_skipped:probe.rb:Probe#other:no_tests"])
+  end
 end

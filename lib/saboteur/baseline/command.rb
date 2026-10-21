@@ -20,6 +20,7 @@ module Saboteur
           opts.on("--config PATH", "Config file (default config/saboteur.rb)") { |value| set(:config, value) }
           opts.on("--subject EXPR", "Whole subject filter; repeatable") { |value| add_subject(value) }
           opts.on("--seed N", Integer, "Repeatable run seed") { |value| set(:seed, value) }
+          opts.on("--format FORMAT", "propose: terminal (default) or json") { |value| @format = value }
         end
       end
 
@@ -34,7 +35,11 @@ module Saboteur
           workflow = Baseline::Workflow.new(config: config, err: @err)
           baseline_action(workflow, action)
         end
-        @out.puts(JSON.generate(payload))
+        if action == "propose" && @format != "json"
+          print_proposal(payload)
+        else
+          @out.puts(JSON.generate(payload))
+        end
         payload.fetch("exit_code", CLI::EXIT_OK)
       rescue ConfigError, SystemCallError => e
         @err.puts("saboteur: #{e.message}")
@@ -58,6 +63,15 @@ module Saboteur
         end
         validate_epsilon(action)
         raise CLI::UsageError, "--previous needs a SHA-256" if @previous && !@previous.match?(/\A[0-9a-f]{64}\z/)
+
+        validate_format(action)
+      end
+
+      def validate_format(action)
+        unless @format.nil? || %w[terminal json].include?(@format)
+          raise CLI::UsageError, "--format must be terminal or json"
+        end
+        raise CLI::UsageError, "--format applies to propose only" if @format && action != "propose"
       end
 
       def validate_epsilon(action)
@@ -65,6 +79,20 @@ module Saboteur
 
         raise CLI::UsageError, "--epsilon applies to check only" if action != "check"
         raise CLI::UsageError, "--epsilon must be between 0 and 100" unless (0.0..100.0).cover?(@epsilon)
+      end
+
+      def print_proposal(payload)
+        @out.puts("baseline proposal written: #{payload.fetch('proposal')}")
+        @out.puts("  matched mutants: #{payload.fetch('candidates')} " \
+                  "(#{payload.fetch('survivors')} survivors to reason about)")
+        gaps = payload.fetch("gaps", [])
+        unless gaps.empty?
+          names = gaps.map { |gap| gap.sub(/\A(subject_skipped|omitted):/, "") }
+          @out.puts("  proposed with #{names.size} untested subjects: #{names.join(', ')} - " \
+                    "the baseline cannot speak for them")
+        end
+        @out.puts("  next step: review the reasons in the proposal, then run: saboteur baseline accept " \
+                  "--baseline #{payload.fetch('destination')} --proposal #{payload.fetch('proposal')}")
       end
 
       def baseline_action(workflow, action)
