@@ -40,8 +40,7 @@ module Saboteur
             add(reasons, "mutant_cap", omitted_by_cap(report), "mutants omitted by max_mutants_per_method")
             add(reasons, "errors", report.counts[:error], "mutants errored; their verdict did not hold up")
             add(reasons, "resource_limit", report.counts[:resource_limit], "mutants hit the memory or process cap")
-            add(reasons, "unverified", report.counts[:unverified],
-                "mutants the --max-duration budget left unverified; their kills are not confirmed")
+            unverified_reasons(reasons, report)
             discovery_failures(reasons, report)
             early_stop_reason(reasons, report)
             inline_scope(reasons, report)
@@ -68,6 +67,14 @@ module Saboteur
                 "included files did not parse; their subjects were not discovered")
             add(reasons, UNREADABLE_FAILURE, failures.count { |f| f.reason == UNREADABLE_FAILURE },
                 "included untracked files could not be read; their subjects were not covered")
+          end
+
+          def unverified_reasons(reasons, report)
+            flaky = report.results.count(&:flaky?)
+            add(reasons, "unverified", report.counts[:unverified] - flaky,
+                "mutants the --max-duration budget left unverified; their kills are not confirmed")
+            add(reasons, "flaky", flaky,
+                "mutants gave a different verdict on the --flaky-check reordered rerun; they are unverified")
           end
 
           def early_stop_reason(reasons, report)

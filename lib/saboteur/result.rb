@@ -72,6 +72,16 @@ module Saboteur
                        executed: executed, confirmation: confirmation)
     end
 
+    # The reason a --flaky-check disagreement starts with: unverified, but
+    # not because a budget ran out (#1167).
+    FLAKY_PREFIX = "flaky verdict"
+
+    def self.flaky_reason?(reason) = reason.to_s.start_with?(FLAKY_PREFIX)
+
+    # Unverified because the reordered confirmation run disagreed, not
+    # because --max-duration cut the check short.
+    def flaky? = status == :unverified && self.class.flaky_reason?(reason)
+
     # The same mutant, marked unverified: the budget ran out before its
     # verdict could be checked, so it must not count as detected (#296).
     def as_unverified(reason)

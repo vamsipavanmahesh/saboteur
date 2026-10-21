@@ -128,6 +128,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
           majority_errored?: false,
           review?: false,
           subjects: [],
+          results: [],
           executed: [],
           unignored_survivors: [instance_double(Saboteur::MutantResult)]
         )
@@ -141,6 +142,35 @@ RSpec.describe Saboteur::CLI::ExitStatus do
 
       it "lets a run with verified verdicts through to the verdict (control)" do
         expect(harness.code(unverified_stop(3))).to eq(Saboteur::CLI::EXIT_SURVIVORS)
+      end
+    end
+
+    context "when a --flaky-check rerun disagreed (#1167)" do
+      let(:config) { {} }
+      let(:flaky) do
+        instance_double(Saboteur::MutantResult, flaky?: true, digest: "abc123")
+      end
+
+      def flaky_report(results)
+        instance_double(Saboteur::Report, early_stop: nil, results: results, review?: false, executed: [],
+                                          majority_errored?: false)
+      end
+
+      it "exits 3 with its own sentence, never the budget exit, and records incomplete" do
+        report = flaky_report([flaky])
+        expect(harness.code(report)).to eq(Saboteur::CLI::EXIT_TOOL)
+        expect(harness.err.string).to eq(
+          "saboteur: 1 mutant changed verdict on the --flaky-check reordered rerun (abc123), so they are " \
+          "unverified: your tests depend on run order; fix that and run again\n"
+        )
+        expect(harness.cause(report, Saboteur::CLI::EXIT_TOOL)).to eq("incomplete")
+      end
+
+      it "pluralises and names at most three digests" do
+        many = Array.new(4) { |i| instance_double(Saboteur::MutantResult, flaky?: true, digest: "d#{i}") }
+        harness.code(flaky_report(many))
+        expect(harness.err.string).to include("4 mutants changed verdict", "(d0, d1, d2)")
+        expect(harness.err.string).not_to include("d3")
       end
     end
 
@@ -164,6 +194,7 @@ RSpec.describe Saboteur::CLI::ExitStatus do
         majority_errored?: majority_errored,
         review?: false,
         subjects: [],
+        results: [],
         executed: []
       )
     end
