@@ -10,15 +10,16 @@ RSpec.describe "doctor", :e2e do
     [out.force_encoding(Encoding::UTF_8), err.force_encoding(Encoding::UTF_8), status]
   end
 
-  it "checks the environment only by default, without running the suite or writing anything" do
+  it "prints the check summary by default, without running the suite or writing anything" do
     dir = copy_fixture("people")
     File.write(File.join(dir, "spec", "failure_spec.rb"),
                'RSpec.describe("red") { it("fails") { expect(true).to eq(false) } }')
     out, err, status = doctor(dir)
     expect(status.exitstatus).to eq(0), err
-    expect(out).to include("Ruby:", "Coverage: suspended", "Integration: rspec", "Baseline: not run", "--suite")
-    expect(out).not_to include("passed twice")
-    expect(out.scan(/^Coverage:/).size).to eq(1)
+    expect(out).to include("Doctor summary (details: saboteur doctor -v):")
+    expect(out).to match(/Ruby \d+\.\d+\.\d+ . RSpec \d+\.\d+/)
+    expect(out).not_to include("Ruby:", "Baseline:", "passed twice")
+    expect(File).not_to exist(File.join(dir, ".saboteur"))
   end
 
   it "keeps the full environment detail under -v, without running the suite or writing anything" do
@@ -29,7 +30,7 @@ RSpec.describe "doctor", :e2e do
     expect(status.exitstatus).to eq(0), err
     expect(out).to include("Ruby:", "Coverage: suspended", "Integration: rspec", "Baseline: not run", "--suite")
     expect(out).not_to include("passed twice")
-    expect(File).not_to exist(File.join(dir, ".saboteur"))
+    expect(out.scan(/^Coverage:/).size).to eq(1)
     expect(out.scan(/^Sandbox:/).size).to eq(1)
     expect(File).not_to exist(File.join(dir, ".saboteur"))
   end
@@ -81,7 +82,7 @@ RSpec.describe "doctor", :e2e do
                'RSpec.describe("red") { it("fails") { expect(true).to eq(false) } }')
     out, err, status = doctor(dir, "--test", "spec/person_spec.rb")
     expect(status.exitstatus).to eq(0), err
-    expect(out).to match(/Baseline: \d+ tests passed twice/)
+    expect(out).to match(/unchanged suite green \(\d+ examples, [\d.]+s\)/)
   end
 
   it "fails plainly when the unchanged suite is red" do

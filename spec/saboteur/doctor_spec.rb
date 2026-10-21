@@ -519,11 +519,16 @@ RSpec.describe Saboteur::CLI, "doctor command" do
     expect(Saboteur::Config).to receive(:load).with(root: Dir.pwd, path: "health.yml",
                                                     overrides: { seed: 42 }).and_return(config)
     expect(Saboteur::Doctor).to receive(:new).with(config,
-                                                   out: out, suite: false, verbose: true,
+                                                   out: out, suite: false, verbose: false,
                                                    palette: kind_of(Saboteur::Reporter::Palette))
                                              .and_return(instance_double(Saboteur::Doctor, call: true))
     expect(Saboteur::Engine).not_to receive(:new)
     expect(described_class.new(%w[doctor --config health.yml --seed 42], out: out, err: err).call).to eq(0)
+  end
+
+  it "exits 1 when a summary check fails" do
+    allow(Saboteur::Doctor).to receive(:new).and_return(instance_double(Saboteur::Doctor, call: false))
+    expect(described_class.new(["doctor"], out: out, err: err).call).to eq(1)
   end
 
   it "describes doctor options in its own parser banner" do

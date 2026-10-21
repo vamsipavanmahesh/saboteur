@@ -33,13 +33,12 @@ module Saboteur
         raise UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
 
         options[:tests]&.each { |test| require_existing_test(test) }
-        # Verbose stays the default here; the summary becomes the default in
-        # the follow-up slice that adds it (#333).
-        Doctor.new(config, out: @out,
-                           suite: options[:suite] || options.key?(:tests),
-                           verbose: options.fetch(:verbose, true),
-                           palette: Reporter::Palette.for(@out, mode: @color || :auto)).call
-        EXIT_OK
+        healthy = Doctor.new(config, out: @out,
+                                     suite: options[:suite] || options.key?(:tests),
+                                     verbose: options.fetch(:verbose, false),
+                                     palette: Reporter::Palette.for(@out, mode: @color || :auto)).call
+        # 1: at least one summary check failed (the summary prints the Fix lines).
+        healthy ? EXIT_OK : 1
       rescue ConfigError => e
         @err.puts("saboteur: #{Text.display_safe_lines(e.message)}")
         EXIT_USAGE

@@ -38,6 +38,7 @@ module Saboteur
 
     DOCTOR_EXIT_CODE_MEANINGS = {
       0 => "Healthy: the environment checks passed and the baseline passed twice in the same order.",
+      1 => "A summary check failed: the summary names the failing check and its fix.",
       2 => "Usage or configuration error: fix the command or config/saboteur.rb.",
       3 => "A check failed: the target did not boot, or the baseline failed or changed between runs."
     }.freeze
@@ -103,7 +104,9 @@ module Saboteur
       Command.new(
         name: "doctor",
         summary: "Check the environment, and with --suite run the baseline twice, without mutating anything",
-        description: "Boots the target like a run and checks runtime, coverage and boot files. With --suite " \
+        description: "Prints a fix-first summary: one line per check, every failure and warning ending in " \
+                     "its exact fix; -v keeps the full detail. Boots the target like a run and checks runtime, " \
+                     "coverage and boot files. With --suite " \
                      "it also runs your suite twice in the same order with one seed and reports whether both " \
                      "runs passed; --test PATH limits those runs to some specs. It never mutates anything. " \
                      "It certifies no versions of Rails, databases or tools saboteur never invokes (#318).",
