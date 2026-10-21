@@ -27,14 +27,15 @@ module Saboteur
         validate_compatibility
         validate_generation
         validate_plan
-        # Manifest owns exact candidate, identity, subject and acceptance shapes.
-        Manifest.new(manifest(reasons: "validation"))
         blockers = @document.fetch("blockers")
         gaps = @document.fetch("gaps")
         unless @document.fetch("proposable") == blockers.empty? &&
                (blockers + gaps).sort == @document.fetch("issues")
           raise ConfigError, "baseline evidence: completeness tiers disagree"
         end
+
+        # Manifest owns exact candidate, identity, subject and acceptance shapes.
+        Manifest.new(manifest(reasons: "validation"))
       rescue ArgumentError, KeyError, TypeError, NoMethodError => e
         raise ConfigError, "baseline evidence: #{e.message}"
       end

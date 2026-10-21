@@ -125,7 +125,7 @@ RSpec.describe Saboteur::Baseline::Evidence do
         .to raise_error(Saboteur::ConfigError, /fields|events/)
     end
     expect { described_class.new(document.merge("issues" => ["hidden"])) }
-      .to raise_error(Saboteur::ConfigError, /incomplete/)
+      .to raise_error(Saboteur::ConfigError, /completeness tiers disagree/)
     expect { described_class.new(document.merge("planned" => nil)) }
       .to raise_error(Saboteur::ConfigError, /plan/)
     expect { described_class.new(document.merge("planned" => [document["planned"].first.merge("extra" => true)])) }
@@ -197,8 +197,50 @@ RSpec.describe Saboteur::Baseline::Evidence do
     snapshot = document["snapshot"].merge("digest" => "a" * 64)
     expect { described_class.new(document.merge("snapshot" => snapshot)) }.to raise_error(Saboteur::ConfigError)
     expect { described_class.new(document.merge("proposable" => false)) }
-      .to raise_error(Saboteur::ConfigError, /incomplete/)
+      .to raise_error(Saboteur::ConfigError, /completeness tiers disagree/)
     expect { described_class.new(document.merge("extra" => true)) }
       .to raise_error(Saboteur::ConfigError, /baseline evidence fields/)
+  end
+
+  it "pins the completeness tiers: proposable flag, blockers, gaps and issues must agree" do
+    consistent = document.merge("proposable" => true, "gaps" => ["omitted:probe"],
+                                "issues" => ["omitted:probe"])
+    expect { described_class.new(consistent) }.not_to raise_error
+
+    flag_wrong = document.merge("proposable" => false)
+    expect { described_class.new(flag_wrong) }
+      .to raise_error(Saboteur::ConfigError, "baseline evidence: completeness tiers disagree")
+
+    blocked_but_flagged = document.merge("blockers" => ["omitted:probe"], "issues" => ["omitted:probe"])
+    expect { described_class.new(blocked_but_flagged) }
+      .to raise_error(Saboteur::ConfigError, "baseline evidence: completeness tiers disagree")
+
+    gap_unlisted = document.merge("gaps" => ["omitted:probe"])
+    expect { described_class.new(gap_unlisted) }
+      .to raise_error(Saboteur::ConfigError, "baseline evidence: completeness tiers disagree")
+
+    extra_issue = document.merge("issues" => ["omitted:probe"])
+    expect { described_class.new(extra_issue) }
+      .to raise_error(Saboteur::ConfigError, "baseline evidence: completeness tiers disagree")
+
+    missing_blocker = document.merge("proposable" => false, "blockers" => ["b"], "gaps" => ["g"],
+                                     "issues" => ["g"])
+    expect { described_class.new(missing_blocker) }
+      .to raise_error(Saboteur::ConfigError, "baseline evidence: completeness tiers disagree")
+
+    unsorted = document.merge("proposable" => false, "blockers" => ["b"], "gaps" => ["g"],
+                              "issues" => %w[g b])
+    expect { described_class.new(unsorted) }
+      .to raise_error(Saboteur::ConfigError, "baseline evidence: completeness tiers disagree")
+
+    incomplete_but_consistent = document.merge("proposable" => false, "blockers" => ["omitted:probe"],
+                                               "issues" => ["omitted:probe"])
+    expect { described_class.new(incomplete_but_consistent) }
+      .to raise_error(Saboteur::ConfigError, /incomplete evidence/)
+
+    hard_blocker_consistent = document.merge("proposable" => false, "blockers" => ["b"], "gaps" => ["g"],
+                                             "issues" => %w[b g])
+    expect { described_class.new(hard_blocker_consistent) }
+      .to raise_error(Saboteur::ConfigError, /incomplete evidence/)
   end
 end
