@@ -39,10 +39,11 @@ module Saboteur
     # The specs inference narrowed the run to, or nil when it did not.
     attr_reader :guessed_tests
 
-    def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [], verbose: false)
+    def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [], verbose: false,
+                   palette: nil)
       @config = config
       @hooks = Hooks.new
-      @diagnostics = Diagnostics.new(err, verbose: verbose)
+      @diagnostics = Diagnostics.new(err, verbose: verbose, palette: palette)
       @root = File.realpath(config.root)
       @skipped_subjects = {}
       @replay = Replay.new(digest: digest) if digest

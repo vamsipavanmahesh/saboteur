@@ -61,7 +61,8 @@ RSpec.describe "score history CLI" do
     history = instance_double(Saboteur::Reporter::ScoreHistory)
     expect(Saboteur::Reporter::ScoreHistory).to receive(:new).with(config.path("score_history")).and_return(history)
     report = report_of(result_for(:killed))
-    expected = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir", "resume")
+    expected = config.selection_settings.except("json_report", "html_report", "score_history", "cache_dir", "resume",
+                                                "palette")
     expect(history).to receive(:append).with(report, head: "a" * 40, scope: expected).and_return("recorded")
     command.send(:record_history, report)
   end

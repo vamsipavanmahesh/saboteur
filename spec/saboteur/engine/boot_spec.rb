@@ -282,6 +282,14 @@ RSpec.describe Saboteur::Engine::Boot do
     end
   end
 
+  it "hands the run's palette to diagnostics" do
+    err = StringIO.new
+    palette = Saboteur::Reporter::Palette.new(enabled: false)
+    allow(Saboteur::Engine::Diagnostics).to receive(:new).and_call_original
+    Saboteur::Engine.new(Saboteur::Config.new({}, root: Dir.pwd), err: err, palette: palette)
+    expect(Saboteur::Engine::Diagnostics).to have_received(:new).with(err, verbose: false, palette: palette)
+  end
+
   # If the guard were missing, this spec must fail without starting a run:
   # everything after the guard raises a sentinel instead of doing work.
   it "is the first thing a run does" do

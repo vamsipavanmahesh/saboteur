@@ -18,11 +18,13 @@ module Saboteur
           @verbose = true
           set(:verbose, true)
         end
-        opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
-          @color = v ? :always : :never
+        opts.on("--color [MODE]", %w[always never auto],
+                "Colour the text report: always, never or auto (default: auto)") do |v|
+          @color = (v || :always).to_sym
         end
         opts.on("--all-mutants", "Text report: list every survived mutant;",
                 "default: one finding per statement, with the label mix") { set(:all_mutants, true) }
+        opts.on("--no-color", "Deprecated alias for --color=never") { @color = :never }
       end
     end
   end

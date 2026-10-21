@@ -204,7 +204,7 @@ RSpec.describe Saboteur::CLI, "replay option and output" do
       allow(Saboteur::Config).to receive(:load).and_return(config)
       arguments = { err: err, verbose: false }
       arguments[:digest] = digest if digest
-      expect(Saboteur::Engine).to receive(:new).with(config, **arguments)
+      expect(Saboteur::Engine).to receive(:new).with(config, **arguments, palette: kind_of(Saboteur::Reporter::Palette))
                                                .and_return(instance_double(Saboteur::Engine, call: report))
       argv = digest ? ["run", "--id", digest] : ["run"]
       expect(described_class.new(argv, out: out, err: err).call).to eq(0)

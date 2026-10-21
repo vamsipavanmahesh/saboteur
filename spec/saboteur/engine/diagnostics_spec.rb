@@ -81,6 +81,29 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     end
   end
 
+  it "prints the progress legend on a pipe only, never on a terminal" do
+    tty = StringIO.new
+    allow(tty).to receive(:tty?).and_return(true)
+    on_tty = described_class.new(tty)
+    on_tty.start_progress(1)
+    expect(tty.string).not_to include("saboteur: progress")
+    on_tty.finish_progress
+
+    diagnostics.start_progress(1)
+    expect(err.string).to include("saboteur: progress . killed  S survived  T timeout  L resource limit  E error")
+    diagnostics.finish_progress
+  end
+
+  it "prints marks without a contract token plain even when colour is on" do
+    palette = Saboteur::Reporter::Palette.new(enabled: true)
+    coloured = described_class.new(err, palette: palette)
+    coloured.start_progress(2)
+    coloured.progress(instance_double(Saboteur::MutantResult, status: :resource_limit))
+    coloured.progress(instance_double(Saboteur::MutantResult, status: :mystery))
+    expect(err.string).to include("L?")
+    coloured.finish_progress
+  end
+
   it "flushes after every mark once the progress file exists" do
     diagnostics.start_progress(10)
     allow(err).to receive(:flush).and_call_original
