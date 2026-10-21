@@ -649,6 +649,11 @@ RSpec.describe "action/run-saboteur" do
       expect(output).to include("file=lib/a%2Cb.rb").and include("100%25%0A:ok")
     end
 
+    it "escapes a colon in the path property of the annotation command (#1165)" do
+      output, = run_action({}, report: report_with_findings([finding(path: "lib/a:b.rb")]))
+      expect(output).to include("file=lib/a%3Ab.rb")
+    end
+
     it "lists the findings in the summary and counts what the bound left out" do
       both = [finding, finding(digest: "fb645ab834991e60")]
       report = report_with_findings(both, truncated: 3, statuses: %w[Killed Survived Survived])
