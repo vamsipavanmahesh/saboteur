@@ -49,13 +49,17 @@ module Saboteur
         CLI::EXIT_TOOL
       end
 
+      def baseline_path_required(action)
+        "--baseline PATH is required (for example: saboteur baseline #{action} --baseline baseline.json)"
+      end
+
       def parse_baseline(action)
         raise CLI::UsageError, "baseline expects check, propose or accept" unless %w[check propose
                                                                                      accept].include?(action)
 
         baseline_parser.parse!(@argv)
         raise CLI::UsageError, "unexpected arguments: #{@argv.join(' ')}" if @argv.any?
-        raise CLI::UsageError, "--baseline PATH is required" unless @baseline_path
+        raise CLI::UsageError, baseline_path_required(action) unless @baseline_path
         raise CLI::UsageError, "--proposal PATH is required" if action != "check" && !@proposal_path
         if action == "check" && (@proposal_path || @previous)
           raise CLI::UsageError,
