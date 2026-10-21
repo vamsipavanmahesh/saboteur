@@ -88,11 +88,12 @@ module Saboteur
       DiscoveryFailure = Data.define(:file, :reason)
 
       attr_reader :warnings, :live_announced, :invalid_mutations, :generation_events, :omissions, :discovery_failures,
-                  :hazard_suppressions, :inline_suppressions, :verbose
+                  :hazard_suppressions, :inline_suppressions, :verbose, :quiet_start
 
-      def initialize(err, verbose: false, palette: nil)
+      def initialize(err, verbose: false, palette: nil, quiet_start: true)
         @err = err
         @verbose = verbose
+        @quiet_start = quiet_start
         @palette = palette || Reporter::Palette.for(err)
         @warnings = []
         @invalid_mutations = 0
@@ -176,6 +177,51 @@ module Saboteur
 
       def inform(message)
         @err.puts("saboteur: #{Text.display_safe_lines(message)}")
+      end
+
+      # Chatter the default view folds into the quiet-start lines;
+      # --verbose prints it byte-for-byte as before.
+      def detail(message)
+        inform(message) if @verbose || !@quiet_start
+      end
+
+      # A selection explanation the default view carries as one dim
+      # summary line: the full text stays in report.warnings for machine
+      # consumers and counts as announced, so it is not reprinted at the
+      # end of the run.
+      def announce_demoted(message)
+        safe = Text.display_safe_lines(message)
+        warn(safe)
+        @live_announced << safe
+      end
+
+      # The quiet start: three lines, then progress. --verbose keeps
+      # today's chatter instead and never prints these.
+      def quiet_start_header(scope:, seed:, operators:)
+        return if @verbose || !@quiet_start
+
+        dot = @palette.glyph(:middot)
+        line = "saboteur #{Saboteur::VERSION} #{dot} #{scope} #{dot} seed #{seed} #{dot} " \
+               "#{operators} operators (--list-operators)"
+        @err.puts(@palette.paint(:dim, line))
+      end
+
+      def quiet_baseline(passes:, elapsed:, tests:, cached:)
+        return if @verbose || !@quiet_start
+
+        check = @palette.paint(:pass, @palette.glyph(:check))
+        suffix = cached ? " (cached)" : ""
+        line = "#{check} baseline green (#{passes} #{passes == 1 ? 'pass' : 'passes'}, " \
+               "#{format('%.1f', elapsed)}s)  #{check} coverage map: #{tests} " \
+               "#{tests == 1 ? 'test' : 'tests'}#{suffix}"
+        @err.puts(line)
+      end
+
+      def quiet_inference(spec_count)
+        return if spec_count.nil? || @verbose || !@quiet_start
+
+        files = spec_count == 1 ? "spec file" : "spec files"
+        @err.puts(@palette.paint(:dim, "spec inference: #{spec_count} #{files} (details: --verbose)"))
       end
 
       # --verbose: one line per finished subject with its result marks, so a

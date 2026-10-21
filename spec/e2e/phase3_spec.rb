@@ -161,7 +161,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     it "scopes to the specs named after the changed files by default" do
       path = File.join(dir, "lib", "stage.rb")
       File.write(path, File.read(path).sub("label.upcase", "label.downcase"))
-      run = saboteur(dir, "--since", "HEAD")
+      run = saboteur(dir, "--since", "HEAD", "--verbose")
       expect(run.status).to be_between(0, 1)
       expect(run.err).to include("inferred specs: running only spec/stage_spec.rb.")
       expect(run.err).to include("building coverage map (runs the selected specs once)")
@@ -173,7 +173,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       File.write(people, File.read(people).sub("@age = age", "# a note\n      @age = age"))
       stage = File.join(dir, "lib", "stage.rb")
       File.write(stage, File.read(stage).sub("label.upcase", "label.downcase"))
-      run = saboteur(dir, "--since", "HEAD")
+      run = saboteur(dir, "--since", "HEAD", "--verbose")
       expect(run.err).to include("inferred specs: running only spec/stage_spec.rb.")
       expect(run.err).to include("no spec is required for lib/people.rb")
       expect(run.err).not_to include("running the loaded suite unscoped")
@@ -219,7 +219,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
 
     it "scopes --subject inference to the named subjects' files" do
       without_reader
-      run = saboteur(dir, "--subject", "Stage")
+      run = saboteur(dir, "--subject", "Stage", "--verbose")
       expect(run.status).to be <= 1
       expect(run.err).to include("inferred specs: running only spec/stage_spec.rb")
       expect(run.err).not_to include("no spec found for lib/people.rb, so nothing ran")
@@ -280,7 +280,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
     it "warns before an unscoped --since run what the loaded suite costs" do
       path = File.join(dir, "lib", "people.rb")
       File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
-      run = saboteur(dir, "--since", "HEAD", "--all")
+      run = saboteur(dir, "--since", "HEAD", "--all", "--verbose")
       expect(run.err).to match(/running the loaded suite unscoped: \d+ examples in 3 spec files; \d+ full passes/)
       expect(run.err).to include("2 baseline checks + 1 coverage map build")
       expect(run.err).to match(/baseline check 1 took \d+ s; about \d+ s left for the remaining \d+ full pass(?:es)?/)

@@ -14,13 +14,13 @@ RSpec.describe Saboteur::Engine, "operator policy" do
     Dir.mktmpdir do |dir|
       engine = described_class.new(Saboteur::Config.new({}, root: dir))
       diagnostics = engine.instance_variable_get(:@diagnostics)
-      allow(diagnostics).to receive(:inform).and_call_original
+      allow(diagnostics).to receive(:detail).and_call_original
       begin
         engine.call
       rescue Saboteur::Error, Saboteur::ConfigError
         # Boot fails in an empty directory; the announcement happens first.
       end
-      expect(diagnostics).to have_received(:inform).with(/\AOperators: \w+(, \w+)+/)
+      expect(diagnostics).to have_received(:detail).with(/\AOperators: \w+(, \w+)+/)
     end
   ensure
     Coverage.resume if resume_coverage && Coverage.state == :suspended

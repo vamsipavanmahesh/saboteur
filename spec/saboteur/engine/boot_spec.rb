@@ -287,7 +287,8 @@ RSpec.describe Saboteur::Engine::Boot do
     palette = Saboteur::Reporter::Palette.new(enabled: false)
     allow(Saboteur::Engine::Diagnostics).to receive(:new).and_call_original
     Saboteur::Engine.new(Saboteur::Config.new({}, root: Dir.pwd), err: err, palette: palette)
-    expect(Saboteur::Engine::Diagnostics).to have_received(:new).with(err, verbose: false, palette: palette)
+    expect(Saboteur::Engine::Diagnostics).to have_received(:new).with(err, verbose: false, palette: palette,
+                                                                           quiet_start: true)
   end
 
   # If the guard were missing, this spec must fail without starting a run:
