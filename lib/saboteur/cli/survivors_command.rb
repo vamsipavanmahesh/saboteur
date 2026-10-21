@@ -31,7 +31,7 @@ module Saboteur
           opts.on("--ranked", "Review-priority order: the report's ranked findings first")
           opts.on("--file SUBSTR", "Only survivors whose path contains SUBSTR")
           opts.on("--operator NAME", "Only survivors of operator NAME")
-          opts.on("--triage LABEL", "Only survivors classified LABEL (for example missing_test)")
+          opts.on("--triage LABEL", "Only survivors classified LABEL (for example boundary)")
           opts.on("--show DIGEST", "Diff, replay command and ignore template for one survivor")
         end
         options = {}

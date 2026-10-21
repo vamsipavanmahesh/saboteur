@@ -23,12 +23,15 @@ from the label alone.
   and friends), so an assertion there is less likely to pay off. The
   builtin hint list decides; a configured arid policy does not change the
   label.
-- `missing_test` - a test covered the line and passed, which may mean
-  the suite reaches the code without pinning this behaviour. The covering
-  list is only the planned coverage: whole-body (coarse) mutants carry
-  method-level guesses and never get this label, and neither does
-  anything without real coverage - a `--test-command` run records only
-  the pseudo-test for every mutant, so its survivors never receive missing_test from pseudo evidence.
+- gap kinds (`boundary`, `branch`, `effect`, `number`, `error path`,
+  `result unchecked`) - a test covered the line and passed, which may
+  mean the suite reaches the code without pinning this behaviour; the
+  kind names what sort of check is missing, from the operator and the
+  edit shape. The covering list is only the planned coverage: whole-body
+  (coarse) mutants carry method-level guesses and never get a kind, and
+  neither does anything without real coverage - a `--test-command` run
+  records only the pseudo-test for every mutant, so its survivors never
+  receive a gap kind from pseudo evidence.
 
 A survivor with no signal stays unlabeled - the field is omitted, never
 empty. One label per survivor, first match in the order above. Labels

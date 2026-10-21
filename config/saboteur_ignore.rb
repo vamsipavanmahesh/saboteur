@@ -1595,10 +1595,10 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "03f7ea8cbca5301a",
              subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
-  i.mutation "95852308b46e49b7",
+  i.mutation "975c0d526b4b83d6",
              subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
-  i.mutation "8c6e874916dae275",
+  i.mutation "daa77f975c49c420",
              subject: "Saboteur::CLI::SurvivorsCommand#survivors_command_inner",
              reason: "equivalent: OptionParser#on classifies flag vs help strings by shape, not position - the swapped call builds the identical parser entry; `survivors --help` is byte-identical and the cli specs stay green"
   i.mutation "0ff3020f3d37db9c",

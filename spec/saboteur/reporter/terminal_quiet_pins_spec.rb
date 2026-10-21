@@ -74,7 +74,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
   it "prints the golden four lines in monochrome: findings, summary, verdict, nothing else" do
     text = render(report, exit_code: 1, threshold: 80, quiet: true)
     expect(text).to eq(<<~TEXT)
-      calculator.rb:3 Calculator#compound [missing_test] - #{first_digest} (+2 more)
+      calculator.rb:3 Calculator#compound [boundary] - #{first_digest} (+2 more)
       calculator.rb:8 Cart#total [untested]
       saboteur: 1 killed, 3 survived, 1 subject untested in 1m02s - score 25.0% (threshold 80)
       ✗ exit 1 - score 25.0% below threshold 80, 3 survivors
@@ -84,11 +84,71 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
   it "prints the same lines under colour, with only the summary and verdict paints" do
     text = render(report, exit_code: 1, threshold: 80, quiet: true, color: :always)
     expect(text).to eq(<<~TEXT)
-      calculator.rb:3 Calculator#compound [missing_test] - #{first_digest} (+2 more)
+      calculator.rb:3 Calculator#compound [boundary] - #{first_digest} (+2 more)
       calculator.rb:8 Cart#total [untested]
       saboteur: \e[32m1 killed\e[0m, \e[31;1m3 survived\e[0m, 1 subject untested in 1m02s - score \e[31;1m25.0%\e[0m (threshold 80)
       \e[31;1m✗ exit 1 - score 25.0% below threshold 80, 3 survivors\e[0m
     TEXT
+  end
+
+  # One pin per gap kind (D2), both renderings: the block head and the
+  # quiet one-line list.
+  it "carries every gap kind in the block head and the quiet line" do
+    many = subjects_in(<<~RUBY, name: "kinds.rb")
+      class K
+        def cmp(a, b)
+          a >= b
+        end
+
+        def cond(c)
+          m if c
+        end
+
+        def eff
+          call
+        end
+
+        def num
+          41
+        end
+
+        def err
+          m
+        rescue
+          nil
+        end
+
+        def plain
+          "x"
+        end
+      end
+    RUBY
+    cases = [
+      ["cmp", ">=", ">", "comparison", "boundary"],
+      ["cond", "if c", "unless c", "condition_negation", "branch"],
+      ["eff", "call", "nil", "statement_removal", "effect"],
+      ["num", "41", "42", "literal_number", "number"],
+      ["err", "rescue\n    nil", "nil", "rescue_removal", "error path"],
+      ["plain", '"x"', '""', "literal_string", "result unchecked"]
+    ]
+    survivors = cases.map do |name, from, to, operator, _kind|
+      subject = many.find { |s| s.id == "K##{name}" }
+      at = subject.file_source.index(from)
+      edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at,
+                                                end_byte: at + from.bytesize, replacement: to)
+      mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator:, edits: [edit])
+      Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                                 mutated_source: subject.apply(mutation.edits),
+                                 covered_by: ["spec/kinds_spec.rb:1"])
+    end
+    many_report = Saboteur::Report.new(results: survivors, subjects: many, wall_time: 1,
+                                       root: File.dirname(many.first.file), seed: 1)
+    blocks = render(many_report, exit_code: 1)
+    quiet = render(many_report, exit_code: 1, quiet: true)
+    cases.each do |_name, _from, _to, _operator, kind|
+      expect(blocks).to include("[#{kind} ·")
+      expect(quiet).to include("[#{kind}] - ")
+    end
   end
 
   it "prints no source context, score table, tally or next steps" do
@@ -117,7 +177,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
     single = Saboteur::Report.new(results: [killed, survivors.first], subjects:, wall_time: 62,
                                   root: File.dirname(calculator.file), seed: 1)
     text = render(single, exit_code: 1, quiet: true)
-    expect(text).to include("calculator.rb:3 Calculator#compound [missing_test] - #{survivors.first.digest}\n")
+    expect(text).to include("calculator.rb:3 Calculator#compound [boundary] - #{survivors.first.digest}\n")
     expect(text).not_to include("more)")
   end
 
@@ -131,7 +191,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
 
   it "takes the label from the group's first survivor in ranked order" do
     labeled = result(:survived, "*", "/", covered_by: ["spec/calculator_spec.rb:7"])
-    # coarse (whole-body) mutants never get the missing_test label, so this one
+    # coarse (whole-body) mutants never get a gap-kind label, so this one
     # stays unlabeled while its thicker coverage ranks it after `labeled` (C2).
     unlabeled = result(:survived, "+", "-", covered_by: ["spec/calculator_spec.rb:7",
                                                          "spec/calculator_spec.rb:9"], coarse: true)
@@ -139,9 +199,9 @@ RSpec.describe Saboteur::Reporter::Terminal, "quiet pins" do
                                   root: File.dirname(calculator.file), seed: 1)
     ranked = Saboteur::Reporter::SurvivorRanking.ordered(report, report.unignored_survivors)
     expect(ranked.map { |survivor| Saboteur::Reporter::SurvivorClassification.label(survivor) })
-      .to eq(["missing_test", nil])
+      .to eq(["boundary", nil])
     text = render(report, exit_code: 1, quiet: true)
-    expect(text).to include("[missing_test] - #{ranked.first.digest} (+1 more)\n")
+    expect(text).to include("[boundary] - #{ranked.first.digest} (+1 more)\n")
   end
 
   it "keeps the exit-0 shape: findings and summary, no verdict line" do

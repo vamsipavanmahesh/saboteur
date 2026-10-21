@@ -34,7 +34,7 @@ RSpec.describe Saboteur::Reporter::Findings do
   it "labels findings with their classification, only when there is a signal (#192)" do
     findings = build(report_of(result_for(:survived, covered_by: %w[t1]),
                                result_for(:survived, replacement: "==")))
-    expect(findings["survivors"].map { |f| f["classification"] }).to contain_exactly("missing_test", nil)
+    expect(findings["survivors"].map { |f| f["classification"] }).to contain_exactly("boundary", nil)
   end
 
   it "declares its version, the bound and the published ordering" do

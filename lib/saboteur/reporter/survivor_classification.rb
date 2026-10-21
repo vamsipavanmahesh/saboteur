@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "../engine/bytecode_equivalence"
+require_relative "gap_kinds"
 require_relative "../execution/external_runner"
 require_relative "../mutation_source/builtin"
 
@@ -21,11 +22,14 @@ module Saboteur
     #   arid         - every line an edit touches matches an arid pattern
     #     (logging and friends, #111/#187). The builtin hint list decides;
     #     a configured arid policy does not change the label.
-    #   missing_test - a test covered the line and passed, which MAY mean
-    #     the suite reaches the code without pinning this behaviour. The
-    #     covering list is only the PLANNED coverage: whole-body (coarse)
-    #     mutants carry method-level guesses, so they never get this
-    #     label, and neither does anything without real coverage.
+    #   A gap kind (boundary, branch, effect, number, error path, or the
+    #     result unchecked fallback) - a test covered the line and passed,
+    #     which MAY mean the suite reaches the code without pinning this
+    #     behaviour; the kind names WHAT sort of check is missing, from the
+    #     operator and the edit shape only. The covering list is only the
+    #     PLANNED coverage: whole-body (coarse) mutants carry method-level
+    #     guesses, so they never get a gap kind, and neither does anything
+    #     without real coverage.
     #   tool_limit   - survivors saboteur could not observe faithfully: an
     #     external-runner run records only the pseudo-test id, never real
     #     coverage (#1071). A re-eval refusal records no signal on the
@@ -33,7 +37,7 @@ module Saboteur
     #
     # A survivor with no matching signal stays unlabeled.
     module SurvivorClassification
-      LABELS = %w[likely_equivalent arid missing_test tool_limit].freeze
+      LABELS = %w[likely_equivalent arid tool_limit].concat(GapKinds::KINDS).freeze
 
       class << self
         def label(result, arid: MutationSource::Builtin::DEFAULT_ARID)
@@ -41,7 +45,7 @@ module Saboteur
           return "likely_equivalent" if equivalent?(result)
           return "arid" if arid?(result, arid)
           return "tool_limit" if tool_limited?(result)
-          return "missing_test" if possible_test_gap?(result)
+          return gap_kind(result) if possible_test_gap?(result)
 
           nil
         end
@@ -66,9 +70,23 @@ module Saboteur
 
         # An external runner reports one pseudo id for every mutant and no
         # coverage map, so a survivor there was never observed against real
-        # tests. Pseudo id next to a real id keeps missing_test (#305).
+        # tests. Pseudo id next to a real id keeps the gap kind (#305).
         def tool_limited?(result)
           result.covered_by.any? && result.covered_by.all? { |id| id == Execution::ExternalRunner::PSEUDO_TEST }
+        end
+
+        # The gap kind says which sort of check the survivor suggests:
+        # the operator decides for almost everything; operand_replacement
+        # looks at the replaced expression (comparison -> boundary).
+        def gap_kind(result)
+          GapKinds.kind(result.mutation.operator, comparison_edit: comparison_edit?(result))
+        end
+
+        def comparison_edit?(result)
+          result.mutation.edits.any? do |edit|
+            result.subject.file_source.byteslice(edit.start_byte...edit.end_byte)
+                  &.match?(/<=>|<=|>=|==|!=|===|<|>/)
+          end
         end
 
         # covered_by is a PLANNED covering list, not a verdict about what
