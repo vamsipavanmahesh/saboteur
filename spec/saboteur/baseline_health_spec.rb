@@ -240,6 +240,70 @@ RSpec.describe Saboteur::BaselineHealth, "bad child evidence" do
   end
 end
 
+RSpec.describe Saboteur::BaselineHealth, "exact messages" do
+  let(:integration) do
+    instance_double(Saboteur::Integration::Base,
+                    all_tests: [Saboteur::Integration::TestCase.new(id: "a", file: "a.rb")])
+  end
+  let(:supervisor) { instance_double(Saboteur::Execution::Supervisor) }
+
+  def run_with(**result_fields)
+    fields = { stopped_by: nil, payload: "", exit_status: nil, child_failed?: false, leftover_pids: [] }
+    result = instance_double(Saboteur::Execution::Supervisor::Result, **fields, **result_fields)
+    allow(supervisor).to receive(:run).and_return(result)
+    described_class.new(Saboteur::Config.new, integration: integration, supervisor: supervisor).call
+  end
+
+  def green = JSON.generate(passed: true, executed: ["a"])
+
+  it "says which run left processes running" do
+    expect { run_with(payload: green, leftover_pids: [1]) }
+      .to raise_error(Saboteur::Error, "baseline run 1 left processes running; fix suite cleanup")
+  end
+
+  it "says which run returned an invalid result, for broken JSON and for a non-object" do
+    ["{", "[]"].each do |payload|
+      expect { run_with(payload: payload) }
+        .to raise_error(Saboteur::Error, "baseline run 1 returned an invalid result")
+    end
+  end
+
+  it "says which run was stopped and why" do
+    expect { run_with(stopped_by: :timeout, detail: "deadline") }
+      .to raise_error(Saboteur::Error, "baseline run 1 stopped: deadline")
+  end
+
+  it "says which run produced no result, without a log tail when there is none" do
+    expect { run_with }.to raise_error(
+      Saboteur::Error,
+      "baseline child died during setup/run: baseline run 1 exited without a result; check suite boot and exits"
+    )
+  end
+
+  it "says which run exited unsuccessfully" do
+    expect { run_with(payload: green, child_failed?: true) }.to raise_error(
+      Saboteur::Error, "baseline run 1 exited unsuccessfully; fix suite cleanup and exit handlers"
+    )
+  end
+
+  it "wraps an unexpected supervision error with its class, message and a hint" do
+    allow(supervisor).to receive(:run).and_raise(ArgumentError, "boom")
+    expect { described_class.new(Saboteur::Config.new, integration: integration, supervisor: supervisor).call }
+      .to raise_error(Saboteur::Error, "baseline check failed: ArgumentError: boom; check suite hooks and setup")
+  end
+
+  it "treats anything but the boolean true as a red run" do
+    expect { run_with(payload: JSON.generate(passed: "yes", executed: ["a"])) }
+      .to raise_error(Saboteur::Error, "baseline run 1 failed: fix the unchanged suite")
+  end
+
+  it "names its temporary log" do
+    allow(Tempfile).to receive(:create).and_call_original
+    run_with(payload: green)
+    expect(Tempfile).to have_received(:create).with("saboteur-baseline").twice
+  end
+end
+
 RSpec.describe Saboteur::BaselineHealth, "baseline supervision wiring" do
   it "constructs configured limits and supervises both numbered passes" do
     config = Saboteur::Config.new({ "max_memory_mb" => 512, "max_processes" => 8, "baseline_timeout" => 42 })
