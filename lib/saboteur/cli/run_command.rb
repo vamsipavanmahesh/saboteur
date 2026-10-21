@@ -17,6 +17,18 @@ module Saboteur
 
       private
 
+      # A fresh checkout has no config file: say once that defaults are in
+      # use, and who writes one (#1172). Agent output stays machine-clean;
+      # there is no init command - the Rails generator writes the config.
+      def announce_missing_config_file(palette)
+        # @format, not agent_requested?: parse! has already eaten --format.
+        return if @format == "agent" || config.config_file_present
+
+        path = options[:config] || Config::FILE
+        notice = "saboteur: no #{path} - using defaults (Rails: bundle exec rails generate saboteur:install writes one)"
+        @err.puts(palette.paint(:dim, notice))
+      end
+
       def baseline_red?(error)
         error.message.to_s.match?(BASELINE_RED_MESSAGE)
       end
@@ -34,6 +46,7 @@ module Saboteur
         config.deprecation_warnings.each do |warning|
           @err.puts(Reporter::Notice.paint(notices, "saboteur: #{warning}"))
         end
+        announce_missing_config_file(notices)
 
         return preview if options[:list_operators] || options[:dry_run]
 
