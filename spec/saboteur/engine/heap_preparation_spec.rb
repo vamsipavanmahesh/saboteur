@@ -37,7 +37,8 @@ RSpec.describe Saboteur::Engine, "heap preparation" do
     stub_boot_phase(events, subjects, rails: rails)
     stub_test_phase(events, box)
     diagnostics_output = StringIO.new
-    engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root), err: diagnostics_output)
+    engine = described_class.new(Saboteur::Config.new({ "jobs" => jobs }, root: @root),
+                                 err: diagnostics_output, verbose: true)
     record_candidate_lists(engine, events, box)
     expect_run_diagnostics(engine, subjects, map)
     report = engine.call

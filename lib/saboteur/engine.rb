@@ -40,10 +40,12 @@ module Saboteur
     attr_reader :guessed_tests
 
     def initialize(config, err: $stderr, digest: nil, capture_evidence: false, evidence_files: [], verbose: false,
-                   palette: nil)
+                   palette: nil, quiet_start: true)
       @config = config
       @hooks = Hooks.new
-      @diagnostics = Diagnostics.new(err, verbose: verbose, palette: palette)
+      @diagnostics = Diagnostics.new(err, verbose: verbose, palette: palette, quiet_start: quiet_start)
+      @completed_baseline_passes = 0
+      @baseline_elapsed = 0.0
       @root = File.realpath(config.root)
       @skipped_subjects = {}
       @replay = Replay.new(digest: digest) if digest
@@ -160,7 +162,7 @@ module Saboteur
     end
 
     # The run's immutable report, built once the last result is in.
-    def announce_operators = @diagnostics.inform("Operators: #{config.operator_policy['effective'].join(', ')}")
+    def announce_operators = @diagnostics.detail("Operators: #{config.operator_policy['effective'].join(', ')}")
 
     def build_report(results, subjects, scope, started)
       Report.new(results: results, subjects: subjects, wall_time: monotonic - started, root: @root,
@@ -202,6 +204,7 @@ module Saboteur
       store = coverage_store(integration, load_lines, load_methods)
       full_passes = config["baseline_passes"] + (store.reusable?(files) ? 0 : 1)
       warn_unscoped(integration, full_passes)
+      announce_quiet_start(store, files)
       check_baseline(integration, full_passes)
       refuse_unaffordable_coverage_build(store, files)
       return [] if abandon_for_budget?(subjects)
@@ -286,8 +289,22 @@ module Saboteur
       end
     end
 
+    # The default view's first line: the run's identity, dim, before the
+    # baseline's own chatter (demoted to --verbose) would start.
+    def announce_quiet_start(store, files)
+      @map_cached = store.reusable?(files)
+      @diagnostics.quiet_start_header(scope: config["since"] ? "--since #{config['since']}" : "whole project",
+                                      seed: config["seed"], operators: config.operator_policy["effective"].size)
+    end
+
     def inform_about_run(subjects, map)
-      @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
+      if @diagnostics.quiet_start && !@diagnostics.verbose
+        @diagnostics.quiet_baseline(passes: @completed_baseline_passes, elapsed: @baseline_elapsed,
+                                    tests: map.tests.size, cached: @map_cached)
+        @diagnostics.quiet_inference(@quiet_spec_count)
+      else
+        @diagnostics.inform("#{subjects.size} subjects, #{map.tests.size} tests in coverage map")
+      end
       ThreadWarnings.warn(@diagnostics)
     end
 
@@ -457,7 +474,7 @@ module Saboteur
     # Loads the target and stops coverage, returning what the rest of the
     # run needs from that boot.
     def boot_target(boot)
-      @diagnostics.inform("loading the application")
+      @diagnostics.detail("loading the application")
       integration = boot.load_target
       files = config.included_files
       load_lines, load_methods = suspend_coverage(files)

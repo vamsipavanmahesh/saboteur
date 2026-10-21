@@ -40,7 +40,9 @@ module Saboteur
 
       def agent_run(arguments)
         tree = WorkingTree.new(config.root, ignored: config.ignored_tree_paths).state
-        engine = Engine.new(config, **arguments)
+        # The machine path is exempt from the noise diet: quiet_start: false
+        # keeps agent stderr byte-identical to the pre-diet default output.
+        engine = Engine.new(config, **arguments, quiet_start: false)
         report = stdout_on_stderr { engine.call }
         payload = Reporter::Agent.call(report, agent_provenance(report, tree, engine))
         rendered = Reporter::Agent.render(payload)

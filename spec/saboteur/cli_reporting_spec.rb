@@ -40,13 +40,17 @@ RSpec.describe "finished run reporting" do
   it "forwards the agent engine config and err stream, preserving provenance output exclusions" do
     cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
     config = cli.config
-    arguments = { err: cli.instance_variable_get(:@err), digest: "digest" }
+    arguments = { err: cli.instance_variable_get(:@err), digest: "a" * 16 }
+    # The machine path is exempt from the noise diet: agent_run forces the quiet start off.
+    forwarded = arguments.merge(quiet_start: false)
     state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
     tree = instance_double(Saboteur::WorkingTree, state: state)
     expect(Saboteur::WorkingTree).to receive(:new).with(config.root, ignored: config.output_paths).and_return(tree)
     report = report_of(result_for(:killed))
-    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)
-    expect(Saboteur::Engine).to receive(:new).with(config, **arguments).and_return(engine)
+    # and_call_original (not and_return) so the forwarded kwargs are executed,
+    # not only matched: dropping quiet_start: false must fail this spec.
+    expect(Saboteur::Engine).to receive(:new).with(config, **forwarded).and_call_original
+    allow_any_instance_of(Saboteur::Engine).to receive(:call).and_return(report)
     expect(cli).to receive(:validate_history).ordered
     expect(cli).to receive(:write_html).with(report).ordered
     expect(cli).to receive(:record_history).with(report).ordered

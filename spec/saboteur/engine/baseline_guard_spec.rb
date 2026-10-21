@@ -42,6 +42,7 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
   it "retains hook/diagnostic collaborators and prepares before each supervised child" do
     diagnostics = instance_double(Saboteur::Engine::Diagnostics)
     allow(diagnostics).to receive(:inform)
+    allow(diagnostics).to receive(:detail)
     heartbeat = instance_double(Saboteur::Engine::Diagnostics::ProgressHeartbeat, tick: nil)
     allow(heartbeat).to receive(:watch).and_return(heartbeat)
     allow(diagnostics).to receive(:progress_heartbeat).and_return(heartbeat)
@@ -53,15 +54,16 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     expect(checked.send(:log_path, 1)).to eq(File.join(@root, ".saboteur/baseline-1.log"))
     expect(heartbeat).to have_received(:watch).with(File.join(@root, ".saboteur/baseline-1.log"))
     expect(heartbeat).to have_received(:watch).with(File.join(@root, ".saboteur/baseline-2.log"))
-    expect(diagnostics).to have_received(:inform).with("checking the unchanged suite twice (seed 42)")
+    expect(diagnostics).to have_received(:detail).with("checking the unchanged suite twice (seed 42)")
   end
 
   it "runs a single check and notes the tradeoff when baseline_passes is 1 (#55)" do
     single = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 1 }, root: @root)
     err = StringIO.new
     allow(supervisor).to receive(:run).and_return(response)
+    diagnostics = Saboteur::Engine::Diagnostics.new(err, verbose: true)
     described_class.new(config: single, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err)).call
+                        supervisor: supervisor, diagnostics: diagnostics).call
     expect(supervisor).to have_received(:run).once
     expect(err.string).to include("checking the unchanged suite once (seed 42)")
     expect(err.string).to include("order stability between passes is not checked (baseline_passes: 1)")
@@ -110,7 +112,7 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     end
     allow(supervisor).to receive(:run).and_return(response)
     described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err, verbose: true),
                         full_passes: 3).call
     expect(err.string.scan(/baseline check \d+ took/).size).to eq(1)
     expect(err.string).to include("baseline check 1 took 5 s; about 10 s left for the remaining 1 full pass " \
@@ -124,7 +126,7 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
       allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
       allow(supervisor).to receive(:run).and_return(response)
       described_class.new(config: triple, integration: integration, hooks: Saboteur::Hooks.new,
-                          supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                          supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err, verbose: true),
                           full_passes: coverage_pending ? 4 : 3).call
       work = "the remaining 2 full passes"
       work += " and the coverage map build" if coverage_pending
@@ -243,8 +245,9 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     triple = Saboteur::Config.new({ "seed" => 42, "baseline_passes" => 3 }, root: @root)
     err = StringIO.new
     allow(supervisor).to receive(:run).and_return(response)
+    diagnostics = Saboteur::Engine::Diagnostics.new(err, verbose: true)
     described_class.new(config: triple, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err)).call
+                        supervisor: supervisor, diagnostics: diagnostics).call
     expect(err.string).to include("checking the unchanged suite 3 times (seed 42)")
   end
 
@@ -254,7 +257,7 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
     allow(supervisor).to receive(:run).and_return(response)
     described_class.new(config: single, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err, verbose: true),
                         full_passes: 2).call
     expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the coverage map build at that rate")
     expect(err.string).not_to include("remaining 1 full pass")
@@ -265,7 +268,7 @@ RSpec.describe Saboteur::Engine::BaselineGuard do
     allow(Process).to receive(:clock_gettime).and_return(100.0, 105.0)
     allow(supervisor).to receive(:run).and_return(response)
     described_class.new(config: config, integration: integration, hooks: Saboteur::Hooks.new,
-                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err),
+                        supervisor: supervisor, diagnostics: Saboteur::Engine::Diagnostics.new(err, verbose: true),
                         full_passes: 2).call
     expect(err.string).to include("baseline check 1 took 5 s; about 5 s left for the remaining 1 full pass")
   end
