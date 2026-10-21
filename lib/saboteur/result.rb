@@ -152,6 +152,18 @@ module Saboteur
     end
   end
 
+  # Per-phase wall time of one run: baseline check, coverage map build,
+  # mutant execution, and the worker count (PR16). Recorded from monotonic
+  # clocks at the phase boundaries; a reused map reports 0.0 s (cached), so
+  # the three phases never double count the cached build and their sum stays
+  # inside the wall time.
+  PhaseTimings = Data.define(:baseline_seconds, :map_seconds, :map_cached, :mutants_seconds, :jobs) do
+    def initialize(baseline_seconds:, map_seconds:, map_cached:, mutants_seconds:, jobs:)
+      super(baseline_seconds:, map_seconds: map_cached ? 0.0 : map_seconds, map_cached:,
+            mutants_seconds:, jobs:)
+    end
+  end
+
   # Everything one run produced.
   class Report
     # More than half of the executed mutants errored: the run tested
@@ -161,16 +173,20 @@ module Saboteur
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :live_announced, :root, :seed,
                 :skipped_subjects,
                 :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop, :inline_suppressions,
-                :operator_policy, :discovery_failures, :memory, :shard, :test_command, :referenced, :reuse_label
+                :operator_policy, :discovery_failures, :memory, :shard, :test_command, :referenced, :reuse_label,
+                :phase_timings
 
     # REVIEW: diff mode; the terminal then shows one survivor per line.
     # seed: the random seed every test run started from (nil when unknown).
+    # reuse_label (#1221) and phase_timings (PR16) both stack on this
+    # value-object initializer, one line over the default cap.
+    # rubocop:disable-next Metrics/MethodLength
     def initialize(results:, subjects:, wall_time:, root:, invalid_mutations: 0, warnings: [], live_announced: [],
                    review: false,
                    seed: nil, skipped_subjects: {}, diff_scope: nil, generation_events: [], omissions: [],
                    run_evidence: nil, hazard_suppressions: 0, early_stop: nil, matrix: false, inline_suppressions: [],
                    operator_policy: nil, discovery_failures: [], memory: nil, shard: nil,
-                   test_command: nil, referenced: {}, reuse_label: nil)
+                   test_command: nil, referenced: {}, reuse_label: nil, phase_timings: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -202,6 +218,9 @@ module Saboteur
       # or require instead of by name (zero-setup selection).
       @referenced = referenced
       @reuse_label = reuse_label
+      # nil for pipelines without the three phases (--test-command runs):
+      # the terminal prints no speed footer without a full split.
+      @phase_timings = phase_timings
     end
 
     # A --matrix run: every covering test ran per mutant.
