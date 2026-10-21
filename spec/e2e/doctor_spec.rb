@@ -95,6 +95,25 @@ RSpec.describe "doctor", :e2e do
     expect(File).not_to exist(File.join(dir, ".saboteur"))
   end
 
+  it "exits 1 with the exact fix when SimpleCov is not guarded (#312)" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "spec", "spec_helper.rb"), "SimpleCov.start if defined?(SimpleCov)\n")
+    out, _err, status = doctor(dir)
+    expect(status.exitstatus).to eq(1)
+    expect(out).to include("SimpleCov is not guarded - it steals coverage from saboteur",
+                           'Fix: wrap it: if ENV["COVERAGE"]  (spec/spec_helper.rb:1)')
+    expect(out).to match(/exit 1 - fix the . above before trusting a run/)
+  end
+
+  it "exits 0 when the guarded SimpleCov check passes (#312)" do
+    dir = copy_fixture("people")
+    File.write(File.join(dir, "spec", "spec_helper.rb"),
+               "if ENV[\"COVERAGE\"]\n  SimpleCov.start\nend\n")
+    out, err, status = doctor(dir)
+    expect(status.exitstatus).to eq(0), err
+    expect(out).to include('SimpleCov: guarded by ENV["COVERAGE"]')
+  end
+
   it "rejects run-only flags and stray arguments" do
     dir = copy_fixture("people")
     _, err, status = doctor(dir, "--incremental")

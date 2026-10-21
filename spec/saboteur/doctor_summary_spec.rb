@@ -67,6 +67,123 @@ RSpec.describe Saboteur::Doctor, "summary (#333)" do
     expect(out.string).not_to include("exit 1")
   end
 
+  describe "SimpleCov guard check (#312)" do
+    def with_helper(contents, name = "spec_helper.rb")
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "spec"))
+        File.write(File.join(dir, "spec", name), contents)
+        allow(config).to receive(:root).and_return(dir)
+        yield
+      end
+    end
+
+    it "is silent when no spec helper starts SimpleCov" do
+      Dir.mktmpdir do |dir|
+        allow(config).to receive(:root).and_return(dir)
+        expect(doctor.send(:simplecov_guard_check)).to be_nil
+      end
+    end
+
+    it "fails with the wrap fix naming the file and line of SimpleCov.start" do
+      with_helper("require \"simplecov\"\n\nSimpleCov.start do\nend\n") do
+        result = doctor.send(:simplecov_guard_check)
+        expect(result.status).to eq(:fail)
+        expect(result.detail).to eq("SimpleCov is not guarded - it steals coverage from saboteur")
+        expect(result.fix).to eq('wrap it: if ENV["COVERAGE"]  (spec/spec_helper.rb:3)')
+      end
+    end
+
+    it "passes when the start is guarded by ENV[\"COVERAGE\"]" do
+      with_helper("if ENV[\"COVERAGE\"]\n  SimpleCov.start\nend\n") do
+        result = doctor.send(:simplecov_guard_check)
+        expect(result.status).to eq(:pass)
+        expect(result.detail).to eq('SimpleCov: guarded by ENV["COVERAGE"]')
+      end
+    end
+
+    it "checks rails_helper.rb too" do
+      with_helper("SimpleCov.start\n", "rails_helper.rb") do
+        result = doctor.send(:simplecov_guard_check)
+        expect(result.fix).to eq('wrap it: if ENV["COVERAGE"]  (spec/rails_helper.rb:1)')
+      end
+    end
+  end
+
+  describe "ignore file health" do
+    def with_project(lib_source, ignore_source)
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "lib"))
+        FileUtils.mkdir_p(File.join(dir, "config"))
+        File.write(File.join(dir, "lib", "person.rb"), lib_source)
+        File.write(File.join(dir, "config", "saboteur_ignore.rb"), ignore_source) if ignore_source
+        allow(config).to receive(:root).and_return(dir)
+        yield
+      end
+    end
+
+    let(:person) { "class Person\n  def adult?\n    true\n  end\nend\n" }
+
+    it "is silent without ignore entries" do
+      with_project(person, nil) { expect(doctor.send(:ignore_health_check)).to be_nil }
+    end
+
+    it "passes when every entry names a live subject" do
+      ignore = <<~RUBY
+        Saboteur.ignore do |i|
+          i.mutation "a", subject: "Person#adult?", reason: "equivalent"
+        end
+      RUBY
+      with_project(person, ignore) do
+        result = doctor.send(:ignore_health_check)
+        expect(result.status).to eq(:pass)
+        expect(result.detail).to eq("ignore file: 1 entry, all live")
+      end
+    end
+
+    it "warns with the stale count and the refresh fix" do
+      ignore = <<~RUBY
+        Saboteur.ignore do |i|
+          i.mutation "a", subject: "Person#adult?", reason: "equivalent"
+          i.mutation "b", subject: "Person#gone?", reason: "removed"
+          i.mutation "c", subject: "Ghost#gone?", reason: "removed"
+        end
+      RUBY
+      with_project(person, ignore) do
+        result = doctor.send(:ignore_health_check)
+        expect(result.status).to eq(:warn)
+        expect(result.detail).to eq("ignore file: 3 entries, 2 stale")
+        expect(result.fix).to eq("remove or refresh the stale entries in config/saboteur_ignore.rb")
+      end
+    end
+
+    it "warns when an included file does not parse" do
+      ignore = <<~RUBY
+        Saboteur.ignore do |i|
+          i.mutation "a", subject: "Person#adult?", reason: "equivalent"
+        end
+      RUBY
+      with_project("def broken(\n", ignore) do
+        result = doctor.send(:ignore_health_check)
+        expect(result.status).to eq(:warn)
+        expect(result.detail).to eq("ignore file: health check incomplete - an included file does not parse")
+        expect(result.fix).to eq("fix the parse error, then re-run saboteur doctor")
+      end
+    end
+  end
+
+  it "renders the checks in golden order: runtime, suite, then the rest" do
+    doctor = described_class.new(config, out: out, suite: true, palette: palette)
+    allow(doctor).to receive(:runtime_check).and_return(golden_checks[0])
+    allow(doctor).to receive(:environment_check).and_return(nil)
+    allow(doctor).to receive(:simplecov_guard_check).and_return(golden_checks[2])
+    allow(doctor).to receive(:boot_silently)
+    allow(doctor).to receive(:suite_check).and_return(golden_checks[1])
+    allow(doctor).to receive(:sandbox_check).and_return(golden_checks[3])
+    allow(doctor).to receive(:ignore_health_check).and_return(golden_checks[4])
+    expect(doctor.call).to be(false)
+    expect(out.string).to eq(golden_text)
+  end
+
   describe "summary verdict" do
     before do
       allow(doctor).to receive(:environment_check).and_return(nil)

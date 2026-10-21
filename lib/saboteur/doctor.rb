@@ -21,6 +21,9 @@ module Saboteur
       def initialize(status:, detail:, fix: nil) = super
     end
 
+    # Spec helpers scanned for an unguarded SimpleCov.start (#312).
+    SIMPLECOV_HELPERS = %w[spec/spec_helper.rb spec/rails_helper.rb].freeze
+
     def initialize(config, out: $stdout, suite: false, verbose: false, palette: nil)
       @config = config
       @out = out
@@ -45,9 +48,9 @@ module Saboteur
     # then print one line per check. Golden order: runtime, suite, the
     # environment warning when present, then the remaining checks.
     def summary_call
-      early = [runtime_check, environment_check].compact
+      early = [runtime_check, environment_check, simplecov_guard_check].compact
       boot_silently
-      late = [sandbox_check].compact
+      late = [sandbox_check, ignore_health_check].compact
       suite = @suite ? [suite_check] : []
       checks = [early.first] + suite + early.drop(1) + late
       render_summary(checks)
@@ -99,6 +102,50 @@ module Saboteur
 
     def environment_hints
       @environment_hints ||= EnvironmentHints.all(@config.root)
+    end
+
+    # A SimpleCov.start that fires on every spec run steals method coverage
+    # from saboteur's own map; it must load only when COVERAGE is set (#312).
+    def simplecov_guard_check
+      SIMPLECOV_HELPERS.each do |relative|
+        path = File.join(@config.root, relative)
+        next unless File.file?(path)
+
+        lines = File.readlines(path)
+        start = lines.index { |line| line.match?(/^\s*SimpleCov\.start/) }
+        next unless start
+        if lines.any? { |line| line.match?(/ENV\[["']COVERAGE["']\]/) }
+          return Check.new(status: :pass, detail: %(SimpleCov: guarded by ENV["COVERAGE"]))
+        end
+
+        return Check.new(status: :fail,
+                         detail: "SimpleCov is not guarded - it steals coverage from saboteur",
+                         fix: %(wrap it: if ENV["COVERAGE"]  (#{relative}:#{start + 1})))
+      end
+      nil
+    end
+
+    # One line on the ignore file's health: how many entries, and how many
+    # name a subject no included file defines anymore (feeds PR15's prune).
+    def ignore_health_check
+      ignores = IgnoreList.load(@config.path("ignore_file"))
+      return nil if ignores.entries.empty?
+
+      stale = stale_ignore_subjects(ignores)
+      if stale == :parse_error
+        return Check.new(status: :warn,
+                         detail: "ignore file: health check incomplete - an included file does not parse",
+                         fix: "fix the parse error, then re-run saboteur doctor")
+      end
+
+      total = ignores.entries.size
+      if stale.empty?
+        return Check.new(status: :pass,
+                         detail: "ignore file: #{total} #{total == 1 ? 'entry' : 'entries'}, all live")
+      end
+
+      Check.new(status: :warn, detail: "ignore file: #{total} entries, #{stale.size} stale",
+                fix: "remove or refresh the stale entries in #{@config['ignore_file']}")
     end
 
     # The probe contract the detail listing keeps: an errored probe is an
