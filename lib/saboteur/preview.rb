@@ -59,8 +59,13 @@ module Saboteur
       @diagnostics.warnings.each { |warning| @out.puts("warning: #{warning}") }
     end
 
+    # The default set is what --list-operators prints, so a preview leads
+    # with it only when the selection was changed or --verbose asks (#1178).
     def announce_operators
-      @out.puts("Operators: #{@config.operator_policy['effective'].join(', ')}") unless @json
+      return if @json
+      return unless @config["verbose"] || @config["operators"].any? || @config["exclude_operators"].any?
+
+      @out.puts("Operators: #{@config.operator_policy['effective'].join(', ')}")
     end
 
     # Candidate filtering precedes diff restriction and the per-method cap.

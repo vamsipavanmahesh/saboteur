@@ -22,6 +22,11 @@ module Saboteur
                           baseline_passes: "--baseline-passes", max_duration: "--max-duration",
                           shard: "--shard" }.freeze
 
+        # Not part of the selection a replay reproduces: a shard is a slice of
+        # it, and a report path would overwrite the report the replay came
+        # from (the audit preset names whole-project reports, #1185).
+        REPLAY_SKIPPED = %i[shard json_report html_report].freeze
+
         # CLI-only boolean switches recorded in settings, mapped by value, so
         # an explicit false (--no-max-duration-ok over a config true) survives
         # into the generated commands instead of reverting to the config.
@@ -76,7 +81,7 @@ module Saboteur
           # (#317). A typed empty list stays: it may clear a config value.
           def setting_words(provenance, replay: false)
             SETTING_FLAGS.flat_map do |key, flag|
-              next [] if replay && key == :shard
+              next [] if replay && REPLAY_SKIPPED.include?(key)
               next [] unless provenance.settings.key?(key)
 
               value = provenance.settings[key]

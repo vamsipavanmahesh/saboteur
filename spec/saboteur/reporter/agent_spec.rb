@@ -62,6 +62,19 @@ RSpec.describe Saboteur::Reporter::Agent do
     end
   end
 
+  it "keeps report paths and shards out of a replay but not out of a rerun (#1185)" do
+    commands = described_class::Commands
+    source = provenance_with(settings: { all: true, json_report: ".saboteur/audit-report.json",
+                                         html_report: ".saboteur/audit-report.html", shard: "1/4",
+                                         operators: %w[range], baseline_passes: 2 })
+    replay = Shellwords.split(commands.replay(source, "abc", capped: false))
+    expect(replay).to include("--operators", "range", "--baseline-passes", "2")
+    expect(replay).not_to include("--json", "--html", "--shard")
+    rerun = Shellwords.split(commands.rerun(source))
+    expect(rerun.each_cons(2).to_a).to include(["--json", ".saboteur/audit-report.json"],
+                                               ["--html", ".saboteur/audit-report.html"], ["--shard", "1/4"])
+  end
+
   it "keeps a non-empty operator list whether or not it was typed" do
     source = provenance_with(settings: { operators: [], exclude_operators: %w[range arithmetic] })
     words = Shellwords.split(described_class::Commands.replay(source, "abc", capped: false))

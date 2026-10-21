@@ -50,12 +50,17 @@ module Saboteur
 
       SCORE_FORMULA = "(killed + timeout) / (killed + survived + timeout)"
 
-      # A survivor-bearing file section opens on load - but only the first
-      # OPEN_FILE_LIMIT of them, and only while the open rows stay under
-      # OPEN_ROW_BUDGET, so a big run does not land as a wall of expanded
-      # rows. The rest stay collapsed with their survivor count in the header.
+      # A file section holding a survivor, timeout or error opens on load -
+      # but only the first OPEN_FILE_LIMIT of them, and only while the open
+      # rows stay under OPEN_ROW_BUDGET, so a big run does not land as a wall
+      # of expanded rows. The rest stay collapsed, survivor count in the header.
       OPEN_FILE_LIMIT = 10
       OPEN_ROW_BUDGET = 30
+
+      # Statuses worth opening a file for on load: a survivor, a timeout or an
+      # error is exactly what a reader needs to inspect.
+      ATTENTION_STATUSES = %w[Survived Timeout RuntimeError].freeze
+
       # Survivor rows get a copy button for the replay command. file:// is a
       # secure context, so navigator.clipboard works; the textarea fallback
       # covers browsers where it rejects without a gesture. One delegated
@@ -264,19 +269,22 @@ module Saboteur
         survivors = data[:files].to_h do |file, entry|
           [file, entry[:mutants].count { |mutant| mutant[:status] == "Survived" }]
         end
-        open_set = open_files(data, survivors)
-        collapsed = data[:files].keys.count { |file| survivors[file].positive? && !open_set[file] }
+        attention = data[:files].to_h do |file, entry|
+          [file, entry[:mutants].count { |mutant| ATTENTION_STATUSES.include?(mutant[:status]) }]
+        end
+        open_set = open_files(data, attention)
+        collapsed = data[:files].keys.count { |file| attention[file].positive? && !open_set[file] }
         sections = data[:files].map do |file, entry|
           file_section(file, entry, names, results, report, survivor_count: survivors[file], open_file: open_set[file])
         end
         [sections, collapsed]
       end
 
-      # The open set: the top survivor-bearing files by survivor count, while
-      # the open rows stay under the budget.
-      def open_files(data, survivors)
-        ranked = data[:files].keys.select { |file| survivors[file].positive? }
-                             .sort_by { |file| [-survivors[file], file] }
+      # The open set: the top attention-bearing files by attention count,
+      # while the open rows stay under the budget.
+      def open_files(data, attention)
+        ranked = data[:files].keys.select { |file| attention[file].positive? }
+                             .sort_by { |file| [-attention[file], file] }
         open_set = {}
         rows = 0
         ranked.first(OPEN_FILE_LIMIT).each do |file|
@@ -293,7 +301,8 @@ module Saboteur
         if collapsed.zero?
           ""
         else
-          "<p class=\"note print-hide\" id=\"files\">#{collapsed} #{noun} with survivors collapsed - " \
+          "<p class=\"note print-hide\" id=\"files\">#{collapsed} #{noun} " \
+            "with survivors, timeouts or errors collapsed - " \
             "<a href=\"#files\" onclick=\"document.querySelectorAll('details.file').forEach" \
             "(function(d){d.open=true});return false\">expand all</a></p>\n"
         end
