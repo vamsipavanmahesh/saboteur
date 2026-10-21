@@ -37,5 +37,7 @@ RSpec.describe "order-dependent examples (end to end)", :e2e do
     expect(cross_mutants.map { |m| m["status"] }.uniq).to eq(["RuntimeError"])
     expect(cross.status).to eq(3)
     expect(cross.err).to include("mutants errored")
+    # README: an error-dominated run prints "Score: n/a", not a number.
+    expect(cross.out).to include("Score: n/a (0 of 10 mutants scored, n/a of scored)")
   end
 end
