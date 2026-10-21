@@ -22,6 +22,11 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       git("commit", "-q", "-m", "base")
     end
 
+    it "prints the scope label and the follow-up hint on a clean whole-project run (#1173, #1187)" do
+      run = saboteur(copy_fixture("shapes"))
+      expect(run.out).to include("whole project", "next: saboteur run --since origin/main")
+    end
+
     it "mutates only methods whose lines changed since the ref" do
       path = File.join(dir, "lib", "people.rb")
       File.write(path, File.read(path).sub("@age}", "@age.to_s}"))
