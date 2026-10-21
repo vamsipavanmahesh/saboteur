@@ -59,7 +59,7 @@ end
 RSpec.describe Saboteur::Reporter::SurvivorList do
   def render(report)
     out = StringIO.new
-    Saboteur::Reporter::Terminal.new(out).call(report)
+    Saboteur::Reporter::Terminal.new(out, all_mutants: true).call(report)
     out.string
   end
 

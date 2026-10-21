@@ -14,8 +14,9 @@ RSpec.describe "finished run reporting" do
       cli.instance_variable_set(:@color, color)
       cli.options[:id] = "digest" if replay
       terminal = instance_double(Saboteur::Reporter::Terminal)
+      expect(cli).to receive(:survivor_replay_command).with(report, nil).and_return(->(digest) { "replay #{digest}" })
       expect(Saboteur::Reporter::Terminal).to receive(:new)
-        .with(out, verbose: verbose || false, color: color || :auto, replay_command: kind_of(Proc))
+        .with(out, verbose: verbose || false, color: color || :auto, replay_command: kind_of(Proc), all_mutants: false)
         .and_return(terminal)
       expect(terminal).to receive(:call).with(report)
       replay_report = instance_double(Saboteur::Reporter::Replay)

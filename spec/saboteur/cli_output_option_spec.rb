@@ -37,3 +37,17 @@ RSpec.describe "Saboteur::CLI --format option" do
     expect(err.string).to include("invalid argument")
   end
 end
+
+RSpec.describe "Saboteur::CLI --all-mutants option" do
+  let(:out) { StringIO.new }
+  let(:err) { StringIO.new }
+
+  it "is documented in the run help and stored in the options" do
+    expect(Saboteur::CLI.new(%w[run --help], out:, err:).call).to eq(0)
+    expect(out.string).to include("--all-mutants")
+    cli = Saboteur::CLI.new(%w[run --all-mutants --dry-run], out:, err:)
+    allow(Saboteur::Engine).to receive(:new).and_raise(Saboteur::Error, "stop")
+    expect { cli.call }.not_to raise_error(OptionParser::InvalidOption)
+    expect(cli.options[:all_mutants]).to be(true)
+  end
+end

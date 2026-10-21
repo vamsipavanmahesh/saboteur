@@ -89,7 +89,8 @@ killed 8  survived 2  timeout 0  resource limit 0  error 0  score 80.0 %
 Each survivor comes with its diff, the tests that ran, and a triage label
 (`likely_equivalent`, `arid`, `missing_test`) to sort what to read first.
 The labels are heuristics for reading order, never a diagnosis, and they
-never change the score.
+never change the score. The terminal prints one finding per statement with
+the label mix and mutant count; `--all-mutants` lists every mutant.
 
 A run on a tree with uncommitted changes opens with a warning that splits
 the count into changes inside the mutation scope, outside it, and

@@ -15,7 +15,8 @@ RSpec.describe "saboteur run (end to end)", :e2e do
       first = saboteur(dir, "--all")
       expect(first.status).to eq(1), first.err
       expect(adult_comparison(first, ">")["status"]).to eq("Survived")
-      expect(first.out).to include("14: def adult?; @age >= 18; end", "- comparison >= -> > ")
+      expect(first.out).to include("14: def adult?; @age >= 18; end", "- 2 mutants: 2 missing_test",
+                                   adult_comparison(first, ">")["id"])
 
       File.write(File.join(dir, "spec", "boundary_spec.rb"), <<~RUBY)
         require_relative "../lib/people"

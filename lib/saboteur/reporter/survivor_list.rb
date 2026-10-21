@@ -3,6 +3,7 @@
 
 require_relative "mutation_text"
 require_relative "survivor_hints"
+require_relative "survivor_classification"
 
 module Saboteur
   module Reporter
@@ -12,9 +13,11 @@ module Saboteur
     class SurvivorList
       MAX_PASSING_TESTS = 5
 
-      def initialize(out, palette)
+      def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification)
         @out = out
         @palette = palette
+        @all_mutants = all_mutants
+        @classifier = classifier
       end
 
       # Every survivor, in report order; the grouping keeps them readable.
@@ -43,8 +46,31 @@ module Saboteur
           first = on_line.first
           @out.puts "    #{path}:#{line} in #{first.subject.id}"
           @out.puts "      #{@palette.paint(:dim, "#{line}:")} #{source_line(first, line)}"
-          evidence_groups(report, on_line).each { |group| evidence_group(report, path, group) }
+          if @all_mutants
+            evidence_groups(report, on_line).each { |group| evidence_group(report, path, group) }
+          else
+            live, ignored = on_line.partition { |result| result.ignored.nil? }
+            statement_finding(live) unless live.empty?
+            ignored.each { |result| mutation(result) }
+          end
         end
+      end
+
+      # Default view (#1065): one finding per statement - how many mutants
+      # survive here and the mix of their classification labels, with the
+      # covering tests once. --all-mutants restores the per-mutant list.
+      def statement_finding(on_line)
+        count = "#{on_line.size} #{on_line.one? ? 'mutant' : 'mutants'}"
+        mix = on_line.group_by { |result| @classifier.label(result) || "unlabeled" }
+                     .sort_by { |label, _| label }
+                     .map { |label, group| "#{group.size} #{label}" }
+                     .join(", ")
+        @out.puts "      #{@palette.paint(:red, '-')} #{count}: #{mix}"
+        tests_line(on_line.flat_map(&:covered_by).uniq, on_line.first.reused?)
+        digests = on_line.map(&:digest)
+        more = digests.size - 3
+        suffix = " (+#{more} more in the JSON report)" if more.positive?
+        @out.puts "        #{digests.first(3).join(' ')}#{suffix}"
       end
 
       # Mutants on one line share the printed evidence when it names the
@@ -79,6 +105,8 @@ module Saboteur
                  end
         text = "      #{@palette.paint(:red, '-')} #{result.mutation.operator} " \
                "#{change} #{result.digest}"
+        label = @classifier.label(result)
+        text += @palette.paint(:cyan, " [#{label}]") if label
         text += " (ignored: #{result.ignored})" if result.ignored
         @out.puts text
         hint(result)
@@ -100,18 +128,18 @@ module Saboteur
       # killers first, the order the run used. Line coverage can overstate which
       # tests exercise the line, so the list is a lead, not proof.
       def passing_tests(result)
-        tests = result.covered_by
+        tests_line(result.covered_by, result.reused?)
+      end
+
+      def tests_line(tests, reused)
         return if tests.empty?
 
         @out.puts "      #{tests.size} #{tests.one? ? 'test' : 'tests'} covered this line and " \
-                  "#{passed_phrase(result)} (the missing check may belong in one of them):"
+                  "#{reused ? 'passed in an earlier run (--incremental)' : 'still passed'} " \
+                  "(the missing check may belong in one of them):"
         tests.first(MAX_PASSING_TESTS).each { |name| @out.puts "        #{name}" }
         more = tests.size - MAX_PASSING_TESTS
         @out.puts "        ... #{more} more in the JSON report (coveredBy)" if more.positive?
-      end
-
-      def passed_phrase(result)
-        result.reused? ? "passed in an earlier run (--incremental)" : "still passed"
       end
 
       # In diff mode: the changed lines this mutant touches.

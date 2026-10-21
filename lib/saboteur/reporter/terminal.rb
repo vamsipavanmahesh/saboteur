@@ -18,8 +18,9 @@ module Saboteur
       MAX_ERRORS = 10
       MAX_PASSING_TESTS = SurvivorList::MAX_PASSING_TESTS
 
-      def initialize(out, verbose: false, color: :auto, replay_command: nil)
+      def initialize(out, verbose: false, color: :auto, replay_command: nil, all_mutants: false)
         @out = SafeOut.new(out)
+        @all_mutants = all_mutants
         @verbose = verbose
         @palette = Palette.for(out, mode: color)
         @score_table = ScoreTable.new(@out, @palette)
@@ -359,7 +360,7 @@ module Saboteur
       end
 
       def survivors(report)
-        SurvivorList.new(@out, @palette).call(report, ranked_survivors(report))
+        SurvivorList.new(@out, @palette, all_mutants: @all_mutants).call(report, ranked_survivors(report))
         @out.puts unless report.survivors.empty?
       end
 

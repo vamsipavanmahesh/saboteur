@@ -49,10 +49,13 @@ RSpec.describe "run option modules (#334)" do
       "--format FORMAT" => "text, agent or json (--dry-run inventory)",
       "--agent" => "Same as --format agent",
       "--verbose" => "Text report: also print score split, timings and kill causes",
-      "--[no-]color" => "Colour the text report (default: on for a terminal unless NO_COLOR is set)"
+      "--[no-]color" => "Colour the text report (default: on for a terminal unless NO_COLOR is set)",
+      "--all-mutants" => "Text report: list every survived mutant;"
     }.each do |flag, help|
       expect(text).to match(/#{Regexp.escape(flag)}\s+#{Regexp.escape(help)}/), "no help text after #{flag}"
     end
+
+    expect(text).to include("default: one finding per statement, with the label mix")
   end
 
   it "keeps the run --help flag order stable across the extraction" do

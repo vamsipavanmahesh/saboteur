@@ -7,7 +7,7 @@ RSpec.describe Saboteur::Reporter::Terminal do
   let(:out) { StringIO.new }
 
   def render(report, **options)
-    described_class.new(out, **options).call(report)
+    described_class.new(out, all_mutants: true, **options).call(report)
     out.string
   end
 
@@ -196,6 +196,14 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text.scan("      2: def adult?; @age >= 18; end").size).to eq(1)
     expect(text).to include("- comparison >= -> > ", "- comparison >= -> <= ", "hint: try an example at the boundary",
                             "Hints are suggestions, not diagnoses")
+  end
+
+  it "collapses survivors to one finding per statement unless --all-mutants (#1065)" do
+    report = report_of(result_for(:survived, covered_by: ["./spec/person_spec.rb[1:1]"]))
+    collapsed = render(report, all_mutants: false)
+    expect(collapsed).to include("- 1 mutant: 1 missing_test")
+    expect(collapsed).not_to include("- comparison >= -> >")
+    expect(render(report)).to include("- comparison >= -> > ", "[missing_test]")
   end
 
   it "words the timeout legend as an exceeded deadline, not a hang" do
@@ -573,7 +581,7 @@ end
 
 RSpec.describe Saboteur::Reporter::Terminal, "details" do
   def render(report, **options)
-    StringIO.new.tap { |out| described_class.new(out, **options).call(report) }.string
+    StringIO.new.tap { |out| described_class.new(out, all_mutants: true, **options).call(report) }.string
   end
 
   # A mutant of the person fixture's body, at the given text.
@@ -739,8 +747,8 @@ end
 RSpec.describe Saboteur::Reporter::Terminal, "hazard suppressions (issue #102)" do
   let(:out) { StringIO.new }
 
-  def render(report)
-    described_class.new(out).call(report)
+  def render(report, **options)
+    described_class.new(out, all_mutants: true, **options).call(report)
     out.string
   end
 

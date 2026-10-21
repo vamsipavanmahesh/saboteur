@@ -35,7 +35,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
     root = File.dirname(results.first.subject.file)
     report = Saboteur::Report.new(results:, subjects: results.map(&:subject).uniq, wall_time: 1.0, root:,
                                   warnings: [], seed: 1)
-    described_class.new(out, palette).call(report, results)
+    described_class.new(out, palette, all_mutants: true).call(report, results)
     out.string
   end
 
@@ -71,6 +71,104 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
     expect(text).to include("\n\nHints are suggestions")
   end
 
+  def mutant_on(subject, at, replacement, covered_by: [], reused: false)
+    edit = Saboteur::MutationSource::Edit.new(file: subject.file, start_byte: at, end_byte: at + 2, replacement:)
+    mutation = Saboteur::MutationSource::Mutation.new(subject_id: subject.id, operator: "comparison", edits: [edit],
+                                                      coarse: false)
+    Saboteur::MutantResult.new(subject:, mutation:, status: :survived,
+                               mutated_source: subject.apply(mutation.edits), covered_by:, reused:)
+  end
+
+  def render_collapsed(*results)
+    out.truncate(0)
+    out.rewind
+    root = File.dirname(results.first.subject.file)
+    report = Saboteur::Report.new(results:, subjects: results.map(&:subject).uniq, wall_time: 1.0, root:,
+                                  warnings: [], seed: 1)
+    described_class.new(out, palette).call(report, results)
+    out.string
+  end
+
+  it "collapses each statement to one finding with the label mix by default (#1065)" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    covered = mutant_on(subject, at, ">", covered_by: ["./spec/m_spec.rb[1:1]"])
+    plain = mutant_on(subject, at, "<")
+    # Insertion order is unlabeled first; the mix prints labels sorted.
+    text = render_collapsed(plain, covered)
+    expect(text).to include("      - 2 mutants: 1 missing_test, 1 unlabeled\n")
+    expect(text).to include(covered.digest, plain.digest)
+    expect(text).not_to include("- comparison >= -> >")
+  end
+
+  it "unions the covering tests of every mutant on the statement" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    first = mutant_on(subject, at, ">", covered_by: ["./spec/a_spec.rb[1:1]"])
+    second = mutant_on(subject, at, "<", covered_by: ["./spec/b_spec.rb[1:2]", "./spec/a_spec.rb[1:1]"])
+    text = render_collapsed(first, second)
+    expect(text).to include("      2 tests covered this line and still passed")
+    expect(text).to include("./spec/a_spec.rb[1:1]", "./spec/b_spec.rb[1:2]")
+  end
+
+  it "abbreviates a statement's digest list after three" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    results = [">", "<", "<=", "==", "!="].map { |replacement| mutant_on(subject, at, replacement) }
+    text = render_collapsed(*results)
+    expect(text).to include("      - 5 mutants: 5 unlabeled\n")
+    expect(text).to include("        #{results.first(3).map(&:digest).join(' ')} (+2 more in the JSON report)\n")
+    expect(text).not_to include(results[3].digest, results[4].digest)
+  end
+
+  it "prints every digest without a suffix when a statement has three mutants" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    results = [">", "<", "<="].map { |replacement| mutant_on(subject, at, replacement) }
+    text = render_collapsed(*results)
+    expect(text).to include("        #{results.map(&:digest).join(' ')}\n")
+    expect(text).not_to include("more in the JSON report")
+  end
+
+  it "takes the covered-by phrase's reuse status from the statement's first mutant" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    first = mutant_on(subject, at, ">", covered_by: ["./spec/a_spec.rb[1:1]"], reused: true)
+    second = mutant_on(subject, at, "<", covered_by: ["./spec/a_spec.rb[1:1]"])
+    text = render_collapsed(first, second)
+    expect(text).to include("passed in an earlier run (--incremental)")
+    expect(render_collapsed(second, first)).to include("still passed")
+  end
+
+  it "keeps ignored mutants out of the collapsed finding and lists them per mutant" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    live = mutant_on(subject, at, ">", covered_by: ["./spec/m_spec.rb[1:1]"])
+    accepted = mutant_on(subject, at, "<")
+    accepted.ignored = "boundary covered elsewhere"
+    text = render_collapsed(live, accepted)
+    expect(text).to include("      - 1 mutant: 1 missing_test\n")
+    expect(text).to include("      - comparison >= -> < #{accepted.digest} (ignored: boundary covered elsewhere)\n")
+    expect(text).not_to include("2 mutants")
+  end
+
+  it "renders no collapsed finding when every mutant on the line is ignored" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    first = mutant_on(subject, at, ">")
+    second = mutant_on(subject, at, "<")
+    first.ignored = second.ignored = "boundary covered elsewhere"
+    text = render_collapsed(first, second)
+    expect(text).not_to include("0 mutants")
+    expect(text).to include("      - comparison >= -> > #{first.digest} (ignored: boundary covered elsewhere)\n")
+    expect(text).to include("      - comparison >= -> < #{second.digest} (ignored: boundary covered elsewhere)\n")
+  end
+
+  it "tags each mutant line with its label in --all-mutants mode" do
+    text = render(survivor_in("p.rb", covered_by: ["./spec/p_spec.rb[1:1]"]))
+    expect(text).to match(/- comparison >= -> > \h+ \[missing_test\]/)
+  end
+
   it "prints the hint caveat when only some survivors carry a hint" do
     ignored = survivor_in("q.rb")
     ignored.ignored = "equivalent"
@@ -95,7 +193,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
     scope = Saboteur::Engine::DiffScope.new({ subject.file => Set.new(changed) })
     report = Saboteur::Report.new(results:, subjects: [subject], wall_time: 1.0, root: File.dirname(subject.file),
                                   warnings: [], seed: 1, diff_scope: scope)
-    described_class.new(out, palette).call(report, results)
+    described_class.new(out, palette, all_mutants: true).call(report, results)
     out.string
   end
 

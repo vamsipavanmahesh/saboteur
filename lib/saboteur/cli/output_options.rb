@@ -21,6 +21,8 @@ module Saboteur
         opts.on("--[no-]color", "Colour the text report (default: on for a terminal unless NO_COLOR is set)") do |v|
           @color = v ? :always : :never
         end
+        opts.on("--all-mutants", "Text report: list every survived mutant;",
+                "default: one finding per statement, with the label mix") { set(:all_mutants, true) }
       end
     end
   end

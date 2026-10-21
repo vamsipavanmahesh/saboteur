@@ -61,14 +61,14 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     accepted.ignored = "reviewed"
     report = report_for([low, accepted, high])
     out = StringIO.new
-    Saboteur::Reporter::Terminal.new(out).call(report)
+    Saboteur::Reporter::Terminal.new(out, all_mutants: true).call(report)
     expect(out.string.index(high.digest)).to be < out.string.index(low.digest)
     expect(out.string.index(low.digest)).to be < out.string.index(accepted.digest)
     findings = Saboteur::Reporter::Stryker.build(report).dig(:saboteur, :findings)
     expect(findings[:survivors].map { |item| item[:digest] }).to eq([high.digest, low.digest])
     expect(findings[:accepted].first[:digest]).to eq(accepted.digest)
     review = StringIO.new
-    Saboteur::Reporter::Terminal.new(review).call(report_for([low, high], review: true))
+    Saboteur::Reporter::Terminal.new(review, all_mutants: true).call(report_for([low, high], review: true))
     expect(review.string.index(high.digest)).to be < review.string.index(low.digest)
   end
 
@@ -80,7 +80,7 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     last = ranked_result(subject, first: 3, tests: ["./spec/a_spec.rb[1:1]"], replacement: "last")
     report = report_for([last, middle, first])
     out = StringIO.new
-    Saboteur::Reporter::Terminal.new(out).call(report)
+    Saboteur::Reporter::Terminal.new(out, all_mutants: true).call(report)
     listed = out.string.split("Next steps:").first
     rendered = listed.scan(/(#{first.digest}|#{middle.digest}|#{last.digest})/).flatten
     expect(rendered).to eq([first.digest, middle.digest, last.digest])
