@@ -70,9 +70,12 @@ module Saboteur
         siblings(report, group)
       end
 
+      # A todo-triaged survivor stays unignored and scored, so it renders
+      # as a live block; the header names the triage like JSON and HTML do
+      # (#1074).
       def label_suffix(result, rank, total)
         label = @classifier.label(result)
-        parts = [label, "##{rank} of #{total}"].compact
+        parts = [("todo" if result.triage_state == "todo"), label, "##{rank} of #{total}"].compact
         reason = SurvivorHints.label_reason(label)
         "[#{parts.join(" \u00B7 ")}#{": #{reason}" if reason}]"
       end
