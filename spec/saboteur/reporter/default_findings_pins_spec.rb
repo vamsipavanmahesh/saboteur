@@ -211,6 +211,12 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
     expect(text).to end_with("\n\n")
   end
 
+  it "passes --all-mutants through to the top blocks" do
+    two_one_statement = [survivor("Alpha#one"), survivor("Alpha#one", replacement: "*")]
+    expect(render(two_one_statement, all_mutants: true).scan(/\n\s*\d+\. widget\.rb/).size).to eq(2)
+    expect(render(two_one_statement).scan(/\n\s*\d+\. widget\.rb/).size).to eq(1)
+  end
+
   it "prints no empty label bracket when a survivor has no classification" do
     allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
     expect(render([survivor("Beta#four")])).to include("widget.rb:6 Beta#four - 525a515e7cf66814\n")
@@ -269,7 +275,8 @@ RSpec.describe Saboteur::Reporter::DefaultFindings, "default findings pins" do
     both = ["./spec/widget_spec.rb[2:1]", "./spec/flow_spec.rb[1:1]"]
     whole = map_for(beta.subject, both)
 
-    text = render(four_survivors, whole_suite_map: whole, run_map: map_for(beta.subject, ["./spec/widget_spec.rb[2:1]"]))
+    text = render(four_survivors, whole_suite_map: whole,
+                                  run_map: map_for(beta.subject, ["./spec/widget_spec.rb[2:1]"]))
     expect(text).to include("covered by 2 specs, incl. ./spec/flow_spec.rb[1:1] (not run here)")
 
     text = render(four_survivors, whole_suite_map: whole, run_map: map_for(beta.subject, both))
@@ -351,7 +358,7 @@ RSpec.describe Saboteur::Reporter::Terminal, "default findings wiring (D1)" do
     io = StringIO.new
     described_class.new(io).call(report)
     text = io.string
-    expect(text).to include("... 1 more finding - saboteur survivors .saboteur/report.json,\n" \
+    expect(text).to include("... 1 more finding - saboteur survivors .saboteur/report.json, " \
                             "or re-run with --details")
     expect(text).to include("#3 of 4")
     expect(text).not_to include("#4 of 4")
