@@ -29,8 +29,15 @@ module Saboteur
     # todo survivor keeps counting as an unignored survivor.
     attr_accessor :triage_state, :triage_reason
 
+    # Post-run survivor confirmation (#1063): "confirmed" once the survivor's
+    # unrun covering specs had their budgeted say, "unconfirmed(reason)" when
+    # they could not; nil when confirmation never applied. Additive - the
+    # status keeps its meaning either way.
+    attr_reader :confirmation
+
     def initialize(subject:, mutation:, status:, mutated_source:, reason: nil, runtime: nil, killed_by: [],
-                   covered_by: [], kill_cause: nil, reused: false, rejected_kill: false, executed: nil)
+                   covered_by: [], kill_cause: nil, reused: false, rejected_kill: false, executed: nil,
+                   confirmation: nil)
       raise ArgumentError, "unknown status #{status.inspect}" unless STATUSES.include?(status)
 
       @subject = subject
@@ -45,10 +52,24 @@ module Saboteur
       @executed = executed
       @rejected_kill = rejected_kill
       @reused = reused
+      @confirmation = confirmation
       @ignored = nil
       # triage_state/triage_reason stay unset until the ignore list writes
       # them: the accessors read as nil before that, and there is no
       # statement for a mutation to remove (#304 dogfood).
+    end
+
+    # The same mutant with its survivor confirmation recorded (#1063); a
+    # confirmation kill flips the status and carries the confirming tests.
+    # The copy is built without @ignored/triage_state, so it must run before
+    # ignore marking (IgnoreList#apply) writes those.
+    def with_confirmation(confirmation, status: @status, reason: @reason, runtime: @runtime,
+                          killed_by: @killed_by, covered_by: @covered_by, kill_cause: @kill_cause,
+                          executed: @executed)
+      MutantResult.new(subject: subject, mutation: mutation, status: status, mutated_source: mutated_source,
+                       reason: reason, runtime: runtime, killed_by: killed_by, covered_by: covered_by,
+                       kill_cause: kill_cause, reused: reused?, rejected_kill: rejected_kill?,
+                       executed: executed, confirmation: confirmation)
     end
 
     # The same mutant, marked unverified: the budget ran out before its

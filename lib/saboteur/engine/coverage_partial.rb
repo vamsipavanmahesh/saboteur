@@ -12,12 +12,19 @@ module Saboteur
     # shadow helpers it shares (shadow_invalidation, shadow_rerun,
     # shadow_clean).
     module CoveragePartial
+      # The full opt-in predicate, factored out for survivor confirmation
+      # (#1063): partial coverage only applies to a cached, unscoped,
+      # single-part run.
+      def self.use?(config, parts)
+        config["partial_coverage"] == "use" && config["cache"] && config["tests"].empty? && parts == 1
+      end
+
       private
 
       # Same preconditions as the shadow run: a scoped or parted map is not
       # what a partial rebuild starts from.
       def partial_use?
-        @config["partial_coverage"] == "use" && @config["cache"] && @config["tests"].empty? && @parts == 1
+        CoveragePartial.use?(@config, @parts)
       end
 
       def partial_map(files, note, preloaded)
