@@ -139,7 +139,7 @@ module Saboteur
         result.triage_reason = entry.reason
         result.ignored = entry.reason if entry.state != "todo"
       end
-      stale_warnings(results, seen, unscoped_digests)
+      duplicate_warnings + stale_warnings(results, seen, unscoped_digests)
     end
 
     private
@@ -148,7 +148,20 @@ module Saboteur
       examined = results.to_set { |result| result.subject.id }
       entries.select { |entry| examined.include?(entry.subject) && !seen[[entry.subject, entry.mutation]] }
              .reject { |entry| unscoped_digests&.fetch(entry.subject, nil)&.include?(entry.mutation) }
-             .map { |entry| "stale ignore entry #{entry.subject} #{entry.mutation}: no such mutation" }
+             .map { |entry| stale_message(entry) }
+    end
+
+    # Entries naming the same (subject, mutation) more than once: the index
+    # keeps the last one, which is invisible otherwise (#1207).
+    def duplicate_warnings
+      entries.group_by { |entry| [entry.subject, entry.mutation] }
+             .reject { |_, group| group.one? }
+             .map { |(subject, mutation), _| "duplicate ignore entry #{subject} #{mutation}: the last entry wins" }
+    end
+
+    def stale_message(entry)
+      "stale ignore entry #{entry.subject} #{entry.mutation}: no such mutation " \
+        "- remove the entry or refresh its digest (saboteur survivors --show)"
     end
   end
 end

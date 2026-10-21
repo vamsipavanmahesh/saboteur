@@ -19,6 +19,40 @@ RSpec.describe Saboteur::Engine, "report wiring" do
     expect(report.shard).to be(shard)
   end
 
+  it "labels the reuse mechanism as the flag passed, and never labels a replay" do
+    engine = described_class.new(Saboteur::Config.new({ "incremental" => true }), err: StringIO.new)
+    expect(engine.send(:reuse_label)).to eq("--incremental")
+
+    resumed = described_class.new(Saboteur::Config.new({ "resume" => "state" }), err: StringIO.new)
+    expect(resumed.send(:reuse_label)).to eq("--resume")
+
+    plain = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    expect(plain.send(:reuse_label)).to be_nil
+
+    # A replay recomputes one mutant fresh: even with --incremental typed,
+    # it reuses nothing, so the note must not name a flag.
+    engine.instance_variable_set(:@replay, Object.new)
+    expect(engine.send(:reuse_label)).to be_nil
+  end
+
+  it "flows the reuse label into the report" do
+    engine = described_class.new(Saboteur::Config.new({ "incremental" => true }), err: StringIO.new)
+    report = engine.send(:build_report, [], [], nil, engine.send(:monotonic))
+    expect(report.reuse_label).to eq("--incremental")
+
+    resumed = described_class.new(Saboteur::Config.new({ "resume" => "state" }), err: StringIO.new)
+    report = resumed.send(:build_report, [], [], nil, resumed.send(:monotonic))
+    expect(report.reuse_label).to eq("--resume")
+
+    plain = described_class.new(Saboteur::Config.new({}), err: StringIO.new)
+    report = plain.send(:build_report, [], [], nil, plain.send(:monotonic))
+    expect(report.reuse_label).to be_nil
+
+    engine.instance_variable_set(:@replay, Object.new)
+    report = engine.send(:build_report, [], [], nil, engine.send(:monotonic))
+    expect(report.reuse_label).to be_nil
+  end
+
   it "flows the configured --test-command into the report (#641)" do
     config = Saboteur::Config.new({ "test_command" => "bin/rails test" })
     engine = described_class.new(config, err: StringIO.new)

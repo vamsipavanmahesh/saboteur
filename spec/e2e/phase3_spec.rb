@@ -323,7 +323,8 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       saboteur(dir, "--all", "--incremental", "--subject", "People::Person#adult?")
       File.write(support, "# helpers, edited\n")
       after_edit = saboteur(dir, "--all", "--incremental", "--subject", "People::Person#adult?")
-      expect(after_edit.out).not_to include("reused")
+      expect(after_edit.out).to include("no verdicts reused from earlier runs (--incremental)")
+      expect(after_edit.out).not_to match(/reused [1-9]\d* of/)
     end
   end
 

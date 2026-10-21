@@ -174,7 +174,7 @@ module Saboteur
                  hazard_suppressions: @diagnostics.hazard_suppressions, early_stop: @early_stop,
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
                  operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
-                 test_command: config["test_command"],
+                 test_command: config["test_command"], reuse_label: reuse_label,
                  shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {})
     end
 
@@ -370,6 +370,15 @@ module Saboteur
       ResultCache.new(path: File.join(directory, "results.json"), root: @root, inputs: verdict_inputs,
                       suite_digest: SuiteFiles.new(config).digest,
                       coverage: map, fallback_files: source_files(files))
+    end
+
+    # Which reuse mechanism is on, named as the flag the user typed, so the
+    # terminal's reuse note never cites a flag that was not passed. A replay
+    # runs one mutant fresh by design; it does not reuse, so it gets no label.
+    def reuse_label
+      return nil if @replay
+
+      config["incremental"] ? "--incremental" : ("--resume" if config["resume"])
     end
 
     def verdict_inputs

@@ -91,7 +91,8 @@ RSpec.describe Saboteur::IgnoreList do
       warnings = described_class.load(path)
                                 .apply([result_for(:survived)],
                                        unscoped_digests: { "Person#adult?" => ["ffffffffffffffff"] })
-      expect(warnings).to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation"])
+      expect(warnings).to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation " \
+                              "- remove the entry or refresh its digest (saboteur survivors --show)"])
     end
   end
 
@@ -101,7 +102,8 @@ RSpec.describe Saboteur::IgnoreList do
     with_file(entry_for("0000000000000000", reason: "r")) do |path|
       warnings = described_class.load(path)
                                 .apply([result_for(:survived)], unscoped_digests: {})
-      expect(warnings).to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation"])
+      expect(warnings).to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation " \
+                              "- remove the entry or refresh its digest (saboteur survivors --show)"])
     end
   end
 
@@ -135,7 +137,25 @@ RSpec.describe Saboteur::IgnoreList do
   it "warns about entries for examined subjects whose mutation no longer exists" do
     with_file(entry_for("0000000000000000", reason: "r")) do |path|
       expect(described_class.load(path).apply([result_for(:survived)]))
-        .to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation"])
+        .to eq(["stale ignore entry Person#adult? 0000000000000000: no such mutation " \
+                "- remove the entry or refresh its digest (saboteur survivors --show)"])
+    end
+  end
+
+  it "warns when the same mutation is ignored twice, and the last entry wins (#1207)" do
+    survivor = result_for(:survived)
+    file = <<~RUBY
+      Saboteur.ignore do |i|
+        i.mutation "#{survivor.digest}", subject: "Person#adult?", reason: "first reason"
+        i.mutation "#{survivor.digest}", subject: "Person#adult?", reason: "second reason"
+        i.mutation "deadbeefdeadbeef", subject: "Person#old?", reason: "unique entry"
+      end
+    RUBY
+    with_file(file) do |path|
+      warnings = described_class.load(path).apply([survivor])
+      expect(survivor.ignored).to eq("second reason")
+      expect(warnings)
+        .to eq(["duplicate ignore entry Person#adult? #{survivor.digest}: the last entry wins"])
     end
   end
 
