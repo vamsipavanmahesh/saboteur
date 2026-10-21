@@ -26,14 +26,16 @@ Metrics/BlockLength:
 # saboteur walks ASTs and supervises processes; short-method limits would
 # split linear logic into fragments. Keep limits, at sizes that fit that work.
 Metrics/AbcSize:
-  Max: 30
+  # RunReporting#text_run's merged reporter kwargs (D1 details: plus C1's
+  # whole-suite/run coverage maps) take it to 32.16.
+  Max: 33
 Metrics/MethodLength:
   Max: 25
 # The explain command's dispatch entry takes CLI#call to 13.
 Metrics/ModuleLength:
   # RunReporting's replay command narrows to the mutant's covering specs
-  # (#1148), one line over the default; text_run's whole-suite covering-map
-  # plumbing and its cache-off gate (review C1) take it to 107.
+  # (#1148), one line over the default; text_run's merged reporter kwargs
+  # (D1 details: onto C1's whole-suite/run maps, no new lines) hold it at 107.
   Max: 107
   # OperatorExplain carries the curated survives/kill guidance for all 37
   # registry operators; those content lines are intrinsic to the feature.

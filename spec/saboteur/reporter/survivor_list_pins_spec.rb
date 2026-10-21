@@ -524,4 +524,27 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
       expect(render([survivor])).to include("  covered by ./spec/calculator_spec.rb[2:1] ")
     end
   end
+
+  it "prints the hint caveat only for hints on survivors the limit actually showed" do
+    shown = edited(PINS_CALCULATOR, "1 + rate", "1 - rate", operator: "arithmetic", dir:)
+    hidden = edited("class K\n  def a\n    @x = 1 + 2\n    @x\n  end\nend\n", "1 + 2", "1 - 2",
+                    operator: "arithmetic", dir:, name: "k.rb")
+    allow(Saboteur::Reporter::SurvivorClassification).to receive(:label) do |result|
+      result.equal?(shown) ? "likely_equivalent" : "missing_test"
+    end
+    limited = StringIO.new
+    report = Saboteur::Report.new(results: [shown, hidden], subjects: [shown.subject, hidden.subject],
+                                  wall_time: 1.0, root: File.dirname(shown.subject.file), warnings: [],
+                                  seed: 1)
+    described_class.new(limited, plain, limit: 1).call(report, [shown, hidden])
+    expect(limited.string).to include("Survivors (2) - changes your tests did not catch")
+    expect(limited.string).not_to include("2. k.rb")
+    expect(limited.string).not_to include("Hints are suggestions")
+  end
+
+  it "prints no reason line when the survivor has no label" do
+    allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
+    expect(render([operand])).not_to match(/^ +$/)
+  end
+  end
 end

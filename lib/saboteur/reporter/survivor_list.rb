@@ -34,25 +34,30 @@ module Saboteur
       SIBLING_DIGEST_CAP = 3
 
       def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification,
-                     whole_suite_map: NO_WHOLE_SUITE_LOOKUP, run_map: nil)
+                     whole_suite_map: NO_WHOLE_SUITE_LOOKUP, run_map: nil, limit: nil)
         @out = out
         @palette = palette
         @all_mutants = all_mutants
         @classifier = classifier
         @whole_suite_map = whole_suite_map
         @run_map = run_map
+        @limit = limit
       end
 
       # Survivors in report (ranked) order; accepted ones trail as dim lines.
+      # A limit renders only the first groups as blocks - the caller names
+      # the rest itself - while the header still counts every live survivor.
       def call(report, survivors)
         return if survivors.empty?
 
         live, accepted = survivors.partition(&:unignored_survivor?)
         @out.puts @palette.paint(:head, "Survivors (#{live.size}) - changes your tests did not catch")
         block_list = groups(live)
-        block_list.each_with_index { |group, index| block(report, group, index + 1, block_list.size) }
+        total = block_list.size
+        shown = @limit ? block_list.first(@limit) : block_list
+        shown.each_with_index { |group, index| block(report, group, index + 1, total) }
         accepted_section(report, accepted)
-        hinted = live.select { |result| hint_for(result) }
+        hinted = @limit ? shown.flatten.select { |result| hint_for(result) } : live.select { |result| hint_for(result) }
         @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if hinted.any?
       end
 

@@ -11,6 +11,7 @@ require_relative "palette"
 require_relative "notice"
 require_relative "score_table"
 require_relative "speed_footer"
+require_relative "default_findings"
 require_relative "survivor_list"
 require_relative "survivor_classification"
 require_relative "test_matrix"
@@ -27,12 +28,13 @@ module Saboteur
       MAX_PASSING_TESTS = 5
 
       def initialize(out, verbose: false, quiet: false, color: :auto, overrides: nil,
-                     replay_command: nil, all_mutants: false, exit_code: nil,
+                     replay_command: nil, all_mutants: false, details: false, exit_code: nil,
                      threshold: nil, previous_score: nil, baseline_gate: nil,
                      scope: "whole project", baseline: nil, coverage: nil, mutant_phase: nil,
                      whole_suite_map: SurvivorList::NO_WHOLE_SUITE_LOOKUP, run_map: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
+        @details = details
         @verbose = verbose
         @quiet = quiet
         # Clean-screen context: scope from the CLI; PR4a plumbs the phase stats.
@@ -59,7 +61,7 @@ module Saboteur
       def call(report)
         return quiet_call(report) if @quiet
 
-        survivors(report)
+        findings(report)
         errors(report)
         skipped_subjects(report) if @verbose
         test_command_gaps(report)
@@ -592,11 +594,12 @@ module Saboteur
         @out.puts "  ... #{errored.size - MAX_ERRORS} more" if errored.size > MAX_ERRORS
       end
 
-      def survivors(report)
-        SurvivorList.new(@out, @palette, all_mutants: @all_mutants,
-                                         whole_suite_map: @whole_suite_map, run_map: @run_map)
-                    .call(report, ranked_survivors(report))
-        @out.puts unless report.survivors.empty?
+      # Default whole-project runs keep the first screen short (D1): the
+      # findings list plus the top blocks; --details or --since expands all.
+      def findings(report)
+        DefaultFindings.new(@out, @palette, all_mutants: @all_mutants, details: @details,
+                                            whole_suite_map: @whole_suite_map,
+                                            run_map: @run_map).call(report, ranked_survivors(report))
       end
 
       # Live survivors precede accepted ones; each group follows SurvivorRanking.
