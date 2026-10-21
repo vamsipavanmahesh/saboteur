@@ -90,6 +90,19 @@ RSpec.describe "finished run reporting" do
     expect(command).to include("saboteur run", "--id", "53b683c4659bb71c")
   end
 
+  it "narrows the run screen's replay command to the covering spec files (#1148)" do
+    cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+    state = Saboteur::WorkingTree::State.new(head: "a" * 40, dirty: false, changed_files: 0)
+    tree = instance_double(Saboteur::WorkingTree, state: state)
+    allow(Saboteur::WorkingTree).to receive(:new).and_return(tree)
+    engine = instance_double(Saboteur::Engine, guessed_tests: %w[spec/a_spec.rb spec/b_spec.rb])
+    survivor = result_for(:survived, covered_by: ["./spec/person_spec.rb[1:3]"])
+    command = cli.send(:survivor_replay_command, report_of(survivor), engine).call(survivor.digest)
+    words = Shellwords.split(command)
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/person_spec.rb"])
+    expect(words).not_to include("spec/a_spec.rb", "spec/b_spec.rb")
+  end
+
   [nil, "digest"].each do |digest|
     it "forwards exact engine arguments for replay #{digest.inspect}" do
       err = StringIO.new

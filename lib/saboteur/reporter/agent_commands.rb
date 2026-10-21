@@ -45,13 +45,29 @@ module Saboteur
 
           # Replay one survivor by digest in the same selection. capped: false
           # skips the protocol byte cap, for callers that print to a terminal.
-          def replay(provenance, digest, capped: true)
-            words = ["saboteur", "run", "--id", digest, *selection(provenance, replay: true), "--seed",
-                     provenance.seed.to_s]
+          # report: narrows the replay to the mutant's covering spec files
+          # instead of the run's full inferred list (#1148).
+          def replay(provenance, digest, capped: true, report: nil)
+            words = ["saboteur", "run", "--id", digest,
+                     *selection(provenance, replay: true, tests: report && covering_files(report, digest)),
+                     "--seed", provenance.seed.to_s]
             finish(words, provenance, capped: capped)
           end
 
           private
+
+          # A replay needs only the specs that cover the mutant, not every
+          # inferred file (#1148): covered_by holds RSpec ids like
+          # "./spec/fee_spec.rb[1:2]", so strip the example suffix. nil when
+          # the survivor has no covering ids - then the whole selection
+          # stays, since dropping it would widen the replay to inference.
+          def covering_files(report, digest)
+            result = report.results.find { |entry| entry.digest == digest }
+            return unless result
+
+            files = result.covered_by.filter_map { |id| id[%r{\A\.?/?(.+?\.rb)\[}, 1] }.uniq
+            files unless files.empty?
+          end
 
           def finish(words, provenance, capped: true)
             words += ["--", *provenance.sources] unless provenance.sources.empty?
@@ -93,13 +109,14 @@ module Saboteur
 
           # Whole-suite scope is a bare --all, only when no tests resolved;
           # --all never combines with --test.
-          def selection(provenance, replay: false)
+          def selection(provenance, replay: false, tests: nil)
+            tests ||= provenance.tests
             words = []
             words.push("--config", provenance.config_path) if provenance.config_path
             words.push("--since", provenance.ref) if provenance.ref
             provenance.subjects.each { |subject| words.push("--subject", subject) }
-            words << "--all" if provenance.settings[:all] && provenance.tests.empty?
-            words.push(*test_words(provenance.tests))
+            words << "--all" if provenance.settings[:all] && tests.empty?
+            words.push(*test_words(tests))
             words.concat(setting_words(provenance, replay: replay))
             words.concat(mode_words(provenance))
             words.push("--id", provenance.digest) if provenance.digest && !replay

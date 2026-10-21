@@ -123,7 +123,8 @@ module Saboteur
             steps = {}
             add_command(steps, :rerun, Commands.rerun(provenance))
             first = Findings.build(report)[:survivors].first
-            add_command(steps, :replay, Commands.replay(provenance, first[:digest])) if first
+            # report: narrows the replay to covering specs, as on the run screen (#1148).
+            add_command(steps, :replay, Commands.replay(provenance, first[:digest], report: report)) if first
             steps[:fullReport] = provenance.json_report if short_path?(provenance.json_report)
             steps
           end

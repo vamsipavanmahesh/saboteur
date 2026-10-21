@@ -6,6 +6,7 @@ require "fileutils"
 
 require_relative "../survivor_guidance"
 require_relative "survivor_classification"
+require_relative "wording"
 
 module Saboteur
   module Reporter
@@ -151,11 +152,13 @@ module Saboteur
       def headline(report)
         breakdown = report.score_breakdown
         text = "<p><strong>Covered mutation score: #{score_text(report.score)}</strong>"
-        text << " (#{breakdown.detected}/#{breakdown.tested} killed, tested subjects)" if breakdown.tested.positive?
+        if breakdown.tested.positive?
+          text << " (#{breakdown.detected}/#{breakdown.tested} #{Wording.detected_word(breakdown)}, tested subjects)"
+        end
         untested = report.skipped_subjects.count { |_, reason| reason == ScoreTable::NO_COVERAGE }
         if untested.positive?
           noun = untested == 1 ? "subject" : "subjects"
-          text << " - #{untested} #{noun} not scored - no tests exist"
+          text << " - #{untested} #{noun} not scored - #{Wording.no_execution(untested)}"
         end
         "#{text}</p>"
       end

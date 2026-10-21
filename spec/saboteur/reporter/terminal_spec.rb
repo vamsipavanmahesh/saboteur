@@ -576,6 +576,12 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).not_to include("without whole-body mutants")
   end
 
+  it "names timeouts in the score parenthetical when one is counted (#1146)" do
+    text = render(report_of(result_for(:killed), result_for(:timeout, replacement: "<")))
+    expect(text).to include("Score: 100.0% (2/2 killed or timed out, tested subjects)")
+    expect(text).not_to include("(2/2 killed,")
+  end
+
   it "leaves the split out when no kill has a recorded cause" do
     expect(verbose_render(report_of(result_for(:killed))))
       .to include("Score: 100.0% (1/1 killed, tested subjects) (killed+timeout)")

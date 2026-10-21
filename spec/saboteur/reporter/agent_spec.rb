@@ -82,6 +82,52 @@ RSpec.describe Saboteur::Reporter::Agent do
     expect(words).not_to include("--operators")
   end
 
+  it "narrows a replay to the mutant's covering spec files (#1148)" do
+    report = report_of(result_for(:survived, covered_by: ["./spec/fee_spec.rb[1:2]", "./spec/fee_spec.rb[1:5]"]))
+    digest = report.results.first.digest
+    source = provenance_with(tests: %w[spec/a_spec.rb spec/b_spec.rb spec/c_spec.rb])
+    command = described_class::Commands.replay(source, digest, capped: false, report: report)
+    words = Shellwords.split(command)
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/fee_spec.rb"])
+    expect(words.count("--test")).to eq(1)
+  end
+
+  it "keeps the run's tests when the survivor has no covering ids (#1148)" do
+    report = report_of(result_for(:survived, covered_by: []))
+    digest = report.results.first.digest
+    source = provenance_with(tests: %w[spec/a_spec.rb spec/b_spec.rb])
+    command = described_class::Commands.replay(source, digest, capped: false, report: report)
+    words = Shellwords.split(command)
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"], ["--test", "spec/b_spec.rb"])
+  end
+
+  it "never emits --all when covering files narrowed the tests (#1148)" do
+    report = report_of(result_for(:survived, covered_by: ["spec/fee_spec.rb[1:2]"]))
+    digest = report.results.first.digest
+    source = provenance_with(settings: { all: true })
+    command = described_class::Commands.replay(source, digest, capped: false, report: report)
+    words = Shellwords.split(command)
+    expect(words).not_to include("--all")
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/fee_spec.rb"])
+  end
+
+  it "picks the result matching the digest, not a neighbour (#1148)" do
+    other = result_for(:survived, replacement: "<", covered_by: ["./spec/other_spec.rb[1:1]"])
+    survivor = result_for(:survived, covered_by: ["./spec/fee_spec.rb[1:2]"])
+    report = report_of(other, survivor)
+    command = described_class::Commands.replay(provenance_with, survivor.digest, capped: false, report: report)
+    words = Shellwords.split(command)
+    expect(words.each_cons(2).to_a).to include(["--test", "spec/fee_spec.rb"])
+    expect(words).not_to include("spec/other_spec.rb")
+  end
+
+  it "keeps the run's tests when no result matches the digest (#1148)" do
+    report = report_of(result_for(:survived, covered_by: ["./spec/fee_spec.rb[1:2]"]))
+    source = provenance_with(tests: %w[spec/a_spec.rb])
+    command = described_class::Commands.replay(source, "f" * 16, capped: false, report: report)
+    expect(Shellwords.split(command).each_cons(2).to_a).to include(["--test", "spec/a_spec.rb"])
+  end
+
   it "records a whole-suite run as a bare --all so rerun and replay keep that scope" do
     source = provenance_with(ref: nil, settings: { all: true })
     commands = described_class::Commands
