@@ -71,7 +71,7 @@ explains the review order.
 
 Before any mutant runs, saboteur runs the unchanged tests twice (a cached
 coverage map does not skip this) and builds a per-test coverage map. Later
-runs reuse the map and verdicts (`--incremental`). To go faster: scope with
+runs reuse the map, and the verdicts too with `--incremental`. To go faster: scope with
 `--since origin/main` or `--test`, drop to one baseline pass with
 `--baseline-passes 1`, cap the wall clock with `--max-duration 10m`, or run
 the `saboteur pr` preset, which bundles all three.

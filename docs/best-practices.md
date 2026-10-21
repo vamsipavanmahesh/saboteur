@@ -49,8 +49,14 @@ there is no `--no-since`. If you want a PR-only config, make it a separate
 file (`--config config/saboteur_pr.rb`).
 
 `--incremental` reuses an earlier verdict while the method, its whole file,
-the mutant, its covering tests and their files, the lockfile and the config
-are unchanged. It cannot see a change in another file that the subject uses.
+the mutant, its covering tests and their files, every source those tests
+touched, the files the suite loaded at boot, the spec helpers and the
+declared data inputs (fixtures, schema dumps, database and config YAML),
+the dependency manifests and lockfile, and the verdict-relevant config are
+unchanged; adding or deleting any Ruby file also invalidates every verdict.
+What it cannot see is a non-Ruby file outside the declared set, such as a
+locale file or a template: rerun without it after touching one of those, or
+add the pattern to `fingerprint_extra`.
 Use it for local iteration, and run without it on main now and then.
 
 `--incremental` also saves verdicts while the run is going (about every 30

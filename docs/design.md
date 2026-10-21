@@ -395,16 +395,20 @@ harness problem or a runaway mutant cannot raise the score silently.
   terminal lists every survivor, grouped by file, method and line; the JSON
   report holds the same ones.
 - Incremental mode (`--incremental`, opt-in): a stored verdict (killed,
-  survived, timeout) is reused while the method source, the mutant, the set
-  of covering tests, their files' contents, every project source the
-  coverage run loaded - including helpers required lazily inside a test,
-  outside the include list - the lockfile, the verdict-relevant config and
-  the saboteur version are unchanged. When every verdict
+  survived, timeout) is reused while the method's source and its whole
+  file, the mutant, the set of covering tests, their files' contents,
+  every project source the coverage run loaded - including helpers
+  required lazily inside a test, outside the include list - the shared
+  spec helpers and boot files, the declared data inputs (fixtures, schema
+  dumps, database and config YAML), the dependency manifests and lockfile,
+  the verdict-relevant config and the saboteur version are unchanged.
+  Adding or deleting any project Ruby file also invalidates every verdict. When every verdict
   of a method is reusable, nothing forks. Watching covers Ruby sources
-  only: a change to a non-Ruby input (YAML, locales, ERB, SQL fixtures)
-  is in no fingerprint, so rerun without `--incremental` after touching
-  one - `--no-cache` only rebuilds the coverage map and still reuses the
-  old verdict. Run without `--incremental` now and then anyway (and in CI
+  and the declared data inputs: a change to any other non-Ruby file
+  outside that set (a locale file, a template) is in no fingerprint, so
+  rerun without `--incremental` after touching one, or add its pattern to
+  `fingerprint_extra` - `--no-cache` only rebuilds the coverage map and
+  still reuses the old verdict. Run without `--incremental` now and then anyway (and in CI
   on the main branch).
   Verdicts are also saved about every 30 seconds during the run, through a
   temp file renamed into place, so a run killed mid-phase keeps what it
