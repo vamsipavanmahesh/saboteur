@@ -73,11 +73,12 @@ module Saboteur
 
         # covered_by is a PLANNED covering list, not a verdict about what
         # the suite asserts: coarse (whole-body) mutants carry method-level
-        # guesses, and a --test-command run records only the pseudo-test id
-        # for every mutant, so neither reads as real coverage (#305 QA).
+        # guesses, so they never read as real coverage (#305 QA). No
+        # pseudo-id filtering is needed here: tool_limited? runs first and
+        # claims every all-pseudo survivor, so a non-empty list at this
+        # point always holds a real id (#1100).
         def possible_test_gap?(result)
-          real_coverage = result.covered_by - [Execution::ExternalRunner::PSEUDO_TEST]
-          !result.mutation.coarse && real_coverage.any?
+          !result.mutation.coarse && result.covered_by.any?
         end
 
         # Arid only when EVERY line an edit touches reads as arid: an edit
