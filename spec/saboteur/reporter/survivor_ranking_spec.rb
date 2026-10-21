@@ -63,7 +63,8 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     out = StringIO.new
     Saboteur::Reporter::Terminal.new(out, all_mutants: true).call(report)
     expect(out.string.index(high.digest)).to be < out.string.index(low.digest)
-    expect(out.string.index(low.digest)).to be < out.string.index(accepted.digest)
+    expect(out.string).to include("Accepted (1, not scored)")
+    expect(out.string.index("Accepted (")).to be > out.string.index(low.digest)
     findings = Saboteur::Reporter::Stryker.build(report).dig(:saboteur, :findings)
     expect(findings[:survivors].map { |item| item[:digest] }).to eq([high.digest, low.digest])
     expect(findings[:accepted].first[:digest]).to eq(accepted.digest)
@@ -72,7 +73,7 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     expect(review.string.index(high.digest)).to be < review.string.index(low.digest)
   end
 
-  it "preserves ranked render order when evidence groups are interleaved" do
+  it "collapses same-statement mutants into one ranked block while JSON keeps the full ranked list" do
     first = ranked_result(subject, first: 3, coarse: true, tests: ["./spec/a_spec.rb[1:1]"],
                                    replacement: "first")
     middle = ranked_result(subject, first: 3, tests: %w[./spec/b_spec.rb[1:1] ./spec/b_spec.rb[1:2]],
@@ -80,14 +81,17 @@ RSpec.describe Saboteur::Reporter::SurvivorRanking do
     last = ranked_result(subject, first: 3, tests: ["./spec/a_spec.rb[1:1]"], replacement: "last")
     report = report_for([last, middle, first])
     out = StringIO.new
-    Saboteur::Reporter::Terminal.new(out, all_mutants: true).call(report)
+    Saboteur::Reporter::Terminal.new(out).call(report)
+    ordered = described_class.ordered(report, [first, middle, last])
     listed = out.string.split("Next steps:").first
-    rendered = listed.scan(/(#{first.digest}|#{middle.digest}|#{last.digest})/).flatten
-    expect(rendered).to eq([first.digest, middle.digest, last.digest])
-    expect(out.string.scan("./spec/a_spec.rb[1:1]").size).to eq(2)
-    expect(out.string.scan("./spec/b_spec.rb[1:1]").size).to eq(1)
+    expect(listed.scan(/^\d+\. \S+:\d+ \S+#/).size).to eq(1)
+    expect(listed).to include(ordered.first.digest)
+    sibling = listed.lines.find { |line| line.include?("more mutants here") }
+    expect(sibling).to include(ordered[1].digest, ordered[2].digest)
+    expect(sibling.index(ordered[1].digest)).to be < sibling.index(ordered[2].digest)
+    expect(listed.scan("./spec/a_spec.rb[1:1]").size).to eq(1)
     findings = Saboteur::Reporter::Stryker.build(report).dig(:saboteur, :findings, :survivors)
-    expect(findings.map { |finding| finding[:digest] }).to eq(rendered)
+    expect(findings.map { |finding| finding[:digest] }).to eq(ordered.map(&:digest))
   end
 
   it "measures distance to a whole edit span, and treats missing file changes as unknown" do
