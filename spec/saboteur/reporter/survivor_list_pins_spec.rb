@@ -60,7 +60,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(render([operand])).to eq(<<~TEXT)
       Survivors (1) - changes your tests did not catch
 
-      1. calculator.rb:3 Calculator#compound [missing_test · #1 of 1: the covering specs pass without pinning this change]
+      1. calculator.rb:3 Calculator#compound [missing_test · #1 of 1 block: the covering specs pass without pinning this change]
           2 def compound(principal, rate, years)
       -   3     principal * (1 + rate)**years
       +   3     principal * years   operand_replacement · #{operand.digest}
@@ -231,7 +231,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
       text = render([result])
       expect(text).not_to include("→")
       expect(text).not_to include("Hints are suggestions")
-      expect(text).to include("[likely_equivalent · #1 of 1: compiles to the same instructions as the original]")
+      expect(text).to include("[likely_equivalent · #1 of 1 block: compiles to the same instructions as the original]")
     end
   end
 
@@ -239,6 +239,19 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     report = Saboteur::Report.new(results: [], subjects: [], wall_time: 1.0, root: dir, warnings: [], seed: 1)
     described_class.new(out, plain).call(report, [])
     expect(out.string).to eq("")
+  end
+
+  it "counts the total in blocks, not mutants, when one block covers several mutants (#1147)" do
+    source = "class K\n  def a\n    1 >= 1\n  end\nend\n"
+    first = edited(source, ">=", ">", operator: "comparison", dir:, name: "k.rb")
+    second = edited(source, ">=", "<=", operator: "comparison", dir:, name: "k.rb")
+    text = render([operand, first, second])
+
+    # 3 surviving mutants collapse to 2 printed blocks; the second block's
+    # total is 2 blocks, never 3 mutants.
+    expect(text).to include("Survivors (3)")
+    expect(text).to include("#1 of 2 blocks", "#2 of 2 blocks")
+    expect(text).not_to include("of 3")
   end
 
   it "numbers blocks across subjects and never merges same-line survivors from different subjects" do
@@ -250,7 +263,7 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
 
   it "pins the bare rank suffix when the survivor has no label" do
     allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
-    expect(render([operand])).to include("1. calculator.rb:3 Calculator#compound [#1 of 1]\n")
+    expect(render([operand])).to include("1. calculator.rb:3 Calculator#compound [#1 of 1 block]\n")
   end
 
   it "renders every row of a small method and a 10-line method with no elision" do

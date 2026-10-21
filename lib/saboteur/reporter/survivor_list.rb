@@ -39,7 +39,8 @@ module Saboteur
 
         live, accepted = survivors.partition(&:unignored_survivor?)
         @out.puts @palette.paint(:head, "Survivors (#{live.size}) - changes your tests did not catch")
-        groups(live).each_with_index { |group, index| block(report, group, index + 1, live.size) }
+        blocks = groups(live)
+        blocks.each_with_index { |group, index| block(report, group, index + 1, blocks.size) }
         accepted_section(report, accepted)
         hinted = live.select { |result| hint_for(result) }
         @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if hinted.any?
@@ -72,7 +73,10 @@ module Saboteur
 
       def label_suffix(result, rank, total)
         label = @classifier.label(result)
-        parts = [label, "##{rank} of #{total}"].compact
+        # rank counts printed blocks, so the total must too: a collapsed
+        # statement prints one block for several mutants, and "#3 of 33"
+        # mixed the units (#1147).
+        parts = [label, "##{rank} of #{total} #{total == 1 ? 'block' : 'blocks'}"].compact
         reason = SurvivorHints.label_reason(label)
         "[#{parts.join(" \u00B7 ")}#{": #{reason}" if reason}]"
       end
