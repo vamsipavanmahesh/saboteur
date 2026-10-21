@@ -27,7 +27,8 @@ RSpec.describe Saboteur::Reporter::NextSteps do
     survivor = result_for(:survived)
     text = render(report_of(survivor))
     expect(text).to include("(add this run's own --config, --since, --subject, --test and source options)",
-                            "your ignore file (c.ignore_file, default #{Saboteur::Config::IGNORE_FILE})",
+                            "accept an equivalent one: add to your ignore file",
+                            "(c.ignore_file, default #{Saboteur::Config::IGNORE_FILE}):",
                             "saboteur run --agent, with the same options")
     expect(text).not_to include("--format agent")
   end
@@ -61,7 +62,8 @@ RSpec.describe Saboteur::Reporter::NextSteps do
   it "indents each line of the footer exactly, with and without a wired replay builder" do
     survivor = result_for(:survived)
     guidance = Saboteur::SurvivorGuidance
-    ignore = ["  #{guidance::IGNORE_INTRO}\n", "    Saboteur.ignore do |i|\n",
+    ignore = ["  #{guidance::IGNORE_INTRO}\n", "    #{guidance::IGNORE_CONFIG}\n",
+              "    Saboteur.ignore do |i|\n",
               "      #{guidance.ignore_entry(survivor.digest, survivor.subject.id)}\n", "    end\n",
               "  let an agent close the gaps: saboteur run --agent, with the same options\n"]
     fallback = guidance.replay_command(survivor.digest, seed: 1)

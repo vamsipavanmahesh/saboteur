@@ -15,7 +15,8 @@ module Saboteur
       # Blocks a default run expands; the closer counts what is left out.
       TOP_BLOCKS = 3
 
-      CLOSER = "... %<more>d more %<findings>s - saboteur survivors .saboteur/report.json, or re-run with --details"
+      # Two lines: the fixed text alone is 87 columns at rest; keep it inside 80.
+      CLOSER = "... %<more>d more %<findings>s - saboteur survivors .saboteur/report.json,\nor re-run with --details"
 
       def initialize(out, palette, all_mutants: false, details: false,
                      whole_suite_map: SurvivorList::NO_WHOLE_SUITE_LOOKUP, run_map: nil)

@@ -127,7 +127,8 @@ RSpec.describe "score honesty" do
       Next steps:
         replay one survivor: saboteur run --id #{digest} --seed 7
           (add this run's own --config, --since, --subject, --test and source options)
-        accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):
+        accept an equivalent one: add to your ignore file
+          (c.ignore_file, default config/saboteur_ignore.rb):
           Saboteur.ignore do |i|
             i.mutation "#{digest}", subject: "Calculator#add", reason: "why it is equivalent"
           end
@@ -156,7 +157,8 @@ RSpec.describe "score honesty" do
       \e[1mNext steps:\e[0m
         replay one survivor: \e[36msaboteur run --id #{digest} --seed 7\e[0m
           (add this run's own --config, --since, --subject, --test and source options)
-        accept an equivalent one: add to your ignore file (c.ignore_file, default config/saboteur_ignore.rb):
+        accept an equivalent one: add to your ignore file
+          (c.ignore_file, default config/saboteur_ignore.rb):
           Saboteur.ignore do |i|
             i.mutation "#{digest}", subject: "Calculator#add", reason: "why it is equivalent"
           end

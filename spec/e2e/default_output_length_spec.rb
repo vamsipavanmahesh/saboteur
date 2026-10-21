@@ -24,7 +24,7 @@ RSpec.describe "default output length (end to end)", :e2e do
     expect(@run.out.scan(%r{^lib/widget\.rb:\d+ Widget#\w+ }).size).to eq(findings)
     expect(@run.out.scan(%r{^\d+\. lib/widget\.rb:\d+ }).size).to eq(3)
     expect(@run.out).to include("... #{findings - 3} more findings - saboteur survivors " \
-                                ".saboteur/report.json, or re-run with --details")
+                                ".saboteur/report.json,\nor re-run with --details")
   end
 
   it "expands every finding under --details, with no list and no closer" do

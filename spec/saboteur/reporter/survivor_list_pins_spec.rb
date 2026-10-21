@@ -81,10 +81,11 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(render([operand])).to eq(<<~TEXT)
       Survivors (1) - changes your tests did not catch
 
-      1. calculator.rb:3 Calculator#compound [result unchecked · #1 of 1 block: the covering specs pass without pinning this result]
+      1. calculator.rb:3 Calculator#compound [result unchecked · #1 of 1 block]
+        the covering specs pass without pinning this result
           2 def compound(principal, rate, years)
       -   3     principal * (1 + rate)**years
-      +   3     principal * years   operand_replacement · #{operand.digest}
+      +   3     principal * years   operand_replacement · b0f52efa7fd8afaa
                             ^^^^^
           4   end
         why it matters: the result no longer depends on the replaced operand
@@ -277,7 +278,8 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
       text = render([result])
       expect(text).not_to include("→")
       expect(text).not_to include("Hints are suggestions")
-      expect(text).to include("[likely_equivalent · #1 of 1 block: compiles to the same instructions as the original]")
+      expect(text).to include("[likely_equivalent · #1 of 1 block]\n  " \
+                              "compiles to the same instructions as the original")
     end
   end
 
@@ -546,5 +548,27 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
     expect(render([operand])).not_to match(/^ +$/)
   end
+
+  describe "#wrap boundaries" do
+    def wrap(text, width)
+      described_class.new(out, plain).send(:wrap, text, width)
+    end
+
+    it "keeps a word that fits the width exactly, space included" do
+      expect(wrap("aaaa bbbb", 9)).to eq("aaaa bbbb")
+    end
+
+    it "wraps when the joining space itself overflows the width" do
+      expect(wrap("aaaa bbbb", 8)).to eq("aaaa\nbbbb")
+    end
+
+    it "wraps a short word after a long line and a long word after a short line" do
+      expect(wrap("aaaaa b", 6)).to eq("aaaaa\nb")
+      expect(wrap("a bbbbb", 6)).to eq("a\nbbbbb")
+    end
+
+    it "appends to the current line across several wraps" do
+      expect(wrap("aaaa b c d", 4)).to eq("aaaa\nb c\nd")
+    end
   end
 end
