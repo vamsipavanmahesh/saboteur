@@ -15,6 +15,18 @@ RSpec.describe Saboteur::Install do
   def read(path) = File.read(File.join(@root, path))
   def install(**) = described_class.new(root: @root, **).call
 
+  def base_classes
+    %w[app/models/application_record.rb app/controllers/application_controller.rb
+       app/jobs/application_job.rb app/mailers/application_mailer.rb]
+  end
+
+  def add_base_classes(*paths)
+    paths.each do |path|
+      FileUtils.mkdir_p(File.dirname(File.join(@root, path)))
+      File.write(File.join(@root, path), "")
+    end
+  end
+
   it "creates the config, the binstub and the gitignore entry" do
     results = install
     expected = [[:created, "config/saboteur.rb"], [:created, "bin/saboteur"], [:appended, ".gitignore"]]
@@ -67,9 +79,30 @@ RSpec.describe Saboteur::Install do
     expect(read("bin/saboteur")).to eq("custom")
   end
 
+  it "excludes only the base classes the app has" do
+    add_base_classes("app/models/application_record.rb", "app/jobs/application_job.rb")
+    install
+    config = read("config/saboteur.rb")
+    expect(config).to include(%(    "app/models/application_record.rb",\n), %(    "app/jobs/application_job.rb",\n))
+    expect(config).not_to include("application_controller", "application_mailer")
+    expect(config).to include("  c.exclude = [\n", "  ]\n", "c.include = [\"app/**/*.rb\"]")
+  end
+
+  it "keeps every base-class exclude, in order, when the app has them all" do
+    add_base_classes(*base_classes)
+    install
+    expect(read("config/saboteur.rb")).to include(base_classes.map { |path| %(    "#{path}",\n) }.join)
+  end
+
+  it "writes a config that still loads when the app has no base classes at all" do
+    install
+    expect(Saboteur::Config.load(root: @root)["exclude"]).to eq([])
+  end
+
   it "overwrites with force" do
     FileUtils.mkdir_p(File.join(@root, "config"))
     File.write(File.join(@root, "config", "saboteur.rb"), "old")
+    add_base_classes(*base_classes)
     expect(install(force: true).first.status).to eq(:overwritten)
     expect(read("config/saboteur.rb")).to eq(described_class::CONFIG)
   end
@@ -115,6 +148,7 @@ RSpec.describe Saboteur::Install do
     target = File.join(@root, "outside.yml")
     File.write(target, "keep")
     File.symlink(target, File.join(@root, "config", "saboteur.rb"))
+    add_base_classes(*base_classes)
     expect(install(force: true).first.status).to eq(:overwritten)
     expect(File.symlink?(File.join(@root, "config", "saboteur.rb"))).to be(false)
     expect(File.read(target)).to eq("keep")
