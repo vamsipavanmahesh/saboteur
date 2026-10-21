@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require_relative "../reporter/palette"
+require_relative "../reporter/notice"
+
 module Saboteur
   class CLI
     # The uncommitted-work warning printed before a run (#334). Extracted
@@ -21,7 +24,10 @@ module Saboteur
                   else
                     config
                   end
-        DirtyTreeWarning.for(warning, config_path: options[:config])&.then { |text| @err.puts(text) }
+        DirtyTreeWarning.for(warning, config_path: options[:config])&.then do |text|
+          palette = Reporter::Palette.for(@err, mode: @color || :auto, overrides: warning["palette"])
+          @err.puts(Reporter::Notice.paint(palette, text))
+        end
       end
     end
   end

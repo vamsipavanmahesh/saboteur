@@ -25,7 +25,7 @@ module Saboteur
       end
 
       def usage_error(message = nil)
-        @err.puts(message) if message
+        @err.puts(Reporter::Palette.for(@err, mode: @color || :auto).paint(:fail, message)) if message
         @err.puts(USAGE)
         agent_failure(message || USAGE, EXIT_USAGE)
       end
@@ -43,7 +43,7 @@ module Saboteur
       # name must not become a workflow command in the CI log).
       def report_failure(error, exit_code)
         message = Text.display_safe_lines(error.message)
-        @err.puts("saboteur: #{message}")
+        @err.puts(Reporter::Palette.for(@err, mode: @color || :auto).paint(:fail, "saboteur: #{message}"))
         @err.puts(verdict_line(EXIT_BASELINE_RED)) if exit_code == EXIT_BASELINE_RED
         agent_failure(message, exit_code)
       end

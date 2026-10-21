@@ -56,4 +56,25 @@ RSpec.describe Saboteur::CLI::RunCommand do
     run.call
     expect(err.string.lines.grep(/deprecated/)).to match([/\Asaboteur: guess_tests = false is deprecated: /])
   end
+
+  it "paints deprecation warnings with the warn token when colour is on" do
+    run = cli("--no-guess-tests", "--color=always")
+    allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+    allow(run).to receive(:refuse_empty_source_set)
+    run.call
+    expect(err.string).to include("\e[33msaboteur: guess_tests = false is deprecated:")
+  end
+
+  it "honours the config palette override for deprecation warnings" do
+    config = instance_double(Saboteur::Config, deprecation_warnings: ["old key is deprecated"])
+    allow(config).to receive(:[]).and_return(nil)
+    allow(config).to receive(:[]).with("palette").and_return({ "warn" => ["red"] })
+    run = cli("--all", "--color=always")
+    allow(run).to receive(:warn_dirty_tree)
+    allow(run).to receive(:config).and_return(config)
+    allow(run).to receive(:execute_run).and_raise(Saboteur::Error, "stop")
+    allow(run).to receive(:refuse_empty_source_set)
+    run.call
+    expect(err.string).to include("\e[31msaboteur: old key is deprecated\e[0m")
+  end
 end

@@ -38,8 +38,9 @@ module Saboteur
       line = "saboteur: #{summary} - please report it: #{ISSUES_URL}"
       written = write_log(log_path, error)
       line = "#{line}; full backtrace: #{display_path(written)}" if written
-      err.puts(line)
-      err.puts(Reporter::Palette.for(err, mode: color).paint(:fail, VERDICT_LINE))
+      palette = Reporter::Palette.for(err, mode: color)
+      err.puts(palette.paint(:fail, line))
+      err.puts(palette.paint(:fail, VERDICT_LINE))
       err.puts(full_text(error)) if verbose
       out.print(agent_json(summary)) if agent
       EXIT_CRASH

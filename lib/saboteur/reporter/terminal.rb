@@ -7,6 +7,7 @@ require_relative "next_steps"
 require_relative "kill_causes"
 require_relative "survivor_ranking"
 require_relative "palette"
+require_relative "notice"
 require_relative "score_table"
 require_relative "survivor_list"
 require_relative "survivor_classification"
@@ -568,7 +569,7 @@ module Saboteur
       # but are not printed a second time here.
       def warnings(report)
         report.warnings.each do |warning|
-          @out.puts "warning: #{warning}" unless report.live_announced.include?(warning)
+          @out.puts Notice.paint(@palette, "warning: #{warning}") unless report.live_announced.include?(warning)
         end
       end
 

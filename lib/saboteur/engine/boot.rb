@@ -48,7 +48,8 @@ module Saboteur
         return if ::SimpleCov.singleton_class.include?(SimpleCovOff)
 
         ::SimpleCov.singleton_class.prepend(SimpleCovOff)
-        warn "saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)"
+        notice = "saboteur: SimpleCov.start ignored for this run (saboteur needs Ruby's Coverage itself)"
+        warn Saboteur::Reporter::Palette.for($stderr).paint(:warn, notice)
       end
 
       # The Rails profile when rails: true, else nil (set by load_target).
@@ -74,7 +75,8 @@ module Saboteur
         # Running outside the bundle or beside an Appraisal gemfile set
         # loads the wrong gems; say so before the spec load fails in
         # confusing ways (#598, #609). Advisory only.
-        EnvironmentHints.all(@root).each { |hint| warn "saboteur: warning: #{hint}" }
+        hints = Saboteur::Reporter::Palette.for($stderr)
+        EnvironmentHints.all(@root).each { |hint| warn hints.paint(:warn, "saboteur: warning: #{hint}") }
         integration.setup
         rails&.after_boot
         @hooks.run(:after_boot)

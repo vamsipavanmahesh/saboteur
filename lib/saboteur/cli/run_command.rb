@@ -30,7 +30,10 @@ module Saboteur
         validate_run_options
         warn_dirty_tree
 
-        config.deprecation_warnings.each { |warning| @err.puts("saboteur: #{warning}") }
+        notices = Reporter::Palette.for(@err, mode: @color || :auto, overrides: config["palette"])
+        config.deprecation_warnings.each do |warning|
+          @err.puts(Reporter::Notice.paint(notices, "saboteur: #{warning}"))
+        end
 
         return preview if options[:list_operators] || options[:dry_run]
 

@@ -17,6 +17,8 @@ RSpec.describe Saboteur::CLI::DirtyTreeNotice do
     let(:err) { StringIO.new }
     let(:config) { instance_double(Saboteur::Config) }
 
+    before { allow(config).to receive(:[]).with("palette").and_return(nil) }
+
     def cli(argv = [])
       Saboteur::CLI.new(argv, err: err).tap { |run| allow(run).to receive(:config).and_return(config) }
     end
@@ -27,6 +29,27 @@ RSpec.describe Saboteur::CLI::DirtyTreeNotice do
       cli.send(:warn_dirty_tree)
 
       expect(err.string).to eq("tree is dirty\n")
+    end
+
+    it "paints the notice with the warn token when colour is on" do
+      allow(Saboteur::DirtyTreeWarning).to receive(:for).and_return("tree is dirty")
+      run = cli
+      run.instance_variable_set(:@color, :always)
+
+      run.send(:warn_dirty_tree)
+
+      expect(err.string).to eq("\e[33mtree is dirty\e[0m\n")
+    end
+
+    it "honours the config palette override for the warn token" do
+      allow(config).to receive(:[]).with("palette").and_return({ "warn" => ["red"] })
+      allow(Saboteur::DirtyTreeWarning).to receive(:for).and_return("tree is dirty")
+      run = cli
+      run.instance_variable_set(:@color, :always)
+
+      run.send(:warn_dirty_tree)
+
+      expect(err.string).to eq("\e[31mtree is dirty\e[0m\n")
     end
 
     it "prints nothing when the tree is clean" do
@@ -49,6 +72,7 @@ RSpec.describe Saboteur::CLI::DirtyTreeNotice do
 
     it "names the configured scope, not the one the source operands imply" do
       configured = instance_double(Saboteur::Config)
+      allow(configured).to receive(:[]).with("palette").and_return(nil)
       run = cli(["lib/a.rb"])
       run.send(:options).merge!(include: ["lib/a.rb"], exclude: [], jobs: 2, config: "ci.rb")
       run.instance_variable_set(:@sources, ["lib/a.rb"])

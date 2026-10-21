@@ -56,4 +56,18 @@ RSpec.describe Saboteur::CLI::FailureOutput do
     expect(err.string).to eq("saboteur: bad x\n\\x3a:error::y\n")
     expect(JSON.parse(out.string)).to include("message" => "bad x\n\\x3a:error::y", "exitCode" => 3)
   end
+
+  it "paints the usage error message with the fail token when colour is on" do
+    run = cli("run")
+    run.instance_variable_set(:@color, :always)
+    run.send(:usage_error, "invalid option: --bogus")
+    expect(err.string).to include("\e[31;1minvalid option: --bogus\e[0m")
+  end
+
+  it "paints the failure message with the fail token when colour is on" do
+    run = cli("run")
+    run.instance_variable_set(:@color, :always)
+    run.send(:report_failure, Saboteur::Error.new("broken config"), 3)
+    expect(err.string).to include("\e[31;1msaboteur: broken config\e[0m")
+  end
 end

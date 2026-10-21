@@ -24,12 +24,14 @@ module Saboteur
         new_count = gate.new_survivor_ids.size
         return pass_line(gate) if new_count.zero?
 
-        "saboteur: #{matched_count(gate)} matched the baseline#{breakdown(gate)} " \
-          "#{@palette.glyph(:middot)} #{@palette.paint(:fail, counted(new_count, 'new survivor'))}"
+        matched = @palette.paint(:dim, "#{matched_count(gate)} matched the baseline#{breakdown(gate)}")
+        "saboteur: #{matched} #{@palette.glyph(:middot)} " \
+          "#{@palette.paint(:fail, counted(new_count, 'new survivor'))}"
       end
 
       def pass_line(gate)
-        line = "saboteur: #{matched_count(gate)} matched the baseline, no new survivors"
+        matched = @palette.paint(:dim, "#{matched_count(gate)} matched the baseline")
+        line = "saboteur: #{matched}, #{@palette.paint(:pass, 'no new survivors')}"
         current, baseline = score_pair(gate)
         line << " - score #{current} (baseline #{baseline})" if current
         line
@@ -80,13 +82,13 @@ module Saboteur
       end
 
       def pass_hint
-        @palette.paint(:dim, "re-baseline deliberately #{@palette.glyph(:middot)} " \
-                             "run without --baseline weekly to catch drift")
+        hint = "re-baseline deliberately #{@palette.glyph(:middot)} run without --baseline weekly to catch drift"
+        @palette.paint(:info, hint)
       end
 
       def fail_hint
-        "  #{@palette.paint(:dim, 're-baseline deliberately: saboteur baseline accept ' \
-                                  "#{@palette.glyph(:middot)} run full weekly")}"
+        hint = "re-baseline deliberately: saboteur baseline accept #{@palette.glyph(:middot)} run full weekly"
+        "  #{@palette.paint(:info, hint)}"
       end
     end
   end
