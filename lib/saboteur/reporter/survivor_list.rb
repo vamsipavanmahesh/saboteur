@@ -49,7 +49,9 @@ module Saboteur
           if @all_mutants
             evidence_groups(report, on_line).each { |group| evidence_group(report, path, group) }
           else
-            statement_finding(on_line)
+            live, ignored = on_line.partition { |result| result.ignored.nil? }
+            statement_finding(live) unless live.empty?
+            ignored.each { |result| mutation(result) }
           end
         end
       end

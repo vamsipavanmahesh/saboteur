@@ -140,6 +140,30 @@ RSpec.describe Saboteur::Reporter::SurvivorList do
     expect(render_collapsed(second, first)).to include("still passed")
   end
 
+  it "keeps ignored mutants out of the collapsed finding and lists them per mutant" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    live = mutant_on(subject, at, ">", covered_by: ["./spec/m_spec.rb[1:1]"])
+    accepted = mutant_on(subject, at, "<")
+    accepted.ignored = "boundary covered elsewhere"
+    text = render_collapsed(live, accepted)
+    expect(text).to include("      - 1 mutant: 1 missing_test\n")
+    expect(text).to include("      - comparison >= -> < #{accepted.digest} (ignored: boundary covered elsewhere)\n")
+    expect(text).not_to include("2 mutants")
+  end
+
+  it "renders no collapsed finding when every mutant on the line is ignored" do
+    subject = subjects_in("class K\n  def a; @x >= 1; end\nend\n", name: "m.rb").first
+    at = subject.file_source.index(">=", subject.start_byte)
+    first = mutant_on(subject, at, ">")
+    second = mutant_on(subject, at, "<")
+    first.ignored = second.ignored = "boundary covered elsewhere"
+    text = render_collapsed(first, second)
+    expect(text).not_to include("0 mutants")
+    expect(text).to include("      - comparison >= -> > #{first.digest} (ignored: boundary covered elsewhere)\n")
+    expect(text).to include("      - comparison >= -> < #{second.digest} (ignored: boundary covered elsewhere)\n")
+  end
+
   it "tags each mutant line with its label in --all-mutants mode" do
     text = render(survivor_in("p.rb", covered_by: ["./spec/p_spec.rb[1:1]"]))
     expect(text).to match(/- comparison >= -> > \h+ \[missing_test\]/)

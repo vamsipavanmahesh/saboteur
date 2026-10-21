@@ -1692,6 +1692,9 @@ i.mutation "fdc4600f4e8e8625",
   i.mutation "2791454ea1c7543d",
              subject: "Saboteur::Reporter::SurvivorList#lines",
              reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
+  i.mutation "80cf72d0082a3787",
+             subject: "Saboteur::Reporter::SurvivorList#lines",
+             reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
   i.mutation "d71f80b2e8128408",
              subject: "Saboteur::Reporter::SurvivorList#evidence_group",
              reason: "equivalent: the each block only writes to @out and its return value is discarded by the caller, so each and map print the same lines"
