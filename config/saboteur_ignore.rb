@@ -1319,8 +1319,8 @@ i.mutation "fdc4600f4e8e8625",
                      "hand-applied mutant leaves all 37 run_option_modules and " \
                      "cli_terminal_options examples green"
 
-  # output_options.rb - --agent / description swap: same shape classification.
-  i.mutation "a626070a2aa42a4b",
+  # output_options.rb:24 - --agent / description swap: same shape classification.
+  i.mutation "8ef9d6539e56f6c2",
              subject: "Saboteur::CLI::OutputOptions#define_report_destination_options",
              reason: "equivalent: OptionParser::Switch classifies string arguments by " \
                      "content, not position - swapping the --agent option name and " \

@@ -46,6 +46,9 @@ Metrics/ClassLength:
   # the PR6 clean-run screen and baseline-tail guard take it to 428; the
   # clean screen's phase lines (baseline, coverage, dots) take it to 442.
   Max: 442
+Metrics/ModuleLength:
+  # RunReporting carries the finished-run stages plus the PR12 GitHub-surface hook: 101.
+  Max: 101
 Metrics/ParameterLists:
   CountKeywordArgs: false
 

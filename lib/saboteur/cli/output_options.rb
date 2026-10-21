@@ -17,7 +17,10 @@ module Saboteur
         opts.on("--score-history PATH", "Append score history JSONL (opt-in)") { |v| set(:score_history, v) }
         opts.on("--json PATH", "Stryker JSON report path") { |v| set(:json_report, v) }
         opts.on("--html PATH", "Self-contained HTML report path") { |v| set(:html_report, v) }
-        opts.on("--format FORMAT", %w[text agent json], "text, agent or json (--dry-run inventory)") { |v| @format = v }
+        opts.on("--format FORMAT", %w[text agent json github markdown],
+                "text, agent or json (--dry-run inventory); github or markdown force the CI surfaces") do |v|
+          @format = v
+        end
         opts.on("--agent", "Same as --format agent") { @format = "agent" }
       end
 

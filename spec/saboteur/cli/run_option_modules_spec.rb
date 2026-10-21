@@ -46,7 +46,7 @@ RSpec.describe "run option modules (#334)" do
       "--score-history PATH" => "Append score history JSONL (opt-in)",
       "--json PATH" => "Stryker JSON report path",
       "--html PATH" => "Self-contained HTML report path",
-      "--format FORMAT" => "text, agent or json (--dry-run inventory)",
+      "--format FORMAT" => "text, agent or json (--dry-run inventory); github or markdown force the CI surfaces",
       "--agent" => "Same as --format agent",
       "--verbose" => "Text report: also print score split, timings and kill causes",
       "--color [MODE]" => "Colour the text report: always, never or auto (default: auto)",
@@ -140,8 +140,8 @@ RSpec.describe "run option modules parsing (#334)" do
     expect(cli.options).to eq(score_history: "h.jsonl", json_report: "r.json", html_report: "r.html")
   end
 
-  it "accepts exactly the three --format values" do
-    %w[text agent json].each do |fmt|
+  it "accepts exactly the five --format values" do
+    %w[text agent json github markdown].each do |fmt|
       expect(parse_run("--format", fmt).instance_variable_get(:@format)).to eq(fmt)
     end
     expect { parse_run("--format", "yaml") }.to raise_error(OptionParser::ParseError)

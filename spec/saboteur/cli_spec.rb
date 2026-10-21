@@ -1753,6 +1753,52 @@ RSpec.describe Saboteur::CLI, "details" do
     end
   end
 
+  # PR12: the GitHub CI surface annotates after the text report. The
+  # untested-subject warning needs no replay command, so a stubbed engine
+  # covers the whole path.
+  describe "GitHub annotations (PR12)" do
+    let(:untested_report) do
+      report_of(result_for(:killed),
+                skipped_subjects: { person_subject => Saboteur::Reporter::ScoreTable::NO_COVERAGE })
+    end
+
+    def with_github_actions(value)
+      saved = ENV.fetch("GITHUB_ACTIONS", nil)
+      value.nil? ? ENV.delete("GITHUB_ACTIONS") : ENV["GITHUB_ACTIONS"] = value
+      yield
+    ensure
+      saved.nil? ? ENV.delete("GITHUB_ACTIONS") : ENV["GITHUB_ACTIONS"] = saved
+    end
+
+    def stub_run(report)
+      allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    end
+
+    it "emits annotations after the text report when GITHUB_ACTIONS is set" do
+      stub_run(untested_report)
+      with_github_actions("true") { cli("run").call }
+      expect(out.string).to match(/mutants killed.*::warning file=person.rb,line=2,title=subject has no tests/m)
+    end
+
+    it "emits zero annotation bytes when GITHUB_ACTIONS is unset" do
+      stub_run(untested_report)
+      with_github_actions(nil) { cli("run").call }
+      expect(out.string).not_to include("::warning", "::error")
+    end
+
+    it "--format github forces the annotations without the environment" do
+      stub_run(untested_report)
+      with_github_actions(nil) { cli("run", "--format", "github").call }
+      expect(out.string).to include("::warning file=person.rb,line=2,title=subject has no tests")
+    end
+
+    it "--format markdown suppresses the annotations" do
+      stub_run(untested_report)
+      with_github_actions("true") { cli("run", "--format", "markdown").call }
+      expect(out.string).not_to include("::warning", "::error")
+    end
+  end
+
   it "prints the summary and writes the JSON report it names" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "r.json")

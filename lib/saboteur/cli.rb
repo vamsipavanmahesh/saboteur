@@ -14,6 +14,7 @@ require_relative "cli/exit_status"
 require_relative "cli/baseline_gate"
 require_relative "preview"
 require_relative "cli/run_reporting"
+require_relative "cli/github_surface"
 require_relative "cli/survivors_command"
 require_relative "cli/source_set"
 require_relative "cli/run_budget_options"
@@ -43,6 +44,7 @@ module Saboteur
     include ExitStatus
     include BaselineGate
     include RunReporting
+    include GithubSurface
     include SurvivorsCommand
     include SourceSet
     include RunBudgetOptions
