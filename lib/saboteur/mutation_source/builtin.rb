@@ -25,6 +25,8 @@ require_relative "rescue_removal"
 require_relative "ensure_removal"
 require_relative "when_removal"
 require_relative "unary_removal"
+require_relative "unary_insertion"
+require_relative "break_next_swap"
 
 module Saboteur
   module MutationSource
@@ -85,7 +87,7 @@ module Saboteur
         FilterReplacement, CopyReplacement, LiteralReplacement, ArgumentRemoval, PairRemoval, ElementRemoval,
         ChainRemoval, EndpointReplacement, RangeReplacement, OperatorAssignment, ConditionNegation, MethodSwap,
         OperandReplacement, InterpolationRemoval, RegexReplacement, ArgumentSwap, JumpValue, RescueRemoval,
-        EnsureRemoval, WhenRemoval, UnaryRemoval
+        EnsureRemoval, WhenRemoval, UnaryRemoval, UnaryInsertion, BreakNextSwap
       ].freeze
 
       def initialize(arid: DEFAULT_ARID, operators: [], exclude_operators: [])

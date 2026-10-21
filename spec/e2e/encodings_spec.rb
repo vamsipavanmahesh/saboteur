@@ -29,7 +29,13 @@ RSpec.describe "encodings and offsets (end to end)", :e2e do
       ["lib/crlf.rb", "operand_replacement", 5, 5, 10], ["lib/crlf.rb", "operand_replacement", 5, 5, 10],
       ["lib/bom.rb", "operand_replacement", 5, 5, 10], ["lib/bom.rb", "operand_replacement", 5, 5, 10],
       ["lib/multibyte.rb", "operand_replacement", 7, 21, 40], ["lib/multibyte.rb", "operand_replacement", 7, 21, 40],
-      ["lib/multibyte.rb", "operand_replacement", 7, 29, 34], ["lib/multibyte.rb", "operand_replacement", 7, 29, 34]
+      ["lib/multibyte.rb", "operand_replacement", 7, 29, 34], ["lib/multibyte.rb", "operand_replacement", 7, 29, 34],
+      # unary_insertion puts a - before each variable operand of the inner
+      # a + b calls; the insertion column is the operand's first character.
+      # The string-concatenation call in multibyte.rb emits none.
+      ["lib/crlf.rb", "unary_insertion", 5, 5, 5], ["lib/crlf.rb", "unary_insertion", 5, 9, 9],
+      ["lib/bom.rb", "unary_insertion", 5, 5, 5], ["lib/bom.rb", "unary_insertion", 5, 9, 9],
+      ["lib/multibyte.rb", "unary_insertion", 7, 29, 29], ["lib/multibyte.rb", "unary_insertion", 7, 33, 33]
     ]
   end
 

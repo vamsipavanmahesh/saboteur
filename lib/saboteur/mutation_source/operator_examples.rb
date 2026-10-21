@@ -41,6 +41,8 @@ module Saboteur
         "ensure_removal" => "begin; x; ensure; y; end -> begin; x; end",
         "when_removal" => "case x; when 1 then a; when 2 then b; end -> case x; when 2 then b; end",
         "unary_removal" => "-x -> x",
+        "unary_insertion" => "a && b -> a && !b",
+        "break_next_swap" => "break x -> next x",
         "regex_replacement" => "/\\A\\d+\\z/ -> /\\d+\\z/"
       }.freeze
     end

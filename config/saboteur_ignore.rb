@@ -2686,4 +2686,16 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Reporter::Terminal#error_part",
              reason: "equivalent: rejected > 1 -> rejected != 1 sits behind rejected.positive?, " \
                      "and for integers >= 1 the two predicates agree"
+
+  # unary_insertion.rb:85 - boolean_logic drops operand.is_a?(Prism::CallNode).
+  # insert_before only ever passes LEAVES nodes (LocalVariableReadNode,
+  # InstanceVariableReadNode, CallNode); all three respond to #name, and the
+  # non-call types' names can never be in %i[! -@ ~], so the dropped conjunct
+  # never changes the outcome. Hand-probed: every spec in
+  # unary_insertion_spec stays green with the conjunct removed.
+  i.mutation "1df0ef4a7739a0c5",
+             subject: "Saboteur::MutationSource::UnaryInsertion#unary_call?",
+             reason: "equivalent: insert_before only receives LEAVES nodes (local/ivar read or call); " \
+                     "all respond to #name and the non-call names are never in %i[! -@ ~], so the " \
+                     "dropped is_a?(CallNode) conjunct cannot change the result"
 end

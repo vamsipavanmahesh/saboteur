@@ -45,6 +45,8 @@ module Saboteur
         "ensure_removal" => "Remove an ensure clause so its cleanup is skipped",
         "when_removal" => "Remove one when branch of a case",
         "unary_removal" => "Drop a unary minus or bitwise complement",
+        "unary_insertion" => "Insert a unary operator before an operand",
+        "break_next_swap" => "Swap break and next",
         "regex_replacement" => "Drop a regex anchor or swap a regex quantifier"
       }.freeze
       POLICY_VERSION = 3
