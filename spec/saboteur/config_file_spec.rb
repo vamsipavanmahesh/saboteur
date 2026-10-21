@@ -100,6 +100,25 @@ RSpec.describe Saboteur::ConfigFile do
       .to raise_error(Saboteur::ConfigError, /saboteur\.rb:1: jobs must be an Integer, got "four"/)
   end
 
+  it "names the file, line and key for a wrong Float value" do
+    path = write_config("Saboteur.configure { |c| c.timeout_factor = \"high\" }\n")
+    expect { Saboteur::Config.load(root: @root, path: path) }
+      .to raise_error(Saboteur::ConfigError, /saboteur\.rb:1: timeout_factor must be a number, got "high"/)
+  end
+
+  it "names the file, line and key for a wrong nilable Float value" do
+    path = write_config("Saboteur.configure { |c| c.threshold = \"high\" }\n")
+    expect { Saboteur::Config.load(root: @root, path: path) }
+      .to raise_error(Saboteur::ConfigError, /saboteur\.rb:1: threshold must be a number or nil, got "high"/)
+  end
+
+  it "accepts an Integer for a Float key and nil for a nilable Float key" do
+    path = write_config("Saboteur.configure { |c| c.timeout_factor = 2; c.threshold = nil }\n")
+    config = Saboteur::Config.load(root: @root, path: path)
+    expect(config["timeout_factor"]).to eq(2.0)
+    expect(config["threshold"]).to be_nil
+  end
+
   it "hints at the load order when the file references an app constant" do
     path = write_config("Saboteur.configure { |c| c.include = MyApp::PATHS }\n")
     expect { Saboteur::Config.load(root: @root, path: path) }.to raise_error(Saboteur::ConfigError) { |error|

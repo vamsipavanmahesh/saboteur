@@ -48,6 +48,26 @@ module Saboteur
           @values[key] = value
         end
       end
+
+      Config::FLOAT_KEYS.each do |key|
+        define_method("#{key}=") do |value|
+          unless value.is_a?(Numeric)
+            line = caller_locations(1, 1).first.lineno
+            raise ConfigError, "#{line}: #{key} must be a number, got #{value.inspect}"
+          end
+          @values[key] = value
+        end
+      end
+
+      Config::NILABLE_FLOAT_KEYS.each do |key|
+        define_method("#{key}=") do |value|
+          unless value.nil? || value.is_a?(Numeric)
+            line = caller_locations(1, 1).first.lineno
+            raise ConfigError, "#{line}: #{key} must be a number or nil, got #{value.inspect}"
+          end
+          @values[key] = value
+        end
+      end
     end
 
     module_function
