@@ -10,6 +10,7 @@ RSpec.describe Saboteur::CLI::SelectionOptions, "run help" do
 
   {
     "--operators NAMES" => "Choose operator names (default: all)",
+    "--exclude-operators NAMES" => "Exclude operator names from the selected set",
     "--list-operators" => "List operator names and descriptions",
     "--dry-run" => "Preview mutants without boot, tests, forks or report writes",
     "--id DIGEST" => "Replay exactly one current mutant by its full digest",
@@ -20,6 +21,27 @@ RSpec.describe Saboteur::CLI::SelectionOptions, "run help" do
     it "describes #{switch.split.first}" do
       line = help.lines.find { |text| text.include?(switch) }
       expect(line.strip).to match(/\A#{Regexp.escape(switch)}\s+#{Regexp.escape(description)}\z/)
+    end
+  end
+
+  describe "values" do
+    def parse(*argv)
+      cli = Saboteur::CLI.new([], out: StringIO.new, err: StringIO.new)
+      parser = OptionParser.new
+      cli.send(:define_selection_options, parser)
+      parser.parse!(argv)
+      cli
+    end
+
+    it "splits --operators and --exclude-operators into name lists" do
+      cli = parse("--operators", "a,b", "--exclude-operators", "c,d")
+      expect(cli.options[:operators]).to eq(%w[a b])
+      expect(cli.options[:exclude_operators]).to eq(%w[c d])
+    end
+
+    it "collects each --subject expression in order" do
+      cli = parse("--subject", "Foo#bar", "--subject", "Baz")
+      expect(cli.options[:subjects]).to eq(["Foo#bar", "Baz"])
     end
   end
 end
