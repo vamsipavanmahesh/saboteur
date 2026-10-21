@@ -488,7 +488,7 @@ RSpec.describe Saboteur::Reporter::Html do
         page = page_for(dir, results)
         expect(page).to include('<details class="file" open><summary>a.rb (40 mutants)</summary>')
         expect(page).to include('<details class="file"><summary>b.rb (3 mutants, 1 survivor)</summary>')
-        expect(page).to include(">1 file with survivors collapsed - ", ">expand all</a>")
+        expect(page).to include(">1 file with survivors, timeouts or errors collapsed - ", ">expand all</a>")
         expect(page).to include("<a href=\"#files\" onclick=\"document.querySelectorAll('details.file')" \
                                 ".forEach(function(d){d.open=true});return false\">expand all</a></p>\n")
       end
@@ -502,7 +502,7 @@ RSpec.describe Saboteur::Reporter::Html do
         expect(page).to include('<details class="file" open><summary>f09.rb (1 mutants)</summary>')
         expect(page).to include('<details class="file"><summary>f10.rb (1 mutants, 1 survivor)</summary>')
         expect(page).to include('<details class="file"><summary>f11.rb (1 mutants, 1 survivor)</summary>')
-        expect(page).to include(">2 files with survivors collapsed - ")
+        expect(page).to include(">2 files with survivors, timeouts or errors collapsed - ")
       end
     end
 
@@ -520,7 +520,7 @@ RSpec.describe Saboteur::Reporter::Html do
         expect(page).to include('<details class="file" open><summary>g00.rb (2 mutants)</summary>')
         expect(page).to include('<details class="file"><summary>h.rb (2 mutants, 2 survivors)</summary>')
         expect(page).to include('<details class="file"><summary>a_one.rb (1 mutants, 1 survivor)</summary>')
-        expect(page).to include(">2 files with survivors collapsed - ")
+        expect(page).to include(">2 files with survivors, timeouts or errors collapsed - ")
         expect(page).to include('<details class="file"><summary>k_quiet.rb (1 mutants)</summary>')
       end
     end
@@ -554,6 +554,27 @@ RSpec.describe Saboteur::Reporter::Html do
           page = page_for(dir, results + [result_on(b, :survived, ">")])
           expect(page.include?(%(<details class="file" open><summary>b#{rows}.rb))).to eq(next_opens)
         end
+      end
+    end
+
+    it "opens a file whose mutants all timed out or errored, with no survivor in the run" do
+      Dir.mktmpdir do |dir|
+        a = write_subject(dir, "a.rb")
+        b = write_subject(dir, "b.rb")
+        page = page_for(dir, [result_on(a, :timeout, ">"), result_on(b, :error, ">")])
+        expect(page).to include('<details class="file" open><summary>a.rb (1 mutants)</summary>',
+                                '<details class="file" open><summary>b.rb (1 mutants)</summary>')
+        expect(page).not_to include("collapsed")
+      end
+    end
+
+    it "counts timeout-only files beyond the budget in the collapsed note" do
+      Dir.mktmpdir do |dir|
+        results = (0..11).map { |i| result_on(write_subject(dir, format("f%02d.rb", i)), :timeout, ">") }
+        page = page_for(dir, results)
+        expect(page).to include('<details class="file" open><summary>f00.rb (1 mutants)</summary>')
+        expect(page).to include('<details class="file"><summary>f10.rb (1 mutants)</summary>')
+        expect(page).to include(">2 files with survivors, timeouts or errors collapsed - ")
       end
     end
 
