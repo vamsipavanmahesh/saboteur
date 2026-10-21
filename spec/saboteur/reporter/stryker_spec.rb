@@ -42,7 +42,7 @@ RSpec.describe Saboteur::Reporter::Stryker do
     external = result_for(:survived, covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
     report = report_of(external, result_for(:survived, covered_by: %w[t1], replacement: "<="))
     mutants = JSON.parse(JSON.generate(described_class.build(report))).dig("files", "person.rb", "mutants")
-    expect(mutants.map { |m| m["classification"] }).to eq([nil, "missing_test"])
+    expect(mutants.map { |m| m["classification"] }).to eq(%w[tool_limit missing_test])
   end
 
   it "labels survivors with their classification, and only survivors (#192)" do

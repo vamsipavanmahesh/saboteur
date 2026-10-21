@@ -45,10 +45,10 @@ RSpec.describe Saboteur::Reporter::SurvivorClassification do
     expect(described_class.label(result)).to be_nil
   end
 
-  it "withholds missing_test from --test-command runs: the pseudo id is not real coverage (#305)" do
+  it "labels a survivor observed only by the external runner's pseudo id as tool_limit (#1071)" do
     result = survivor_for("class A\n  def adult?(age)\n    age >= 18\n  end\nend\n", from: ">=", to: ">",
                                                                                      covered_by: [Saboteur::Execution::ExternalRunner::PSEUDO_TEST])
-    expect(described_class.label(result)).to be_nil
+    expect(described_class.label(result)).to eq("tool_limit")
   end
 
   it "labels a survivor missing_test when real coverage sits next to the pseudo id (#305)" do
