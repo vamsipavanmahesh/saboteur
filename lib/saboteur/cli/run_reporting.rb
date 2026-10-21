@@ -21,7 +21,7 @@ module Saboteur
         Reporter::Terminal.new(@out, verbose: @verbose || false, quiet: @quiet || false, color: @color || :auto,
                                      overrides: config["palette"], threshold: config["threshold"],
                                      replay_command: survivor_replay_command(report, engine),
-                                     all_mutants: options[:all_mutants] || false,
+                                     all_mutants: options[:all_mutants] || false, details: options[:details] || false,
                                      exit_code: code, previous_score: previous_score,
                                      baseline_gate: (baseline_gate(report) if config["baseline"])).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]

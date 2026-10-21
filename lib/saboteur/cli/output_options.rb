@@ -42,6 +42,10 @@ module Saboteur
         end
         opts.on("--all-mutants", "Text report: list every survived mutant;",
                 "default: one finding per statement, with the label mix") { set(:all_mutants, true) }
+        # D1: the default whole-project report lists findings and expands the
+        # top three; --details restores a block for every finding.
+        opts.on("--details", "Text report: full blocks for every finding;",
+                "default: one-line list plus the top 3 blocks") { set(:details, true) }
         opts.on("--no-color", "Deprecated alias for --color=never") { @color = :never }
       end
     end

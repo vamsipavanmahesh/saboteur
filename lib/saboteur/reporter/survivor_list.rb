@@ -26,22 +26,27 @@ module Saboteur
       # Sibling digests named on the collapse line; the rest are a count.
       SIBLING_DIGEST_CAP = 3
 
-      def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification)
+      def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification, limit: nil)
         @out = out
         @palette = palette
         @all_mutants = all_mutants
         @classifier = classifier
+        @limit = limit
       end
 
       # Survivors in report (ranked) order; accepted ones trail as dim lines.
+      # A limit renders only the first groups as blocks - the caller names
+      # the rest itself - while the header still counts every live survivor.
       def call(report, survivors)
         return if survivors.empty?
 
         live, accepted = survivors.partition(&:unignored_survivor?)
         @out.puts @palette.paint(:head, "Survivors (#{live.size}) - changes your tests did not catch")
-        groups(live).each_with_index { |group, index| block(report, group, index + 1, live.size) }
+        shown = groups(live)
+        shown = shown.first(@limit) if @limit
+        shown.each_with_index { |group, index| block(report, group, index + 1, live.size) }
         accepted_section(report, accepted)
-        hinted = live.select { |result| hint_for(result) }
+        hinted = @limit ? shown.flatten.select { |result| hint_for(result) } : live.select { |result| hint_for(result) }
         @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if hinted.any?
       end
 
