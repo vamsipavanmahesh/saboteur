@@ -23,6 +23,8 @@ module Saboteur
                                      replay_command: survivor_replay_command(report, engine),
                                      all_mutants: options[:all_mutants] || false,
                                      exit_code: code, previous_score: previous_score,
+                                     whole_suite_map: engine.whole_suite_coverage_map,
+                                     run_map: engine.run_coverage_map,
                                      baseline_gate: (baseline_gate(report) if config["baseline"])).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]
         # The JSON carries the exit cause an outer harness trusts, so it is

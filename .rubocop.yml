@@ -29,6 +29,9 @@ Metrics/AbcSize:
   Max: 30
 Metrics/MethodLength:
   Max: 25
+# text_run's whole-suite covering-map plumbing (review C1) takes RunReporting to 102.
+Metrics/ModuleLength:
+  Max: 102
 Metrics/CyclomaticComplexity:
   Max: 12
 Metrics/PerceivedComplexity:
@@ -44,8 +47,9 @@ Metrics/ClassLength:
   # echo, previous-score delta) takes it to 390; the colour contract's
   # middot glyph helper takes it to 393 (#1126 and #1127 fit within it);
   # the PR6 clean-run screen and baseline-tail guard take it to 428; the
-  # clean screen's phase lines (baseline, coverage, dots) take it to 442.
-  Max: 442
+  # clean screen's phase lines (baseline, coverage, dots) take it to 442;
+  # the C1 whole-suite covering-map plumbing takes it to 447.
+  Max: 447
 Metrics/ParameterLists:
   CountKeywordArgs: false
 

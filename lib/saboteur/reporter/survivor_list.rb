@@ -17,6 +17,11 @@ module Saboteur
     # --all-mutants gives every survivor its own block. Accepted
     # (ignored) survivors get one quoted dim line each, never a block.
     class SurvivorList
+      # Default when a caller never wires the whole-suite lookup (unit pins,
+      # other renderers): keep the historical bare covered-by line. Terminal
+      # always passes the kwarg - nil there means the lookup ran and found
+      # no cached whole-suite map (review C1).
+      NO_WHOLE_SUITE_LOOKUP = Object.new
       # Rendered rows in the method fence, elision markers included.
       FENCE_CAP = 10
 
@@ -26,11 +31,14 @@ module Saboteur
       # Sibling digests named on the collapse line; the rest are a count.
       SIBLING_DIGEST_CAP = 3
 
-      def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification)
+      def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification,
+                     whole_suite_map: NO_WHOLE_SUITE_LOOKUP, run_map: nil)
         @out = out
         @palette = palette
         @all_mutants = all_mutants
         @classifier = classifier
+        @whole_suite_map = whole_suite_map
+        @run_map = run_map
       end
 
       # Survivors in report (ranked) order; accepted ones trail as dim lines.
@@ -176,14 +184,52 @@ module Saboteur
 
       # The covering tests are a group union (#502): the first names where an
       # assertion would pin the change, the count says the rest also passed.
+      #
+      # The list comes from the run's own map, which a scoped run narrows to
+      # the specs it loaded. The cached whole-suite map (when one exists)
+      # tells the rest of the story (review C1): a covering spec the run never
+      # loaded is named as not run here, and a spec pinning the mutant's exact
+      # line marks the block as likely covered elsewhere, instead of reading
+      # as a bare finding. With no whole-suite map, say so rather than
+      # implying the list is complete. A whole-project run's own map IS the
+      # whole-suite map, so its line is unchanged.
       def covered(group)
         tests = group.flat_map(&:covered_by).uniq
+        return legacy_covered(group, tests) if @whole_suite_map.equal?(NO_WHOLE_SUITE_LOOKUP)
+
+        whole = @whole_suite_map&.tests_for(group.first.subject)
+        if whole.nil?
+          @out.puts @palette.paint(:dim, "  covering tests unknown - run a full coverage build")
+          return
+        end
+
+        run_known = @run_map ? @run_map.tests_for(group.first.subject) : tests
+        not_run = whole - run_known
+        return legacy_covered(group, tests) if not_run.empty?
+
+        @out.puts "  covered by #{whole.size} #{whole.one? ? 'spec' : 'specs'}, " \
+                  "incl. #{not_run.first} (not run here)"
+        exact = exact_line_tests(group.first) - run_known
+        return if exact.empty?
+
+        @out.puts @palette.paint(:dim, "  likely covered elsewhere: #{exact.first} pins this line (not run here)")
+      end
+
+      def legacy_covered(group, tests)
         return if tests.empty?
 
         first = group.find { |result| result.covered_by.include?(tests.first) }
         @out.puts "  covered by #{tests.first} #{@palette.paint(:dim, "- #{passed_phrase(first)}")}"
         line = more_covered_line(group, tests)
         @out.puts @palette.paint(:dim, "  #{line}") if line
+      end
+
+      # Tests pinning the mutant's exact edit lines in the whole-suite map,
+      # on the same line basis the scheduler used to select the run's tests:
+      # the strongest "already pinned elsewhere" evidence a map can give.
+      def exact_line_tests(result)
+        lines = result.mutation.edits.flat_map { |edit| result.subject.coverage_lines_for(edit) }.uniq
+        @whole_suite_map.tests_for_edit(result.subject, lines)
       end
 
       # The verdict names what this run did: executed is nil when the run

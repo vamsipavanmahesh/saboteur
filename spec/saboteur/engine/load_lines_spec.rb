@@ -115,8 +115,9 @@ RSpec.describe Saboteur::Engine, "boot coverage lines" do
     store = instance_double(Saboteur::Engine::CoverageStore, reusable?: false, fetch: map)
     expect(Saboteur::Engine::CoverageStore).to receive(:new) do |config:, integration:, hooks:, load_lines:,
                                                               load_methods:, supervisor:, diagnostics:,
-                                                              timeout_cap:, parts:|
+                                                              timeout_cap:, parts:, whole_suite_run:|
       expect(parts).to eq(1)
+      expect(whole_suite_run).to be(true)
       expect(config).to equal(engine.config)
       expect(integration.test_files).to eq([])
       expect(hooks).to equal(engine.hooks)

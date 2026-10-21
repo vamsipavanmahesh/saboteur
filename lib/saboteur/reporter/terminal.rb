@@ -25,7 +25,8 @@ module Saboteur
       def initialize(out, verbose: false, quiet: false, color: :auto, overrides: nil,
                      replay_command: nil, all_mutants: false, exit_code: nil,
                      threshold: nil, previous_score: nil, baseline_gate: nil,
-                     scope: "whole project", html_report: nil, baseline: nil, coverage: nil, mutant_phase: nil)
+                     scope: "whole project", html_report: nil, baseline: nil, coverage: nil, mutant_phase: nil,
+                     whole_suite_map: SurvivorList::NO_WHOLE_SUITE_LOOKUP, run_map: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
         @verbose = verbose
@@ -36,6 +37,8 @@ module Saboteur
         @baseline = baseline
         @coverage = coverage
         @mutant_phase = mutant_phase
+        @whole_suite_map = whole_suite_map
+        @run_map = run_map
         @palette = Palette.for(out, mode: color, overrides: overrides)
         @score_table = ScoreTable.new(@out, @palette)
         @next_steps = NextSteps.new(@out, @palette, replay_command: replay_command)
@@ -596,7 +599,9 @@ module Saboteur
       end
 
       def survivors(report)
-        SurvivorList.new(@out, @palette, all_mutants: @all_mutants).call(report, ranked_survivors(report))
+        SurvivorList.new(@out, @palette, all_mutants: @all_mutants,
+                                         whole_suite_map: @whole_suite_map, run_map: @run_map)
+                    .call(report, ranked_survivors(report))
         @out.puts unless report.survivors.empty?
       end
 
