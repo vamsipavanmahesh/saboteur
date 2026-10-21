@@ -15,8 +15,100 @@ RSpec.describe Saboteur::Reporter::Html do
 
   it "is one self-contained page with no external resources" do
     expect(html).to start_with("<!DOCTYPE html>")
-    expect(html).not_to match(%r{(?:src|href)\s*=\s*["']?(?:https?:)?//}i)
-    expect(html).not_to include("<script")
+    expect(html).not_to match(/<script[^>]*\ssrc\s*=/i)
+    expect(html).not_to match(/<link\b/i)
+    expect(html).not_to match(%r{<(img|iframe|audio|video|source)[^>]*\ssrc\s*=\s*["']?(?:https?:)?//}i)
+    # The viewer UI carries one navigational link, to its own docs at
+    # https://stryker-mutator.io/docs/mutation-testing-elements/mutant-states-and-metrics
+    # Nothing loads from the network; the page works from file://.
+  end
+
+  it "embeds the vendored viewer bundle inline, byte for byte" do
+    bundle = File.binread(File.expand_path("../../../lib/saboteur/reporter/assets/mutation_report.js", __dir__))
+    expect(html.b).to include(bundle)
+  end
+
+  it "embeds the report JSON for the viewer, parseable back out identically" do
+    embedded = html[%r{<script type="application/json" id="saboteur-report-json">(.*?)</script>}m, 1]
+    expect(embedded).not_to be_nil
+    round_tripped = JSON.parse(embedded)
+    expected = JSON.parse(JSON.generate(Saboteur::Reporter::Stryker.build(report)))
+    expect(round_tripped).to eq(expected)
+  end
+
+  it "protects the JSON tag from a source string holding </script>" do
+    mutation = comparison_mutation(replacement: "x = '</script>'")
+    result = Saboteur::MutantResult.new(subject: person_subject, mutation:, status: :survived,
+                                        mutated_source: person_subject.apply(mutation.edits))
+    page = described_class.build(report_of(result))
+    expect(page).to include('\u003c/script>')
+    expect(page).not_to include("x = '</script>'")
+    expect(page.scan(%r{</script}i).size).to eq(page.scan(/<script\b/i).size)
+  end
+
+  it "wraps the score explanation in a details section" do
+    expect(html).to include("<details><summary>How the score is computed</summary>")
+  end
+
+  it "explains that the table repeats the viewer data with notes" do
+    expect(html).to include("<p class=\"note\">The viewer above and this table list the same mutants; " \
+                            "the table adds notes,\ncovering tests and triage reasons.</p>")
+  end
+
+  it "shows the viewer in dark mode by default" do
+    expect(html).to include('<mutation-test-report-app theme="dark"')
+  end
+
+  it "keeps an accepted-equivalent survivor Survived with its ignored reason in the viewer data" do
+    survivor = result_for(:survived)
+    survivor.ignored = "equivalent"
+    mutant = embedded_mutants(described_class.build(report_of(survivor))).first
+    expect(mutant.values_at("status", "statusReason")).to eq(["Survived", "ignored: equivalent"])
+  end
+
+  it "marks an uncovered subject's mutants NoCoverage in the viewer data" do
+    page = described_class.build(report_of(result_for(:skipped, reason: "no coverage")))
+    expect(embedded_mutants(page).first["status"]).to eq("NoCoverage")
+  end
+
+  it "shows the honest pair: the tested-subject score and the not-scored count" do
+    untested = subjects_in(ReportHelpers::PERSON, name: "untested.rb").first
+    page = described_class.build(report_of(result_for(:killed), skipped_subjects: { untested => "no coverage" }))
+    expect(page).to include("Covered mutation score: 100.0%</strong> (1/1 killed, tested subjects)")
+    expect(page).to include("tested subjects) - 1 subject not scored - no tests exist")
+  end
+
+  it "omits the not-scored clause when every skipped subject has another reason" do
+    untested = subjects_in(ReportHelpers::PERSON, name: "broken.rb").first
+    page = described_class.build(report_of(result_for(:killed), skipped_subjects: { untested => "parse error" }))
+    expect(page).not_to include("not scored")
+  end
+
+  it "shows no not-scored clause for a run without skipped subjects" do
+    expect(html).not_to include("not scored")
+  end
+
+  it "shows no killed fraction for a run that tested nothing" do
+    page = described_class.build(report_of)
+    expect(page).to include("Covered mutation score: n/a")
+    expect(page).not_to include("killed, tested subjects")
+  end
+
+  it "says subjects when more than one subject is not scored" do
+    pair = subjects_in("#{ReportHelpers::PERSON}\n#{ReportHelpers::PERSON.sub('Person', 'PersonTwo')}",
+                       name: "untested.rb")
+    skipped = pair.to_h { |subject| [subject, "no coverage"] }
+    page = described_class.build(report_of(result_for(:killed), skipped_subjects: skipped))
+    expect(page).to include("2 subjects not scored - no tests exist")
+  end
+
+  def visible_html(page)
+    page.gsub(%r{<script\b.*?</script>}m, "")
+  end
+
+  def embedded_mutants(page)
+    embedded = page[%r{<script type="application/json" id="saboteur-report-json">(.*?)</script>}m, 1]
+    JSON.parse(embedded).fetch("files").values.flat_map { |entry| entry.fetch("mutants") }
   end
 
   it "shows the score, the seed and a count for every status" do
@@ -28,7 +120,7 @@ RSpec.describe Saboteur::Reporter::Html do
     tests = (1..6).map { |n| "./spec/person_spec.rb[1:#{n}]" }
     page = described_class.build(report_of(result_for(:survived, covered_by: tests)))
     expect(page).to include("covered by 6 tests that passed: ./spec/person_spec.rb[1:1]", "(+1 more)")
-    expect(page).not_to include("person_spec.rb[1:6],")
+    expect(visible_html(page)).not_to include("person_spec.rb[1:6],")
   end
 
   it "says a reused survivor's tests passed in an earlier run" do
@@ -52,14 +144,14 @@ RSpec.describe Saboteur::Reporter::Html do
 
   it "adds no passing-test note to a survivor with no covering tests" do
     page = described_class.build(report_of(result_for(:survived)))
-    expect(page).not_to include("covered by")
+    expect(visible_html(page)).not_to include("covered by")
   end
 
   it "shows exactly five covering tests with no 'more' note, and six with '+1 more'" do
     five = (1..5).map { |n| "./spec/person_spec.rb[1:#{n}]" }
     exact = described_class.build(report_of(result_for(:survived, covered_by: five)))
     expect(exact).to include("covered by 5 tests that passed", "[1:5]")
-    expect(exact).not_to include("more)")
+    expect(visible_html(exact)).not_to include("more)")
     six = described_class.build(report_of(result_for(:survived, covered_by: five + ["./spec/person_spec.rb[1:6]"])))
     expect(six).to include("covered by 6 tests that passed", "[1:5] (+1 more)")
   end
@@ -71,7 +163,7 @@ RSpec.describe Saboteur::Reporter::Html do
 
   it "does not call a killed mutant's covering tests passing" do
     page = described_class.build(report_of(result_for(:killed, covered_by: ["./spec/person_spec.rb[1:1]"])))
-    expect(page).not_to include("that passed")
+    expect(visible_html(page)).not_to include("that passed")
   end
 
   it "says how much of the score came from assertions and how much from crashes" do
@@ -275,7 +367,7 @@ RSpec.describe Saboteur::Reporter::Html do
                                            result_for(:survived, replacement: "==")))
     expect(page).to include('<span class="status Killed">Killed</span>',
                             '<span class="status Survived">Survived</span>')
-    expect(page.scan("killed by").size).to eq(1)
+    expect(visible_html(page).scan("killed by").size).to eq(1)
     expect(page).not_to include('status Accepted">')
   end
 
@@ -327,7 +419,7 @@ RSpec.describe Saboteur::Reporter::Html do
     page = described_class.build(report_of(make.call("18", "19"), make.call("@age", "@other"),
                                            make.call("adult?", "adults?")))
     expect(page.scan(/column (\d+)/).flatten.map(&:to_i)).to eq(page.scan(/column (\d+)/).flatten.map(&:to_i).sort)
-    expect(page.index("adults?")).to be < page.index("@other")
+    expect(visible_html(page).index("adults?")).to be < visible_html(page).index("@other")
     expect(page.index("@other")).to be < page.index("19</pre>")
   end
 
@@ -335,7 +427,7 @@ RSpec.describe Saboteur::Reporter::Html do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "nested", "report.html")
       described_class.new(path).call(report)
-      expect(File.read(path)).to eq(html)
+      expect(File.binread(path)).to eq(html.b)
     end
   end
 
@@ -397,7 +489,9 @@ RSpec.describe Saboteur::Reporter::Html do
     end
 
     it "says nothing about changed lines outside diff mode" do
-      expect(described_class.build(report_of(result_for(:survived)))).not_to include("changed line")
+      # The location cell stays silent; the embedded JSON always describes the
+      # survivor ranking ("nearer changed lines"), so pin the cell markup.
+      expect(described_class.build(report_of(result_for(:survived)))).not_to match(/<br>changed lines?/i)
     end
   end
 
