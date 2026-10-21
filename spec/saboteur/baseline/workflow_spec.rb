@@ -267,6 +267,55 @@ RSpec.describe Saboteur::Baseline::Workflow do
     expect(err.string).to include("cover the skipped code with specs or narrow include, then propose again")
   end
 
+  it "leaves lookalike blockers and reasonless skips undecorated" do
+    file = File.join(@root, "probe.rb")
+    File.write(file, "class Probe; def value; 1; end; end")
+    subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+    mutation = Saboteur::MutationSource::Builtin.new.mutations_for(subject).first
+    result = Saboteur::MutantResult.new(subject: subject, mutation: mutation, status: :skipped, mutated_source: "1")
+    id = Saboteur::Baseline::Identity.new(subject: subject, mutation: mutation, root: @root).entry.fetch("id")
+    blockers = ["x-unexecuted:#{id}:skipped", "unexecuted:#{id}:skipped!", "unexecuted:#{id}:",
+                "unexecuted:#{id}:skipped"]
+    evidence = document.merge("proposable" => false, "blockers" => blockers)
+    report = instance_double(Saboteur::Report, run_evidence: evidence, results: [result])
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    err = StringIO.new
+    flow = described_class.new(config: config, err: err)
+    expect { flow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::Error)
+    expect(err.string.lines.grep(/blocker:/).map { |l| l.split("blocker: ", 2).last }).to eq(
+      ["x-unexecuted:#{id}:skipped\n", "unexecuted:#{id}:skipped!\n",
+       "unexecuted:#{id}:\n",
+       "unexecuted:#{id}:skipped (#{subject.id} #{mutation.operator})\n"]
+    )
+    expect(err.string).to include("cover the skipped code with specs or narrow include, then propose again")
+  end
+
+  it "refuses a missing or changed previous destination before running the engine" do
+    stub_run
+    destination = File.join(@root, "baseline.json")
+    proposal = File.join(@root, "proposal.json")
+    expect { workflow.propose(proposal: proposal, destination: destination, previous: "a" * 64) }
+      .to raise_error(Saboteur::ConfigError, "baseline previous destination changed")
+    File.write(destination, "reviewed")
+    expect { workflow.propose(proposal: proposal, destination: destination, previous: "a" * 64) }
+      .to raise_error(Saboteur::ConfigError, "baseline previous destination changed")
+    expect(Saboteur::Engine).not_to have_received(:new)
+  end
+
+  it "lists every changed input, or says verification was incomplete" do
+    change = Struct.new(:path, :reason)
+    result = Struct.new(:unchanged, :changes)
+    expect(workflow.send(:raise_unless_unchanged, result.new(true, []))).to be(true)
+    expect do
+      workflow.send(:raise_unless_unchanged,
+                    result.new(false, [change.new("a.rb", "changed"), change.new("b.rb", "missing")]))
+    end
+      .to raise_error(Saboteur::ConfigError, "baseline inputs changed or unverified: a.rb changed, b.rb missing")
+    expect { workflow.send(:raise_unless_unchanged, result.new(false, [])) }
+      .to raise_error(Saboteur::ConfigError, "baseline inputs changed or unverified: verification incomplete")
+  end
+
   it "rejects stale inputs or editable execution history before publishing" do
     stub_run
     proposal = File.join(@root, "proposal.json")

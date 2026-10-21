@@ -79,6 +79,12 @@ RSpec.describe Saboteur::Baseline::Manifest do
                                               "accepted" => [])).accepted).to be_empty
   end
 
+  it "names the accepted survivor in a blank-reason refusal" do
+    prefix = acceptance.fetch("id")[0, 16]
+    refuse(document.merge("accepted" => [acceptance.merge("reason" => " ")]),
+           "baseline: invalid reason on acceptance #{prefix} (write a non-blank reason)")
+  end
+
   it "does not equate code snapshots or subject inventories with comparison compatibility" do
     one = described_class.new(document)
     newer = document.merge("metadata" => metadata.merge("snapshot" => { "digest" => "b" * 64 }))
