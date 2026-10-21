@@ -30,6 +30,11 @@ module Saboteur
     include GatedRun
     include SelectionAnnouncement
 
+    # Confirmation only guards a partial coverage map, so it is silent unless
+    # the user opted into partial_coverage = use (#1228).
+    CONFIRMATION_SKIPPED = "survivor confirmation skipped: partial_coverage = use applies only to a cached " \
+                           "whole-suite run (no --test, one coverage part)"
+
     # Everything besides sources and tests that can change a verdict.
     VERDICT_INPUTS = %w[integration require rspec_args rails reeval sources operators exclude_operators arid
                         timeout_factor timeout_min
@@ -242,7 +247,7 @@ module Saboteur
     def confirm_survivors(results, scheduler, cache, ignore_list)
       unless CoveragePartial.use?(config, config["coverage_parts"])
         live = results.any? { |result| result.survived? && !ignore_list.accepts?(result) }
-        @diagnostics.inform("survivor confirmation skipped: inferred specs") if live
+        @diagnostics.inform(CONFIRMATION_SKIPPED) if live && config["partial_coverage"] == "use"
         return results
       end
 
