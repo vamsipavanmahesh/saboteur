@@ -79,11 +79,11 @@ tree refuses with exit 2 and points at the generator. Engine gem with
   padding the number, kills split by cause (`kills: 7 by a failed
   assertion, 1 by a crash`), and an error-dominated run prints
   `Score: n/a` instead of a number you would misread.
-- 🔍 **Survivors you can act on.** Each survivor comes with its diff, a
-  triage label (`likely_equivalent`, `arid`, `missing_test`) and its
-  covering tests - split into the tests that ran against it and the ones
-  that never did. `saboteur survivors` browses them read-only and prints
-  the exact replay command.
+- 🔍 **Survivors you can act on.** Survivors group per statement with a
+  triage label (`likely_equivalent`, `arid`, `missing_test`) and their
+  covering tests - split into the tests that ran against the mutant and
+  the ones that never did. `saboteur survivors` browses them read-only:
+  one digest shows the full diff and the exact replay command.
 - 🧪 **Flakiness contained.** `--flaky-check survivors` re-runs each new
   survivor in a reordered confirmation pass; a verdict the rerun disagrees
   with becomes `unverified` and stays out of the score. With
