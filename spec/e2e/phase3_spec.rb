@@ -28,6 +28,7 @@ RSpec.describe "saboteur run: diff mode, ignore list, exit codes", :e2e do
       run = saboteur(dir, "--since", "HEAD", "--all")
       expect(subject_lines(run)).to eq([31])
       expect(run.out).to include("4/4 mutants killed")
+      expect(run.out).to include("saboteur #{Saboteur::VERSION} · --since HEAD ·")
     end
 
     it "mutates only the changed lines of a changed method, plus its coarse mutants" do

@@ -493,6 +493,12 @@ module Saboteur
       to_h.merge("operator_policy" => operator_policy)
     end
 
+    # The run's selection in one short label, shared by the quiet start
+    # banner and the clean-run screen.
+    def scope_label
+      self["since"] ? "--since #{self['since']}" : "whole project"
+    end
+
     private
 
     def validate_operator_config!

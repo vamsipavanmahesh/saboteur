@@ -18,7 +18,8 @@ RSpec.describe "finished run reporting" do
       expect(Saboteur::Reporter::Terminal).to receive(:new)
         .with(out, verbose: verbose || false, quiet: false, color: color || :auto, overrides: {},
                    replay_command: kind_of(Proc),
-                   all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil)
+                   all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil, baseline_gate: nil,
+                   scope: "whole project")
         .and_return(terminal)
       expect(terminal).to receive(:call).with(report)
       replay_report = instance_double(Saboteur::Reporter::Replay)

@@ -21,8 +21,9 @@ module Saboteur
 
         examples = integration.all_tests.size
         coverage = full_passes == config["baseline_passes"] ? REUSED_MAP_NOTE : " + 1 coverage map build"
-        message = "running the loaded suite unscoped: #{examples} examples in #{integration.test_files.size} " \
-                  "spec files; #{full_passes} full passes (#{checks_label(config)}#{coverage})."
+        files = integration.test_files.size
+        message = "running the loaded suite unscoped: #{examples} example#{'s' unless examples == 1} in #{files} " \
+                  "spec file#{'s' unless files == 1}; #{full_passes} full passes (#{checks_label(config)}#{coverage})."
         if examples >= COSTLY_SUITE_EXAMPLES
           message += " Pass --test to run only the specs you name: faster, but a mutant of a changed method is then " \
                      "killed only by those specs, so specs elsewhere that call this code are not run. " \

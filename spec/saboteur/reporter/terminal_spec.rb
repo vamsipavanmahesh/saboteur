@@ -261,7 +261,11 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text.scan("covered by ").size).to eq(1)
     expect(text).to include("+3 more covered, all passed", "4 more mutants here:")
     expect(text).to include("(+1 more)")
-    [a, b, c, same, d].each { |result| expect(text).to include(result.digest) }
+    # The collapsed block shows the representative plus three more digests;
+    # the fifth is behind "(+1 more)" - `saboteur run --all-mutants` expands.
+    shown = [a, b, c, same, d].select { |result| text.include?(result.digest) }
+    expect(shown.size).to eq(4)
+    expect(text).to include("expand: saboteur run --all-mutants")
   end
 
   it "renders a removal edit as a -/+ pair with the deleted text gone (#502)" do

@@ -36,6 +36,12 @@ RSpec.describe Saboteur::Engine::UnscopedSuiteWarning do
     expect(text).to include("2 full passes (1 baseline check + 1 coverage map build)")
   end
 
+  it "singularizes one example and one spec file" do
+    text = warn({ "all" => true, "baseline_passes" => 1 }, full_passes: 2,
+                                                           integration: integration(examples: 1, files: 1))
+    expect(text).to include("running the loaded suite unscoped: 1 example in 1 spec file;")
+  end
+
   it "notes a reused coverage map instead of the extra build (#260)" do
     text = warn({ "all" => true, "baseline_passes" => 2 }, full_passes: 2)
     expect(text).to include("2 full passes (2 baseline checks; the cached coverage map is reused)")

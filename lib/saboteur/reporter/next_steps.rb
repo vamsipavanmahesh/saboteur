@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "../survivor_guidance"
+require_relative "survivor_ranking"
 
 module Saboteur
   module Reporter
@@ -20,7 +21,9 @@ module Saboteur
       end
 
       def call(report)
-        survivor = report.unignored_survivors.first
+        # The list's top finding leads: same review priority as the survivor
+        # list, not raw execution order.
+        survivor = SurvivorRanking.ordered(report, report.unignored_survivors).first
         return unless survivor
 
         @out.puts "\n#{@palette.paint(:head, 'Next steps:')}"

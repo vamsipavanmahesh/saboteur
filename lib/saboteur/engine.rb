@@ -303,7 +303,7 @@ module Saboteur
     # baseline's own chatter (demoted to --verbose) would start.
     def announce_quiet_start(store, files)
       @map_cached = store.reusable?(files)
-      @diagnostics.quiet_start_header(scope: config["since"] ? "--since #{config['since']}" : "whole project",
+      @diagnostics.quiet_start_header(scope: config.scope_label,
                                       seed: config["seed"], operators: config.operator_policy["effective"].size)
     end
 

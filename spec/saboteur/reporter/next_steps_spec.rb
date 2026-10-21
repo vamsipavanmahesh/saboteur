@@ -12,15 +12,15 @@ RSpec.describe Saboteur::Reporter::NextSteps do
     out.string
   end
 
-  it "names the replay command with the first live survivor's digest, the ignore file and the agent format" do
-    first = result_for(:survived)
-    second = result_for(:survived, replacement: "<=")
+  it "names the replay command with the top-ranked live survivor's digest, the ignore file and the agent format" do
+    fine = result_for(:survived)
+    coarse = result_for(:survived, replacement: "<=", coarse: true)
 
-    text = render(report_of(first, second))
+    text = render(report_of(fine, coarse))
 
-    expect(text).to include("\nNext steps:\n", "saboteur run --id #{first.digest}", "config/saboteur_ignore.rb",
+    expect(text).to include("\nNext steps:\n", "saboteur run --id #{coarse.digest}", "config/saboteur_ignore.rb",
                             "saboteur run --agent")
-    expect(text).not_to include(second.digest)
+    expect(text).not_to include(fine.digest)
   end
 
   it "labels the commands as templates: it knows neither the run's selection nor its ignore file" do

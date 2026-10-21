@@ -434,11 +434,12 @@ fence="$(awk 'BEGIN { longest = 2 } { while (match($0, /`+/)) { if (RLENGTH > lo
     echo "No mutant was scored. $uncovered had no coverage or were ignored, and $errors errored or hit a resource limit."
   else
     echo "Covered score: **$score %** = (killed + timeout) / (killed + timeout + survived), over $scored scored mutants."
-    echo "Killed $killed, timeout $timed_out, survived $survivors, survived and accepted by the ignore list $accepted."
+    echo "Killed $killed, timeout $timed_out, survived $survivors ($accepted accepted by the ignore list)."
     echo "Not scored: $uncovered with no coverage or ignored, $errors errored or hit a resource limit."
   fi
   [ "$incomplete" = "true" ] && echo && echo "**Incomplete run:** $errors mutants errored or hit a resource limit, so the score covers fewer mutants than were generated."
   if [ "$findings_count" -gt 0 ]; then
+    echo
     echo "### Surviving mutants, coarse mutants first"
     echo
     cat "$findings_file"
