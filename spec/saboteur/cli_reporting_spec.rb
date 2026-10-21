@@ -16,8 +16,8 @@ RSpec.describe "finished run reporting" do
       terminal = instance_double(Saboteur::Reporter::Terminal)
       expect(cli).to receive(:survivor_replay_command).with(report, nil).and_return(->(digest) { "replay #{digest}" })
       expect(Saboteur::Reporter::Terminal).to receive(:new)
-        .with(out, verbose: verbose || false, color: color || :auto, replay_command: kind_of(Proc), all_mutants: false,
-                   exit_code: 0, threshold: nil, previous_score: nil)
+        .with(out, verbose: verbose || false, color: color || :auto, overrides: {}, replay_command: kind_of(Proc),
+                   all_mutants: false, exit_code: 0, threshold: nil, previous_score: nil)
         .and_return(terminal)
       expect(terminal).to receive(:call).with(report)
       replay_report = instance_double(Saboteur::Reporter::Replay)
@@ -90,7 +90,7 @@ RSpec.describe "finished run reporting" do
       err = StringIO.new
       cli = Saboteur::CLI.new([], out: StringIO.new, err: err)
       cli.options[:id] = digest if digest
-      arguments = { err: err, verbose: false }
+      arguments = { err: err, verbose: false, palette: kind_of(Saboteur::Reporter::Palette) }
       arguments[:digest] = digest if digest
       report = report_of(result_for(:killed))
       engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report)

@@ -1338,13 +1338,13 @@ i.mutation "fdc4600f4e8e8625",
   # output_options.rb:21 - --[no-]color / description swap: OptionParser::Switch classifies string
   # arguments by content, not position, so the swapped call builds the identical
   # switch. Hand-applied mutant: all 24 run_option_modules examples green.
-  i.mutation "289f57b681bc8b12",
+  i.mutation "78908cef774c6a4f",
              subject: "Saboteur::CLI::OutputOptions#define_output_options",
              reason: "equivalent: OptionParser::Switch classifies string arguments by " \
-                     "content, not position - swapping the option name and " \
+                     "content, not position - swapping the --no-color option name and " \
                      "description strings builds the identical switch - " \
-                     "hand-applied mutant leaves all 24 run_option_modules " \
-                     "examples green"
+                     "hand-applied mutant leaves all 37 run_option_modules and " \
+                     "cli_terminal_options examples green"
   i.mutation "5352380af5a812e5",
              subject: "Saboteur::Reporter::Palette#initialize",
              reason: "equivalent: an empty overrides hash passes validate_overrides! " \
@@ -2675,9 +2675,8 @@ i.mutation "fdc4600f4e8e8625",
              subject: "Saboteur::Engine::SurvivorConfirmation#checked_kill",
              reason: "equivalent: .first and .last pick the same element of the one-element " \
                      "[kill] array the check is called with, so the returned result is identical"
-  # Score-honesty PR (head 048103f671d065c28765ab31ec5751cce8f64026) dogfood
-  # survivors; each per-id replay diff was inspected and proven unobservable.
-  # Until that PR lands these digests match nothing and read as stale.
+  # Score-honesty dogfood survivors (#1104, merged); each per-id replay diff
+  # was inspected and proven unobservable.
   i.mutation "66e3a0cfce46abb7",
              subject: "Saboteur::Reporter::ScoreTable#untested_subjects",
              reason: "equivalent: dropping subject.file from the sort key is unobservable - the " \

@@ -19,10 +19,10 @@ module Saboteur
         # report instead of following it.
         code = exit_code(report)
         Reporter::Terminal.new(@out, verbose: @verbose || false, color: @color || :auto,
+                                     overrides: config["palette"], threshold: config["threshold"],
                                      replay_command: survivor_replay_command(report, engine),
                                      all_mutants: options[:all_mutants] || false,
-                                     exit_code: code, threshold: config["threshold"],
-                                     previous_score: previous_score).call(report)
+                                     exit_code: code, previous_score: previous_score).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]
         # The JSON carries the exit cause an outer harness trusts, so it is
         # the completion evidence for the whole run: write it only after
@@ -57,7 +57,10 @@ module Saboteur
 
       def execute_run
         validate_history
-        arguments = { err: @err }
+        # One palette per stream: stdout and stderr detect colour on their
+        # own, so a forced terminal report still leaves piped progress plain.
+        arguments = { err: @err,
+                      palette: Reporter::Palette.for(@err, mode: @color || :auto, overrides: config["palette"]) }
         arguments[:digest] = options[:id] if options[:id]
         return agent_run(arguments) if agent?
 
@@ -146,7 +149,7 @@ module Saboteur
         return unless path
 
         tree = WorkingTree.new(config.root, ignored: config.ignored_tree_paths).state
-        scope = config.selection_settings.except(*Config::OUTPUT_KEYS)
+        scope = config.selection_settings.except(*Config::OUTPUT_KEYS, *Config::PRESENTATION_KEYS)
         # Recording is an auxiliary artifact: when the file cannot be
         # written - read-only tree inside a sandboxed child (#296) - warn
         # and let the run exit by its results instead of failing as a tool

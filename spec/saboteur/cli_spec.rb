@@ -524,13 +524,13 @@ RSpec.describe Saboteur::CLI do
     allow(Saboteur::Engine).to receive(:new)
       .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
     expect(Saboteur::Reporter::Palette).to receive(:for)
-      .with(anything, mode: :auto).and_call_original
+      .with(anything, hash_including(mode: :auto)).twice.and_call_original
     expect(cli("run").call).to eq(5)
 
     allow(Saboteur::Engine).to receive(:new)
       .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
     expect(Saboteur::Reporter::Palette).to receive(:for)
-      .with(anything, mode: :always).and_call_original
+      .with(anything, hash_including(mode: :always)).twice.and_call_original
     expect(cli("run", "--color").call).to eq(5)
   end
 
@@ -559,6 +559,29 @@ RSpec.describe Saboteur::CLI do
       .and_raise(Saboteur::Error, "baseline check 1 failed at seed 42: the suite failed: spec/a_spec.rb")
     expect(cli("run", "--agent").call).to eq(5)
     expect(JSON.parse(out.string)).to include("status" => "error", "exitCode" => 5)
+  end
+
+  it "rejects an unknown --color mode as a usage error" do
+    expect(cli("run", "--color", "bogus").call).to eq(2)
+    expect(err.string).to include("invalid argument")
+  end
+
+  it "hands c.palette overrides to the engine's stderr palette end to end" do
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil, call: report_of(result_for(:killed)))
+    seen = nil
+    allow(Saboteur::Engine).to receive(:new) do |_config, **arguments|
+      seen = arguments[:palette]
+      engine
+    end
+    Dir.mktmpdir do |dir|
+      stub_source_fixture(dir)
+      Dir.chdir(dir) do
+        FileUtils.mkdir_p("config")
+        File.write("config/saboteur.rb", "Saboteur.configure { |c| c.palette = { \"fail\" => :magenta } }\n")
+        cli("run", "--config", "config/saboteur.rb", "--color").call
+      end
+    end
+    expect(seen.paint(:fail, "S")).to eq("\e[35mS\e[0m")
   end
 
   it "paints the verdict lines red only when colour is on" do
