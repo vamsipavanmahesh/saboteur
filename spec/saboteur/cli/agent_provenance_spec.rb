@@ -140,4 +140,15 @@ RSpec.describe "Saboteur::CLI::AgentProvenance execution (#334)" do
     expect(prov.sources).to eq(["lib/foo.rb"])
     expect(prov.mode).to eq("files")
   end
+
+  it "hands the typed settings to the provenance it builds" do
+    command = run_with(empty_config, "--jobs", "2")
+    given = nil
+    allow(Saboteur::Reporter::Agent::Provenance).to receive(:new) { |**kw| given = kw }
+    report = double(seed: 7, referenced: {})
+    tree = double(head: "abc", label: "clean", changed_files: [])
+    engine = instance_double(Saboteur::Engine, guessed_tests: nil)
+    command.send(:agent_provenance, report, tree, engine)
+    expect(given).to include(typed_settings: [:jobs], seed: 7)
+  end
 end
