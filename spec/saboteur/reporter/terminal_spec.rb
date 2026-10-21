@@ -708,13 +708,45 @@ RSpec.describe Saboteur::Reporter::Terminal, "details" do
     expect(render(review_with_changes([1], result_for(:survived)))).not_to include("changed line")
   end
 
-  it "reports invalid mutations and reused verdicts only when there are some" do
+  it "reports invalid mutations when there are some; no reuse line without incremental stats" do
     quiet = render(report_of(result_for(:killed)))
-    expect(quiet).not_to include("invalid mutations", "reused")
+    expect(quiet).not_to include("invalid mutations", "reused", "incremental:")
     report = Saboteur::Report.new(results: [result_for(:killed, reused: true)], subjects: [person_subject],
                                   wall_time: 1.0, root: File.dirname(person_subject.file), invalid_mutations: 2)
-    expect(render(report)).to include("invalid mutations dropped (did not parse): 2",
-                                      "reused 1 of 1 verdicts from earlier runs")
+    text = render(report)
+    expect(text).to include("invalid mutations dropped (did not parse): 2")
+    expect(text).not_to include("incremental:")
+  end
+
+  def reuse_stats(reused:, added: 0, removed: 0, files_changed: 0, specs_changed: 0)
+    Saboteur::Engine::ResultCache::ReuseStats.new(reused:, added:, removed:, files_changed:, specs_changed:)
+  end
+
+  def reuse_report(stats, results: [result_for(:killed, reused: true)])
+    Saboteur::Report.new(results:, subjects: [person_subject], wall_time: 1.0,
+                         root: File.dirname(person_subject.file), reuse: stats)
+  end
+
+  # The middot follows the locale the same way the runtime palette does.
+  def middot = Saboteur::Reporter::Palette.for(StringIO.new, mode: :never).glyph(:middot)
+
+  it "prints the incremental reuse line with file stats and the drift note" do
+    text = render(reuse_report(reuse_stats(reused: 1, added: 5, removed: 3, files_changed: 2, specs_changed: 1)))
+    expect(text).to include("incremental: reused 1 of 1 verdicts - mutants: 2 files changed (+5 -3) " \
+                            "#{middot} tests: 1 spec changed")
+    expect(text).to include("  note: reuses verdicts for unchanged code and tests; run without --incremental weekly")
+  end
+
+  it "still prints the line with zeros when the cache covered everything" do
+    results = Array.new(3) { result_for(:killed, reused: true) }
+    text = render(reuse_report(reuse_stats(reused: 3), results:))
+    expect(text).to include("incremental: reused 3 of 3 verdicts - mutants: 0 files changed (+0 -0)")
+    expect(text).to include("tests: 0 specs changed")
+  end
+
+  it "paints the reuse lines dim when colour is on" do
+    text = render(reuse_report(reuse_stats(reused: 1)), color: :always)
+    expect(text).to match(/\e\[2m.*incremental: reused 1 of 1 verdicts/)
   end
 
   it "prints no kill line without kills, and no crash lines without crashes" do

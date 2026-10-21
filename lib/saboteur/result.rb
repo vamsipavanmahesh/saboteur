@@ -161,7 +161,7 @@ module Saboteur
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :live_announced, :root, :seed,
                 :skipped_subjects,
                 :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop, :inline_suppressions,
-                :operator_policy, :discovery_failures, :memory, :shard, :test_command, :referenced
+                :operator_policy, :discovery_failures, :memory, :shard, :test_command, :referenced, :reuse
 
     # REVIEW: diff mode; the terminal then shows one survivor per line.
     # seed: the random seed every test run started from (nil when unknown).
@@ -170,7 +170,7 @@ module Saboteur
                    seed: nil, skipped_subjects: {}, diff_scope: nil, generation_events: [], omissions: [],
                    run_evidence: nil, hazard_suppressions: 0, early_stop: nil, matrix: false, inline_suppressions: [],
                    operator_policy: nil, discovery_failures: [], memory: nil, shard: nil,
-                   test_command: nil, referenced: {})
+                   test_command: nil, referenced: {}, reuse: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -201,6 +201,9 @@ module Saboteur
       # file => specs, for files whose specs were chosen by constant reference
       # or require instead of by name (zero-setup selection).
       @referenced = referenced
+      # --incremental reuse shape (a ResultCache::ReuseStats), nil on a
+      # non-incremental run.
+      @reuse = reuse
     end
 
     # A --matrix run: every covering test ran per mutant.

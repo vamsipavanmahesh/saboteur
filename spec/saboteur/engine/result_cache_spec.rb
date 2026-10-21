@@ -638,6 +638,14 @@ RSpec.describe Saboteur::Engine::ResultCache do
       expect(within_timeout { lookups }).to include(status: :killed)
     end
 
+    it "starts empty when the file is over the size cap, and recording still works" do
+      FileUtils.mkdir_p(File.dirname(path))
+      File.open(path, "w") { |file| file.truncate(described_class::MAX_BYTES + 1) }
+
+      expect(within_timeout { lookups }).to be_nil
+      expect { cache.record(killed) }.not_to raise_error
+    end
+
     it "ignores a symlink to a valid results file" do
       stored
       real = "#{path}.real"
@@ -754,5 +762,33 @@ RSpec.describe Saboteur::Engine::ResultCache do
         expect { cache.record(killed) }.not_to raise_error
       end
     end
+  end
+
+  it "counts reused, added, removed, changed files and changed specs for the reuse stats" do
+    first = cache
+    first.record(killed)
+    first.record(result_for(:killed, replacement: "<=", killed_by: tests.first(1), covered_by: tests,
+                                     kill_cause: "assertion", runtime: 0.2))
+    first.save
+
+    second = cache
+    expect(second.lookup(person_subject, comparison_mutation, tests)).not_to be_nil
+    expect(second.lookup(person_subject, comparison_mutation(replacement: "<"), tests)).to be_nil
+    stats = second.reuse_stats
+    expect(stats.reused).to eq(1)
+    expect(stats.added).to eq(1)
+    expect(stats.removed).to eq(1)
+    expect(stats.files_changed).to eq(1)
+    expect(stats.specs_changed).to eq(0)
+
+    File.write(File.join(@root, "spec", "person_spec.rb"), "# edited\n")
+    third = cache
+    expect(third.lookup(person_subject, comparison_mutation, tests)).to be_nil
+    expect(third.reuse_stats.specs_changed).to eq(1)
+  end
+
+  it "starts empty caches at zero reuse stats" do
+    stats = cache.reuse_stats
+    expect(stats.to_h.values).to all(eq(0))
   end
 end

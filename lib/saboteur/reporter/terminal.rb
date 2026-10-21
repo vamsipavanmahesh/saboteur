@@ -5,6 +5,7 @@ require_relative "safe_out"
 require_relative "baseline_tail"
 require_relative "next_steps"
 require_relative "kill_causes"
+require_relative "reuse_summary"
 require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "score_table"
@@ -410,9 +411,7 @@ module Saboteur
 
       def details(report)
         report.skip_reasons.each { |reason, count| @out.puts skip_reason_line(reason, count) } if @verbose
-        reused = report.results.count(&:reused?)
-        @out.puts "reused #{reused} of #{report.results.size} verdicts from earlier runs (--incremental)" if
-          reused.positive?
+        ReuseSummary.new(@out, @palette).print(report) if report.reuse&.reused&.positive?
         @out.puts "invalid mutations dropped (did not parse): #{report.invalid_mutations}" if
           report.invalid_mutations.positive?
         hazard_suppressions(report)

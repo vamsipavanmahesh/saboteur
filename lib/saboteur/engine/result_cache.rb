@@ -27,6 +27,11 @@ module Saboteur
     class ResultCache
       FORMAT = 1
       MAX_BYTES = 64 * 1024 * 1024
+
+      # What a finished run reused, so the report can say how fresh the
+      # verdicts are: new and gone digests, files and specs changed since
+      # the cached verdicts were recorded.
+      ReuseStats = Struct.new(:reused, :added, :removed, :files_changed, :specs_changed, keyword_init: true)
       STORED = %i[killed survived timeout].freeze
       LOCKFILES = %w[Gemfile.lock gems.locked].freeze
       # Dependency declarations themselves, so the no-lockfile library
@@ -53,8 +58,16 @@ module Saboteur
         # empty one, which watches every fallback and child-loaded source (#197).
         @coverage = coverage || Selection::CoverageMap.new(lines: {}, tests: [])
         @fallback_files = fallback_files.map { |file| File.expand_path(file, root) }.sort
-        @entries = load
+        @entries, @previous_files = load
+        # The keys the file started with: verdicts recorded during this run
+        # must not count as added or kept for the reuse stats.
+        @stored_keys = @entries.keys
         @file_digests = {}
+        @changed_paths = []
+        @test_files = []
+        @lookups = {}
+        @miss_files = []
+        @hits = 0
         @save_interval = save_interval
         @clock = clock
         @last_saved = clock.call
@@ -63,11 +76,33 @@ module Saboteur
       # The stored verdict as a hash (status, reason, killed_by, kill_cause,
       # runtime), or nil when it may no longer hold.
       def lookup(subject, mutation, tests)
-        entry = @entries[key(subject, mutation)]
-        return nil unless entry && entry["fingerprint"] == fingerprint(subject, tests)
+        mutant_key = key(subject, mutation)
+        @lookups[subject.id] ||= []
+        @lookups[subject.id] << mutant_key
+        entry = @entries[mutant_key]
+        unless entry && entry["fingerprint"] == fingerprint(subject, tests)
+          @miss_files << subject.file
+          return nil
+        end
 
+        @hits += 1
         { status: entry["status"].to_sym, reason: entry["reason"], killed_by: entry["killed_by"],
           kill_cause: entry["kill_cause"], runtime: entry["runtime"] }
+      end
+
+      # The run's reuse shape, for the report's incremental line. +added
+      # digests the cache never saw, -removed digests stored for a looked-up
+      # subject but no longer generated; changed counts only lookup misses.
+      def reuse_stats
+        seen = @lookups.keys
+        seen_keys = @lookups.values.flatten
+        removed = @stored_keys.count do |stored|
+          subject_id = stored.rpartition(" ").first
+          seen.include?(subject_id) && !seen_keys.include?(stored)
+        end
+        ReuseStats.new(reused: @hits, added: added_digests(seen_keys), removed: removed,
+                       files_changed: @miss_files.uniq.size,
+                       specs_changed: (@changed_paths & @test_files).uniq.size)
       end
 
       def record(result)
@@ -89,7 +124,9 @@ module Saboteur
         temp = "#{@path}.#{SecureRandom.hex(8)}.tmp"
         begin
           # "wx": a planted file or symlink at the temp name is never followed.
-          File.open(temp, "wx", 0o600) { |out| out.write(JSON.generate(format: FORMAT, entries: @entries)) }
+          File.open(temp, "wx", 0o600) do |out|
+            out.write(JSON.generate(format: FORMAT, entries: @entries, files: @file_digests))
+          end
           File.rename(temp, @path)
         rescue StandardError
           FileUtils.rm_f(temp)
@@ -125,16 +162,17 @@ module Saboteur
       # read only as a regular file, never a symlink or FIFO, under a size
       # cap, and kept only when entries is a Hash of Hashes.
       def load
-        return {} unless File.lstat(@path).file?
+        return [{}, {}] unless File.lstat(@path).file?
 
         text = slurp
-        return {} unless text
+        return [{}, {}] unless text
 
         data = JSON.parse(Text.utf8_strict(text))
         entries = data["entries"] if data.is_a?(Hash) && data["format"] == FORMAT
-        well_formed?(entries) ? entries : {}
+        files = data["files"] if data.is_a?(Hash) && data["files"].is_a?(Hash)
+        [well_formed?(entries) ? entries : {}, files || {}]
       rescue SystemCallError, JSON::ParserError, ArgumentError, EncodingError
-        {}
+        [{}, {}]
       end
 
       def slurp
@@ -171,7 +209,11 @@ module Saboteur
       end
 
       def digest_tests(digest, tests)
-        tests.sort.each { |test| digest << test << "\0" << file_digest(test_file(test)) << "\0" }
+        tests.sort.each do |test|
+          file = test_file(test)
+          @test_files << file
+          digest << test << "\0" << file_digest(file) << "\0"
+        end
         dependencies(tests).each { |dep| digest << dep << "\0" << file_digest(dep) << "\0" }
         LOCKFILES.each { |name| digest << file_digest(File.join(@root, name)) << "\0" }
       end
@@ -212,7 +254,14 @@ module Saboteur
       end
 
       def file_digest(path)
-        @file_digests[path] ||= File.file?(path) ? Digest::SHA256.file(path).hexdigest : "missing"
+        current = @file_digests[path] ||= File.file?(path) ? Digest::SHA256.file(path).hexdigest : "missing"
+        previous = @previous_files[path]
+        @changed_paths << path if previous && previous != current && !@changed_paths.include?(path)
+        current
+      end
+
+      def added_digests(seen_keys)
+        seen_keys.count { |mutant_key| !@stored_keys.include?(mutant_key) }
       end
     end
   end

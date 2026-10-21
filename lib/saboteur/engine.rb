@@ -175,7 +175,8 @@ module Saboteur
                  matrix: config["matrix"], inline_suppressions: @diagnostics.inline_suppressions,
                  operator_policy: config.operator_policy, discovery_failures: @diagnostics.discovery_failures,
                  test_command: config["test_command"],
-                 shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {})
+                 shard: @shard, memory: @memory_report, referenced: @guessed_referenced || {},
+                 reuse: @reuse_stats)
     end
 
     def complete_evidence(results, subjects)
@@ -223,10 +224,17 @@ module Saboteur
       # are retained, to reduce later copying of shared pages.
       Execution::ForkReadiness.prepare_heap
       results = run_and_confirm(runnable_subjects, runnable_lists, scheduler, cache, ignore_list)
-      cache&.save
+      finalize_cache(cache)
       results
     rescue BudgetPhaseTimeout => e
       budget_phase_stop(e, subjects)
+    end
+
+    # Persist the verdict cache and keep its reuse shape for the report's
+    # incremental line.
+    def finalize_cache(cache)
+      cache&.save
+      @reuse_stats = cache&.reuse_stats
     end
 
     # The candidate run plus the opt-in post-run confirmation pass (#1063):
