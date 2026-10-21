@@ -45,8 +45,14 @@ Metrics/ClassLength:
   # middot glyph helper takes it to 393 (#1126 and #1127 fit within it);
   # the PR6 clean-run screen and baseline-tail guard take it to 428; the
   # clean screen's phase lines (baseline, coverage, dots) take it to 442;
-  # the Timeouts findings-section call takes it to 443.
-  Max: 443
+  # the Timeouts findings-section call takes it to 443; the --with-timeouts
+  # flag plumbing (#9b) takes it to 449.
+  Max: 449
+Metrics/ModuleLength:
+  # RunReporting's shared text/agent publish order fills the default; the
+  # --with-timeouts flag threading (#9b) takes it to 101.
+  Max: 101
+
 Metrics/ParameterLists:
   CountKeywordArgs: false
 

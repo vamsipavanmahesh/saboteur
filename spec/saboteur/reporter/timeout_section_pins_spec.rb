@@ -97,4 +97,11 @@ RSpec.describe Saboteur::Reporter::TimeoutList, "the Timeouts findings section" 
     expect(text).to include("Score: 66.7% (2/3 killed, tested subjects)")
     expect(text).to include("\nsaboteur: 1 killed, 1 survived, 1 timeout in 1s - score 66.7%\n")
   end
+
+  it "falls back to the operator-only form when the deadline capture is malformed" do
+    odd = timeout_result("class Cart\n  def total\n    @items.sum.round(2)\n  end\nend\n",
+                         name: "cart.rb", from: ".round(2)", to: "", operator: "operand_replacement",
+                         reason: "exceeded 2.0.1 s")
+    expect(render([odd])).to include("Timeouts (1):\n  cart.rb:3 Cart#total (operand_replacement)\n")
+  end
 end

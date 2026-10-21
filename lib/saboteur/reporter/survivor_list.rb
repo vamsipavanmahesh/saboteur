@@ -26,11 +26,12 @@ module Saboteur
       # Sibling digests named on the collapse line; the rest are a count.
       SIBLING_DIGEST_CAP = 3
 
-      def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification)
+      def initialize(out, palette, all_mutants: false, classifier: SurvivorClassification, replay_command: nil)
         @out = out
         @palette = palette
         @all_mutants = all_mutants
         @classifier = classifier
+        @replay_command = replay_command
       end
 
       # Survivors in report (ranked) order; accepted ones trail as dim lines.
@@ -45,6 +46,23 @@ module Saboteur
         @out.puts "\n#{@palette.paint(:dim, SurvivorHints::CAVEAT)}" if hinted.any?
       end
 
+      # --with-timeouts (#9b): each timeout as a full finding block through
+      # the same renderer as a survivor - the [timeout] marker and the
+      # closing replay command are the only differences - ordered by file
+      # path then line like the tally it replaces. One group header names
+      # the section, or a mixed run shows two block numberings restarting
+      # at 1 with nothing telling them apart (C5).
+      def timeouts(report)
+        timed_out = report.results.select { |result| result.status == :timeout }
+        return if timed_out.empty?
+
+        ordered = timed_out.sort_by { |result| [relative(result.subject.file, report.root), MutationText.line(result)] }
+        # No leading blank of our own: the survivors section already ends
+        # with one, and with no survivors this section opens the output.
+        @out.puts @palette.paint(:warn, "Timeouts (#{ordered.size}):")
+        ordered.each_with_index { |result, index| timeout_block(report, result, index + 1, ordered.size) }
+      end
+
       private
 
       # Statement + status is the group key: every survivor here survived.
@@ -56,18 +74,37 @@ module Saboteur
         live.group_by { |result| [result.subject.id, MutationText.line(result)] }.values
       end
 
-      def block(report, group, rank, total)
+      def block(report, group, rank, total, marker: nil)
         first = group.first
         line = MutationText.line(first)
         path = relative(first.subject.file, report.root)
-        @out.puts "\n#{@palette.paint(:head, "#{rank}. #{path}:#{line}")} #{first.subject.id} " \
-                  "#{@palette.paint(:dim, label_suffix(first, rank, total))}".rstrip
+        suffix = if marker
+                   @palette.paint(:warn, "[#{marker}]")
+                 else
+                   @palette.paint(:dim, label_suffix(first, rank, total))
+                 end
+        @out.puts "\n#{@palette.paint(:head, "#{rank}. #{path}:#{line}")} #{first.subject.id} #{suffix}".rstrip
         fence(first, line)
         @out.puts "  #{@palette.paint(:dim, "why it matters: #{why(first.mutation.operator)}")}"
         changed_lines(report, path, first)
         covered(group)
         hint_line(first)
         siblings(report, group)
+      end
+
+      # A timeout block closes with its paste-able replay command (#9b):
+      # the full command from the CLI when wired, the digest form otherwise.
+      def timeout_block(report, result, rank, total)
+        block(report, [result], rank, total, marker: "timeout")
+        @out.puts "  replay this timeout: #{@palette.paint(:info, replay_text(report, result))}"
+      end
+
+      def replay_text(report, result)
+        command = @replay_command&.call(result.digest)
+        return command if command
+
+        seed = " --seed #{report.seed}" if report.seed
+        "saboteur run --id #{result.digest}#{seed}"
       end
 
       def label_suffix(result, rank, total)

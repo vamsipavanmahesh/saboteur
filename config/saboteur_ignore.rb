@@ -1328,11 +1328,11 @@ i.mutation "fdc4600f4e8e8625",
                      "hand-applied mutant leaves all 37 run_option_modules and " \
                      "cli_terminal_options examples green"
 
-  # output_options.rb - --no-color / description swap: OptionParser::Switch classifies string
+  # output_options.rb:47 - --no-color / description swap: OptionParser::Switch classifies string
   # arguments by content, not position, so the swapped call builds the identical
   # switch. Hand-applied mutant: all 37 run_option_modules and cli_terminal_options
   # examples green.
-  i.mutation "168af4997d68752b",
+  i.mutation "085092fcabc82282",
              subject: "Saboteur::CLI::OutputOptions#define_text_report_options",
              reason: "equivalent: OptionParser::Switch classifies string arguments by " \
                      "content, not position - swapping the --no-color option name and " \

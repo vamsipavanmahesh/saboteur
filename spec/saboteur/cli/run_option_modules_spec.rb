@@ -52,12 +52,14 @@ RSpec.describe "run option modules (#334)" do
       "--color [MODE]" => "Colour the text report: always, never or auto (default: auto)",
       "--no-color" => "Deprecated alias for --color=never",
       "--all-mutants" => "Text report: list every survived mutant;",
+      "--with-timeouts" => "Text report: render each timeout as a full finding block;",
       "--quiet" => "Text report: print only the findings and the verdict"
     }.each do |flag, help|
       expect(text).to match(/#{Regexp.escape(flag)}\s+#{Regexp.escape(help)}/), "no help text after #{flag}"
     end
 
     expect(text).to include("default: one finding per statement, with the label mix")
+    expect(text).to include("default: one tally line per timeout")
     expect(text).to include("no effect with --format json/agent; ignores --all-mutants")
   end
 

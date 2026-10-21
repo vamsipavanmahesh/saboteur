@@ -40,9 +40,18 @@ module Saboteur
       # reason ("exceeded 6.52 s"), so the deadline is never hardcoded here.
       def timeout_detail(result)
         match = result.reason&.match(/exceeded ([\d.]+) s/)
-        return "(#{result.mutation.operator})" unless match
+        deadline = match && deadline_seconds(match[1])
+        return "(#{result.mutation.operator})" unless deadline
 
-        "(#{result.mutation.operator}, deadline #{format('%g', Float(match[1]))}s)"
+        "(#{result.mutation.operator}, deadline #{format('%g', deadline)}s)"
+      end
+
+      # A malformed capture ("exceeded 2.0.1 s") falls back to the
+      # operator-only form rather than raising the report away.
+      def deadline_seconds(capture)
+        Float(capture)
+      rescue ArgumentError
+        nil
       end
     end
   end

@@ -24,11 +24,13 @@ module Saboteur
       MAX_PASSING_TESTS = 5
 
       def initialize(out, verbose: false, quiet: false, color: :auto, overrides: nil,
-                     replay_command: nil, all_mutants: false, exit_code: nil,
+                     replay_command: nil, all_mutants: false, with_timeouts: false, exit_code: nil,
                      threshold: nil, previous_score: nil, baseline_gate: nil,
                      scope: "whole project", html_report: nil, baseline: nil, coverage: nil, mutant_phase: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
+        @with_timeouts = with_timeouts
+        @replay_command = replay_command
         @verbose = verbose
         @quiet = quiet
         # Clean-screen context: scope and report path from the CLI; PR4a plumbs the phase stats.
@@ -55,7 +57,7 @@ module Saboteur
         return quiet_call(report) if @quiet
 
         survivors(report)
-        TimeoutList.new(@out, @palette).call(report)
+        timeouts(report)
         errors(report)
         skipped_subjects(report) if @verbose
         test_command_gaps(report)
@@ -600,6 +602,14 @@ module Saboteur
       def survivors(report)
         SurvivorList.new(@out, @palette, all_mutants: @all_mutants).call(report, ranked_survivors(report))
         @out.puts unless report.survivors.empty?
+      end
+
+      # --with-timeouts (#9b) swaps the tally for full finding blocks: a
+      # timeout can hide a survivor that never ran to completion.
+      def timeouts(report)
+        return TimeoutList.new(@out, @palette).call(report) unless @with_timeouts
+
+        SurvivorList.new(@out, @palette, replay_command: @replay_command).timeouts(report)
       end
 
       # Live survivors precede accepted ones; each group follows SurvivorRanking.

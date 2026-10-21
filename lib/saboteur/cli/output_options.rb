@@ -42,6 +42,8 @@ module Saboteur
         end
         opts.on("--all-mutants", "Text report: list every survived mutant;",
                 "default: one finding per statement, with the label mix") { set(:all_mutants, true) }
+        opts.on("--with-timeouts", "Text report: render each timeout as a full finding block;",
+                "default: one tally line per timeout") { set(:with_timeouts, true) }
         opts.on("--no-color", "Deprecated alias for --color=never") { @color = :never }
       end
     end
