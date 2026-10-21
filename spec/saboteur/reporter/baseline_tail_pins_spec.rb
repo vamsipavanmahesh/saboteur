@@ -48,10 +48,10 @@ RSpec.describe Saboteur::Reporter::BaselineTail, "golden pins" do
 
   it "paints the failure parts with the contract tokens when colour is on" do
     expect(render(gate(new_ids: %w[a1 b2]), 1, mode: :always)).to eq(
-      "saboteur: 412 mutants matched the baseline (411 unchanged, 1 fixed) · " \
+      "saboteur: \e[2m412 mutants matched the baseline (411 unchanged, 1 fixed)\e[0m · " \
       "\e[31;1m2 new survivors\e[0m\n" \
       "\e[31;1m✗ exit 1 - 2 new survivors vs baseline (score 71.0%, was 70.8%)\e[0m\n  " \
-      "\e[2mre-baseline deliberately: saboteur baseline accept · run full weekly\e[0m\n"
+      "\e[36mre-baseline deliberately: saboteur baseline accept · run full weekly\e[0m\n"
     )
   end
 
@@ -64,10 +64,13 @@ RSpec.describe Saboteur::Reporter::BaselineTail, "golden pins" do
                   )
   end
 
-  it "dims the passing hint when colour is on" do
-    expect(render(gate(new_ids: []), 0, mode: :always)).to include(
-      "\e[2mre-baseline deliberately · run without --baseline weekly to catch drift\e[0m\n"
-    )
+  it "paints the passing tail with the contract tokens when colour is on" do
+    expect(render(gate(new_ids: [], score: { "current" => 71.2, "baseline" => 70.8, "exceeded" => false }),
+                  0, mode: :always)).to eq(
+                    "saboteur: \e[2m412 mutants matched the baseline\e[0m, " \
+                    "\e[32mno new survivors\e[0m - score 71.2% (baseline 70.8%)\n" \
+                    "\e[36mre-baseline deliberately · run without --baseline weekly to catch drift\e[0m\n"
+                  )
   end
 
   it "names a score-only failure and its epsilon breach" do
