@@ -5,10 +5,10 @@ require "json"
 require "stringio"
 require "tmpdir"
 
-# saboteur ignore --check (plan-PR 15 slice b): the ignore ratchet. Stale
+# saboteur ignore --check / --prune (plan-PR 15): the ignore ratchet. Stale
 # entries are decided only from a full, complete .saboteur/report.json; a
-# partial report leaves every entry unknown. --prune lands in slice c; the
-# brief's golden block gains its prune hint line there.
+# partial report leaves every entry unknown and unknown entries are never
+# pruned.
 RSpec.describe Saboteur::CLI, "ignore ratchet (plan-PR 15)" do
   # The golden block carries a UTF-8 arrow; pin the locale so a C-locale CI
   # leg does not downgrade it to the ASCII fallback.
@@ -81,6 +81,7 @@ RSpec.describe Saboteur::CLI, "ignore ratchet (plan-PR 15)" do
         ignore ratchet: 2 stale entries in config/saboteur_ignore.rb
           aaaa11... Billing::Invoice#total - mutant no longer generated (code changed)
           cccc33... Cart#total - killed on the last full run (delete to lock the win)
+          → prune: saboteur ignore --prune
         exit 1 - 2 stale ignore entries
       OUT
       out.truncate(0) && out.rewind
@@ -101,11 +102,59 @@ RSpec.describe Saboteur::CLI, "ignore ratchet (plan-PR 15)" do
     end
   end
 
-  it "reports every entry as unknown when the report is a partial run" do
+  it "--prune removes exactly the stale entries and keeps the rest byte-identical" do
+    in_project do
+      expect(cli("ignore", "--prune")).to eq(0)
+      expect(out.string).to include("pruned 2 stale entries from config/saboteur_ignore.rb")
+      expect(out.string).to include("aaaa11... Billing::Invoice#total - mutant no longer generated (code changed)")
+      expect(out.string).to include("cccc33... Cart#total - killed on the last full run (delete to lock the win)")
+      expected = <<~RUBY
+        # SPDX-License-Identifier: MIT
+        # frozen_string_literal: true
+
+        Saboteur.ignore do |i|
+          # money stays integers here
+          i.mutation "#{live_digest}", subject: "Cart#count", reason: "todo: cover next sprint", state: "todo"
+        end
+      RUBY
+      expect(File.read("config/saboteur_ignore.rb")).to eq(expected)
+      expect(cli("ignore", "--check")).to eq(0)
+    end
+  end
+
+  it "reports every entry as unknown and prunes nothing when the report is a partial run" do
     in_project(report_value: report(scope: "diff")) do
       expect(cli("ignore", "--check")).to eq(0)
       note = "aaaa11... Billing::Invoice#total - unknown - the last report is not a full run; not pruned"
       expect(out.string).to include(note)
+      before = File.read("config/saboteur_ignore.rb")
+      expect(cli("ignore", "--prune")).to eq(0)
+      expect(out.string).to include("nothing to prune")
+      expect(File.read("config/saboteur_ignore.rb")).to eq(before)
+    end
+  end
+
+  it "leaves every entry unknown and prunes nothing when the report has no scope key" do
+    legacy = report
+    legacy.delete("saboteur")
+    in_project(report_value: legacy) do
+      expect(cli("ignore", "--check")).to eq(0)
+      expect(out.string).to include("nothing decided", "the last report does not say whether it was a full run")
+      before = File.read("config/saboteur_ignore.rb")
+      expect(cli("ignore", "--prune")).to eq(0)
+      expect(out.string).to include("nothing to prune")
+      expect(File.read("config/saboteur_ignore.rb")).to eq(before)
+    end
+  end
+
+  it "leaves every entry unknown and prunes nothing when the full run is incomplete" do
+    in_project(report_value: report(complete: false)) do
+      expect(cli("ignore", "--check")).to eq(0)
+      expect(out.string).to include("the last full run did not judge every mutant")
+      before = File.read("config/saboteur_ignore.rb")
+      expect(cli("ignore", "--prune")).to eq(0)
+      expect(out.string).to include("nothing to prune")
+      expect(File.read("config/saboteur_ignore.rb")).to eq(before)
     end
   end
 

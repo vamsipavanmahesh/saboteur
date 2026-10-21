@@ -72,6 +72,13 @@ module Saboteur
       end
     end
 
+    # The ignore text minus the stale entries' lines: order, comments and
+    # every live entry stay byte-identical.
+    def pruned_text(text)
+      cut = verdicts.select(&:stale?).flat_map { |v| v.entry.lines.to_a }
+      text.lines.reject.with_index { |_, i| cut.include?(i) }.join
+    end
+
     private
 
     def mutant_statuses
