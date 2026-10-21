@@ -22,6 +22,11 @@ module Saboteur
     # out of the run fingerprint, baseline evidence and score-history scope.
     OUTPUT_KEYS = %w[cache_dir json_report html_report score_history resume].freeze
 
+    # Presentation-only settings: like OUTPUT_KEYS they never enter the run
+    # fingerprint, baseline evidence or score-history scope, but they are
+    # not paths.
+    PRESENTATION_KEYS = %w[palette].freeze
+
     DEFAULTS = {
       "integration" => "rspec",
       "require" => [],
@@ -106,7 +111,10 @@ module Saboteur
       "max_errors" => nil,
       # --verbose also lands here, so boot-time output filters (the rspec
       # load-error report, #608) can keep their raw text behind the flag.
-      "verbose" => false
+      "verbose" => false,
+      # Text-report colour overrides: token -> ANSI colour name, validated
+      # against Reporter::Palette. Presentation only, never fingerprinted.
+      "palette" => {}
     }.freeze
 
     INTEGER_KEYS = %w[jobs max_memory_mb max_processes max_mutants_per_method seed baseline_passes
@@ -324,6 +332,7 @@ module Saboteur
     end
 
     def validate_modes!
+      validate_palette!
       validate_fail_fast!
       validate_matrix!
       validate_resume!
@@ -428,6 +437,12 @@ module Saboteur
       return unless self["sandbox"] == "strict"
 
       raise ConfigError, 'test_command runs the command unsandboxed, so sandbox "strict" cannot be honored'
+    end
+
+    def validate_palette!
+      Reporter::Palette.validate_overrides!(self["palette"])
+    rescue ArgumentError => e
+      raise ConfigError, e.message
     end
 
     def validate_reeval!

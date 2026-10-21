@@ -617,10 +617,32 @@ RSpec.describe Saboteur::Config, "OUTPUT_KEYS (#471)" do
   end
 
   it "is the list the fingerprint, baseline evidence and output paths use" do
-    expect(Saboteur::Engine::RunFingerprint::LOCATION_SETTINGS).to equal(described_class::OUTPUT_KEYS)
-    expect(Saboteur::Baseline::RunEvidence::OUTPUT_SETTINGS).to equal(described_class::OUTPUT_KEYS)
+    expect(Saboteur::Engine::RunFingerprint::LOCATION_SETTINGS)
+      .to eq(described_class::OUTPUT_KEYS + described_class::PRESENTATION_KEYS)
+    expect(Saboteur::Baseline::RunEvidence::OUTPUT_SETTINGS)
+      .to eq(described_class::OUTPUT_KEYS + described_class::PRESENTATION_KEYS)
     config = described_class.new({ "resume" => "state", "score_history" => "h.jsonl" }, root: Dir.pwd)
     expect(config.output_paths).to include("state", "h.jsonl", ".saboteur")
+  end
+
+  it "keeps presentation-only settings out of the paths but in the identity exclusions" do
+    expect(described_class::PRESENTATION_KEYS).to eq(%w[palette])
+    expect(described_class::PRESENTATION_KEYS - described_class::DEFAULTS.keys).to be_empty
+    config = described_class.new({ "palette" => { "fail" => :magenta } }, root: Dir.pwd)
+    expect(config.output_paths).not_to include("palette")
+  end
+end
+
+RSpec.describe Saboteur::Config, "palette overrides" do
+  before { @root = Dir.mktmpdir }
+  after { FileUtils.remove_entry(@root) }
+
+  it "accepts token overrides and rejects unknown tokens with the six valid keys" do
+    expect(described_class.new({ "palette" => { "fail" => :magenta } }, root: @root)["palette"])
+      .to eq("fail" => :magenta)
+    expect { described_class.new({ "palette" => { "error" => :red } }, root: @root) }
+      .to raise_error(Saboteur::ConfigError,
+                      /unknown palette tokens: error \(valid: fail, pass, warn, info, dim, head\)/)
   end
 end
 
