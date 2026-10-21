@@ -253,6 +253,23 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(render([operand])).to include("1. calculator.rb:3 Calculator#compound [#1 of 1]\n")
   end
 
+  it "marks a todo-triaged survivor in the block header, like JSON and HTML do (#1074)" do
+    todo = edited(PINS_CALCULATOR, "(1 + rate)**years", "years", operator: "operand_replacement", dir:,
+                                                                 covered_by: ["./spec/calculator_spec.rb[2:1]"])
+    todo.triage_state = "todo"
+    todo.triage_reason = "pin the boundary later"
+    expect(render([todo])).to include("1. calculator.rb:3 Calculator#compound [todo · result unchecked · " \
+                                      "#1 of 1: the covering specs pass without pinning this result]\n")
+  end
+
+  it "marks the todo triage even when the survivor has no label" do
+    allow(Saboteur::Reporter::SurvivorClassification).to receive(:label).and_return(nil)
+    todo = edited(PINS_CALCULATOR, "(1 + rate)**years", "years", operator: "operand_replacement", dir:)
+    todo.triage_state = "todo"
+    todo.triage_reason = "pin the boundary later"
+    expect(render([todo])).to include("1. calculator.rb:3 Calculator#compound [todo · #1 of 1]\n")
+  end
+
   it "renders every row of a small method and a 10-line method with no elision" do
     body8 = (1..6).map { |n| "    @v#{n} = #{n}\n" }.join
     at8 = edited("class K\n  def a\n#{body8}    @v1\n  end\nend\n", "@v3 = 3", "@v3 = 4",
