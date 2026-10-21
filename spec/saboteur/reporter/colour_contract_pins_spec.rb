@@ -96,6 +96,7 @@ RSpec.describe "the colour contract (DX wave 1, PR1)" do
     diagnostics = Saboteur::Engine::Diagnostics.new(err, verbose: true, palette:)
     diagnostics.start_progress(2)
     report.results.each { |result| diagnostics.progress(result) }
+    diagnostics.finish_progress
     expect(err.string).to include("\e[2m#{Saboteur::Engine::Diagnostics::LEGEND}\e[0m")
     expect(err.string).to include("\e[2m.\e[0m", "\e[31;1mS\e[0m")
   end

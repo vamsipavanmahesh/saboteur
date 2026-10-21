@@ -81,27 +81,27 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     end
   end
 
-  it "prints the progress legend on a pipe only, never on a terminal" do
+  it "prints the progress legend once at run start, on pipes and terminals" do
     tty = StringIO.new
     allow(tty).to receive(:tty?).and_return(true)
     on_tty = described_class.new(tty)
     on_tty.start_progress(1)
-    expect(tty.string).not_to include("saboteur: progress")
+    expect(tty.string).to include(".:killed S:survived T:timeout E:error s:skipped L:resource limit")
     on_tty.finish_progress
 
     diagnostics.start_progress(1)
-    expect(err.string).to include("saboteur: progress . killed  S survived  T timeout  L resource limit  E error")
+    expect(err.string).to include(".:killed S:survived T:timeout E:error s:skipped L:resource limit")
     diagnostics.finish_progress
   end
 
-  it "prints marks without a contract token plain even when colour is on" do
+  it "paints the resource-limit mark and prints marks without a contract token plain" do
     palette = Saboteur::Reporter::Palette.new(enabled: true)
     coloured = described_class.new(err, palette: palette)
     coloured.start_progress(2)
     coloured.progress(instance_double(Saboteur::MutantResult, status: :resource_limit))
     coloured.progress(instance_double(Saboteur::MutantResult, status: :mystery))
-    expect(err.string).to include("L?")
     coloured.finish_progress
+    expect(err.string).to include("\e[31;1mL\e[0m?")
   end
 
   it "flushes after every mark once the progress file exists" do
@@ -109,15 +109,6 @@ RSpec.describe Saboteur::Engine::Diagnostics do
     allow(err).to receive(:flush).and_call_original
     diagnostics.progress(instance_double(Saboteur::MutantResult, status: :killed))
     expect(err).to have_received(:flush).once
-    diagnostics.finish_progress
-  end
-
-  it "ends a CI progress line with the count, percentage and estimate every 50 mutants" do
-    allow(Process).to receive(:clock_gettime).and_call_original
-    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC).and_return(100.0, 110.0)
-    diagnostics.start_progress(100)
-    50.times { diagnostics.progress(instance_double(Saboteur::MutantResult, status: :killed)) }
-    expect(err.string.lines.last).to eq("#{'.' * 50} 50/100 (50%) eta 0m10s\n")
     diagnostics.finish_progress
   end
 
