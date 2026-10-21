@@ -25,14 +25,17 @@ module Saboteur
       def initialize(out, verbose: false, quiet: false, color: :auto, overrides: nil,
                      replay_command: nil, all_mutants: false, exit_code: nil,
                      threshold: nil, previous_score: nil, baseline_gate: nil,
-                     scope: "whole project", html_report: nil)
+                     scope: "whole project", html_report: nil, baseline: nil, coverage: nil, mutant_phase: nil)
         @out = SafeOut.new(out)
         @all_mutants = all_mutants
         @verbose = verbose
         @quiet = quiet
-        # Clean-screen context: the run's scope and report path come from the CLI.
+        # Clean-screen context: scope and report path from the CLI; PR4a plumbs the phase stats.
         @scope = scope
         @html_report = html_report
+        @baseline = baseline
+        @coverage = coverage
+        @mutant_phase = mutant_phase
         @palette = Palette.for(out, mode: color, overrides: overrides)
         @score_table = ScoreTable.new(@out, @palette)
         @next_steps = NextSteps.new(@out, @palette, replay_command: replay_command)
@@ -173,6 +176,7 @@ module Saboteur
         header = "saboteur #{VERSION} #{middot} #{@scope}"
         header += " #{middot} seed #{report.seed}" if report.seed
         @out.puts @palette.paint(:dim, header)
+        clean_phases(report)
         @out.puts
         win = "#{@palette.glyph(:check)} #{win_tally(report)} #{middot} " \
               "score #{format('%.1f%%', report.score * 100)}"
@@ -181,6 +185,21 @@ module Saboteur
         untested = untested_subjects(report)
         @out.puts "  #{@palette.paint(:warn, untested_win_note(untested))}" if untested.any?
         clean_reports_line
+      end
+
+      # The phase lines and the progress-dots line print only when their data
+      # is present: PR4a plumbs baseline/coverage/phase stats, PR5 owns the
+      # live dots this echoes.
+      def clean_phases(report)
+        return unless @baseline && @coverage && @mutant_phase
+
+        check = @palette.paint(:pass, @palette.glyph(:check))
+        @out.puts "#{check} baseline green (#{@baseline[:examples]} examples, #{@baseline[:seconds]}s)  " \
+                  "#{check} coverage map: #{@coverage[:tests]} tests (#{@coverage[:seconds]}s)"
+        total = report.executed.size
+        dots = "." * total
+        suffix = @palette.paint(:dim, "(#{total}/#{total} #{middot} #{@mutant_phase[:seconds]}s)")
+        @out.puts "#{dots}  #{suffix}"
       end
 
       def win_tally(report)
