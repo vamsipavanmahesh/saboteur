@@ -95,6 +95,13 @@ RSpec.describe Saboteur::Engine, "fail-fast check" do
     expect(check.call([Struct.new(:survived?).new(true)])).to be(false)
     expect(err.string).to be_empty
   end
+
+  it "stops when any result of a mixed batch survives unaccepted" do
+    check = check_for("fail_fast" => true)
+    results = [Struct.new(:survived?).new(false), Struct.new(:survived?).new(true)]
+    expect(check.call(results)).to be(true)
+    expect(err.string).to include("--fail-fast: stopping after the first subject with a survivor")
+  end
 end
 
 RSpec.describe Saboteur::Engine, "early stop wiring" do
