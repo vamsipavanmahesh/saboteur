@@ -2504,4 +2504,30 @@ i.mutation "fdc4600f4e8e8625",
       reason: "equivalent: an inline comment starts with the hash so the unanchored match hits the same " \
               "place, and an embdoc comment starts with =begin, which the start_with? guard rejects either way"
 
+
+  i.mutation "f2e1cce1752bfa67",
+      subject: "Saboteur::Preview#print_warnings",
+      reason: "equivalent: each and map differ only in the returned array, and the " \
+              "block's result is discarded"
+
+  i.mutation "e8bb5faf01cf1ebe",
+      subject: "Saboteur::Preview#inline_suppressions",
+      reason: "equivalent: each and map differ only in the returned array, and the " \
+              "block's result is discarded"
+
+  i.mutation "6d79acab4b409bd8",
+      subject: "Saboteur::Preview#incomplete_note",
+      reason: "equivalent: the result is only interpolated into the total line, " \
+              "where nil and an empty string print the same"
+
+  i.mutation "61fabb208a389865",
+      subject: "Saboteur::Install#missing_entry",
+      reason: "equivalent: the result is only interpolated into the written text, " \
+              "where nil and an empty string add the same"
+
+  i.mutation "ada593a8ce1774ee",
+      subject: "Saboteur::Subject#innermost_statement",
+      reason: "equivalent: node is nil only for a nil start, where found is nil too, " \
+              "so both returns give nil"
+
 end
