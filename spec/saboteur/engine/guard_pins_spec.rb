@@ -17,6 +17,26 @@ RSpec.describe Saboteur::Engine::EarlyStopRecording, "pins" do
     expect(rec.instance_variable_get(:@early_stop)).to be_nil
   end
 
+  it "records a stop that left only truncated subjects" do
+    subject = Struct.new(:id).new("Foo#bar")
+    rec = recorder
+    rec.instance_variable_set(:@budget_announced, false)
+    rec.send(:record_early_stop, distribution(truncated: [[subject, 2]]))
+    stop = rec.instance_variable_get(:@early_stop)
+    expect(stop.reason).to eq("max_duration")
+    expect(stop.truncated).to eq([{ subject: "Foo#bar", omitted: 2 }])
+  end
+
+  it "records a stop that left only unverified checks" do
+    subject = Struct.new(:id).new("Foo#bar")
+    rec = recorder
+    rec.instance_variable_set(:@budget_announced, false)
+    rec.send(:record_early_stop, distribution(unverified: [subject]))
+    stop = rec.instance_variable_get(:@early_stop)
+    expect(stop.reason).to eq("max_duration")
+    expect(stop.unverified).to eq(["Foo#bar"])
+  end
+
   it "records a stop that left anything behind, with the ids" do
     subject = Struct.new(:id).new("Foo#bar")
     rec = recorder
@@ -80,6 +100,26 @@ RSpec.describe Saboteur::Engine::GatedRun, "report_unmapped pins" do
 end
 
 RSpec.describe Saboteur::Engine::CoverageGuard, "resume pins" do
+  it "resumes only its own suspension" do
+    allow(Coverage).to receive(:resume)
+    running = described_class.new(instance_double(Saboteur::Engine::Diagnostics))
+    running.instance_variable_set(:@was_running, true)
+    allow(Coverage).to receive(:state).and_return(:suspended)
+    running.resume
+    expect(Coverage).to have_received(:resume).once
+
+    not_running = described_class.new(instance_double(Saboteur::Engine::Diagnostics))
+    not_running.instance_variable_set(:@was_running, false)
+    not_running.resume
+    expect(Coverage).to have_received(:resume).once
+
+    disturbed = described_class.new(instance_double(Saboteur::Engine::Diagnostics))
+    disturbed.instance_variable_set(:@was_running, true)
+    allow(Coverage).to receive(:state).and_return(:running)
+    disturbed.resume
+    expect(Coverage).to have_received(:resume).once
+  end
+
   it "warns with the error class and message when resume fails" do
     diagnostics = instance_double(Saboteur::Engine::Diagnostics, warn: nil)
     guard = described_class.new(diagnostics)
