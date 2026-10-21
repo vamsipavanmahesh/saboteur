@@ -9,6 +9,7 @@ require_relative "survivor_ranking"
 require_relative "palette"
 require_relative "score_table"
 require_relative "survivor_list"
+require_relative "timeout_list"
 require_relative "survivor_classification"
 require_relative "test_matrix"
 
@@ -54,6 +55,7 @@ module Saboteur
         return quiet_call(report) if @quiet
 
         survivors(report)
+        TimeoutList.new(@out, @palette).call(report)
         errors(report)
         skipped_subjects(report) if @verbose
         test_command_gaps(report)
