@@ -67,10 +67,14 @@ module Saboteur
       [write("config/saboteur.rb", CONFIG), write("bin/saboteur", BIN, mode: 0o755), gitignore]
     end
 
-    # Printed after install; the Gemfile is never edited.
+    RUN_HINT = "Next: bin/saboteur doctor, then bin/saboteur run --since origin/main " \
+               "(keep SimpleCov off for the run)."
+
+    # Printed after install; the Gemfile is never edited. The run pointer is
+    # always due: the Gemfile block only when the gem is missing.
     def gemfile_hint
       gemfile = File.join(@root, "Gemfile")
-      return nil if File.file?(gemfile) && Text.utf8(File.read(gemfile)).match?(/^\s*gem\s+["']saboteur["']/)
+      return RUN_HINT if File.file?(gemfile) && Text.utf8(File.read(gemfile)).match?(/^\s*gem\s+["']saboteur["']/)
 
       GEMFILE_HINT
     end

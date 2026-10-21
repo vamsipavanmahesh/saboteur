@@ -239,11 +239,32 @@ RSpec.describe Saboteur::Baseline::Workflow do
   end
 
   it "does not publish a proposal from an incomplete run even with no survivors" do
-    report = instance_double(Saboteur::Report, run_evidence: document.merge("proposable" => false, "candidates" => []))
+    evidence = document.merge("proposable" => false, "candidates" => [])
+    report = instance_double(Saboteur::Report, run_evidence: evidence, results: [])
     allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
     expect { workflow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
       .to raise_error(Saboteur::Error, /needs a proposable run/)
     expect(File.exist?(File.join(@root, "p.json"))).to be(false)
+  end
+
+  it "names the subject, operator and skip reason in an unexecuted blocker" do
+    file = File.join(@root, "probe.rb")
+    File.write(file, "class Probe; def value; 1; end; end")
+    subject = Saboteur::SubjectFinder.new.call(file).subjects.first
+    mutation = Saboteur::MutationSource::Builtin.new.mutations_for(subject).first
+    result = Saboteur::MutantResult.new(subject: subject, mutation: mutation, status: :skipped,
+                                        mutated_source: "1", reason: "no coverage")
+    id = Saboteur::Baseline::Identity.new(subject: subject, mutation: mutation, root: @root).entry.fetch("id")
+    evidence = document.merge("proposable" => false, "blockers" => ["unexecuted:#{id}:skipped", "inputs_unverified"])
+    report = instance_double(Saboteur::Report, run_evidence: evidence, results: [result])
+    allow(Saboteur::Engine).to receive(:new).and_return(instance_double(Saboteur::Engine, call: report))
+    err = StringIO.new
+    flow = described_class.new(config: config, err: err)
+    expect { flow.propose(proposal: File.join(@root, "p.json"), destination: File.join(@root, "b.json")) }
+      .to raise_error(Saboteur::Error, /needs a proposable run/)
+    expect(err.string).to include("unexecuted:#{id}:skipped (#{subject.id} #{mutation.operator} - no coverage)")
+    expect(err.string).to include("saboteur: baseline proposal blocker: inputs_unverified\n")
+    expect(err.string).to include("cover the skipped code with specs or narrow include, then propose again")
   end
 
   it "rejects stale inputs or editable execution history before publishing" do
