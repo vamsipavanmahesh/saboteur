@@ -89,7 +89,8 @@ RSpec.describe "baseline CLI validation" do
     expect(command("check", "--baseline", "b.json", "--previous", "a" * 64)).to eq(2)
     expect(@err.string).to include("check does not use")
     expect(command("check")).to eq(2)
-    expect(@err.string).to include("--baseline PATH is required")
+    expect(@err.string).to include("--baseline PATH is required (for example: saboteur baseline check " \
+                                   "--baseline baseline.json)")
     expect(command("bad")).to eq(2)
     expect(@err.string).to include("baseline expects")
     expect(command("propose", "--baseline", "b.json", "--proposal", "p.json", "--previous", "0" * 63)).to eq(2)

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # frozen_string_literal: true
 
+require "shellwords"
+
 require_relative "diff"
 require_relative "mutation_text"
 require_relative "survivor_classification"
@@ -235,7 +237,9 @@ module Saboteur
         overflow = rest.size - SIBLING_DIGEST_CAP
         list = "#{list} (+#{overflow} more)" if overflow.positive?
         @out.puts @palette.paint(:dim, "  #{rest.size} more #{rest.one? ? 'mutant' : 'mutants'} here: #{list}")
-        @out.puts @palette.paint(:dim, "       expand: saboteur run --all-mutants#{' --since main' if report.diff?}")
+        words = ["saboteur", "run", "--all-mutants"]
+        words.push("--since", report.since) if report.diff? && report.since
+        @out.puts @palette.paint(:dim, "       expand: #{Shellwords.join(words)}")
       end
 
       # Accepted (ignored) survivors stay visible but never earn a block:

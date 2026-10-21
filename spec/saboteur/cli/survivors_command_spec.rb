@@ -252,9 +252,39 @@ RSpec.describe Saboteur::CLI, "survivors (#475)" do
       end
     end
 
-    it "refuses a missing report path with the exact usage line and exit 2" do
-      expect(cli("survivors").call).to eq(2)
-      expect(err.string).to eq("saboteur: survivors expects a report path: saboteur survivors .saboteur/report.json\n")
+    it "names a missing explicit report without the run-first hint" do
+      expect(cli("survivors", "nope.json").call).to eq(2)
+      expect(err.string).to eq("saboteur: report not found: nope.json\n")
+    end
+
+    it "shows a unique digest prefix, refuses an ambiguous one with every match, and an unknown one" do
+      Dir.mktmpdir do |dir|
+        close = mutant(id: "#{'a' * 8}#{'c' * 8}", operator: "and_to_or", line: 3, status: "Survived")
+        path = write_report(dir, survivors: [close])
+        expect(cli("survivors", path, "--show", "aaaaaaaac").call).to eq(0)
+        expect(out.string).to include("#{'a' * 8}#{'c' * 8}")
+        expect(cli("survivors", path, "--show", "aaaa").call).to eq(2)
+        expect(err.string).to eq("saboteur: digest prefix aaaa matches 2 survivors: " \
+                                 "#{'a' * 16}, #{'a' * 8}#{'c' * 8}; use more characters\n")
+        err.truncate(0)
+        err.rewind
+        expect(cli("survivors", path, "--show", "zzzz").call).to eq(2)
+        expect(err.string).to eq("saboteur: no survivor with digest zzzz in this report\n")
+      end
+    end
+
+    it "reads .saboteur/report.json when no path is given, and says so when it is absent" do
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          expect(cli("survivors").call).to eq(2)
+          expect(err.string).to eq("saboteur: report not found: .saboteur/report.json; " \
+                                   "run saboteur first, or pass a report path\n")
+          FileUtils.mkdir_p(".saboteur")
+          FileUtils.cp(write_report(dir, survivors: []), ".saboteur/report.json")
+          expect(cli("survivors").call).to eq(0)
+          expect(out.string).to include("aaaaaaaaaaaaaaaa")
+        end
+      end
     end
 
     it "refuses extra arguments with the exact message and exit 2" do

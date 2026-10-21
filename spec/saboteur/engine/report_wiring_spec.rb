@@ -53,6 +53,12 @@ RSpec.describe Saboteur::Engine, "report wiring" do
     expect(report.reuse_label).to be_nil
   end
 
+  it "flows the --since ref into the report, so reporters can echo the scope" do
+    engine = described_class.new(Saboteur::Config.new({ "since" => "HEAD~1" }), err: StringIO.new)
+    report = engine.send(:build_report, [], [], nil, engine.send(:monotonic))
+    expect(report.since).to eq("HEAD~1")
+  end
+
   it "flows the configured --test-command into the report (#641)" do
     config = Saboteur::Config.new({ "test_command" => "bin/rails test" })
     engine = described_class.new(config, err: StringIO.new)

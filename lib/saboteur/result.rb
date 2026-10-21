@@ -159,7 +159,7 @@ module Saboteur
     MAX_ERROR_FRACTION = 0.5
 
     attr_reader :results, :subjects, :wall_time, :invalid_mutations, :warnings, :live_announced, :root, :seed,
-                :skipped_subjects,
+                :skipped_subjects, :since,
                 :generation_events, :omissions, :run_evidence, :hazard_suppressions, :early_stop, :inline_suppressions,
                 :operator_policy, :discovery_failures, :memory, :shard, :test_command, :referenced, :reuse_label
 
@@ -170,7 +170,7 @@ module Saboteur
                    seed: nil, skipped_subjects: {}, diff_scope: nil, generation_events: [], omissions: [],
                    run_evidence: nil, hazard_suppressions: 0, early_stop: nil, matrix: false, inline_suppressions: [],
                    operator_policy: nil, discovery_failures: [], memory: nil, shard: nil,
-                   test_command: nil, referenced: {}, reuse_label: nil)
+                   test_command: nil, referenced: {}, reuse_label: nil, since: nil)
       @results = results
       @subjects = subjects
       @wall_time = wall_time
@@ -182,15 +182,12 @@ module Saboteur
       @seed = seed
       @skipped_subjects = skipped_subjects
       @diff_scope = diff_scope
-      @generation_events = generation_events.dup.freeze
-      @omissions = omissions.dup.freeze
+      take_frozen_copies(generation_events, omissions, inline_suppressions, discovery_failures)
       @run_evidence = run_evidence
       @hazard_suppressions = hazard_suppressions
       @early_stop = early_stop
       @matrix = matrix
-      @inline_suppressions = inline_suppressions.dup.freeze
       @operator_policy = operator_policy
-      @discovery_failures = discovery_failures.dup.freeze
       # Per-worker and supervisor peak RSS in MB, when the platform measured
       # it (#202); nil elsewhere, so JSON reports omit the section.
       @memory = memory.dup.freeze
@@ -198,6 +195,10 @@ module Saboteur
       # The external command of a --test-command run, nil for in-process
       # runs. Its presence means survivors carry no coverage map (#641).
       @test_command = test_command
+      # The --since ref of a diff run, nil for a whole-project run. The
+      # expand hint and the HTML report echo it, so the scope survives the
+      # run that produced them.
+      @since = since
       # file => specs, for files whose specs were chosen by constant reference
       # or require instead of by name (zero-setup selection).
       @referenced = referenced
@@ -218,7 +219,7 @@ module Saboteur
     end
 
     # True when the run was scoped to a diff (--since): the expand command
-    # echoes that scope.
+    # echoes that scope's ref.
     def diff?
       !@diff_scope.nil?
     end
@@ -296,6 +297,17 @@ module Saboteur
     def mean_runtime
       timed = executed.reject(&:reused?).filter_map(&:runtime)
       timed.empty? ? nil : timed.sum / timed.size
+    end
+
+    # The run lists arrive from builders that may reuse them; the report
+    # keeps its own frozen copies.
+    private
+
+    def take_frozen_copies(generation_events, omissions, inline_suppressions, discovery_failures)
+      @generation_events = generation_events.dup.freeze
+      @omissions = omissions.dup.freeze
+      @inline_suppressions = inline_suppressions.dup.freeze
+      @discovery_failures = discovery_failures.dup.freeze
     end
   end
 end

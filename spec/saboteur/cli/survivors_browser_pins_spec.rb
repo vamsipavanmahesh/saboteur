@@ -194,6 +194,15 @@ RSpec.describe Saboteur::CLI::SurvivorsBrowser, "output pins (#520)" do
     )
   end
 
+  it "refuses an ambiguous digest prefix, listing every match, and accepts a unique one" do
+    report["files"]["lib/order.rb"]["mutants"] << mut("#{'a' * 8}#{'b' * 8}", "comparison", 2, [])
+    expect { browser.show("aaaa") }.to raise_error(
+      Saboteur::CLI::UsageError,
+      "digest prefix aaaa matches 2 survivors: #{'a' * 16}, #{'a' * 8}#{'b' * 8}; use more characters"
+    )
+    expect(browser.show("aaaaaaaab")).to start_with("lib/order.rb:2  comparison  #{'a' * 8}#{'b' * 8}")
+  end
+
   it "refuses an unknown digest prefix naming the digest" do
     expect { browser.show("0000 1") }
       .to raise_error(Saboteur::CLI::UsageError, "no survivor with digest 0000 1 in this report")

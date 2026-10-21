@@ -41,7 +41,16 @@ module Saboteur
           warnings: report.warnings,
           framework: { name: "saboteur", version: VERSION },
           saboteur: saboteur_enrichment(report, exit_cause, score_gates)
-        }.merge(report.seed ? { config: { seed: report.seed } } : {})
+        }.merge(report_config(report))
+      end
+
+      # The run's recorded settings: the seed, and the --since ref of a diff
+      # run, so a consumer can tell a diff-scoped score from a project one.
+      def self.report_config(report)
+        config = {}
+        config[:seed] = report.seed if report.seed
+        config[:since] = report.since if report.diff? && report.since
+        config.empty? ? {} : { config: config }
       end
 
       # saboteur-namespaced keys beyond Stryker's schema: findings and

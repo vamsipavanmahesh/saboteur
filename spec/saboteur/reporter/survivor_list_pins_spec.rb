@@ -144,7 +144,19 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     expect(text).to include("       expand: saboteur run --all-mutants\n")
   end
 
-  it "echoes the run's diff scope in the expand command" do
+  it "echoes the run's diff scope in the expand command, shell-escaped" do
+    result = edited(PINS_CALCULATOR, "**", "*", operator: "comparison", dir:)
+    sibling = edited(PINS_CALCULATOR, "* (1 + rate)", "/ (1 + rate)", operator: "arithmetic", dir:)
+    subject = result.subject
+    scope = Saboteur::Engine::DiffScope.new(subject.file => Set[3])
+    out = StringIO.new
+    report = Saboteur::Report.new(results: [result, sibling], subjects: [subject], wall_time: 1.0,
+                                  root: dir, warnings: [], seed: 1, diff_scope: scope, since: "HEAD~3")
+    Saboteur::Reporter::SurvivorList.new(out, plain).call(report, [result, sibling])
+    expect(out.string).to include("       expand: saboteur run --all-mutants --since HEAD\\~3\n")
+  end
+
+  it "widens the expand to the whole project only when the run recorded no ref" do
     result = edited(PINS_CALCULATOR, "**", "*", operator: "comparison", dir:)
     sibling = edited(PINS_CALCULATOR, "* (1 + rate)", "/ (1 + rate)", operator: "arithmetic", dir:)
     subject = result.subject
@@ -153,7 +165,20 @@ RSpec.describe Saboteur::Reporter::SurvivorList, "survivor blocks" do
     report = Saboteur::Report.new(results: [result, sibling], subjects: [subject], wall_time: 1.0,
                                   root: dir, warnings: [], seed: 1, diff_scope: scope)
     Saboteur::Reporter::SurvivorList.new(out, plain).call(report, [result, sibling])
-    expect(out.string).to include("       expand: saboteur run --all-mutants --since main\n")
+    expect(out.string).to include("       expand: saboteur run --all-mutants\n")
+    expect(out.string).not_to include("--since")
+  end
+
+  it "keeps the expand whole-project for a non-diff run that happens to know a ref" do
+    result = edited(PINS_CALCULATOR, "**", "*", operator: "comparison", dir:)
+    sibling = edited(PINS_CALCULATOR, "* (1 + rate)", "/ (1 + rate)", operator: "arithmetic", dir:)
+    subject = result.subject
+    out = StringIO.new
+    report = Saboteur::Report.new(results: [result, sibling], subjects: [subject], wall_time: 1.0,
+                                  root: dir, warnings: [], seed: 1, since: "HEAD~3")
+    Saboteur::Reporter::SurvivorList.new(out, plain).call(report, [result, sibling])
+    expect(out.string).to include("       expand: saboteur run --all-mutants\n")
+    expect(out.string).not_to include("--since")
   end
 
   it "prints one quoted dim line per accepted survivor, marked not scored" do

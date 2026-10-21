@@ -605,11 +605,54 @@ RSpec.describe Saboteur::Reporter::Html do
                          skipped_subjects: { subject_under_test => reason })
   end
 
+  it "says a diff run's score covers only the lines changed since the ref" do
+    result = result_for(:survived)
+    scope = Saboteur::Engine::DiffScope.new({ person_subject.file => Set.new([3]) })
+    report = Saboteur::Report.new(results: [result], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), diff_scope: scope, since: "v1.4.0")
+    page = described_class.build(report)
+    expect(page).to include("Diff run: only lines changed since v1.4.0 are mutated - " \
+                            "the score covers those changes, not the whole project.")
+  end
+
+  it "prints no diff note for a whole-project run" do
+    expect(html).not_to include("Diff run:")
+  end
+
+  it "keeps the diff note on its own line before the viewer" do
+    result = result_for(:survived)
+    scope = Saboteur::Engine::DiffScope.new({ person_subject.file => Set.new([3]) })
+    report = Saboteur::Report.new(results: [result], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), diff_scope: scope, since: "v1.4.0")
+    page = described_class.build(report)
+    expect(page).to include("the whole project.</p>\n<mutation-test-report-app")
+  end
+
+  it "prints no diff note when the ref is missing, rather than one with an empty ref" do
+    result = result_for(:survived)
+    scope = Saboteur::Engine::DiffScope.new({ person_subject.file => Set.new([3]) })
+    report = Saboteur::Report.new(results: [result], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), diff_scope: scope)
+    expect(described_class.build(report)).not_to include("Diff run:")
+  end
+
+  it "prints no diff note for a whole-project run that happens to know a ref" do
+    result = result_for(:survived)
+    report = Saboteur::Report.new(results: [result], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), since: "v1.4.0")
+    expect(described_class.build(report)).not_to include("Diff run:")
+  end
+
+  it "returns an empty string (not nil) for the note outside a diff run, so interpolation stays stable" do
+    report = report_of(result_for(:killed))
+    expect(described_class.new(Dir.mktmpdir).send(:scope_note, report)).to eq("")
+  end
+
   describe "diff mode" do
-    def diff_report(results, changed, subject: person_subject)
+    def diff_report(results, changed, subject: person_subject, since: nil)
       scope = Saboteur::Engine::DiffScope.new({ subject.file => Set.new(changed) })
       Saboteur::Report.new(results:, subjects: [subject], wall_time: 1.0,
-                           root: File.dirname(subject.file), review: true, diff_scope: scope)
+                           root: File.dirname(subject.file), review: true, diff_scope: scope, since:)
     end
 
     # The mutated statement spans two lines, so the mutant is reported at its

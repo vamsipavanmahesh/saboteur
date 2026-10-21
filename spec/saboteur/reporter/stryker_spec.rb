@@ -135,6 +135,33 @@ RSpec.describe Saboteur::Reporter::Stryker do
     expect(json["config"]).to eq("seed" => 1)
   end
 
+  it "records the ref of a diff run, so the score's scope survives" do
+    result = result_for(:survived)
+    scope = Saboteur::Engine::DiffScope.new({ person_subject.file => Set.new([3]) })
+    report = Saboteur::Report.new(results: [result], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1, diff_scope: scope,
+                                  since: "HEAD~1")
+    expect(JSON.parse(JSON.generate(described_class.build(report)))["config"])
+      .to eq("seed" => 1, "since" => "HEAD~1")
+  end
+
+  it "omits the ref key when a diff run recorded no ref" do
+    result = result_for(:survived)
+    scope = Saboteur::Engine::DiffScope.new({ person_subject.file => Set.new([3]) })
+    report = Saboteur::Report.new(results: [result], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1, diff_scope: scope)
+    expect(JSON.parse(JSON.generate(described_class.build(report)))["config"])
+      .to eq("seed" => 1)
+  end
+
+  it "omits the ref key for a whole-project run that happens to know a ref" do
+    result = result_for(:survived)
+    report = Saboteur::Report.new(results: [result], subjects: [person_subject], wall_time: 1.0,
+                                  root: File.dirname(person_subject.file), seed: 1, since: "HEAD~1")
+    expect(JSON.parse(JSON.generate(described_class.build(report)))["config"])
+      .to eq("seed" => 1)
+  end
+
   it "maps every saboteur status to a distinct schema status" do
     expect(mutants.map { |m| m["status"] })
       .to eq(%w[Killed Survived Timeout RuntimeError NoCoverage Ignored])
