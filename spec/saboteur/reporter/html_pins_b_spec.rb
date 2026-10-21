@@ -59,7 +59,8 @@ RSpec.describe Saboteur::Reporter::Html do
 
     it "is closed when nothing survived and shows the file name and the mutant count" do
       page = page_of(mutant("1", "3", :killed))
-      expect(page).to include("<details><summary>k.rb (1 mutants)</summary>\n<div class=\"scroll\"><table><thead><tr>" \
+      expect(page).to include("<details class=\"file\"><summary>k.rb (1 mutants)</summary>\n" \
+                              "<div class=\"scroll\"><table><thead><tr>" \
                               "<th>Location</th><th>Status</th><th>Operator</th><th>Change</th><th>Id</th>" \
                               "<th>Notes</th></tr></thead>\n<tr>")
     end
