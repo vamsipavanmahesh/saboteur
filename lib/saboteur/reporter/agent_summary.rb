@@ -23,7 +23,9 @@ module Saboteur
             {
               version: VERSION, status: status, verdict: verdict, exitCode: exit_code_for(verdict),
               provenance: provenance_hash(provenance).merge(operatorPolicy: report.operator_policy),
-              counts: counts(report), score: score(report),
+              # killCauses is the assertion/crash split the text report prints
+              # (#1045), so an agent can weigh the score without parsing prose.
+              counts: counts(report), score: score(report), killCauses: report.score_breakdown.kill_causes_h,
               scoreDefinition: "(killed + timeout) / (killed + survived + timeout); null when nothing was tested",
               incomplete: incomplete, timeoutCountedAsDetected: report.counts[:timeout],
               findings: findings(report, shown, snippet_limit)

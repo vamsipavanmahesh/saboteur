@@ -146,6 +146,13 @@ RSpec.describe Saboteur::Reporter::Agent do
       expect(payload[:findings]).to include(survivors: 0, shown: [], omitted: 0)
     end
 
+    it "splits kills into assertion, crash and cause-not-recorded" do
+      payload = payload_for(report_of(result_for(:killed, kill_cause: "assertion"),
+                                      result_for(:killed, replacement: "<", kill_cause: "NoMethodError"),
+                                      result_for(:killed, replacement: "<=")))
+      expect(payload[:killCauses]).to eq(assertionKills: 1, crashKills: 1, unclassifiedKills: 1)
+    end
+
     it "names the provenance of the verdict" do
       expect(payload[:provenance]).to include(ref: "origin/main", seed: 7, head: "abc1234", workingTree: "clean",
                                               changedFiles: 0, mode: "diff")

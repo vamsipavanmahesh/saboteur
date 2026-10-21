@@ -392,9 +392,17 @@ RSpec.describe Saboteur::Reporter::Terminal do
     expect(text).not_to include("inferred specs: running only")
   end
 
-  it "counts only killed results that carry a kill cause" do
+  it "counts a kill without a recorded cause as such, not as an assertion kill" do
     text = verbose_render(report_of(result_for(:killed), result_for(:survived, kill_cause: "assertion")))
-    expect(text).not_to include("kills:")
+    expect(text).to include("kills: 0 by a failed assertion, 0 by a crash, 1 with cause not recorded\n")
+  end
+
+  it "adds the cause-not-recorded count after the crash classes" do
+    text = verbose_render(report_of(result_for(:killed, kill_cause: "assertion"),
+                                    result_for(:killed, replacement: "<", kill_cause: "NoMethodError"),
+                                    result_for(:killed, replacement: "<=")))
+    expect(text).to include("kills: 1 by a failed assertion, 1 by a crash (NoMethodError 1), " \
+                            "1 with cause not recorded\n")
   end
 
   it "splits kills into assertion kills and crash kills, by operator" do
@@ -403,6 +411,20 @@ RSpec.describe Saboteur::Reporter::Terminal do
                                     result_for(:killed, replacement: "<=", kill_cause: "NoMethodError")))
     expect(text).to include("kills: 1 by a failed assertion, 2 by a crash (NoMethodError 2)",
                             "crash kills by operator: comparison 2 of 3")
+  end
+
+  it "orders crash classes by count, most frequent first" do
+    text = verbose_render(report_of(result_for(:killed, kill_cause: "TypeError"),
+                                    result_for(:killed, replacement: "<", kill_cause: "NoMethodError"),
+                                    result_for(:killed, replacement: "<=", kill_cause: "NoMethodError")))
+    expect(text).to include("kills: 0 by a failed assertion, 3 by a crash (NoMethodError 2, TypeError 1)\n")
+  end
+
+  it "joins the crash-kill counts of two operators with a comma" do
+    text = verbose_render(report_of(result_for(:killed, kill_cause: "NoMethodError", operator: "insert"),
+                                    result_for(:killed, replacement: "<", kill_cause: "NoMethodError"),
+                                    result_for(:killed, replacement: "<=", kill_cause: "TypeError")))
+    expect(text).to include("crash kills by operator: insert 1 of 1, comparison 2 of 2\n")
   end
 
   it "lists the tests that covered a survivor's line and still passed, top 5" do
