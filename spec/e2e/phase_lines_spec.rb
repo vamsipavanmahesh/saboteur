@@ -24,4 +24,19 @@ RSpec.describe "clean screen phase lines (end to end)", :e2e do
     second = saboteur(dir, "lib/one.rb", "--test", "spec/one_spec.rb")
     expect(second.out).to match(/^[✓v] baseline green \(\d+ passes?, [\d.]+s\)  [✓v] coverage map: 1 test \(cached\)$/)
   end
+
+  it "names the real scope under --since and the HTML report that was written" do
+    system("git", "init", "-q", chdir: dir)
+    system("git", "-c", "user.name=t", "-c", "user.email=t@t", "add", "-A", chdir: dir)
+    system("git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base", chdir: dir)
+    File.write(File.join(dir, "lib", "one.rb"), "module One\n  def self.one = 1\n  def self.two = 2\nend\n")
+    spec = ["require_relative \"../lib/one\"", "RSpec.describe(One) do", "  it(\"is 1\") { expect(One.one).to eq(1) }",
+            "  it(\"is 2\") { expect(One.two).to eq(2) }", "end", ""]
+    File.write(File.join(dir, "spec", "one_spec.rb"), spec.join("\n"))
+    run = saboteur(dir, "--since", "HEAD", "--test", "spec/one_spec.rb")
+    expect(run.status).to eq(0), run.err + run.out
+    expect(run.out).to match(/^saboteur \S+ [·*] --since HEAD [·*] seed \d+$/)
+    expect(run.out).to include("  reports: .saboteur/report.html\n")
+    expect(run.out).not_to include("next: saboteur run --since origin/main")
+  end
 end

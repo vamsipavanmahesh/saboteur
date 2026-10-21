@@ -18,11 +18,12 @@ module Saboteur
         # gate and skip notes exit_code writes to @err now precede the
         # report instead of following it.
         code = exit_code(report)
+        html = write_html(report)
         Reporter::Terminal.new(@out, verbose: @verbose || false, quiet: @quiet || false, color: @color || :auto,
-                                     overrides: config["palette"], threshold: config["threshold"],
+                                     overrides: config["palette"], threshold: config["threshold"], exit_code: code,
                                      replay_command: survivor_replay_command(report, engine),
                                      all_mutants: options[:all_mutants] || false,
-                                     exit_code: code, previous_score: previous_score, **report.phase_stats,
+                                     previous_score: previous_score, **clean_screen_context(html, report),
                                      baseline_gate: (baseline_gate(report) if config["baseline"])).call(report)
         Reporter::Replay.new(@out).call(report) if options[:id]
         # The JSON carries the exit cause an outer harness trusts, so it is
@@ -30,7 +31,6 @@ module Saboteur
         # every other fallible reporting stage, or a late failure would
         # leave a fresh, misleading report behind.
         validate_history
-        html = write_html(report)
         record_history(report)
         validate_history
         json = write_json(report, exit_cause(report, code))
