@@ -36,6 +36,8 @@ module Saboteur
       def validate_run_options
         reject_format_conflicts
         validate_shard_options
+        raise UsageError, "--ignore-empty applies to --since runs" if config["ignore_empty"] && !config["since"]
+
         Selection::GitDiff.verify_ref!(config["since"], root: config.root) if config["since"]
       end
 

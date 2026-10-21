@@ -16,6 +16,7 @@ RSpec.describe Saboteur::CLI::SelectionOptions, "run help" do
     "--id DIGEST" => "Replay exactly one current mutant by its full digest",
     "--shard K/N" => "Run one of N deterministic candidate shards (for example 1/4)",
     "--since REF" => "Only mutate subjects changed since git REF",
+    "--ignore-empty" => "A --since diff that selects no mutants exits 0 with a note instead of failing a score gate",
     "--subject EXPR" => "Klass#meth, Klass.meth or a namespace; repeatable"
   }.each do |switch, description|
     it "describes #{switch.split.first}" do
@@ -37,6 +38,10 @@ RSpec.describe Saboteur::CLI::SelectionOptions, "run help" do
       cli = parse("--operators", "a,b", "--exclude-operators", "c,d")
       expect(cli.options[:operators]).to eq(%w[a b])
       expect(cli.options[:exclude_operators]).to eq(%w[c d])
+    end
+
+    it "sets --ignore-empty" do
+      expect(parse("--ignore-empty").options[:ignore_empty]).to be(true)
     end
 
     it "collects each --subject expression in order" do

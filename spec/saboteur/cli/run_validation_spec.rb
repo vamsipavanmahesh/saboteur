@@ -163,11 +163,22 @@ RSpec.describe Saboteur::CLI::RunValidation do
 
       it "verifies the --since ref against the config root" do
         allow(cli).to receive(:config).and_return(instance_double(Saboteur::Config, root: "/proj")
-          .tap { |config| allow(config).to receive(:[]).with("since").and_return("main") })
+          .tap do |config|
+            allow(config).to receive(:[]) do |key|
+              { "since" => "main", "ignore_empty" => false }.fetch(key)
+            end
+          end)
 
         cli.send(:validate_run_options)
 
         expect(Saboteur::Selection::GitDiff).to have_received(:verify_ref!).with("main", root: "/proj")
+      end
+
+      it "refuses --ignore-empty without --since" do
+        allow(cli).to receive(:config).and_return({ "since" => nil, "ignore_empty" => true })
+
+        expect { cli.send(:validate_run_options) }.to raise_error(Saboteur::CLI::UsageError,
+                                                                  /--ignore-empty applies to --since runs/)
       end
     end
   end
