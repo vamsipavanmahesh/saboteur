@@ -293,6 +293,21 @@ module Saboteur
       raise ConfigError, "invalid config value: #{e.message}"
     end
 
+    def validate_jobs!
+      raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
+    end
+
+    # An explicitly named ignore file that is missing is a typo: every
+    # accepted entry would silently stop applying. The default path being
+    # absent is the normal case and stays silent.
+    def validate_ignore_file!
+      return unless explicit?("ignore_file")
+      return if File.file?(path("ignore_file"))
+
+      raise ConfigError,
+            "ignore_file #{self['ignore_file'].inspect} does not exist; create it or remove the setting"
+    end
+
     def validate_partial_coverage!
       return if %w[off shadow use].include?(self["partial_coverage"])
 
@@ -454,7 +469,8 @@ module Saboteur
     end
 
     def validate!
-      raise ConfigError, "jobs must be >= 1" if self["jobs"] < 1
+      validate_jobs!
+      validate_ignore_file!
       unless [true, false, "strict", "seatbelt"].include?(self["sandbox"])
         raise ConfigError, 'sandbox must be true, false, "strict", or "seatbelt"'
       end
