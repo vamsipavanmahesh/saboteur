@@ -33,6 +33,9 @@ module Saboteur
         )
         Evidence.new(restored)
         [manifest, digest]
+      rescue Errno::ENOENT
+        raise ConfigError, "baseline file #{path} does not exist; " \
+                           "create it with saboteur baseline propose --baseline #{path}"
       rescue SystemCallError, JSON::ParserError, ArgumentError => e
         raise ConfigError, "baseline file: #{e.message}"
       end

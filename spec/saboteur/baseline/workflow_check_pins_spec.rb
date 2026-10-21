@@ -65,7 +65,11 @@ RSpec.describe Saboteur::Baseline::Workflow do
   end
 
   it "puts the cause in the baseline file message" do
-    expect { workflow.check(path: File.join(@root, "missing.json")) }
-      .to raise_error(Saboteur::ConfigError, /\Abaseline file: .*No such file or directory/)
+    path = File.join(@root, "unreadable.json")
+    File.write(path, "{}")
+    # A stub, not chmod: a root-run CI container can read chmod-0 files.
+    allow(File).to receive(:read).and_raise(Errno::EACCES)
+    expect { workflow.check(path: path) }
+      .to raise_error(Saboteur::ConfigError, /\Abaseline file: .*Permission denied/)
   end
 end
